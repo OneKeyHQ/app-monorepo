@@ -1,0 +1,50 @@
+{
+  "name": "@onekeyhq/app",
+  "main": "__generated__/AppEntry.js",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "react-native start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "eject": "expo eject",
+    "postinstall": "expo-yarn-workspaces postinstall",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "clean": "rimraf node_modules && rimraf .expo && rimraf __generated__"
+  },
+  "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/kit": "*",
+    "@react-navigation/native": "^6.0.6",
+    "@react-navigation/native-stack": "^6.2.5",
+    "buffer": "^6.0.3",
+    "expo": "^43.0.2",
+    "expo-location": "^13.0.4",
+    "expo-splash-screen": "~0.13.5",
+    "expo-status-bar": "~1.1.0",
+    "expo-updates": "~0.10.13",
+    "mobx": "^6.3.7",
+    "mobx-react": "^7.2.1",
+    "react-native": "0.64.3",
+    "react-native-base64": "^0.2.1",
+    "react-native-ble-plx": "^2.0.3",
+    "react-native-gesture-handler": "~1.10.2",
+    "react-native-reanimated": "~2.2.0",
+    "react-native-safe-area-context": "3.3.2",
+    "react-native-screens": "~3.8.0",
+    "react-native-svg": "^12.1.1",
+    "react-native-web": "0.17.1",
+    "react-native-webview": "^11.14.3",
+    "react-native-config": "^1.4.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.15.8",
+    "@babel/eslint-parser": "^7.15.4",
+    "@babel/preset-react": "^7.14.5",
+    "@types/node": "^16.7.13",
+    "@types/react": "~17.0.21",
+    "@types/react-native": "~0.64.12",
+    "@types/react-native-base64": "^0.2.0",
+    "babel-plugin-module-resolver": "^4.1.0"
+  },
+  "private": true
+}

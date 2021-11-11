@@ -1,0 +1,148 @@
+{
+  "name": "@onekeyhq/desktop",
+  "main": "__generated__/AppEntry.js",
+  "version": "0.0.1",
+  "private": true,
+  "author": "OneKey <hi@onekey.so>",
+  "scripts": {
+    "postinstall": "expo-yarn-workspaces postinstall",
+    "lint": "tsc --noEmit && eslint pages --ext .ts,.tsx && eslint src-electron --ext .ts,.tsx",
+    "dev": "yarn build:main && cross-env LAUNCH_ELECTRON=true node scripts/dev.js",
+    "dev:run": "electron dist/app.js",
+    "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./.next && rimraf node_modules && rimraf .expo && rimraf __generated__",
+    "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./.next && rimraf .expo",
+    "build": "yarn clean:build && yarn build:renderer && yarn build:main && electron-builder build -mwl --publish never",
+    "build:renderer": "rimraf ./build && next build && next export -o build",
+    "build:main": "cross-env NODE_ENV=production && node scripts/build.js",
+    "publish:all": "yarn clean:build && yarn build:renderer && yarn build:main && electron-builder --publish always -mwl"
+  },
+  "expo-yarn-workspaces": {
+    "symlinks": [
+      "expo-yarn-workspaces"
+    ]
+  },
+  "build": {
+    "extraMetadata": {
+      "main": "dist/app.js"
+    },
+    "appId": "so.onekey.wallet.desktop",
+    "productName": "OneKey Wallet",
+    "copyright": "Copyright © ${author}",
+    "asar": true,
+    "electronVersion": "15.3.1",
+    "directories": {
+      "output": "build-electron"
+    },
+    "files": [
+      "build/**/*",
+      "!build/static/bin/**/*",
+      "dist/**/*.js",
+      "!dist/__**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/static/images/icons/512x512.png",
+        "to": "images/icons/512x512.png"
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "repo": "app-monorepo",
+      "owner": "OneKeyHQ"
+    },
+    "dmg": {
+      "sign": false,
+      "contents": [
+        {
+          "x": 410,
+          "y": 175,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 175,
+          "type": "file"
+        }
+      ],
+      "background": "build/static/images/icons/background.tiff"
+    },
+    "nsis": {
+      "oneClick": false
+    },
+    "mac": {
+      "extraResources": [
+        {
+          "from": "build/static/bin/bridge/mac-${arch}",
+          "to": "bin/bridge"
+        }
+      ],
+      "icon": "build/static/images/icons/512x512.png",
+      "artifactName": "OneKey-Wallet-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "darkModeSupport": false,
+      "category": "productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "extraResources": [
+        {
+          "from": "build/static/bin/bridge/win-${arch}",
+          "to": "bin/bridge"
+        }
+      ],
+      "icon": "build/static/images/icons/512x512.png",
+      "artifactName": "OneKey-Wallet-${version}-win-${arch}.${ext}",
+      "verifyUpdateCodeSignature": false,
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "extraResources": [
+        {
+          "from": "build/static/bin/bridge/linux-${arch}",
+          "to": "bin/bridge"
+        }
+      ],
+      "icon": "build/static/images/icons/512x512.png",
+      "artifactName": "OneKey-Wallet-${version}-linux-${arch}.${ext}",
+      "executableName": "onekey-wallet",
+      "category": "Utility",
+      "target": [
+        "AppImage"
+      ]
+    },
+    "afterSign": "scripts/notarize.js"
+  },
+  "dependencies": {
+    "@expo/next-adapter": "^3",
+    "@onekeyhq/components": "*",
+    "@onekeyhq/kit": "*",
+    "electron-is-dev": "^2.0.0",
+    "electron-store": "^8.0.1",
+    "expo": "^43.0.2",
+    "next": "^11.1.2",
+    "node-fetch": "^2.6.1",
+    "react-native-web": "0.17.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.9",
+    "@babel/plugin-proposal-class-properties": "^7.16.0",
+    "@types/electron-localshortcut": "^3.1.0",
+    "@types/node-fetch": "^2.5.7",
+    "cross-env": "^7.0.3",
+    "electron": "^15.3.1",
+    "electron-builder": "^22.13.1",
+    "electron-notarize": "^1.1.1",
+    "esbuild": "^0.13.13",
+    "glob": "^7.2.0",
+    "next-compose-plugins": "^2.2.0",
+    "next-transpile-modules": "^8.0.0"
+  }
+}

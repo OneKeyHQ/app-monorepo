@@ -1,0 +1,7 @@
+framework module GpcApduSDKCore {
+    umbrella header "GPChannelSDKCore.h"
+    export *
+    module * { export * }
+    link "c++"
+    link "iconv"
+}

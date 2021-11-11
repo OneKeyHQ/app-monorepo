@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<resources>
+  <color name="splashscreen_background">#ffffff</color>
+  <color name="iconBackground">#FFFFFF</color>
+  <color name="colorPrimary">#023c69</color>
+  <color name="colorPrimaryDark">#ffffff</color>
+
+  <color name="onekey">#00B812</color>
+  <color name="onykey_color_text">#151B3E</color>
+  <color name="color_white">#FFFFFF</color>
+
+  <color name="color_tint_brand">@color/onekey</color>
+  <color name="color_tint_green">#34C759</color>
+  <color name="color_tint_red">#FF3B30</color>
+  <color name="color_tint_yellow">#FFCC00</color>
+  <color name="color_tint_blue">#007AFF</color>
+
+  <color name="color_foreground_b00">#1A1A1A</color>
+  <color name="color_foreground_b01">#993C3C43</color>
+  <color name="color_foreground_b02">#4D3C3C43</color>
+  <color name="color_foreground_b03">#333C3C43</color>
+  <color name="color_foreground_b04">#47000000</color>
+  <color name="color_foreground_w00">#FFFFFF</color>
+  <color name="color_foreground_w01">#99FFFFFF</color>
+  <color name="color_foreground_w02">#4DFFFFFF</color>
+</resources>

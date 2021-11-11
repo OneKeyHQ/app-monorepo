@@ -1,0 +1,15 @@
+{
+  "name": "@onekeyhq/components",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.tsx",
+  "dependencies": {
+    "native-base": "^3.2.2",
+    "styled-components": "^5.3.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "clean": "rimraf node_modules"
+  }
+}

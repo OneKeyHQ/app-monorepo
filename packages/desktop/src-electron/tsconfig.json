@@ -1,0 +1,29 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "watch": false,
+    "preserveWatchOutput": true,
+    "outDir": "../dist",
+    "noEmit": false,
+    "jsx": "preserve",
+    "target": "esnext",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "lib": ["dom", "es2019", "esnext.asynciterable"],
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitAny": true,
+    "paths": {
+      "@libs": ["./libs"],
+      "@modules": ["./modules"]
+    }
+  },
+  "include": ["**/*.ts", "./global.d"],
+  "exclude": ["**/*.js"]
+}
