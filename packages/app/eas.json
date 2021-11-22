@@ -1,0 +1,59 @@
+{
+  "cli": {
+    "version": ">= 0.37.0"
+  },
+  "build": {
+    "base": {
+      "node": "16.10.0",
+      "yarn": "1.18.0",
+      "android": {
+        "image": "ubuntu-18.04-android-30-ndk-r19c",
+        "ndk": "21.4.7075529",
+        "env": {
+          "PLATFORM": "android"
+        }
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "env": {
+        "ENVIRONMENT": "development"
+      },
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug"
+      }
+    },
+    "production_store": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
