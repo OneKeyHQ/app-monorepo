@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, Center, Text } from '@onekeyhq/components';
+import { Box, Button, Center, Text, Address } from '@onekeyhq/components';
 import { FormattedMessage } from '@onekeyhq/kit';
 import { useNavigation } from '@react-navigation/native';
 import Counter from '../../components/counter';
@@ -61,6 +61,7 @@ export default function App() {
       >
         Primary
       </Button>
+      <Address text="0x4330B96Cde5bf063F21978870fF193Ae8cae4c48" short />
       <Box>Hello world</Box>
       <Box>{text}</Box>
       <Counter />

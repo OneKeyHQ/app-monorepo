@@ -13,5 +13,6 @@ export { default as Provider } from './Provider';
 export { default as WebView } from './WebView';
 export { default as Heading } from './Heading';
 export { default as Switch } from './Switch';
+export { default as Address } from './Address';
 
 export * from './Provider/hooks';
