@@ -21,7 +21,7 @@ Execute the following commands in the root directory to develop different busine
 
 - `yarn web`: Develop web mode, which starts a static server on port 3000 locally
 - `yarn ios`: connect to iphone device via USB for development debugging
-- `yarn android`:
+- `yarn android`: develop android
 - `yarn desktop`: development in desktop mode
 
 ## 🗂 Multi-repository directory structure
@@ -72,7 +72,7 @@ npm install -g expo-cli
 
 - `yarn web`: 开发网页模式，会启动静态服务器在本地 3000 端口，需同时本地启动[connect](https://github.com/OneKeyHQ/connect) 项目
 - `yarn ios`: 通过 USB 连接 iphone 设备进行开发调试
-- `yarn android`:
+- `yarn android`: 调试安卓
 - `yarn desktop`: 开发桌面端模式
 
 ### Android 项目配置

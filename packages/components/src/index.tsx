@@ -14,5 +14,6 @@ export { default as WebView } from './WebView';
 export { default as Heading } from './Heading';
 export { default as Switch } from './Switch';
 export { default as Address } from './Address';
+export { default as Jazzicon } from './Jazzicon';
 
 export * from './Provider/hooks';

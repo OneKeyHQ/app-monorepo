@@ -5,6 +5,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "native-base": "^3.2.2",
+    "react-native-jazzicon": "^0.1.2",
     "styled-components": "^5.3.3"
   },
   "devDependencies": {},
