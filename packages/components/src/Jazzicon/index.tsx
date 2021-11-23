@@ -1,1 +1,1 @@
-export { default as Jazzicon } from 'react-native-jazzicon';
+export { default } from 'react-native-jazzicon';

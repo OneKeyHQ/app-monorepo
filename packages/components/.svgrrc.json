@@ -1,0 +1,11 @@
+{
+  "native": true,
+  "typescript": true,
+  "svgoConfig": {
+    "plugins": [
+      { "cleanupIDs": false },
+      { "removeUselessDefs": false },
+      { "removeXMLNS": true }
+    ]
+  }
+}

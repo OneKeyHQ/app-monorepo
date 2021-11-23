@@ -26,7 +26,7 @@ export const Address: React.FC<AddressProps> = ({ text, short }) => {
   if (short) {
     textContent = shortenAddress(textContent);
   }
-
+  // TODO: use Typography Component
   return <Text>{textContent}</Text>;
 };
 

@@ -6,11 +6,17 @@
   "dependencies": {
     "native-base": "^3.2.2",
     "react-native-jazzicon": "^0.1.2",
+    "react-native-svg": "^12.1.1",
     "styled-components": "^5.3.3"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@svgr/cli": "^5.5.0",
+    "lodash": "^4.17.21",
+    "prettier": "^2.4.1"
+  },
   "scripts": {
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "build:icons": "rm -rf src/Icon/react && npx @svgr/cli --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
+    "lint": "tsc --noEmit && eslint src --ext .ts,.tsx",
     "clean": "rimraf node_modules"
   }
 }
