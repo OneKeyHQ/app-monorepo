@@ -23,8 +23,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      },
-      "package": "so.onekey.app.wallet"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

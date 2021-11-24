@@ -10,7 +10,8 @@
         "image": "ubuntu-18.04-android-30-ndk-r19c",
         "ndk": "21.4.7075529",
         "env": {
-          "PLATFORM": "android"
+          "PLATFORM": "android",
+          "OTA_UPDATE_ENABLE": "false"
         }
       }
     },
@@ -23,7 +24,11 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
+        "gradleCommand": ":app:assembleDebug",
+        "env": {
+          "APPLICATION_ID_SUFFIX": "wrapper",
+          "OTA_UPDATE_ENABLE": "true"
+        }
       },
       "ios": {
         "simulator": true,
