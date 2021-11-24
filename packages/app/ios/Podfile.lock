@@ -19,6 +19,41 @@ PODS:
     - EXJSONUtils
   - Expo (43.0.3):
     - ExpoModulesCore
+  - expo-dev-client (0.6.3):
+    - EXManifests
+    - expo-dev-launcher
+    - expo-dev-menu
+    - expo-dev-menu-interface
+    - EXUpdatesInterface
+  - expo-dev-launcher (0.8.4):
+    - EXManifests
+    - expo-dev-launcher/Main (= 0.8.4)
+    - expo-dev-menu-interface
+    - EXUpdatesInterface
+    - React-Core
+  - expo-dev-launcher/Main (0.8.4):
+    - EXManifests
+    - expo-dev-launcher/Unsafe
+    - expo-dev-menu-interface
+    - EXUpdatesInterface
+    - React-Core
+  - expo-dev-launcher/Unsafe (0.8.4):
+    - EXManifests
+    - expo-dev-menu-interface
+    - EXUpdatesInterface
+    - React-Core
+  - expo-dev-menu (0.8.4):
+    - expo-dev-menu-interface
+    - expo-dev-menu/Main (= 0.8.4)
+    - React-Core
+  - expo-dev-menu-interface (0.4.1)
+  - expo-dev-menu/Main (0.8.4):
+    - expo-dev-menu-interface
+    - expo-dev-menu/Vendored
+    - React-Core
+  - expo-dev-menu/Vendored (0.8.4):
+    - expo-dev-menu-interface
+    - React-Core
   - ExpoModulesCore (0.4.8):
     - React-Core
   - EXSplashScreen (0.13.5):
@@ -361,6 +396,10 @@ DEPENDENCIES:
   - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXManifests (from `../../../node_modules/expo-manifests/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
+  - expo-dev-client (from `../../../node_modules/expo-dev-client`)
+  - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
+  - expo-dev-menu (from `../../../node_modules/expo-dev-menu`)
+  - expo-dev-menu-interface (from `../../../node_modules/expo-dev-menu-interface`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - EXStructuredHeaders (from `../../../node_modules/expo-structured-headers/ios`)
@@ -431,6 +470,14 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-manifests/ios"
   Expo:
     :path: "../../../node_modules/expo/ios"
+  expo-dev-client:
+    :path: "../../../node_modules/expo-dev-client"
+  expo-dev-launcher:
+    :path: "../../../node_modules/expo-dev-launcher"
+  expo-dev-menu:
+    :path: "../../../node_modules/expo-dev-menu"
+  expo-dev-menu-interface:
+    :path: "../../../node_modules/expo-dev-menu-interface"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core/ios"
   EXSplashScreen:
@@ -526,6 +573,10 @@ SPEC CHECKSUMS:
   EXLocation: 192eaee761c159d1479111a0ced3bab7ad8475a3
   EXManifests: 50e42e01335df4e54109dee7be5a91bfd37347db
   Expo: 5316c3ecdc34eb0cad340d01dc8beec97c7e879e
+  expo-dev-client: f7417249bbede98f5fa3f151ae49c46cabfce82b
+  expo-dev-launcher: 3a2b9470ed2b4ae0c60615f911c347c50cfc2526
+  expo-dev-menu: 07e44bd1432b2bdfe249f76c37a090510c5dcebc
+  expo-dev-menu-interface: 508467f2ba2aedda7a44e5080cc1e9a43ab7375e
   ExpoModulesCore: a9a9bf32b2da35cd9b7299c80790c03a91ac7d15
   EXSplashScreen: 57f329dbf25c5c12800feed79068a056453dc772
   EXStructuredHeaders: 873e7f329c2f6279c1b1e0229df59c9861560b53
@@ -569,6 +620,6 @@ SPEC CHECKSUMS:
   UMTaskManagerInterface: 5654c50e68af11b19b9d05452bacf23d19b3f30f
   Yoga: e6ecf3fa25af9d4c87e94ad7d5d292eedef49749
 
-PODFILE CHECKSUM: 369a50104a9da47d453f337818a679ac45e9fcf4
+PODFILE CHECKSUM: 9cdf4947991ff24a76d38aacfd57274dcff3d791
 
 COCOAPODS: 1.11.2

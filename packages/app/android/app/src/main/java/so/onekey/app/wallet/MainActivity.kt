@@ -1,13 +1,16 @@
 package so.onekey.app.wallet
 
-import com.facebook.react.ReactActivity
+import android.content.Intent;
 import android.os.Bundle
 import com.facebook.react.ReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 import com.facebook.react.ReactRootView
+import expo.modules.devlauncher.DevLauncherController;
+import expo.modules.devmenu.react.DevMenuAwareReactActivity;
 import com.swmansion.gesturehandler.react.RNGestureHandlerEnabledRootView
+import expo.modules.devlauncher.launcher.DevLauncherReactActivityDelegateSupplier
 
-class MainActivity : ReactActivity() {
+class MainActivity : DevMenuAwareReactActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Set the theme to AppTheme BEFORE onCreate to support
         // coloring the background, status bar, and navigation bar.
@@ -25,12 +28,21 @@ class MainActivity : ReactActivity() {
     }
 
     override fun createReactActivityDelegate(): ReactActivityDelegate {
-        return ReactActivityDelegateWrapper(
+        return DevLauncherController.wrapReactActivityDelegate(
                 this,
-                object : ReactActivityDelegate(this, mainComponentName) {
-                    override fun createRootView(): ReactRootView {
-                        return RNGestureHandlerEnabledRootView(this@MainActivity)
+                object : DevLauncherReactActivityDelegateSupplier {
+                    override fun get() = object : ReactActivityDelegate(this@MainActivity, mainComponentName) {
+                        override fun createRootView() = RNGestureHandlerEnabledRootView(this@MainActivity)
                     }
-                })
+                }
+        )
+    }
+
+    @Override
+    override fun onNewIntent(intent: Intent) {
+        if (DevLauncherController.tryToHandleIntent(this, intent)) {
+            return;
+        }
+        super.onNewIntent(intent);
     }
 }

@@ -110,8 +110,12 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
 
     override fun onHostPause() {
         Utils.getTopActivity()?.let {
-            launch(Dispatchers.Main) {
-                OnekeyLiteCard.stopNfc(it as FragmentActivity)
+            launch(Dispatchers.IO) {
+                try {
+                    OnekeyLiteCard.stopNfc(it as FragmentActivity)
+                }catch (e:Exception){
+                    e.printStackTrace()
+                }
             }
         }
     }

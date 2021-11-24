@@ -30,7 +30,7 @@
         "buildConfiguration": "Debug"
       }
     },
-    "production_store": {
+    "production-store": {
       "extends": "base",
       "distribution": "store",
       "env": {
