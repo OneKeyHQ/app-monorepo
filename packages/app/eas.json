@@ -13,6 +13,12 @@
           "PLATFORM": "android",
           "OTA_UPDATE_ENABLE": "false"
         }
+      },
+      "ios": {
+        "image": "macos-big-sur-11.4-xcode-12.5",
+        "env": {
+          "PLATFORM": "ios"
+        }
       }
     },
     "development": {
@@ -31,7 +37,7 @@
         }
       },
       "ios": {
-        "simulator": true,
+        "enterpriseProvisioning": "adhoc",
         "buildConfiguration": "Debug"
       }
     },
@@ -44,6 +50,11 @@
       "android": {
         "buildType": "app-bundle",
         "gradleCommand": ":app:bundleRelease"
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Release",
+        "distribution": "internal"
       }
     },
     "production": {
@@ -55,6 +66,10 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "enterpriseProvisioning": "universal",
+        "buildConfiguration": "Release"
       }
     }
   },
