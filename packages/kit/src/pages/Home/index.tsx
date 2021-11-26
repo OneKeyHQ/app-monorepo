@@ -7,6 +7,7 @@ import {
   Address,
   Jazzicon,
   Icon,
+  Token,
 } from '@onekeyhq/components';
 import { FormattedMessage } from '@onekeyhq/kit';
 import { useNavigation } from '@react-navigation/native';
@@ -74,6 +75,16 @@ export default function App() {
         size={40}
       />
       <Icon size={30} name="CakeSolid" color="blue" />
+      <Token />
+      <Token chain="bsc" />
+      <Token chain="bsc" name="BSC" />
+      <Token chain="bsc" name="BSC" description="bsc native token" />
+      <Token
+        chain="bsc"
+        name="DOGE"
+        address="0xba2ae424d960c26247dd6c32edc70b295c744c43"
+        description="DOGE Token"
+      />
       <Box>{text}</Box>
       <Text>
         <FormattedMessage id="simple" />
