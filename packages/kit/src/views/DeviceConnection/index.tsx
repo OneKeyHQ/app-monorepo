@@ -99,6 +99,16 @@ const DeviceConnection: FC = () => {
 
   return (
     <Center flex={1} px="3" bg="brand.100">
+      <Button
+        onPress={() => {
+          const dappUrl = 'https://4v495.csb.app';
+          // const dappUrl = 'https://www.bing.com';
+          // window.location.href = dappUrl;
+          window.open(dappUrl);
+        }}
+      >
+        Go to dapp
+      </Button>
       <HStack alignItems="center">
         <Text bold fontSize="xl" textAlign="center" mr="3" color="gray.500">
           change theme

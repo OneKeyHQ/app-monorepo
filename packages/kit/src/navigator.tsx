@@ -1,7 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+// import { createStackNavigator } from '@react-navigation/stack';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const StackNavigator = createNativeStackNavigator();
+export type RootStackParamList = {
+  Home: undefined;
+  WebViewDemo: undefined;
+  LiteDemo: undefined;
+  BleDeviceDemo: undefined;
+  AlertPage: undefined;
+  PageProfileSample: { userId: string };
+  PageFeedSample: { sort: 'latest' | 'top' } | undefined;
+};
+
+const StackNavigator = createNativeStackNavigator<RootStackParamList>();
 
 export { StackNavigator };
