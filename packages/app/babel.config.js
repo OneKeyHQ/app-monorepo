@@ -13,6 +13,12 @@ module.exports = function (api) {
           },
         },
       ],
+      [
+        'inline-import',
+        {
+          'extensions': ['.text-js'],
+        },
+      ],
     ],
   };
 };

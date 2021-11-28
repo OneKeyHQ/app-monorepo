@@ -27,6 +27,8 @@
     "expo-updates": "~0.10.15",
     "mobx": "^6.3.7",
     "mobx-react": "^7.2.1",
+    "react": "17.0.1",
+    "react-dom": "17.0.1",
     "react-native": "0.64.3",
     "react-native-base64": "^0.2.1",
     "react-native-ble-plx": "^2.0.3",
