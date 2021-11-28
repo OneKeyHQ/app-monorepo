@@ -36,7 +36,24 @@ global.resourcesPath = isDev
 
 async function createMainWindow() {
   const browserWindow = new BrowserWindow({
-    webPreferences: { nodeIntegration: true },
+    frame: true, // show title
+    // icon: null,
+    webPreferences: {
+      webviewTag: true,
+      webSecurity: !isDevelopment,
+      nativeWindowOpen: true,
+      allowRunningInsecureContent: isDevelopment,
+      nodeIntegration: true,
+      nodeIntegrationInSubFrames: true,
+
+      // https://www.electronjs.org/docs/latest/tutorial/context-isolation
+      contextIsolation: false, // TODO remove
+      // @ts-ignore
+      enableRemoteModule: false,
+
+      // isIpcReady will check by this
+      preload: path.join(__dirname, '../public/static/preload.js'), // static path
+    },
   });
 
   if (isDevelopment) {
@@ -52,6 +69,10 @@ async function createMainWindow() {
       });
 
   browserWindow.loadURL(src);
+
+  browserWindow.webContents.on('did-finish-load', () => {
+    // browserWindow.webContents.send('inject/path', 'success');
+  });
 
   browserWindow.on('closed', () => {
     mainWindow = null;

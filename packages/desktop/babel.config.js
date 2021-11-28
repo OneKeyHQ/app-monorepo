@@ -1,4 +1,12 @@
 module.exports = {
   presets: ['@expo/next-adapter/babel'],
-  plugins: ['@babel/plugin-proposal-class-properties'],
+  plugins: [
+    [
+      'inline-import',
+      {
+        'extensions': ['.text-js'],
+      },
+    ],
+    '@babel/plugin-proposal-class-properties',
+  ],
 };
