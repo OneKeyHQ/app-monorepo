@@ -2,7 +2,7 @@ module.exports = {
   presets: ['@expo/next-adapter/babel'],
   plugins: [
     [
-      'inline-import',
+      'babel-plugin-inline-import',
       {
         'extensions': ['.text-js'],
       },

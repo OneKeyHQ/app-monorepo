@@ -14,7 +14,7 @@ module.exports = function (api) {
         },
       ],
       [
-        'inline-import',
+        'babel-plugin-inline-import',
         {
           'extensions': ['.text-js'],
         },
