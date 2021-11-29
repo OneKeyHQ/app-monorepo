@@ -6,6 +6,7 @@ rm -rf ./packages/components/node_modules
 rm -rf ./packages/kit/node_modules
 rm -rf ./packages/inpage-provider/node_modules
 rm -rf ./packages/inpage-provider/dist
+rm -rf ./packages/inpage-provider/src/injected-autogen
 
 rm -rf ./packages/app/node_modules
 rm -rf ./packages/app/.expo
@@ -17,6 +18,8 @@ rm -rf ./packages/desktop/.expo
 rm -rf ./packages/desktop/__generated__
 rm -rf ./packages/desktop/.next
 rm -rf ./packages/desktop/dist
+rm -rf ./packages/desktop/build
+rm -rf ./packages/desktop/build-electron
 
 rm -rf ./packages/web/node_modules
 rm -rf ./packages/web/.expo
