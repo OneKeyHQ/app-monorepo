@@ -2,7 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Box, VStack, HStack, Button, Select } from '@onekeyhq/components';
 import { Alert } from 'react-native';
 import DesktopWebView from '../webview/DesktopWebView';
-import { IJsBridge, JsBridgeEventPayload } from '../types';
+import {
+  IInpageProviderRequestPayload,
+  IJsBridge,
+  JsBridgeEventPayload,
+} from '../types';
 import useWebViewBridge from '../webview/useWebViewBridge';
 import NativeWebView from '../webview/NativeWebView';
 
@@ -22,7 +26,7 @@ function handleProviderMethods(
   isApp: boolean,
 ) {
   const { id, origin } = event;
-  const { method, params } = event?.data;
+  const { method, params } = event?.data as IInpageProviderRequestPayload;
   console.log('handleProviderMethods', { method, params });
   let responseLater = false;
   const responseMessage = () => {
@@ -48,7 +52,7 @@ function handleProviderMethods(
   if (method === 'eth_requestAccounts') {
     console.log('=============== confirm check');
     if (!isConnected) {
-      const title = `Confirm connect site: ${origin}`;
+      const title = `Confirm connect site: ${origin as string}`;
       if (isApp) {
         responseLater = true;
         Alert.alert('Confirm', title, [
@@ -97,7 +101,7 @@ function DemoInpageProvider({
   const [src, setSrc] = useState(srcList[0]);
   const [name, setName] = useState('');
   const [resName, setResName] = useState('');
-  const { jsBridge, webviewRef, setWebViewRef } = useWebViewBridge();
+  const { jsBridge, setWebViewRef } = useWebViewBridge();
   const [webviewVisible, setWebViewVisible] = useState(true);
   useEffect(() => {
     if (!jsBridge) {
@@ -106,12 +110,13 @@ function DemoInpageProvider({
     // window.webviewJsBridge = jsBridge;
     jsBridge.on('message', (event: JsBridgeEventPayload) => {
       console.log('jsBridge onMessage', event);
-      if (event?.data?.method) {
+      if ((event?.data as { method: string })?.method) {
         handleProviderMethods(jsBridge, event, isApp);
       } else {
         setTimeout(() => {
           if (event && event.resolve) {
-            const newName: string = event?.data?.onekeyName as string;
+            const newName: string = (event?.data as { onekeyName: string })
+              ?.onekeyName;
             event.resolve({
               onekeyNameRes: `Hello, ${newName} (from ${
                 isDesktop ? 'Desktop' : 'App'
@@ -236,7 +241,7 @@ function DemoInpageProvider({
               const res = await jsBridge.request({
                 onekeyName: newName,
               });
-              setResName(res?.onekeyNameRes as string);
+              setResName((res as { onekeyNameRes: string })?.onekeyNameRes);
             }}
           >
             requestToInpage
@@ -247,11 +252,7 @@ function DemoInpageProvider({
       </VStack>
       <Box flex={1}>
         {webviewVisible && isDesktop && (
-          <DesktopWebView
-            ref={setWebViewRef}
-            src={src}
-            style={{ width: '100%', height: '100%' }}
-          />
+          <DesktopWebView ref={setWebViewRef} src={src} />
         )}
         {webviewVisible && isApp && (
           <NativeWebView uri={src} ref={setWebViewRef} />

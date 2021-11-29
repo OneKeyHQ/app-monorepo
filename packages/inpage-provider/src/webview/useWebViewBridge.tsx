@@ -4,9 +4,11 @@ import { IJsBridge, IWebViewWrapperRef } from '../types';
 export default function useWebViewBridge() {
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
   const [jsBridge, setJsBridge] = useState<IJsBridge | null>(null);
+
   // web3 provider
-  const [provider, setProvider] = useState(null);
-  const setWebViewRef = (ref: any) => {
+  // const [provider, setProvider] = useState(null);
+
+  const setWebViewRef = (ref: IWebViewWrapperRef) => {
     webviewRef.current = ref;
     const newJsBridge = webviewRef.current?.jsBridge;
     if (newJsBridge) {
@@ -16,7 +18,7 @@ export default function useWebViewBridge() {
 
   return {
     jsBridge,
-    provider,
+    // provider,
     webviewRef,
     setWebViewRef,
   };

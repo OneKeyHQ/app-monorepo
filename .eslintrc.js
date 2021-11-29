@@ -1,7 +1,8 @@
 const jsRules = {
   // eslint-disable-next-line global-require
   'prettier/prettier': ['error', require('./.prettierrc.js')],
-  'no-unused-vars': 'warn',
+  'no-unused-vars': 'off',
+  'no-use-before-define': 'off',
   'import/no-extraneous-dependencies': 'off',
   'no-restricted-exports': 'off',
   'func-names': 'off',
@@ -9,16 +10,12 @@ const jsRules = {
   'import/extensions': 'off',
   'react/function-component-definition': 'off',
   'react/jsx-props-no-spreading': 'off',
-  'no-use-before-define': 'off',
 };
 const tsRules = {
+  '@typescript-eslint/no-unused-vars': ['error'],
   '@typescript-eslint/no-use-before-define': ['error'],
+  '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
-  '@typescript-eslint/no-unsafe-assignment': 'warn',
-  '@typescript-eslint/no-unsafe-member-access': 'warn',
-  '@typescript-eslint/no-unsafe-call': 'warn',
-  '@typescript-eslint/no-unsafe-return': 'warn',
-  '@typescript-eslint/explicit-module-boundary-types': 'warn',
 };
 module.exports = {
   overrides: [

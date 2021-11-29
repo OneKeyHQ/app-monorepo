@@ -1,6 +1,10 @@
 import createBaseJsBridge from './createJsBridgeBase';
 import injectedFactory from '../injected/factory/injectedFactory';
-import { ICreateJsBridgeHostParams } from '../types';
+import {
+  ICreateJsBridgeHostParams,
+  IElectronWebViewRef,
+  IReactNativeWebViewRef,
+} from '../types';
 
 function createJsBridgeHost({
   webviewRef,
@@ -15,11 +19,15 @@ function createJsBridgeHost({
         injectedFactory.createCodeJsBridgeReceive(payloadStr);
       if (isReactNative && webviewRef && webviewRef.current) {
         // react-native webview
-        webviewRef.current?.injectJavaScript(inpageReceiveCode);
+        (webviewRef.current as IReactNativeWebViewRef)?.injectJavaScript?.(
+          inpageReceiveCode,
+        );
       }
       if (isElectron && webviewRef && webviewRef.current) {
         // electron webview
-        webviewRef.current?.executeJavaScript(inpageReceiveCode);
+        (webviewRef.current as IElectronWebViewRef)?.executeJavaScript?.(
+          inpageReceiveCode,
+        );
         // webviewRef.current?.send(JS_BRIDGE_MESSAGE_CHANNEL, payloadStr);
         // preload.js ipcRenderer.on(JS_BRIDGE_MESSAGE_CHANNEL) window.onekey.jsBridge.receive()
       }

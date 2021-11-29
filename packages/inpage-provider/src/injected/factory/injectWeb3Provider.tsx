@@ -1,11 +1,14 @@
-import { IInpageProviderRequestPayload } from '../../types';
+import {
+  IInpageProviderRequestPayload,
+  IJsBridgeMessagePayload,
+} from '../../types';
 
 function injectWeb3Provider(): void {
   if (!window?.onekey?.jsBridge) {
     throw new Error('OneKey jsBridge not found.');
   }
   const bridge = window?.onekey?.jsBridge;
-  window.onekey.ethereum = {
+  const ethereum = {
     isMetaMask: true,
     isOneKey: true,
     chainId: '',
@@ -23,7 +26,10 @@ function injectWeb3Provider(): void {
         }
       }
     },
-    _updateAccounts(accounts = [], { triggerEvent = true } = {}) {
+    _updateAccounts(
+      accounts: Array<string> = [],
+      { triggerEvent = true } = {},
+    ) {
       const address = accounts[0] || '';
       if (address !== this.selectedAddress) {
         this.selectedAddress = address;
@@ -37,25 +43,25 @@ function injectWeb3Provider(): void {
       // method: "eth_requestAccounts", params: []
       // method: "eth_accounts", params: []
       console.log('ethereum.request', req);
-      const res = await bridge.request(req);
+      const res = (await bridge.request(req)) as { result: unknown };
       if (
         req.method === 'eth_accounts' ||
         req.method === 'eth_requestAccounts'
       ) {
-        this._updateAccounts(res.result);
+        this._updateAccounts(res.result as Array<string>);
       }
       if (req.method === 'eth_chainId') {
-        this._updateChainId(res.result);
+        this._updateChainId(res.result as string);
       }
       console.log('ethereum response: \n', req, '\n   --->  ', res);
       return res;
     },
-    async send(method: string, params: any, ...others: Array<any>) {
+    async send(method: string, params: unknown, ...others: Array<unknown>) {
       const res = await this.request({
         method,
         params,
         others,
-      });
+      } as IInpageProviderRequestPayload);
       return res;
     },
     on(eventName: string, handler: () => void) {
@@ -67,24 +73,29 @@ function injectWeb3Provider(): void {
       bridge.on(eventName, handler);
     },
   };
-  bridge.on('message', (payload) => {
+
+  bridge.on('message', (payload: IJsBridgeMessagePayload) => {
     console.log('ethereum onMessage', payload);
-    const { method } = payload.data;
+    const payloadData = payload.data as IInpageProviderRequestPayload;
+    const { method } = payloadData;
     // baseProvider
     //   -> this._jsonRpcConnection.events.on('notification'
     if (method === 'metamask_chainChanged') {
-      window.onekey.ethereum._updateChainId(payload.data.params.chainId);
+      ethereum._updateChainId(
+        (payloadData.params as { chainId: string }).chainId,
+      );
     }
     if (method === 'metamask_accountsChanged') {
-      window.onekey.ethereum._updateAccounts(payload.data.params);
+      ethereum._updateAccounts(payloadData.params as Array<string>);
     }
   });
   // TODO use metamask_getProviderState and DO NOT trigger changed events
-  window.onekey.ethereum.request({ method: 'eth_chainId' });
-  window.onekey.ethereum.request({ method: 'eth_accounts' });
+  ethereum.request({ method: 'eth_chainId' } as IInpageProviderRequestPayload);
+  ethereum.request({ method: 'eth_accounts' } as IInpageProviderRequestPayload);
 
   // TODO conflict with MetaMask
-  window.ethereum = window.onekey.ethereum;
-  window.web3 = window.ethereum;
+  window.onekey.ethereum = ethereum;
+  window.ethereum = ethereum;
+  window.web3 = ethereum;
 }
 export default injectWeb3Provider;

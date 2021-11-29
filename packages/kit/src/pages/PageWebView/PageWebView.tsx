@@ -7,7 +7,6 @@ export default function PageWebView(): JSX.Element {
   const webviewRef = useRef<WebView | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const navigation = useNavigation();
-  const name = 'hello';
 
   return (
     <Box flex={1} safeArea>

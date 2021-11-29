@@ -132,7 +132,6 @@
     "react-native-web": "0.17.1"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "^6.0.2",
     "@electron/remote": "^2.0.1",
     "@babel/core": "^7.12.9",
     "@babel/plugin-proposal-class-properties": "^7.16.0",

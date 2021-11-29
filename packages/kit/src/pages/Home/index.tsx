@@ -18,6 +18,7 @@ function AppRouterLinks() {
     <>
       <Button
         onPress={() => {
+          // @ts-ignore
           navigation.navigate('WebViewDemo');
         }}
       >
@@ -25,6 +26,7 @@ function AppRouterLinks() {
       </Button>
       <Button
         onPress={() => {
+          // @ts-ignore
           navigation.navigate('LiteDemo');
         }}
       >
@@ -32,6 +34,7 @@ function AppRouterLinks() {
       </Button>
       <Button
         onPress={() => {
+          // @ts-ignore
           navigation.navigate('BleDeviceDemo');
         }}
       >
@@ -39,6 +42,7 @@ function AppRouterLinks() {
       </Button>
       <Button
         onPress={() => {
+          // @ts-ignore
           navigation.navigate('AlertPage');
         }}
       >

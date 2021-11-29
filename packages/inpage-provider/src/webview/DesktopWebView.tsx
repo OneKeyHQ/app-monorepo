@@ -11,7 +11,7 @@ import { Button } from '@onekeyhq/components';
 import useIsIpcReady from '../jsBridge/useIsIpcReady';
 import createJsBridgeHost from '../jsBridge/createJsBridgeHost';
 import { JS_BRIDGE_MESSAGE_IPC_CHANNEL } from '../consts';
-import { ElectronWebviewTag } from '../types';
+import { IElectronWebViewRef } from '../types';
 
 const IS_BROWSER_SIDE = typeof window !== 'undefined';
 
@@ -33,7 +33,7 @@ function usePreloadJsUrlCheck(preloadJsUrl: string) {
 
 const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
   const [isWebviewReady, setIsWebviewReady] = useState(false);
-  const webviewRef = useRef<ElectronWebviewTag | null>(null);
+  const webviewRef = useRef<IElectronWebViewRef | null>(null);
   const isIpcReady = useIsIpcReady();
   const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
 
@@ -46,13 +46,14 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
   );
 
   // TODO extract to hooks
-  const jsBridge = useMemo(() => {
-    const bridge = createJsBridgeHost({
-      webviewRef,
-      isElectron: true,
-    });
-    return bridge;
-  }, []);
+  const jsBridge = useMemo(
+    () =>
+      createJsBridgeHost({
+        webviewRef,
+        isElectron: true,
+      }),
+    [],
+  );
 
   useImperativeHandle(ref, () => ({
     innerRef: webviewRef,
@@ -60,7 +61,7 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
   }));
 
   const initWebviewByRef = useCallback(($ref) => {
-    webviewRef.current = $ref;
+    webviewRef.current = $ref as IElectronWebViewRef;
     setIsWebviewReady(true);
   }, []);
 
@@ -69,9 +70,9 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
     if (!webview || !isIpcReady || !isWebviewReady) {
       return;
     }
-    const handleMessage = (event: any) => {
+    const handleMessage = (event: { channel: string; args: Array<string> }) => {
       if (event.channel === JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
-        const data: string = event.args[0];
+        const data: string = event?.args?.[0];
         jsBridge.receive(data);
       }
 
@@ -133,5 +134,6 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
     </>
   );
 });
+DesktopWebView.displayName = 'DesktopWebView';
 
 export default DesktopWebView;

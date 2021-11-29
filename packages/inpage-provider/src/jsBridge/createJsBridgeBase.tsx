@@ -13,14 +13,17 @@ function createJsBridgeBase({
   // process?.env?.VERSION will fail in RN
   const version: string = process.env.VERSION as string;
   let callbackId = 0;
-  const callbacksMap: Record<string, any> = {
+  const callbacksMap: Record<string, JsBridgeEventPayload> = {
     // id: { resolve, reject }
   };
   const MESSAGE_TYPES = {
     'response': 'response',
     'request': 'request',
   };
-  const eventHandlers: Record<string, Array<any>> = {};
+  const eventHandlers: Record<
+    string,
+    Array<(data: JsBridgeEventPayload) => void>
+  > = {};
 
   function createCallbackId() {
     callbackId += 1;
@@ -123,7 +126,7 @@ function createJsBridgeBase({
         payload = payloadStr as IJsBridgeMessagePayload;
       }
       if (isString(payloadStr)) {
-        payload = JSON.parse(payloadStr);
+        payload = JSON.parse(payloadStr) as IJsBridgeMessagePayload;
       }
 
       const { type, id, data, origin } = payload;
@@ -150,14 +153,14 @@ function createJsBridgeBase({
       }
     },
     // send request to remote
-    request(data) {
+    request(data: unknown) {
       return this.send({
         type: this.MESSAGE_TYPES.request,
         data,
       });
     },
     // send response to remote
-    response(id, data, error = null) {
+    response(id, data: unknown, error = null) {
       if (error) {
         console.error(error);
       }

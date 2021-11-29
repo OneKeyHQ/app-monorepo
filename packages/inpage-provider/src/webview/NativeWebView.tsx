@@ -21,13 +21,14 @@ const NativeWebView = forwardRef(
   ({ uri, ...props }: ProviderWebViewProps, ref) => {
     const webviewRef = useRef<WebView | null>(null);
 
-    const jsBridge = useMemo(() => {
-      const bridge = createJsBridgeHost({
-        webviewRef,
-        isReactNative: true,
-      });
-      return bridge;
-    }, []);
+    const jsBridge = useMemo(
+      () =>
+        createJsBridgeHost({
+          webviewRef,
+          isReactNative: true,
+        }),
+      [],
+    );
 
     useImperativeHandle(ref, () => ({
       innerRef: webviewRef,
@@ -54,5 +55,6 @@ const NativeWebView = forwardRef(
     );
   },
 );
+NativeWebView.displayName = 'NativeWebView';
 
 export default NativeWebView;

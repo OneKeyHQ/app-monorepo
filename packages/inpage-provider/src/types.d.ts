@@ -1,21 +1,21 @@
-import Electron from 'electron';
+import React from 'react';
 
 export type WindowOneKey = {
   jsBridge: IJsBridge;
-  ethereum: any;
+  ethereum: unknown;
 };
 
 export type JsBridgeEventPayload = {
   id?: number | string;
-  data?: any;
+  data?: unknown;
   origin?: string;
-  resolve?: (payload: Record<any, any>) => void;
+  resolve?: (payload: unknown) => void;
   reject?: () => null;
 };
 
 export type IJsBridgeMessagePayload = {
   id?: number | string;
-  data?: any;
+  data?: unknown | IInpageProviderRequestPayload;
   type?: string;
   origin?: string;
   resolve?: ((value: unknown) => void) | undefined;
@@ -25,7 +25,8 @@ export type IJsBridgeMessagePayload = {
 export type IInpageProviderRequestPayload = {
   id: number | string;
   method: string;
-  params: any;
+  params: Record<string, unknown> | Array<unknown> | unknown;
+  others: Record<string, unknown> | Array<unknown> | unknown;
 };
 
 export type ICreateJsBridgeParams = {
@@ -33,9 +34,21 @@ export type ICreateJsBridgeParams = {
 };
 
 export type ICreateJsBridgeHostParams = {
-  webviewRef: any;
+  webviewRef: React.RefObject<IReactNativeWebViewRef | IElectronWebViewRef>;
   isReactNative?: boolean;
   isElectron?: boolean;
+};
+
+export type IReactNativeWebViewRef = {
+  injectJavaScript: (code: string) => void;
+};
+
+export type IElectronWebViewRef = {
+  closeDevTools: () => void;
+  openDevTools: () => void;
+  addEventListener: (name: string, callback: unknown) => void;
+  removeEventListener: (name: string, callback: unknown) => void;
+  executeJavaScript: (code: string) => void;
 };
 
 export type IWebViewWrapperRef = {
@@ -44,7 +57,7 @@ export type IWebViewWrapperRef = {
 
 export type IJsBridge = {
   version: string;
-  MESSAGE_TYPES: Record<any, any>;
+  MESSAGE_TYPES: Record<string, string>;
   remoteInfo: Record<any, any>;
   on: (
     eventName: string,
@@ -53,10 +66,8 @@ export type IJsBridge = {
   off: () => void;
   send: (data: IJsBridgeMessagePayload) => Promise<any>;
   receive: (data: string) => void;
-  request: (data: any) => Promise<any>;
-  response: (id: number | string, data: any, error?: Error | null) => void;
+  request: (data: any) => Promise<unknown>;
+  response: (id?: number | string, data: any, error?: Error | null) => void;
   responseMessage: (data: string) => void;
   trigger: (event: string, payload: any) => void;
 };
-
-export type ElectronWebviewTag = Electron.WebviewTag;

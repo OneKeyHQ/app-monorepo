@@ -21,10 +21,6 @@ module.exports = withPlugins(
   ],
   {
     webpack: (config) => {
-      // Module not found: Can't resolve 'fs'
-      // config.target = 'electron-main'; // electron-main  electron-renderer
-
-      console.log('desktop webpack.config.js', config);
       config.plugins.push(
         new webpack.DefinePlugin({
           'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('desktop'),
