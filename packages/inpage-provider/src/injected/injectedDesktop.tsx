@@ -4,6 +4,10 @@ import createJsBridgeInpage from '../jsBridge/createJsBridgeInpage';
 import injectJsBridge from './factory/injectJsBridge';
 import injectWeb3Provider from './factory/injectWeb3Provider';
 
+ipcRenderer.on('SET_ONEKEY_DESKTOP_GLOBALS', (_, globals: Record<any, any>) => {
+  window.ONEKEY_DESKTOP_GLOBALS = globals;
+});
+
 injectJsBridge({
   createBridge: () =>
     createJsBridgeInpage({

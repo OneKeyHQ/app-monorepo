@@ -10,5 +10,6 @@ declare global {
     web3: any;
     ReactNativeWebView: WebView;
     onekey: WindowOneKey;
+    ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
   }
 }

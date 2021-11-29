@@ -23,6 +23,7 @@
     "android": "yarn workspace @onekeyhq/app android",
     "web": "yarn workspace @onekeyhq/web start",
     "desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop dev",
+    "build:desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @shared/components build:icon"
   },
   "dependencies": {},

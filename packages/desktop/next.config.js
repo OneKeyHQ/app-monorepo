@@ -25,9 +25,6 @@ module.exports = withPlugins(
         new webpack.DefinePlugin({
           'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('desktop'),
           'process.env.VERSION': JSON.stringify(packageJson.version),
-          'process.env.STATIC_ROOT': JSON.stringify(
-            path.join(__dirname, './public/static'),
-          ),
         }),
       );
       return config;

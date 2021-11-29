@@ -15,7 +15,8 @@ import { IElectronWebViewRef } from '../types';
 
 const IS_BROWSER_SIDE = typeof window !== 'undefined';
 
-function usePreloadJsUrlCheck(preloadJsUrl: string) {
+function usePreloadJsUrl() {
+  const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS;
   useEffect(() => {
     if (preloadJsUrl) {
       return;
@@ -23,12 +24,13 @@ function usePreloadJsUrlCheck(preloadJsUrl: string) {
     const timer = setTimeout(() => {
       if (!preloadJsUrl) {
         console.error(`Webview render failed:
-      Please set [DesktopWebView.preloadJsUrl] at app start
+      Please send messages of channel SET_ONEKEY_DESKTOP_GLOBALS at app start
       `);
       }
     }, 3000);
     return () => clearTimeout(timer);
   }, [preloadJsUrl]);
+  return preloadJsUrl as string;
 }
 
 const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
@@ -85,9 +87,7 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
     };
   }, [jsBridge, isIpcReady, isWebviewReady]);
 
-  // @ts-ignore
-  const { preloadJsUrl }: { preloadJsUrl: string } = DesktopWebView;
-  usePreloadJsUrlCheck(preloadJsUrl);
+  const preloadJsUrl = usePreloadJsUrl();
 
   if (!preloadJsUrl) {
     return null;
