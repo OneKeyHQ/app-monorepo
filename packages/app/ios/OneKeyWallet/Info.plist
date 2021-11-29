@@ -47,13 +47,7 @@
 		</dict>
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Search the hardware wallet using Bluetooth</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your location</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your location</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your location</string>
+	<string>Use bluetooth to connect OneKey hardware devices.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -88,5 +82,15 @@
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
 	</array>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Use blutooth peripheral to connect OneKey hardware devices.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Use camera to scan QR codes.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to authenticate and unlcok your wallet.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Use photo library to to save QR images.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Use photo library to to save QR images.</string>
 </dict>
 </plist>

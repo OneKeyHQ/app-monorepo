@@ -53,8 +53,7 @@
       },
       "ios": {
         "enterpriseProvisioning": "adhoc",
-        "buildConfiguration": "Release",
-        "distribution": "internal"
+        "buildConfiguration": "Release"
       }
     },
     "production": {
@@ -69,7 +68,8 @@
       },
       "ios": {
         "enterpriseProvisioning": "universal",
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "distribution": "internal"
       }
     }
   },
