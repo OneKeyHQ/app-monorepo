@@ -11,114 +11,16 @@
     "dev:run": "electron dist/app.js",
     "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./.next && rimraf node_modules && rimraf .expo && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./.next && rimraf .expo",
-    "build": "yarn clean:build && yarn build:renderer && yarn build:main && electron-builder build -mwl --publish never",
+    "build": "yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never",
     "build:renderer": "rimraf ./build && next build && next export -o build",
     "build:main": "cross-env NODE_ENV=production && node scripts/build.js",
-    "publish:all": "yarn clean:build && yarn build:renderer && yarn build:main && electron-builder --publish always -mwl"
+    "publish:all": "yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish always",
+    "build:electron": "electron-builder build -mwl --config electron-builder.config.js"
   },
   "expo-yarn-workspaces": {
     "symlinks": [
       "expo-yarn-workspaces"
     ]
-  },
-  "build": {
-    "extraMetadata": {
-      "main": "dist/app.js"
-    },
-    "appId": "so.onekey.wallet.desktop",
-    "productName": "OneKey Wallet",
-    "copyright": "Copyright © ${author}",
-    "asar": true,
-    "electronVersion": "15.3.1",
-    "directories": {
-      "output": "build-electron"
-    },
-    "files": [
-      "build/**/*",
-      "!build/static/bin/**/*",
-      "dist/**/*.js",
-      "!dist/__**",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "build/static/images/icons/512x512.png",
-        "to": "images/icons/512x512.png"
-      }
-    ],
-    "publish": {
-      "provider": "github",
-      "repo": "app-monorepo",
-      "owner": "OneKeyHQ"
-    },
-    "dmg": {
-      "sign": false,
-      "contents": [
-        {
-          "x": 410,
-          "y": 175,
-          "type": "link",
-          "path": "/Applications"
-        },
-        {
-          "x": 130,
-          "y": 175,
-          "type": "file"
-        }
-      ],
-      "background": "build/static/images/icons/background.tiff"
-    },
-    "nsis": {
-      "oneClick": false
-    },
-    "mac": {
-      "extraResources": [
-        {
-          "from": "build/static/bin/bridge/mac-${arch}",
-          "to": "bin/bridge"
-        }
-      ],
-      "icon": "build/static/images/icons/512x512.png",
-      "artifactName": "OneKey-Wallet-${version}-mac-${arch}.${ext}",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "darkModeSupport": false,
-      "category": "productivity",
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "win": {
-      "extraResources": [
-        {
-          "from": "build/static/bin/bridge/win-${arch}",
-          "to": "bin/bridge"
-        }
-      ],
-      "icon": "build/static/images/icons/512x512.png",
-      "artifactName": "OneKey-Wallet-${version}-win-${arch}.${ext}",
-      "verifyUpdateCodeSignature": false,
-      "target": [
-        "nsis"
-      ]
-    },
-    "linux": {
-      "extraResources": [
-        {
-          "from": "build/static/bin/bridge/linux-${arch}",
-          "to": "bin/bridge"
-        }
-      ],
-      "icon": "build/static/images/icons/512x512.png",
-      "artifactName": "OneKey-Wallet-${version}-linux-${arch}.${ext}",
-      "executableName": "onekey-wallet",
-      "category": "Utility",
-      "target": [
-        "AppImage"
-      ]
-    },
-    "afterSign": "scripts/notarize.js"
   },
   "dependencies": {
     "@expo/next-adapter": "^3",
@@ -132,6 +34,7 @@
     "react-native-web": "0.17.1"
   },
   "devDependencies": {
+    "@electron/remote": "^2.0.1",
     "@babel/core": "^7.12.9",
     "@babel/plugin-proposal-class-properties": "^7.16.0",
     "@types/electron-localshortcut": "^3.1.0",

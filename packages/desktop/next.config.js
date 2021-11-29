@@ -3,8 +3,10 @@ const { withExpo } = require('@expo/next-adapter');
 const withTM = require('next-transpile-modules')([
   '@onekeyhq/components',
   '@onekeyhq/kit',
+  '@onekeyhq/inpage-provider',
 ]);
 const withPlugins = require('next-compose-plugins');
+const path = require('path');
 const packageJson = require('./package.json');
 
 module.exports = withPlugins(

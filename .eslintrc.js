@@ -1,31 +1,39 @@
+const jsRules = {
+  // eslint-disable-next-line global-require
+  'prettier/prettier': ['error', require('./.prettierrc.js')],
+  'no-unused-vars': 'off',
+  'no-use-before-define': 'off',
+  'import/no-extraneous-dependencies': 'off',
+  'no-restricted-exports': 'off',
+  'func-names': 'off',
+  'class-methods-use-this': 'off',
+  'import/extensions': 'off',
+  'react/function-component-definition': 'off',
+  'react/jsx-props-no-spreading': 'off',
+};
+const tsRules = {
+  '@typescript-eslint/no-unused-vars': ['error'],
+  '@typescript-eslint/no-use-before-define': ['error'],
+  '@typescript-eslint/explicit-module-boundary-types': 'off',
+  '@typescript-eslint/ban-ts-comment': 'off',
+};
 module.exports = {
-  extends: ['wesbos/typescript'],
-  rules: {
-    'prettier/prettier': ['error', require('./.prettierrc.js')],
-    'no-use-before-define': 'warn',
-    'no-unused-vars': 'warn',
-    'import/no-extraneous-dependencies': 'off',
-    'no-restricted-exports': 'off',
-    'func-names': 'off',
-    'class-methods-use-this': 'off',
-    'import/extensions': 'off',
-    'react/function-component-definition': 'off',
-    'react/jsx-props-no-spreading': 'off',
-    'import/no-extraneous-dependencies': 'warn',
-    'no-use-before-define': 'warn',
-    'no-unused-vars': 'warn',
-    'no-restricted-exports': 'off',
-    'func-names': 'off',
-    'class-methods-use-this': 'off',
-    'import/extensions': 'off',
-    'react/function-component-definition': 'off',
-    'react/jsx-props-no-spreading': 'off',
-    'react/function-component-definition': 'off',
-    'react/jsx-props-no-spreading': 'off',
-    'no-use-before-define': 'off',
-    '@typescript-eslint/no-use-before-define': ['error'],
-    'import/no-extraneous-dependencies': 'off',
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/ban-ts-comment': 'off',
-  },
+  overrides: [
+    {
+      files: ['*.js', '*.jsx', '*.text-js'],
+      extends: ['wesbos'],
+      rules: {
+        ...jsRules,
+        // ...tsRules,
+      },
+    },
+    {
+      files: ['*.ts', '*.tsx'],
+      extends: ['wesbos/typescript'],
+      rules: {
+        ...jsRules,
+        ...tsRules,
+      },
+    },
+  ],
 };

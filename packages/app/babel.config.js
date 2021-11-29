@@ -13,6 +13,12 @@ module.exports = function (api) {
           },
         },
       ],
+      [
+        'babel-plugin-inline-import',
+        {
+          'extensions': ['.text-js'],
+        },
+      ],
     ],
   };
 };

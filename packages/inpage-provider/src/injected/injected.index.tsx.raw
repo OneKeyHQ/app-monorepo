@@ -1,0 +1,17 @@
+// @ts-nocheck
+/* eslint-disable  */
+
+/* ===== auto-generated from injected.index.tsx.raw ===== */
+
+// WARNING:
+//   only .text-js working for react-native app
+import injectedDesktopCode from './injectedDesktop.text-js';
+import injectedNativeCode from './injectedNative.text-js';
+
+const injectedDesktop: string = injectedDesktopCode;
+const injectedNative: string = injectedNativeCode;
+
+export {
+  injectedDesktop,
+  injectedNative,
+};

@@ -16,16 +16,13 @@ function AppRouterLinks() {
   const navigation = useNavigation();
   return (
     <>
-      <Box>
-        注：StackNavigator 在 desktop 下暂时有编译问题。 在 web 下图标不显示。
-      </Box>
       <Button
         onPress={() => {
           // @ts-ignore
           navigation.navigate('WebViewDemo');
         }}
       >
-        WebViewDemo (AppOnly)
+        PageWebView (AppOnly)
       </Button>
       <Button
         onPress={() => {
