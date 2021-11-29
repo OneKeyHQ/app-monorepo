@@ -1,0 +1,79 @@
+{
+  "cli": {
+    "version": ">= 0.37.0"
+  },
+  "build": {
+    "base": {
+      "node": "16.10.0",
+      "yarn": "1.18.0",
+      "android": {
+        "image": "ubuntu-18.04-android-30-ndk-r19c",
+        "ndk": "21.4.7075529",
+        "env": {
+          "PLATFORM": "android",
+          "OTA_UPDATE_ENABLE": "false"
+        }
+      },
+      "ios": {
+        "image": "macos-big-sur-11.4-xcode-12.5",
+        "env": {
+          "PLATFORM": "ios"
+        }
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "env": {
+        "ENVIRONMENT": "development"
+      },
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug",
+        "env": {
+          "APPLICATION_ID_SUFFIX": "wrapper",
+          "OTA_UPDATE_ENABLE": "true"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Debug"
+      }
+    },
+    "production-store": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Release"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "enterpriseProvisioning": "universal",
+        "buildConfiguration": "Release",
+        "distribution": "internal"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

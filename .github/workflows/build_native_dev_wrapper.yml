@@ -1,0 +1,46 @@
+name: Build Native Dev Wrapper CI
+
+on:
+  workflow_dispatch:
+    platform:
+      description: '编译平台 (android/ios/all)'
+      required: false
+      default: 'all'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Setup keys secret
+        run: |
+          echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/.env
+          echo ${{ secrets.AND_KEYS_SECRET }} | base64 -d > packages/app/android/keys.secret 
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v5
+        with:
+          expo-version: 4.x
+          expo-token: ${{ secrets.EXPO_TOKEN }}
+          expo-cache: true
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: 'yarn'
+
+      - name: Build on EAS
+        run: |
+          cd packages/app
+          npx eas-cli build --profile=development --platform ${{ github.event.inputs.platform }} --non-interactive --no-wait

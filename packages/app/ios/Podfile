@@ -2,13 +2,17 @@ require File.join(File.dirname(`node --print "require.resolve('expo/package.json
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 require File.join(File.dirname(`node --print "require.resolve('@react-native-community/cli-platform-ios/package.json')"`), "native_modules")
 
-platform :ios, '12.0'
+platform :ios, '13.0'
 
 require 'json'
 podfile_properties = JSON.parse(File.read('./Podfile.properties.json')) rescue {}
 
 target 'OneKeyWallet' do
   use_expo_modules!
+
+  pod 'expo-dev-menu', path: '../../../node_modules/expo-dev-menu', :configurations => :debug
+  pod 'expo-dev-launcher', path: '../../../node_modules/expo-dev-launcher', :configurations => :debug
+
   config = use_native_modules!
 
   use_react_native!(

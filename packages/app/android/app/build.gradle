@@ -144,6 +144,7 @@ android {
         versionCode 1
         versionName "1.0.0"
         vectorDrawables.useSupportLibrary = true
+        manifestPlaceholders = [OTAUpdatesEnable: false]
     }
 
     buildFeatures {
@@ -233,7 +234,7 @@ dependencies {
         }
     }
 
-    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.0.0"
+    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
     debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}") {
         exclude group: 'com.facebook.fbjni'
     }
@@ -262,7 +263,7 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
 
     // Details see https://developer.android.com/training/constraint-layout?hl=zh-cn
-    implementation "androidx.constraintlayout:constraintlayout:2.1.1"
+    implementation "androidx.constraintlayout:constraintlayout:2.1.2"
     implementation "androidx.appcompat:appcompat:1.3.1"
     implementation 'com.google.android.material:material:1.4.0'
     implementation "androidx.recyclerview:recyclerview:1.2.1"
@@ -292,3 +293,39 @@ task copyDownloadableDepsToLibs(type: Copy) {
 
 apply from: new File(["node", "--print", "require.resolve('@react-native-community/cli-platform-android/package.json')"].execute(null, rootDir).text.trim(), "../native_modules.gradle");
 applyNativeModulesAppBuildGradle(project)
+apply from: "./eas-build.gradle"
+
+
+def isCustomConfigured = false
+tasks.whenTaskAdded {
+    if (isCustomConfigured) {
+        return
+    }
+
+    def ota_updates_enable = false
+    try {
+        ota_updates_enable = (System.getenv("OTA_UPDATE_ENABLE") ?: "false").toBoolean()
+    } catch (Exception ignore) {
+    }
+
+    def package_name_suffix = System.getenv("APPLICATION_ID_SUFFIX") ?: ""
+    println package_name_suffix
+
+    println "defaultConfig whenTaskAdded"
+    println ota_updates_enable
+
+    isCustomConfigured = true;
+
+    android.buildTypes.debug {
+        if (package_name_suffix != "") {
+            applicationIdSuffix "." + package_name_suffix
+        }
+        manifestPlaceholders = [OTAUpdatesEnable: ota_updates_enable]
+    }
+    android.buildTypes.release {
+        if (package_name_suffix != "") {
+            applicationIdSuffix "." + package_name_suffix
+        }
+        manifestPlaceholders = [OTAUpdatesEnable: ota_updates_enable]
+    }
+}

@@ -6,6 +6,15 @@
 #import <React/RCTLinkingManager.h>
 #import <React/RCTConvert.h>
 
+#if defined(EX_DEV_MENU_ENABLED)
+@import EXDevMenu;
+#endif
+ 
+#if defined(EX_DEV_LAUNCHER_ENABLED)
+#include <EXDevLauncher/EXDevLauncherController.h>
+#import <EXUpdatesDevLauncherController.h>
+#endif
+
 #if defined(FB_SONARKIT_ENABLED) && __has_include(<FlipperKit/FlipperClient.h>)
 #import <FlipperKit/FlipperClient.h>
 #import <FlipperKitLayoutPlugin/FlipperKitLayoutPlugin.h>
@@ -33,6 +42,23 @@ static void InitializeFlipper(UIApplication *application) {
   InitializeFlipper(application);
 #endif
   
+    self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+ 
+#if defined(EX_DEV_LAUNCHER_ENABLED)
+  EXDevLauncherController *controller = [EXDevLauncherController sharedInstance];
+  controller.updatesInterface = [EXUpdatesDevLauncherController sharedInstance];
+  [controller startWithWindow:self.window delegate:(id<EXDevLauncherControllerDelegate>)self launchOptions:launchOptions];
+#else
+  [self initializeReactNativeApp:launchOptions];
+#endif
+ 
+  [super application:application didFinishLaunchingWithOptions:launchOptions];
+ 
+  return YES;
+ }
+ 
+- (RCTBridge *)initializeReactNativeApp:(NSDictionary *)launchOptions
+{
   RCTBridge *bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
   RCTRootView *rootView = [[RCTRootView alloc] initWithBridge:bridge moduleName:@"main" initialProperties:nil];
   id rootViewBackgroundColor = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"RCTRootViewBackgroundColor"];
@@ -42,15 +68,12 @@ static void InitializeFlipper(UIApplication *application) {
     rootView.backgroundColor = [UIColor whiteColor];
   }
 
-  self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
   UIViewController *rootViewController = [UIViewController new];
   rootViewController.view = rootView;
   self.window.rootViewController = rootViewController;
   [self.window makeKeyAndVisible];
 
-  [super application:application didFinishLaunchingWithOptions:launchOptions];
-
-  return YES;
+  return bridge;
  }
 
 - (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge
@@ -61,7 +84,11 @@ static void InitializeFlipper(UIApplication *application) {
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
  #ifdef DEBUG
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"__generated__/AppEntry.js" fallbackResource:nil];
+  #if defined(EX_DEV_LAUNCHER_ENABLED)
+    return [[EXDevLauncherController sharedInstance] sourceUrl];
+  #else
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"__generated__/AppEntry.js" fallbackResource:nil];
+  #endif 
  #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
  #endif
@@ -69,6 +96,11 @@ static void InitializeFlipper(UIApplication *application) {
 
 // Linking API
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
+#if defined(EX_DEV_LAUNCHER_ENABLED)
+  if ([EXDevLauncherController.sharedInstance onDeepLink:url options:options]) {
+      return true;
+  }
+#endif
   return [RCTLinkingManager application:application openURL:url options:options];
 }
 
@@ -80,3 +112,15 @@ static void InitializeFlipper(UIApplication *application) {
 }
 
 @end
+
+#if defined(EX_DEV_LAUNCHER_ENABLED)
+@implementation AppDelegate (EXDevLauncherControllerDelegate)
+ 
+- (void)devLauncherController:(EXDevLauncherController *)developmentClientController
+          didStartWithSuccess:(BOOL)success
+{
+  developmentClientController.appBridge = [self initializeReactNativeApp:[EXDevLauncherController.sharedInstance getLaunchOptions]];
+}
+ 
+@end
+#endif
