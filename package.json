@@ -22,6 +22,8 @@
     "ios-xcode": "open ./packages/app/ios/OneKeyWallet.xcworkspace",
     "android": "yarn workspace @onekeyhq/app android",
     "web": "yarn workspace @onekeyhq/web start",
+    "ext": "yarn workspace @onekeyhq/ext start",
+    "build:ext": "yarn workspace @onekeyhq/ext build",
     "desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @shared/components build:icon"

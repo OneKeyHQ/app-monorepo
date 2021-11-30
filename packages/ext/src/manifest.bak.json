@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "OneKey Wallet",
+  //  "options_page": "ui-options.html",
+  //  "devtools_page": "ui-devtools.html",
+  //  "chrome_url_overrides": {
+  //    "newtab": "ui-newtab.html"
+  //  },
+  "background": { "service_worker": "js/background.bundle.js" },
+  "action": {
+    "default_popup": "ui-popup.html",
+    "default_icon": "icon-34.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "<all_urls>"],
+      "js": ["js/content-script.bundle.js"],
+      "css": ["content-script.css"]
+    }
+  ],
+
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content-script.css", "icon-128.png", "icon-34.png"],
+      "matches": []
+    }
+  ]
+}

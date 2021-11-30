@@ -1,3 +1,11 @@
+message port
+duplex message js
+https://github.com/oe/duplex-message
+https://github.com/GoogleChrome/chrome-extensions-samples
+https://github.com/mdn/webextensions-examples
+https://github.com/sxei/chrome-plugin-demo
+https://github.com/mozilla/webextension-polyfill
+
 # FROM Side
 
 - inpage
@@ -6,6 +14,8 @@
 - injected
 - preload
 - local
+- port
+- peer
 
 # TO Side
 
@@ -15,6 +25,8 @@
 - platform
 - main
 - remote
+- port
+- peer
 
 # TODO
 
