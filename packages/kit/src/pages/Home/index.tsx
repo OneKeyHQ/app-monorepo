@@ -64,7 +64,7 @@ export default function App() {
           setText(Date.now().toString());
         }}
       >
-        Primary 10
+        Primary
       </Button>
       <Button
         onPress={() => {
