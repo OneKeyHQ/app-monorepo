@@ -30,13 +30,15 @@ export type IInpageProviderRequestPayload = {
 };
 
 export type ICreateJsBridgeParams = {
-  sendPayload?: (data: string) => void;
+  sendPayload?: (data: string | unknown) => void;
+  sendAsString?: boolean;
 };
 
 export type ICreateJsBridgeHostParams = {
-  webviewRef: React.RefObject<IReactNativeWebViewRef | IElectronWebViewRef>;
+  webviewRef?: React.RefObject<IReactNativeWebViewRef | IElectronWebViewRef>;
   isReactNative?: boolean;
   isElectron?: boolean;
+  isExtension?: boolean;
 };
 
 export type IReactNativeWebViewRef = {

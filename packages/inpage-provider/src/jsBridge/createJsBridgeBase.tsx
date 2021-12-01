@@ -9,6 +9,7 @@ import {
 
 function createJsBridgeBase({
   sendPayload = () => {},
+  sendAsString = true,
 }: ICreateJsBridgeParams = {}): IJsBridge {
   // process?.env?.VERSION will fail in RN
   const version: string = process.env.VERSION as string;
@@ -111,10 +112,13 @@ function createJsBridgeBase({
           // TODO value in HOST
           origin: global?.location?.origin,
         });
-        const payloadStr = JSON.stringify(payload);
+        let payloadToSend: unknown = payload;
+        if (sendAsString) {
+          payloadToSend = JSON.stringify(payload);
+        }
         // TODO rename sendMessage
         if (sendPayload) {
-          sendPayload(payloadStr);
+          sendPayload(payloadToSend);
         }
       });
     },
