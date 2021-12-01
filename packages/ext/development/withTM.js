@@ -65,7 +65,7 @@ const createWebpackMatcher = (
     (modulePath.match(/node_modules/g) || []).length,
   ]);
 
-  return (filePath) => {
+  return function withTmFileMatcher(filePath) {
     const nodeModulesDepth = (filePath.match(/node_modules/g) || []).length;
 
     // TODO fix hardcode
@@ -315,6 +315,7 @@ const withTmInitializer = (modules = [], options = {}) => {
 
           // nextWithTM/js-loader
           webpackConfig.module.rules.push({
+            __ruleName__: 'js-rule@withTM',
             test: /\.+(js|jsx|mjs|ts|tsx)$/,
             use: nextOptions.defaultLoaders.babel,
             include: matcher,
@@ -323,6 +324,7 @@ const withTmInitializer = (modules = [], options = {}) => {
 
           // nextWithTM/img-loader
           webpackConfig.module.rules.push({
+            __ruleName__: 'file-rule@withTM',
             test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
             use: {
               loader: 'file-loader',

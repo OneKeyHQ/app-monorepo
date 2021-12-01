@@ -1,6 +1,8 @@
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const path = require('path');
 
+CopyWebpackPlugin.prototype.pluginName = 'CopyWebpackPlugin';
+
 function createPattern(config) {
   if (typeof config === 'string') {
     // eslint-disable-next-line no-param-reassign
@@ -15,20 +17,20 @@ function createPattern(config) {
   };
 }
 
-const copy1 = new CopyWebpackPlugin({
+function createCopyPlugin(options) {
+  return new CopyWebpackPlugin(options);
+}
+
+const copy1 = createCopyPlugin({
   patterns: [
     createPattern({
-      from: 'src/manifest.json',
-      transform(content, path1) {
-        // TODO firefox, chrome, edge manifest.json
+      from: 'src/manifest.js',
+      to: './manifest.json',
+      transform(content, filePath) {
+        // eslint-disable-next-line global-require,import/no-dynamic-require
+        const manifest = require(filePath);
         // generates the manifest file using the package.json informations
-        return Buffer.from(
-          JSON.stringify({
-            description: process.env.npm_package_description,
-            version: process.env.npm_package_version,
-            ...JSON.parse(content.toString()),
-          }),
-        );
+        return Buffer.from(JSON.stringify(manifest, null, 2));
       },
     }),
     createPattern('src/assets/img/icon-128.png'),

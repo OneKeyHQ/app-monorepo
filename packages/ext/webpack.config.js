@@ -1,24 +1,28 @@
 const webpack = require('webpack');
 const path = require('path');
-const fileSystem = require('fs-extra');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+const fse = require('fs-extra');
+const fs = require('fs');
 const TerserPlugin = require('terser-webpack-plugin');
-const { withExpo } = require('@expo/next-adapter');
-const withPlugins = require('next-compose-plugins');
-const { PHASE_DEVELOPMENT_SERVER, PHASE_EXPORT } = require('next/constants');
+const lodash = require('lodash');
 const env = require('./development/env');
 const pluginsHtml = require('./development/pluginsHtml');
 const pluginsCopy = require('./development/pluginsCopy');
+const devUtils = require('./development/devUtils');
+const nextWebpack = require('./development/nextWebpack');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
-const alias = {
-  'react-dom': '@hot-loader/react-dom',
-};
+console.log('============ webpack.version ', webpack.version);
 
 // load the secrets
 const secretsPath = path.join(__dirname, `secrets.${env.NODE_ENV}.js`);
+const secrets = fse.existsSync(secretsPath) ? secretsPath : false;
+
+const alias = {
+  'react-dom': '@hot-loader/react-dom',
+  // 'secrets': secrets,
+};
 
 const fileExtensions = [
   'jpg',
@@ -33,26 +37,25 @@ const fileExtensions = [
   'woff2',
 ];
 
-if (fileSystem.existsSync(secretsPath)) {
-  alias.secrets = secretsPath;
-}
-
-const IS_DEV = process.env.NODE_ENV !== 'production';
+const resolveExtensions = fileExtensions
+  .map((extension) => `.${extension}`)
+  .concat(['.js', '.jsx', '.ts', '.tsx', '.css']);
 
 let webpackConfig = {
+  // add custom config, will be deleted later
+  chromeExtensionBoilerplate: {
+    notHotReload: ['background', 'content-script', 'ui-devtools'],
+  },
   mode: IS_DEV ? 'development' : 'production', // development, production
   // mode: 'development',
   entry: {
-    background: path.join(__dirname, 'src/entry/background.ts'),
+    'background': path.join(__dirname, 'src/entry/background.ts'),
     'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
     'ui-popup': path.join(__dirname, 'src/entry/ui-popup.ts'),
     // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
     // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
     // 'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
     // 'ui-devtools-panel': path.join(__dirname, 'src/entry/ui-devtools-panel.ts'),
-  },
-  chromeExtensionBoilerplate: {
-    notHotReload: ['content-script', 'ui-devtools'],
   },
   output: {
     path: path.resolve(__dirname, 'build'),
@@ -63,15 +66,17 @@ let webpackConfig = {
   module: {
     rules: [
       {
+        __ruleName__: 'shtml-rule',
         // project/html-loader
-        test: /\.shtml$/,
+        test: /\.(shtml)$/i, // MUST BE .shtml different with withExpo() builtin .html
         use: { loader: 'html-loader' },
         exclude: /node_modules/,
       },
       {
+        __ruleName__: 'css-rule',
         // project/css-loader
         // look for .css or .scss files
-        test: /\.(css|scss)$/,
+        test: /\.(css)$/i,
         // in the `src` directory
         use: [
           {
@@ -79,12 +84,6 @@ let webpackConfig = {
           },
           {
             loader: 'css-loader',
-          },
-          {
-            loader: 'sass-loader',
-            options: {
-              sourceMap: IS_DEV,
-            },
           },
         ],
       },
@@ -107,9 +106,7 @@ let webpackConfig = {
   },
   resolve: {
     alias,
-    extensions: fileExtensions
-      .map((extension) => `.${extension}`)
-      .concat(['.js', '.jsx', '.ts', '.tsx', '.css']),
+    extensions: resolveExtensions,
   },
   plugins: [
     new webpack.ProgressPlugin(),
@@ -121,12 +118,38 @@ let webpackConfig = {
   infrastructureLogging: {
     level: 'info',
   },
+  optimization: {
+    // splitChunks
+    // minimize
+    // minimizer
+    splitChunks: {
+      chunks: 'all',
+      minSize: 300000,
+      maxSize: 500000,
+    },
+  },
 };
 
-if (env.NODE_ENV === 'development') {
-  webpackConfig.devtool = 'cheap-module-source-map';
+webpackConfig = nextWebpack(webpackConfig, {
+  transpileModules: [
+    '@onekeyhq/components',
+    '@onekeyhq/kit',
+    '@onekeyhq/inpage-provider',
+  ],
+  debug: false,
+  projectRoot: __dirname,
+});
+
+if (IS_DEV) {
+  // webpackConfig.devtool = 'cheap-module-source-map';
+
+  // Reset sourcemap here, withExpo will change this value
+  //    only inline-source-map supported in extension
+  // TODO external file sourcemap
+  webpackConfig.devtool = 'inline-source-map';
 } else {
   webpackConfig.optimization = {
+    ...webpackConfig.optimization,
     minimize: true,
     minimizer: [
       new TerserPlugin({
@@ -136,58 +159,16 @@ if (env.NODE_ENV === 'development') {
   };
 }
 
-const nextOptions = {
-  isServer: false,
-  defaultLoaders: {
-    babel: {
-      loader: 'babel-loader',
-    },
-  },
-};
-let nextConfig = {
-  webpack5: true,
-  // webpack:()=>config
-};
-
-const nextWithTM = require('./development/withTM')(
-  ['@onekeyhq/components', '@onekeyhq/kit', '@onekeyhq/inpage-provider'],
-  { resolveSymlinks: true, debug: false },
-);
-
-const createNextConfig = withPlugins(
-  [
-    /*
-    test: /\.+(js|jsx|mjs|ts|tsx)$/,
-    test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
-     */
-    nextWithTM,
-    /*
-    test: /\.html$/,
-    test: /\.(mjs|[jt]sx?)$/,
-     */
-    [withExpo, { projectRoot: __dirname }],
-  ],
-  nextConfig,
-);
-
-// PHASE_DEVELOPMENT_SERVER PHASE_EXPORT
-nextConfig = createNextConfig(PHASE_EXPORT, {
-  defaultConfig: nextConfig,
-});
-
-webpackConfig = nextConfig.webpack(webpackConfig, nextOptions);
-
-console.log('------- webpackConfig', webpackConfig.module.rules);
+console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
 console.log('------- webpackConfig', {
   devtool: webpackConfig.devtool,
 });
 // process.exit(1);
 
-// Reset sourcemap here, withExpo will change this value
-//    only inline-source-map supported in extension
-// TODO external file sourcemap
-if (IS_DEV) {
-  webpackConfig.devtool = 'inline-source-map';
-}
+devUtils.writePreviewWebpackConfigJson(
+  webpackConfig,
+  'webpack.config.preview.json',
+);
+devUtils.cleanWebpackDebugFields(webpackConfig);
 
 module.exports = webpackConfig;

@@ -22,3 +22,4 @@ packages/kit/src/public/static/connect
 packages/app/src/public/static/connect
 
 .env
+webpack.config.preview.json
