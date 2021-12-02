@@ -35,5 +35,23 @@ module.exports = {
         ...tsRules,
       },
     },
+    // test files rules must be at LAST
+    {
+      'files': ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
+      // 'plugins': ['react', 'react-hooks', 'jest', 'import'],
+      'extends': ['plugin:jest/recommended'],
+      'env': { 'jest': true },
+      'rules': {
+        'jest/expect-expect': 'off',
+        'jest/no-disabled-tests': 'off',
+        'jest/no-conditional-expect': 'off',
+        'jest/valid-title': 'off',
+        'jest/no-interpolation-in-snapshots': 'off',
+        'jest/no-export': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-use-before-define': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+      },
+    },
   ],
 };

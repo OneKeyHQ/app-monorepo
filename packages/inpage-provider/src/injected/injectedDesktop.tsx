@@ -8,6 +8,7 @@ ipcRenderer.on('SET_ONEKEY_DESKTOP_GLOBALS', (_, globals: Record<any, any>) => {
   window.ONEKEY_DESKTOP_GLOBALS = globals;
 });
 
+// - send
 injectJsBridge({
   createBridge: () =>
     createJsBridgeInpage({
@@ -15,9 +16,16 @@ injectJsBridge({
       sendPayload: (payloadStr) => {
         console.log('[inpage] sendPayload: \n', payloadStr);
 
+        // send to renderer (webview host)
         ipcRenderer.sendToHost(JS_BRIDGE_MESSAGE_IPC_CHANNEL, payloadStr);
-        // ipcRenderer.send(JS_BRIDGE_MESSAGE_CHANNEL, payloadStr);
+
+        // send to main
+        // ipcRenderer.send(JS_BRIDGE_MESSAGE_IPC_CHANNEL, payloadStr);
       },
     }),
 });
+
+// - receive
+// host executeJs `window.onekey.jsBridge.receive()` directly
+
 injectWeb3Provider();

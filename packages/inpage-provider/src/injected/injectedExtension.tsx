@@ -7,6 +7,7 @@ import injectJsBridge from './factory/injectJsBridge';
 import injectWeb3Provider from './factory/injectWeb3Provider';
 
 // TODO move to JsBridgeBase, and off event
+// - receive
 window.addEventListener(
   'message',
   (event: MessageEvent) => {
@@ -23,12 +24,13 @@ window.addEventListener(
     ) {
       console.log('event receive in site: ', event.data);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      window.onekey.jsBridge.receive(event.data.payload);
+      window?.onekey?.jsBridge?.receive(event.data.payload);
     }
   },
   false,
 );
 
+// - send
 injectJsBridge({
   createBridge: () =>
     createJsBridgeInpage({
@@ -38,7 +40,7 @@ injectJsBridge({
         window.postMessage({
           channel: JS_BRIDGE_MESSAGE_EXT_CHANNEL,
           direction: JS_BRIDGE_MESSAGE_DIRECTION.INPAGE_TO_HOST,
-          payload: payloadObj,
+          payload1: payloadObj,
         });
       },
     }),

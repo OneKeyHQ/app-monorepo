@@ -55,8 +55,11 @@ let webpackConfig = {
     'ui-popup': path.join(__dirname, 'src/entry/ui-popup.ts'),
     // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
     // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
-    // 'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
-    // 'ui-devtools-panel': path.join(__dirname, 'src/entry/ui-devtools-panel.ts'),
+    'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
+    'ui-devtools-panel': path.join(
+      __dirname,
+      'src/entry/ui-devtools-panel.tsx',
+    ),
   },
   output: {
     path: path.resolve(__dirname, 'build'),

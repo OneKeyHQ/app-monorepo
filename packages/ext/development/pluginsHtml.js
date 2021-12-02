@@ -16,8 +16,8 @@ const pluginsHtml = [
   'ui-popup',
   // 'ui-options',
   // 'ui-newtab',
-  // 'ui-devtools',
-  // 'ui-devtools-panel',
+  'ui-devtools',
+  'ui-devtools-panel',
 ].map((name) => createHtmlPlugin({ name }));
 
 module.exports = pluginsHtml;

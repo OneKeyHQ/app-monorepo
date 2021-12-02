@@ -16,7 +16,7 @@ export type JsBridgeEventPayload = {
 export type IJsBridgeMessagePayload = {
   id?: number | string;
   data?: unknown | IInpageProviderRequestPayload;
-  type?: string;
+  type?: string; // 'request', 'response'
   origin?: string;
   resolve?: ((value: unknown) => void) | undefined;
   reject?: () => null;

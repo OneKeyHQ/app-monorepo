@@ -26,12 +26,13 @@ function createJsBridgeHost({
         window.postMessage({
           channel: JS_BRIDGE_MESSAGE_EXT_CHANNEL,
           direction: JS_BRIDGE_MESSAGE_DIRECTION.HOST_TO_INPAGE,
-          payload,
+          payload: payload1,
         });
       } else {
         const payloadStr: string = payload as string;
         const inpageReceiveCode =
           injectedFactory.createCodeJsBridgeReceive(payloadStr);
+
         // run on: react-native webview
         if (isReactNative && webviewRef && webviewRef.current) {
           (webviewRef.current as IReactNativeWebViewRef)?.injectJavaScript?.(

@@ -7,11 +7,11 @@ module.exports = {
   'description': process.env.npm_package_description,
   /*
   'options_page': 'ui-options.html',
-  'devtools_page': 'ui-devtools.html',
   'chrome_url_overrides': {
     'newtab': 'ui-newtab.html',
   },
   */
+  'devtools_page': 'ui-devtools.html',
   'action': {
     'default_popup': 'ui-popup.html',
     'default_icon': 'icon-34.png',
