@@ -3,13 +3,16 @@ import React, { FC } from 'react';
 import Home from '@onekeyhq/kit/src/pages/Home';
 import { KitApp, StackNavigator } from '@onekeyhq/kit';
 import { DemoInpageProviderApp } from '@onekeyhq/inpage-provider/src/demo/DemoInpageProvider';
+import { loadCustomFonts } from '@onekeyhq/components/assets/fonts/static-fonts';
 import BleDeviceDemo from './src/temp/BleDeviceDemo';
 import LiteDemo from './src/temp/LiteDemo';
 
 const App: FC = function () {
-  // return <LiteDemo />;
-  // return <BleDeviceDemo />;
+  const fontsLoaded = loadCustomFonts();
 
+  if (!fontsLoaded) {
+    return null;
+  }
   return (
     <KitApp>
       <StackNavigator.Navigator>
