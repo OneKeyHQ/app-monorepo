@@ -40,9 +40,11 @@ injectJsBridge({
         window.postMessage({
           channel: JS_BRIDGE_MESSAGE_EXT_CHANNEL,
           direction: JS_BRIDGE_MESSAGE_DIRECTION.INPAGE_TO_HOST,
-          payload1: payloadObj,
+          payload: payloadObj,
         });
       },
     }),
 });
 injectWeb3Provider();
+
+console.log('============== injected.js in extension done!  111');

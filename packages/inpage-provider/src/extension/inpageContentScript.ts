@@ -6,7 +6,7 @@ import {
   JS_BRIDGE_MESSAGE_EXT_CHANNEL,
 } from '../consts';
 
-function inject() {
+function inject(filename: string) {
   // Manifest V2
   /*
   injectedFactory.injectCodeWithScriptTag({
@@ -17,7 +17,7 @@ function inject() {
   // Manifest V3 V2
   injectedFactory.injectCodeWithScriptTag({
     // eslint-disable-next-line no-undef
-    file: chrome.runtime.getURL('injected.js'),
+    file: chrome.runtime.getURL(filename),
   });
 }
 

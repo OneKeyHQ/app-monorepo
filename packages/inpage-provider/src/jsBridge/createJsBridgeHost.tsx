@@ -26,7 +26,7 @@ function createJsBridgeHost({
         window.postMessage({
           channel: JS_BRIDGE_MESSAGE_EXT_CHANNEL,
           direction: JS_BRIDGE_MESSAGE_DIRECTION.HOST_TO_INPAGE,
-          payload: payload1,
+          payload,
         });
       } else {
         const payloadStr: string = payload as string;

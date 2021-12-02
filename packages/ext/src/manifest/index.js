@@ -34,7 +34,13 @@ module.exports = {
   },
   'web_accessible_resources': [
     {
-      'resources': ['injected.js'],
+      'resources': [
+        // allow content-script inject js file
+        'injected.js',
+        // allow site load iframe force service-worker update
+        // TODO DEV only
+        'ui-popup.html',
+      ],
       'matches': ['<all_urls>'],
     },
     {

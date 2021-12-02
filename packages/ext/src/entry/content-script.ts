@@ -10,10 +10,80 @@ import {
 import { Alert } from 'react-native';
 import { IJsBridge } from '../../../../@types/types';
 
-console.log('[OneKey RN]: Content script works!112');
+console.log('[OneKey RN]: Content script works! 啊啊啊');
 console.log('   Must reload extension for modifications to take effect.');
 
-inpageContentScript.inject();
+const btnId = 'onekey-inpage-debug-dev-tools-button';
+const iframeId = 'onekey-inpage-debug-dev-tools-iframe';
+function injectDevToolsButton() {
+  if (!document.body) {
+    return;
+  }
+  if (document.getElementById(btnId)) {
+    return;
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.id = iframeId;
+  iframe.style.cssText = `
+    border: 0px solid red;
+    height: 0;
+    width: 0;
+    position: absolute;
+    z-index: -999999;
+  `;
+  document.body.appendChild(iframe);
+
+  const devToolsButton = document.createElement('button');
+  devToolsButton.title =
+    'Reload OneKey extension and this site, make injected.js updated.';
+  devToolsButton.draggable = true;
+  devToolsButton.innerHTML = 'Reload';
+  devToolsButton.id = btnId;
+  devToolsButton.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 99999;
+    border: 1px solid #eee;
+    font-size: 12px;
+    background: rgb(0, 170, 17);
+    color: white;
+    padding: 0 4px;
+    border-radius: 8px;
+    outline: none;
+  `;
+  devToolsButton.addEventListener('dragend', (event) => {
+    const { pageX, pageY } = event;
+    devToolsButton.style.left = `${pageX}px`;
+    devToolsButton.style.top = `${pageY}px`;
+  });
+  devToolsButton.addEventListener('click', () => {
+    // eslint-disable-next-line no-undef
+    console.log(chrome.runtime);
+    // eslint-disable-next-line no-undef
+    chrome.runtime.sendMessage({
+      channel: 'EXTENSION_INTERNAL_CHANNEL',
+      method: 'reload',
+    });
+    // eslint-disable-next-line no-undef
+    const popupUrl = `chrome-extension://${chrome.runtime.id}/ui-popup.html`;
+    setTimeout(() => {
+      // window.open(popupUrl);
+      iframe.src = popupUrl;
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }, 1000);
+  });
+  document.body.appendChild(devToolsButton);
+}
+window.addEventListener('DOMContentLoaded', () => {
+  injectDevToolsButton();
+});
+injectDevToolsButton();
+
+inpageContentScript.inject('injected.js');
 const jsBridgeHost: IJsBridge = inpageContentScript.createHost();
 // @ts-ignore
 window.contentJsBridge = jsBridgeHost;

@@ -45,7 +45,12 @@ const resolveExtensions = fileExtensions
 let webpackConfig = {
   // add custom config, will be deleted later
   chromeExtensionBoilerplate: {
-    notHotReload: ['background', 'content-script', 'ui-devtools'],
+    notHotReload: [
+      // ignore background
+      'background',
+      'content-script',
+      'ui-devtools',
+    ],
   },
   mode: IS_DEV ? 'development' : 'production', // development, production
   // mode: 'development',
