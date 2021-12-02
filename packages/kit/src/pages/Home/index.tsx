@@ -66,6 +66,13 @@ export default function App() {
       >
         Primary
       </Button>
+      <Button
+        onPress={() => {
+          window.open(window.location.href);
+        }}
+      >
+        Expand View
+      </Button>
       <Address text="0x4330B96Cde5bf063F21978870fF193Ae8cae4c48" short />
       <Jazzicon
         address="0x4330B96Cde5bf063F21978870fF193Ae8cae4c48"
