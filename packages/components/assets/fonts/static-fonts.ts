@@ -6,11 +6,7 @@ const CustomFont = {
   'PlusJakartaSans-SemiBold': require('./PlusJakartaSans-SemiBold.ttf'),
 };
 
-export function loadCustomFonts() {
+export default function useLoadCustomFonts() {
   const [fontsLoaded] = useFonts(CustomFont);
   return fontsLoaded;
 }
-
-export default {
-  loadCustomFonts,
-};

@@ -8,10 +8,6 @@ import {
   Jazzicon,
   Icon,
   Token,
-} from '@onekeyhq/components';
-import { FormattedMessage } from '@onekeyhq/kit';
-import { useNavigation } from '@react-navigation/native';
-import {
   DisplayXLarge,
   DisplayLarge,
   DisplayMedium,
@@ -24,11 +20,12 @@ import {
   Body1,
   Body2,
   Caption,
-} from '@onekeyhq/components/src/Typography';
+} from '@onekeyhq/components';
+import { FormattedMessage } from '@onekeyhq/kit';
+import { useNavigation } from '@react-navigation/native';
 
 function AppRouterLinks() {
   const navigation = useNavigation();
-
   return (
     <>
       <DisplayXLarge>DisplayXLarge</DisplayXLarge>

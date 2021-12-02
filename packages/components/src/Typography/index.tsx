@@ -1,137 +1,123 @@
 import { Text } from 'native-base';
 import React from 'react';
+
+type FontProps = {
+  fontFamily: string;
+  fontWeight: string;
+  fontSize: number;
+  lineHeight: number;
+};
+
+const DisplayXLargeProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-Bold',
+  fontWeight: 'bold',
+  fontSize: 28,
+  lineHeight: 36,
+};
+const DisplayLargeProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-Bold',
+  fontWeight: 'bold',
+  fontSize: 24,
+  lineHeight: 32,
+};
+const DisplayMediumProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-SemiBold',
+  fontWeight: 'semibold',
+  fontSize: 20,
+  lineHeight: 28,
+};
+const DisplaySmallProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-SemiBold',
+  fontWeight: 'semibold',
+  fontSize: 16,
+  lineHeight: 24,
+};
+const PageHeadingProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-Bold',
+  fontWeight: 'bold',
+  fontSize: 24,
+  lineHeight: 32,
+};
+const HeadingProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-SemiBold',
+  fontWeight: 'semibold',
+  fontSize: 18,
+  lineHeight: 28,
+};
+const SUBHEADINGProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-Bold',
+  fontWeight: 'bold',
+  fontSize: 12,
+  lineHeight: 16,
+};
+const Button1Props: FontProps = {
+  fontFamily: 'PlusJakartaSans-SemiBold',
+  fontWeight: 'semibold',
+  fontSize: 16,
+  lineHeight: 24,
+};
+const Button2Props: FontProps = {
+  fontFamily: 'PlusJakartaSans-SemiBold',
+  fontWeight: 'semibold',
+  fontSize: 14,
+  lineHeight: 20,
+};
+const Body1Props: FontProps = {
+  fontFamily: 'PlusJakartaSans-Medium',
+  fontWeight: 'medium',
+  fontSize: 16,
+  lineHeight: 24,
+};
+const Body2Props: FontProps = {
+  fontFamily: 'PlusJakartaSans-Medium',
+  fontWeight: 'medium',
+  fontSize: 14,
+  lineHeight: 20,
+};
+const CaptionProps: FontProps = {
+  fontFamily: 'PlusJakartaSans-Medium',
+  fontWeight: 'medium',
+  fontSize: 12,
+  lineHeight: 16,
+};
+
 export const DisplayXLarge: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Bold"
-    fontSize={28}
-    fontWeight="bold"
-    lineHeight={36}
-  >
-    {children}
-  </Text>
+  <Text {...DisplayXLargeProps}>{children}</Text>
 );
-
 export const DisplayLarge: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Bold"
-    fontSize={24}
-    fontWeight="bold"
-    lineHeight={32}
-  >
-    {children}
-  </Text>
+  <Text {...DisplayLargeProps}>{children}</Text>
 );
-
 export const DisplayMedium: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-SemiBold"
-    fontSize={20}
-    fontWeight="semibold"
-    lineHeight={28}
-  >
-    {children}
-  </Text>
+  <Text {...DisplayMediumProps}>{children}</Text>
 );
-
 export const DisplaySmall: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-SemiBold"
-    fontSize={16}
-    fontWeight="semibold"
-    lineHeight={24}
-  >
-    {children}
-  </Text>
+  <Text {...DisplaySmallProps}>{children}</Text>
 );
-
 export const PageHeading: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Bold"
-    fontSize={24}
-    fontWeight="bold"
-    lineHeight={32}
-  >
-    {children}
-  </Text>
+  <Text {...PageHeadingProps}>{children}</Text>
 );
-
 export const Heading: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-SemiBold"
-    fontSize={18}
-    fontWeight="semibold"
-    lineHeight={28}
-  >
-    {children}
-  </Text>
+  <Text {...HeadingProps}>{children}</Text>
 );
-
 export const SUBHEADING: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Bold"
-    fontSize={12}
-    fontWeight="bold"
-    lineHeight={16}
-  >
-    {children}
-  </Text>
+  <Text {...SUBHEADINGProps}>{children}</Text>
 );
-
 export const Button1: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-SemiBold"
-    fontSize={16}
-    fontWeight="semibold"
-    lineHeight={24}
-  >
-    {children}
-  </Text>
+  <Text {...Button1Props}>{children}</Text>
 );
-
 export const Button2: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-SemiBold"
-    fontSize={14}
-    fontWeight="semibold"
-    lineHeight={20}
-  >
-    {children}
-  </Text>
+  <Text {...Button2Props}>{children}</Text>
 );
 
 export const Body1: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Medium"
-    fontSize={16}
-    fontWeight="medium"
-    lineHeight={24}
-  >
-    {children}
-  </Text>
+  <Text {...Body1Props}>{children}</Text>
 );
-
 export const Body2: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Medium"
-    fontSize={14}
-    fontWeight="medium"
-    lineHeight={20}
-  >
-    {children}
-  </Text>
+  <Text {...Body2Props}>{children}</Text>
 );
-
 export const Caption: React.FC = ({ children }) => (
-  <Text
-    fontFamily="PlusJakartaSans-Medium"
-    fontSize={12}
-    fontWeight="medium"
-    lineHeight={16}
-  >
-    {children}
-  </Text>
+  <Text {...CaptionProps}>{children}</Text>
 );
-
 export default {
   DisplayXLarge,
   DisplayLarge,
