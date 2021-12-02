@@ -85,6 +85,11 @@ export default class LiteDemo extends Component {
     });
   }
 
+  // eslint-disable-next-line class-methods-use-this
+  cancel() {
+    OKLiteManager.cancel();
+  }
+
   render() {
     return (
       <View style={styles.container}>
@@ -102,6 +107,10 @@ export default class LiteDemo extends Component {
 
         <TouchableOpacity style={styles.button} onPress={this.reset}>
           <Text>重置</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.button} onPress={this.cancel}>
+          <Text>取消扫描(Android Only)</Text>
         </TouchableOpacity>
       </View>
     );
