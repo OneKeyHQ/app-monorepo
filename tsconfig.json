@@ -14,7 +14,8 @@
     "esModuleInterop": true,
     "module": "esnext",
     "isolatedModules": true,
-    "noImplicitReturns": false
+    "noImplicitReturns": false,
+    "noUnusedLocals": false
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"],

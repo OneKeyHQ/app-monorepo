@@ -1,1 +1,3 @@
-export { WebView as default } from 'react-native-webview';
+import { WebView as ReactNativeWebView } from 'react-native-webview';
+
+export default ReactNativeWebView;
