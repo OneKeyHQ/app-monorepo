@@ -21,5 +21,6 @@ export { default as Token } from './Token';
 export { default as Select } from './Select';
 export { default as AlertDialog } from './AlertDialog';
 
+export * from './TabBar/Tab';
 export * from './Provider/hooks';
 export * from './Typography';

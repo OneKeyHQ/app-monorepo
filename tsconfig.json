@@ -15,7 +15,9 @@
     "module": "esnext",
     "isolatedModules": true,
     "noImplicitReturns": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "types": ["styled-components-react-native"],
+    "typeRoots": ["node_modules/@types", "./@types"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"],

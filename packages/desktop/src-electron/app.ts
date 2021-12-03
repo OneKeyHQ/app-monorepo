@@ -61,7 +61,7 @@ async function createMainWindow() {
   }
 
   const src = isDevelopment
-    ? 'http://localhost:8000/'
+    ? 'http://localhost:3001/'
     : formatUrl({
         pathname: path.join(__dirname, 'index.html'),
         protocol: 'file',

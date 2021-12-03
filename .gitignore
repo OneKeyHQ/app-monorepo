@@ -23,3 +23,11 @@ packages/app/src/public/static/connect
 
 .env
 webpack.config.preview.json
+
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
