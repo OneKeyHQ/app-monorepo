@@ -7,12 +7,13 @@
   "scripts": {
     "postinstall": "expo-yarn-workspaces postinstall",
     "lint": "tsc --noEmit && eslint pages --ext .ts,.tsx && eslint src-electron --ext .ts,.tsx",
-    "dev": "yarn build:main && cross-env LAUNCH_ELECTRON=true node scripts/dev.js",
-    "dev:run": "electron dist/app.js",
-    "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./.next && rimraf node_modules && rimraf .expo && rimraf __generated__",
-    "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./.next && rimraf .expo",
+    "dev": "concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
+    "dev:main": "electron dist/app.js",
+    "dev:renderer": "BROWSER=none WEB_PORT=3001 expo start --web",
+    "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf node_modules && rimraf .expo && rimraf __generated__",
+    "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf .expo",
     "build": "yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never",
-    "build:renderer": "rimraf ./build && next build && next export -o build",
+    "build:renderer": "rimraf ./build && expo build:web",
     "build:main": "cross-env NODE_ENV=production && node scripts/build.js",
     "publish:all": "yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish always",
     "build:electron": "electron-builder build -mwl --config electron-builder.config.js"

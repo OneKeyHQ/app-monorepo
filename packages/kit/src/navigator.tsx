@@ -1,5 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-// import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@onekeyhq/components/src/TabBar/Tab';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -13,4 +13,5 @@ export type RootStackParamList = {
 
 const StackNavigator = createNativeStackNavigator<RootStackParamList>();
 
-export { StackNavigator };
+const TabNavigator = createBottomTabNavigator();
+export { StackNavigator, TabNavigator };

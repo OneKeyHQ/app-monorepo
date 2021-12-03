@@ -110,7 +110,7 @@ const DeviceConnection: FC = () => {
         Go to dapp
       </Button>
       <HStack alignItems="center">
-        <Text bold fontSize="xl" textAlign="center" mr="3" color="gray.500">
+        <Text bold fontSize="xl" textAlign="center" mr="3" color="text-subdued">
           change theme
         </Text>
         <Switch
@@ -129,7 +129,7 @@ const DeviceConnection: FC = () => {
         mt="3"
         bg="red.50"
       >
-        <Text bold fontSize="xl" textAlign="center" color="gray.500">
+        <Text bold fontSize="xl" textAlign="center" color="text-subdued">
           Connect Device
         </Text>
       </Button>

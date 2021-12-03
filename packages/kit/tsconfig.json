@@ -1,27 +1,3 @@
 {
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true,
-    "importHelpers": true,
-    "jsx": "preserve",
-    "lib": ["dom", "esnext"],
-    "moduleResolution": "node",
-    "noFallthroughCasesInSwitch": true,
-    "noEmit": true,
-    "noEmitHelpers": true,
-    "noImplicitReturns": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "target": "esnext",
-    "allowJs": true,
-    "baseUrl": ".",
-    "removeComments": true,
-    "typeRoots": ["node_modules/@types", "./src/@types"],
-    "incremental": true
-  }
+  "extends": "../../tsconfig.json"
 }
