@@ -6,6 +6,8 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ReactShadowNode
 import com.facebook.react.uimanager.ViewManager
+import so.onekey.app.wallet.reactModule.AndroidUpdateModule
+import so.onekey.app.wallet.reactModule.BuildConfigManager
 import so.onekey.app.wallet.reactModule.OKLiteManager
 import java.util.*
 
@@ -14,6 +16,8 @@ class MainReactNativePackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): MutableList<NativeModule> {
     val modules = mutableListOf<NativeModule>()
     modules.add(OKLiteManager(reactContext))
+    modules.add(BuildConfigManager())
+    modules.add(AndroidUpdateModule(reactContext))
     return modules
   }
 

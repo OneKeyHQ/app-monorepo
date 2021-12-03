@@ -4,7 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "start": "react-native start",
-    "android": "expo run:android",
+    "android-google": "expo run:android --variant=GooglePlayDebug",
+    "android": "expo run:android --variant=WebsiteDebug",
     "ios": "expo run:ios",
     "eject": "expo eject",
     "postinstall": "expo-yarn-workspaces postinstall",
@@ -33,6 +34,7 @@
     "react-native-base64": "^0.2.1",
     "react-native-ble-plx": "^2.0.3",
     "react-native-config": "^1.4.5",
+    "react-native-device-info": "^8.4.8",
     "react-native-gesture-handler": "~1.10.2",
     "react-native-reanimated": "~2.2.0",
     "react-native-safe-area-context": "3.3.2",
