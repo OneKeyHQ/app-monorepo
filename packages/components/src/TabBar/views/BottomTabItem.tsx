@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
-import { Link, Route, useTheme } from '@react-navigation/native';
+import { Link, Route } from '@react-navigation/native';
 import React from 'react';
 import {
   GestureResponderEvent,

@@ -17,7 +17,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
   return (
     <Box position="relative" width="260px" height="100%">
       <Box
-        bg="icon-disabled"
+        bg="background-default"
         width="100%"
         display="flex"
         flexDirection="column"
@@ -41,7 +41,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
           <Box mt="6">
             <Box>
               <Box>
-                <Text>
+                <Text color="text-subdued">
                   {intl.formatMessage({
                     id: 'ui-components__sidebar_trade',
                   })}
@@ -89,7 +89,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
                       onLongPress={onLongPress}
                     >
                       <Box
-                        bg={isActive ? 'gray.200' : undefined}
+                        bg={isActive ? 'background-selected' : undefined}
                         p="3"
                         mt="1"
                         aria-current={isActive ? 'page' : undefined}

@@ -1,0 +1,53 @@
+name: test_web
+
+on:
+  push:
+    branches:
+      - onekey
+  pull_request:
+    branches:
+      - onekey
+
+jobs:
+  test_web:
+    runs-on: ubuntu-latest
+    env:
+      TEST_ENDPOINT: app.test.onekey.so
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Environment
+        uses: actions/setup-node@v1
+        with:
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+          node-version: '16.x'
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          yarn && yarn global add expo-cli
+      - name: Build Target
+        run: |
+          cd packages/web && yarn build && cd ../..
+      - name: Deploy Github Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./packages/web/web-build
+          cname: ${{ env.TEST_ENDPOINT }}
+          force_orphan: true
+      - name: Comment on PR
+        if: ${{ github.ref != 'refs/heads/onekey' }}
+        uses: actions/github-script@v3
+        env:
+          SHA: ${{ github.sha }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `👋 Successfully deployed the latest commit \`${process.env.SHA}\` to https://${process.env.TEST_ENDPOINT}`
+            })

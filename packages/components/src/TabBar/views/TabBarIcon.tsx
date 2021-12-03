@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unused-prop-types */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-use-before-define */
@@ -31,8 +32,6 @@ type Props = {
 export default function TabBarIcon({
   route: _,
   horizontal,
-  badge,
-  badgeStyle,
   activeOpacity,
   inactiveOpacity,
   activeTintColor,

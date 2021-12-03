@@ -17,7 +17,7 @@ import store from './store';
 const TabBar = () => {
   const intl = useIntl();
   const fontColor = useThemeValue('text-subdued');
-  const bgColor = useThemeValue('icon-disabled');
+  const bgColor = useThemeValue('background-default');
   return (
     <Tab.Navigator>
       <Tab.Screen

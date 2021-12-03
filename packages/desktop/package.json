@@ -6,7 +6,7 @@
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
     "postinstall": "expo-yarn-workspaces postinstall",
-    "lint": "tsc --noEmit && eslint pages --ext .ts,.tsx && eslint src-electron --ext .ts,.tsx",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx && eslint src-electron --ext .ts,.tsx",
     "dev": "concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron dist/app.js",
     "dev:renderer": "BROWSER=none WEB_PORT=3001 expo start --web",
