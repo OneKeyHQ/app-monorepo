@@ -24,7 +24,7 @@ export type UIProviderProps = {
 const Provider: FC<UIProviderProps> = ({
   children,
   defaultTheme: initialTheme,
-  defaultTheme: initialLocale,
+  defaultLocale: initialLocale,
 }) => {
   const defaultTheme = getDefaultTheme(initialTheme);
   const [themeVariant, setThemeVariant] = useState<ThemeVariant>(defaultTheme);
