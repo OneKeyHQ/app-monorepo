@@ -28,15 +28,16 @@
     "@onekeyhq/kit": "*",
     "electron-is-dev": "^2.0.0",
     "electron-store": "^8.0.1",
+    "electron-updater": "^4.6.1",
     "expo": "^43.0.2",
     "next": "^11.1.2",
     "node-fetch": "^2.6.1",
     "react-native-web": "0.17.1"
   },
   "devDependencies": {
-    "@electron/remote": "^2.0.1",
     "@babel/core": "^7.12.9",
     "@babel/plugin-proposal-class-properties": "^7.16.0",
+    "@electron/remote": "^2.0.1",
     "@types/electron-localshortcut": "^3.1.0",
     "@types/node-fetch": "^2.5.7",
     "cross-env": "^7.0.3",
