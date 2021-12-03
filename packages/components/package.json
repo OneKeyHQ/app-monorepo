@@ -4,6 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@react-navigation/native": "^6.0.6",
     "native-base": "^3.2.2",
     "react-native-jazzicon": "^0.1.2",
     "react-native-svg": "^12.1.1",
@@ -11,6 +12,8 @@
   },
   "devDependencies": {
     "@svgr/cli": "^5.5.0",
+    "@types/styled-components": "^5.1.15",
+    "@types/styled-components-react-native": "^5.1.3",
     "lodash": "^4.17.21",
     "prettier": "^2.4.1"
   },
