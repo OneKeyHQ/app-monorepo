@@ -15,7 +15,7 @@
         }
       },
       "ios": {
-        "image": "macos-big-sur-11.4-xcode-12.5",
+        "image": "macos-big-sur-11.4-xcode-13.0",
         "env": {
           "PLATFORM": "ios"
         }
@@ -52,7 +52,7 @@
         "gradleCommand": ":app:bundleRelease"
       },
       "ios": {
-        "enterpriseProvisioning": "adhoc",
+        "enterpriseProvisioning": "universal",
         "buildConfiguration": "Release"
       }
     },
@@ -67,7 +67,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "ios": {
-        "enterpriseProvisioning": "universal",
+        "enterpriseProvisioning": "adhoc",
         "buildConfiguration": "Release",
         "distribution": "internal"
       }

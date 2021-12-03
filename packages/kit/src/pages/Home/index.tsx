@@ -8,6 +8,18 @@ import {
   Jazzicon,
   Icon,
   Token,
+  DisplayXLarge,
+  DisplayLarge,
+  DisplayMedium,
+  DisplaySmall,
+  PageHeading,
+  Heading,
+  SUBHEADING,
+  Button1,
+  Button2,
+  Body1,
+  Body2,
+  Caption,
 } from '@onekeyhq/components';
 import { FormattedMessage } from '@onekeyhq/kit';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +28,19 @@ function AppRouterLinks() {
   const navigation = useNavigation();
   return (
     <>
+      <DisplayXLarge>DisplayXLarge</DisplayXLarge>
+      <DisplayLarge>DisplayLarge</DisplayLarge>
+      <DisplayMedium>DisplayMedium</DisplayMedium>
+      <DisplaySmall>DisplaySmall</DisplaySmall>
+      <PageHeading>PageHeading</PageHeading>
+      <Heading>Heading</Heading>
+      <SUBHEADING>SUBHEADING</SUBHEADING>
+      <Button1>Button1</Button1>
+      <Button2>Button2</Button2>
+      <Body1>Body1</Body1>
+      <Body2>Body2</Body2>
+      <Caption>Caption</Caption>
+
       <Button
         onPress={() => {
           // @ts-ignore

@@ -12,7 +12,7 @@ export { default as ZStack } from './ZStack';
 export { default as Input } from './Input';
 export { default as Provider } from './Provider';
 export { default as WebView } from './WebView';
-export { default as Heading } from './Heading';
+// export { default as Heading } from './Heading';
 export { default as Switch } from './Switch';
 export { default as Address } from './Address';
 export { default as Jazzicon } from './Jazzicon';
@@ -23,3 +23,4 @@ export { default as AlertDialog } from './AlertDialog';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';
+export * from './Typography';
