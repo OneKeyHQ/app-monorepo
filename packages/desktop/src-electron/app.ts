@@ -10,8 +10,6 @@ import Logger, {
 import modules from './libs/modules';
 import * as store from './libs/store';
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
 // global reference to mainWindow (necessary to prevent window from being garbage collected)
 let mainWindow: BrowserWindow | null;
 
@@ -42,9 +40,9 @@ async function createMainWindow() {
     // icon: null,
     webPreferences: {
       webviewTag: true,
-      webSecurity: !isDevelopment,
+      webSecurity: !isDev,
       nativeWindowOpen: true,
-      allowRunningInsecureContent: isDevelopment,
+      allowRunningInsecureContent: isDev,
       nodeIntegration: true,
       nodeIntegrationInSubFrames: true,
 
@@ -56,14 +54,14 @@ async function createMainWindow() {
     },
   });
 
-  if (isDevelopment) {
+  if (isDev) {
     browserWindow.webContents.openDevTools();
   }
 
-  const src = isDevelopment
+  const src = isDev
     ? 'http://localhost:3001/'
     : formatUrl({
-        pathname: path.join(__dirname, 'index.html'),
+        pathname: 'index.html',
         protocol: 'file',
         slashes: true,
       });

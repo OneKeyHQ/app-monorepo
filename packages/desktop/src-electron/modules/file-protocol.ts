@@ -11,7 +11,7 @@ const init = ({ mainWindow, src }: Dependencies): void => {
     PROTOCOL,
     (request, callback) => {
       let url = request.url.substr(PROTOCOL.length + 1);
-      url = path.join(__dirname, '..', '..', 'web-build', url);
+      url = path.join(__dirname, '..', '..', 'build', url);
       callback(url);
     },
   );

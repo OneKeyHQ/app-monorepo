@@ -1,13 +1,12 @@
 {
   "expo": {
-    "name": "web",
-    "slug": "web",
+    "name": "desktop",
+    "slug": "desktop",
     "version": "0.0.1",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "assetBundlePatterns": ["**/*"],
     "web": {
-      "favicon": "./assets/favicon.png"
+      "publicPath": "./public",
+      "favicon": "./public/static/images/icons/favicon/favicon.png"
     }
   }
 }
