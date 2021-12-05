@@ -13,7 +13,7 @@
     "build:connect": "yarn build:connect:desktop && yarn build:connect:native",
     "build:connect:desktop": "yarn webpack --config ./packages/kit/development/desktop.connect.webpack.config.js",
     "build:connect:native": "yarn webpack --config ./packages/kit/development/native.connect.webpack.config.js",
-    "clean": "yarn workspaces run clean && rimraf node_modules && yarn cache clean",
+    "clean": "./clean_workspace.sh && yarn cache clean",
     "lint-staged": "lint-staged",
     "lint": "yarn workspaces run lint",
     "native": "yarn workspace @onekeyhq/app start --reset-cache",

@@ -1,9 +1,9 @@
-name: build
+name: build-desktop
 
 on: workflow_dispatch
 
 jobs:
-  build:
+  build-desktop:
     runs-on: macos-latest
     strategy:
       matrix:
@@ -37,10 +37,21 @@ jobs:
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'yarn'
+        run: 'yarn && yarn global add expo-cli'
 
-      - name: Build Static Linux / Macos / Windows Installer
-        run: 'cd packages/desktop && yarn build'
+      - name: Setup Code Signing file
+        run: |
+          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
+
+      - name: Build and Sign Static Linux / Macos / Windows Installer
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: 'cd packages/desktop && yarn publish:all'
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
