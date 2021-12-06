@@ -2,10 +2,12 @@ name: Build Native Dev Wrapper CI
 
 on:
   workflow_dispatch:
-    platform:
-      description: '编译平台 (android/ios/all)'
-      required: false
-      default: 'all'
+    inputs:
+      platform:
+        description: '编译平台 (android/ios/all)'
+        required: false
+        default: 'all'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,7 +28,7 @@ jobs:
       - name: Setup keys secret
         run: |
           echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/.env
-          echo ${{ secrets.AND_KEYS_SECRET }} | base64 -d > packages/app/android/keys.secret 
+          echo ${{ secrets.AND_KEYS_SECRET }} | base64 -d > packages/app/android/keys.secret
 
       - name: Setup Expo
         uses: expo/expo-github-action@v5
