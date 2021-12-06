@@ -1,9 +1,3 @@
 {
-  "extends": "../../tsconfig.json",
-  "include": [
-    "src",
-    "../../node_modules/@types/node/globals.d.ts",
-    "./globals.d.ts"
-  ],
-  "exclude": ["build", "node_modules"]
+  "extends": "../../tsconfig.json"
 }

@@ -30,7 +30,4 @@ function DevToolsPanel() {
   );
 }
 
-ReactDOM.render(
-  <DevToolsPanel />,
-  window.document.querySelector('#app-container'),
-);
+ReactDOM.render(<DevToolsPanel />, window.document.querySelector('#root'));

@@ -1,6 +1,8 @@
 import WebView from 'react-native-webview';
 import { WindowOneKey } from './types';
 
+declare const self: ServiceWorkerGlobalScope;
+
 declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;

@@ -1,16 +1,44 @@
-/* global css works like nextjs */
+/*
+  global css works like nextjs/expo
+  node_modules/@expo/webpack-config/web-default/index.html
+ */
+
+/* ---------------------------------------------- */
+
+/**
+ * Extend the react-native-web reset:
+ * https://github.com/necolas/react-native-web/blob/master/packages/react-native-web/src/exports/StyleSheet/initialRules.js
+ */
+html,
+body,
+#root {
+  width: 100%;
+  /* To smooth any scrolling behavior */
+  -webkit-overflow-scrolling: touch;
+  margin: 0px;
+  padding: 0px;
+  /* Allows content to fill the viewport and go beyond the bottom */
+  min-height: 100%;
+}
+
+#root {
+  flex-shrink: 0;
+  flex-basis: auto;
+  flex-grow: 1;
+  display: flex;
+  flex: 1;
+}
+
 html {
-  height: 100%;
-  -ms-text-size-adjust: 100%;
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   scroll-behavior: smooth;
+  /* Prevent text size change on orientation change https://gist.github.com/tfausak/2222823#file-ios-8-web-app-html-L138 */
   -webkit-text-size-adjust: 100%;
+  height: calc(100% + env(safe-area-inset-top));
 }
 
 body {
   display: flex;
-  margin: 0;
+  /* Allows you to scroll below the viewport; default value is visible */
   overflow-y: auto;
   overscroll-behavior-y: none;
   text-rendering: optimizeLegibility;
@@ -19,26 +47,16 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
-html,
-body,
-#__next,
-#app-container {
-  width: 100%;
-  min-height: 100%;
-  -webkit-overflow-scrolling: touch;
-  margin: 0px;
-  padding: 0px;
-}
+/* Enable for apps that support dark-theme */
+/*@media (prefers-color-scheme: dark) {
+  body {
+    background-color: black;
+  }
+}*/
 
-#__next,
-#app-container {
-  /* works for extension popup size */
-  min-width: 380px;
+/* ---------------------------------------------- */
+/* html height and width needs to work like extension popup.html */
+html {
   min-height: 800px;
-  flex: 1;
-  display: flex;
-  flex-shrink: 0;
-  flex-basis: auto;
-  flex-direction: column;
-  flex-grow: 1;
+  min-width: 375px;
 }
