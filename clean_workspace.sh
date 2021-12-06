@@ -26,3 +26,5 @@ rm -rf ./packages/web/.expo
 rm -rf ./packages/web/__generated__
 rm -rf ./packages/web/.next
 rm -rf ./packages/web/dist
+rm -rf ./packages/web/web-build
+rm -rf ./packages/web/.expo-shared

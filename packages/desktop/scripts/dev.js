@@ -10,7 +10,6 @@ const id = setInterval(checkPort, 1000);
 function checkPort() {
   try {
     const status = execSync('lsof -i:3001');
-    console.log(status);
     if (!status) return;
   } catch (e) {
     return;

@@ -95,7 +95,6 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
                         aria-current={isActive ? 'page' : undefined}
                         display="flex"
                         flexDirection="column"
-                        alignItems="row"
                         borderRadius="12px"
                       >
                         <Box

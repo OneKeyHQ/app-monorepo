@@ -10,9 +10,7 @@ import Logger, {
 import modules from './libs/modules';
 import * as store from './libs/store';
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
-// global reference to mainWindow (necessary to prevent window from being garbage collected)
+const APP_NAME = 'OneKey Wallet';
 let mainWindow: BrowserWindow | null;
 
 // Logger
@@ -38,32 +36,27 @@ const preloadJsUrl = path.join(staticPath, 'preload.js'); // static path
 
 async function createMainWindow() {
   const browserWindow = new BrowserWindow({
-    frame: true, // show title
-    // icon: null,
+    title: APP_NAME,
+    frame: true,
     webPreferences: {
       webviewTag: true,
-      webSecurity: !isDevelopment,
+      webSecurity: !isDev,
       nativeWindowOpen: true,
-      allowRunningInsecureContent: isDevelopment,
-      nodeIntegration: true,
-      nodeIntegrationInSubFrames: true,
-
-      // https://www.electronjs.org/docs/latest/tutorial/context-isolation
-      contextIsolation: false,
-
-      // isIpcReady will check by this
-      preload: preloadJsUrl,
+      allowRunningInsecureContent: isDev,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
+    icon: path.join(global.resourcesPath, 'images', 'icons', '512x512.png'),
   });
 
-  if (isDevelopment) {
+  if (isDev) {
     browserWindow.webContents.openDevTools();
   }
 
-  const src = isDevelopment
+  const src = isDev
     ? 'http://localhost:3001/'
     : formatUrl({
-        pathname: path.join(__dirname, 'index.html'),
+        pathname: 'index.html',
         protocol: 'file',
         slashes: true,
       });
@@ -99,22 +92,37 @@ async function createMainWindow() {
   return browserWindow;
 }
 
-// quit application when all windows are closed
-app.on('window-all-closed', () => {
-  // on macOS it is common for applications to stay open until the user explicitly quits
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+// https://www.electronjs.org/docs/all#apprequestsingleinstancelock
+const singleInstance = app.requestSingleInstanceLock();
+
+if (!singleInstance && !process.mas) {
+  logger.warn('main', 'Second instance detected, quitting...');
+  app.quit();
+} else {
+  logger.info('main', 'Application starting');
+
+  app.on('second-instance', () => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  app.name = APP_NAME; // overrides @onekey/desktop app name in menu
+  app.on('ready', async () => {
+    mainWindow = await createMainWindow();
+  });
+}
 
 app.on('activate', async () => {
-  // on macOS it is common to re-create a window even after all windows have been closed
   if (mainWindow === null) {
     mainWindow = await createMainWindow();
   }
 });
 
-// create main BrowserWindow when electron is ready
-app.on('ready', async () => {
-  mainWindow = await createMainWindow();
+app.on('before-quit', () => {
+  if (!mainWindow) return;
+  mainWindow.removeAllListeners();
+  logger.exit();
 });

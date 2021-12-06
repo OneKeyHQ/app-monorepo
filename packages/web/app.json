@@ -3,11 +3,9 @@
     "name": "web",
     "slug": "web",
     "version": "0.0.1",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "assetBundlePatterns": ["**/*"],
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./public/static/images/icons/favicon/favicon.png"
     }
   }
 }
