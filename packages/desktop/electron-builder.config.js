@@ -12,11 +12,8 @@ module.exports = {
     'output': 'build-electron',
   },
   'files': [
-    {
-      'from': 'build/',
-      'to': 'public/',
-      'filter': ['**/*', '!static/bin/**/*'],
-    },
+    'build/**/*',
+    '!build/static/bin/**/*',
     'dist/**/*.js',
     '!dist/__**',
     'package.json',

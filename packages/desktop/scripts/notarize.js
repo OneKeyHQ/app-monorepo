@@ -1,5 +1,5 @@
 const { notarize } = require('electron-notarize');
-const pkg = require('../package.json');
+const build = require('../electron-builder.config');
 
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
@@ -17,11 +17,12 @@ exports.default = async function notarizing(context) {
 
   console.log(`notarizing ${appPath} ...`);
 
-  return await notarize({
-    appBundleId: pkg.build.appId,
+  const result = await notarize({
+    appBundleId: build.appId,
     appPath,
     appleId: process.env.APPLEID,
     appleIdPassword: process.env.APPLEIDPASS,
     ascProvider: process.env.ASC_PROVIDER,
   });
+  return result;
 };

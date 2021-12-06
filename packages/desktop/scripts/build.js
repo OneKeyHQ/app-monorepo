@@ -20,7 +20,9 @@ const modules = glob
 console.log('[Electron Build] Starting...');
 const hrstart = process.hrtime();
 build({
-  entryPoints: ['app.ts', ...modules].map((f) => path.join(electronSource, f)),
+  entryPoints: ['app.ts', 'preload.ts', ...modules].map((f) =>
+    path.join(electronSource, f),
+  ),
   platform: 'node',
   bundle: true,
   target: 'node12.18.2', // Electron 11
