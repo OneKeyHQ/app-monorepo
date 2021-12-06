@@ -37,12 +37,16 @@ function createJsBridgeBase({
     data,
     type,
     origin,
+    remoteId,
+    ...others
   }: IJsBridgeMessagePayload) {
     const payload = {
       id,
       type,
       data,
       origin,
+      remoteId,
+      ...others,
     };
     if (resolve && id) {
       callbacksMap[id] = { resolve };
@@ -54,6 +58,7 @@ function createJsBridgeBase({
     data,
     id,
     origin,
+    remoteId,
     resolve,
     reject,
   }: JsBridgeEventPayload) {
@@ -67,6 +72,7 @@ function createJsBridgeBase({
       resolve,
       id,
       data,
+      remoteId,
       origin,
     };
   }
@@ -94,7 +100,7 @@ function createJsBridgeBase({
         }
       });
     },
-    send({ type, data, id }: IJsBridgeMessagePayload) {
+    send({ type, data, id, remoteId }: IJsBridgeMessagePayload) {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         let _resolve;
@@ -111,6 +117,7 @@ function createJsBridgeBase({
           type,
           // TODO value in HOST
           origin: global?.location?.origin,
+          remoteId,
         });
         let payloadToSend: unknown = payload;
         if (sendAsString) {
@@ -133,8 +140,11 @@ function createJsBridgeBase({
         payload = JSON.parse(payloadStr) as IJsBridgeMessagePayload;
       }
 
-      const { type, id, data, origin } = payload;
-      this.remoteInfo.origin = origin;
+      const { type, id, data, origin, remoteId } = payload;
+      this.remoteInfo = {
+        origin,
+        remoteId,
+      };
       // TODO origin validation check
 
       if (type === MESSAGE_TYPES.response) {
@@ -146,25 +156,29 @@ function createJsBridgeBase({
       } else {
         const eventPayload = createEventPayload({
           resolve: (d) => {
-            self.response(id as string, d, null);
+            self.response(id as string, d, null, remoteId);
           },
           id,
           data,
           origin,
+          remoteId,
         });
         // TODO onReceive/responseMessage -> auto response resolve, catch error reject
         this.trigger('message', eventPayload);
       }
     },
+    // TODO requestToAll
     // send request to remote
-    request(data: unknown) {
+    request(data: unknown, remoteId: unknown = null) {
       return this.send({
         type: this.MESSAGE_TYPES.request,
         data,
+        // @ts-ignore
+        remoteId,
       });
     },
     // send response to remote
-    response(id, data: unknown, error = null) {
+    response(id, data: unknown, error = null, remoteId: unknown = null) {
       if (error) {
         console.error(error);
       }
@@ -173,6 +187,8 @@ function createJsBridgeBase({
         type: this.MESSAGE_TYPES.response,
         data,
         id,
+        // @ts-ignore
+        remoteId,
       });
     },
     // response middleware

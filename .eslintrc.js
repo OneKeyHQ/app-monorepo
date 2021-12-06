@@ -18,6 +18,13 @@ const tsRules = {
   '@typescript-eslint/ban-ts-comment': 'off',
 };
 module.exports = {
+  env: {
+    browser: true,
+    es6: true,
+    webextensions: true,
+    serviceworker: true,
+    worker: true,
+  },
   overrides: [
     {
       files: ['*.js', '*.jsx', '*.text-js'],
@@ -37,11 +44,11 @@ module.exports = {
     },
     // test files rules must be at LAST
     {
-      'files': ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
+      files: ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
       // 'plugins': ['react', 'react-hooks', 'jest', 'import'],
-      'extends': ['plugin:jest/recommended'],
-      'env': { 'jest': true },
-      'rules': {
+      extends: ['plugin:jest/recommended'],
+      env: { jest: true },
+      rules: {
         'jest/expect-expect': 'off',
         'jest/no-disabled-tests': 'off',
         'jest/no-conditional-expect': 'off',

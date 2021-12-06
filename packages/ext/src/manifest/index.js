@@ -38,8 +38,7 @@ module.exports = {
         // allow content-script inject js file
         'injected.js',
         // allow site load iframe force service-worker update
-        // TODO DEV only
-        'ui-popup.html',
+        'ui-content-script-iframe.html',
       ],
       'matches': ['<all_urls>'],
     },

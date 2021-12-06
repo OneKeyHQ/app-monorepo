@@ -3,9 +3,13 @@ import ReactDOM from 'react-dom';
 
 import Home from '@onekeyhq/kit/src/pages/Home';
 import { Provider, StackNavigator } from '@onekeyhq/kit';
+import inpageProviderUi from '@onekeyhq/inpage-provider/src/extension/ui';
 import hotReload from './hotReload';
 
 import './index.css';
+
+// @ts-ignore
+window.jsBridgeUi = inpageProviderUi.createUiJsBridge();
 
 const RootApp: FC = function () {
   return (

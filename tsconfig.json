@@ -2,7 +2,7 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
-    "lib": ["dom", "esnext"],
+    "lib": ["dom", "esnext", "webworker"],
     "moduleResolution": "node",
     "noEmit": true,
     "skipLibCheck": true,

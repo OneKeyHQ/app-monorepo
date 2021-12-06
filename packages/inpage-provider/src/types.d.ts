@@ -7,6 +7,7 @@ export type WindowOneKey = {
 
 export type JsBridgeEventPayload = {
   id?: number | string;
+  remoteId?: number | string;
   data?: unknown;
   origin?: string;
   resolve?: (payload: unknown) => void;
@@ -15,6 +16,7 @@ export type JsBridgeEventPayload = {
 
 export type IJsBridgeMessagePayload = {
   id?: number | string;
+  remoteId?: number | string;
   data?: unknown | IInpageProviderRequestPayload;
   type?: string; // 'request', 'response'
   origin?: string;
@@ -66,10 +68,15 @@ export type IJsBridge = {
     callback: (event: JsBridgeEventPayload) => void,
   ) => void;
   off: () => void;
-  send: (data: IJsBridgeMessagePayload) => Promise<any>;
-  receive: (data: string) => void;
-  request: (data: any) => Promise<unknown>;
-  response: (id?: number | string, data: any, error?: Error | null) => void;
+  send: (payload: IJsBridgeMessagePayload) => Promise<any>;
+  receive: (payload: string) => void;
+  request: (data: any, remoteId?: unknown) => Promise<unknown>;
+  response: (
+    id?: number | string,
+    data: any,
+    error?: Error | null,
+    remoteId?: unknown,
+  ) => void;
   responseMessage: (data: string) => void;
   trigger: (event: string, payload: any) => void;
 };
