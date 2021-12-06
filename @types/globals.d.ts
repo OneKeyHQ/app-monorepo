@@ -8,6 +8,7 @@ declare global {
   // var onekey: WindowOneKey;
 
   interface Window {
+    portUiToBg: any;
     ethereum: any;
     web3: any;
     ReactNativeWebView: WebView;

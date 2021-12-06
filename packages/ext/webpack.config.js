@@ -57,7 +57,7 @@ let webpackConfig = {
   entry: {
     'background': path.join(__dirname, 'src/entry/background.ts'),
     'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
-    'ui-popup': path.join(__dirname, 'src/entry/ui-popup.ts'),
+    'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
     // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
     // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
     'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),

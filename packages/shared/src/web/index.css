@@ -55,7 +55,9 @@ body {
 }*/
 
 /* ---------------------------------------------- */
-/* html height and width needs to work like extension popup.html */
+/* !! IMPORTANT:
+html height and width needs here to work like extension popup.html
+*/
 html {
   min-height: 800px;
   min-width: 375px;
