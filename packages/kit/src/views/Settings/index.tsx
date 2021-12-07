@@ -6,7 +6,7 @@ const Settings = () => {
   const { locale, setLocale } = useLocale();
 
   return (
-    <Center flex="1" bg="border-subdued">
+    <Center flex="1" bg="background-hovered">
       <Switch
         isChecked={themeVariant === 'light'}
         onToggle={() =>
