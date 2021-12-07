@@ -26,5 +26,6 @@
   "ui-components__sidebar_swap": "闪兑",
   "ui-components__sidebar_trade": "交易",
   "ui-components__sidebar_wallet": "钱包",
-  "ui-components__sidebar_settings": "设置"
+  "ui-components__sidebar_settings": "设置",
+  "ui-components__sidebar_components": "组件"
 }

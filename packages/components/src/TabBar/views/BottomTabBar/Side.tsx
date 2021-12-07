@@ -11,7 +11,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
   const { routes } = state;
   const [isCollapsed] = useState(false);
   const intl = useIntl();
-  const activeColor = useThemeValue('focused-default');
+  const activeColor = useThemeValue('text-default');
   const inactiveColor = useThemeValue('text-subdued');
 
   return (

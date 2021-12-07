@@ -1,5 +1,6 @@
-import React from 'react';
-import { Text, ITextProps } from 'native-base';
+import React, { FC, ComponentProps } from 'react';
+
+import Typography from '../Typography';
 import { shortenAddress } from '../utils';
 
 export type AddressProps = {
@@ -11,7 +12,7 @@ export type AddressProps = {
    * 是否缩写，默认为 false
    */
   short?: boolean;
-} & ITextProps;
+} & ComponentProps<typeof Typography.DisplaySmall>;
 
 const defaultProps = {
   short: false,
@@ -20,14 +21,16 @@ const defaultProps = {
 /**
  * Address 是一个适用于展示 区块链地址 的组件
  */
-export const Address: React.FC<AddressProps> = ({ text, short }) => {
+export const Address: FC<AddressProps> = ({ text, short, ...rest }) => {
   let textContent = text;
 
   if (short) {
     textContent = shortenAddress(textContent);
   }
-  // TODO: use Typography Component
-  return <Text>{textContent}</Text>;
+
+  return (
+    <Typography.DisplaySmall {...rest}>{textContent}</Typography.DisplaySmall>
+  );
 };
 
 Address.displayName = 'Address';

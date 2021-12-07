@@ -1,124 +1,144 @@
+import React, { ComponentProps, FC } from 'react';
 import { Text } from 'native-base';
-import React from 'react';
 
-type FontProps = {
-  fontFamily: string;
-  fontWeight: string;
-  fontSize: number;
-  lineHeight: number;
-};
+type FontProps = ComponentProps<typeof Text>;
 
-const DisplayXLargeProps: FontProps = {
+const DisplayXLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 28,
   lineHeight: 36,
 };
-const DisplayLargeProps: FontProps = {
+const DisplayLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 24,
   lineHeight: 32,
 };
-const DisplayMediumProps: FontProps = {
+const DisplayMediumProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 20,
   lineHeight: 28,
 };
-const DisplaySmallProps: FontProps = {
+const DisplaySmallProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 16,
   lineHeight: 24,
 };
-const PageHeadingProps: FontProps = {
+const PageHeadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 24,
   lineHeight: 32,
 };
-const HeadingProps: FontProps = {
+const HeadingProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 18,
   lineHeight: 28,
 };
-const SUBHEADINGProps: FontProps = {
+const SUBHEADINGProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 12,
   lineHeight: 16,
 };
-const Button1Props: FontProps = {
+const Button1Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 16,
   lineHeight: 24,
 };
-const Button2Props: FontProps = {
+const Button2Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 14,
   lineHeight: 20,
 };
-const Body1Props: FontProps = {
+const Body1Props = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 16,
   lineHeight: 24,
 };
-const Body2Props: FontProps = {
+const Body2Props = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 14,
   lineHeight: 20,
 };
-const CaptionProps: FontProps = {
+const CaptionProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 12,
   lineHeight: 16,
 };
 
-export const DisplayXLarge: React.FC = ({ children }) => (
-  <Text {...DisplayXLargeProps}>{children}</Text>
+export const DisplayXLarge: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...DisplayXLargeProps} {...rest}>
+    {children}
+  </Text>
 );
-export const DisplayLarge: React.FC = ({ children }) => (
-  <Text {...DisplayLargeProps}>{children}</Text>
+export const DisplayLarge: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...DisplayLargeProps} {...rest}>
+    {children}
+  </Text>
 );
-export const DisplayMedium: React.FC = ({ children }) => (
-  <Text {...DisplayMediumProps}>{children}</Text>
+export const DisplayMedium: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...DisplayMediumProps} {...rest}>
+    {children}
+  </Text>
 );
-export const DisplaySmall: React.FC = ({ children }) => (
-  <Text {...DisplaySmallProps}>{children}</Text>
+export const DisplaySmall: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...DisplaySmallProps} {...rest}>
+    {children}
+  </Text>
 );
-export const PageHeading: React.FC = ({ children }) => (
-  <Text {...PageHeadingProps}>{children}</Text>
+export const PageHeading: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...PageHeadingProps} {...rest}>
+    {children}
+  </Text>
 );
-export const Heading: React.FC = ({ children }) => (
-  <Text {...HeadingProps}>{children}</Text>
+export const Heading: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...HeadingProps} {...rest}>
+    {children}
+  </Text>
 );
-export const SUBHEADING: React.FC = ({ children }) => (
-  <Text {...SUBHEADINGProps}>{children}</Text>
+export const SUBHEADING: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...SUBHEADINGProps} {...rest}>
+    {children}
+  </Text>
 );
-export const Button1: React.FC = ({ children }) => (
-  <Text {...Button1Props}>{children}</Text>
+export const Button1: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...Button1Props} {...rest}>
+    {children}
+  </Text>
 );
-export const Button2: React.FC = ({ children }) => (
-  <Text {...Button2Props}>{children}</Text>
+export const Button2: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...Button2Props} {...rest}>
+    {children}
+  </Text>
 );
 
-export const Body1: React.FC = ({ children }) => (
-  <Text {...Body1Props}>{children}</Text>
+export const Body1: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...Body1Props} {...rest}>
+    {children}
+  </Text>
 );
-export const Body2: React.FC = ({ children }) => (
-  <Text {...Body2Props}>{children}</Text>
+export const Body2: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...Body2Props} {...rest}>
+    {children}
+  </Text>
 );
-export const Caption: React.FC = ({ children }) => (
-  <Text {...CaptionProps}>{children}</Text>
+export const Caption: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...CaptionProps} {...rest}>
+    {children}
+  </Text>
 );
-export default {
+
+const Typography = {
   DisplayXLarge,
   DisplayLarge,
   DisplayMedium,
@@ -132,3 +152,5 @@ export default {
   Body2,
   Caption,
 };
+
+export default Typography;

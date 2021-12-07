@@ -3,6 +3,7 @@ import { NativeBaseProvider, extendTheme } from 'native-base';
 import { NavigationContainer } from '@react-navigation/native';
 import { IntlProvider } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import COLORS, { getDefaultTheme, ThemeVariant } from './theme';
 import LOCALES, { getDefaultLocale, LocaleSymbol } from '../locale';
@@ -59,6 +60,7 @@ const Provider: FC<UIProviderProps> = ({
 
   return (
     <Context.Provider value={providerValue}>
+      <StatusBar style={themeVariant === 'dark' ? 'light' : 'dark'} />
       <NavigationContainer>
         <IntlProvider locale={locale} messages={LOCALES[locale]}>
           <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
