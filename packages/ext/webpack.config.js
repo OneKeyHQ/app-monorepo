@@ -14,6 +14,7 @@ const packageJson = require('./package.json');
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
+// TODO use webpack 4.43.0
 console.log('============ webpack.version ', webpack.version);
 
 // load the secrets
