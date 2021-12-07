@@ -1,5 +1,7 @@
 import React, { FC } from 'react';
-import { Image, Box, Text, Center } from 'native-base';
+import { Image, Box, Center } from 'native-base';
+
+import Typography from '../Typography';
 import Icon from '../Icon';
 import { CDN_PREFIX } from '../utils';
 
@@ -41,15 +43,20 @@ const Token: FC<TokenProps> = ({
         {imageUrl ? (
           <Image width={size} height={size} src={imageUrl} alt="Token" />
         ) : (
-          <Center width={size} height={size} borderRadius="full" bg="gray.300">
+          <Center
+            width={size}
+            height={size}
+            borderRadius="full"
+            bg="background-selected"
+          >
             <Icon name="QuestionMarkOutline" />
           </Center>
         )}
       </Box>
       {!!(name || description) && (
         <Box display="flex">
-          {!!name && <Text>{name}</Text>}
-          {!!description && <Text>{description}</Text>}
+          {!!name && <Typography.Body1>{name}</Typography.Body1>}
+          {!!description && <Typography.Body2>{description}</Typography.Body2>}
         </Box>
       )}
     </Box>

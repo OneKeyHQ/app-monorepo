@@ -4,8 +4,8 @@ import { Text } from 'native-base';
 import { Center } from '@onekeyhq/components';
 
 const Portfolio = () => (
-  <Center flex="1" bg="border-subdued">
-    <Text color="icon-subdued">Portfolio</Text>
+  <Center flex="1" bg="background-hovered">
+    <Text color="text-default">Portfolio</Text>
   </Center>
 );
 

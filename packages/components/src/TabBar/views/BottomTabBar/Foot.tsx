@@ -27,6 +27,8 @@ import {
 import { EdgeInsets, useSafeAreaFrame } from 'react-native-safe-area-context';
 
 import Box from '../../../Box';
+import { DeviceState } from '../../../Provider/device';
+import { useUserDevice, useThemeValue } from '../../../Provider/hooks';
 
 import type { BottomTabBarProps, BottomTabDescriptorMap } from '../../types';
 import BottomTabBarHeightCallbackContext from '../../utils/BottomTabBarHeightCallbackContext';
@@ -39,7 +41,6 @@ type Props = BottomTabBarProps & {
 
 const DEFAULT_TABBAR_HEIGHT = 49;
 const COMPACT_TABBAR_HEIGHT = 32;
-const DEFAULT_MAX_TAB_ITEM_WIDTH = 125;
 
 const useNativeDriver = Platform.OS !== 'web';
 
@@ -48,13 +49,13 @@ type Options = {
   descriptors: BottomTabDescriptorMap;
   layout: { height: number; width: number };
   dimensions: { height: number; width: number };
+  deviceSize: DeviceState['size'];
 };
 
 const shouldUseHorizontalLabels = ({
   state,
   descriptors,
-  layout,
-  dimensions,
+  deviceSize,
 }: Options) => {
   const { tabBarLabelPosition } =
     descriptors[state.routes[state.index].key].options;
@@ -68,27 +69,7 @@ const shouldUseHorizontalLabels = ({
     }
   }
 
-  if (layout.width >= 768) {
-    // Screen size matches a tablet
-    const maxTabWidth = state.routes.reduce((acc, route) => {
-      const { tabBarItemStyle } = descriptors[route.key].options;
-      const flattenedStyle = StyleSheet.flatten(tabBarItemStyle);
-
-      if (flattenedStyle) {
-        if (typeof flattenedStyle.width === 'number') {
-          return acc + flattenedStyle.width;
-        }
-        if (typeof flattenedStyle.maxWidth === 'number') {
-          return acc + flattenedStyle.maxWidth;
-        }
-      }
-
-      return acc + DEFAULT_MAX_TAB_ITEM_WIDTH;
-    }, 0);
-
-    return maxTabWidth <= layout.width;
-  }
-  return dimensions.width > dimensions.height;
+  return !!['NORMAL'].includes(deviceSize);
 };
 
 const getPaddingBottom = (insets: EdgeInsets) =>
@@ -140,6 +121,8 @@ export default function BottomTabBar({
   insets,
   style,
 }: Props) {
+  const { size } = useUserDevice();
+
   const { colors } = useTheme();
   const buildLink = useLinkBuilder();
 
@@ -248,6 +231,7 @@ export default function BottomTabBar({
     insets,
     dimensions,
     layout,
+    deviceSize: size,
     style: [tabBarStyle, style],
   });
 
@@ -256,17 +240,18 @@ export default function BottomTabBar({
     descriptors,
     dimensions,
     layout,
+    deviceSize: size,
   });
 
   const tabBarBackgroundElement = tabBarBackground?.();
-
+  const bgColor = useThemeValue('background-default');
   return (
     <Animated.View
       style={[
         styles.tabBar,
         {
           backgroundColor:
-            tabBarBackgroundElement != null ? 'transparent' : colors.card,
+            tabBarBackgroundElement != null ? 'transparent' : bgColor,
           borderTopColor: colors.border,
         },
         {
@@ -298,11 +283,7 @@ export default function BottomTabBar({
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {tabBarBackgroundElement}
       </View>
-      <Box
-        accessibilityRole="tablist"
-        style={styles.content}
-        bg="icon-disabled"
-      >
+      <Box accessibilityRole="tablist" style={styles.content}>
         {routes.map((route, index) => {
           const focused = index === state.index;
           const { options } = descriptors[route.key];

@@ -4,8 +4,8 @@ import { Text } from 'native-base';
 import { Center } from '@onekeyhq/components';
 
 const Swap = () => (
-  <Center flex="1" bg="border-subdued">
-    <Text color="icon-subdued">Swap</Text>
+  <Center flex="1" bg="background-hovered">
+    <Text color="text-default">Swap</Text>
   </Center>
 );
 

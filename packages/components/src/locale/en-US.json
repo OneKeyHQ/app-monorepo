@@ -26,5 +26,6 @@
   "ui-components__sidebar_swap": "Swap",
   "ui-components__sidebar_trade": "Trade",
   "ui-components__sidebar_wallet": "Wallet",
-  "ui-components__sidebar_settings": "Settings"
+  "ui-components__sidebar_settings": "Settings",
+  "ui-components__sidebar_components": "Components"
 }

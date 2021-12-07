@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 import { SvgProps } from 'react-native-svg';
+import { useThemeValue } from '../Provider/hooks';
 
 import ICON_CONFIG, { ICON_NAMES } from './Icons';
 
@@ -13,6 +14,7 @@ const defaultProps = {
 } as const;
 
 const Icon: FC<IconProps> = ({ name, size, color }) => {
+  const iconColor = useThemeValue('icon-default');
   const SVGComponent = ICON_CONFIG[name];
   if (!SVGComponent) return null;
 
@@ -20,7 +22,7 @@ const Icon: FC<IconProps> = ({ name, size, color }) => {
     <SVGComponent
       width={size ?? 'auto'}
       height={size ?? 'auto'}
-      color={color}
+      color={color ?? iconColor}
     />
   );
 };

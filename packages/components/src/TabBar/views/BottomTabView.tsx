@@ -65,6 +65,7 @@ export default function BottomTabView(props: Props) {
         ...SafeAreaProviderCompat.initialMetrics.insets,
         ...props.safeAreaInsets,
       },
+      deviceSize: size,
       style: descriptors[state.routes[state.index].key].options.tabBarStyle,
     }),
   );

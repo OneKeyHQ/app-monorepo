@@ -187,7 +187,7 @@ export default function BottomTabBarItem({
   iconStyle,
   style,
 }: Props) {
-  const activeColor = useThemeValue('focused-default');
+  const activeColor = useThemeValue('text-default');
   const inactiveColor = useThemeValue('text-subdued');
 
   const renderLabel = ({ focused }: { focused: boolean }) => {
