@@ -28,7 +28,7 @@ import { EdgeInsets, useSafeAreaFrame } from 'react-native-safe-area-context';
 
 import Box from '../../../Box';
 import { DeviceState } from '../../../Provider/device';
-import { useUserDevice } from '../../../Provider/hooks';
+import { useUserDevice, useThemeValue } from '../../../Provider/hooks';
 
 import type { BottomTabBarProps, BottomTabDescriptorMap } from '../../types';
 import BottomTabBarHeightCallbackContext from '../../utils/BottomTabBarHeightCallbackContext';
@@ -244,14 +244,14 @@ export default function BottomTabBar({
   });
 
   const tabBarBackgroundElement = tabBarBackground?.();
-
+  const bgColor = useThemeValue('background-default');
   return (
     <Animated.View
       style={[
         styles.tabBar,
         {
           backgroundColor:
-            tabBarBackgroundElement != null ? 'transparent' : colors.card,
+            tabBarBackgroundElement != null ? 'transparent' : bgColor,
           borderTopColor: colors.border,
         },
         {
@@ -283,11 +283,7 @@ export default function BottomTabBar({
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {tabBarBackgroundElement}
       </View>
-      <Box
-        accessibilityRole="tablist"
-        style={styles.content}
-        bg="surface-subdued"
-      >
+      <Box accessibilityRole="tablist" style={styles.content}>
         {routes.map((route, index) => {
           const focused = index === state.index;
           const { options } = descriptors[route.key];

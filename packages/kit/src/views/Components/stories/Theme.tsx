@@ -23,7 +23,7 @@ const AddressGallery = () => {
   return (
     <FlatList
       data={list}
-      bg="background-default"
+      bg="background-hovered"
       keyExtractor={(item) => item.name}
       renderItem={({ item }) => (
         <Center flex="1" flexDirection="row" display="flex" my="2">

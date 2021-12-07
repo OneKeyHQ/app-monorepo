@@ -1,5 +1,5 @@
 import React, { FC } from 'react';
-import { Image, Box, Text, Center } from 'native-base';
+import { Image, Box, Center } from 'native-base';
 
 import Typography from '../Typography';
 import Icon from '../Icon';

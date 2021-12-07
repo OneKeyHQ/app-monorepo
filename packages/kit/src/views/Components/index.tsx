@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React from 'react';
 import {
   Center,
   FlatList,
@@ -38,6 +38,7 @@ const Index = () => {
   return (
     <FlatList<DataItem>
       data={data}
+      bg="background-hovered"
       renderItem={({ item, index }) => (
         // TODO: typescript type define
         <Pressable
@@ -45,10 +46,11 @@ const Index = () => {
         >
           <Box
             borderBottomWidth={index === data.length - 1 ? '0' : '1'}
+            borderColor="text-subdued"
             pl="4"
             pr="5"
             py="2"
-            mx="4"
+            mx="12"
           >
             <Center display="flex" flexDirection="row">
               <Typography.DisplayLarge>{item.name}</Typography.DisplayLarge>

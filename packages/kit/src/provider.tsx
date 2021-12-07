@@ -13,7 +13,7 @@ import { tabRoutes, stackRoutes } from './routes';
 import store from './store';
 
 const TabBarScreen = () => {
-  const fontColor = useThemeValue('text-subdued');
+  const fontColor = useThemeValue('text-default');
   const bgColor = useThemeValue('surface-subdued');
   const { size } = useUserDevice();
   const isDesktopMode = !['SMALL', 'NORMAL'].includes(size);
@@ -43,7 +43,7 @@ const TabBarScreen = () => {
 };
 
 const StackScreen = () => {
-  const fontColor = useThemeValue('text-subdued');
+  const fontColor = useThemeValue('text-default');
   const bgColor = useThemeValue('surface-subdued');
   const { size } = useUserDevice();
   const isDesktopMode = !['SMALL', 'NORMAL'].includes(size);

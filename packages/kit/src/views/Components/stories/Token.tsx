@@ -3,7 +3,7 @@ import React from 'react';
 import { Center, Token } from '@onekeyhq/components';
 
 const TokenGallery = () => (
-  <Center flex="1">
+  <Center flex="1" bg="background-hovered">
     <Token />
     <Token chain="btc" />
     <Token chain="bsc" name="BSC" />

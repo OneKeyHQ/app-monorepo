@@ -5,6 +5,7 @@ import Icons, { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 
 const IconGallery = () => (
   <FlatList
+    bg="background-hovered"
     data={Object.keys(Icons)}
     renderItem={({ item }) => (
       <Center p="4">
