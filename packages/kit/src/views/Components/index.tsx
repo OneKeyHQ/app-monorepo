@@ -31,6 +31,9 @@ const data: DataItem[] = [
   {
     name: 'Icon',
   },
+  {
+    name: 'Buttons',
+  },
 ];
 
 const Index = () => {

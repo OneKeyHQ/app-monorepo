@@ -100,12 +100,6 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
   return (
     <>
       <Button
-        opacity={0.6}
-        position="absolute"
-        right={devToolsAtLeft ? undefined : 0}
-        left={devToolsAtLeft ? 0 : undefined}
-        variant="outline"
-        size="xs"
         onPress={() => {
           setDevToolsAtLeft(!devToolsAtLeft);
           webviewRef.current?.openDevTools();
