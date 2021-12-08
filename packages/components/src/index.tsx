@@ -28,6 +28,8 @@ export { default as Badge } from './Badge';
 export { default as Menu } from './Menu';
 export { default as Empty } from './Empty';
 export { useToast, Toast } from './Toast';
+export { default as Account } from './Account';
+export { default as CheckBox } from './CheckBox';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';

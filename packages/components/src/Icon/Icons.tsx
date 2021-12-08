@@ -283,6 +283,10 @@ import ChatSolid from './react/solid/Chat';
 import ChatAltSolid from './react/solid/ChatAlt';
 import ChatAlt2Solid from './react/solid/ChatAlt2';
 import CheckSolid from './react/solid/Check';
+import CheckBoxIconCheckedSolid from './react/solid/CheckBoxIconChecked';
+import CheckBoxIconCheckedDisableSolid from './react/solid/CheckBoxIconCheckedDisable';
+import CheckBoxIconDefaultSolid from './react/solid/CheckBoxIconDefault';
+import CheckBoxIconDefaultDisableSolid from './react/solid/CheckBoxIconDefaultDisable';
 import CheckCircleSolid from './react/solid/CheckCircle';
 import ChevronDoubleDownSolid from './react/solid/ChevronDoubleDown';
 import ChevronDoubleLeftSolid from './react/solid/ChevronDoubleLeft';
@@ -755,6 +759,10 @@ export type ICON_NAMES =
   | 'ChatAltSolid'
   | 'ChatAlt2Solid'
   | 'CheckSolid'
+  | 'CheckBoxIconCheckedSolid'
+  | 'CheckBoxIconCheckedDisableSolid'
+  | 'CheckBoxIconDefaultSolid'
+  | 'CheckBoxIconDefaultDisableSolid'
   | 'CheckCircleSolid'
   | 'ChevronDoubleDownSolid'
   | 'ChevronDoubleLeftSolid'
@@ -1227,6 +1235,10 @@ export default {
   ChatAltSolid: ChatAltSolid,
   ChatAlt2Solid: ChatAlt2Solid,
   CheckSolid: CheckSolid,
+  CheckBoxIconCheckedSolid: CheckBoxIconCheckedSolid,
+  CheckBoxIconCheckedDisableSolid: CheckBoxIconCheckedDisableSolid,
+  CheckBoxIconDefaultSolid: CheckBoxIconDefaultSolid,
+  CheckBoxIconDefaultDisableSolid: CheckBoxIconDefaultDisableSolid,
   CheckCircleSolid: CheckCircleSolid,
   ChevronDoubleDownSolid: ChevronDoubleDownSolid,
   ChevronDoubleLeftSolid: ChevronDoubleLeftSolid,
