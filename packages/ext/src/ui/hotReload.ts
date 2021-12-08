@@ -1,7 +1,7 @@
 function enable() {
-  // @ts-ignore
+  // @ts-expect-error
   if (module.hot) {
-    // @ts-ignore
+    // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     module.hot?.accept();
   }

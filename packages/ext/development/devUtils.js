@@ -7,7 +7,12 @@ function pluginWithName(plugin) {
 
 function cleanWebpackDebugFields(webpackConfig) {
   webpackConfig?.module?.rules?.forEach((rule) => delete rule.__ruleName__);
-  delete webpackConfig.chromeExtensionBoilerplate;
+
+  // keep __pluginName__
+  // webpackConfig?.plugins?.forEach((plugin) => delete plugin.__pluginName__);
+
+  // DO NOT delete chromeExtensionBoilerplate, devServer needs it
+  // delete webpackConfig.chromeExtensionBoilerplate;
 }
 
 function writePreviewWebpackConfigJson(webpackConfig, filename) {

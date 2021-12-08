@@ -24,7 +24,7 @@ function createCopyPlugin(options) {
 const copy1 = createCopyPlugin({
   patterns: [
     createPattern({
-      from: 'src/manifest.js',
+      from: 'src/manifest/index.js',
       to: './manifest.json',
       transform(content, filePath) {
         // eslint-disable-next-line global-require,import/no-dynamic-require
@@ -33,6 +33,7 @@ const copy1 = createCopyPlugin({
         return Buffer.from(JSON.stringify(manifest, null, 2));
       },
     }),
+    createPattern('src/entry/injected.js'),
     createPattern('src/assets/img/icon-128.png'),
     createPattern('src/assets/img/icon-34.png'),
     // createPattern('src/entry/content-script.css'),

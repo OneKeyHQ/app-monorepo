@@ -1,7 +1,7 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
 
-function createHtmlPlugin({ folder, name }) {
+function createHtmlPlugin({ name }) {
   return new HtmlWebpackPlugin({
     // MUST BE .shtml different with withExpo() builtin .html
     template: path.join(__dirname, `../src/entry/ui.shtml`),
@@ -13,7 +13,8 @@ function createHtmlPlugin({ folder, name }) {
 }
 
 const pluginsHtml = [
-  'ui-popup',
+  'ui-popup', // main ui
+  'ui-content-script-iframe', // allow site load iframe html force service-worker update
   // 'ui-options',
   // 'ui-newtab',
   // 'ui-devtools',
