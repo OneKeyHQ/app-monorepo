@@ -1,12 +1,13 @@
 import React from 'react';
-import { Center, useTheme, Switch, useLocale } from '@onekeyhq/components';
+import { Box, useTheme, Switch, useLocale } from '@onekeyhq/components';
+import DemoInpageProvider from '@onekeyhq/inpage-provider/src/demo/DemoInpageProvider';
 
 const Settings = () => {
   const { setThemeVariant, themeVariant } = useTheme();
   const { locale, setLocale } = useLocale();
 
   return (
-    <Center flex="1" bg="background-hovered">
+    <Box flex="1" bg="background-hovered">
       <Switch
         isChecked={themeVariant === 'light'}
         onToggle={() =>
@@ -17,7 +18,8 @@ const Settings = () => {
         isChecked={locale === 'zh-CN'}
         onToggle={() => setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN')}
       />
-    </Center>
+      <DemoInpageProvider fullDemo />
+    </Box>
   );
 };
 

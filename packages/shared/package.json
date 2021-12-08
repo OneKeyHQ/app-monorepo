@@ -1,0 +1,13 @@
+{
+  "name": "@onekeyhq/shared",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+  },
+  "author": "",
+  "license": "ISC",
+  "private": true
+}
