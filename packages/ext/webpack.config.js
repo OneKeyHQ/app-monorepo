@@ -13,6 +13,10 @@ const packageJson = require('./package.json');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
+
+// FIX error:
+//    Module parse failed: Unexpected token (7:11)
+//    You may need an appropriate loader to handle this file type
 const transpileModules = [
   '@onekeyhq/components',
   '@onekeyhq/kit',

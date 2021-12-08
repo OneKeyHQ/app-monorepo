@@ -1,5 +1,4 @@
 function connect({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   reconnect = false,
   name,
   onMessage,
@@ -10,6 +9,9 @@ function connect({
   onMessage: (payload: any) => void;
   onConnect: (port0: chrome.runtime.Port) => () => void;
 }) {
+  if (reconnect) {
+    // noop
+  }
   const port = chrome.runtime.connect({
     includeTlsChannelId: true,
     name,

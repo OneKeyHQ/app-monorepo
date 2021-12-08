@@ -5,6 +5,7 @@ import {
   JS_BRIDGE_MESSAGE_EXT_CHANNEL,
 } from '../consts';
 import messagePort from './messagePort';
+import { IPostMessageEventData } from '../types';
 
 // TODO one-time only
 function inject(filename: string) {
@@ -17,7 +18,6 @@ function inject(filename: string) {
 
   // Manifest V3 V2
   injectedFactory.injectCodeWithScriptTag({
-    // eslint-disable-next-line no-undef
     file: chrome.runtime.getURL(filename),
   });
 }
@@ -42,17 +42,14 @@ function setupMessagePort() {
         if (event.source !== window) {
           return;
         }
-
+        const eventData = event.data as IPostMessageEventData;
         if (
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          event.data.channel === JS_BRIDGE_MESSAGE_EXT_CHANNEL &&
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          event.data.direction === JS_BRIDGE_MESSAGE_DIRECTION.INPAGE_TO_HOST
+          eventData.channel === JS_BRIDGE_MESSAGE_EXT_CHANNEL &&
+          eventData.direction === JS_BRIDGE_MESSAGE_DIRECTION.INPAGE_TO_HOST
         ) {
           console.log('event receive in content-scripts: ', event.data);
           // #### content-script -> background
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          port.postMessage(event.data.payload);
+          port.postMessage(eventData.payload);
         }
       };
       window.addEventListener('message', onWindowPostMessage, false);

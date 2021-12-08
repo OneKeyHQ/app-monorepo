@@ -13,13 +13,12 @@ function createHtmlPlugin({ name }) {
 }
 
 const pluginsHtml = [
-  'ui-popup',
-  // allow site load iframe html force service-worker update
-  'ui-content-script-iframe',
+  'ui-popup', // main ui
+  'ui-content-script-iframe', // allow site load iframe html force service-worker update
   // 'ui-options',
   // 'ui-newtab',
-  'ui-devtools',
-  'ui-devtools-panel',
+  // 'ui-devtools',
+  // 'ui-devtools-panel',
 ].map((name) => createHtmlPlugin({ name }));
 
 module.exports = pluginsHtml;

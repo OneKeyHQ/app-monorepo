@@ -7,7 +7,7 @@ export type WindowOneKey = {
 
 export type JsBridgeEventPayload = {
   id?: number | string;
-  remoteId?: number | string;
+  remoteId?: number | string | null;
   data?: unknown;
   origin?: string;
   resolve?: (payload: unknown) => void;
@@ -16,9 +16,9 @@ export type JsBridgeEventPayload = {
 
 export type IJsBridgeMessagePayload = {
   id?: number | string;
-  remoteId?: number | string;
+  remoteId?: number | string | null;
   data?: unknown | IInpageProviderRequestPayload;
-  type?: string; // 'request', 'response'
+  type?: string;
   origin?: string;
   resolve?: ((value: unknown) => void) | undefined;
   reject?: () => null;
@@ -32,12 +32,12 @@ export type IInpageProviderRequestPayload = {
 };
 
 export type ICreateJsBridgeParams = {
-  sendPayload?: (data: string | unknown) => void;
   sendAsString?: boolean;
+  sendPayload?: (payload: IJsBridgeMessagePayload | string) => void;
 };
 
 export type ICreateJsBridgeHostParams = {
-  webviewRef?: React.RefObject<IReactNativeWebViewRef | IElectronWebViewRef>;
+  webviewRef: React.RefObject<IReactNativeWebViewRef | IElectronWebViewRef>;
   isReactNative?: boolean;
   isElectron?: boolean;
   isExtension?: boolean;
@@ -68,15 +68,23 @@ export type IJsBridge = {
     callback: (event: JsBridgeEventPayload) => void,
   ) => void;
   off: () => void;
-  send: (payload: IJsBridgeMessagePayload) => Promise<any>;
-  receive: (payload: string) => void;
-  request: (data: any, remoteId?: unknown) => Promise<unknown>;
+  send: (data: IJsBridgeMessagePayload) => Promise<any>;
+  receive: (data: string | IJsBridgeMessagePayload) => void;
+  request: (data: any, portId?: number | string | null) => Promise<unknown>;
   response: (
     id?: number | string,
     data: any,
     error?: Error | null,
-    remoteId?: unknown,
+    remoteId?: number | string | null,
   ) => void;
   responseMessage: (data: string) => void;
   trigger: (event: string, payload: any) => void;
+  requestToAllCS?: any;
+  requestToAllUi?: any;
+};
+
+export type IPostMessageEventData = {
+  channel: string;
+  direction: string;
+  payload: any;
 };

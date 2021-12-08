@@ -5,6 +5,7 @@ import {
 import createJsBridgeInpage from '../jsBridge/createJsBridgeInpage';
 import injectJsBridge from '../injected/factory/injectJsBridge';
 import injectWeb3Provider from '../injected/factory/injectWeb3Provider';
+import { IPostMessageEventData } from '../types';
 
 // TODO move to JsBridgeBase, and off event
 // - receive
@@ -17,15 +18,13 @@ window.addEventListener(
       return;
     }
 
+    const eventData = event.data as IPostMessageEventData;
     if (
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      event.data.channel === JS_BRIDGE_MESSAGE_EXT_CHANNEL &&
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      event.data.direction === JS_BRIDGE_MESSAGE_DIRECTION.HOST_TO_INPAGE
+      eventData.channel === JS_BRIDGE_MESSAGE_EXT_CHANNEL &&
+      eventData.direction === JS_BRIDGE_MESSAGE_DIRECTION.HOST_TO_INPAGE
     ) {
-      console.log('event receive in site: ', event.data);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      window?.onekey?.jsBridge?.receive(event.data.payload);
+      console.log('event receive in site: ', eventData);
+      window?.onekey?.jsBridge?.receive(eventData.payload);
     }
   },
   false,

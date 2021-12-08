@@ -1,4 +1,4 @@
-import { ipcRenderer, contextBridge } from 'electron';
+import { ipcRenderer } from 'electron';
 
 declare global {
   interface Window {

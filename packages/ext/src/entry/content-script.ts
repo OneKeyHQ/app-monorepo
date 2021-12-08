@@ -1,5 +1,4 @@
-// @ts-nocheck
-// inject css to dapp site
+// inject css to dapp web
 // import './content-script.css';
 
 import inpageContentScript from '@onekeyhq/inpage-provider/src/extension/contentScript';

@@ -2,6 +2,8 @@
 import createJsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/createJsBridgeBase';
 import { JsBridgeEventPayload } from '@onekeyhq/inpage-provider/src/types';
 
+// const abc: JsBridgeEventPayload | null = null;
+
 it('two bridge communication', async () => {
   let currentChainId = '0x1';
   const host = createJsBridgeBase({

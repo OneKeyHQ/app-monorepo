@@ -1,10 +1,9 @@
-// @ts-nocheck
-/* eslint-disable no-restricted-globals */
 import inpageProvider from '@onekeyhq/inpage-provider/src/extension/background';
 import {
   EXT_PORT_CS_TO_BG,
   EXT_PORT_UI_TO_BG,
 } from '@onekeyhq/inpage-provider/src/consts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import serviceWorker from '../background/serviceWorker';
 import bgDappTest from '../background/backgroundDappTest';
 
@@ -17,7 +16,6 @@ serviceWorker.disableCacheInBackground();
 const { bridge, ports } = inpageProvider.createHostBridge();
 
 // TODO requestToAllDapps, requestToAllUi
-// @ts-ignore
 bridge.requestToAllCS = (data: any) => {
   // TODO optimize
   Object.entries(ports).forEach(([portId, port]) => {
@@ -42,25 +40,27 @@ bridge.requestToAllUi = (data: any) => {
 
 bgDappTest.init(bridge);
 
-// TODO debug env only
-chrome.runtime.onMessage.addListener(
-  (
-    message: { channel: string; method: string },
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response?: any) => void,
-  ) => {
-    const { channel, method } = message ?? {};
-    if (channel === 'EXTENSION_INTERNAL_CHANNEL') {
-      console.log('chrome.runtime.onMessage', message);
-      if (method === 'reload') {
-        chrome.runtime.reload();
-        // chrome.tabs.create({url: 'ui-popup.html'});
+// extension reload() method expose to dapp
+if (platformEnv.isDev) {
+  chrome.runtime.onMessage.addListener(
+    (
+      message: { channel: string; method: string },
+      sender: chrome.runtime.MessageSender,
+      sendResponse: (response?: any) => void,
+    ) => {
+      const { channel, method } = message ?? {};
+      if (channel === 'EXTENSION_INTERNAL_CHANNEL') {
+        console.log('chrome.runtime.onMessage', message);
+        if (method === 'reload') {
+          chrome.runtime.reload();
+          // chrome.tabs.create({url: 'ui-popup.html'});
+        }
+        if (method === 'ping') {
+          sendResponse({ pong: 'pong', ts: Date.now() });
+        }
       }
-      if (method === 'ping') {
-        sendResponse({ pong: 'pong', ts: Date.now() });
-      }
-    }
-  },
-);
+    },
+  );
+}
 
 export {};

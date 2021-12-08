@@ -11,7 +11,7 @@ function cleanWebpackDebugFields(webpackConfig) {
   // keep __pluginName__
   // webpackConfig?.plugins?.forEach((plugin) => delete plugin.__pluginName__);
 
-  // DO NOT delete here, devServer needs it
+  // DO NOT delete chromeExtensionBoilerplate, devServer needs it
   // delete webpackConfig.chromeExtensionBoilerplate;
 }
 

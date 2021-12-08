@@ -1,7 +1,7 @@
 import { IJsBridge } from '../../types';
 
 function fixGlobalShim() {
-  // FIX errors in RN
+  // FIX errors in ReactNative
   //    ReferenceError: Can't find variable: global
   // @ts-ignore
   window.global = window.global || window || window.globalThis;

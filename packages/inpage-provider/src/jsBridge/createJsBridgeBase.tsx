@@ -125,7 +125,7 @@ function createJsBridgeBase({
         }
         // TODO rename sendMessage
         if (sendPayload) {
-          sendPayload(payloadToSend);
+          sendPayload(payloadToSend as string);
         }
       });
     },
@@ -169,16 +169,15 @@ function createJsBridgeBase({
     },
     // TODO requestToAll
     // send request to remote
-    request(data: unknown, remoteId: unknown = null) {
+    request(data: unknown, remoteId = null) {
       return this.send({
         type: this.MESSAGE_TYPES.request,
         data,
-        // @ts-ignore
         remoteId,
       });
     },
     // send response to remote
-    response(id, data: unknown, error = null, remoteId: unknown = null) {
+    response(id, data: unknown, error = null, remoteId = null) {
       if (error) {
         console.error(error);
       }
@@ -187,7 +186,6 @@ function createJsBridgeBase({
         type: this.MESSAGE_TYPES.response,
         data,
         id,
-        // @ts-ignore
         remoteId,
       });
     },

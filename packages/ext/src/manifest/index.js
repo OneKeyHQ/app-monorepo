@@ -10,14 +10,15 @@ module.exports = {
   'chrome_url_overrides': {
     'newtab': 'ui-newtab.html',
   },
-  */
   'devtools_page': 'ui-devtools.html',
+  */
   'action': {
     'default_popup': 'ui-popup.html',
     'default_icon': 'icon-34.png',
   },
   // https://developer.chrome.com/docs/extensions/mv3/migrating_to_service_workers/
   'background': {
+    // TODO move js file to root, as some browsers will not working
     'service_worker': 'js/background.bundle.js',
   },
   // https://developer.chrome.com/docs/extensions/mv3/content_scripts/
@@ -25,8 +26,8 @@ module.exports = {
     {
       'matches': ['http://*/*', 'https://*/*', '<all_urls>'],
       'js': ['js/content-script.bundle.js'],
-      'run_at': 'document_start',
-      'all_frames': true,
+      'run_at': 'document_start', // MUST be document_start to inject ASAP
+      'all_frames': true, // including iframe inject
     },
   ],
   'icons': {

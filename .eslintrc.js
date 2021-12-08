@@ -47,7 +47,9 @@ module.exports = {
       files: ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
       // 'plugins': ['react', 'react-hooks', 'jest', 'import'],
       extends: ['plugin:jest/recommended'],
-      env: { jest: true },
+      env: {
+        jest: true,
+      },
       rules: {
         'jest/expect-expect': 'off',
         'jest/no-disabled-tests': 'off',
@@ -58,6 +60,7 @@ module.exports = {
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-use-before-define': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
       },
     },
   ],

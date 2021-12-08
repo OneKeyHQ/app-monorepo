@@ -10,7 +10,6 @@ function DevToolsPanel() {
         onClick={() => {
           try {
             setError(null);
-            // eslint-disable-next-line no-undef
             chrome.runtime.reload();
           } catch (err: unknown) {
             console.error(err);
@@ -23,7 +22,7 @@ function DevToolsPanel() {
           }
         }}
       >
-        reload onekey extension
+        Reload Onekey Extension
       </button>
       <div>{error?.message}</div>
     </div>

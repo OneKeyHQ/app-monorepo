@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 export default function useIsIpcReady(): boolean {
   const [isIpcReady, setIsIpcReady] = useState(false);
   const checkReady = useCallback(() => {
-    // @ts-ignore
     const isBridgeInjected = Boolean(
       window?.ONEKEY_DESKTOP_GLOBALS?.preloadJsUrl,
     );

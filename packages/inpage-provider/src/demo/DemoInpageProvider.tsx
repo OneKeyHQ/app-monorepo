@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, VStack, HStack, Button, Select } from '@onekeyhq/components';
 import { Alert } from 'react-native';
-import platformEnv, { IPlatformEnv } from '@onekeyhq/shared/src/platformEnv';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import DesktopWebView from '../webview/DesktopWebView';
 import {
   IInpageProviderRequestPayload,
@@ -29,7 +29,6 @@ let isConnected = false;
 function handleProviderMethods(
   jsBridge: IJsBridge,
   event: JsBridgeEventPayload,
-  isApp: boolean,
 ) {
   const { id, origin } = event;
   const { method, params } = event?.data as IInpageProviderRequestPayload;
@@ -135,7 +134,7 @@ function DemoInpageProvider({
     return () => {
       // TODO off event
     };
-  }, [isApp, isDesktop, jsBridge]);
+  }, [jsBridge]);
 
   return (
     <Box flex={1}>
@@ -149,7 +148,7 @@ function DemoInpageProvider({
               setName(`${Date.now()}`);
               chainId = value;
               if (isExtension) {
-                window.jsBridgeUi.request({
+                window.extJsBridgeUiToBg.request({
                   method: 'internal_changeChain',
                   params: chainId,
                 });
@@ -181,7 +180,7 @@ function DemoInpageProvider({
               // TODO only notify to Dapp when isConnected?
               selectedAddress = value;
               if (isExtension) {
-                window.jsBridgeUi.request({
+                window.extJsBridgeUiToBg.request({
                   method: 'internal_changeAccounts',
                   params: selectedAddress,
                 });

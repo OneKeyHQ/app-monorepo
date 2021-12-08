@@ -30,11 +30,11 @@ function init(jsBridgeHost: IJsBridge) {
     console.log('handleProviderMethods', { method, params });
     const responseLater = false;
     const responseMessage = () => {
-      // UI: jsBridgeUi.request({method:'internal_changeAccounts',params:'0x...'})
+      // UI: extJsBridgeUiToBg.request({method:'internal_changeAccounts',params:'0x...'})
       if (method === 'internal_changeAccounts') {
         self.changeAccounts(params);
       }
-      // UI: jsBridgeUi.request({method:'internal_changeChain',params:'0x3'})
+      // UI: extJsBridgeUiToBg.request({method:'internal_changeChain',params:'0x3'})
       if (method === 'internal_changeChain') {
         self.changeChain(params);
       }

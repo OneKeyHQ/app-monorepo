@@ -1,6 +1,7 @@
 /*
-  global css works like nextjs/expo
-  node_modules/@expo/webpack-config/web-default/index.html
+  global css which apply to Desktop, Web and Extension
+  copy from:
+    node_modules/@expo/webpack-config/web-default/index.html
  */
 
 /* ---------------------------------------------- */

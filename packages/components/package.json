@@ -19,7 +19,7 @@
   },
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
-    "lint": "tsc --noEmit && eslint src --ext .ts,.tsx",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules"
   }
 }

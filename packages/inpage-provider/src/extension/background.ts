@@ -1,31 +1,35 @@
-// @ts-nocheck
-/* eslint-disable  */
 import { EXT_PORT_CS_TO_BG, EXT_PORT_UI_TO_BG } from '../consts';
 import createBaseJsBridge from '../jsBridge/createJsBridgeBase';
+import { IJsBridgeMessagePayload } from '../types';
 
 let portIdIndex = 0;
-const ports: Record<number, chrome.runtime.Port> = {};
-
-self.portsContentScript = ports;
+const ports: Record<number | string, chrome.runtime.Port> = {};
 
 // TODO one-time only
 function createHostBridge() {
   const bridge = createBaseJsBridge({
     sendAsString: false,
     // #### background -> content-script
-    sendPayload(payload) {
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const port = ports[payload.remoteId];
+    sendPayload(payload0) {
+      const payload = payload0 as IJsBridgeMessagePayload;
+      if (!payload.remoteId) {
+        return;
+      }
+      const port: chrome.runtime.Port = ports[payload.remoteId as string];
       // TODO onDisconnect remove ports cache
       //    try catch error test
       try {
         port.postMessage(payload);
-      } catch (err) {
-        // TODO message different in browser
-        // err.message
-        // Attempting to use a disconnected port object
-        throw err;
+      } catch (err: any) {
+        const error = err as Error;
+        // TODO message maybe different in browser
+        if (
+          error &&
+          error?.message === 'Attempting to use a disconnected port object'
+        ) {
+          console.log('onDisconnect handler');
+        }
+        throw error;
       }
     },
   });
@@ -43,8 +47,7 @@ function createHostBridge() {
       portIdIndex += 1;
       const portId = portIdIndex;
       ports[portId] = port;
-      const onMessage = (payload) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const onMessage = (payload: IJsBridgeMessagePayload) => {
         payload.remoteId = portId;
         // TODO if EXT_PORT_CS_TO_BG ignore "internal_" prefix methods
         //    ignore scope=walletPrivate

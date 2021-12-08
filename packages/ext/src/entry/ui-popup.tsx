@@ -4,8 +4,7 @@ import inpageProviderUi from '@onekeyhq/inpage-provider/src/extension/ui';
 import App from '../App';
 import hotReload from '../ui/hotReload';
 
-// @ts-ignore
-window.jsBridgeUi = inpageProviderUi.createUiJsBridge();
+window.extJsBridgeUiToBg = inpageProviderUi.createUiJsBridge();
 
 ReactDOM.render(<App />, window.document.querySelector('#root'));
 hotReload.enable();

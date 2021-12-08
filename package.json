@@ -6,6 +6,9 @@
       "packages/*"
     ]
   },
+  "engines": {
+    "node": "^16.0.0"
+  },
   "scripts": {
     "postinstall": "husky install && yarn build:connect && yarn build:inject",
     "build:inject": "yarn workspace @onekeyhq/inpage-provider build",
@@ -27,7 +30,8 @@
     "desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @shared/components build:icon",
-    "test:unit": "yarn jest test/unit/"
+    "test": "yarn test:unit",
+    "test:unit": "yarn jest ./test/unit/"
   },
   "dependencies": {},
   "devDependencies": {
