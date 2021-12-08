@@ -4,7 +4,9 @@ export default function useIsIpcReady(): boolean {
   const [isIpcReady, setIsIpcReady] = useState(false);
   const checkReady = useCallback(() => {
     // @ts-ignore
-    const isBridgeInjected = Boolean(window?.onekey?.jsBridge);
+    const isBridgeInjected = Boolean(
+      window?.ONEKEY_DESKTOP_GLOBALS?.preloadJsUrl,
+    );
     if (isBridgeInjected) {
       setIsIpcReady(true);
     } else {

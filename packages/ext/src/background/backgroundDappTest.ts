@@ -30,7 +30,7 @@ function init(jsBridgeHost: IJsBridge) {
     console.log('handleProviderMethods', { method, params });
     const responseLater = false;
     const responseMessage = () => {
-      // UI: jsBridgeUi.request({method:'internal_changeAccounts',params:0})
+      // UI: jsBridgeUi.request({method:'internal_changeAccounts',params:'0x...'})
       if (method === 'internal_changeAccounts') {
         self.changeAccounts(params);
       }
@@ -87,9 +87,9 @@ function init(jsBridgeHost: IJsBridge) {
   });
 
   // eslint-disable-next-line no-restricted-globals
-  self.changeAccounts = (index) => {
+  self.changeAccounts = (address) => {
     // eslint-disable-next-line prefer-destructuring,@typescript-eslint/no-unsafe-member-access
-    selectedAddress = accounts[index];
+    selectedAddress = address;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     self.contentJsBridge.requestToAllCS({
       method: 'metamask_accountsChanged',

@@ -5,5 +5,10 @@ console.log('============ webpack.version ', webpack.version);
 
 module.exports = async function (env, argv) {
   const config = await createWebpackConfigAsync(env, argv);
+  config.plugins.push(
+    new webpack.DefinePlugin({
+      'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('desktop'),
+    }),
+  );
   return config;
 };

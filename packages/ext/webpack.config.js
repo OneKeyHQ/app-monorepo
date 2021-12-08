@@ -13,6 +13,12 @@ const packageJson = require('./package.json');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
+const transpileModules = [
+  '@onekeyhq/components',
+  '@onekeyhq/kit',
+  '@onekeyhq/inpage-provider',
+  '@onekeyhq/shared',
+];
 
 // TODO use webpack 4.43.0
 console.log('============ webpack.version ', webpack.version);
@@ -126,6 +132,10 @@ let webpackConfig = {
       'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('ext'),
       'process.env.VERSION': JSON.stringify(packageJson.version),
     }),
+    // FIX ERROR: process is not defined
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+    }),
     ...pluginsCopy,
     ...pluginsHtml,
   ],
@@ -145,11 +155,7 @@ let webpackConfig = {
 };
 
 webpackConfig = nextWebpack(webpackConfig, {
-  transpileModules: [
-    '@onekeyhq/components',
-    '@onekeyhq/kit',
-    '@onekeyhq/inpage-provider',
-  ],
+  transpileModules,
   debug: false,
   projectRoot: __dirname,
 });
