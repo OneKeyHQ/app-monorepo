@@ -2,7 +2,7 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
-    "lib": ["dom", "esnext"],
+    "lib": ["dom", "esnext", "webworker"],
     "moduleResolution": "node",
     "noEmit": true,
     "skipLibCheck": true,
@@ -16,7 +16,7 @@
     "isolatedModules": true,
     "noImplicitReturns": false,
     "noUnusedLocals": false,
-    "types": ["styled-components-react-native"],
+    "types": ["styled-components-react-native", "chrome"],
     "typeRoots": ["node_modules/@types", "./@types"]
   },
   "include": ["**/*.ts", "**/*.tsx"],

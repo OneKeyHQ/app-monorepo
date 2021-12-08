@@ -23,6 +23,7 @@ packages/app/src/public/static/connect
 
 .env
 webpack.config.preview.json
+webpack.config.preview.devServer.json
 
 *.jks
 *.p8
