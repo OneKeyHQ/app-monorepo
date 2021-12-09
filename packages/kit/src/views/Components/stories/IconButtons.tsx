@@ -3,27 +3,27 @@ import React, { useState } from 'react';
 import {
   Center,
   Text,
-  Button,
+  IconButton,
   Switch,
   Stack,
   Select,
 } from '@onekeyhq/components';
 
-const Buttons = () => {
+const IconButtons = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [disabled, setDisabled] = useState<boolean>(false);
+  const [circle, setCircle] = useState<boolean>(false);
   const [type, setType] = useState<
     'primary' | 'basic' | 'plain' | 'destructive' | 'outline'
   >('primary');
   const [size, setSize] = useState<'base' | 'xs' | 'sm' | 'lg' | 'xl'>('base');
-  console.log('loading', loading);
   return (
     <Center flex="1" bg="background-hovered">
       <Stack direction="row" space="2" mb="2" alignItems="center">
         <Select
-          placeholder="Select Button Type"
-          selectedValue={type}
           color="text-default"
+          placeholder="select button type"
+          selectedValue={type}
           mx={{
             base: 0,
             md: 'auto',
@@ -47,8 +47,8 @@ const Buttons = () => {
           <Select.Item label="Outline" value="outline" />
         </Select>
         <Select
-          placeholder="Select Button Size"
           color="text-default"
+          placeholder="select button size"
           selectedValue={size}
           mx={{
             base: 0,
@@ -73,22 +73,24 @@ const Buttons = () => {
           />
         </Stack>
         <Stack direction="row">
+          <Text color="white">circle: </Text>
+          <Switch isChecked={circle} onToggle={() => setCircle(!circle)} />
+        </Stack>
+        <Stack direction="row">
           <Text color="white">loading: </Text>
           <Switch isChecked={loading} onToggle={() => setLoading(!loading)} />
         </Stack>
       </Stack>
-      <Button
+      <IconButton
         type={type}
         size={size}
+        circle={circle}
         isDisabled={disabled}
         isLoading={loading}
-        rightIconName="AcademicCapSolid"
-        leftIconName="BrandLogoIllus"
-      >
-        Button
-      </Button>
+        name="AcademicCapSolid"
+      />
     </Center>
   );
 };
 
-export default Buttons;
+export default IconButtons;
