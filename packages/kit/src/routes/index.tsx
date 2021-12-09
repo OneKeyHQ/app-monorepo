@@ -13,6 +13,7 @@ import TypographyGallery from '../views/Components/stories/Typography';
 import TokenGallery from '../views/Components/stories/Token';
 import ThemeGallery from '../views/Components/stories/Theme';
 import IconGallery from '../views/Components/stories/Icon';
+import Buttons from '../views/Components/stories/Buttons';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -36,4 +37,5 @@ export const stackRoutes = [
   { name: 'Components/Token', component: TokenGallery },
   { name: 'Components/Theme', component: ThemeGallery },
   { name: 'Components/Icon', component: IconGallery },
+  { name: 'Components/Buttons', component: Buttons },
 ];
