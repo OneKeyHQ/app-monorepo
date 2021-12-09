@@ -36,7 +36,10 @@ export const dark = {
   'icon-success': '#5DD27A',
   'icon-on-primary': '#FFFFFF',
   'icon-on-critical': '#FFFFFF',
-  'border-default': '#58586A',
+  'interactive-default': '#33C641',
+  'interactive-hovered': '#67D572',
+  'interactive-disabled': '#004206',
+  'border-default': '#4C4C5C',
   'border-subdued': '#3D3D4D',
   'border-hovered': '#8C8CA1',
   'border-disabled': '#3D3D4D',
@@ -60,6 +63,8 @@ export const dark = {
   'action-critical-disabled': '#343442',
   'decorative-surface-one': '#005809',
   'decorative-icon-one': '#33C641',
+  'backdrop': 'rgba(61, 61, 77, 0.75)',
+  'divider': '#343442',
 };
 
 export const light = {
@@ -100,6 +105,9 @@ export const light = {
   'icon-success': '#34C759',
   'icon-on-primary': '#FFFFFF',
   'icon-on-critical': '#FFFFFF',
+  'interactive-default': '#00B812',
+  'interactive-hovered': '#00930E',
+  'interactive-disabled': '#EBF9EC',
   'border-default': '#D4D4DD',
   'border-subdued': '#E8E8ED',
   'border-hovered': '#A0A0B0',
@@ -124,6 +132,8 @@ export const light = {
   'action-critical-disabled': '#E8E8ED',
   'decorative-surface-one': '#005809',
   'decorative-icon-one': '#33C641',
+  'backdrop': 'rgba(107, 107, 128, 0.75)',
+  'divider': '#F3F3F6',
 };
 
 const theme = {
