@@ -15,8 +15,11 @@ import ThemeGallery from '../views/Components/stories/Theme';
 import IconGallery from '../views/Components/stories/Icon';
 import BadgeGallery from '../views/Components/stories/Badge';
 import AlertGallery from '../views/Components/stories/Alert';
-import Buttons from '../views/Components/stories/Buttons';
 import IconButtons from '../views/Components/stories/IconButtons';
+import ButtonsGallery from '../views/Components/stories/Buttons';
+import SelectGallery from '../views/Components/stories/Select';
+import EmptyGallery from '../views/Components/stories/Empty';
+import ToastGallery from '../views/Components/stories/Toast';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -44,4 +47,8 @@ export const stackRoutes = [
   { name: 'Components/Alert', component: AlertGallery },
   { name: 'Components/Buttons', component: Buttons },
   { name: 'Components/IconButtons', component: IconButtons },
+  { name: 'Components/Buttons', component: ButtonsGallery },
+  { name: 'Components/Select', component: SelectGallery },
+  { name: 'Components/Empty', component: EmptyGallery },
+  { name: 'Components/Toast', component: ToastGallery },
 ];
