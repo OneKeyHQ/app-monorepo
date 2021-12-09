@@ -36,6 +36,10 @@ export { default as Modal } from './Modal';
 export { default as Searchbar } from './Searchbar';
 export { default as Textarea } from './Textarea';
 export { default as Flex } from './Flex';
+export { default as Radio } from './Radio';
+export { default as RadioButton } from './RadioButton';
+export { default as RadioGroup } from './RadioGroup';
+export { default as RadioButtonGroup } from './RadioButtonGroup';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';

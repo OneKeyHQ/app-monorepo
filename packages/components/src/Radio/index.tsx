@@ -1,23 +1,18 @@
 import React, { FC, ComponentProps } from 'react';
-import { Checkbox as BaseCheckBox, IBoxProps } from 'native-base';
-import Typography from '../Typography';
+import { IBoxProps, IRadioProps, Radio as BaseRadio } from 'native-base';
 import Box from '../Box';
+import Typography from '../Typography';
 import Pressable from '../Pressable';
-import { getCheckBoxIcon } from './CheckBoxIcon';
 
-export type CheckBoxProps = {
+export type RadioProps = {
   /**
-   * 选中状态
+   * 是否选中
    */
-  isChecked?: boolean;
-  /**
-   * 默认选中
-   */
-  defaultIsChecked?: boolean;
+  isChecked?: string;
   /**
    * 选择说明标题
    */
-  value?: string;
+  title?: string;
   /**
    * 选择说明详细内容
    */
@@ -30,27 +25,20 @@ export type CheckBoxProps = {
    * 是否禁用
    */
   isDisabled?: boolean;
-  /**
-   * 点击监听
-   */
-  onChange?: () => void;
-} & ComponentProps<typeof Box>;
+} & ComponentProps<typeof BaseRadio>;
 
 const defaultProps = {
-  isChecked: false,
   focusable: false,
   isDisabled: false,
   hasDefault: false,
 } as const;
 
-const CheckBox: FC<CheckBoxProps> = ({
+const Radio: FC<RadioProps> = ({
   isChecked,
-  value,
+  title,
   describe,
-  defaultIsChecked,
   focusable,
   isDisabled,
-  onChange,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -60,6 +48,8 @@ const CheckBox: FC<CheckBoxProps> = ({
     titleColor = 'text-disabled';
     describeColor = 'text-disabled';
   }
+
+  const { ...radioPorps } = props as IRadioProps;
   const { ...boxPorps } = props as IBoxProps;
 
   return (
@@ -70,35 +60,29 @@ const CheckBox: FC<CheckBoxProps> = ({
       alignItems="flex-start"
     >
       <Box h="5" mr="3" justifyContent="flex-end" display="flex">
-        <BaseCheckBox
-          value=""
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          onChange={(state) => {
-            if (onChange && !isDisabled) onChange();
-          }}
-          icon={getCheckBoxIcon(isDisabled ?? false, defaultIsChecked ?? false)}
-          defaultIsChecked={defaultIsChecked}
-          isChecked={isChecked}
+        <BaseRadio
+          {...radioPorps}
+          size="md"
           focusable={focusable}
           isDisabled={isDisabled}
-          borderRadius="md"
+          borderRadius="full"
           borderColor="border-default"
+          // @ts-ignore
           _hover={{
-            value: '',
             bg: 'action-primary-hovered',
             borderColor: 'border-hovered',
             _interactionBox: {
-              value: '',
-              bg: 'action-secondary-hovered',
+              bg: 'action-primary-hovered',
             },
           }}
+          _icon={{
+            color: isDisabled ? 'surface-subdued' : 'surface-default',
+          }}
           _checked={{
-            value: '',
-            bg: 'action-primary-default',
             borderColor: 'action-primary-default',
+            bg: 'action-primary-default',
           }}
           _disabled={{
-            value: '',
             opacity: 1,
             bg: isChecked
               ? 'action-primary-activate-disabled'
@@ -108,35 +92,33 @@ const CheckBox: FC<CheckBoxProps> = ({
               : 'checkbox-border-disabled',
           }}
           _pressed={{
-            value: '',
             bg: 'action-primary-pressed',
+            _interactionBox: {
+              bg: 'action-secondary-hovered',
+            },
           }}
         />
       </Box>
-      <Pressable
-        flex={1}
-        display="flex"
-        flexDirection="column"
-        onPress={() => {
-          if (onChange && !isDisabled) onChange();
-        }}
-      >
-        <Typography.Body2
-          selectable={false}
-          fontWeight="bold"
-          color={titleColor}
-        >
-          {value}
-        </Typography.Body2>
-        {!!describe && (
-          <Typography.Body2 selectable={false} color={describeColor}>
-            {describe}
+      {!!(describe || title) && (
+        <Pressable display="flex" flex={1}>
+          <Typography.Body2
+            selectable={false}
+            fontWeight="bold"
+            color={titleColor}
+            h="5"
+          >
+            {title}
           </Typography.Body2>
-        )}
-      </Pressable>
+          {!!describe && (
+            <Typography.Body2 selectable={false} color={describeColor}>
+              {describe}
+            </Typography.Body2>
+          )}
+        </Pressable>
+      )}
     </Box>
   );
 };
 
-CheckBox.defaultProps = defaultProps;
-export default CheckBox;
+Radio.defaultProps = defaultProps;
+export default Radio;

@@ -28,6 +28,7 @@ import ModalGallery from '../views/Components/stories/Modal';
 import InputGallery from '../views/Components/stories/Input';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import TextareaGallery from '../views/Components/stories/Textarea';
+import RadioGallery from '../views/Components/stories/Radio';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -65,4 +66,5 @@ export const stackRoutes = [
   { name: 'Components/CheckBox', component: CheckBoxGallery },
   { name: 'Components/Spinner', component: SpinnerGallery },
   { name: 'Components/Modal', component: ModalGallery },
+  { name: 'Components/Radio', component: RadioGallery },
 ];
