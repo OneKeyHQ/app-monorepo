@@ -1,5 +1,6 @@
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 
+// eslint-disable-next-line import/no-cycle
 import ComponentsScreen from '../views/Components';
 import WalletScreen from '../views/Wallet';
 import SwapScreen from '../views/Swap';
@@ -45,7 +46,7 @@ export const stackRoutes = [
   { name: 'Components/Icon', component: IconGallery },
   { name: 'Components/Badge', component: BadgeGallery },
   { name: 'Components/Alert', component: AlertGallery },
-  { name: 'Components/Buttons', component: Buttons },
+  { name: 'Components/Buttons', component: ButtonsGallery },
   { name: 'Components/IconButtons', component: IconButtons },
   { name: 'Components/Buttons', component: ButtonsGallery },
   { name: 'Components/Select', component: SelectGallery },
