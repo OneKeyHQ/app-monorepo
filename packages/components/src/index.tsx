@@ -23,6 +23,7 @@ export { default as AlertDialog } from './AlertDialog';
 export { default as FlatList } from './FlatList';
 export { default as Pressable } from './Pressable';
 export { default as Typography } from './Typography';
+export { default as Badge } from './Badge';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';

@@ -8,7 +8,6 @@ import {
   Avatar,
   Icon,
   Token,
-  Typography,
 } from '@onekeyhq/components';
 import { FormattedMessage } from '@onekeyhq/kit';
 import { useNavigation } from '@react-navigation/native';
@@ -17,19 +16,6 @@ function AppRouterLinks() {
   const navigation = useNavigation();
   return (
     <>
-      <Typography.DisplayXLarge>DisplayXLarge</Typography.DisplayXLarge>
-      <Typography.DisplayLarge>DisplayLarge</Typography.DisplayLarge>
-      <Typography.DisplayMedium>DisplayMedium</Typography.DisplayMedium>
-      <Typography.DisplaySmall>DisplaySmall</Typography.DisplaySmall>
-      <Typography.PageHeading>PageHeading</Typography.PageHeading>
-      <Typography.Heading>Heading</Typography.Heading>
-      <Typography.SUBHEADING>SUBHEADING</Typography.SUBHEADING>
-      <Typography.Button1>Button1</Typography.Button1>
-      <Typography.Button2>Button2</Typography.Button2>
-      <Typography.Body1>Body1</Typography.Body1>
-      <Typography.Body2>Body2</Typography.Body2>
-      <Typography.Caption>Caption</Typography.Caption>
-
       <Button
         onPress={() => {
           // @ts-ignore
