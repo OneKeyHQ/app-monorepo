@@ -36,7 +36,7 @@ export const dark = {
   'icon-success': '#5DD27A',
   'icon-on-primary': '#FFFFFF',
   'icon-on-critical': '#FFFFFF',
-  'border-default': '#58586A',
+  'border-default': '#4C4C5C',
   'border-subdued': '#3D3D4D',
   'border-hovered': '#8C8CA1',
   'border-disabled': '#3D3D4D',
@@ -134,7 +134,7 @@ const theme = {
 export type ThemeVariant = keyof typeof theme;
 export type ThemeValues = typeof theme[ThemeVariant];
 
-const DEFAULT_THEME_VARIANT = 'light';
+const DEFAULT_THEME_VARIANT = 'dark';
 
 export const getDefaultTheme = (initial?: string): ThemeVariant => {
   if (Object.keys(theme).includes(initial ?? '')) {
