@@ -49,22 +49,13 @@ function Counter() {
           space={4}
           mt="3"
         >
-          <Button
-            size="md"
-            onPress={() => dispatch(incrementByAmount(incrementValue))}
-          >
+          <Button onPress={() => dispatch(incrementByAmount(incrementValue))}>
             Add Amount
           </Button>
-          <Button
-            size="md"
-            onPress={() => dispatch(incrementAsync(incrementValue))}
-          >
+          <Button onPress={() => dispatch(incrementAsync(incrementValue))}>
             Add Async
           </Button>
-          <Button
-            size="md"
-            onPress={() => dispatch(incrementIfOdd(incrementValue))}
-          >
+          <Button onPress={() => dispatch(incrementIfOdd(incrementValue))}>
             Add If Odd
           </Button>
         </Stack>
