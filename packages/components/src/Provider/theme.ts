@@ -144,7 +144,7 @@ const theme = {
 export type ThemeVariant = keyof typeof theme;
 export type ThemeValues = typeof theme[ThemeVariant];
 
-const DEFAULT_THEME_VARIANT = 'light';
+const DEFAULT_THEME_VARIANT = 'dark';
 
 export const getDefaultTheme = (initial?: string): ThemeVariant => {
   if (Object.keys(theme).includes(initial ?? '')) {
