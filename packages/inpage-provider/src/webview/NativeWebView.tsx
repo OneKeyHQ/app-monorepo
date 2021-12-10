@@ -46,9 +46,11 @@ const NativeWebView = forwardRef(
         // injectedJavaScript={injectedNative}
         injectedJavaScriptBeforeContentLoaded={injectedNative || ''}
         source={{ uri }}
+        // TODO useCallback
         onMessage={(event) => {
           const { data }: { data: string } = event.nativeEvent;
           console.log('NativeWebView receive message', data);
+          // - receive
           jsBridge.receive(data);
         }}
       />

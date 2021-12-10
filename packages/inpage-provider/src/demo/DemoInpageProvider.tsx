@@ -1,6 +1,9 @@
+// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { Box, VStack, HStack, Button, Select } from '@onekeyhq/components';
 import { Alert } from 'react-native';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import DesktopWebView from '../webview/DesktopWebView';
 import {
   IInpageProviderRequestPayload,
@@ -9,6 +12,9 @@ import {
 } from '../types';
 import useWebViewBridge from '../webview/useWebViewBridge';
 import NativeWebView from '../webview/NativeWebView';
+
+const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
+const isApp = isNative;
 
 const accounts = [
   '0x99f825d80cadd21d77d13b7e13d25960b40a6299',
@@ -23,7 +29,6 @@ let isConnected = false;
 function handleProviderMethods(
   jsBridge: IJsBridge,
   event: JsBridgeEventPayload,
-  isApp: boolean,
 ) {
   const { id, origin } = event;
   const { method, params } = event?.data as IInpageProviderRequestPayload;
@@ -92,13 +97,13 @@ const srcList = [
 ];
 
 function DemoInpageProvider({
-  isDesktop = false,
-  isApp = false,
+  src = '',
+  fullDemo = false,
 }: {
-  isDesktop?: boolean;
-  isApp?: boolean;
+  src?: string;
+  fullDemo?: boolean;
 }): JSX.Element {
-  const [src, setSrc] = useState(srcList[0]);
+  const [srcLocal, setSrcLocal] = useState(src || srcList[0]);
   const [name, setName] = useState('');
   const [resName, setResName] = useState('');
   const { jsBridge, setWebViewRef } = useWebViewBridge();
@@ -129,23 +134,11 @@ function DemoInpageProvider({
     return () => {
       // TODO off event
     };
-  }, [isApp, isDesktop, jsBridge]);
+  }, [jsBridge]);
 
   return (
     <Box flex={1}>
-      <VStack p={2} space={2}>
-        <Button size="sm" onPress={() => setWebViewVisible(!webviewVisible)}>
-          Toggle WebView Visible
-        </Button>
-        <Select
-          minWidth="360"
-          selectedValue={src}
-          onValueChange={(v) => setSrc(v)}
-        >
-          {srcList.map((uri) => (
-            <Select.Item key={uri} label={uri} value={uri} />
-          ))}
-        </Select>
+      <VStack p={2} space={2} bgColor="white">
         <HStack space={2}>
           <Select
             placeholder="Choose Chain"
@@ -154,18 +147,25 @@ function DemoInpageProvider({
             onValueChange={(value) => {
               setName(`${Date.now()}`);
               chainId = value;
-              // TODO only notify to Dapp when isConnected?
-              // method === 'metamask_chainChanged' && this.selectedAddress
-              // notifyAllConnections
-              jsBridge?.request({
-                // metamask_accountsChanged
-                // metamask_unlockStateChanged
-                method: 'metamask_chainChanged',
-                params: {
-                  chainId,
-                  networkVersion: '1',
-                },
-              });
+              if (isExtension) {
+                window.extJsBridgeUiToBg.request({
+                  method: 'internal_changeChain',
+                  params: chainId,
+                });
+              } else {
+                // TODO only notify to Dapp when isConnected?
+                // method === 'metamask_chainChanged' && this.selectedAddress
+                // notifyAllConnections
+                jsBridge?.request({
+                  // metamask_accountsChanged
+                  // metamask_unlockStateChanged
+                  method: 'metamask_chainChanged',
+                  params: {
+                    chainId,
+                    networkVersion: '1',
+                  },
+                });
+              }
             }}
           >
             {['0x1', '0x2', '0x3', '0x4', '0x5', '0x2a'].map((id) => (
@@ -179,7 +179,12 @@ function DemoInpageProvider({
             onValueChange={(value) => {
               // TODO only notify to Dapp when isConnected?
               selectedAddress = value;
-              if (isConnected) {
+              if (isExtension) {
+                window.extJsBridgeUiToBg.request({
+                  method: 'internal_changeAccounts',
+                  params: selectedAddress,
+                });
+              } else if (isConnected) {
                 jsBridge?.request({
                   method: 'metamask_accountsChanged',
                   params: [selectedAddress],
@@ -196,79 +201,99 @@ function DemoInpageProvider({
             ))}
           </Select>
         </HStack>
-        <HStack space={2}>
-          <Button
-            onPress={() => {
-              isConnected = false;
-              jsBridge?.request({
-                method: 'metamask_accountsChanged',
-                params: [],
-              });
-            }}
-          >
-            disconnect
-          </Button>
-          <Button
-            onPress={() => {
-              isConnected = true;
-              jsBridge?.request({
-                method: 'metamask_accountsChanged',
-                params: [selectedAddress],
-              });
-              jsBridge?.request({
-                method: 'metamask_chainChanged',
-                params: {
-                  chainId,
-                  networkVersion: '1',
-                },
-              });
-            }}
-          >
-            connect
-          </Button>
+        {fullDemo && (
+          <VStack space={2}>
+            <Button
+              size="sm"
+              onPress={() => setWebViewVisible(!webviewVisible)}
+            >
+              Toggle WebView Visible
+            </Button>
+            <Select
+              minWidth="360"
+              selectedValue={srcLocal}
+              onValueChange={(v) => setSrcLocal(v)}
+            >
+              {srcList.map((uri) => (
+                <Select.Item key={uri} label={uri} value={uri} />
+              ))}
+            </Select>
 
-          <Button
-            onPress={async () => {
-              if (!jsBridge) {
-                return;
-              }
-              console.log('11111');
-              const newName = `Desktop OneKey-${Date.now()
-                .toString()
-                .slice(-4)}`;
-              setName(newName);
-              setResName('');
-              const res = await jsBridge.request({
-                onekeyName: newName,
-              });
-              setResName((res as { onekeyNameRes: string })?.onekeyNameRes);
-            }}
-          >
-            requestToInpage
-          </Button>
-        </HStack>
-        <Box>request: {name}</Box>
-        <Box>response: {resName}</Box>
+            <HStack space={2}>
+              <Button
+                onPress={() => {
+                  isConnected = false;
+                  jsBridge?.request({
+                    method: 'metamask_accountsChanged',
+                    params: [],
+                  });
+                }}
+              >
+                disconnect 888
+              </Button>
+              <Button
+                onPress={() => {
+                  isConnected = true;
+                  jsBridge?.request({
+                    method: 'metamask_accountsChanged',
+                    params: [selectedAddress],
+                  });
+                  jsBridge?.request({
+                    method: 'metamask_chainChanged',
+                    params: {
+                      chainId,
+                      networkVersion: '1',
+                    },
+                  });
+                }}
+              >
+                connect
+              </Button>
+
+              <Button
+                onPress={async () => {
+                  if (!jsBridge) {
+                    return;
+                  }
+                  console.log('11111');
+                  const newName = `Desktop OneKey-${Date.now()
+                    .toString()
+                    .slice(-4)}`;
+                  setName(newName);
+                  setResName('');
+                  const res = await jsBridge.request({
+                    onekeyName: newName,
+                  });
+                  setResName((res as { onekeyNameRes: string })?.onekeyNameRes);
+                }}
+              >
+                requestToInpage
+              </Button>
+            </HStack>
+            <Box>request: {name}</Box>
+            <Box>response: {resName}</Box>
+          </VStack>
+        )}
       </VStack>
       <Box flex={1}>
+        {/* TODO Universal WebView */}
         {webviewVisible && isDesktop && (
-          <DesktopWebView ref={setWebViewRef} src={src} />
+          <DesktopWebView src={srcLocal} ref={setWebViewRef} />
         )}
         {webviewVisible && isApp && (
-          <NativeWebView uri={src} ref={setWebViewRef} />
+          <NativeWebView uri={srcLocal} ref={setWebViewRef} />
+        )}
+        {webviewVisible && (isWeb || isExtension) && (
+          <iframe
+            title="iframe-web"
+            src={srcLocal}
+            frameBorder="0"
+            style={{ height: '100%', width: '100%' }}
+          />
         )}
       </Box>
     </Box>
   );
 }
 
-function DemoInpageProviderDesktop(): JSX.Element {
-  return <DemoInpageProvider isDesktop />;
-}
-
-function DemoInpageProviderApp(): JSX.Element {
-  return <DemoInpageProvider isApp />;
-}
-
 export default DemoInpageProvider;
-export { DemoInpageProviderApp, DemoInpageProviderDesktop };
