@@ -8,56 +8,24 @@ import {
 } from '@onekeyhq/components';
 import { useNavigation } from '@react-navigation/native';
 
-type DataItem = {
-  name: string;
-};
-
-const data: DataItem[] = [
-  {
-    name: 'Address',
-  },
-  {
-    name: 'Avatar',
-  },
-  {
-    name: 'Typography',
-  },
-  {
-    name: 'Token',
-  },
-  {
-    name: 'Theme',
-  },
-  {
-    name: 'Icon',
-  },
-  {
-    name: 'Badge',
-  },
-  {
-    name: 'Alert',
-  },
-  {
-    name: 'Buttons',
-  },
-  {
-    name: 'IconButtons',
-  },
-];
+// eslint-disable-next-line import/no-cycle
+import { stackRoutes } from '../../routes';
 
 const Index = () => {
   const navigation = useNavigation();
+
+  const componentsRoute = stackRoutes
+    .filter((item) => item.name.startsWith('Components'))
+    .map((item) => item.name);
+
   return (
-    <FlatList<DataItem>
-      data={data}
+    <FlatList
+      data={componentsRoute}
       bg="background-hovered"
       renderItem={({ item, index }) => (
-        // TODO: typescript type define
-        <Pressable
-          onPress={() => navigation.navigate(`Components/${item.name}` as any)}
-        >
+        <Pressable onPress={() => navigation.navigate(item as any)}>
           <Box
-            borderBottomWidth={index === data.length - 1 ? '0' : '1'}
+            borderBottomWidth={index === componentsRoute.length - 1 ? '0' : '1'}
             borderColor="text-subdued"
             pl="4"
             pr="5"
@@ -65,7 +33,9 @@ const Index = () => {
             mx="12"
           >
             <Center display="flex" flexDirection="row">
-              <Typography.DisplayLarge>{item.name}</Typography.DisplayLarge>
+              <Typography.DisplayLarge>
+                {item.replace('Components/', '')}
+              </Typography.DisplayLarge>
             </Center>
           </Box>
         </Pressable>

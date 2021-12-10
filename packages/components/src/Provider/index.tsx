@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import COLORS, { getDefaultTheme, ThemeVariant } from './theme';
 import LOCALES, { getDefaultLocale, LocaleSymbol } from '../locale';
 
-import { Context } from './hooks';
+import { Context, useLoadCustomFonts } from './hooks';
 import { getSize } from './device';
 
 export type UIProviderProps = {
@@ -20,6 +20,13 @@ export type UIProviderProps = {
    * default locale symbol
    */
   defaultLocale?: LocaleSymbol;
+};
+
+// TODO: use AppLoading with splash screen
+const FontProvider: FC = ({ children }) => {
+  const [loaded] = useLoadCustomFonts();
+  if (loaded) return <>{children}</>;
+  return null;
 };
 
 const Provider: FC<UIProviderProps> = ({
@@ -59,14 +66,16 @@ const Provider: FC<UIProviderProps> = ({
   );
 
   return (
-    <Context.Provider value={providerValue}>
-      <StatusBar style={themeVariant === 'dark' ? 'light' : 'dark'} />
-      <NavigationContainer>
-        <IntlProvider locale={locale} messages={LOCALES[locale]}>
-          <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
-        </IntlProvider>
-      </NavigationContainer>
-    </Context.Provider>
+    <FontProvider>
+      <Context.Provider value={providerValue}>
+        <StatusBar style={themeVariant === 'dark' ? 'light' : 'dark'} />
+        <NavigationContainer>
+          <IntlProvider locale={locale} messages={LOCALES[locale]}>
+            <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
+          </IntlProvider>
+        </NavigationContainer>
+      </Context.Provider>
+    </FontProvider>
   );
 };
 
