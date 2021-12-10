@@ -21,6 +21,8 @@ import ButtonsGallery from '../views/Components/stories/Buttons';
 import SelectGallery from '../views/Components/stories/Select';
 import EmptyGallery from '../views/Components/stories/Empty';
 import ToastGallery from '../views/Components/stories/Toast';
+import AccountGallery from '../views/Components/stories/Account';
+import CheckBoxGallery from '../views/Components/stories/CheckBox';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -48,8 +50,9 @@ export const stackRoutes = [
   { name: 'Components/Alert', component: AlertGallery },
   { name: 'Components/Buttons', component: ButtonsGallery },
   { name: 'Components/IconButtons', component: IconButtons },
-  { name: 'Components/Buttons', component: ButtonsGallery },
   { name: 'Components/Select', component: SelectGallery },
   { name: 'Components/Empty', component: EmptyGallery },
   { name: 'Components/Toast', component: ToastGallery },
+  { name: 'Components/Account', component: AccountGallery },
+  { name: 'Components/CheckBox', component: CheckBoxGallery },
 ];

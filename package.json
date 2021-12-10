@@ -29,7 +29,7 @@
     "build:ext": "yarn build:inject && yarn workspace @onekeyhq/ext build",
     "desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop build",
-    "build:icon": "yarn workspace @shared/components build:icon",
+    "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "test": "yarn test:unit",
     "test:unit": "yarn jest ./test/unit/"
   },
