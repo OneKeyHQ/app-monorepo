@@ -16,6 +16,7 @@ import IconGallery from '../views/Components/stories/Icon';
 import BadgeGallery from '../views/Components/stories/Badge';
 import AlertGallery from '../views/Components/stories/Alert';
 import Buttons from '../views/Components/stories/Buttons';
+import IconButtons from '../views/Components/stories/IconButtons';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -42,4 +43,5 @@ export const stackRoutes = [
   { name: 'Components/Badge', component: BadgeGallery },
   { name: 'Components/Alert', component: AlertGallery },
   { name: 'Components/Buttons', component: Buttons },
+  { name: 'Components/IconButtons', component: IconButtons },
 ];
