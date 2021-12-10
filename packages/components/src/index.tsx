@@ -1,6 +1,7 @@
 export { default as Alert } from './Alert';
 export { default as Box } from './Box';
 export { default as Button } from './Button';
+export { default as IconButton } from './IconButton';
 export { default as Center } from './Center';
 export { default as Divider } from './Divider';
 export { default as HStack } from './HStack';
