@@ -19,7 +19,7 @@ const Icon: FC<IconProps> = ({ name, size, color = '' }) => {
   const SVGComponent = ICON_CONFIG[name];
   if (!SVGComponent) return null;
 
-  const svgColor = primaryColor ?? color ?? defaultColor;
+  const svgColor = primaryColor || color || defaultColor;
 
   return (
     <SVGComponent
