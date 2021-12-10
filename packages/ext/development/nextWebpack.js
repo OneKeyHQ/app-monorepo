@@ -27,12 +27,12 @@ function nextWebpack(
 
   const createNextConfig = withPlugins(
     [
-      /*
+      /* support node_modules building
       test: /\.+(js|jsx|mjs|ts|tsx)$/,
       test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
        */
       nextWithTM,
-      /*
+      /* support react-native web building
       test: /\.html$/,
       test: /\.(mjs|[jt]sx?)$/,
        */

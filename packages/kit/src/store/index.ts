@@ -1,10 +1,10 @@
 import { configureStore, ThunkAction, Action } from '@reduxjs/toolkit';
 
-import counterReducer from './reducers/counter';
+import autoUpdateReducer from './reducers/autoUpdater';
 
 export function makeStore() {
   return configureStore({
-    reducer: { counter: counterReducer },
+    reducer: { autoUpdate: autoUpdateReducer },
   });
 }
 

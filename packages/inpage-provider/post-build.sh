@@ -18,3 +18,6 @@ echo "// for Refresh RN Cache: $timestamp" >>./src/injected-autogen/index.tsx
 
 # copy to Desktop preload.js
 cp ./src/injected-autogen/injectedDesktop.text-js ../desktop/public/static/preload.js
+
+# copy to Extension injected.js
+cp ./src/injected-autogen/injectedExtension.text-js ../ext/src/entry/injected.js

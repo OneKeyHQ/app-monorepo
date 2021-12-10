@@ -1,67 +1,8 @@
-import React, { useState } from 'react';
-import { Button, Box, Input, Center, Stack } from '@onekeyhq/components';
-
-import { useAppSelector, useAppDispatch } from '../../hooks/redux';
-import {
-  decrement,
-  increment,
-  incrementByAmount,
-  incrementAsync,
-  incrementIfOdd,
-  selectCount,
-} from '../../store/reducers/counter';
+import React from 'react';
+import { Center } from '@onekeyhq/components';
 
 function Counter() {
-  const dispatch = useAppDispatch();
-  const count = useAppSelector(selectCount);
-  const [incrementAmount, setIncrementAmount] = useState('2');
-
-  const incrementValue = Number(incrementAmount) || 0;
-
-  return (
-    <Center flex={1} px="3" mt="3">
-      <Stack
-        direction={{
-          base: 'column',
-          md: 'row',
-        }}
-        space={4}
-      >
-        <Button size="lg" onPress={() => dispatch(decrement())}>
-          -
-        </Button>
-        <Center>{count}</Center>
-        <Button size="lg" onPress={() => dispatch(increment())}>
-          +
-        </Button>
-      </Stack>
-      <Box mt="3">
-        <Input
-          placeholder="Set increment amount"
-          value={incrementAmount}
-          onChange={(e) => setIncrementAmount(e.target.toString())}
-        />
-        <Stack
-          direction={{
-            base: 'column',
-            md: 'row',
-          }}
-          space={4}
-          mt="3"
-        >
-          <Button onPress={() => dispatch(incrementByAmount(incrementValue))}>
-            Add Amount
-          </Button>
-          <Button onPress={() => dispatch(incrementAsync(incrementValue))}>
-            Add Async
-          </Button>
-          <Button onPress={() => dispatch(incrementIfOdd(incrementValue))}>
-            Add If Odd
-          </Button>
-        </Stack>
-      </Box>
-    </Center>
-  );
+  return <Center flex={1} px="3" mt="3" />;
 }
 
 export default Counter;

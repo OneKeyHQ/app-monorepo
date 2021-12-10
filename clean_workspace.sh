@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 rm -rf ./node_modules
+rm -rf ./.husky/_
 
 rm -rf ./packages/components/node_modules
 rm -rf ./packages/kit/node_modules

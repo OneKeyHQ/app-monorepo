@@ -21,7 +21,7 @@ const defaultProps = {
 /**
  * Address 是一个适用于展示 区块链地址 的组件
  */
-export const Address: FC<AddressProps> = ({ text, short, ...rest }) => {
+const Address: FC<AddressProps> = ({ text, short, ...rest }) => {
   let textContent = text;
 
   if (short) {

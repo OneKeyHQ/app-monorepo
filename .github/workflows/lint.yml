@@ -42,4 +42,4 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'yarn'
-      - run: yarn lint
+      - run: yarn lint && yarn test

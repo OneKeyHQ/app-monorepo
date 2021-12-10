@@ -1,6 +1,8 @@
+/* eslint-disable global-require */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { useContext, createContext, useMemo } from 'react';
-
+import { useFonts } from 'expo-font';
 import { useToken } from 'native-base';
 import type { ThemeVariant } from './theme';
 import type { LocaleSymbol } from '../locale';
@@ -50,3 +52,13 @@ export const useUserDevice = () => {
   const context = useContext(Context);
   return useMemo(() => context.device, [context.device]);
 };
+
+const customFont = {
+  'PlusJakartaSans-Bold': require('./fonts/PlusJakartaSans-Bold.ttf'),
+  'PlusJakartaSans-Medium': require('./fonts/PlusJakartaSans-Medium.ttf'),
+  'PlusJakartaSans-SemiBold': require('./fonts/PlusJakartaSans-SemiBold.ttf'),
+};
+
+export function useLoadCustomFonts() {
+  return useFonts(customFont);
+}

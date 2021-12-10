@@ -75,6 +75,7 @@ const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
     const handleMessage = (event: { channel: string; args: Array<string> }) => {
       if (event.channel === JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
         const data: string = event?.args?.[0];
+        // - receive
         jsBridge.receive(data);
       }
 
