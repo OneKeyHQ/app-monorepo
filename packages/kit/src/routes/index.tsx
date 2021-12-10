@@ -13,6 +13,8 @@ import TypographyGallery from '../views/Components/stories/Typography';
 import TokenGallery from '../views/Components/stories/Token';
 import ThemeGallery from '../views/Components/stories/Theme';
 import IconGallery from '../views/Components/stories/Icon';
+import BadgeGallery from '../views/Components/stories/Badge';
+import AlertGallery from '../views/Components/stories/Alert';
 import Buttons from '../views/Components/stories/Buttons';
 
 type TabRoute = {
@@ -37,5 +39,7 @@ export const stackRoutes = [
   { name: 'Components/Token', component: TokenGallery },
   { name: 'Components/Theme', component: ThemeGallery },
   { name: 'Components/Icon', component: IconGallery },
+  { name: 'Components/Badge', component: BadgeGallery },
+  { name: 'Components/Alert', component: AlertGallery },
   { name: 'Components/Buttons', component: Buttons },
 ];
