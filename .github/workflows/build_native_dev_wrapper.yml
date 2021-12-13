@@ -1,6 +1,8 @@
 name: Build Native Dev Wrapper CI
 
 on:
+  schedule:
+    - cron: '30 9 * * 5'
   workflow_dispatch:
     inputs:
       platform:
