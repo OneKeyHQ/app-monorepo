@@ -18,7 +18,8 @@ export { default as Switch } from './Switch';
 export { default as Address } from './Address';
 export { default as Avatar } from './Avatar';
 export { default as Icon } from './Icon';
-export { default as Token } from './Token';
+export { default as Token, TokenGroup } from './Token';
+export type { TokenProps } from './Token';
 export { default as Select } from './Select';
 export { default as AlertDialog } from './AlertDialog';
 export { default as FlatList } from './FlatList';
@@ -31,6 +32,7 @@ export { useToast, Toast } from './Toast';
 export { default as Account } from './Account';
 export { default as CheckBox } from './CheckBox';
 export { default as FormControl } from './FormControl';
+export { default as Spinner } from './Spinner';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';
