@@ -145,8 +145,14 @@ function groupTokenWidth(
   }
 }
 
+type GroupTokenArray =
+  | [TokenProps]
+  | [TokenProps, TokenProps]
+  | [TokenProps, TokenProps, TokenProps]
+  | [TokenProps, TokenProps, TokenProps, TokenProps]
+
 const TokensView = (
-  groupTokens: TokenProps[],
+  groupTokens: GroupTokenArray,
   size: TokenGroupSize,
   cornerToken?: TokenProps,
 ) => {
@@ -155,25 +161,30 @@ const TokensView = (
   const width = groupTokenWidth(groupTokens, size, cornerToken);
   const hasCorner = cornerToken != null;
 
+  // Only show 4 of the tokens
   const tokenList = useMemo(() => {
-    const token = groupTokens[i];
-    const height = groupHeight(size, cornerToken);
-    const mt = (height - groupProps.groupSize) / 2;
-    
-    return (
-      <Box
-        mt={`${hasCorner ? mt : 0}px`}
-        ml={groupProps.mlArray[i]}
-        borderWidth="2px"
-        borderColor={borderColor}
-        borderRadius="full"
-        padding={0}
-        key={i}
-      >
-        <Token chain={token.chain} size={`${groupProps.groupSize}px`} />
-      </Box>
-     )
-  }
+    if (groupTokens?.length > 0) {
+      return groupTokens.slice(0, 4).map((token, index) => {
+        const height = groupHeight(size, cornerToken);
+        const mt = (height - groupProps.groupSize) / 2;
+
+        return (
+          <Box
+            mt={`${hasCorner ? mt : 0}px`}
+            ml={groupProps.mlArray[index]}
+            borderWidth="2px"
+            borderColor={borderColor}
+            borderRadius="full"
+            padding={0}
+            key={`${token.address}-${index}`}
+          >
+            <Token chain={token.chain} size={`${groupProps.groupSize}px`} />
+          </Box>
+        );
+      });
+    }
+    return null;
+  }, [groupTokens, size, cornerToken, borderColor, hasCorner]);
 
   const cornerTokenView = hasCorner ? (
     <Box
@@ -191,7 +202,7 @@ const TokensView = (
       />
     </Box>
   ) : null;
- 
+
   return (
     <ZStack mt="0" ml={0} width={`${width}px`}>
       {tokenList}
@@ -208,7 +219,7 @@ export const TokenGroup: FC<TokenGroupProps> = ({
   description,
 }) => {
   const height = groupHeight(size, cornerToken);
-  const tokensView = TokensView(tokens, size, cornerToken);
+  const tokensView = TokensView(tokens as GroupTokenArray, size, cornerToken);
   const descColor = useThemeValue('text-subdued');
   const hasCorner = cornerToken != null;
   let space = size === 'md' ? 12 : 16;
