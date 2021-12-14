@@ -177,7 +177,7 @@ const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
             borderColor={borderColor}
             borderRadius="full"
             padding={0}
-            key={`${token.address}-${index}`}
+            key={`tokenGroup-${index}`}
           >
             <Token chain={token.chain} size={`${groupProps.groupSize}px`} />
           </Box>
