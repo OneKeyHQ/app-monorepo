@@ -43,17 +43,14 @@ const InputGallery = () => {
           placeholder="Placeholder"
           value="small"
         />
-        <FormControl
-          isInvalid
-          w={{
-            base: '75%',
-            md: '25%',
-          }}
-        >
+        <FormControl isInvalid>
           <FormControl.Label>Password</FormControl.Label>
           <Input placeholder="Enter password" />
+          <FormControl.HelperText>
+            Must be at least 6 characters.
+          </FormControl.HelperText>
           <FormControl.ErrorMessage
-            leftIcon={<Icon name="AdjustmentsOutline" />}
+            leftIcon={<Icon size={16} name="ExclamationCircleOutline" />}
           >
             Try different from previous passwords.
           </FormControl.ErrorMessage>
