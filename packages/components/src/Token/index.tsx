@@ -149,13 +149,14 @@ type GroupTokenArray =
   | [TokenProps]
   | [TokenProps, TokenProps]
   | [TokenProps, TokenProps, TokenProps]
-  | [TokenProps, TokenProps, TokenProps, TokenProps]
+  | [TokenProps, TokenProps, TokenProps, TokenProps];
+interface TokensViewProps {
+  groupTokens: GroupTokenArray;
+  size: TokenGroupSize;
+  cornerToken?: TokenProps;
+}
 
-const TokensView = (
-  groupTokens: GroupTokenArray,
-  size: TokenGroupSize,
-  cornerToken?: TokenProps,
-) => {
+const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
   const groupProps = propWithSize(size);
   const borderColor = useThemeValue('surface-subdued');
   const width = groupTokenWidth(groupTokens, size, cornerToken);
@@ -219,7 +220,6 @@ export const TokenGroup: FC<TokenGroupProps> = ({
   description,
 }) => {
   const height = groupHeight(size, cornerToken);
-  const tokensView = TokensView(tokens as GroupTokenArray, size, cornerToken);
   const descColor = useThemeValue('text-subdued');
   const hasCorner = cornerToken != null;
   let space = size === 'md' ? 12 : 16;
@@ -228,7 +228,11 @@ export const TokenGroup: FC<TokenGroupProps> = ({
   }
   return (
     <Row height={`${height}px`} width="auto">
-      {tokensView}
+      <TokensView
+        groupTokens={tokens as GroupTokenArray}
+        size={size}
+        cornerToken={cornerToken}
+      />
       {!!(name || description) && (
         <Column
           justifyContent="center"
