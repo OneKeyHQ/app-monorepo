@@ -1,6 +1,5 @@
 /* eslint-disable no-nested-ternary */
 import React, { useState, FC } from 'react';
-import { useIntl } from 'react-intl';
 import { Box, Text, Pressable } from 'native-base';
 import { CommonActions } from '@react-navigation/native';
 import Icon from '../../../Icon';
@@ -10,7 +9,6 @@ import { useThemeValue } from '../../../Provider/hooks';
 const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
   const { routes } = state;
   const [isCollapsed] = useState(false);
-  const intl = useIntl();
   const activeColor = useThemeValue('text-default');
   const inactiveColor = useThemeValue('text-subdued');
 
@@ -41,11 +39,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
           <Box mt="6">
             <Box>
               <Box>
-                <Text color="text-subdued">
-                  {intl.formatMessage({
-                    id: 'ui-components__sidebar_trade',
-                  })}
-                </Text>
+                <Text color="text-subdued">Trade</Text>
               </Box>
               <Box>
                 {routes.map((route, index) => {

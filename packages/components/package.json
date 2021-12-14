@@ -7,6 +7,7 @@
     "@react-navigation/native": "^6.0.6",
     "native-base": "^3.2.2",
     "react-native-jazzicon": "^0.1.2",
+    "react-native-modal": "^13.0.0",
     "react-native-svg": "9.13.6",
     "styled-components": "^5.3.3"
   },
