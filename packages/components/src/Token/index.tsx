@@ -153,7 +153,6 @@ const TokensView = (
   const groupProps = propWithSize(size);
   const borderColor = useThemeValue('surface-subdued');
   const width = groupTokenWidth(groupTokens, size, cornerToken);
-  const arrViews = [];
   const hasCorner = cornerToken != null;
 
   const tokenList = useMemo(() => {
