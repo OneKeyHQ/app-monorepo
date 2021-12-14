@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 import { Image, Box, Center, Column, Row, ZStack } from 'native-base';
 import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';
@@ -156,14 +156,12 @@ const TokensView = (
   const arrViews = [];
   const hasCorner = cornerToken != null;
 
-  // eslint-disable-next-line react/destructuring-assignment
-  for (let i = 0; i < groupTokens.length; i += 1) {
-    // eslint-disable-next-line react/destructuring-assignment
+  const tokenList = useMemo(() => {
     const token = groupTokens[i];
     const height = groupHeight(size, cornerToken);
     const mt = (height - groupProps.groupSize) / 2;
-
-    arrViews.push(
+    
+    return (
       <Box
         mt={`${hasCorner ? mt : 0}px`}
         ml={groupProps.mlArray[i]}
@@ -174,8 +172,8 @@ const TokensView = (
         key={i}
       >
         <Token chain={token.chain} size={`${groupProps.groupSize}px`} />
-      </Box>,
-    );
+      </Box>
+     )
   }
 
   const cornerTokenView = hasCorner ? (
@@ -194,9 +192,10 @@ const TokensView = (
       />
     </Box>
   ) : null;
+ 
   return (
     <ZStack mt="0" ml={0} width={`${width}px`}>
-      {arrViews}
+      {tokenList}
       {cornerTokenView}
     </ZStack>
   );
