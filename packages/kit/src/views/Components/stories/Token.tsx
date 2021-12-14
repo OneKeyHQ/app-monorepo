@@ -49,8 +49,8 @@ const TokenGallery = () => (
           />
           <TokenGroup
             size="lg"
-            name="12323"
-            description="ddaadad"
+            name="Group of ether tokens"
+            description="Description about that group"
             tokens={[
               { chain: 'btc' },
               { chain: 'bsc' },
@@ -61,7 +61,7 @@ const TokenGallery = () => (
           />
           <TokenGroup
             size="xl"
-            name="1232dsds3"
+            name="XL size"
             tokens={[
               { chain: 'btc' },
               { chain: 'bsc' },
