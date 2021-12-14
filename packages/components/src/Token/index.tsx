@@ -1,9 +1,9 @@
 import React, { FC } from 'react';
 import { Image, Box, Center, Column, Row, ZStack } from 'native-base';
+import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';
 import Icon from '../Icon';
 import { CDN_PREFIX } from '../utils';
-import { useThemeValue } from '..';
 
 export type TokenProps = {
   src?: string;
@@ -76,28 +76,28 @@ export type TokenGroupProps = {
 
 type GroupTypeProps = {
   groupSize: number;
-  ml_array: string[];
+  mlArray: string[];
   groupTokenWidth: number[];
   cornerTokenSize: number;
 };
 
 const mdProps: GroupTypeProps = {
   groupSize: 24,
-  ml_array: ['0px', '20px', '40px', '60px'],
+  mlArray: ['0px', '20px', '40px', '60px'],
   groupTokenWidth: [28, 48, 68, 88],
   cornerTokenSize: 12,
 };
 
 const lgProps: GroupTypeProps = {
   groupSize: 32,
-  ml_array: ['0px', '24px', '48px', '72px'],
+  mlArray: ['0px', '24px', '48px', '72px'],
   groupTokenWidth: [36, 60, 84, 108],
   cornerTokenSize: 16,
 };
 
 const xlProps: GroupTypeProps = {
   groupSize: 40,
-  ml_array: ['0px', '32px', '64px', '96px'],
+  mlArray: ['0px', '32px', '64px', '96px'],
   groupTokenWidth: [44, 76, 108, 140],
   cornerTokenSize: 20,
 };
@@ -166,7 +166,7 @@ const TokensView = (
     arrViews.push(
       <Box
         mt={`${hasCorner ? mt : 0}px`}
-        ml={groupProps.ml_array[i]}
+        ml={groupProps.mlArray[i]}
         borderWidth="2px"
         borderColor={borderColor}
         borderRadius="full"

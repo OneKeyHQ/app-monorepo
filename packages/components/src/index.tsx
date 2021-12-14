@@ -19,7 +19,6 @@ export { default as Address } from './Address';
 export { default as Avatar } from './Avatar';
 export { default as Icon } from './Icon';
 export { default as Token, TokenGroup } from './Token';
-export type { TokenProps } from './Token';
 export { default as Select } from './Select';
 export { default as AlertDialog } from './AlertDialog';
 export { default as FlatList } from './FlatList';
