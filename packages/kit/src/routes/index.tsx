@@ -24,6 +24,7 @@ import ToastGallery from '../views/Components/stories/Toast';
 import AccountGallery from '../views/Components/stories/Account';
 import CheckBoxGallery from '../views/Components/stories/CheckBox';
 import InputCallery from '../views/Components/stories/Input';
+import ModalGallery from '../views/Components/stories/Modal';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -57,4 +58,5 @@ export const stackRoutes = [
   { name: 'Components/Toast', component: ToastGallery },
   { name: 'Components/Account', component: AccountGallery },
   { name: 'Components/CheckBox', component: CheckBoxGallery },
+  { name: 'Components/Modal', component: ModalGallery },
 ];
