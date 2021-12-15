@@ -1,86 +1,63 @@
 import React from 'react';
+import { WebView } from 'react-native-webview';
 
-export type WindowOneKey = {
-  jsBridge: IJsBridge;
-  ethereum: unknown;
+export enum IJsBridgeMessageTypes {
+  RESPONSE = 'RESPONSE', // response result or error
+  REQUEST = 'REQUEST',
+}
+
+export type IJsBridgeMessageTypesStrings = keyof typeof IJsBridgeMessageTypes;
+
+export type IInpageProviderRequestData = {
+  id?: number | string;
+  method: string;
+  params: Record<string, unknown> | Array<unknown> | unknown;
 };
 
-export type JsBridgeEventPayload = {
-  id?: number | string;
-  remoteId?: number | string | null;
-  data?: unknown;
-  origin?: string;
-  resolve?: (payload: unknown) => void;
-  reject?: () => null;
+export type IJsBridgeMessageData = {
+  scope: string; // ONEKEY_INPAGE_PROVIDER_MESSAGE
+  provider: string; // ethereum, solana, sollet, conflux
+  request: IInpageProviderRequestData;
+};
+
+export type IJsBridgeCallback = {
+  id: number;
+  resolve: (value: unknown) => void;
+  reject: (value: unknown) => void;
+  created: number;
 };
 
 export type IJsBridgeMessagePayload = {
-  id?: number | string;
+  id?: number;
+  data?: unknown | IJsBridgeMessageData | IInpageProviderRequestData;
+  error?: unknown;
   remoteId?: number | string | null;
-  data?: unknown | IInpageProviderRequestPayload;
-  type?: string;
+  type?: IJsBridgeMessageTypesStrings;
   origin?: string;
-  resolve?: ((value: unknown) => void) | undefined;
-  reject?: () => null;
+  resolve?: (value: unknown) => void;
+  reject?: (value: unknown) => void;
+  created?: number;
+  sync?: boolean;
 };
 
-export type IInpageProviderRequestPayload = {
-  id: number | string;
-  method: string;
-  params: Record<string, unknown> | Array<unknown> | unknown;
-  others: Record<string, unknown> | Array<unknown> | unknown;
-};
-
-export type ICreateJsBridgeParams = {
+export type IJsBridgeConfig = {
   sendAsString?: boolean;
-  sendPayload?: (payload: IJsBridgeMessagePayload | string) => void;
+  debug?: boolean;
+  receiveHandler?: IJsBridgeReceiveHandler;
+  webviewRef?: React.RefObject<IElectronWebView | WebView | any>;
 };
 
-export type ICreateJsBridgeHostParams = {
-  webviewRef: React.RefObject<IReactNativeWebViewRef | IElectronWebViewRef>;
-  isReactNative?: boolean;
-  isElectron?: boolean;
-  isExtension?: boolean;
-};
+export type IJsBridgeReceiveHandler = (
+  payload: IJsBridgeMessagePayload,
+) => any | Promise<any>;
 
-export type IReactNativeWebViewRef = {
-  injectJavaScript: (code: string) => void;
-};
-
-export type IElectronWebViewRef = {
+export type IElectronWebView = {
+  reload: () => void;
   closeDevTools: () => void;
   openDevTools: () => void;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;
   executeJavaScript: (code: string) => void;
-};
-
-export type IWebViewWrapperRef = {
-  jsBridge?: IJsBridge | null;
-};
-
-export type IJsBridge = {
-  version: string;
-  MESSAGE_TYPES: Record<string, string>;
-  remoteInfo: Record<any, any>;
-  on: (
-    eventName: string,
-    callback: (event: JsBridgeEventPayload) => void,
-  ) => void;
-  off: () => void;
-  send: (data: IJsBridgeMessagePayload) => Promise<any>;
-  receive: (data: string | IJsBridgeMessagePayload) => void;
-  request: (data: any, portId?: number | string | null) => Promise<unknown>;
-  response: (
-    id?: number | string,
-    data: any,
-    error?: Error | null,
-    remoteId?: number | string | null,
-  ) => void;
-  responseMessage: (data: string) => void;
-  trigger: (event: string, payload: any) => void;
-  requestToAllCS?: any;
-  requestToAllUi?: any;
 };
 
 export type IPostMessageEventData = {

@@ -7,7 +7,16 @@ function build(cb) {
 }
 
 function watching(cb) {
-  gulp.watch(['src/**/*.tsx', '!src/injected-autogen/**/*'], build);
+  gulp.watch(
+    [
+      'src/**/*.tsx',
+      'src/**/*.ts',
+      'src/**/*.jsx',
+      'src/**/*.js',
+      '!src/injected-autogen/**/*',
+    ],
+    build,
+  );
   cb();
 }
 const watch = gulp.series(build, watching);

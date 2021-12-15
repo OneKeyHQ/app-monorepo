@@ -51,7 +51,7 @@ const fileExtensions = [
 
 const resolveExtensions = fileExtensions
   .map((extension) => `.${extension}`)
-  .concat(['.js', '.jsx', '.ts', '.tsx', '.css']);
+  .concat(['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.css']);
 
 let webpackConfig = {
   // add custom config, will be deleted later
@@ -112,6 +112,7 @@ let webpackConfig = {
       //   loader: 'file-loader',
       //   options: {
       //     name: '[name].[ext]',
+      //     esModule: false,
       //   },
       //   exclude: /node_modules/,
       // },
@@ -126,7 +127,9 @@ let webpackConfig = {
   },
   resolve: {
     alias,
-    extensions: resolveExtensions,
+    extensions: [
+      // move to: ./development/resolveExtension.js
+    ],
   },
   plugins: [
     new webpack.ProgressPlugin(),

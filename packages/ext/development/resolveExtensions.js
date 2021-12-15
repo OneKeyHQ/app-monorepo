@@ -1,0 +1,15 @@
+module.exports = [
+  '.web.ts',
+  '.web.tsx',
+  '.web.mjs',
+  '.web.js',
+  '.web.jsx',
+  '.ts',
+  '.tsx',
+  '.mjs',
+  '.js',
+  '.jsx',
+  '.json',
+  '.wasm',
+  '.d.ts',
+];
