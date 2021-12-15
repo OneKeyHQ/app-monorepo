@@ -1,14 +1,14 @@
 const webpack = require('webpack');
 const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
+const webpackTools = require('../../development/webpackTools');
 
 console.log('============ webpack.version ', webpack.version);
 
 module.exports = async function (env, argv) {
-  const config = await createWebpackConfigAsync(env, argv);
-  config.plugins.push(
-    new webpack.DefinePlugin({
-      'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('web'),
-    }),
-  );
+  let config = await createWebpackConfigAsync(env, argv);
+  config = webpackTools.normalizeConfig({
+    platform: 'web',
+    config,
+  });
   return config;
 };

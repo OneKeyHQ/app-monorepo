@@ -10,6 +10,7 @@ const pluginsCopy = require('./development/pluginsCopy');
 const devUtils = require('./development/devUtils');
 const nextWebpack = require('./development/nextWebpack');
 const packageJson = require('./package.json');
+const webpackTools = require('../../development/webpackTools');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
@@ -136,7 +137,6 @@ let webpackConfig = {
     // expose and write the allowed env vars on the compiled bundle
     new webpack.EnvironmentPlugin(['NODE_ENV']),
     new webpack.DefinePlugin({
-      'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('ext'),
       'process.env.VERSION': JSON.stringify(packageJson.version),
     }),
     // FIX ERROR: process is not defined
@@ -197,5 +197,10 @@ devUtils.writePreviewWebpackConfigJson(
   'webpack.config.preview.json',
 );
 devUtils.cleanWebpackDebugFields(webpackConfig);
+
+webpackConfig = webpackTools.normalizeConfig({
+  platform: 'ext',
+  config: webpackConfig,
+});
 
 module.exports = webpackConfig;

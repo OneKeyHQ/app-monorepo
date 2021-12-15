@@ -1,9 +1,7 @@
 const { withExpo } = require('@expo/next-adapter');
 const withPlugins = require('next-compose-plugins');
-const { PHASE_DEVELOPMENT_SERVER, PHASE_EXPORT } = require('next/constants');
-const lodash = require('lodash');
+const { PHASE_EXPORT } = require('next/constants');
 const withTM = require('./withTM');
-const resolveExtensions = require('./resolveExtensions');
 
 const nextOptions = {
   isServer: false,
@@ -50,9 +48,7 @@ function nextWebpack(
 
   // eslint-disable-next-line no-param-reassign
   webpackConfig = nextConfig.webpack(webpackConfig, nextOptions);
-  webpackConfig.resolve.extensions = lodash.uniq(
-    webpackConfig.resolve.extensions.concat(resolveExtensions),
-  );
+
   return webpackConfig;
 }
 
