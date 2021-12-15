@@ -1,9 +1,5 @@
-import inpageProvider from '@onekeyhq/inpage-provider/src/extension/background';
-import {
-  EXT_PORT_CS_TO_BG,
-  EXT_PORT_UI_TO_BG,
-} from '@onekeyhq/inpage-provider/src/consts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import inpageProviderBackground from '@onekeyhq/inpage-provider/src/extension/background';
 import serviceWorker from '../background/serviceWorker';
 import bgDappTest from '../background/backgroundDappTest';
 
@@ -13,30 +9,10 @@ console.log(
 console.log('     Put the background scripts here. 222');
 
 serviceWorker.disableCacheInBackground();
-const { bridge, ports } = inpageProvider.createHostBridge();
 
-// TODO requestToAllDapps, requestToAllUi
-bridge.requestToAllCS = (data: any) => {
-  // TODO optimize
-  Object.entries(ports).forEach(([portId, port]) => {
-    if (port.name === EXT_PORT_CS_TO_BG) {
-      console.log(`notify to content-script port: ${portId}`);
-      // TODO check ports disconnected
-      bridge.request(data, portId);
-    }
-  });
-};
-
-bridge.requestToAllUi = (data: any) => {
-  // TODO optimize
-  Object.entries(ports).forEach(([portId, port]) => {
-    if (port.name === EXT_PORT_UI_TO_BG) {
-      console.log(`notify to ui port: ${portId}`);
-      // TODO check ports disconnected
-      bridge.request(data, portId);
-    }
-  });
-};
+const bridge = inpageProviderBackground.createHostBridge({
+  receiveHandler: bgDappTest.receiveHandler,
+});
 
 bgDappTest.init(bridge);
 

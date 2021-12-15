@@ -33,6 +33,7 @@ module.exports = {
   'icons': {
     '128': 'icon-128.png',
   },
+  // https://developer.chrome.com/docs/extensions/mv3/manifest/web_accessible_resources/
   'web_accessible_resources': [
     {
       'resources': [
@@ -44,7 +45,10 @@ module.exports = {
       'matches': ['<all_urls>'],
     },
     {
-      'resources': ['icon-128.png', 'icon-34.png'],
+      'resources': [
+        'icon-128.png',
+        'icon-34.png',
+      ],
       'matches': [],
     },
   ],
