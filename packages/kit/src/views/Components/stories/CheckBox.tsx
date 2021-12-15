@@ -63,9 +63,37 @@ const Checkbox4 = () => {
 
 const Checkbox5 = () => <CheckBox value="UnControl Checkbox" />;
 
+const Checkbox6 = () => (
+  <CheckBox value="UnControl Disabled Checkbox" isChecked isDisabled />
+);
+
+const Checkbox7 = () => (
+  <CheckBox
+    value="Default UnControl Disabled Checkbox"
+    isChecked
+    defaultIsChecked
+    isDisabled
+  />
+);
+
+const Checkbox8 = () => {
+  const [checked, setChecked] = useState(false);
+  return (
+    <CheckBox
+      w={310}
+      onChange={() => {
+        setChecked(!checked);
+      }}
+      isChecked={checked}
+      value="Checkbox A Newline A Newline A Newline A Newline"
+      describe="A Newline A Newline A Newline A Newline A Newline A Newline"
+    />
+  );
+};
+
 const CheckBoxGallery = () => (
   <Center flex="1" bg="background-hovered">
-    <Box width="480px">
+    <Box width="100%" pr={50} pl={50}>
       <Checkbox1 />
       <Divider my="2" />
       <Checkbox2 />
@@ -75,6 +103,12 @@ const CheckBoxGallery = () => (
       <Checkbox4 />
       <Divider my="2" />
       <Checkbox5 />
+      <Divider my="2" />
+      <Checkbox6 />
+      <Divider my="2" />
+      <Checkbox7 />
+      <Divider my="2" />
+      <Checkbox8 />
     </Box>
   </Center>
 );

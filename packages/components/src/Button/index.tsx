@@ -20,7 +20,7 @@ type ButtonPropsWithoutType = {
   onPress?: () => void;
 };
 
-type ButtonProps = ButtonPropsWithoutType & { type?: ButtonType };
+export type ButtonProps = ButtonPropsWithoutType & { type?: ButtonType };
 
 const getPadding = (size: ButtonSize = 'base'): [number, number] => {
   const sizeMap: Record<ButtonSize, [number, number]> = {
