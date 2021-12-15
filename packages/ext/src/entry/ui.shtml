@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- extension popup needs initial size here, popupSizeFix() will adjust new size later -->
+<html lang="en"  style="min-height: 600px;min-width: 375px;">
 <head>
   <title>OneKey</title>
   <meta charset="utf-8" />
