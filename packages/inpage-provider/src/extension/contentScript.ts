@@ -4,7 +4,7 @@ import {
   JS_BRIDGE_MESSAGE_DIRECTION,
   JS_BRIDGE_MESSAGE_EXT_CHANNEL,
 } from '../consts';
-import messagePort from './messagePort';
+import messagePort from './extMessagePort';
 import { IPostMessageEventData } from '../types';
 
 // TODO one-time only

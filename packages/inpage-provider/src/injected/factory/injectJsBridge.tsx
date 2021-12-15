@@ -1,4 +1,4 @@
-import { IJsBridge } from '../../types';
+import JsBridgeBase from '../../jsBridge/JsBridgeBase';
 
 function fixGlobalShim() {
   // FIX errors in ReactNative
@@ -14,16 +14,12 @@ function fixGlobalShim() {
 }
 
 // TODO injectWindowJsBridge
-function injectJsBridge({
-  createBridge,
-}: {
-  createBridge: () => IJsBridge;
-}): void {
+function injectJsBridge(bridge: JsBridgeBase): void {
   fixGlobalShim();
 
-  if (!window?.onekey?.jsBridge) {
-    window.onekey = window.onekey || {};
-    window.onekey.jsBridge = createBridge();
+  if (!window?.$onekey?.jsBridge) {
+    window.$onekey = window.$onekey || {};
+    window.$onekey.jsBridge = bridge;
   }
 
   console.log('OneKey jsBridge injected success! 8888');
