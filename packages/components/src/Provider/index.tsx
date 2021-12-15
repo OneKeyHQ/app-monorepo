@@ -5,6 +5,7 @@ import { IntlProvider } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import COLORS, { getDefaultTheme, ThemeVariant } from './theme';
 import LOCALES, { getDefaultLocale, LocaleSymbol } from '../locale';
 
@@ -26,7 +27,12 @@ export type UIProviderProps = {
 const FontProvider: FC = ({ children }) => {
   const [loaded] = useLoadCustomFonts();
   if (loaded) return <>{children}</>;
-  return null;
+  if (platformEnv.isNative) {
+    return null;
+  }
+  // Web can render if font not loaded
+  // but Native will throw error: Unrecognized font family "PlusJakartaSans-Bold"
+  return <>{children}</>;
 };
 
 const Provider: FC<UIProviderProps> = ({
