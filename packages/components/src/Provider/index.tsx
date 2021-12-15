@@ -45,6 +45,7 @@ const Provider: FC<UIProviderProps> = ({
 
   const defaultLocale = getDefaultLocale(initialLocale);
   const [locale, setLocale] = useState<LocaleSymbol>(defaultLocale);
+  const [isRootRoute, setIsRootRoute] = useState(true);
 
   const { width, height } = useWindowDimensions();
 
@@ -54,13 +55,15 @@ const Provider: FC<UIProviderProps> = ({
       setThemeVariant,
       setLocale,
       locale,
+      isRootRoute,
+      setIsRootRoute,
       device: {
         screenWidth: width,
         screenHeight: height,
         size: getSize(width),
       },
     }),
-    [themeVariant, setThemeVariant, setLocale, locale, width, height],
+    [themeVariant, locale, isRootRoute, width, height],
   );
 
   const themeVar = useMemo(

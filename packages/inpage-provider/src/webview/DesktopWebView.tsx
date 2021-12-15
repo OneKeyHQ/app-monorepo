@@ -7,7 +7,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useIsIpcReady from '../jsBridge/useIsIpcReady';
 import { JS_BRIDGE_MESSAGE_IPC_CHANNEL } from '../consts';
@@ -119,21 +118,23 @@ const DesktopWebView = forwardRef(
     return (
       <>
         {platformEnv.isDev && (
-          <Button
-            style={{ transform: [{ scale: 0.7 }] }}
-            opacity={0.6}
-            position="absolute"
-            right={devToolsAtLeft ? undefined : 0}
-            left={devToolsAtLeft ? 0 : undefined}
-            variant="outline"
-            size="xs"
-            onPress={() => {
+          <button
+            type="button"
+            style={{
+              fontSize: 12,
+              padding: 0,
+              opacity: 0.6,
+              position: 'absolute',
+              right: devToolsAtLeft ? undefined : 0,
+              left: devToolsAtLeft ? 0 : undefined,
+            }}
+            onClick={() => {
               setDevToolsAtLeft(!devToolsAtLeft);
               webviewRef.current?.openDevTools();
             }}
           >
             DevTools
-          </Button>
+          </button>
         )}
 
         {/* <div ref={ref} className="webview-container" /> */}

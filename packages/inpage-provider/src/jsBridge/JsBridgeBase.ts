@@ -14,7 +14,6 @@ abstract class JsBridgeBase extends EventEmitter {
     this.config = config;
     this.sendAsString = config.sendAsString ?? this.sendAsString;
     this.version = (process.env.VERSION as string) || '';
-    // TODO receivePayload
     if (this.config.receiveHandler) {
       this.on('message', this.globalOnMessage);
     }

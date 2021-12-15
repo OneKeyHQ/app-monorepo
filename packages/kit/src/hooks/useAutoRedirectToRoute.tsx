@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useNavigation from './useNavigation';
 
+// TODO official support:
+//      https://reactnavigation.org/docs/web-support/
 function useAutoRedirectToRoute() {
   const navigation = useNavigation();
   useEffect(() => {

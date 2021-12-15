@@ -112,7 +112,8 @@ class ProviderApi {
           chrome.windows.create({
             focused: true,
             type: 'popup',
-            height: 800,
+            // init size same to ext ui-popup.html
+            height: 600 + 50, // height including title bar, so should add 50 more
             width: 375,
             url: '/ui-popup.html?router=Approval#approval-window',
           });

@@ -5,7 +5,7 @@ import React, {
   forwardRef,
   useEffect,
 } from 'react';
-import { WebView } from '@onekeyhq/components';
+import { WebView } from 'react-native-webview';
 import { injectedNative } from '../injected-autogen';
 import { IJsBridgeReceiveHandler } from '../types';
 import JsBridgeNativeHost from '../jsBridge/JsBridgeNativeHost';
