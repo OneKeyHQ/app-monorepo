@@ -33,6 +33,9 @@ export { default as CheckBox } from './CheckBox';
 export { default as FormControl } from './FormControl';
 export { default as Spinner } from './Spinner';
 export { default as Modal } from './Modal';
+export { default as Searchbar } from './Searchbar';
+export { default as Textarea } from './Textarea';
+export { default as Flex } from './Flex';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';

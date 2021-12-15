@@ -16,7 +16,7 @@ type Props = {
   onPressSecondaryRightIcon?: () => void;
 };
 
-const OInput: FC<ComponentProps<typeof Input> & Props> = ({
+const InnerInput: FC<ComponentProps<typeof Input> & Props> = ({
   small,
   isDisabled,
   leftText,
@@ -39,6 +39,7 @@ const OInput: FC<ComponentProps<typeof Input> & Props> = ({
     leftElements.push(
       <Text
         ml="2"
+        key="leftText"
         fontSize={fontSize}
         color={isDisabled ? 'text-disabled' : 'text-subdued'}
         onPress={onPressLeftText}
@@ -49,7 +50,7 @@ const OInput: FC<ComponentProps<typeof Input> & Props> = ({
   }
   if (leftIconName) {
     leftElements.push(
-      <Pressable ml="2" onPress={onPressLeftIcon}>
+      <Pressable ml="2" onPress={onPressLeftIcon} key="leftIconName">
         <Icon
           size={16}
           name={leftIconName}
@@ -61,6 +62,7 @@ const OInput: FC<ComponentProps<typeof Input> & Props> = ({
   if (rightText) {
     rightElements.push(
       <Text
+        key="rightText"
         mr="2"
         fontSize={fontSize}
         onPress={onPressRightText}
@@ -72,7 +74,7 @@ const OInput: FC<ComponentProps<typeof Input> & Props> = ({
   }
   if (rightIconName) {
     rightElements.push(
-      <Pressable mr="2" onPress={onPressRightIcon}>
+      <Pressable mr="2" onPress={onPressRightIcon} key="rightIconName">
         <Icon
           size={16}
           name={rightIconName}
@@ -83,7 +85,11 @@ const OInput: FC<ComponentProps<typeof Input> & Props> = ({
   }
   if (rightSecondaryIconName) {
     rightElements.push(
-      <Pressable mr="2" onPress={onPressSecondaryRightIcon}>
+      <Pressable
+        mr="2"
+        onPress={onPressSecondaryRightIcon}
+        key="rightSecondaryIconName"
+      >
         <Icon
           size={16}
           name={rightSecondaryIconName}
@@ -124,4 +130,4 @@ const OInput: FC<ComponentProps<typeof Input> & Props> = ({
   );
 };
 
-export default OInput;
+export default InnerInput;

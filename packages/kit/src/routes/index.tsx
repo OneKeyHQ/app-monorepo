@@ -23,9 +23,11 @@ import EmptyGallery from '../views/Components/stories/Empty';
 import ToastGallery from '../views/Components/stories/Toast';
 import AccountGallery from '../views/Components/stories/Account';
 import CheckBoxGallery from '../views/Components/stories/CheckBox';
-import InputCallery from '../views/Components/stories/Input';
 import SpinnerGallery from '../views/Components/stories/Spinner';
 import ModalGallery from '../views/Components/stories/Modal';
+import InputGallery from '../views/Components/stories/Input';
+import SearchbarGallery from '../views/Components/stories/Searchbar';
+import TextareaGallery from '../views/Components/stories/Textarea';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -43,8 +45,10 @@ export const tabRoutes: TabRoute[] = [
 ];
 
 export const stackRoutes = [
+  { name: 'Components/Textarea', component: TextareaGallery },
+  { name: 'Components/Searchbar', component: SearchbarGallery },
   { name: 'Components/Address', component: AddressGallery },
-  { name: 'Components/Input', component: InputCallery },
+  { name: 'Components/Input', component: InputGallery },
   { name: 'Components/Avatar', component: AvatarGallery },
   { name: 'Components/Typography', component: TypographyGallery },
   { name: 'Components/Token', component: TokenGallery },
