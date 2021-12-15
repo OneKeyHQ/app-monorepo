@@ -3,6 +3,7 @@ const jsRules = {
   'prettier/prettier': ['error', require('./.prettierrc.js')],
   'no-unused-vars': 'off',
   'no-use-before-define': 'off',
+  'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
   'no-restricted-exports': 'off',
   'func-names': 'off',
@@ -14,6 +15,7 @@ const jsRules = {
 const tsRules = {
   '@typescript-eslint/no-unused-vars': ['error'],
   '@typescript-eslint/no-use-before-define': ['error'],
+  '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
 };

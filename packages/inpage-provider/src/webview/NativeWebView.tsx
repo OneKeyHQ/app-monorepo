@@ -6,34 +6,42 @@ import React, {
   useEffect,
 } from 'react';
 import { WebView } from '@onekeyhq/components';
-import createJsBridgeHost from '../jsBridge/createJsBridgeHost';
 import { injectedNative } from '../injected-autogen';
-
-export type ProviderWebViewProps = {
-  uri: string;
-};
-export type JsBridgeWebViewRef = {
-  webviewRef?: WebView | null;
-  jsBridge: any;
-};
+import { IJsBridgeReceiveHandler } from '../types';
+import JsBridgeNativeHost from '../jsBridge/JsBridgeNativeHost';
+import { IWebViewWrapperRef } from './useWebViewBridge';
 
 const NativeWebView = forwardRef(
-  ({ uri, ...props }: ProviderWebViewProps, ref) => {
+  (
+    {
+      src,
+      receiveHandler,
+      ...props
+    }: {
+      src: string;
+      receiveHandler: IJsBridgeReceiveHandler;
+    },
+    ref,
+  ) => {
     const webviewRef = useRef<WebView | null>(null);
 
     const jsBridge = useMemo(
       () =>
-        createJsBridgeHost({
+        new JsBridgeNativeHost({
           webviewRef,
-          isReactNative: true,
+          receiveHandler,
         }),
-      [],
+      [receiveHandler],
     );
 
-    useImperativeHandle(ref, () => ({
-      innerRef: webviewRef,
-      jsBridge,
-    }));
+    useImperativeHandle(
+      ref,
+      (): IWebViewWrapperRef => ({
+        innerRef: webviewRef,
+        jsBridge,
+        reload: () => webviewRef.current?.reload(),
+      }),
+    );
 
     useEffect(() => {
       // console.log('NativeWebView injectedJavaScript \r\n', injectedNative);
@@ -45,7 +53,7 @@ const NativeWebView = forwardRef(
         ref={webviewRef}
         // injectedJavaScript={injectedNative}
         injectedJavaScriptBeforeContentLoaded={injectedNative || ''}
-        source={{ uri }}
+        source={{ uri: src }}
         // TODO useCallback
         onMessage={(event) => {
           const { data }: { data: string } = event.nativeEvent;

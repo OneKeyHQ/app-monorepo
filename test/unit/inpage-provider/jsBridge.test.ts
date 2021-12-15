@@ -1,44 +1,55 @@
 // @ts-nocheck
-import createJsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/createJsBridgeBase';
-import { JsBridgeEventPayload } from '@onekeyhq/inpage-provider/src/types';
-
-// const abc: JsBridgeEventPayload | null = null;
+import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types.d';
+import JsBridgeSimple from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeSimple';
 
 it('two bridge communication', async () => {
-  let currentChainId = '0x1';
-  const host = createJsBridgeBase({
-    sendPayload(str) {
-      inpage.receive(str);
+  let currentChainId = '0x3';
+  // TODO sendAsString=false
+  const host = new JsBridgeSimple({
+    sendAsString: false,
+    receiveHandler(event: IJsBridgeMessagePayload) {
+      console.log('host onMessage', event);
+      // throw new Error('hhhhhh');
+      const { method } = event.data;
+      if (method === 'eth_chainId') {
+        return currentChainId;
+        // return '0x22';
+      }
     },
   });
-  host.on('message', (event: JsBridgeEventPayload) => {
-    const { method } = event.data;
-    if (method === 'eth_chainId') {
-      host.response(event.id, currentChainId);
-    }
+  const inpage = new JsBridgeSimple({
+    sendAsString: false,
+    receiveHandler(event: IJsBridgeMessagePayload) {
+      console.log('inpage onMessage', event);
+      const { method, params } = event.data;
+      if (method === 'metamask_chainChanged') {
+        currentChainId = params.chainId;
+        // TODO should response here force resolve Promise call
+        // inpage.response(event.id, '');
+      }
+    },
   });
 
-  const inpage = createJsBridgeBase({
-    sendPayload(str) {
-      host.receive(str);
-    },
-  });
-  inpage.on('message', (event: JsBridgeEventPayload) => {
-    const { method, params } = event.data;
-    if (method === 'metamask_chainChanged') {
-      currentChainId = params.chainId;
-      // TODO should response here force resolve Promise call
-      inpage.response(event.id, '');
-    }
+  host.setRemote(inpage);
+  inpage.setRemote(host);
+
+  // TODO async event handler?
+  host.on('error', (error) => {
+    debugger;
+    console.log(error);
   });
 
   // ----------------------------------------------
-  const chainId = await inpage.request({ method: 'eth_chainId' });
-  expect(currentChainId).toEqual(chainId);
+  const chainId = await inpage.request({
+    data: { method: 'eth_chainId' },
+  });
+  expect(chainId).toEqual(currentChainId);
 
-  await host.request({
-    method: 'metamask_chainChanged',
-    params: { chainId: '0x2' },
+  host.requestSync({
+    data: {
+      method: 'metamask_chainChanged',
+      params: { chainId: '0x2' },
+    },
   });
   expect(currentChainId).toEqual('0x2');
 });

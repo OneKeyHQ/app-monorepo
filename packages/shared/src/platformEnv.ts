@@ -12,9 +12,12 @@ export type IPlatformEnv = {
 
   isMAS?: boolean;
   isDev?: boolean;
+  isBrowser?: boolean;
   isIOS?: boolean;
   isAndroid?: boolean;
 };
+
+export const isBrowser = (): boolean => typeof window !== 'undefined';
 
 export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
 
@@ -66,6 +69,7 @@ const platformEnv: IPlatformEnv = {
 
   isMAS: isMAS(),
   isDev: isDev(),
+  isBrowser: isBrowser(),
   isIOS: isIOS(),
   isAndroid: isAndroid(),
 };

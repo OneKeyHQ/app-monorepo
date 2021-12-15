@@ -1,5 +1,6 @@
 import WebView from 'react-native-webview';
-import { IJsBridge, WindowOneKey } from './types';
+import { WindowOneKeyHub } from '@onekeyhq/inpage-provider/src/injected/factory/injectWeb3Provider';
+import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -11,14 +12,16 @@ declare global {
     // All website
     ethereum: any;
     web3: any;
+    $onekey: WindowOneKeyHub;
+
+    // Native App webview content
     ReactNativeWebView: WebView;
-    onekey: WindowOneKey;
 
     // Desktop internal (main,renderer)
     ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
 
     // Ext internal (ui,background,contentScript)
-    extJsBridgeUiToBg: IJsBridge;
-    extJsBridgeUiToIframe: IJsBridge;
+    extJsBridgeUiToBg: JsBridgeBase;
+    extJsBridgeUiToIframe: JsBridgeBase;
   }
 }

@@ -68,6 +68,7 @@ const createWebpackMatcher = (
     const nodeModulesDepth = (filePath.match(/node_modules/g) || []).length;
 
     // TODO fix hardcode
+    // @react-navigation back png image build
     if (
       filePath.includes('node_modules/@react-navigation') &&
       filePath.endsWith('.png')
@@ -121,6 +122,7 @@ const withTmInitializer = (modules = [], options = {}) => {
         '.js',
         '.jsx',
         '.ts',
+        '.d.ts',
         '.tsx',
         '.mjs',
         '.css',
@@ -143,6 +145,7 @@ const withTmInitializer = (modules = [], options = {}) => {
         '.js',
         '.jsx',
         '.ts',
+        '.d.ts',
         '.tsx',
         '.mjs',
         '.css',
@@ -324,11 +327,13 @@ const withTmInitializer = (modules = [], options = {}) => {
           // nextWithTM/img-loader
           webpackConfig.module.rules.push({
             __ruleName__: 'file-rule@withTM',
-            test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
+            test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg|eot|otf|ttf|woff|woff2)$/i,
+            // test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
             use: {
               loader: 'file-loader',
               options: {
-                name: '[name].[ext]',
+                name: '[name].[hash:6].[ext]',
+                esModule: false,
               },
             },
             include: matcher,

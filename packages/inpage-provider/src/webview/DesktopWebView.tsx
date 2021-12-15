@@ -8,15 +8,15 @@ import React, {
   useState,
 } from 'react';
 import { Button } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useIsIpcReady from '../jsBridge/useIsIpcReady';
-import createJsBridgeHost from '../jsBridge/createJsBridgeHost';
 import { JS_BRIDGE_MESSAGE_IPC_CHANNEL } from '../consts';
-import { IElectronWebViewRef } from '../types';
-
-const IS_BROWSER_SIDE = typeof window !== 'undefined';
+import { IElectronWebView, IJsBridgeReceiveHandler } from '../types';
+import JsBridgeDesktopHost from '../jsBridge/JsBridgeDesktopHost';
+import { IWebViewWrapperRef } from './useWebViewBridge';
 
 function usePreloadJsUrl() {
-  const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS;
+  const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS ?? {};
   useEffect(() => {
     if (preloadJsUrl) {
       return;
@@ -33,102 +33,131 @@ function usePreloadJsUrl() {
   return preloadJsUrl as string;
 }
 
-const DesktopWebView = forwardRef(({ src }: { src: string }, ref) => {
-  const [isWebviewReady, setIsWebviewReady] = useState(false);
-  const webviewRef = useRef<IElectronWebViewRef | null>(null);
-  const isIpcReady = useIsIpcReady();
-  const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
-
-  useEffect(
-    () => () => {
-      // not working, ref is null after unmount
-      webviewRef.current?.closeDevTools();
+const DesktopWebView = forwardRef(
+  (
+    {
+      src,
+      receiveHandler,
+      ...props
+    }: {
+      src: string;
+      receiveHandler: IJsBridgeReceiveHandler;
     },
-    [],
-  );
+    ref: any,
+  ) => {
+    const [isWebviewReady, setIsWebviewReady] = useState(false);
+    const webviewRef = useRef<IElectronWebView | null>(null);
+    const isIpcReady = useIsIpcReady();
+    const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
 
-  // TODO extract to hooks
-  const jsBridge = useMemo(
-    () =>
-      createJsBridgeHost({
-        webviewRef,
-        isElectron: true,
+    useEffect(
+      () => () => {
+        // not working, ref is null after unmount
+        webviewRef.current?.closeDevTools();
+      },
+      [],
+    );
+
+    // TODO extract to hooks
+    const jsBridge = useMemo(
+      () =>
+        new JsBridgeDesktopHost({
+          webviewRef,
+          receiveHandler,
+        }),
+      [receiveHandler],
+    );
+
+    useImperativeHandle(
+      ref,
+      (): IWebViewWrapperRef => ({
+        innerRef: webviewRef,
+        jsBridge,
+        reload: () => webviewRef.current?.reload(),
       }),
-    [],
-  );
+    );
 
-  useImperativeHandle(ref, () => ({
-    innerRef: webviewRef,
-    jsBridge,
-  }));
+    const initWebviewByRef = useCallback(($ref) => {
+      webviewRef.current = $ref as IElectronWebView;
+      setIsWebviewReady(true);
+    }, []);
 
-  const initWebviewByRef = useCallback(($ref) => {
-    webviewRef.current = $ref as IElectronWebViewRef;
-    setIsWebviewReady(true);
-  }, []);
-
-  useEffect(() => {
-    const webview = webviewRef.current;
-    if (!webview || !isIpcReady || !isWebviewReady) {
-      return;
-    }
-    const handleMessage = (event: { channel: string; args: Array<string> }) => {
-      if (event.channel === JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
-        const data: string = event?.args?.[0];
-        // - receive
-        jsBridge.receive(data);
+    useEffect(() => {
+      const webview = webviewRef.current;
+      if (!webview || !isIpcReady || !isWebviewReady) {
+        return;
       }
+      const handleMessage = (event: {
+        channel: string;
+        args: Array<string>;
+      }) => {
+        if (event.channel === JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
+          const data: string = event?.args?.[0];
+          // - receive
+          jsBridge.receive(data);
+        }
 
-      // response back
-      // webview.send();
-    };
-    webview.addEventListener('ipc-message', handleMessage);
-    return () => {
-      webview.removeEventListener('ipc-message', handleMessage);
-    };
-  }, [jsBridge, isIpcReady, isWebviewReady]);
+        // response back
+        // webview.send();
+      };
+      webview.addEventListener('ipc-message', handleMessage);
+      return () => {
+        webview.removeEventListener('ipc-message', handleMessage);
+      };
+    }, [jsBridge, isIpcReady, isWebviewReady]);
 
-  const preloadJsUrl = usePreloadJsUrl();
+    const preloadJsUrl = usePreloadJsUrl();
 
-  if (!preloadJsUrl) {
-    return null;
-  }
+    if (!preloadJsUrl) {
+      return null;
+    }
 
-  if (!isIpcReady) {
-    return null;
-  }
+    if (!isIpcReady) {
+      return null;
+    }
 
-  return (
-    <>
-      <Button
-        onPress={() => {
-          setDevToolsAtLeft(!devToolsAtLeft);
-          webviewRef.current?.openDevTools();
-        }}
-      >
-        DevTools
-      </Button>
+    return (
+      <>
+        {platformEnv.isDev && (
+          <Button
+            style={{ transform: [{ scale: 0.7 }] }}
+            opacity={0.6}
+            position="absolute"
+            right={devToolsAtLeft ? undefined : 0}
+            left={devToolsAtLeft ? 0 : undefined}
+            variant="outline"
+            size="xs"
+            onPress={() => {
+              setDevToolsAtLeft(!devToolsAtLeft);
+              webviewRef.current?.openDevTools();
+            }}
+          >
+            DevTools
+          </Button>
+        )}
 
-      {/* <div ref={ref} className="webview-container" /> */}
-      {IS_BROWSER_SIDE && (
-        <webview
-          ref={initWebviewByRef}
-          preload={preloadJsUrl}
-          src={src}
-          style={{ 'width': '100%', 'height': '100%' }}
-          // @ts-ignore
-          allowpopups="true"
-          // @ts-ignore
-          nodeintegration="true"
-          nodeintegrationinsubframes="true"
-          webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
-          // mobile user-agent
-          // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
-        />
-      )}
-    </>
-  );
-});
+        {/* <div ref={ref} className="webview-container" /> */}
+        {platformEnv.isBrowser && (
+          <webview
+            {...props}
+            ref={initWebviewByRef}
+            preload={preloadJsUrl}
+            src={src}
+            style={{ 'width': '100%', 'height': '100%' }}
+            // @ts-ignore
+            allowpopups="true"
+            // @ts-ignore
+            nodeintegration="true"
+            nodeintegrationinsubframes="true"
+            webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
+            // mobile user-agent
+            // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
+          />
+        )}
+      </>
+    );
+  },
+);
 DesktopWebView.displayName = 'DesktopWebView';
 
 export default DesktopWebView;

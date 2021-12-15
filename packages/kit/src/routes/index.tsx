@@ -7,6 +7,7 @@ import SwapScreen from '../views/Swap';
 import PortfolioScreen from '../views/Portfolio';
 import DiscoverScreen from '../views/Discover';
 import SettingsScreen from '../views/Settings';
+import ApprovalScreen from '../views/Approval';
 
 import AddressGallery from '../views/Components/stories/Address';
 import AvatarGallery from '../views/Components/stories/Avatar';
@@ -36,6 +37,20 @@ type TabRoute = {
   component: React.ComponentType<any>;
 };
 
+// Define Router names here for TypeScript checking
+export type RootStackParamList = {
+  Home: undefined;
+  Wallet: undefined;
+  Swap: undefined;
+  Portfolio: undefined;
+  Discover: undefined;
+  Settings: undefined;
+  Approval: undefined;
+  // demo
+  PageProfileSample: { userId: string };
+  PageFeedSample: { sort: 'latest' | 'top' } | undefined;
+};
+
 export const tabRoutes: TabRoute[] = [
   { name: 'Home', component: ComponentsScreen, icon: 'ChipOutline' },
   { name: 'Wallet', component: WalletScreen, icon: 'HomeOutline' },
@@ -46,6 +61,7 @@ export const tabRoutes: TabRoute[] = [
 ];
 
 export const stackRoutes = [
+  { name: 'Approval', component: ApprovalScreen },
   { name: 'Components/Textarea', component: TextareaGallery },
   { name: 'Components/Searchbar', component: SearchbarGallery },
   { name: 'Components/Address', component: AddressGallery },

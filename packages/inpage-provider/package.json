@@ -1,6 +1,6 @@
 {
   "name": "@onekeyhq/inpage-provider",
-  "version": "0.0.21",
+  "version": "1.0.1",
   "main": "dist/main.js",
   "license": "MIT",
   "private": true,
@@ -11,6 +11,9 @@
     "watch-inject": "gulp watch",
     "build": "yarn clean && yarn build-inject && webpack",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "eventemitter3": "^4.0.7"
   },
   "devDependencies": {
     "babel-loader": "^8.2.3",

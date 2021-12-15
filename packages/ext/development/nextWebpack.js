@@ -1,6 +1,6 @@
 const { withExpo } = require('@expo/next-adapter');
 const withPlugins = require('next-compose-plugins');
-const { PHASE_DEVELOPMENT_SERVER, PHASE_EXPORT } = require('next/constants');
+const { PHASE_EXPORT } = require('next/constants');
 const withTM = require('./withTM');
 
 const nextOptions = {
@@ -48,6 +48,7 @@ function nextWebpack(
 
   // eslint-disable-next-line no-param-reassign
   webpackConfig = nextConfig.webpack(webpackConfig, nextOptions);
+
   return webpackConfig;
 }
 

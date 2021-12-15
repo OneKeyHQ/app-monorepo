@@ -1,7 +1,7 @@
 // inject css to dapp web
 // import './content-script.css';
 
-import inpageContentScript from '@onekeyhq/inpage-provider/src/extension/contentScript';
+import inpageProviderContentScript from '@onekeyhq/inpage-provider/src/extension/contentScript';
 import devToolsButton from '../content-script/devToolsButton';
 
 console.log('[OneKey RN]: Content script works! 222');
@@ -11,7 +11,7 @@ if (process.env.NODE_ENV !== 'production') {
   devToolsButton.inject();
 }
 
-inpageContentScript.inject('injected.js');
-inpageContentScript.setupMessagePort();
+inpageProviderContentScript.inject('injected.js');
+inpageProviderContentScript.setupMessagePort();
 
 export {};
