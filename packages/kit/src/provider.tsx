@@ -1,16 +1,16 @@
 import React, { FC } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import {
-  Provider,
   Icon,
+  Provider,
   useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
+import { StackNavigator, TabNavigator } from './navigator';
 
-import { TabNavigator, StackNavigator, RootStackParamList } from './navigator';
-
-import { tabRoutes, stackRoutes } from './routes';
+import { stackRoutes, tabRoutes, RootStackParamList } from './routes';
 import store from './store';
+import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
 
 const TabBarScreen = () => {
   const fontColor = useThemeValue('text-default');
@@ -93,6 +93,7 @@ const StackScreen = () => {
 };
 
 const Router = () => {
+  useAutoRedirectToRoute();
   const { size } = useUserDevice();
   if (['SMALL', 'NORMAL'].includes(size)) return <StackScreen />;
   return <TabBarScreen />;
