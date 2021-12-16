@@ -1,7 +1,5 @@
-import React, { ComponentProps, FC } from 'react';
-
-import { Input, Pressable, Text } from 'native-base';
-
+import React, { ComponentProps } from 'react';
+import { Input, Text, Pressable } from 'native-base';
 import Icon, { ICON_NAMES } from '../Icon';
 
 type Props = {
@@ -18,7 +16,7 @@ type Props = {
   onPressSecondaryRightIcon?: () => void;
 };
 
-const InnerInput: FC<ComponentProps<typeof Input> & Props> = ({
+export default React.forwardRef<typeof Input, ComponentProps<typeof Input> & Props>(({
   small,
   isDisabled,
   leftText,
@@ -32,7 +30,7 @@ const InnerInput: FC<ComponentProps<typeof Input> & Props> = ({
   onPressRightIcon,
   onPressSecondaryRightIcon,
   ...props
-}) => {
+}, ref) => {
   const leftElements: JSX.Element[] = [];
   const rightElements: JSX.Element[] = [];
   const fontSize = small ? 'sm' : 'md';
@@ -102,6 +100,7 @@ const InnerInput: FC<ComponentProps<typeof Input> & Props> = ({
   }
   return (
     <Input
+      ref={ref}
       isDisabled={isDisabled}
       InputLeftElement={leftElements}
       InputRightElement={rightElements}
@@ -130,6 +129,4 @@ const InnerInput: FC<ComponentProps<typeof Input> & Props> = ({
       {...props}
     />
   );
-};
-
-export default InnerInput;
+})
