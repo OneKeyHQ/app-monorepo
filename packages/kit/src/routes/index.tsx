@@ -30,6 +30,7 @@ import InputGallery from '../views/Components/stories/Input';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import TextareaGallery from '../views/Components/stories/Textarea';
 import RadioGallery from '../views/Components/stories/Radio';
+import SwitchGallery from '../views/Components/stories/Switch';
 
 type TabRoute = {
   icon: ICON_NAMES;
@@ -83,4 +84,5 @@ export const stackRoutes = [
   { name: 'Components/Spinner', component: SpinnerGallery },
   { name: 'Components/Modal', component: ModalGallery },
   { name: 'Components/Radio', component: RadioGallery },
+  { name: 'Components/Switch', component: SwitchGallery },
 ];
