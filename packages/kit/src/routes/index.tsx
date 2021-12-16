@@ -40,16 +40,16 @@ type TabRoute = {
 
 // Define Router names here for TypeScript checking
 export type RootStackParamList = {
-  Home: undefined;
-  Wallet: undefined;
-  Swap: undefined;
-  Portfolio: undefined;
-  Discover: undefined;
-  Settings: undefined;
-  Approval: undefined;
+  Home?: undefined;
+  Wallet?: undefined;
+  Swap?: undefined;
+  Portfolio?: undefined;
+  Discover?: undefined;
+  Settings?: undefined;
+  Approval?: undefined;
   // demo
-  PageProfileSample: { userId: string };
-  PageFeedSample: { sort: 'latest' | 'top' } | undefined;
+  PageProfileSample?: { userId: string };
+  PageFeedSample?: { sort: 'latest' | 'top' };
 };
 
 export const tabRoutes: TabRoute[] = [

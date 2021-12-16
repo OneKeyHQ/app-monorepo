@@ -3,8 +3,8 @@ import { Provider as ReduxProvider } from 'react-redux';
 import {
   Icon,
   Provider,
+  useIsRootRoute,
   useThemeValue,
-  useUserDevice,
 } from '@onekeyhq/components';
 import { StackNavigator, TabNavigator } from './navigator';
 
@@ -12,71 +12,36 @@ import { stackRoutes, tabRoutes, RootStackParamList } from './routes';
 import store from './store';
 import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
 
-const TabBarScreen = () => {
+const StackScreen = ({ index }: { index: number }) => {
   const fontColor = useThemeValue('text-default');
   const bgColor = useThemeValue('surface-subdued');
-  const { size } = useUserDevice();
-  const isDesktopMode = !['SMALL', 'NORMAL'].includes(size);
-
-  return (
-    <TabNavigator.Navigator>
-      {tabRoutes.map((tab, index) => (
-        <TabNavigator.Screen
-          key={tab.name}
-          component={
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            index === 0 && isDesktopMode ? StackScreen : tab.component
-          }
-          name={tab.name}
-          options={{
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            headerTintColor: fontColor,
-            headerShown: !(index === 0 && isDesktopMode),
-            tabBarIcon: ({ color }) => <Icon name={tab.icon} color={color} />,
-          }}
-        />
-      ))}
-    </TabNavigator.Navigator>
-  );
-};
-
-const StackScreen = () => {
-  const fontColor = useThemeValue('text-default');
-  const bgColor = useThemeValue('surface-subdued');
-  const { size } = useUserDevice();
-  const isDesktopMode = !['SMALL', 'NORMAL'].includes(size);
+  const { setIsRootRoute } = useIsRootRoute();
 
   return (
     <StackNavigator.Navigator>
-      {isDesktopMode ? (
-        <StackNavigator.Screen
-          name={tabRoutes[0].name as keyof RootStackParamList}
-          component={tabRoutes[0].component}
-          options={{
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            headerTintColor: fontColor,
-          }}
-        />
-      ) : (
-        <StackNavigator.Screen
-          name={tabRoutes[0].name as keyof RootStackParamList}
-          component={TabBarScreen}
-          options={{
-            headerShown: false,
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            headerTintColor: fontColor,
-          }}
-        />
-      )}
+      <StackNavigator.Screen
+        listeners={{
+          focus() {
+            setIsRootRoute(true);
+          },
+        }}
+        name={tabRoutes[index].name as keyof RootStackParamList}
+        component={tabRoutes[index].component}
+        options={{
+          headerStyle: {
+            backgroundColor: bgColor,
+          },
+          headerTintColor: fontColor,
+        }}
+      />
 
       {stackRoutes.map((stack) => (
         <StackNavigator.Screen
+          listeners={{
+            focus() {
+              setIsRootRoute(false);
+            },
+          }}
           key={stack.name}
           name={stack.name as keyof RootStackParamList}
           component={stack.component}
@@ -92,10 +57,39 @@ const StackScreen = () => {
   );
 };
 
+const stackScreensInTab = tabRoutes.map((tab, index) => {
+  const StackScreenInTab = () => <StackScreen index={index} />;
+  StackScreenInTab.displayName = `${tab.name}StackScreen`;
+  return StackScreenInTab;
+});
+
+const TabBarScreen = () => {
+  const fontColor = useThemeValue('text-default');
+  const bgColor = useThemeValue('surface-subdued');
+
+  return (
+    <TabNavigator.Navigator>
+      {tabRoutes.map((tab, index) => (
+        <TabNavigator.Screen
+          key={tab.name}
+          component={stackScreensInTab[index]}
+          name={tab.name}
+          options={{
+            headerStyle: {
+              backgroundColor: bgColor,
+            },
+            headerTintColor: fontColor,
+            headerShown: false,
+            tabBarIcon: ({ color }) => <Icon name={tab.icon} color={color} />,
+          }}
+        />
+      ))}
+    </TabNavigator.Navigator>
+  );
+};
+
 const Router = () => {
   useAutoRedirectToRoute();
-  const { size } = useUserDevice();
-  if (['SMALL', 'NORMAL'].includes(size)) return <StackScreen />;
   return <TabBarScreen />;
 };
 

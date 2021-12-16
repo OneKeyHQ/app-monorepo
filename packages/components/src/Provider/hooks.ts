@@ -16,6 +16,8 @@ export type ContextValue = {
   locale: LocaleSymbol;
   setLocale: (l: LocaleSymbol) => void;
   device: DeviceState;
+  isRootRoute: boolean;
+  setIsRootRoute: (value: boolean) => void;
 };
 
 export const Context = createContext<ContextValue>({} as ContextValue);
@@ -67,4 +69,15 @@ export function useLoadCustomFonts() {
 
 export function useSafeAreaInsets() {
   return useRNSafeAreaInsets();
+}
+
+export function useIsRootRoute() {
+  const context = useContext(Context);
+  return useMemo(
+    () => ({
+      isRootRoute: context.isRootRoute,
+      setIsRootRoute: context.setIsRootRoute,
+    }),
+    [context.isRootRoute, context.setIsRootRoute],
+  );
 }

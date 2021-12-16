@@ -45,10 +45,7 @@ module.exports = {
       'matches': ['<all_urls>'],
     },
     {
-      'resources': [
-        'icon-128.png',
-        'icon-34.png',
-      ],
+      'resources': ['icon-128.png', 'icon-34.png'],
       'matches': [],
     },
   ],
