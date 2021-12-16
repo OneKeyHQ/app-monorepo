@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
 import {
-  Center,
-  Text,
   Button,
-  Switch,
-  Stack,
+  Center,
   Select,
+  Stack,
+  Switch,
+  Typography,
 } from '@onekeyhq/components';
 
 const Buttons = () => {
@@ -66,14 +66,14 @@ const Buttons = () => {
           <Select.Item label="xl" value="xl" />
         </Select>
         <Stack direction="row">
-          <Text color="white">disabled: </Text>
+          <Typography.Body2 color="white">disabled: </Typography.Body2>
           <Switch
             isChecked={disabled}
             onToggle={() => setDisabled(!disabled)}
           />
         </Stack>
         <Stack direction="row">
-          <Text color="white">loading: </Text>
+          <Typography.Body2 color="white">loading: </Typography.Body2>
           <Switch isChecked={loading} onToggle={() => setLoading(!loading)} />
         </Stack>
       </Stack>

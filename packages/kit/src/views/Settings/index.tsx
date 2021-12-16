@@ -1,6 +1,8 @@
 import React from 'react';
-import { Box, useTheme, Switch, useLocale, Button } from '@onekeyhq/components';
+
+import { Box, Button, Switch, useLocale, useTheme } from '@onekeyhq/components';
 import DemoInpageProvider from '@onekeyhq/inpage-provider/src/demo/DemoInpageProvider';
+
 import useNavigation from '../../hooks/useNavigation';
 
 const Settings = () => {

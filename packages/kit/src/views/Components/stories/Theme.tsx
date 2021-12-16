@@ -1,10 +1,10 @@
 import React from 'react';
 
 import {
-  FlatList,
-  Typography,
   Box,
   Center,
+  FlatList,
+  Typography,
   useTheme,
 } from '@onekeyhq/components';
 import theme from '@onekeyhq/components/src/Provider/theme';

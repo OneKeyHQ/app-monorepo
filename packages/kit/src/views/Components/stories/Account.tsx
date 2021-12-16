@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Center, Account, VStack } from '@onekeyhq/components';
+import { Account, Center, VStack } from '@onekeyhq/components';
 
 const AccountGallery = () => (
   <Center flex="1" bg="background-hovered">

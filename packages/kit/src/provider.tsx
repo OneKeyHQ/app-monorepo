@@ -1,16 +1,18 @@
 import React, { FC } from 'react';
+
 import { Provider as ReduxProvider } from 'react-redux';
+
 import {
   Icon,
   Provider,
   useIsRootRoute,
   useThemeValue,
 } from '@onekeyhq/components';
-import { StackNavigator, TabNavigator } from './navigator';
 
-import { stackRoutes, tabRoutes, RootStackParamList } from './routes';
-import store from './store';
 import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
+import { StackNavigator, TabNavigator } from './navigator';
+import { RootStackParamList, stackRoutes, tabRoutes } from './routes';
+import store from './store';
 
 const StackScreen = ({ index }: { index: number }) => {
   const fontColor = useThemeValue('text-default');

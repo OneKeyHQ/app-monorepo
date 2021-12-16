@@ -1,7 +1,8 @@
 import React, { FC } from 'react';
-import Box from '../Box';
+
 import Address from '../Address';
 import Avatar from '../Avatar';
+import Box from '../Box';
 import Typography from '../Typography';
 
 export type AvatarSizeVariant = 'sm' | 'md' | 'lg' | 'xl';

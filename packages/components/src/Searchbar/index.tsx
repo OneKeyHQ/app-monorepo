@@ -1,4 +1,5 @@
-import React, { FC, ComponentProps, useState, useCallback } from 'react';
+import React, { ComponentProps, FC, useCallback, useState } from 'react';
+
 import Input from '../Input';
 
 // type SearchbarProps = {};

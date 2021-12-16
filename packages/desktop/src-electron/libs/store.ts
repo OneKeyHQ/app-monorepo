@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 import Store from 'electron-store';
+
 import { getInitialWindowSize } from './screen';
 
 // https:// electronjs.org/docs/api/app#appgetpathname

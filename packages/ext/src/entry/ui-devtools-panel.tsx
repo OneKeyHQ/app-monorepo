@@ -1,5 +1,6 @@
-import ReactDOM from 'react-dom';
 import React, { useState } from 'react';
+
+import ReactDOM from 'react-dom';
 
 function DevToolsPanel() {
   const [error, setError] = useState<Error | null>(null);

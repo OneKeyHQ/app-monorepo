@@ -1,7 +1,8 @@
-import injectJsBridge from './factory/injectJsBridge';
-import injectWeb3Provider from './factory/injectWeb3Provider';
 import JsBridgeDesktopInjected from '../jsBridge/JsBridgeDesktopInjected';
 import injectedProviderReceiveHandler from '../provider/injectedProviderReceiveHandler';
+
+import injectJsBridge from './factory/injectJsBridge';
+import injectWeb3Provider from './factory/injectWeb3Provider';
 
 // - send
 const bridge = new JsBridgeDesktopInjected({

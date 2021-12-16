@@ -1,12 +1,14 @@
 import React from 'react';
+
+import { useNavigation } from '@react-navigation/native';
+
 import {
+  Box,
   Center,
   FlatList,
-  Box,
   Pressable,
   Typography,
 } from '@onekeyhq/components';
-import { useNavigation } from '@react-navigation/native';
 
 // eslint-disable-next-line import/no-cycle
 import { stackRoutes } from '../../routes';

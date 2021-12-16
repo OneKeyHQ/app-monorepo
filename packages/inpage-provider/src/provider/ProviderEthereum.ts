@@ -1,5 +1,6 @@
-import ProviderBase, { IInpageProviderConfig } from './ProviderBase';
 import { IInpageProviderRequestData } from '../types';
+
+import ProviderBase, { IInpageProviderConfig } from './ProviderBase';
 
 class ProviderEthereum extends ProviderBase {
   constructor(config: IInpageProviderConfig) {

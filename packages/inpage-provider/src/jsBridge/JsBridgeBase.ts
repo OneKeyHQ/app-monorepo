@@ -1,12 +1,13 @@
 import EventEmitter from 'eventemitter3';
 import isPlainObject from 'lodash/isPlainObject';
 import isString from 'lodash/isString';
+
 import {
-  IJsBridgeConfig,
   IJsBridgeCallback,
+  IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IJsBridgeMessageTypes,
-} from '../types';
+} from '../types.d';
 
 abstract class JsBridgeBase extends EventEmitter {
   constructor(config: IJsBridgeConfig = { debug: false }) {

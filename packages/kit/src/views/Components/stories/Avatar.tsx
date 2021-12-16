@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Avatar, Center, Box } from '@onekeyhq/components';
+import { Avatar, Box, Center } from '@onekeyhq/components';
 
 const AddressGallery = () => (
   <Center flex="1" bg="background-hovered">

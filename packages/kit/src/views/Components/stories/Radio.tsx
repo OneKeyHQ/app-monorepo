@@ -4,10 +4,10 @@ import {
   Center,
   Radio,
   RadioButton,
+  RadioButtonGroup,
   RadioGroup,
   ScrollView,
   Typography,
-  RadioButtonGroup,
 } from '@onekeyhq/components';
 
 const RadioGallery = () => {

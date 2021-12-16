@@ -1,12 +1,15 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
-import { Box, VStack, HStack, Button, Select } from '@onekeyhq/components';
+
+import { Box, Button, HStack, Select, VStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import DesktopWebView from '../webview/DesktopWebView';
+
 import { IJsBridgeMessagePayload } from '../types';
-import useWebViewBridge from '../webview/useWebViewBridge';
+import DesktopWebView from '../webview/DesktopWebView';
 import NativeWebView from '../webview/NativeWebView';
+import useWebViewBridge from '../webview/useWebViewBridge';
+
 import providerApi from './providerApi';
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;

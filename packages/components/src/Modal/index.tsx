@@ -1,19 +1,19 @@
 import React, {
+  ComponentProps,
   FC,
   ReactElement,
+  ReactNode,
+  cloneElement,
+  useCallback,
   useMemo,
   useState,
-  useCallback,
-  cloneElement,
-  ComponentProps,
-  ReactNode,
 } from 'react';
 
-import { useUserDevice } from '../Provider/hooks';
-import Mobile from './Container/Mobile';
-import Desktop from './Container/Desktop';
-
 import Button from '../Button';
+import { useUserDevice } from '../Provider/hooks';
+
+import Desktop from './Container/Desktop';
+import Mobile from './Container/Mobile';
 
 export type ModalProps = {
   // TODO: translation id
@@ -30,7 +30,7 @@ export type ModalProps = {
   primaryActionProps?: ComponentProps<typeof Button>;
   secondaryActionProps?: ComponentProps<typeof Button>;
   footer?: ReactNode;
-  onClose?: () => void;
+  onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
 };
 
@@ -49,8 +49,12 @@ const Modal: FC<ModalProps> = ({
   const visible = outerVisible ?? innerVisible;
 
   const handleClose = useCallback(() => {
+    if (typeof onClose === 'function') {
+      const status = onClose();
+      // only onClose return false, will not trigger modal close
+      if (status === false) return;
+    }
     setInnerVisible((v) => !v);
-    onClose?.();
   }, [onClose]);
 
   const handleOpen = useCallback(() => {

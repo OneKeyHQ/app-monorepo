@@ -1,5 +1,6 @@
 import React from 'react';
-import { Empty, Divider, ScrollView, Button } from '@onekeyhq/components';
+
+import { Button, Divider, Empty, ScrollView } from '@onekeyhq/components';
 
 const EmptyGallery = () => (
   <ScrollView bg="background-hovered">

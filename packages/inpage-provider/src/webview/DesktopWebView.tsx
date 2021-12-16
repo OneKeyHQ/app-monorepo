@@ -7,11 +7,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import useIsIpcReady from '../jsBridge/useIsIpcReady';
+
 import { JS_BRIDGE_MESSAGE_IPC_CHANNEL } from '../consts';
-import { IElectronWebView, IJsBridgeReceiveHandler } from '../types';
 import JsBridgeDesktopHost from '../jsBridge/JsBridgeDesktopHost';
+import useIsIpcReady from '../jsBridge/useIsIpcReady';
+import { IElectronWebView, IJsBridgeReceiveHandler } from '../types';
+
 import { IWebViewWrapperRef } from './useWebViewBridge';
 
 function usePreloadJsUrl() {

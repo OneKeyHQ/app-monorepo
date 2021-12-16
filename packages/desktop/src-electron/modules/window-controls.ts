@@ -2,7 +2,7 @@
 /**
  * Window events handler (for custom navbar)
  */
-import { app, ipcMain, BrowserWindow } from 'electron';
+import { BrowserWindow, app, ipcMain } from 'electron';
 
 const notifyWindowMaximized = (window: BrowserWindow) => {
   window.webContents.send(

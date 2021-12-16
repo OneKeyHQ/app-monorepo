@@ -1,5 +1,6 @@
 import React from 'react';
-import { Center, Textarea, Stack, Box, Icon, Flex } from '@onekeyhq/components';
+
+import { Box, Center, Flex, Icon, Stack, Textarea } from '@onekeyhq/components';
 
 const TextareaGallery = () => (
   <Center flex="1" bg="background-hovered">

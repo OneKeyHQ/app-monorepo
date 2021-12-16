@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import useNavigation from './useNavigation';
 
 // TODO official support:

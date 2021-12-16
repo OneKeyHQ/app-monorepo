@@ -3,6 +3,7 @@
  * Bridge runner
  */
 import { app, session } from 'electron';
+
 import BridgeProcess from '../libs/processes/BridgeProcess';
 
 const filter = {

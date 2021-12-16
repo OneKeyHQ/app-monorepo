@@ -1,10 +1,11 @@
 import React from 'react';
 
-import Foot from './Foot';
-import Side from './Side';
+import { useIsRootRoute, useUserDevice } from '../../../Provider/hooks';
+
+import Desktop from './Desktop';
+import Mobile from './Mobile';
 
 import type { BottomTabBarProps } from '../../types';
-import { useIsRootRoute, useUserDevice } from '../../../Provider/hooks';
 
 export default function BottomTabBar(props: BottomTabBarProps) {
   const { size } = useUserDevice();
@@ -12,10 +13,10 @@ export default function BottomTabBar(props: BottomTabBarProps) {
 
   if (['SMALL', 'NORMAL'].includes(size)) {
     if (isRootRoute) {
-      return <Foot {...props} />;
+      return <Desktop {...props} />;
     }
     return null;
   }
 
-  return <Side {...props} />;
+  return <Mobile {...props} />;
 }

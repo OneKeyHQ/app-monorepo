@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 
-import { useToast, Stack, Button, Center } from '@onekeyhq/components';
+import { Button, Center, Stack, useToast } from '@onekeyhq/components';
 
 const ToastGallery = () => {
   const toast = useToast();

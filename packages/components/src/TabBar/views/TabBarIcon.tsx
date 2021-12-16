@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import type { Route } from '@react-navigation/native';
 import React from 'react';
+
 import {
   StyleProp,
   StyleSheet,
@@ -11,6 +11,8 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+
+import type { Route } from '@react-navigation/native';
 
 type Props = {
   route: Route<string>;

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Badge, Center, Box } from '@onekeyhq/components';
+import { Badge, Box, Center } from '@onekeyhq/components';
 
 const BadgeGallery = () => (
   <Center flex="1" bg="background-hovered">

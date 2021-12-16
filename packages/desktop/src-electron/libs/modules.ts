@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 import isDev from 'electron-is-dev';
+
 import { MODULES, MODULES_DEV, MODULES_PROD } from './constants';
 
 const modules = async (dependencies: Dependencies): Promise<void> => {

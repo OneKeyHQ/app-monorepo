@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Box } from '@onekeyhq/components';
+
 import DemoInpageProvider from '../../../../inpage-provider/src/demo/DemoInpageProvider';
 
 const Swap = () => (

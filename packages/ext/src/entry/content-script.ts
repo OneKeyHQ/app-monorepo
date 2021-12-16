@@ -2,6 +2,7 @@
 // import './content-script.css';
 
 import inpageProviderContentScript from '@onekeyhq/inpage-provider/src/extension/contentScript';
+
 import devToolsButton from '../content-script/devToolsButton';
 
 console.log('[OneKey RN]: Content script works! 222');

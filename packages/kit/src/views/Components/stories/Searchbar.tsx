@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { Center, Searchbar, Stack } from '@onekeyhq/components';
 
 const SearchbarGallery = () => (

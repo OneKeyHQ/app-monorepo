@@ -1,8 +1,10 @@
-import React, { FC, ComponentProps } from 'react';
-import { IBoxProps, IRadioProps, Radio as BaseRadio } from 'native-base';
+import React, { ComponentProps, FC } from 'react';
+
+import { Radio as BaseRadio, IBoxProps, IRadioProps } from 'native-base';
+
 import Box from '../Box';
-import Typography from '../Typography';
 import Pressable from '../Pressable';
+import Typography from '../Typography';
 
 export type RadioProps = {
   /**

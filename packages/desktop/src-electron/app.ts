@@ -1,6 +1,7 @@
-import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
+
+import { BrowserWindow, app } from 'electron';
 import isDev from 'electron-is-dev';
 
 import Logger, {
