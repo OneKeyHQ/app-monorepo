@@ -13,10 +13,10 @@ export default function BottomTabBar(props: BottomTabBarProps) {
 
   if (['SMALL', 'NORMAL'].includes(size)) {
     if (isRootRoute) {
-      return <Desktop {...props} />;
+      return <Mobile {...props} />;
     }
     return null;
   }
 
-  return <Mobile {...props} />;
+  return <Desktop {...props} />;
 }
