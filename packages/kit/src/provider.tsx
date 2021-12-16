@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import {
   Icon,
