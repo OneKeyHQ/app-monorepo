@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 
+import { Toast } from 'native-base';
+
 import {
   Box,
   Button,
   Center,
   Modal,
   Stack,
-  Toast,
   Typography,
 } from '@onekeyhq/components';
 
