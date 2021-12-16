@@ -1,5 +1,7 @@
-import React, { FC, ComponentProps } from 'react';
+import React, { ComponentProps, FC } from 'react';
+
 import { Switch as BaseSwitch } from 'native-base';
+
 import Box from '../Box';
 import Typography from '../Typography';
 

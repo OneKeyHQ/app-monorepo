@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
 
 import { app, ipcMain } from 'electron';
-import { autoUpdater, CancellationToken } from 'electron-updater';
+import { CancellationToken, autoUpdater } from 'electron-updater';
 
 const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 

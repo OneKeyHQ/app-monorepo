@@ -1,14 +1,15 @@
 /* eslint-disable global-require */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { useContext, createContext, useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
+
 import { useFonts } from 'expo-font';
 import { useToken } from 'native-base';
 import { useSafeAreaInsets as useRNSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { ThemeVariant } from './theme';
 import type { LocaleSymbol } from '../locale';
 import type { DeviceState } from './device';
+import type { ThemeVariant } from './theme';
 
 export type ContextValue = {
   themeVariant: ThemeVariant;

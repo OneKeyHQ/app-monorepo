@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Typography, Center } from '@onekeyhq/components';
+import { Center, Typography } from '@onekeyhq/components';
 
 const TypographyGallery = () => (
   <Center flex="1" bg="background-hovered">

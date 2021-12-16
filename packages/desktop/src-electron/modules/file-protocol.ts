@@ -3,7 +3,9 @@
  * Helps pointing to the right folder to load
  */
 import path from 'path';
+
 import { session } from 'electron';
+
 import { PROTOCOL } from '../libs/constants';
 
 const init = ({ mainWindow, src }: Dependencies): void => {

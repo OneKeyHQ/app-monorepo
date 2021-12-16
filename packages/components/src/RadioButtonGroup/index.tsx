@@ -1,8 +1,10 @@
 import React, { FC } from 'react';
+
 import { IBoxProps, IRadioValue } from 'native-base';
-import RadioButton, { RadioButtonProps } from '../RadioButton';
+
 import Box from '../Box';
 import { ButtonSize } from '../Button';
+import RadioButton, { RadioButtonProps } from '../RadioButton';
 
 interface IRadioButtonGroupProps extends IBoxProps<IRadioButtonGroupProps> {
   /**

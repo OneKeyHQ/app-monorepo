@@ -1,10 +1,13 @@
 /* eslint-disable no-nested-ternary */
-import React, { useState, FC } from 'react';
-import { Box, Text, Pressable } from 'native-base';
+import React, { FC, useState } from 'react';
+
 import { CommonActions } from '@react-navigation/native';
+import { Box, Pressable, Text } from 'native-base';
+
 import Icon from '../../../Icon';
-import type { BottomTabBarProps } from '../../types';
 import { useThemeValue } from '../../../Provider/hooks';
+
+import type { BottomTabBarProps } from '../../types';
 
 const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
   const { routes } = state;

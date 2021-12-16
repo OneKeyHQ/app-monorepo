@@ -1,6 +1,9 @@
-import { Box, Alert as NBAlert, Column, Row, IconButton } from 'native-base';
 import React, { FC, useState } from 'react';
-import { useThemeValue, Icon, Typography } from '@onekeyhq/components';
+
+import { Box, Column, IconButton, Alert as NBAlert, Row } from 'native-base';
+
+import { Icon, Typography, useThemeValue } from '@onekeyhq/components';
+
 import { ICON_NAMES } from '../Icon/Icons';
 
 type AlertType = 'info' | 'warn' | 'error' | 'success';

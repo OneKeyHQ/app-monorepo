@@ -1,16 +1,18 @@
-import React, { FC, useState, useMemo } from 'react';
-import { NativeBaseProvider, extendTheme } from 'native-base';
+import React, { FC, useMemo, useState } from 'react';
+
 import { NavigationContainer } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { NativeBaseProvider, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import COLORS, { getDefaultTheme, ThemeVariant } from './theme';
-import LOCALES, { getDefaultLocale, LocaleSymbol } from '../locale';
 
-import { Context, useLoadCustomFonts } from './hooks';
+import LOCALES, { LocaleSymbol, getDefaultLocale } from '../locale';
+
 import { getSize } from './device';
+import { Context, useLoadCustomFonts } from './hooks';
+import COLORS, { ThemeVariant, getDefaultTheme } from './theme';
 
 export type UIProviderProps = {
   /**

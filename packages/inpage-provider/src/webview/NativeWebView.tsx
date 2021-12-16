@@ -1,14 +1,17 @@
 import React, {
+  forwardRef,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  forwardRef,
-  useEffect,
 } from 'react';
+
 import { WebView } from 'react-native-webview';
+
 import { injectedNative } from '../injected-autogen';
-import { IJsBridgeReceiveHandler } from '../types';
 import JsBridgeNativeHost from '../jsBridge/JsBridgeNativeHost';
+import { IJsBridgeReceiveHandler } from '../types';
+
 import { IWebViewWrapperRef } from './useWebViewBridge';
 
 const NativeWebView = forwardRef(

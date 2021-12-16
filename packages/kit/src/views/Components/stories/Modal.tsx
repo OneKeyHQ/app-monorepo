@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+
 import {
-  Modal,
   Box,
   Button,
   Center,
+  Modal,
   Stack,
-  Typography,
   Toast,
+  Typography,
 } from '@onekeyhq/components';
 
 const Modal1 = () => {
@@ -94,6 +95,24 @@ const Modal5 = () => {
     </>
   );
 };
+
+const Modal6 = () => (
+  <>
+    <Modal
+      hideSecondaryAction
+      header="MODAL 6"
+      onClose={() => Math.random() > 0.5}
+      trigger={<Button>弹窗 6</Button>}
+    >
+      <Center>
+        <Typography.Body2 my="2">
+          关闭按钮通过 onClose 返回值控制，可以关闭前二次确认
+        </Typography.Body2>
+      </Center>
+    </Modal>
+  </>
+);
+
 const ModalGallery = () => (
   <Center flex="1" bg="background-hovered">
     <Stack
@@ -108,6 +127,7 @@ const ModalGallery = () => (
       <Modal3 />
       <Modal4 />
       <Modal5 />
+      <Modal6 />
     </Stack>
   </Center>
 );

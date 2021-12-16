@@ -1,5 +1,7 @@
-import React, { FC, ComponentProps } from 'react';
+import React, { ComponentProps, FC } from 'react';
+
 import { Button as NativeBaseButton } from 'native-base';
+
 import Icon, { ICON_NAMES } from '../Icon';
 
 export type ButtonSize = 'base' | 'xs' | 'sm' | 'lg' | 'xl';
@@ -212,7 +214,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
   );
 };
 
-const DesctructiveButton: FC<ButtonPropsWithoutType> = ({
+const DestructiveButton: FC<ButtonPropsWithoutType> = ({
   size,
   isDisabled,
   isLoading,
@@ -334,7 +336,7 @@ const Button: FC<ComponentProps<typeof NativeBaseButton> & ButtonProps> = ({
 }) => {
   const components: Record<ButtonType, FC<ButtonPropsWithoutType>> = {
     'basic': BasicButton,
-    'destructive': DesctructiveButton,
+    'destructive': DestructiveButton,
     'outline': OutlineButton,
     'plain': PlainButton,
     'primary': PrimaryButton,

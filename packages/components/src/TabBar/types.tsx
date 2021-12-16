@@ -1,3 +1,5 @@
+import type React from 'react';
+
 import type { HeaderOptions } from '@react-navigation/elements';
 import type {
   Descriptor,
@@ -8,7 +10,6 @@ import type {
   TabActionHelpers,
   TabNavigationState,
 } from '@react-navigation/native';
-import type * as React from 'react';
 import type {
   Animated,
   GestureResponderEvent,

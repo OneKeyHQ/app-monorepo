@@ -4,6 +4,8 @@
 /* eslint-disable no-shadow */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable default-case */
+import React from 'react';
+
 import { MissingIcon } from '@react-navigation/elements';
 import {
   CommonActions,
@@ -14,7 +16,6 @@ import {
   useLinkBuilder,
   useTheme,
 } from '@react-navigation/native';
-import React from 'react';
 import {
   Animated,
   LayoutChangeEvent,
@@ -28,12 +29,12 @@ import { EdgeInsets, useSafeAreaFrame } from 'react-native-safe-area-context';
 
 import Box from '../../../Box';
 import { DeviceState } from '../../../Provider/device';
-import { useUserDevice, useThemeValue } from '../../../Provider/hooks';
-
-import type { BottomTabBarProps, BottomTabDescriptorMap } from '../../types';
+import { useThemeValue, useUserDevice } from '../../../Provider/hooks';
 import BottomTabBarHeightCallbackContext from '../../utils/BottomTabBarHeightCallbackContext';
 import useIsKeyboardShown from '../../utils/useIsKeyboardShown';
 import BottomTabItem from '../BottomTabItem';
+
+import type { BottomTabBarProps, BottomTabDescriptorMap } from '../../types';
 
 type Props = BottomTabBarProps & {
   style?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;

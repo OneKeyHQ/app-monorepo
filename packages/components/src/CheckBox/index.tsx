@@ -1,8 +1,11 @@
-import React, { FC, ComponentProps } from 'react';
+import React, { ComponentProps, FC } from 'react';
+
 import { Checkbox as BaseCheckBox, IBoxProps } from 'native-base';
-import Typography from '../Typography';
+
 import Box from '../Box';
 import Pressable from '../Pressable';
+import Typography from '../Typography';
+
 import { getCheckBoxIcon } from './CheckBoxIcon';
 
 export type CheckBoxProps = {

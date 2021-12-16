@@ -1,7 +1,9 @@
 import { ipcRenderer } from 'electron';
-import JsBridgeBase from './JsBridgeBase';
-import { IJsBridgeMessagePayload } from '../types';
+
 import { JS_BRIDGE_MESSAGE_IPC_CHANNEL } from '../consts';
+import { IJsBridgeMessagePayload } from '../types';
+
+import JsBridgeBase from './JsBridgeBase';
 
 class JsBridgeDesktopInjected extends JsBridgeBase {
   sendAsString = true;

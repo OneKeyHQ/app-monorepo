@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Typography, Center, Icon, FlatList } from '@onekeyhq/components';
+import { Center, FlatList, Icon, Typography } from '@onekeyhq/components';
 import Icons, { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 
 const IconGallery = () => (

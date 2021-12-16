@@ -1,7 +1,8 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import inpageProviderBackground from '@onekeyhq/inpage-provider/src/extension/background';
-import serviceWorker from '../background/serviceWorker';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import bgDappTest from '../background/backgroundDappTest';
+import serviceWorker from '../background/serviceWorker';
 
 console.log(
   `[OneKey RN] This is the background page. ${new Date().toLocaleTimeString()}`,
