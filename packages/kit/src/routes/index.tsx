@@ -16,6 +16,7 @@ import IconGallery from '../views/Components/stories/Icon';
 import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
 import ModalGallery from '../views/Components/stories/Modal';
+import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import SelectGallery from '../views/Components/stories/Select';
@@ -86,4 +87,5 @@ export const stackRoutes = [
   { name: 'Components/Radio', component: RadioGallery },
   { name: 'Components/Switch', component: SwitchGallery },
   { name: 'Components/Form', component: FormGallery },
+  { name: 'Components/QRCode', component: QRCodeGallery },
 ];
