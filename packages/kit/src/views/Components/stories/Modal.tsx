@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+
 import {
-  Modal,
   Box,
   Button,
   Center,
+  Modal,
   Stack,
-  Typography,
   Toast,
+  Typography,
 } from '@onekeyhq/components';
 
 const Modal1 = () => {

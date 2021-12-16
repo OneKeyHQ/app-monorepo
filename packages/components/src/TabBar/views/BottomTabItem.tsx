@@ -1,11 +1,11 @@
+/* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-use-before-define */
-/* eslint-disable @typescript-eslint/no-shadow */
-/* eslint-disable no-shadow */
-import { Link, Route } from '@react-navigation/native';
 import React from 'react';
+
+import { Link, Route } from '@react-navigation/native';
 import {
   GestureResponderEvent,
   Platform,
@@ -16,10 +16,12 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
+
 import { useThemeValue } from '../../Provider/hooks';
 
-import type { BottomTabBarButtonProps, LabelPosition } from '../types';
 import TabBarIcon from './TabBarIcon';
+
+import type { BottomTabBarButtonProps, LabelPosition } from '../types';
 
 type Props = {
   /**

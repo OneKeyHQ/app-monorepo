@@ -2,15 +2,21 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-shadow */
-import { getHeaderTitle, Header, Screen } from '@react-navigation/elements';
-import type {
-  ParamListBase,
-  TabNavigationState,
-} from '@react-navigation/native';
 import * as React from 'react';
+
+import { Header, Screen, getHeaderTitle } from '@react-navigation/elements';
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+
+import { useUserDevice } from '../../Provider/hooks';
+import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';
+import BottomTabBarHeightContext from '../utils/BottomTabBarHeightContext';
+
+import BottomTabBar from './BottomTabBar';
+import { getTabBarHeight } from './BottomTabBar/Mobile';
 import SafeAreaProviderCompat from './SafeAreaProviderCompat';
+import { MaybeScreen, MaybeScreenContainer } from './ScreenFallback';
+
 import type {
   BottomTabBarProps,
   BottomTabDescriptorMap,
@@ -18,13 +24,10 @@ import type {
   BottomTabNavigationConfig,
   BottomTabNavigationHelpers,
 } from '../types';
-import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';
-import BottomTabBarHeightContext from '../utils/BottomTabBarHeightContext';
-import BottomTabBar from './BottomTabBar';
-import { getTabBarHeight } from './BottomTabBar/Foot';
-import { MaybeScreen, MaybeScreenContainer } from './ScreenFallback';
-
-import { useUserDevice } from '../../Provider/hooks';
+import type {
+  ParamListBase,
+  TabNavigationState,
+} from '@react-navigation/native';
 
 type Props = BottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;

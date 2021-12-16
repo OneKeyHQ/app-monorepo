@@ -1,13 +1,16 @@
-import JsBridgeBase from './JsBridgeBase';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
+  JS_BRIDGE_MESSAGE_DIRECTION,
+  JS_BRIDGE_MESSAGE_EXT_CHANNEL,
+} from '../consts';
 import {
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IPostMessageEventData,
 } from '../types';
-import {
-  JS_BRIDGE_MESSAGE_DIRECTION,
-  JS_BRIDGE_MESSAGE_EXT_CHANNEL,
-} from '../consts';
+
+import JsBridgeBase from './JsBridgeBase';
 
 class JsBridgeExtInjected extends JsBridgeBase {
   constructor(config: IJsBridgeConfig) {

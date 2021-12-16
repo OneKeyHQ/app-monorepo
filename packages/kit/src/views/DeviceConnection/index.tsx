@@ -1,26 +1,24 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import React, { FC, useCallback, useState } from 'react';
-import OneKeyConnect, {
-  DEVICE_EVENT,
-  UI_EVENT,
-  TRANSPORT_EVENT,
-  BLOCKCHAIN_EVENT,
-  Features,
-} from '@onekeyhq/connect';
 
 import {
   Button,
-  Switch,
   Center,
-  Stack,
-  Heading,
-  VStack,
-  Text,
   HStack,
+  Stack,
+  Switch,
+  Typography,
+  VStack,
   useTheme,
 } from '@onekeyhq/components';
+import OneKeyConnect, {
+  BLOCKCHAIN_EVENT,
+  DEVICE_EVENT,
+  Features,
+  TRANSPORT_EVENT,
+  UI_EVENT,
+} from '@onekeyhq/connect';
 import * as buildUtils from '@onekeyhq/shared/src/platformEnv';
 // import ble from '../../utils/ble/handler';
 
@@ -110,51 +108,60 @@ const DeviceConnection: FC = () => {
         Go to dapp
       </Button>
       <HStack alignItems="center">
-        <Text bold fontSize="xl" textAlign="center" mr="3" color="text-subdued">
+        <Typography.Body2
+          bold
+          fontSize="xl"
+          textAlign="center"
+          mr="3"
+          color="text-subdued"
+        >
           change theme
-        </Text>
+        </Typography.Body2>
         <Switch
           isChecked={themeVariant === 'light'}
           onToggle={() =>
             setThemeVariant(themeVariant === 'light' ? 'dark' : 'light')
           }
-          size="md"
         />
       </HStack>
       <Button
         isLoading={isLoading}
         disabled={isLoading}
         onPress={handlePress}
-        size="md"
         mt="3"
         bg="red.50"
       >
-        <Text bold fontSize="xl" textAlign="center" color="text-subdued">
+        <Typography.Body2
+          bold
+          fontSize="xl"
+          textAlign="center"
+          color="text-subdued"
+        >
           Connect Device
-        </Text>
+        </Typography.Body2>
       </Button>
       {features ? (
         <Stack space={3} alignItems="center">
           <VStack minWidth="500" space={4} alignItems="center">
-            <Heading textAlign="center" my="10">
+            <Typography.Heading textAlign="center" my="10">
               Device Info
-            </Heading>
+            </Typography.Heading>
             <Center width="100%" px="6" h="20" rounded="md" shadow={3}>
-              <Text bold fontSize="xl" textAlign="center">
+              <Typography.Body2 bold fontSize="xl" textAlign="center">
                 {features.onekey_version}
-              </Text>
+              </Typography.Body2>
             </Center>
             <Center width="100%" px="6" h="20" rounded="md" shadow={3}>
-              <Text bold fontSize="xl" textAlign="center">
+              <Typography.Body2 bold fontSize="xl" textAlign="center">
                 {features.serial_no || features.onekey_serial}
-              </Text>
+              </Typography.Body2>
             </Center>
             <Center width="100%" px="6" h="20" rounded="md" shadow={3}>
-              <Text bold fontSize="xl" textAlign="center">
+              <Typography.Body2 bold fontSize="xl" textAlign="center">
                 {features.serial_no?.includes('MI')
                   ? 'OneKey MINI'
                   : 'OneKey Classic'}
-              </Text>
+              </Typography.Body2>
             </Center>
           </VStack>
         </Stack>

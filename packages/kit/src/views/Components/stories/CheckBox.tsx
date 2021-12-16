@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { Center, CheckBox, Divider, Box } from '@onekeyhq/components';
+import { Box, Center, CheckBox, Divider } from '@onekeyhq/components';
 
 const Checkbox1 = () => {
   const [checked, setChecked] = useState(false);

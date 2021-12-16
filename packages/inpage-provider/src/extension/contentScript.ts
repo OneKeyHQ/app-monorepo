@@ -1,11 +1,12 @@
-import injectedFactory from '../injected/factory/injectedFactory';
 import {
   EXT_PORT_CS_TO_BG,
   JS_BRIDGE_MESSAGE_DIRECTION,
   JS_BRIDGE_MESSAGE_EXT_CHANNEL,
 } from '../consts';
-import messagePort from './extMessagePort';
+import injectedFactory from '../injected/factory/injectedFactory';
 import { IPostMessageEventData } from '../types';
+
+import messagePort from './extMessagePort';
 
 // TODO one-time only
 function inject(filename: string) {

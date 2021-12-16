@@ -1,7 +1,8 @@
-import JsBridgeBase from './JsBridgeBase';
-import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
-import messagePort from '../extension/extMessagePort';
 import { EXT_PORT_UI_TO_BG } from '../consts';
+import messagePort from '../extension/extMessagePort';
+import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
+
+import JsBridgeBase from './JsBridgeBase';
 
 class JsBridgeExtUi extends JsBridgeBase {
   constructor(config: IJsBridgeConfig) {

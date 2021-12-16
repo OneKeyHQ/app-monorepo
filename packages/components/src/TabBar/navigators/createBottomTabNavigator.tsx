@@ -1,24 +1,26 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import React from 'react';
+
 import {
-  createNavigatorFactory,
   DefaultNavigatorOptions,
   ParamListBase,
   TabActionHelpers,
   TabNavigationState,
   TabRouter,
   TabRouterOptions,
+  createNavigatorFactory,
   useNavigationBuilder,
 } from '@react-navigation/native';
-import * as React from 'react';
 import warnOnce from 'warn-once';
+
+import BottomTabView from '../views/BottomTabView';
 
 import type {
   BottomTabNavigationConfig,
   BottomTabNavigationEventMap,
   BottomTabNavigationOptions,
 } from '../types';
-import BottomTabView from '../views/BottomTabView';
 
 type Props = DefaultNavigatorOptions<
   ParamListBase,

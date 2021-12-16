@@ -1,5 +1,7 @@
-import React, { FC, ComponentProps } from 'react';
-import { Input, Text, Pressable } from 'native-base';
+import React, { ComponentProps, FC } from 'react';
+
+import { Input, Pressable, Text } from 'native-base';
+
 import Icon, { ICON_NAMES } from '../Icon';
 
 type Props = {

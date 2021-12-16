@@ -1,4 +1,4 @@
-import React, { FC, ComponentProps } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import Typography from '../Typography';
 import { shortenAddress } from '../utils';

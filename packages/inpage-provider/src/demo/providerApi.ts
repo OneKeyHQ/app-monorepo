@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,no-restricted-globals */
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Alert } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   IInpageProviderRequestData,
   IJsBridgeMessagePayload,

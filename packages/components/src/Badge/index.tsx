@@ -1,5 +1,7 @@
-import { Badge as NBBardge } from 'native-base';
 import React, { FC } from 'react';
+
+import { Badge as NBBadge } from 'native-base';
+
 import Typography from '../Typography';
 
 type BadgeType = 'Default' | 'Success' | 'Info' | 'Warning' | 'Critical';
@@ -58,7 +60,7 @@ export const Badge: FC<BadgeProps> = ({ title, type, size }) => {
   const badgeTypeProps = propsWithSize(size);
 
   return (
-    <NBBardge
+    <NBBadge
       padding="0px"
       variant="solid"
       alignSelf="center"
@@ -73,7 +75,7 @@ export const Badge: FC<BadgeProps> = ({ title, type, size }) => {
       >
         {title}
       </Typography.Caption>
-    </NBBardge>
+    </NBBadge>
   );
 };
 export default Badge;

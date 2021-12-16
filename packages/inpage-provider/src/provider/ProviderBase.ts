@@ -1,4 +1,5 @@
 import EventEmitter from 'eventemitter3';
+
 import JsBridgeBase from '../jsBridge/JsBridgeBase';
 
 export type IInpageProviderConfig = { bridge: JsBridgeBase };

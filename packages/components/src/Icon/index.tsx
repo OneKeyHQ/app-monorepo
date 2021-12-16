@@ -1,5 +1,7 @@
 import React, { FC } from 'react';
+
 import { SvgProps } from 'react-native-svg';
+
 import { useThemeValue } from '../Provider/hooks';
 
 import ICON_CONFIG, { ICON_NAMES } from './Icons';

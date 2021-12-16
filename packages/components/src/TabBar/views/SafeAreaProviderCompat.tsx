@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import * as React from 'react';
+import React from 'react';
+
 import {
   Dimensions,
   Platform,
@@ -9,9 +10,9 @@ import {
   ViewStyle,
 } from 'react-native';
 import {
-  initialWindowMetrics,
   SafeAreaInsetsContext,
   SafeAreaProvider,
+  initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
 type Props = {

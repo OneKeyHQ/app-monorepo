@@ -1,8 +1,10 @@
 import React, { FC, useMemo } from 'react';
-import { Image, Box, Center, Column, Row, ZStack } from 'native-base';
+
+import { Box, Center, Column, Image, Row, ZStack } from 'native-base';
+
+import Icon from '../Icon';
 import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';
-import Icon from '../Icon';
 import { CDN_PREFIX } from '../utils';
 
 export type TokenProps = {
@@ -185,7 +187,15 @@ const TokensView = ({ groupTokens, size, cornerToken }: TokensViewProps) => {
       });
     }
     return null;
-  }, [groupTokens, size, cornerToken, borderColor, hasCorner]);
+  }, [
+    groupTokens,
+    size,
+    cornerToken,
+    borderColor,
+    hasCorner,
+    groupProps.groupSize,
+    groupProps.mlArray,
+  ]);
 
   const cornerTokenView = hasCorner ? (
     <Box

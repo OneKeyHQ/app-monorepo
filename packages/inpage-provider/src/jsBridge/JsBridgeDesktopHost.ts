@@ -1,11 +1,13 @@
 import React from 'react';
-import JsBridgeBase from './JsBridgeBase';
+
+import injectedFactory from '../injected/factory/injectedFactory';
 import {
+  IElectronWebView,
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
-  IElectronWebView,
 } from '../types';
-import injectedFactory from '../injected/factory/injectedFactory';
+
+import JsBridgeBase from './JsBridgeBase';
 
 class JsBridgeDesktopHost extends JsBridgeBase {
   constructor(config: IJsBridgeConfig) {

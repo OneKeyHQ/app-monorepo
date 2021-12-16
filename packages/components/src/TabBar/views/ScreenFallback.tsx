@@ -1,7 +1,8 @@
 /* eslint-disable global-require */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import React from 'react';
+
 import { ResourceSavingView } from '@react-navigation/elements';
-import * as React from 'react';
 import { StyleProp, View, ViewProps, ViewStyle } from 'react-native';
 
 type Props = {

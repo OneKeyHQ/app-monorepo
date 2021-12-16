@@ -1,5 +1,6 @@
-import JsBridgeBase from './JsBridgeBase';
 import { IJsBridgeMessagePayload } from '../types';
+
+import JsBridgeBase from './JsBridgeBase';
 
 class JsBridgeSimple extends JsBridgeBase {
   sendAsString = true;

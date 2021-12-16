@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { Center, Text, Button } from '@onekeyhq/components';
+import { Button, Center, Typography } from '@onekeyhq/components';
+
 import useNavigation from '../../hooks/useNavigation';
 
 const Approval = () => {
@@ -10,7 +11,7 @@ const Approval = () => {
       <Button onPress={() => navigation.navigate('Components/Address' as any)}>
         Go To Components
       </Button>
-      <Text color="text-default">Approval</Text>
+      <Typography.Body2>Approval</Typography.Body2>
       <Button
         onPress={() => console.log('TODO: call hardware sign transaction')}
       >

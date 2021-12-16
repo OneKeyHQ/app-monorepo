@@ -1,7 +1,8 @@
 import React from 'react';
 
+import { Column, Row } from 'native-base';
+
 import { Center, Token, TokenGroup } from '@onekeyhq/components';
-import { Row, Column } from 'native-base';
 
 const TokenGallery = () => (
   <Center flex="1" bg="background-hovered">
@@ -20,23 +21,6 @@ const TokenGallery = () => (
       </Column>
 
       <Row space={5}>
-        {/* <Column space={2}>
-          <TokenGroup size="md" name="12323" tokens={[{ chain: 'btc' }]} />
-          <TokenGroup
-            size="lg"
-            name="12323"
-            description="ddaadad"
-            tokens={[{ chain: 'btc' }, { chain: 'bsc' }]}
-            cornerToken={{ chain: 'eth' }}
-          />
-          <TokenGroup
-            size="xl"
-            name="1232dsds3"
-            tokens={[{ chain: 'btc' }, { chain: 'bsc' }, { chain: 'eth' }]}
-            cornerToken={{ chain: 'eth' }}
-          />
-        </Column> */}
-
         <Column space={2}>
           <TokenGroup
             size="md"

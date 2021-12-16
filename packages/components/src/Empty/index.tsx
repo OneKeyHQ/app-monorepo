@@ -1,11 +1,11 @@
 import React, { FC, ReactNode, isValidElement } from 'react';
 
 import Box from '../Box';
+import Button from '../Button';
 import Center from '../Center';
 import Icon from '../Icon';
-import Button from '../Button';
-import Typography from '../Typography';
 import { ICON_NAMES } from '../Icon/Icons';
+import Typography from '../Typography';
 
 type EmptyProps = {
   title: string;

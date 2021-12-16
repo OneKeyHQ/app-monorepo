@@ -1,14 +1,15 @@
 import React, { FC, isValidElement } from 'react';
-import Modal from 'react-native-modal';
-import { useIntl } from 'react-intl';
 
-import { useSafeAreaInsets } from '../../Provider/hooks';
+import { useIntl } from 'react-intl';
+import Modal from 'react-native-modal';
+
 import Box from '../../Box';
-import Typography from '../../Typography';
-import Pressable from '../../Pressable';
-import Icon from '../../Icon';
-import Divider from '../../Divider';
 import Button from '../../Button';
+import Divider from '../../Divider';
+import Icon from '../../Icon';
+import Pressable from '../../Pressable';
+import { useSafeAreaInsets } from '../../Provider/hooks';
+import Typography from '../../Typography';
 
 import type { ModalProps } from '..';
 

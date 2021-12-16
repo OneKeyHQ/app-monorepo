@@ -1,7 +1,6 @@
-import React, { FC, ComponentProps } from 'react';
-import { TextArea as NativeBaseTextArea } from 'native-base';
+import React, { ComponentProps, FC } from 'react';
 
-// type TextAreaProps = {};
+import { TextArea as NativeBaseTextArea } from 'native-base';
 
 const TextArea: FC<ComponentProps<typeof NativeBaseTextArea>> = ({
   isInvalid,

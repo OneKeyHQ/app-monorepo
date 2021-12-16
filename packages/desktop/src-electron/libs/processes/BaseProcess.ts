@@ -1,6 +1,7 @@
 /* eslint-disable no-undef */
+import { ChildProcess, spawn } from 'child_process';
 import path from 'path';
-import { spawn, ChildProcess } from 'child_process';
+
 import isDev from 'electron-is-dev';
 
 export type Status = {

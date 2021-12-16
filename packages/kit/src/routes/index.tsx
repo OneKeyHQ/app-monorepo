@@ -1,36 +1,35 @@
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 
+import ApprovalScreen from '../views/Approval';
 // eslint-disable-next-line import/no-cycle
 import ComponentsScreen from '../views/Components';
-import WalletScreen from '../views/Wallet';
-import SwapScreen from '../views/Swap';
-import PortfolioScreen from '../views/Portfolio';
-import DiscoverScreen from '../views/Discover';
-import SettingsScreen from '../views/Settings';
-import ApprovalScreen from '../views/Approval';
-
-import AddressGallery from '../views/Components/stories/Address';
-import AvatarGallery from '../views/Components/stories/Avatar';
-import TypographyGallery from '../views/Components/stories/Typography';
-import TokenGallery from '../views/Components/stories/Token';
-import ThemeGallery from '../views/Components/stories/Theme';
-import IconGallery from '../views/Components/stories/Icon';
-import BadgeGallery from '../views/Components/stories/Badge';
-import AlertGallery from '../views/Components/stories/Alert';
-import IconButtons from '../views/Components/stories/IconButtons';
-import ButtonsGallery from '../views/Components/stories/Buttons';
-import SelectGallery from '../views/Components/stories/Select';
-import EmptyGallery from '../views/Components/stories/Empty';
-import ToastGallery from '../views/Components/stories/Toast';
 import AccountGallery from '../views/Components/stories/Account';
+import AddressGallery from '../views/Components/stories/Address';
+import AlertGallery from '../views/Components/stories/Alert';
+import AvatarGallery from '../views/Components/stories/Avatar';
+import BadgeGallery from '../views/Components/stories/Badge';
+import ButtonsGallery from '../views/Components/stories/Buttons';
 import CheckBoxGallery from '../views/Components/stories/CheckBox';
-import SpinnerGallery from '../views/Components/stories/Spinner';
-import ModalGallery from '../views/Components/stories/Modal';
+import EmptyGallery from '../views/Components/stories/Empty';
+import IconGallery from '../views/Components/stories/Icon';
+import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
-import SearchbarGallery from '../views/Components/stories/Searchbar';
-import TextareaGallery from '../views/Components/stories/Textarea';
+import ModalGallery from '../views/Components/stories/Modal';
 import RadioGallery from '../views/Components/stories/Radio';
+import SearchbarGallery from '../views/Components/stories/Searchbar';
+import SelectGallery from '../views/Components/stories/Select';
+import SpinnerGallery from '../views/Components/stories/Spinner';
 import SwitchGallery from '../views/Components/stories/Switch';
+import TextareaGallery from '../views/Components/stories/Textarea';
+import ThemeGallery from '../views/Components/stories/Theme';
+import ToastGallery from '../views/Components/stories/Toast';
+import TokenGallery from '../views/Components/stories/Token';
+import TypographyGallery from '../views/Components/stories/Typography';
+import DiscoverScreen from '../views/Discover';
+import PortfolioScreen from '../views/Portfolio';
+import SettingsScreen from '../views/Settings';
+import SwapScreen from '../views/Swap';
+import WalletScreen from '../views/Wallet';
 
 type TabRoute = {
   icon: ICON_NAMES;

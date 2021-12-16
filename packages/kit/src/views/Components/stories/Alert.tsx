@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Center, Box } from '@onekeyhq/components';
+
+import { Alert, Box, Center } from '@onekeyhq/components';
 
 const AlertGallery = () => (
   <Center flex="1" bg="background-hovered">

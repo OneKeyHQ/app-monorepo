@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Select, Center } from '@onekeyhq/components';
+import { Center, Select } from '@onekeyhq/components';
 
 const SelectGallery = () => (
   <Center flex="1" bg="background-hovered">

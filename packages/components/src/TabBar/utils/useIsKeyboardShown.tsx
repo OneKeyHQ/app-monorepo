@@ -1,4 +1,5 @@
-import * as React from 'react';
+import React from 'react';
+
 import { EmitterSubscription, Keyboard, Platform } from 'react-native';
 
 export default function useIsKeyboardShown() {

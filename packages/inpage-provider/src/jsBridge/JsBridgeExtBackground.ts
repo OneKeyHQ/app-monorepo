@@ -1,6 +1,7 @@
-import JsBridgeBase from './JsBridgeBase';
-import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
 import { EXT_PORT_CS_TO_BG, EXT_PORT_UI_TO_BG } from '../consts';
+import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
+
+import JsBridgeBase from './JsBridgeBase';
 
 class JsBridgeExtBackground extends JsBridgeBase {
   constructor(config: IJsBridgeConfig) {

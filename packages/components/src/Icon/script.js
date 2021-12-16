@@ -29,19 +29,13 @@ const typesTemplate = `
 /* eslint-disable */
 
   ${items
-    .map((item) => {
-      return `import ${item.name} from './react/${item.path}';`;
-    })
+    .map((item) => `import ${item.name} from './react/${item.path}';`)
     .join('\n')}
 
 export type ICON_NAMES = ${items.map((item) => `"${item.symbol}"`).join(' | ')};
 
   export default {
-    ${items
-      .map((item) => {
-        return `"${item.symbol}": ${item.name}`;
-      })
-      .join(',')}
+    ${items.map((item) => `"${item.symbol}": ${item.name}`).join(',')}
   }
 `;
 fs.writeFileSync(

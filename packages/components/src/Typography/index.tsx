@@ -1,4 +1,5 @@
 import React, { ComponentProps, FC } from 'react';
+
 import { Text } from 'native-base';
 
 type FontProps = ComponentProps<typeof Text>;

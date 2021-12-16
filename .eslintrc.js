@@ -18,6 +18,47 @@ const tsRules = {
   '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
+  'sort-imports': [
+    'error',
+    {
+      'ignoreMemberSort': false,
+      'ignoreDeclarationSort': true,
+    },
+  ],
+  'import/order': [
+    'error',
+    {
+      'groups': [
+        'builtin',
+        'internal',
+        'index',
+        'external',
+        'parent',
+        'sibling',
+        'object',
+        'type',
+      ],
+      'pathGroups': [
+        {
+          'pattern': 'react',
+          'group': 'builtin',
+          'position': 'before',
+        },
+        {
+          'pattern': '@onekeyhq/**',
+          'group': 'external',
+          'position': 'after',
+        },
+      ],
+      'alphabetize': {
+        'order': 'asc',
+        'caseInsensitive': true,
+      },
+      'newlines-between': 'always',
+      'pathGroupsExcludedImportTypes': ['builtin'],
+      'warnOnUnassignedImports': true,
+    },
+  ],
 };
 module.exports = {
   env: {
@@ -33,7 +74,6 @@ module.exports = {
       extends: ['wesbos'],
       rules: {
         ...jsRules,
-        // ...tsRules,
       },
     },
     {
@@ -47,7 +87,6 @@ module.exports = {
     // test files rules must be at LAST
     {
       files: ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
-      // 'plugins': ['react', 'react-hooks', 'jest', 'import'],
       extends: ['plugin:jest/recommended'],
       env: {
         jest: true,

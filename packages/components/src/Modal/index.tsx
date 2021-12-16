@@ -1,19 +1,19 @@
 import React, {
+  ComponentProps,
   FC,
   ReactElement,
+  ReactNode,
+  cloneElement,
+  useCallback,
   useMemo,
   useState,
-  useCallback,
-  cloneElement,
-  ComponentProps,
-  ReactNode,
 } from 'react';
 
-import { useUserDevice } from '../Provider/hooks';
-import Mobile from './Container/Mobile';
-import Desktop from './Container/Desktop';
-
 import Button from '../Button';
+import { useUserDevice } from '../Provider/hooks';
+
+import Desktop from './Container/Desktop';
+import Mobile from './Container/Mobile';
 
 export type ModalProps = {
   // TODO: translation id

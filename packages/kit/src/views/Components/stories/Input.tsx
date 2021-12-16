@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { Center, Input, Stack, FormControl, Icon } from '@onekeyhq/components';
+
+import { Center, FormControl, Icon, Input, Stack } from '@onekeyhq/components';
 
 const InputGallery = () => {
   const onQrScan = useCallback(() => {

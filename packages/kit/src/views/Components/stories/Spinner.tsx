@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Spinner, Center, Box } from '@onekeyhq/components';
+import { Box, Center, Spinner } from '@onekeyhq/components';
 
 const SpinnerGallery = () => (
   <Center flex="1" bg="background-hovered">
