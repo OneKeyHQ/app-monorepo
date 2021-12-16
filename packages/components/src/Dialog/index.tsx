@@ -12,7 +12,7 @@ import Modal from 'react-native-modal';
 
 import Box from '../Box';
 
-import DialogDefault from './components';
+import DialogCommon from './components';
 
 const defaultProps = {
   canceledOnTouchOutside: true,
@@ -28,8 +28,8 @@ export type DialogProps = {
    * 点击 dialog 外面是否可以关闭 dialog，默认：true
    */
   canceledOnTouchOutside?: boolean;
-  contentProps?: ComponentProps<typeof DialogDefault.Content>;
-  footerButtonProps?: ComponentProps<typeof DialogDefault.FooterButton>;
+  contentProps?: ComponentProps<typeof DialogCommon.Content>;
+  footerButtonProps?: ComponentProps<typeof DialogCommon.FooterButton>;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
 };
@@ -86,10 +86,10 @@ const Dialog: FC<DialogProps> = ({
             props.children
           ) : (
             <Box>
-              {!!contentProps && <DialogDefault.Content {...contentProps} />}
+              {!!contentProps && <DialogCommon.Content {...contentProps} />}
               {(!footerButtonProps?.hidePrimaryAction ||
                 !footerButtonProps?.hideSecondaryAction) && (
-                <DialogDefault.FooterButton
+                <DialogCommon.FooterButton
                   {...footerButtonProps}
                   onSecondaryActionPress={() => {
                     handleClose();

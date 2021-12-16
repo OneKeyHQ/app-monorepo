@@ -1,9 +1,9 @@
 import Content from './Content';
 import FooterButton from './FooterButton';
 
-const DialogDefault = {
+const DialogCommon = {
   Content,
   FooterButton,
 };
 
-export default DialogDefault;
+export default DialogCommon;

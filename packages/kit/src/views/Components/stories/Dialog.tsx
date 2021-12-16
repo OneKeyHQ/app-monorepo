@@ -182,7 +182,6 @@ const DialogGallery = () => (
     <Stack
       direction={{
         base: 'column',
-        md: 'row',
       }}
       space={2}
     >
