@@ -31,10 +31,19 @@ const FormGallery = () => {
             required: 'Username cannot be empty',
             maxLength: { value: 10, message: 'The maximum length is 10.' },
           }}
-          render={({ field, fieldState: { error } }) => (
+          defaultValue=""
+          render={({
+            field: { onChange, onBlur, value },
+            fieldState: { error },
+          }) => (
             <FormControl isInvalid={!!error}>
               <FormControl.Label>Username</FormControl.Label>
-              <Input placeholder="username" {...field} />
+              <Input
+                placeholder="username"
+                onChangeText={onChange}
+                value={value}
+                onBlur={onBlur}
+              />
               <FormControl.ErrorMessage>
                 {error?.message}
               </FormControl.ErrorMessage>
@@ -44,6 +53,7 @@ const FormGallery = () => {
         <Controller
           control={control}
           name="email"
+          defaultValue=""
           rules={{
             required: 'Email cannot be empty',
             pattern: {
@@ -51,10 +61,18 @@ const FormGallery = () => {
               message: 'Email address format error',
             },
           }}
-          render={({ field, fieldState: { error } }) => (
+          render={({
+            field: { onChange, onBlur, value },
+            fieldState: { error },
+          }) => (
             <FormControl isInvalid={!!error}>
               <FormControl.Label>Email</FormControl.Label>
-              <Input placeholder="email" {...field} />
+              <Input
+                placeholder="email"
+                onChangeText={onChange}
+                value={value}
+                onBlur={onBlur}
+              />
               <FormControl.ErrorMessage>
                 {error?.message}
               </FormControl.ErrorMessage>
@@ -65,10 +83,19 @@ const FormGallery = () => {
           control={control}
           name="description"
           rules={{ required: 'description cannot be empty' }}
-          render={({ field, fieldState: { error } }) => (
+          defaultValue=""
+          render={({
+            field: { onChange, onBlur, value },
+            fieldState: { error },
+          }) => (
             <FormControl isInvalid={!!error}>
               <FormControl.Label>Description</FormControl.Label>
-              <Textarea placeholder="description" {...field} />
+              <Textarea
+                placeholder="description"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+              />
               <FormControl.HelperText>
                 write something about yourself
               </FormControl.HelperText>
