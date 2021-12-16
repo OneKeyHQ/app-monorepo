@@ -11,6 +11,7 @@ import BadgeGallery from '../views/Components/stories/Badge';
 import ButtonsGallery from '../views/Components/stories/Buttons';
 import CheckBoxGallery from '../views/Components/stories/CheckBox';
 import EmptyGallery from '../views/Components/stories/Empty';
+import FormGallery from '../views/Components/stories/Form';
 import IconGallery from '../views/Components/stories/Icon';
 import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
@@ -84,4 +85,5 @@ export const stackRoutes = [
   { name: 'Components/Modal', component: ModalGallery },
   { name: 'Components/Radio', component: RadioGallery },
   { name: 'Components/Switch', component: SwitchGallery },
+  { name: 'Components/Form', component: FormGallery },
 ];

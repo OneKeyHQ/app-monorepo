@@ -1,12 +1,15 @@
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
-const TextArea: FC<ComponentProps<typeof NativeBaseTextArea>> = ({
-  isInvalid,
-  ...props
-}) => (
+type TextAreaProps = { isInvalid?: boolean };
+
+const TextArea = React.forwardRef<
+  typeof NativeBaseTextArea,
+  ComponentProps<typeof NativeBaseTextArea> & TextAreaProps
+>(({ isInvalid, ...props }, ref) => (
   <NativeBaseTextArea
+    ref={ref}
     isInvalid={isInvalid}
     borderColor="border-default"
     bg="action-secondary-default"
@@ -28,6 +31,8 @@ const TextArea: FC<ComponentProps<typeof NativeBaseTextArea>> = ({
     }}
     {...props}
   />
-);
+));
+
+TextArea.displayName = 'TextArea';
 
 export default TextArea;
