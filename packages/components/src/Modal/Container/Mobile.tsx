@@ -1,6 +1,7 @@
 import React, { FC, isValidElement } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StatusBar } from 'react-native';
 import Modal from 'react-native-modal';
 
 import Box from '../../Box';
@@ -30,7 +31,11 @@ const MobileModal: FC<ModalProps> = ({
   header,
 }) => {
   const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
+  const DEFAULT_HEADER_TOP_PADDING = 20;
+  const headerTopPadding = StatusBar.currentHeight
+    ? DEFAULT_HEADER_TOP_PADDING
+    : DEFAULT_HEADER_TOP_PADDING + top;
   return (
     <Modal
       useNativeDriver
@@ -40,6 +45,8 @@ const MobileModal: FC<ModalProps> = ({
       swipeDirection={['down']}
       onSwipeComplete={onClose}
       onBackdropPress={onClose}
+      animationInTiming={150}
+      animationOutTiming={150}
       animationIn="slideInUp"
       animationOut="slideOutDown"
       style={{
@@ -47,10 +54,11 @@ const MobileModal: FC<ModalProps> = ({
         margin: 0,
       }}
     >
-      <Box height="85%" borderTopRadius="24px" bg="surface-subdued">
+      <Box flex="1" bg="surface-subdued">
         <Box
-          py="5"
           px="6"
+          py="5"
+          pt={`${headerTopPadding}px`}
           display="flex"
           flexDirection="row"
           justifyContent="space-between"

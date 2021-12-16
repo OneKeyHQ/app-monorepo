@@ -30,7 +30,7 @@ export type ModalProps = {
   primaryActionProps?: ComponentProps<typeof Button>;
   secondaryActionProps?: ComponentProps<typeof Button>;
   footer?: ReactNode;
-  onClose?: () => void;
+  onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
 };
 
@@ -49,8 +49,12 @@ const Modal: FC<ModalProps> = ({
   const visible = outerVisible ?? innerVisible;
 
   const handleClose = useCallback(() => {
+    if (typeof onClose === 'function') {
+      const status = onClose();
+      // only onClose return false, will not trigger modal close
+      if (status === false) return;
+    }
     setInnerVisible((v) => !v);
-    onClose?.();
   }, [onClose]);
 
   const handleOpen = useCallback(() => {
