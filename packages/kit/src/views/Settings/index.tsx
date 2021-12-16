@@ -1,7 +1,13 @@
 import React from 'react';
 
-import { Box, Button, Switch, useLocale, useTheme } from '@onekeyhq/components';
-import DemoInpageProvider from '@onekeyhq/inpage-provider/src/demo/DemoInpageProvider';
+import {
+  Box,
+  Button,
+  Switch,
+  WebView,
+  useLocale,
+  useTheme,
+} from '@onekeyhq/components';
 
 import useNavigation from '../../hooks/useNavigation';
 
@@ -29,7 +35,7 @@ const Settings = () => {
         isChecked={locale === 'zh-CN'}
         onToggle={() => setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN')}
       />
-      <DemoInpageProvider fullDemo />
+      <WebView showWalletActions showDemoActions />
     </Box>
   );
 };

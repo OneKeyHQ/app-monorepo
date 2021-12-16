@@ -8,6 +8,7 @@ import {
   FlatList,
   Pressable,
   Typography,
+  useIsRootRoute,
 } from '@onekeyhq/components';
 
 // eslint-disable-next-line import/no-cycle
@@ -15,6 +16,7 @@ import { stackRoutes } from '../../routes';
 
 const Index = () => {
   const navigation = useNavigation();
+  const { setIsRootRoute } = useIsRootRoute();
 
   const componentsRoute = stackRoutes
     .filter((item) => item.name.startsWith('Components'))
@@ -26,7 +28,15 @@ const Index = () => {
       data={componentsRoute}
       bg="background-hovered"
       renderItem={({ item, index }) => (
-        <Pressable onPress={() => navigation.navigate(item as any)}>
+        <Pressable
+          onPress={() => {
+            // TODO hack here, define custom useNavigation?
+            setIsRootRoute(false);
+            setTimeout(() => {
+              navigation.navigate(item as any);
+            }, 0);
+          }}
+        >
           <Box
             borderBottomWidth={index === componentsRoute.length - 1 ? '0' : '1'}
             borderColor="text-subdued"

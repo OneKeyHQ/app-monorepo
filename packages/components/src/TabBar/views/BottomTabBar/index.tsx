@@ -17,6 +17,5 @@ export default function BottomTabBar(props: BottomTabBarProps) {
     }
     return null;
   }
-
   return <Desktop {...props} />;
 }

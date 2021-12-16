@@ -7,7 +7,7 @@ import {
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IJsBridgeMessageTypes,
-} from '../types.d';
+} from '../types';
 
 abstract class JsBridgeBase extends EventEmitter {
   constructor(config: IJsBridgeConfig = { debug: false }) {
