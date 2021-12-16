@@ -1,6 +1,8 @@
 import React, { useCallback, useRef } from 'react';
 
-import { Button, Center, Stack, useToast } from '@onekeyhq/components';
+import { Column } from 'native-base';
+
+import { Button, Center, Stack, Toast, useToast } from '@onekeyhq/components';
 
 const ToastGallery = () => {
   const toast = useToast();
@@ -14,7 +16,14 @@ const ToastGallery = () => {
 
   const addToast = useCallback(() => {
     toastIdRef.current = toast.show({
-      title: 'Hello OneKey Wallet!',
+      render: () => (
+        <Toast
+          title="Hello world!"
+          status="danger"
+          description="Failure to add 2.3245 BNB to CAKE/WBNB."
+          dismiss
+        />
+      ),
     }) as string;
   }, [toast]);
 
@@ -25,17 +34,29 @@ const ToastGallery = () => {
           base: 'column',
           md: 'row',
         }}
-        space={2}
+        space={10}
       >
-        <Button type="primary" onPress={addToast}>
-          打开 toast
-        </Button>
-        <Button type="primary" onPress={close}>
-          关闭最后一个
-        </Button>
-        <Button type="primary" onPress={toast.closeAll}>
-          关闭所有
-        </Button>
+        <Column space={5}>
+          <Button type="primary" onPress={addToast}>
+            打开 toast
+          </Button>
+          <Button type="primary" onPress={close}>
+            关闭最后一个
+          </Button>
+          <Button type="primary" onPress={toast.closeAll}>
+            关闭所有
+          </Button>
+        </Column>
+        <Column space={5} flex="content">
+          <Toast title="Default toast" />
+          <Toast dismiss error title="Error toast" />
+          <Toast
+            title="This is a success status toast"
+            status="success"
+            description="description"
+            dismiss
+          />
+        </Column>
       </Stack>
     </Center>
   );

@@ -6,7 +6,7 @@ const AlertGallery = () => (
   <Center flex="1" bg="background-hovered">
     <Box margin="10px" w="384px">
       <Alert
-        close={false}
+        dismiss={false}
         alertType="info"
         title="Infomation"
         description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
