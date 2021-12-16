@@ -325,6 +325,8 @@ import DatabaseSolid from "./react/solid/Database";
 import DesktopComputerSolid from "./react/solid/DesktopComputer";
 import DeviceMobileSolid from "./react/solid/DeviceMobile";
 import DeviceTabletSolid from "./react/solid/DeviceTablet";
+import DialogIconTypeDangerSolid from "./react/solid/DialogIconTypeDanger";
+import DialogIconTypeInfoSolid from "./react/solid/DialogIconTypeInfo";
 import DocumentSolid from "./react/solid/Document";
 import DocumentAddSolid from "./react/solid/DocumentAdd";
 import DocumentDownloadSolid from "./react/solid/DocumentDownload";
@@ -801,6 +803,8 @@ export type ICON_NAMES =
   | "DesktopComputerSolid"
   | "DeviceMobileSolid"
   | "DeviceTabletSolid"
+  | "DialogIconTypeDangerSolid"
+  | "DialogIconTypeInfoSolid"
   | "DocumentSolid"
   | "DocumentAddSolid"
   | "DocumentDownloadSolid"
@@ -1277,6 +1281,8 @@ export default {
   DesktopComputerSolid: DesktopComputerSolid,
   DeviceMobileSolid: DeviceMobileSolid,
   DeviceTabletSolid: DeviceTabletSolid,
+  DialogIconTypeDangerSolid: DialogIconTypeDangerSolid,
+  DialogIconTypeInfoSolid: DialogIconTypeInfoSolid,
   DocumentSolid: DocumentSolid,
   DocumentAddSolid: DocumentAddSolid,
   DocumentDownloadSolid: DocumentDownloadSolid,
