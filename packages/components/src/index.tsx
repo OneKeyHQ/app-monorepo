@@ -17,6 +17,7 @@ export { default as HStack } from './HStack';
 export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
+export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
 export { default as PresenceTransition } from './PresenceTransition';
 export { default as Pressable } from './Pressable';
