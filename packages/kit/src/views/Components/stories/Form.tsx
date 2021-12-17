@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Center,
+  CheckBox,
   FormControl,
   Icon,
   Input,
@@ -16,6 +17,7 @@ type FormValues = {
   username: string;
   email: string;
   description: string;
+  agreement: boolean;
 };
 
 const FormGallery = () => {
@@ -99,6 +101,26 @@ const FormGallery = () => {
               <FormControl.HelperText>
                 write something about yourself
               </FormControl.HelperText>
+              <FormControl.ErrorMessage
+                startIcon={<Icon size={16} name="ExclamationCircleOutline" />}
+              >
+                {error?.message}
+              </FormControl.ErrorMessage>
+            </FormControl>
+          )}
+        />
+        <Controller
+          name="agreement"
+          control={control}
+          defaultValue={false}
+          rules={{ required: 'your need to agree it' }}
+          render={({ field: { onChange, value }, fieldState: { error } }) => (
+            <FormControl isInvalid={!!error} mt={2}>
+              <CheckBox
+                title="agreement"
+                isChecked={value}
+                onChange={onChange}
+              />
               <FormControl.ErrorMessage
                 startIcon={<Icon size={16} name="ExclamationCircleOutline" />}
               >
