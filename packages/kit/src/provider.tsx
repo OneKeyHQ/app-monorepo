@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { Provider as ReduxProvider } from 'react-redux';
 
 import {
@@ -68,11 +69,21 @@ const stackScreensInTab = tabRoutes.map((tab, index) => {
 const TabBarScreen = () => {
   const fontColor = useThemeValue('text-default');
   const bgColor = useThemeValue('surface-subdued');
+  const navigation = useNavigation();
 
   return (
     <TabNavigator.Navigator>
       {tabRoutes.map((tab, index) => (
         <TabNavigator.Screen
+          listeners={{
+            focus() {
+              if (navigation.isFocused() && navigation.canGoBack()) {
+                setTimeout(() => {
+                  navigation.dispatch(StackActions.popToTop());
+                }, 0);
+              }
+            },
+          }}
           key={tab.name}
           component={stackScreensInTab[index]}
           name={tab.name}

@@ -73,7 +73,7 @@ const DesktopWebView = forwardRef(
     useImperativeHandle(
       ref,
       (): IWebViewWrapperRef => ({
-        innerRef: webviewRef,
+        innerRef: webviewRef.current,
         jsBridge,
         reload: () => webviewRef.current?.reload(),
       }),
