@@ -10,6 +10,7 @@ import AvatarGallery from '../views/Components/stories/Avatar';
 import BadgeGallery from '../views/Components/stories/Badge';
 import ButtonsGallery from '../views/Components/stories/Buttons';
 import CheckBoxGallery from '../views/Components/stories/CheckBox';
+import DialogGallery from '../views/Components/stories/Dialog';
 import EmptyGallery from '../views/Components/stories/Empty';
 import FormGallery from '../views/Components/stories/Form';
 import IconGallery from '../views/Components/stories/Icon';
@@ -88,4 +89,5 @@ export const stackRoutes = [
   { name: 'Components/Switch', component: SwitchGallery },
   { name: 'Components/Form', component: FormGallery },
   { name: 'Components/QRCode', component: QRCodeGallery },
+  { name: 'Components/Dialog', component: DialogGallery },
 ];

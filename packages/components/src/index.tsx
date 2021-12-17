@@ -40,6 +40,7 @@ export { default as Typography } from './Typography';
 export { default as VStack } from './VStack';
 export { default as WebView } from './WebView';
 export { default as ZStack } from './ZStack';
+export { default as Dialog } from './Dialog';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';
