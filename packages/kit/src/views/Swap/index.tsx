@@ -1,12 +1,10 @@
 import React from 'react';
 
-import { Box } from '@onekeyhq/components';
-
-import DemoInpageProvider from '../../../../inpage-provider/src/demo/DemoInpageProvider';
+import { Box, WebView } from '@onekeyhq/components';
 
 const Swap = () => (
   <Box flex="1" bg="background-hovered">
-    <DemoInpageProvider src="https://swap.onekey.so/#/" />
+    <WebView showWalletActions src="https://swap.onekey.so/#/" />
   </Box>
 );
 

@@ -1,4 +1,4 @@
-import { RefObject, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { WebView as ReactNativeWebView } from 'react-native-webview';
 
@@ -6,7 +6,7 @@ import JsBridgeBase from '../jsBridge/JsBridgeBase';
 import { IElectronWebView } from '../types';
 
 export type IWebViewWrapperRef = {
-  innerRef?: RefObject<ReactNativeWebView | IElectronWebView>;
+  innerRef?: ReactNativeWebView | IElectronWebView | null;
   jsBridge?: JsBridgeBase | null;
   reload?: () => void;
 };

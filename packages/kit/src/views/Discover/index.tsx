@@ -1,11 +1,10 @@
 import React from 'react';
 
-import { Box } from '@onekeyhq/components';
-import DemoInpageProvider from '@onekeyhq/inpage-provider/src/demo/DemoInpageProvider';
+import { Box, WebView } from '@onekeyhq/components';
 
 const Discover = () => (
   <Box flex="1" bg="background-hovered">
-    <DemoInpageProvider src="https://discover.onekey.so/" />
+    <WebView showWalletActions src="https://discover.onekey.so/" />
   </Box>
 );
 
