@@ -21,6 +21,7 @@ export { default as Modal } from './Modal';
 export { default as PresenceTransition } from './PresenceTransition';
 export { default as Pressable } from './Pressable';
 export { default as Provider } from './Provider';
+export { default as QRCode } from './QRCode';
 export { default as Radio } from './Radio';
 export { default as RadioButton } from './RadioButton';
 export { default as RadioButtonGroup } from './RadioButtonGroup';

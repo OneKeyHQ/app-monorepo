@@ -2,9 +2,9 @@ import React, { FC, useState } from 'react';
 
 import { Box, Column, IconButton, Alert as NBAlert, Row } from 'native-base';
 
-import { Icon, Typography, useThemeValue } from '@onekeyhq/components';
-
-import { ICON_NAMES } from '../Icon/Icons';
+import Icon, { ICON_NAMES } from '../Icon';
+import { useThemeValue } from '../Provider/hooks';
+import Typography from '../Typography';
 
 type AlertType = 'info' | 'warn' | 'error' | 'success';
 
@@ -13,7 +13,7 @@ export type AlertProps = {
   description: string;
   alertType: AlertType;
   expand?: boolean;
-  close?: boolean;
+  dismiss?: boolean;
 };
 
 type AlertTypeProps = {
@@ -69,7 +69,7 @@ const Alert: FC<AlertProps> = ({
   description,
   alertType,
   expand = true,
-  close = true,
+  dismiss = true,
 }) => {
   const alertTypeProps = alertPropWithType(alertType);
   const borderColor = useThemeValue(alertTypeProps.borderColor);
@@ -102,7 +102,7 @@ const Alert: FC<AlertProps> = ({
           </Row>
           <IconButton
             padding="2px"
-            display={close ? 'flex' : 'none'}
+            display={dismiss ? 'flex' : 'none'}
             icon={<Icon size={12} name="CloseOutline" color={iconColor} />}
             onPress={() => {
               setDisplay(false);
