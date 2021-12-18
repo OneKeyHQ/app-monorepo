@@ -29,4 +29,26 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          cd packages/app && expo publish && cd ../..
+          cd packages/app 
+          expo publish > publish.log && cd ../..
+
+      - name: Read Publish Info
+        id: publish_info
+        run: |
+          cd packages/app
+          export DOWNLOAD_URL=$(egrep '(Manifest: )\S+' publish.log | egrep -o '(https?):\/\/[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]' | head -n 1)
+          echo "::set-output name=url::$(echo $DOWNLOAD_URL)"
+          export APP_JSON=`cat app.json`
+          export APP_VERSION=`echo $(jq -r '.expo.version' <<< "$APP_JSON")`
+          echo "::set-output name=version::$(echo $APP_VERSION)"
+
+      - name: Notice Slack Update
+        uses: OneKeyHQ/onekey-github-actions/notice-slack-app-update@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          artifact-type: Native-FE
+          artifact-name: Native-Remote-Debug
+          artifact-download-url: ${{ steps.publish_info.outputs.url }}
+          artifact-bundle-id:  'so.onekey.app.wallet'
+          artifact-version-code:  ${{ steps.publish_info.outputs.version }}
+          artifact-version-name:  ${{ steps.publish_info.outputs.version }}
