@@ -17,6 +17,7 @@ export { default as HStack } from './HStack';
 export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
+export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
 export { default as PresenceTransition } from './PresenceTransition';
 export { default as Pressable } from './Pressable';
@@ -41,6 +42,7 @@ export { default as VStack } from './VStack';
 export { default as WebView } from './WebView';
 export { default as ZStack } from './ZStack';
 export { default as Dialog } from './Dialog';
+export { default as PageActions } from './PageActions';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';

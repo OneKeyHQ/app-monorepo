@@ -2,16 +2,38 @@ import React, { useState } from 'react';
 
 import { Box, Center, CheckBox, Divider } from '@onekeyhq/components';
 
+const CheckboxWithChildren = () => {
+  const [checked, setChecked] = useState(false);
+  return (
+    <CheckBox
+      onChange={(isSelected) => setChecked(isSelected)}
+      isChecked={checked}
+      title="title"
+    >
+      children text
+    </CheckBox>
+  );
+};
+
+const Checkbox0 = () => {
+  const [checked, setChecked] = useState(false);
+  return (
+    <CheckBox
+      onChange={(isSelected) => setChecked(isSelected)}
+      isChecked={checked}
+      title="title"
+    />
+  );
+};
+
 const Checkbox1 = () => {
   const [checked, setChecked] = useState(false);
   return (
     <CheckBox
-      onChange={() => {
-        setChecked(!checked);
-      }}
+      onChange={(isSelected) => setChecked(isSelected)}
       isChecked={checked}
-      value="Default"
-      describe="Get notified when someones posts a comment on a posting."
+      title="Default"
+      description="Get notified when someones posts a comment on a posting."
     />
   );
 };
@@ -20,13 +42,11 @@ const Checkbox2 = () => {
   const [checked, setChecked] = useState(false);
   return (
     <CheckBox
-      onChange={() => {
-        setChecked(!checked);
-      }}
+      onChange={(isSelected) => setChecked(isSelected)}
       defaultIsChecked
       isChecked={checked}
-      value="DefaultIsChecked"
-      describe="Get notified when someones posts a comment on a posting."
+      title="DefaultIsChecked"
+      description="Get notified when someones posts a comment on a posting."
     />
   );
 };
@@ -36,12 +56,10 @@ const Checkbox3 = () => {
   return (
     <CheckBox
       isDisabled
-      onChange={() => {
-        setChecked(!checked);
-      }}
+      onChange={(isSelected) => setChecked(isSelected)}
       isChecked={checked}
-      value="Disable"
-      describe="Get notified when someones posts a comment on a posting."
+      title="Disable"
+      description="Get notified when someones posts a comment on a posting."
     />
   );
 };
@@ -51,25 +69,23 @@ const Checkbox4 = () => {
   return (
     <CheckBox
       focusable
-      onChange={() => {
-        setChecked(!checked);
-      }}
+      onChange={(isSelected) => setChecked(isSelected)}
       isChecked={checked}
-      value="Focusable Checkbox"
-      describe="Get notified when someones posts a comment on a posting."
+      title="Focusable Checkbox"
+      description="Get notified when someones posts a comment on a posting."
     />
   );
 };
 
-const Checkbox5 = () => <CheckBox value="UnControl Checkbox" />;
+const Checkbox5 = () => <CheckBox title="UnControl Checkbox" />;
 
 const Checkbox6 = () => (
-  <CheckBox value="UnControl Disabled Checkbox" isChecked isDisabled />
+  <CheckBox title="UnControl Disabled Checkbox" isChecked isDisabled />
 );
 
 const Checkbox7 = () => (
   <CheckBox
-    value="Default UnControl Disabled Checkbox"
+    title="Default UnControl Disabled Checkbox"
     isChecked
     defaultIsChecked
     isDisabled
@@ -81,19 +97,51 @@ const Checkbox8 = () => {
   return (
     <CheckBox
       w={310}
-      onChange={() => {
-        setChecked(!checked);
-      }}
+      onChange={(isSelected) => setChecked(isSelected)}
       isChecked={checked}
-      value="Checkbox A Newline A Newline A Newline A Newline"
-      describe="A Newline A Newline A Newline A Newline A Newline A Newline"
+      title="Checkbox A Newline A Newline A Newline A Newline"
+      description="A Newline A Newline A Newline A Newline A Newline A Newline"
     />
+  );
+};
+
+const CheckboxGroup1 = () => {
+  const [groupValue, setGroupValue] = React.useState(['Phone', 'Email']);
+  return (
+    <Box>
+      <CheckBox.Group
+        defaultValue={groupValue}
+        accessibilityLabel="choose multiple items"
+        onChange={(values) => {
+          setGroupValue(values || []);
+        }}
+        alignItems="flex-start"
+      >
+        <CheckBox value="Phone" my="1">
+          Phone
+        </CheckBox>
+        <CheckBox value="Email" my="1">
+          Email
+        </CheckBox>
+        <CheckBox value="Message" my="1">
+          Message
+        </CheckBox>
+        <CheckBox value="Fax" my="1">
+          Fax
+        </CheckBox>
+      </CheckBox.Group>
+      <Box _text={{ color: 'text-default' }}>Selected: {groupValue}</Box>
+    </Box>
   );
 };
 
 const CheckBoxGallery = () => (
   <Center flex="1" bg="background-hovered">
     <Box width="100%" pr={50} pl={50}>
+      <CheckboxWithChildren />
+      <Divider my="2" />
+      <Checkbox0 />
+      <Divider my="2" />
       <Checkbox1 />
       <Divider my="2" />
       <Checkbox2 />
@@ -109,6 +157,8 @@ const CheckBoxGallery = () => (
       <Checkbox7 />
       <Divider my="2" />
       <Checkbox8 />
+      <Divider my="2" />
+      <CheckboxGroup1 />
     </Box>
   </Center>
 );
