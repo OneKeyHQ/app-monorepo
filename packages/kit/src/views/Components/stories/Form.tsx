@@ -1,61 +1,38 @@
 import React from 'react';
 
-import { Controller, useForm } from 'react-hook-form';
-
-import {
-  Box,
-  Button,
-  Center,
-  CheckBox,
-  FormControl,
-  Icon,
-  Input,
-  Textarea,
-} from '@onekeyhq/components';
+import { Button, Center, Form, useForm } from '@onekeyhq/components';
 
 type FormValues = {
   username: string;
   email: string;
   description: string;
   agreement: boolean;
+  isDev: boolean;
+  options: string;
 };
 
 const FormGallery = () => {
-  const { handleSubmit, control } = useForm<FormValues>();
+  const { control, handleSubmit } = useForm<FormValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
   return (
     <Center flex="1" background="background-hovered">
-      <Box>
-        <Controller
+      <Form>
+        <Form.Item
+          label="Username"
           control={control}
           name="username"
+          defaultValue=""
           rules={{
             required: 'Username cannot be empty',
             maxLength: { value: 10, message: 'The maximum length is 10.' },
           }}
-          defaultValue=""
-          render={({
-            field: { onChange, onBlur, value },
-            fieldState: { error },
-          }) => (
-            <FormControl isInvalid={!!error}>
-              <FormControl.Label>Username</FormControl.Label>
-              <Input
-                placeholder="username"
-                onChangeText={onChange}
-                value={value}
-                onBlur={onBlur}
-              />
-              <FormControl.ErrorMessage>
-                {error?.message}
-              </FormControl.ErrorMessage>
-            </FormControl>
-          )}
-        />
-        <Controller
+        >
+          <Form.Input placeholder="placeholder" />
+        </Form.Item>
+        <Form.Item
+          label="Email"
           control={control}
           name="email"
-          defaultValue=""
           rules={{
             required: 'Email cannot be empty',
             pattern: {
@@ -63,76 +40,52 @@ const FormGallery = () => {
               message: 'Email address format error',
             },
           }}
-          render={({
-            field: { onChange, onBlur, value },
-            fieldState: { error },
-          }) => (
-            <FormControl isInvalid={!!error}>
-              <FormControl.Label>Email</FormControl.Label>
-              <Input
-                placeholder="email"
-                onChangeText={onChange}
-                value={value}
-                onBlur={onBlur}
-              />
-              <FormControl.ErrorMessage>
-                {error?.message}
-              </FormControl.ErrorMessage>
-            </FormControl>
-          )}
-        />
-        <Controller
+          defaultValue=""
+        >
+          <Form.Input placeholder="placeholder" />
+        </Form.Item>
+        <Form.Item
+          label="Description"
           control={control}
           name="description"
           rules={{ required: 'description cannot be empty' }}
           defaultValue=""
-          render={({
-            field: { onChange, onBlur, value },
-            fieldState: { error },
-          }) => (
-            <FormControl isInvalid={!!error}>
-              <FormControl.Label>Description</FormControl.Label>
-              <Textarea
-                placeholder="description"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-              />
-              <FormControl.HelperText>
-                write something about yourself
-              </FormControl.HelperText>
-              <FormControl.ErrorMessage
-                startIcon={<Icon size={16} name="ExclamationCircleOutline" />}
-              >
-                {error?.message}
-              </FormControl.ErrorMessage>
-            </FormControl>
-          )}
-        />
-        <Controller
-          name="agreement"
+        >
+          <Form.Textarea placeholder="textarea" />
+        </Form.Item>
+        <Form.Item
+          label=""
           control={control}
+          name="agreement"
+          rules={{ required: 'agreement cannot be empty' }}
           defaultValue={false}
-          rules={{ required: 'your need to agree it' }}
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <FormControl isInvalid={!!error} mt={2}>
-              <CheckBox
-                title="agreement"
-                isChecked={value}
-                onChange={onChange}
-              />
-              <FormControl.ErrorMessage
-                startIcon={<Icon size={16} name="ExclamationCircleOutline" />}
-              >
-                {error?.message}
-              </FormControl.ErrorMessage>
-            </FormControl>
-          )}
-        />
-        <Button mt="4" onPress={onSubmit}>
+        >
+          <Form.CheckBox title="xxx xxx xxx" />
+        </Form.Item>
+        <Form.Item
+          control={control}
+          name="isDev"
+          rules={{ required: 'isDev cannot be empty' }}
+          defaultValue={false}
+        >
+          <Form.Switch labelType="after" label="is Dev Mode" />
+        </Form.Item>
+        <Form.Item
+          label="options"
+          control={control}
+          name="options"
+          defaultValue="A"
+        >
+          <Form.RadioGroup name="options">
+            <Form.Radio value="A" title="A" />
+            <Form.Radio value="B" title="B" />
+            <Form.Radio value="C" title="C" />
+          </Form.RadioGroup>
+        </Form.Item>
+        <Button mt="2" onPress={onSubmit}>
           Submit
         </Button>
-      </Box>
+      </Form>
     </Center>
   );
 };

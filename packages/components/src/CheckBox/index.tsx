@@ -1,12 +1,11 @@
-import CheckBoxInner from './CheckBox';
+import CheckBoxBase from './CheckBox';
 import CheckBoxGroup from './CheckBoxGroup';
 
 /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
-
-const CheckTemp: any = CheckBoxInner;
+const CheckTemp: any = CheckBoxBase;
 CheckTemp.Group = CheckBoxGroup;
 
-type ICheckboxComponentType = typeof CheckBoxInner & {
+type ICheckboxComponentType = typeof CheckBoxBase & {
   Group: typeof CheckBoxGroup;
 };
 

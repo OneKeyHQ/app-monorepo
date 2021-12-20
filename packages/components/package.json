@@ -6,6 +6,7 @@
   "dependencies": {
     "@react-navigation/native": "^6.0.6",
     "native-base": "^3.2.2",
+    "react-hook-form": "^7.22.1",
     "react-native-jazzicon": "^0.1.2",
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modal": "^13.0.0",
