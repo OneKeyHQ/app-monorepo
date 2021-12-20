@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 
-import { Box, Center, CheckBox, Divider } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  CheckBox,
+  Divider,
+  ScrollView,
+} from '@onekeyhq/components';
 
 const CheckboxWithChildren = () => {
   const [checked, setChecked] = useState(false);
@@ -137,7 +143,7 @@ const CheckboxGroup1 = () => {
 
 const CheckBoxGallery = () => (
   <Center flex="1" bg="background-hovered">
-    <Box width="100%" pr={50} pl={50}>
+    <ScrollView width="100%" pr={50} pl={50}>
       <CheckboxWithChildren />
       <Divider my="2" />
       <Checkbox0 />
@@ -159,7 +165,7 @@ const CheckBoxGallery = () => (
       <Checkbox8 />
       <Divider my="2" />
       <CheckboxGroup1 />
-    </Box>
+    </ScrollView>
   </Center>
 );
 

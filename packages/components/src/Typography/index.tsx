@@ -40,7 +40,7 @@ const HeadingProps = {
   fontSize: 18,
   lineHeight: 28,
 };
-const SUBHEADINGProps = {
+const SubheadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 12,
@@ -107,8 +107,8 @@ export const Heading: FC<FontProps> = ({ children, ...rest }) => (
     {children}
   </Text>
 );
-export const SUBHEADING: FC<FontProps> = ({ children, ...rest }) => (
-  <Text color="text-default" {...SUBHEADINGProps} {...rest}>
+export const Subheading: FC<FontProps> = ({ children, ...rest }) => (
+  <Text color="text-default" {...SubheadingProps} {...rest}>
     {children}
   </Text>
 );
@@ -146,7 +146,7 @@ const Typography = {
   DisplaySmall,
   PageHeading,
   Heading,
-  SUBHEADING,
+  Subheading,
   Button1,
   Button2,
   Body1,

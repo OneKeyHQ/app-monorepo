@@ -47,7 +47,7 @@ const ToastGallery = () => {
             关闭所有
           </Button>
         </Column>
-        <Column space={5} flex="content">
+        <Column space={5}>
           <Toast title="Default toast" />
           <Toast dismiss error title="Error toast" />
           <Toast

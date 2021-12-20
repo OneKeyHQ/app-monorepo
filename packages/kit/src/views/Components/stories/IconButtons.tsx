@@ -1,96 +1,91 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-import {
-  Center,
-  IconButton,
-  Select,
-  Stack,
-  Switch,
-  Typography,
-} from '@onekeyhq/components';
+import { Center, IconButton, Stack } from '@onekeyhq/components';
 
-const IconButtons = () => {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [disabled, setDisabled] = useState<boolean>(false);
-  const [circle, setCircle] = useState<boolean>(false);
-  const [type, setType] = useState<
-    'primary' | 'basic' | 'plain' | 'destructive' | 'outline'
-  >('primary');
-  const [size, setSize] = useState<'base' | 'xs' | 'sm' | 'lg' | 'xl'>('base');
-  return (
-    <Center flex="1" bg="background-hovered">
-      <Stack direction="row" space="2" mb="2" alignItems="center">
-        <Select
-          color="text-default"
-          placeholder="select button type"
-          selectedValue={type}
-          mx={{
-            base: 0,
-            md: 'auto',
-          }}
-          onValueChange={(nextValue) =>
-            setType(
-              nextValue as
-                | 'primary'
-                | 'basic'
-                | 'plain'
-                | 'destructive'
-                | 'outline',
-            )
-          }
-          accessibilityLabel="Select a Button Type"
+const IconButtons = () => (
+  <Center flex="1" bg="background-hovered">
+    <Stack direction="row" space="2" mb="2" alignItems="center">
+      <Stack direction="column" space="2" mb="2" alignItems="center">
+        <IconButton
+          isLoading
+          type="primary"
+          size="base"
+          name="AcademicCapSolid"
         >
-          <Select.Item label="Primary" value="primary" />
-          <Select.Item label="Basic" value="basic" />
-          <Select.Item label="Plain" value="plain" />
-          <Select.Item label="Destructive" value="destructive" />
-          <Select.Item label="Outline" value="outline" />
-        </Select>
-        <Select
-          color="text-default"
-          placeholder="select button size"
-          selectedValue={size}
-          mx={{
-            base: 0,
-            md: 'auto',
-          }}
-          onValueChange={(nextValue) =>
-            setSize(nextValue as 'base' | 'xs' | 'sm' | 'lg' | 'xl')
-          }
-          accessibilityLabel="Select a Button Type"
+          IconButton
+        </IconButton>
+        <IconButton
+          isDisabled
+          type="primary"
+          size="base"
+          name="AcademicCapSolid"
         >
-          <Select.Item label="base" value="base" />
-          <Select.Item label="xs" value="xs" />
-          <Select.Item label="sm" value="sm" />
-          <Select.Item label="lg" value="lg" />
-          <Select.Item label="xl" value="xl" />
-        </Select>
-        <Stack direction="row">
-          <Typography.Body2 color="white">disabled: </Typography.Body2>
-          <Switch
-            isChecked={disabled}
-            onToggle={() => setDisabled(!disabled)}
-          />
-        </Stack>
-        <Stack direction="row">
-          <Typography.Body2 color="white">circle: </Typography.Body2>
-          <Switch isChecked={circle} onToggle={() => setCircle(!circle)} />
-        </Stack>
-        <Stack direction="row">
-          <Typography.Body2 color="white">loading: </Typography.Body2>
-          <Switch isChecked={loading} onToggle={() => setLoading(!loading)} />
-        </Stack>
+          IconButton
+        </IconButton>
+        <IconButton type="primary" size="base" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="basic" size="base" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="plain" size="base" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="destructive" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="outline" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
       </Stack>
-      <IconButton
-        type={type}
-        size={size}
-        circle={circle}
-        isDisabled={disabled}
-        isLoading={loading}
-        name="AcademicCapSolid"
-      />
-    </Center>
-  );
-};
+      <Stack direction="column" space="2" mb="2" alignItems="center">
+        <IconButton isLoading type="primary" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton isDisabled type="primary" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="primary" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="basic" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="plain" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="destructive" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="outline" size="xs" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+      </Stack>
+      <Stack direction="column" space="2" mb="2" alignItems="center">
+        <IconButton isLoading type="primary" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton isDisabled type="primary" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="primary" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="basic" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="plain" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="destructive" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+        <IconButton type="outline" size="xl" name="AcademicCapSolid">
+          IconButton
+        </IconButton>
+      </Stack>
+    </Stack>
+  </Center>
+);
 
 export default IconButtons;

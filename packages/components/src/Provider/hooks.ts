@@ -39,7 +39,7 @@ export const useTheme = () => {
 export const useThemeValue = <T extends string | number = any>(
   colorSymbol: T | T[],
   fallback?: T | T[],
-): T => useToken<T>('colors', colorSymbol, fallback);
+): string => useToken<T>('colors', colorSymbol, fallback);
 
 export const useLocale = () => {
   const context = useContext(Context);
