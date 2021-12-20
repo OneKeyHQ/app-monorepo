@@ -43,7 +43,7 @@ const Token: FC<TokenProps> = ({
     <Box display="flex" flexDirection="row" alignItems="center">
       <Box>
         {imageUrl ? (
-          <Image width={size} height={size} src={imageUrl} alt="Token" />
+          <Image width={size} height={size} src={imageUrl} />
         ) : (
           <Center
             width={size}

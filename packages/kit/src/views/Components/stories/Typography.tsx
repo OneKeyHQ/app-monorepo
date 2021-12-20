@@ -16,7 +16,7 @@ const TypographyGallery = () => (
     </Typography.DisplaySmall>
     <Typography.PageHeading>PageHeading</Typography.PageHeading>
     <Typography.Heading>Heading</Typography.Heading>
-    <Typography.SUBHEADING>SUBHEADING</Typography.SUBHEADING>
+    <Typography.Subheading>SUBHEADING</Typography.Subheading>
     <Typography.Button1>Button1</Typography.Button1>
     <Typography.Button2>Button2</Typography.Button2>
     <Typography.Body1>Body1</Typography.Body1>

@@ -1,5 +1,5 @@
 // @ts-nocheck
-/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-assignment */
 import React, { useEffect, useState } from 'react';
 
 import { Box, Button, HStack, Select, VStack } from '@onekeyhq/components';

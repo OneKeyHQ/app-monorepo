@@ -56,6 +56,7 @@ const RadioButtonGroup: FC<RadioButtonGroupProps> = ({
 
       return (
         <RadioButton
+          key={childValue}
           size={size ?? childSize}
           title={title}
           value={childValue}

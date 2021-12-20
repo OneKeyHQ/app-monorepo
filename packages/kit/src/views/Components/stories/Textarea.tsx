@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Box, Center, Flex, Icon, Stack, Textarea } from '@onekeyhq/components';
+import { Box, Center, Icon, Stack, Textarea } from '@onekeyhq/components';
 
 const TextareaGallery = () => (
   <Center flex="1" bg="background-hovered">
@@ -10,19 +10,20 @@ const TextareaGallery = () => (
       <Textarea isDisabled />
       <Box>
         <Textarea />
-        <Flex
+        <Box
           position="absolute"
           bottom={0}
           right={0}
           mr={2}
           mb={2}
-          direction="row"
+          display="flex"
+          flexDirection="row"
         >
           <Icon name="QrcodeOutline" size={14} />
           <Box ml="1">
             <Icon name="ArchiveOutline" size={14} />
           </Box>
-        </Flex>
+        </Box>
       </Box>
     </Stack>
   </Center>
