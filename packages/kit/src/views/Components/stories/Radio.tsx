@@ -29,18 +29,18 @@ const RadioGallery = () => {
             isDisabled
             value="1"
             title="Comments"
-            describe="Get notified when someones posts a comment on a posting."
+            description="Get notified when someones posts a comment on a posting."
           />
           <Radio value="2" title="Comments" />
           <Radio
             value="3"
             title="Comments"
-            describe="Get notified when someones posts a comment on a posting."
+            description="Get notified when someones posts a comment on a posting."
           />
           <Radio
             value="4"
             title="Comments"
-            describe="Get notified when someones posts a comment on a posting.Get notified when someones posts a comment on a posting."
+            description="Get notified when someones posts a comment on a posting.Get notified when someones posts a comment on a posting."
           />
         </RadioGroup>
 

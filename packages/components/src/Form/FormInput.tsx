@@ -1,0 +1,12 @@
+import React, { ComponentProps, FC } from 'react';
+
+import Input from '../Input';
+
+type FormInputProps = {
+  onChange?: (text: string) => void;
+};
+
+export const FormInput: FC<FormInputProps & ComponentProps<typeof Input>> = ({
+  onChange,
+  ...props
+}) => <Input {...props} onChangeText={onChange} />;

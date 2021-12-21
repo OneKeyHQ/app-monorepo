@@ -18,7 +18,7 @@ export type RadioProps = {
   /**
    * 选择说明详细内容
    */
-  describe?: string;
+  description?: string;
   /**
    * 是否有焦点
    */
@@ -38,7 +38,7 @@ const defaultProps = {
 const Radio: FC<RadioProps> = ({
   isChecked,
   title,
-  describe,
+  description,
   focusable,
   isDisabled,
   ...props
@@ -51,7 +51,7 @@ const Radio: FC<RadioProps> = ({
     describeColor = 'text-disabled';
   }
 
-  const { ...radioPorps } = props as IRadioProps;
+  const { ...radioProps } = props as IRadioProps;
   const { ...boxPorps } = props as IBoxProps;
 
   return (
@@ -63,8 +63,9 @@ const Radio: FC<RadioProps> = ({
     >
       <Box h="5" mr="3" justifyContent="flex-end" display="flex">
         <BaseRadio
-          {...radioPorps}
+          {...radioProps}
           size="md"
+          accessibilityLabel={radioProps.value}
           focusable={focusable}
           isDisabled={isDisabled}
           borderRadius="full"
@@ -101,7 +102,7 @@ const Radio: FC<RadioProps> = ({
           }}
         />
       </Box>
-      {!!(describe || title) && (
+      {!!(description || title) && (
         <Pressable display="flex" flex={1}>
           <Typography.Body2
             selectable={false}
@@ -111,9 +112,9 @@ const Radio: FC<RadioProps> = ({
           >
             {title}
           </Typography.Body2>
-          {!!describe && (
+          {!!description && (
             <Typography.Body2 selectable={false} color={describeColor}>
-              {describe}
+              {description}
             </Typography.Body2>
           )}
         </Pressable>
