@@ -9,16 +9,19 @@ export enum IJsBridgeMessageTypes {
 
 export type IJsBridgeMessageTypesStrings = keyof typeof IJsBridgeMessageTypes;
 
+export enum IInjectedProviderNames {
+  ethereum = 'ethereum',
+  conflux = 'conflux',
+  solana = 'solana',
+  sollet = 'sollet',
+}
+
+export type IInjectedProviderNamesStrings = keyof typeof IInjectedProviderNames;
+
 export type IInpageProviderRequestData = {
   id?: number | string;
   method: string;
   params: Record<string, unknown> | Array<unknown> | unknown;
-};
-
-export type IJsBridgeMessageData = {
-  scope: string; // ONEKEY_INPAGE_PROVIDER_MESSAGE
-  provider: string; // ethereum, solana, sollet, conflux
-  request: IInpageProviderRequestData;
 };
 
 export type IJsBridgeCallback = {
@@ -30,15 +33,17 @@ export type IJsBridgeCallback = {
 
 export type IJsBridgeMessagePayload = {
   id?: number;
-  data?: unknown | IJsBridgeMessageData | IInpageProviderRequestData;
+  data?: unknown | IInpageProviderRequestData;
   error?: unknown;
   remoteId?: number | string | null;
   type?: IJsBridgeMessageTypesStrings;
+  scope?: IInjectedProviderNamesStrings;
   origin?: string;
   resolve?: (value: unknown) => void;
   reject?: (value: unknown) => void;
   created?: number;
   sync?: boolean;
+  internal?: boolean;
 };
 
 export type IJsBridgeConfig = {
@@ -56,6 +61,7 @@ export type IElectronWebView = {
   reload: () => void;
   closeDevTools: () => void;
   openDevTools: () => void;
+  getURL: () => string;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;
   executeJavaScript: (code: string) => void;

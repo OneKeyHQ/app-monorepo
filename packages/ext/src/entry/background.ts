@@ -1,7 +1,7 @@
 import inpageProviderBackground from '@onekeyhq/inpage-provider/src/extension/background';
+import backgroundApi from '@onekeyhq/kit/src/background/instance/backgroundApi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import bgDappTest from '../background/backgroundDappTest';
 import serviceWorker from '../background/serviceWorker';
 
 console.log(
@@ -12,10 +12,10 @@ console.log('     Put the background scripts here. 222');
 serviceWorker.disableCacheInBackground();
 
 const bridge = inpageProviderBackground.createHostBridge({
-  receiveHandler: bgDappTest.receiveHandler,
+  receiveHandler: backgroundApi.bridgeReceiveHandler,
 });
 
-bgDappTest.init(bridge);
+backgroundApi.connectBridge(bridge);
 
 // extension reload() method expose to dapp
 if (platformEnv.isDev) {
