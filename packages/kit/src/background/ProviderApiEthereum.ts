@@ -1,14 +1,13 @@
 /* eslint-disable camelcase */
 import { Alert } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+import { permissionRequired } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
   IInpageProviderRequestData,
   IJsBridgeMessagePayload,
 } from '@onekeyhq/inpage-provider/src/types';
-import { permissionRequired } from '@onekeyhq/inpage-provider/src/provider/decorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

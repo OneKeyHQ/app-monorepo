@@ -6,10 +6,7 @@ import WebView from '../../components/WebView';
 
 const Swap = () => (
   <Box flex="1" bg="background-hovered">
-    <WebView
-      showWalletActions
-      src="https://swap.onekey.so/#/"
-    />
+    <WebView showWalletActions src="https://swap.onekey.so/#/" />
   </Box>
 );
 

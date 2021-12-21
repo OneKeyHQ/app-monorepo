@@ -1,6 +1,4 @@
-// @ts-nocheck
-/* eslint-disable  */
-
+/* eslint-disable @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/restrict-template-expressions */
 const INTERNAL_METHOD_PREFIX = 'internal_';
 
 // TODO rename to backgroundMethod()
@@ -13,7 +11,6 @@ function internalMethod() {
     },
   ) {
     target[`${INTERNAL_METHOD_PREFIX}${name}`] = descriptor.value;
-    console.log('======= internalMethod', this, target);
     return descriptor;
   };
 }
@@ -26,12 +23,12 @@ function permissionRequired() {
       value: any;
     },
   ) {
-    const fn = descriptor.value as any;
+    const fn = descriptor.value;
 
     // Checks if "descriptor.value"
     // is a function or not
     if (typeof fn === 'function') {
-      descriptor.value = function (...args) {
+      descriptor.value = function (...args: Array<any>): any {
         console.log(`parameters: ${args}`);
 
         // if (this.walletApi.chainId !== '0x1') {

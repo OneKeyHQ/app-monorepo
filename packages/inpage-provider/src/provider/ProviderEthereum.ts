@@ -1,8 +1,4 @@
-import {
-  IInjectedProviderNames,
-  IInjectedProviderNamesStrings,
-  IInpageProviderRequestData,
-} from '../types';
+import { IInjectedProviderNames, IInpageProviderRequestData } from '../types';
 
 import ProviderBase, { IInpageProviderConfig } from './ProviderBase';
 

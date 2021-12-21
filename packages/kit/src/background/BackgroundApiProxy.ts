@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
@@ -53,7 +54,6 @@ class BackgroundApiProxy implements IBackgroundApi, BackgroundApiBridge {
       });
     } else {
       // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
       return this.backgroundApi[method].call(this.backgroundApi, ...params);
     }
   }
