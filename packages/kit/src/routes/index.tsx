@@ -23,6 +23,7 @@ import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import SelectGallery from '../views/Components/stories/Select';
+import SortableListGallery from '../views/Components/stories/SortableList';
 import SpinnerGallery from '../views/Components/stories/Spinner';
 import SwitchGallery from '../views/Components/stories/Switch';
 import TextareaGallery from '../views/Components/stories/Textarea';
@@ -94,4 +95,5 @@ export const stackRoutes = [
   { name: 'Components/Markdown', component: MarkdownGallery },
   { name: 'Components/Dialog', component: DialogGallery },
   { name: 'Components/PageActions', component: PageActionsGallery },
+  { name: 'Components/SortableList', component: SortableListGallery },
 ];
