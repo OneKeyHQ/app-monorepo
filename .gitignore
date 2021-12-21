@@ -5,6 +5,7 @@ __generated__
 .expo
 .DS_Store
 .idea/
+.vscode/
 
 dist
 build-electron

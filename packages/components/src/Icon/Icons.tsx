@@ -7,7 +7,11 @@ import EmptyNftIllus from "./react/illus/EmptyNft";
 import MetamaskIllus from "./react/illus/Metamask";
 import NftPegIllus from "./react/illus/NftPeg";
 import StarBadgeIllus from "./react/illus/StarBadge";
+import TxTypeApproveCircleIllus from "./react/illus/TxTypeApproveCircle";
+import TxTypeReceiveCircleIllus from "./react/illus/TxTypeReceiveCircle";
+import TxTypeSendCircleIllus from "./react/illus/TxTypeSendCircle";
 import AcademicCapOutline from "./react/outline/AcademicCap";
+import ActivityOutline from "./react/outline/Activity";
 import AdjustmentsOutline from "./react/outline/Adjustments";
 import AnnotationOutline from "./react/outline/Annotation";
 import ArchiveOutline from "./react/outline/Archive";
@@ -485,7 +489,11 @@ export type ICON_NAMES =
   | "MetamaskIllus"
   | "NftPegIllus"
   | "StarBadgeIllus"
+  | "TxTypeApproveCircleIllus"
+  | "TxTypeReceiveCircleIllus"
+  | "TxTypeSendCircleIllus"
   | "AcademicCapOutline"
+  | "ActivityOutline"
   | "AdjustmentsOutline"
   | "AnnotationOutline"
   | "ArchiveOutline"
@@ -963,7 +971,11 @@ export default {
   MetamaskIllus: MetamaskIllus,
   NftPegIllus: NftPegIllus,
   StarBadgeIllus: StarBadgeIllus,
+  TxTypeApproveCircleIllus: TxTypeApproveCircleIllus,
+  TxTypeReceiveCircleIllus: TxTypeReceiveCircleIllus,
+  TxTypeSendCircleIllus: TxTypeSendCircleIllus,
   AcademicCapOutline: AcademicCapOutline,
+  ActivityOutline: ActivityOutline,
   AdjustmentsOutline: AdjustmentsOutline,
   AnnotationOutline: AnnotationOutline,
   ArchiveOutline: ArchiveOutline,
