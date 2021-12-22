@@ -3,12 +3,22 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (4.0.0):
     - ExpoModulesCore
+  - EXBarCodeScanner (11.2.0):
+    - EXImageLoader
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
+  - EXCamera (12.1.0):
+    - ExpoModulesCore
   - EXConstants (12.1.3):
     - ExpoModulesCore
   - EXFileSystem (13.0.3):
     - ExpoModulesCore
   - EXFont (10.0.3):
     - ExpoModulesCore
+  - EXImageLoader (3.1.0):
+    - ExpoModulesCore
+    - React-Core
   - EXJSONUtils (0.2.0)
   - EXKeepAwake (10.0.0):
     - ExpoModulesCore
@@ -386,13 +396,21 @@ PODS:
   - UMTaskManagerInterface (7.0.3):
     - ExpoModulesCore
   - Yoga (1.14.0)
+  - ZXingObjC/Core (3.6.5)
+  - ZXingObjC/OneD (3.6.5):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.5):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
+  - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
+  - EXCamera (from `../../../node_modules/expo-camera/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
+  - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXJSONUtils (from `../../../node_modules/expo-json-utils/ios`)
   - EXKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
@@ -451,18 +469,25 @@ SPEC REPOS:
   trunk:
     - boost-for-react-native
     - MultiplatformBleAdapter
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   DoubleConversion:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
     :path: "../../../node_modules/expo-application/ios"
+  EXBarCodeScanner:
+    :path: "../../../node_modules/expo-barcode-scanner/ios"
+  EXCamera:
+    :path: "../../../node_modules/expo-camera/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
   EXFileSystem:
     :path: "../../../node_modules/expo-file-system/ios"
   EXFont:
     :path: "../../../node_modules/expo-font/ios"
+  EXImageLoader:
+    :path: "../../../node_modules/expo-image-loader/ios"
   EXJSONUtils:
     :path: "../../../node_modules/expo-json-utils/ios"
   EXKeepAwake:
@@ -570,9 +595,12 @@ SPEC CHECKSUMS:
   boost-for-react-native: 39c7adb57c4e60d6c5479dd8623128eb5b3f0f2c
   DoubleConversion: cf9b38bf0b2d048436d9a82ad2abe1404f11e7de
   EXApplication: 0e15240e4d125b62f1cae48759ffbbd32b9286a6
+  EXBarCodeScanner: 7deeeb35f396ce9a13434a75b581c19fc2564205
+  EXCamera: 5c2fa5410d094c352bf27f2e0ff55ec3afa426d4
   EXConstants: 6d585d93723b18d7a8c283591a335609e3bc153e
   EXFileSystem: 99aac7962c11c680681819dd9cbca24e20e5b1e7
   EXFont: 2e1c6fe726d008a039db80df95f48b4921b7fe59
+  EXImageLoader: df83442d32bcfb57b7cfc5690096b6caf8203f8d
   EXJSONUtils: f515cf71710855d7ba5bfc6752af3b9a6f6aad01
   EXKeepAwake: 8aa32396a5972d26e75e538603aad0f032396503
   EXLocation: 192eaee761c159d1479111a0ced3bab7ad8475a3
@@ -625,6 +653,7 @@ SPEC CHECKSUMS:
   RNSVG: 8ba35cbeb385a52fd960fd28db9d7d18b4c2974f
   UMTaskManagerInterface: 5654c50e68af11b19b9d05452bacf23d19b3f30f
   Yoga: e6ecf3fa25af9d4c87e94ad7d5d292eedef49749
+  ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
 PODFILE CHECKSUM: 39203f2b7c31cbcc64db32c70236daa76a911db0
 
