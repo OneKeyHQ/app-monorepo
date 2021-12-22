@@ -8,7 +8,7 @@ import { IElectronWebView } from '../types';
 export type IWebViewWrapperRef = {
   innerRef?: ReactNativeWebView | IElectronWebView | null;
   jsBridge?: JsBridgeBase | null;
-  reload?: () => void;
+  reload: () => void;
 };
 
 export default function useWebViewBridge() {

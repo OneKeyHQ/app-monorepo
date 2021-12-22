@@ -16,6 +16,8 @@
     "isolatedModules": true,
     "noImplicitReturns": false,
     "noUnusedLocals": false,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": true,
     "types": ["styled-components-react-native", "chrome"],
     "typeRoots": ["node_modules/@types", "./@types"]
   },

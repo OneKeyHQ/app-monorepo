@@ -1,6 +1,8 @@
 import React from 'react';
 
-import { Box, WebView } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
+
+import WebView from '../../components/WebView';
 
 const Discover = () => (
   <Box flex="1" bg="background-hovered">
