@@ -18,6 +18,7 @@ const tsRules = {
   '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
   '@typescript-eslint/ban-ts-comment': 'off',
+  '@typescript-eslint/no-unsafe-assignment': 'off',
   'sort-imports': [
     'error',
     {

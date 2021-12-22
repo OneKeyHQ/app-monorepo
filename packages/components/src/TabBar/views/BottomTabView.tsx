@@ -51,6 +51,7 @@ export default function BottomTabView(props: Props) {
   } = props;
 
   const focusedRouteKey = state.routes[state.index].key;
+
   const [loaded, setLoaded] = React.useState([focusedRouteKey]);
 
   if (!loaded.includes(focusedRouteKey)) {
@@ -80,6 +81,9 @@ export default function BottomTabView(props: Props) {
           state,
           descriptors,
           navigation,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          headerCorner: (descriptors[focusedRouteKey].options as any)
+            .headerCorner as React.ReactNode,
           insets: {
             top: safeAreaInsets?.top ?? insets?.top ?? 0,
             right: safeAreaInsets?.right ?? insets?.right ?? 0,

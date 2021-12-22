@@ -8,8 +8,11 @@ import {
   Provider,
   useIsRootRoute,
   useThemeValue,
+  useUserDevice,
 } from '@onekeyhq/components';
 
+import AccountSelector from './components/Header/AccountSelector';
+import ChainSelector from './components/Header/ChainSelector';
 import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
 import { StackNavigator, TabNavigator } from './navigator';
 import { RootStackParamList, stackRoutes, tabRoutes } from './routes';
@@ -18,10 +21,21 @@ import store from './store';
 const StackScreen = ({ index }: { index: number }) => {
   const fontColor = useThemeValue('text-default');
   const bgColor = useThemeValue('surface-subdued');
+  const borderColor = useThemeValue('border-subdued');
+  const { size } = useUserDevice();
   const { setIsRootRoute } = useIsRootRoute();
 
   return (
-    <StackNavigator.Navigator>
+    <StackNavigator.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: bgColor,
+          // @ts-expect-error
+          borderBottomColor: borderColor,
+        },
+        headerTintColor: fontColor,
+      }}
+    >
       <StackNavigator.Screen
         listeners={{
           focus() {
@@ -31,10 +45,11 @@ const StackScreen = ({ index }: { index: number }) => {
         name={tabRoutes[index].name as keyof RootStackParamList}
         component={tabRoutes[index].component}
         options={{
-          headerStyle: {
-            backgroundColor: bgColor,
-          },
-          headerTintColor: fontColor,
+          headerRight: () => <ChainSelector />,
+          headerTitle: () => null,
+          headerLeft: ['LARGE', 'XLARGE'].includes(size)
+            ? undefined
+            : () => <AccountSelector />,
         }}
       />
 
@@ -48,12 +63,6 @@ const StackScreen = ({ index }: { index: number }) => {
           key={stack.name}
           name={stack.name as keyof RootStackParamList}
           component={stack.component}
-          options={{
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            headerTintColor: fontColor,
-          }}
         />
       ))}
     </StackNavigator.Navigator>
@@ -69,10 +78,22 @@ const stackScreensInTab = tabRoutes.map((tab, index) => {
 const TabBarScreen = () => {
   const fontColor = useThemeValue('text-default');
   const bgColor = useThemeValue('surface-subdued');
+  const borderColor = useThemeValue('border-subdued');
   const navigation = useNavigation();
 
   return (
-    <TabNavigator.Navigator>
+    <TabNavigator.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: bgColor,
+          borderBottomColor: borderColor,
+        },
+        headerShown: false,
+        headerTintColor: fontColor,
+        // @ts-expect-error
+        headerCorner: <AccountSelector />,
+      }}
+    >
       {tabRoutes.map((tab, index) => (
         <TabNavigator.Screen
           listeners={{
@@ -88,11 +109,6 @@ const TabBarScreen = () => {
           component={stackScreensInTab[index]}
           name={tab.name}
           options={{
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            headerTintColor: fontColor,
-            headerShown: false,
             tabBarIcon: ({ color }) => <Icon name={tab.icon} color={color} />,
           }}
         />

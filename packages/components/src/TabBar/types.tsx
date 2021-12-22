@@ -303,6 +303,7 @@ export type BottomTabBarProps = {
   descriptors: BottomTabDescriptorMap;
   navigation: NavigationHelpers<ParamListBase, BottomTabNavigationEventMap>;
   insets: EdgeInsets;
+  headerCorner?: React.ReactNode;
 };
 
 export type BottomTabBarButtonProps = Omit<

@@ -59,12 +59,12 @@ export type RootStackParamList = {
 };
 
 export const tabRoutes: TabRoute[] = [
-  { name: 'Home', component: ComponentsScreen, icon: 'ChipOutline' },
   { name: 'Wallet', component: WalletScreen, icon: 'HomeOutline' },
   { name: 'Swap', component: SwapScreen, icon: 'SwitchHorizontalOutline' },
   { name: 'Portfolio', component: PortfolioScreen, icon: 'TrendingUpOutline' },
   { name: 'Discover', component: DiscoverScreen, icon: 'CompassOutline' },
   { name: 'Settings', component: SettingsScreen, icon: 'CogOutline' },
+  { name: 'Home', component: ComponentsScreen, icon: 'ChipOutline' },
 ];
 
 export const stackRoutes = [
