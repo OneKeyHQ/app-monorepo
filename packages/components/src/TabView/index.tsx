@@ -26,24 +26,6 @@ export type Props = {
   ) => ReactNode;
 };
 
-// const generationRoutes = (customRoutes: TabViewRoute[]) => {
-//   const routes = [];
-//   for (let index = 0; index < customRoutes.length; index += 1) {
-//     const route = customRoutes[index];
-//     routes.push({ key: route.key, title: route.title });
-//   }
-//   return routes;
-// };
-
-// const generationSceneMap = (customRoutes: TabViewRoute[]) => {
-//   const sceneMap = Object.create;
-//   for (let index = 0; index < customRoutes.length; index += 1) {
-//     const route = customRoutes[index];
-//     sceneMap[route.key] = route.view;
-//   }
-//   return sceneMap;
-// };
-
 const TabView: FC<Props> = ({
   onIndexChange,
   routes,
@@ -112,8 +94,6 @@ const TabView: FC<Props> = ({
           labelStyle={styles.label}
           getLabelText={({ route }) => route.title}
           getAccessibilityLabel={({ route }) => route.title}
-          // renderLabel={renderLabel}
-          // renderTabBarItem={renderTabBarItem}
         />
       </Box>
     );
@@ -124,8 +104,6 @@ const TabView: FC<Props> = ({
       renderScene={renderScene}
       renderTabBar={renderTabBar}
       onIndexChange={(changeIndex: number) => {
-        console.log(`changeIndex${changeIndex}`);
-
         setIndex(changeIndex);
         if (onIndexChange) {
           onIndexChange(changeIndex);
