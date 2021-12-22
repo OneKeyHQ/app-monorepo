@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import Button, { ButtonSize, ButtonType } from '../Button';
 import { ICON_NAMES } from '../Icon';
@@ -34,13 +34,14 @@ function getIconSize(size: ButtonSize = 'base') {
   return sizeMap[size];
 }
 
-const IconButton: FC<IconButtonProps> = ({
+const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
   type = 'basic',
   name,
   size,
   circle,
   isLoading,
   isDisabled,
+  ...props
 }) => {
   const rect = getRect(size);
   const iconSize = getIconSize(size);
@@ -54,6 +55,7 @@ const IconButton: FC<IconButtonProps> = ({
       borderRadius={circle ? 'full' : 12}
       leftIconName={name}
       iconSize={iconSize}
+      {...props}
     />
   );
 };
