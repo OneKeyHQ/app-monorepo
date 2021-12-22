@@ -232,7 +232,6 @@ const HistoricalRecords = () => {
       >
         <TransactionDetails txId={detailsInfo?.txId ?? ''} />
       </Modal>
-      ;
     </Box>
   );
 };

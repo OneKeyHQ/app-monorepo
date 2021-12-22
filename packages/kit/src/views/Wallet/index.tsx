@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import {
   Box,
   Button,
   Icon,
+  SceneMap,
+  TabView,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -12,8 +14,43 @@ import AssetsList from './AccountList';
 import HistoricalRecord from './HistoricalRecords';
 
 const Wallet = () => {
+  type TabViewRoute = {
+    key: string;
+    title: string;
+  };
+  type TabViewScene = {
+    [key: string]: React.ComponentType;
+  };
+  const { size } = useUserDevice();
+  const [tabViewScene, setTabViewScene] = useState<TabViewScene>({
+    tokens: AssetsList,
+  });
+  const [tabViewRoutes, setTabViewRoutes] = useState<TabViewRoute[]>([
+    {
+      key: 'tokens',
+      title: 'Tokens',
+    },
+  ]);
+
+  useEffect(() => {
+    setTabViewScene({
+      tokens: AssetsList,
+      history: HistoricalRecord,
+    });
+    setTabViewRoutes([
+      {
+        key: 'tokens',
+        title: 'Tokens',
+      },
+      {
+        key: 'history',
+        title: 'History',
+      },
+    ]);
+  }, []);
+
   const AccountInfo = () => {
-    const { size } = useUserDevice();
+    const { size: accountInfoSize } = useUserDevice();
 
     const AccountAmountInfo = (isCenter: boolean) => (
       <Box alignItems={isCenter ? 'center' : 'flex-start'} mt={8}>
@@ -47,7 +84,7 @@ const Wallet = () => {
     );
 
     return useMemo(() => {
-      if (['SMALL', 'NORMAL'].includes(size)) {
+      if (['SMALL', 'NORMAL'].includes(accountInfoSize)) {
         return (
           <Box w="100%" flexDirection="column">
             {AccountAmountInfo(true)}
@@ -67,7 +104,7 @@ const Wallet = () => {
           <Box>{AccountOption()}</Box>
         </Box>
       );
-    }, [size]);
+    }, [accountInfoSize]);
   };
 
   return (
@@ -79,8 +116,14 @@ const Wallet = () => {
     >
       <Box flex={1} w="100%" flexDirection="column" maxW="1024px">
         {AccountInfo()}
-        {AssetsList()}
-        {HistoricalRecord()}
+        <Box mt={8} flex={1}>
+          <TabView
+            paddingX={16}
+            autoWidth={!['SMALL'].includes(size)}
+            routes={tabViewRoutes}
+            renderScene={SceneMap(tabViewScene)}
+          />
+        </Box>
       </Box>
     </Box>
   );
