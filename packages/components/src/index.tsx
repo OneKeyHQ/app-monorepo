@@ -6,6 +6,7 @@ export { default as Avatar } from './Avatar';
 export { default as Badge } from './Badge';
 export { default as Box } from './Box';
 export { default as Button } from './Button';
+export { default as NftCard } from './NftCard';
 export { default as Center } from './Center';
 export { default as CheckBox } from './CheckBox';
 export { default as Divider } from './Divider';
