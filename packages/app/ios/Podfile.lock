@@ -277,6 +277,8 @@ PODS:
     - react-native-config/App (= 1.4.5)
   - react-native-config/App (1.4.5):
     - React-Core
+  - react-native-pager-view (5.4.9):
+    - React-Core
   - react-native-safe-area-context (3.3.2):
     - React-Core
   - react-native-webview (11.15.0):
@@ -423,6 +425,7 @@ DEPENDENCIES:
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-config (from `../../../node_modules/react-native-config`)
+  - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -520,6 +523,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-ble-plx"
   react-native-config:
     :path: "../../../node_modules/react-native-config"
+  react-native-pager-view:
+    :path: "../../../node_modules/react-native-pager-view"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-webview:
@@ -583,7 +588,7 @@ SPEC CHECKSUMS:
   EXUpdates: 061b67c33f0e7f8fd335bbb48697c4a4fc8a5157
   EXUpdatesInterface: e1c01b4f5ec76bd1d6cc714938f9edf5ef6379b9
   FBLazyVector: c71c5917ec0ad2de41d5d06a5855f6d5eda06971
-  FBReactNativeSpec: 6c06096c28312c7b9252493cde2c07f5ca3e60cd
+  FBReactNativeSpec: a599c76c5cfeca73ef617c7ce8a6cf5f1103ba09
   glog: 73c2498ac6884b13ede40eda8228cb1eee9d9d62
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   RCT-Folly: ec7a233ccc97cc556cf7237f0db1ff65b986f27c
@@ -599,6 +604,7 @@ SPEC CHECKSUMS:
   React-jsinspector: 34e23860273a23695342f58eed3ffd3ba10c31e0
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
+  react-native-pager-view: 3ee7d4c7697fb3ef788346e834a60cca97ed8540
   react-native-safe-area-context: 584dc04881deb49474363f3be89e4ca0e854c057
   react-native-webview: e89bf2dba26a04cda967814df3ed1be99f291233
   React-perflogger: cc76a4254d19640f1d8ad1c66fdee800414b805c
