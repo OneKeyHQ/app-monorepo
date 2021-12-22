@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 
-import { Center, Flex, SortableList, Typography } from '@onekeyhq/components';
+import {
+  Center,
+  Flex,
+  Icon,
+  Pressable,
+  SortableList,
+  Switch,
+  Typography,
+} from '@onekeyhq/components';
 
 const initialData: { id: number; text: string }[] = [
   { id: 1, text: 'Chloe' },
@@ -17,25 +25,35 @@ const initialData: { id: number; text: string }[] = [
 
 const SortableListGallery = () => {
   const [list, setList] = useState(initialData);
+  const [enable, setEnable] = useState(false);
   return (
     <Center flex="1" bg="background-hovered" p="4">
-      <SortableList
+      <SortableList.Container
         keyExtractor={({ id }) => String(id)}
         data={list}
         onDragEnd={({ data }) => setList(data)}
         renderItem={({ item, drag }) => (
-          <SortableList.ListItem onLongPress={drag}>
-            <Flex
-              borderBottomWidth="1"
-              borderColor="border-default"
-              direction="row"
-              alignItems="center"
-              h="10"
-              minW="80"
-            >
-              <Typography.Body1>{item.text}</Typography.Body1>
+          <Flex
+            borderBottomWidth="1"
+            borderColor="border-default"
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            h="10"
+            minW="80"
+          >
+            <Flex direction="row" alignItems="center">
+              <Pressable onPressIn={() => drag()}>
+                <Icon name="MenuOutline" size={16} />
+              </Pressable>
+              <Typography.Body1 ml="2">{item.text}</Typography.Body1>
             </Flex>
-          </SortableList.ListItem>
+            <Switch
+              labelType="false"
+              isChecked={enable}
+              onToggle={() => setEnable(!enable)}
+            />
+          </Flex>
         )}
       />
     </Center>
