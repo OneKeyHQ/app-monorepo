@@ -14,6 +14,7 @@ const isApp = isNative;
 export type InpageProviderWebViewProps = {
   src?: string;
   receiveHandler: IJsBridgeReceiveHandler;
+  ref?: any;
 };
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(

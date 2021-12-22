@@ -1,6 +1,8 @@
+const babelTools = require('../../development/babelTools');
+
 module.exports = function (api) {
   api.cache(true);
-  return {
+  return babelTools.normalizeConfig({
     presets: ['babel-preset-expo'],
     plugins: [
       'react-native-reanimated/plugin',
@@ -13,12 +15,6 @@ module.exports = function (api) {
           },
         },
       ],
-      [
-        'babel-plugin-inline-import',
-        {
-          'extensions': ['.text-js'],
-        },
-      ],
     ],
-  };
+  });
 };

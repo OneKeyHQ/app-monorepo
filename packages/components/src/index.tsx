@@ -39,7 +39,6 @@ export { Toast, useToast } from './Toast';
 export { default as Token, TokenGroup } from './Token';
 export { default as Typography } from './Typography';
 export { default as VStack } from './VStack';
-export { default as WebView } from './WebView';
 export { default as ZStack } from './ZStack';
 export { default as Dialog } from './Dialog';
 export { default as PageActions } from './PageActions';
