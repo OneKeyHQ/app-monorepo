@@ -44,6 +44,8 @@ export { default as ZStack } from './ZStack';
 export { default as Dialog } from './Dialog';
 export { default as PageActions } from './PageActions';
 export { default as Form } from './Form';
+export { default as Image } from './Image';
+export { default as SortableList } from './SortableList';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';

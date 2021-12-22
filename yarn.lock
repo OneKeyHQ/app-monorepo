@@ -15265,6 +15265,11 @@ react-native-config@^1.4.5:
   resolved "https://registry.yarnpkg.com/react-native-config/-/react-native-config-1.4.5.tgz#6fe5895410b75e44fe4f4bf00caaf894a0981f3a"
   integrity sha512-5oiAsoW88SOYDg/0cleJ2vJDqv98FJUbFQYEnH4sdMtEn3AAT3lb7BkTGW8HO/t3Vk9VOruwxUUnO4tzuxzCsw==
 
+react-native-draggable-flatlist@^3.0.3:
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/react-native-draggable-flatlist/-/react-native-draggable-flatlist-3.0.3.tgz#e85503585253be01ad251f78d5b341ac22f9d952"
+  integrity sha512-bDro6aqQMvvTm/CuHre9dAjSBKosAfZRLDx3nmrjOz799kxcn0bq+uCB6yF6m+g1Xd/gVPl7E3Ss4uX+oPUlHg==
+
 react-native-fit-image@^1.5.5:
   version "1.5.5"
   resolved "https://registry.yarnpkg.com/react-native-fit-image/-/react-native-fit-image-1.5.5.tgz#c660d1ad74b9dcaa1cba27a0d9c23837e000226c"
