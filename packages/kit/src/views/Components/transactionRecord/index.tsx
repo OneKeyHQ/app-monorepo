@@ -33,7 +33,7 @@ export type TransactionRecordProps = {
   transaction: Transaction;
 };
 
-const getTransactionStatusStr = (
+export const getTransactionStatusStr = (
   intl: IntlShape,
   state: TransactionState = 'pending',
 ): string => {
@@ -189,7 +189,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>
               {transaction.confirmed > 0
-                ? `${transaction.confirmed} confirmed`
+                ? `${transaction.confirmed.toString()} confirmed`
                 : 'Not confirmed'}
             </Typography.Caption>
             <Button

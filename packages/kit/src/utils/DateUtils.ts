@@ -24,7 +24,7 @@ export function formatMonth(date: Date): string {
   return key;
 }
 
-export function formatDate(date: Date): string {
+export function formatDate(date: Date, containsYear = false): string {
   const monthShrink = [
     'Jan',
     'Feb',
@@ -41,20 +41,15 @@ export function formatDate(date: Date): string {
   ];
   const currentYear = new Date().getFullYear();
   const mn = date.getMonth();
-  const M = date.getMonth() + 1;
-  const h = date.getHours();
-  const m = date.getMinutes();
+  const M = (date.getMonth() + 1).toString().padStart(2, '0');
+  const h = date.getHours().toString().padStart(2, '0');
+  const m = date.getMinutes().toString().padStart(2, '0');
 
   let key;
-  if (currentYear === date.getFullYear()) {
-    key = `${monthShrink[mn]} ${M.toString().padStart(2, '0')}, ${h
-      .toString()
-      .padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  if (currentYear !== date.getFullYear() || containsYear) {
+    key = `${monthShrink[mn]} ${M} ${date.getFullYear()}, ${h}:${m}`;
   } else {
-    key = `${monthShrink[mn]} ${M.toString().padStart(
-      2,
-      '0',
-    )}, ${date.getFullYear()}`;
+    key = `${monthShrink[mn]} ${M}, ${h}:${m}`;
   }
   return key;
 }

@@ -6,6 +6,7 @@ import {
   Divider,
   Empty,
   Icon,
+  Modal,
   Pressable,
   SectionList,
   Typography,
@@ -15,6 +16,7 @@ import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord, {
   Transaction,
 } from '../../Components/transactionRecord';
+import TransactionDetails from '../../TransactionDetails';
 
 const TRANSACTION_RECORDS_DATA: Transaction[] = [
   {
@@ -108,6 +110,8 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
 ];
 
 const HistoricalRecords = () => {
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [detailsInfo, setDetailsInfo] = useState<Transaction>();
   const [transactionRecords, setTransactionRecords] = useState<
     TransactionGroup[]
   >([]);
@@ -150,6 +154,8 @@ const HistoricalRecords = () => {
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       onPress={() => {
+        setDetailsInfo(item);
+        setDetailsVisible(true);
         console.log('Click Transaction : ', item.txId);
       }}
     >
@@ -205,7 +211,6 @@ const HistoricalRecords = () => {
           <Icon name="ExternalLinkOutline" />
         </Pressable>
       </Box>
-
       <SectionList
         mt={3}
         mb={3}
@@ -219,6 +224,15 @@ const HistoricalRecords = () => {
         }
         showsVerticalScrollIndicator={false}
       />
+      <Modal
+        footer={<Box />}
+        header={detailsInfo?.state}
+        visible={detailsVisible}
+        onClose={() => setDetailsVisible(false)}
+      >
+        <TransactionDetails txId={detailsInfo?.txId ?? ''} />
+      </Modal>
+      ;
     </Box>
   );
 };
