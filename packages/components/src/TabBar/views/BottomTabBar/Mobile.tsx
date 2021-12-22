@@ -14,7 +14,6 @@ import {
   ParamListBase,
   TabNavigationState,
   useLinkBuilder,
-  useTheme,
 } from '@react-navigation/native';
 import {
   Animated,
@@ -124,7 +123,6 @@ export default function BottomTabBar({
 }: Props) {
   const { size } = useUserDevice();
 
-  const { colors } = useTheme();
   const buildLink = useLinkBuilder();
 
   const focusedRoute = state.routes[state.index];
