@@ -245,7 +245,8 @@ export default function BottomTabBar({
   });
 
   const tabBarBackgroundElement = tabBarBackground?.();
-  const bgColor = useThemeValue('background-default');
+  const bgColor = useThemeValue('surface-subdued');
+  const borderColor = useThemeValue('border-subdued');
   return (
     <Animated.View
       style={[
@@ -253,7 +254,7 @@ export default function BottomTabBar({
         {
           backgroundColor:
             tabBarBackgroundElement != null ? 'transparent' : bgColor,
-          borderTopColor: colors.border,
+          borderTopColor: borderColor,
         },
         {
           transform: [

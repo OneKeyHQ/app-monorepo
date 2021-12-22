@@ -22,6 +22,7 @@ export type SelectItem<T = string> = {
   label: string;
   value: T;
   tokenProps?: ComponentProps<typeof Token>;
+  iconProps?: ComponentProps<typeof Icon>;
 };
 
 export type SelectGroupItem<T = string> = {
@@ -31,6 +32,7 @@ export type SelectGroupItem<T = string> = {
 
 export type SelectProps<T = string> = {
   title?: string;
+  headerShown?: boolean;
   options: (SelectItem<T> | SelectGroupItem<T>)[];
   value?: T;
   defaultValue?: T;
@@ -58,6 +60,7 @@ export type ChildProps<T> = Pick<
   | 'footerIcon'
   | 'onPressFooter'
   | 'renderItem'
+  | 'headerShown'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -71,6 +74,11 @@ function getTriggerAlignSelf(
   if (dropdownPosition === 'right') return 'flex-start';
   return 'center';
 }
+
+const defaultProps = {
+  headerShown: true,
+  dropdownPosition: 'center',
+} as const;
 
 function Select<T = string>({
   options,
@@ -87,7 +95,8 @@ function Select<T = string>({
   footerText,
   footerIcon,
   onPressFooter,
-  dropdownPosition = 'center',
+  headerShown,
+  dropdownPosition,
 }: SelectProps<T>) {
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
@@ -140,6 +149,7 @@ function Select<T = string>({
       onPressFooter,
       activeOption,
       renderItem,
+      headerShown,
       onChange: handleChange,
     };
 
@@ -161,10 +171,11 @@ function Select<T = string>({
     onPressFooter,
     activeOption,
     renderItem,
+    headerShown,
   ]);
 
   return (
-    <Box width="100%" position="relative" zIndex={-1} {...containerProps}>
+    <Box width="100%" position="relative" {...containerProps}>
       <Pressable
         display="flex"
         flexDirection="row"
@@ -173,7 +184,7 @@ function Select<T = string>({
         borderRadius="12px"
         borderColor="border-default"
         bg="action-secondary-default"
-        py="2"
+        py={['SMALL', 'NORMAL'].includes(size) ? 1 : 2}
         px="3"
         width="100%"
         onPress={toggleVisible}
@@ -182,6 +193,16 @@ function Select<T = string>({
       >
         {renderTrigger?.(activeOption) ?? (
           <>
+            {!!activeOption.tokenProps && (
+              <Box mr="2">
+                <Token size={6} {...activeOption.tokenProps} />
+              </Box>
+            )}
+            {!!activeOption.iconProps && (
+              <Box mr="2">
+                <Icon size={6} {...activeOption.iconProps} />
+              </Box>
+            )}
             <Typography.Body2 numberOfLines={1} flex="1" mr="1">
               {activeOption.label ?? '-'}
             </Typography.Body2>
@@ -193,5 +214,7 @@ function Select<T = string>({
     </Box>
   );
 }
+
+Select.defaultProps = defaultProps;
 
 export default Select;

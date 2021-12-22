@@ -2,6 +2,7 @@ import React, { Fragment } from 'react';
 
 import Box from '../../Box';
 import Divider from '../../Divider';
+import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import Token from '../../Token';
 import Typography from '../../Typography';
@@ -40,6 +41,11 @@ function renderSingleOption<T>({
         {!!option.tokenProps && (
           <Box mr="2">
             <Token size={6} {...option.tokenProps} />
+          </Box>
+        )}
+        {!!option.iconProps && (
+          <Box mr="2">
+            <Icon size={6} {...option.iconProps} />
           </Box>
         )}
         <Typography.Body1>{option.label}</Typography.Body1>
