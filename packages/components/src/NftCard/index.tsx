@@ -16,8 +16,8 @@ import type { IPressableProps } from 'native-base';
 
 export interface CardProps extends IPressableProps {
   // String or a React Element
-  title?: ReactNode;
-  image?: ReactNode;
+  title?: ReactNode | null;
+  image?: ReactNode | null;
 }
 
 /**
@@ -42,8 +42,7 @@ const NftCard = (
         alt="Alternate Text"
         size="xl"
         width="100%"
-        minW="171px"
-        minH="171px"
+        flex="1"
       />
     );
   }, [image]);
