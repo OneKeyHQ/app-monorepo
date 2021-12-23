@@ -40,9 +40,7 @@ const FooterButton: FC<FooterButtonProps> = ({
           {...secondaryActionProps}
         >
           {intl.formatMessage({
-            id:
-              secondaryActionTranslationId ??
-              'ui-components__modal__cancel_text',
+            id: secondaryActionTranslationId ?? 'action__cancel',
           })}
         </Button>
       )}
@@ -55,7 +53,7 @@ const FooterButton: FC<FooterButtonProps> = ({
           onPress={() => onPrimaryActionPress?.({})}
         >
           {intl.formatMessage({
-            id: primaryActionTranslationId ?? 'ui-components__modal__ok_text',
+            id: primaryActionTranslationId ?? 'action__ok',
           })}
         </Button>
       )}

@@ -1,4 +1,5 @@
 export { default as AcademicCap } from './AcademicCap'
+export { default as Activity } from './Activity'
 export { default as Adjustments } from './Adjustments'
 export { default as Annotation } from './Annotation'
 export { default as Archive } from './Archive'
