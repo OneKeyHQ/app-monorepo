@@ -44,7 +44,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'yarn'
 
-      - name: Build on EAS
+      - name: Build on EAS workflow
+        if: ${{ github.event.inputs.platform }}
         run: |
           cd packages/app
           npx eas-cli build --profile=development --platform ${{ github.event.inputs.platform }} --non-interactive --no-wait
+
+      - name: Build on EAS schedule
+        if: ${{ !github.event.inputs.platform }}
+        run: |
+          cd packages/app
+          npx eas-cli build --profile=development --platform all --non-interactive --no-wait
