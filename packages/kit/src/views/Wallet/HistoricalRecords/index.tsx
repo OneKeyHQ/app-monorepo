@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Box,
@@ -69,8 +71,8 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
     'date': new Date(1634793997 * 1000),
     confirmed: 1,
     approveInfo: {
-      title: '授权 Onekey Swap',
       url: 'swap.onekey.so',
+      token: 'USDT',
     },
   },
   {
@@ -83,8 +85,8 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
     'date': new Date(1634793997 * 1000),
     confirmed: 123,
     approveInfo: {
-      title: '授权 Onekey Swap',
       url: 'swap.onekey.so',
+      token: 'WBTC',
     },
   },
   {
@@ -110,6 +112,7 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
 ];
 
 const HistoricalRecords = () => {
+  const intl = useIntl();
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [detailsInfo, setDetailsInfo] = useState<Transaction>();
   const [transactionRecords, setTransactionRecords] = useState<
@@ -184,9 +187,9 @@ const HistoricalRecords = () => {
     <Box pb={2} pt={2} flexDirection="row" alignItems="center">
       <Empty
         icon={<Icon name="DatabaseOutline" size={48} />}
-        title="No Histories"
-        subTitle="Transaction history will show here."
-        actionTitle="Reload"
+        title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
+        subTitle={intl.formatMessage({ id: 'transaction__history_empty_desc' })}
+        actionTitle={intl.formatMessage({ id: 'action__reset' })}
         handleAction={() => {
           setTransactionRecords(handleData(TRANSACTION_RECORDS_DATA));
         }}
@@ -201,7 +204,9 @@ const HistoricalRecords = () => {
         justifyContent="space-between"
         alignItems="center"
       >
-        <Typography.DisplayXLarge>History</Typography.DisplayXLarge>
+        <Typography.DisplayXLarge>
+          {intl.formatMessage({ id: 'transaction__history' })}
+        </Typography.DisplayXLarge>
         <Pressable
           p={1}
           onPress={() => {

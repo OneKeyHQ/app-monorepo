@@ -26,7 +26,7 @@ export type Transaction = {
   to: string;
   date: Date;
   confirmed: number;
-  approveInfo?: { title: string; url: string };
+  approveInfo?: { token: string; url: string };
 };
 
 export type TransactionRecordProps = {
@@ -54,10 +54,17 @@ const getTransactionTypeStr = (
   intl: IntlShape,
   transaction: Transaction,
 ): string => {
+  if (transaction.type === 'Approve' && transaction?.approveInfo?.token) {
+    return intl.formatMessage(
+      { id: 'transaction__approve_token_spend_limit' },
+      { token: transaction.approveInfo.token },
+    );
+  }
+
   const stringKeys: Record<TransactionType, string> = {
     'Send': '发送',
     'Receive': '接收',
-    'Approve': transaction?.approveInfo?.title ?? '授权',
+    'Approve': '授权',
   };
   //   return intl.formatMessage({
   //     id: stringKeys[state],
@@ -190,7 +197,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
             <Typography.Caption color="text-subdued" flex={1}>
               {transaction.confirmed > 0
                 ? `${transaction.confirmed.toString()} confirmed`
-                : 'Not confirmed'}
+                : intl.formatMessage({ id: 'transaction__not_confirmed' })}
             </Typography.Caption>
             <Button
               ml={2}
@@ -198,7 +205,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
                 console.log('Click: Cancel');
               }}
             >
-              Cancel
+              {intl.formatMessage({ id: 'action__cancel' })}
             </Button>
             <Button
               type="primary"
@@ -207,7 +214,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
                 console.log('Click: Speed Up');
               }}
             >
-              Speed Up
+              {intl.formatMessage({ id: 'action__speed_up' })}
             </Button>
           </Box>
         )}

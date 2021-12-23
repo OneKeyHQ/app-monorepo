@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Divider,
@@ -204,6 +206,7 @@ const TOKEN_DATA: AssetToken[] = [
 
 const AssetsList = () => {
   const { size } = useUserDevice();
+  const intl = useIntl();
 
   const renderItem = ({ item }: { item: AssetToken }) => (
     <Pressable
@@ -246,7 +249,9 @@ const AssetsList = () => {
         justifyContent="space-between"
         alignItems="center"
       >
-        <Typography.DisplayXLarge>Token</Typography.DisplayXLarge>
+        <Typography.DisplayXLarge>
+          {intl.formatMessage({ id: 'asset__tokens' })}
+        </Typography.DisplayXLarge>
         <Pressable
           p={1}
           onPress={() => {

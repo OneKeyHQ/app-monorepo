@@ -81,7 +81,7 @@ const TransactionDetails: FC<TransactionDetailsProps> = ({ txId }) => {
           {getTransactionStatusStr(intl, txInfo.state)}
         </Typography.Heading>
         <ContentItemBox mt={6}>
-          <ContentItem title="Hash">
+          <ContentItem title={intl.formatMessage({ id: 'content__hash' })}>
             <Box flexDirection="row">
               <Address text={txInfo.txId} short />
               <Pressable ml={3} onPress={() => {}}>
@@ -90,46 +90,67 @@ const TransactionDetails: FC<TransactionDetailsProps> = ({ txId }) => {
             </Box>
           </ContentItem>
           <ContentItem
-            title="From"
+            title={intl.formatMessage({ id: 'content__from' })}
             value="Account1"
             describe="0x4d16878c27c3847f18bd6d51d67f5b83b52ffe75"
           />
           <ContentItem
-            title="To"
+            title={intl.formatMessage({ id: 'content__to' })}
             value="Account2"
             describe="0x4d16878c27c3847f18bd6d51d67f5b83b52ffe75"
           />
-          <ContentItem title="Amount" value={txInfo.amount.toString()} />
-          <ContentItem title="Fee" value={txInfo.amount.toString()} />
           <ContentItem
-            title="Total"
+            title={intl.formatMessage({ id: 'content__amount' })}
+            value={txInfo.amount.toString()}
+          />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__fee' })}
+            value={txInfo.amount.toString()}
+          />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__total' })}
             value={txInfo.amount.toString()}
             describe={txInfo.amount.toString()}
           />
         </ContentItemBox>
 
         <Typography.Subheading mt={6} w="100%" color="text-subdued">
-          More Details
+          {intl.formatMessage({ id: 'content__more_details' })}
         </Typography.Subheading>
         <ContentItemBox mt={2}>
-          <ContentItem title="Gas Limit" value={txInfo.amount.toString()} />
-          <ContentItem title="Gas Used" value={txInfo.amount.toString()} />
-          <ContentItem title="Gas Price" value={txInfo.amount.toString()} />
-          <ContentItem title="Noce" value={txInfo.amount.toString()} />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__gas_limit' })}
+            value={txInfo.amount.toString()}
+          />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__gas_used' })}
+            value={txInfo.amount.toString()}
+          />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__gas_price' })}
+            value={txInfo.amount.toString()}
+          />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__nonce' })}
+            value={txInfo.amount.toString()}
+          />
         </ContentItemBox>
 
         <Typography.Subheading mt={6} w="100%" color="text-subdued">
-          Activity Logs
+          {intl.formatMessage({ id: 'content__activity_logs' })}
         </Typography.Subheading>
         <ContentItemBox mt={2}>
-          <ContentItem title="Created" value={formatDate(txInfo.date, true)} />
           <ContentItem
-            title="Submitted"
-            value={formatDate(txInfo.date, true)}
+            title={intl.formatMessage({ id: 'content__created' })}
+            value={formatDate(txInfo.date)}
           />
           <ContentItem
-            title="Confirmed"
-            value={formatDate(txInfo.date, true)}
+            title={intl.formatMessage({ id: 'content__submitted' })}
+            value={formatDate(txInfo.date)}
+          />
+          <ContentItem
+            title={intl.formatMessage({ id: 'content__confirmed' })}
+            value={formatDate(txInfo.date)}
           />
         </ContentItemBox>
 
@@ -139,7 +160,7 @@ const TransactionDetails: FC<TransactionDetailsProps> = ({ txId }) => {
           mb={6}
           rightIcon={<Icon name="ArrowSmRightOutline" />}
         >
-          View in Explorer
+          {intl.formatMessage({ id: 'action__view_in_explorer' })}
         </Button>
       </Box>
     </ScrollView>
