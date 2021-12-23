@@ -6,6 +6,7 @@ import Box from '../../Box';
 import Divider from '../../Divider';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
+import { useSafeAreaInsets } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
@@ -27,6 +28,7 @@ function Mobile<T>({
   activeOption,
   renderItem,
 }: ChildProps<T>) {
+  const { bottom } = useSafeAreaInsets();
   return (
     <Modal
       useNativeDriver
@@ -71,7 +73,7 @@ function Mobile<T>({
         {isValidElement(footer) || footer === null ? (
           footer
         ) : (
-          <>
+          <Box pb={`${bottom}px`}>
             <Divider />
             <Pressable
               p="3"
@@ -84,7 +86,7 @@ function Mobile<T>({
               {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
               <Typography.Body2 mx="2">{footerText}</Typography.Body2>
             </Pressable>
-          </>
+          </Box>
         )}
       </Box>
     </Modal>

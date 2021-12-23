@@ -14,7 +14,6 @@ import {
   ParamListBase,
   TabNavigationState,
   useLinkBuilder,
-  useTheme,
 } from '@react-navigation/native';
 import {
   Animated,
@@ -124,7 +123,6 @@ export default function BottomTabBar({
 }: Props) {
   const { size } = useUserDevice();
 
-  const { colors } = useTheme();
   const buildLink = useLinkBuilder();
 
   const focusedRoute = state.routes[state.index];
@@ -245,7 +243,8 @@ export default function BottomTabBar({
   });
 
   const tabBarBackgroundElement = tabBarBackground?.();
-  const bgColor = useThemeValue('background-default');
+  const bgColor = useThemeValue('surface-subdued');
+  const borderColor = useThemeValue('border-subdued');
   return (
     <Animated.View
       style={[
@@ -253,7 +252,7 @@ export default function BottomTabBar({
         {
           backgroundColor:
             tabBarBackgroundElement != null ? 'transparent' : bgColor,
-          borderTopColor: colors.border,
+          borderTopColor: borderColor,
         },
         {
           transform: [

@@ -86,9 +86,7 @@ const DesktopModal: FC<ModalProps> = ({
                   {...primaryActionProps}
                 >
                   {intl.formatMessage({
-                    id:
-                      primaryActionTranslationId ??
-                      'ui-components__modal__ok_text',
+                    id: primaryActionTranslationId ?? 'action__ok',
                   })}
                 </Button>
               )}
@@ -102,9 +100,7 @@ const DesktopModal: FC<ModalProps> = ({
                   {...secondaryActionProps}
                 >
                   {intl.formatMessage({
-                    id:
-                      secondaryActionTranslationId ??
-                      'ui-components__modal__cancel_text',
+                    id: secondaryActionTranslationId ?? 'action__cancel',
                   })}
                 </Button>
               )}

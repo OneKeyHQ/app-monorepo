@@ -39,20 +39,32 @@ const Token: FC<TokenProps> = ({
   address,
 }) => {
   const imageUrl = buildUrl(src, chain, address);
+  const fallbackElement = useMemo(
+    () => (
+      <Center
+        width={size}
+        height={size}
+        borderRadius="full"
+        bg="background-selected"
+      >
+        <Icon name="QuestionMarkOutline" />
+      </Center>
+    ),
+    [size],
+  );
   return (
     <Box display="flex" flexDirection="row" alignItems="center">
       <Box>
         {imageUrl ? (
-          <Image width={size} height={size} src={imageUrl} />
-        ) : (
-          <Center
+          <Image
             width={size}
             height={size}
-            borderRadius="full"
-            bg="background-selected"
-          >
-            <Icon name="QuestionMarkOutline" />
-          </Center>
+            src={imageUrl}
+            fallbackElement={fallbackElement}
+            alt={imageUrl}
+          />
+        ) : (
+          fallbackElement
         )}
       </Box>
       {!!(name || description) && (

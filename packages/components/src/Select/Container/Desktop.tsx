@@ -24,6 +24,7 @@ function Desktop<T>({
   onPressFooter,
   activeOption,
   renderItem,
+  headerShown,
 }: ChildProps<T>) {
   if (!visible) return null;
   return (
@@ -35,22 +36,27 @@ function Desktop<T>({
       maxHeight="480px"
       borderRadius="12px"
       bg="surface-subdued"
-      borderColor="border-default"
+      borderColor="border-subdued"
+      borderWidth="1px"
       {...dropdownProps}
     >
-      <Box
-        p="3"
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <Typography.Heading>{title}</Typography.Heading>
-        <Pressable onPress={toggleVisible}>
-          <Icon name="CloseOutline" size={12} onPress={toggleVisible} />
-        </Pressable>
-      </Box>
-      <Divider />
+      {headerShown ? (
+        <>
+          <Box
+            p="3"
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography.Heading>{title}</Typography.Heading>
+            <Pressable onPress={toggleVisible}>
+              <Icon name="CloseOutline" size={12} onPress={toggleVisible} />
+            </Pressable>
+          </Box>
+          <Divider />
+        </>
+      ) : null}
       <ScrollView p="2" flex="1">
         {renderOptions<T>({ options, activeOption, renderItem, onChange })}
       </ScrollView>

@@ -4,12 +4,16 @@ import React, { FC, useState } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { Box, Pressable, Text } from 'native-base';
 
-import Icon from '../../../Icon';
 import { useThemeValue } from '../../../Provider/hooks';
 
 import type { BottomTabBarProps } from '../../types';
 
-const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
+const Sidebar: FC<BottomTabBarProps> = ({
+  state,
+  navigation,
+  descriptors,
+  headerCorner,
+}) => {
   const { routes } = state;
   const [isCollapsed] = useState(false);
   const activeColor = useThemeValue('text-default');
@@ -18,32 +22,28 @@ const Sidebar: FC<BottomTabBarProps> = ({ state, navigation, descriptors }) => {
   return (
     <Box position="relative" width="260px" height="100%">
       <Box
-        bg="background-default"
+        bg="surface-subdued"
         width="100%"
         display="flex"
         flexDirection="column"
         height="100%"
-        py="24px"
+        pb="24px"
+        borderRightWidth="1px"
+        borderRightColor="border-subdued"
       >
         <Box
-          pl="22px"
           flexShrink="0"
           display="flex"
           flexDirection="row"
           alignItems="center"
+          height="64px"
+          zIndex={99}
         >
-          <Icon
-            name="BrandLogoIllus"
-            size={28}
-            aria-label="The Brand Logo – OneKey"
-          />
+          {headerCorner}
         </Box>
         <Box px="16px" flex="1" display="flex" flexDirection="column">
           <Box mt="6">
             <Box>
-              <Box>
-                <Text color="text-subdued">Trade</Text>
-              </Box>
               <Box>
                 {routes.map((route, index) => {
                   const isActive = index === state.index;
