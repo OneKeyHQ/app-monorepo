@@ -29,3 +29,7 @@ rm -rf ./packages/web/.next
 rm -rf ./packages/web/dist
 rm -rf ./packages/web/web-build
 rm -rf ./packages/web/.expo-shared
+
+echo "DONE! please clean ReactNative and Metro bundler cache manually:"
+echo "    yarn react-native start --reset-cache"
+echo "    yarn expo start --clear"

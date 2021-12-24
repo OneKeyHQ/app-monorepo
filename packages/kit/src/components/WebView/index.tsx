@@ -8,6 +8,7 @@ import useWebViewBridge from '@onekeyhq/inpage-provider/src/webview/useWebViewBr
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+// TODO remove: ui should use walletApi by backgroundApiProxy
 import walletApi from '../../background/instance/walletApi';
 
 const { isDesktop, isExtension } = platformEnv;
@@ -67,7 +68,7 @@ function WebView({
   return (
     <Box flex={1}>
       {showActionsAndDemoPanel && (
-        <VStack p={2} space={2} bgColor="white">
+        <VStack p={2} space={2} zIndex={2} bgColor="white">
           {showWalletActions && (
             <HStack space={2}>
               <Select

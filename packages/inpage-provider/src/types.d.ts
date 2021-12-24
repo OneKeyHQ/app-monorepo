@@ -18,6 +18,7 @@ export enum IInjectedProviderNames {
 
 export type IInjectedProviderNamesStrings = keyof typeof IInjectedProviderNames;
 
+// TODO rename IRpcMessage
 export type IInpageProviderRequestData = {
   id?: number | string;
   method: string;

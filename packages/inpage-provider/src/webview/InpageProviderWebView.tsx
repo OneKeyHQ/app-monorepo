@@ -1,4 +1,4 @@
-import React, { FC, forwardRef, useImperativeHandle } from 'react';
+import React, { FC, forwardRef, useImperativeHandle, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,10 +20,23 @@ export type InpageProviderWebViewProps = {
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   ({ src = '', receiveHandler }: InpageProviderWebViewProps, ref: any) => {
     const { webviewRef, setWebViewRef } = useWebViewBridge();
+    const isRenderAsIframe = isWeb || isExtension;
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const iframeWebviewRef = useRef<IWebViewWrapperRef>({
+      reload: () => {
+        if (iframeRef.current) {
+          iframeRef.current.src = 'about:blank';
+          setTimeout(() => {
+            if (iframeRef.current) {
+              iframeRef.current.src = src;
+            }
+          }, 150);
+        }
+      },
+    });
 
-    useImperativeHandle(
-      ref,
-      (): IWebViewWrapperRef | null => webviewRef.current,
+    useImperativeHandle(ref, (): IWebViewWrapperRef | null =>
+      isRenderAsIframe ? iframeWebviewRef.current : webviewRef.current,
     );
 
     return (
@@ -42,8 +55,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
             receiveHandler={receiveHandler}
           />
         )}
-        {(isWeb || isExtension) && (
+        {isRenderAsIframe && (
           <iframe
+            ref={iframeRef}
             title="iframe-web"
             src={src}
             frameBorder="0"
