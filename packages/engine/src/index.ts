@@ -1,12 +1,30 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
-import { NotImplemented } from './errors';
+import { IMPL_EVM } from './constants';
+import { DbApi } from './db';
+import { DBAPI } from './db/base';
+import { NotImplemented, OneKeyInternalError } from './errors';
+import { fromDBNetworkToNetwork, getEVMNetworkToCreate } from './networks';
+import { networkIsPreset, presetNetworks } from './presets';
 import { Account, ImportableHDAccount } from './types/account';
+import {
+  AddNetworkParams,
+  DBNetwork,
+  Network,
+  NetworkShort,
+  UpdateNetworkParams,
+} from './types/network';
 import { Token } from './types/token';
 import { Wallet } from './types/wallet';
 
 class Engine {
+  dbApi: DBAPI;
+
+  constructor() {
+    this.dbApi = new DbApi() as DBAPI;
+  }
+
   getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
     throw new NotImplemented();
@@ -177,15 +195,108 @@ class Engine {
   // signMessage
   // broadcastRawTransaction
 
-  // TODO: networks
-  // listNetworks(impl?: string): Promise<Array<Network>>;
-  // addNetwork()
-  // updateNetworkList()
-  // updateNetwork()
+  listNetworks(enabledOnly = true): Promise<Map<string, Array<NetworkShort>>> {
+    return this.dbApi.listNetworks().then((networks: Array<DBNetwork>) => {
+      const ret: Map<string, Array<NetworkShort>> = new Map(
+        [[IMPL_EVM, []]], // TODO: other implemetations
+      );
+      networks.forEach((network) => {
+        if (enabledOnly && !network.enabled) {
+          return;
+        }
+        if (ret.has(network.impl)) {
+          const tmpL = ret.get(network.impl) || [];
+          tmpL.push({
+            id: network.id,
+            name: network.name,
+            impl: network.impl,
+            symbol: network.symbol,
+            logoURI: network.logoURI,
+            enabled: network.enabled,
+            preset: networkIsPreset(network.id),
+          });
+        } else {
+          throw new OneKeyInternalError(
+            `listNetworks: unknown network implementation ${network.impl}.`,
+          );
+        }
+      });
+      return ret;
+    });
+  }
+
+  addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
+    if (impl !== IMPL_EVM) {
+      throw new OneKeyInternalError(
+        `addNetwork: unsupported implementation ${impl} specified`,
+      );
+    }
+    if (params.rpcURL === '') {
+      throw new OneKeyInternalError(
+        'addNetwork: empty value is not allowed for RPC URL.',
+      );
+    }
+    return this.dbApi
+      .addNetwork(getEVMNetworkToCreate(params))
+      .then((dbObj: DBNetwork) => fromDBNetworkToNetwork(dbObj));
+  }
+
+  getNetwork(networkId: string): Promise<Network> {
+    return this.dbApi
+      .getNetwork(networkId)
+      .then((dbObj: DBNetwork) => fromDBNetworkToNetwork(dbObj));
+  }
+
+  updateNetworkList(
+    networks: Array<[string, boolean]>,
+  ): Promise<Map<string, Array<NetworkShort>>> {
+    return this.dbApi
+      .updateNetworkList(networks)
+      .then(() => this.listNetworks(false));
+  }
+
+  updateNetwork(
+    networkId: string,
+    params: UpdateNetworkParams,
+  ): Promise<Network> {
+    if (Object.keys(params).length === 0) {
+      throw new OneKeyInternalError('updateNetwork: params is empty.');
+    }
+    if (networkIsPreset(networkId)) {
+      if (typeof params.name !== 'undefined') {
+        throw new OneKeyInternalError(
+          'Cannot update name of a preset network.',
+        );
+      }
+      if (typeof params.symbol !== 'undefined') {
+        throw new OneKeyInternalError(
+          'Cannot update symbol of a preset network.',
+        );
+      }
+    }
+    // TODO: chain interaction to check rpc url works correctly.
+    return this.dbApi
+      .updateNetwork(networkId, params)
+      .then((dbObj: DBNetwork) => fromDBNetworkToNetwork(dbObj));
+  }
+
+  deleteNetwork(networkId: string): Promise<void> {
+    if (networkIsPreset(networkId)) {
+      throw new OneKeyInternalError('Preset network cannot be deleted.');
+    }
+    return this.dbApi.deleteNetwork(networkId);
+  }
+
   getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
-    console.log(`getRPCEndpoints ${networkId}`);
-    throw new NotImplemented();
+    return this.dbApi.getNetwork(networkId).then((network: DBNetwork) => {
+      const { presetRpcURLs } = presetNetworks.get(networkId) || {
+        presetRpcURLs: [],
+      };
+      return [network.rpcURL].concat(
+        presetRpcURLs.filter((url) => url !== network.rpcURL),
+      );
+    });
   }
 
   // TODO: RPC interactions.
