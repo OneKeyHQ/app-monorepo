@@ -80,7 +80,7 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
   }: {
     item: CollectibleSection['data'][number];
   }) => (
-    <HStack flexWrap="wrap" space={0} alignItems="center">
+    <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
       {col.assets.map((asset) => (
         <NftCard
           key={
@@ -89,11 +89,11 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
           }
           image={asset.imageUrl}
           title={asset.name}
-          w={{ sm: '45%', md: '177px', base: '177px' }}
+          w={{ sm: '45%', md: '177px', base: '173px' }}
           minW={['auto', '177px']}
           maxH="222px"
           mb={4}
-          mr={[0, 4]}
+          mr={4}
           borderColor="background-default"
           onPress={() =>
             onPressItem({
