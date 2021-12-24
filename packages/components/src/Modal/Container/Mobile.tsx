@@ -77,7 +77,7 @@ const MobileModal: FC<ModalProps> = ({
         <Box p="6" flex="1">
           {children}
         </Box>
-        {isValidElement(footer) ? (
+        {isValidElement(footer) || footer === null ? (
           footer
         ) : (
           <Box height={70 + bottom}>

@@ -63,7 +63,7 @@ const DesktopModal: FC<ModalProps> = ({
         <Box p="6" minHeight="70px">
           {children}
         </Box>
-        {isValidElement(footer) ? (
+        {isValidElement(footer) || footer === null ? (
           footer
         ) : (
           <Box height="70px">
