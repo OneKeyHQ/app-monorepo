@@ -5,67 +5,95 @@ import {
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
 } from '@onekeyhq/inpage-provider/src/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
-export interface BackgroundApiBridge {
+export interface IBackgroundApiBridge {
   connectBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 }
 
 export interface IBackgroundApi {
+  dispatchAction(action: any): void;
+  getStoreState(): Promise<any>;
+  // ----------------------------------------------
   changeAccounts(address: string): void;
   changeChain(chainId: string): void;
 }
 
-class BackgroundApiProxy implements IBackgroundApi, BackgroundApiBridge {
+class BackgroundApiProxy implements IBackgroundApi, IBackgroundApiBridge {
   connectBridge(bridge: JsBridgeBase) {
-    (this.backgroundApi as BackgroundApiBridge)?.connectBridge(bridge);
+    (this.backgroundApi as IBackgroundApiBridge).connectBridge(bridge);
   }
 
   bridgeReceiveHandler = (
     payload: IJsBridgeMessagePayload,
   ): any | Promise<any> =>
-    (this.backgroundApi as BackgroundApiBridge)?.bridgeReceiveHandler(payload);
+    (this.backgroundApi as IBackgroundApiBridge).bridgeReceiveHandler(payload);
 
   constructor({
-    getBackgroundApiAsync,
+    backgroundApi,
   }: {
-    getBackgroundApiAsync?: () => Promise<IBackgroundApi>;
+    backgroundApi?: any;
   } = {}) {
-    if (getBackgroundApiAsync) {
-      getBackgroundApiAsync().then(
-        (backgroundApi) => (this.backgroundApi = backgroundApi),
-      );
+    if (backgroundApi) {
+      this.backgroundApi = backgroundApi as IBackgroundApi;
     }
   }
 
   // init in NON-Ext UI env
-  private backgroundApi?: IBackgroundApi | BackgroundApiBridge;
+  private backgroundApi?: IBackgroundApi | IBackgroundApiBridge;
 
-  callBackground(method: string, ...params: Array<any>): any {
-    const isExtensionUi = true; // Mock
-    if (platformEnv.isExtension && isExtensionUi) {
-      // TODO request, requestSync
-      window.extJsBridgeUiToBg.requestSync({
-        data: {
-          method: `${INTERNAL_METHOD_PREFIX}${method}`,
-          params,
-        },
-      });
+  callBackgroundMethod(
+    sync = true,
+    method: string,
+    ...params: Array<any>
+  ): any {
+    if (platformEnv.isExtension && isExtensionUi()) {
+      const data = {
+        method: `${INTERNAL_METHOD_PREFIX}${method}`,
+        params,
+      };
+      if (sync) {
+        // call without Promise result
+        window.extJsBridgeUiToBg.requestSync({
+          data,
+        });
+      } else {
+        return window.extJsBridgeUiToBg.request({
+          data,
+        });
+      }
     } else {
       // @ts-expect-error
       return this.backgroundApi[method].call(this.backgroundApi, ...params);
     }
   }
 
+  callBackgroundSync(method: string, ...params: Array<any>): any {
+    return this.callBackgroundMethod(true, method, ...params);
+  }
+
+  callBackground(method: string, ...params: Array<any>): any {
+    return this.callBackgroundMethod(false, method, ...params);
+  }
+
   // ----------------------------------------------
 
+  // TODO add custom eslint rule to force method name match
+  dispatchAction(action: any) {
+    return this.callBackgroundSync('dispatchAction', action);
+  }
+
+  getStoreState(): Promise<any> {
+    return this.callBackground('getStoreState');
+  }
+
   changeAccounts(address: string): void {
-    return this.callBackground('changeAccounts', address);
+    return this.callBackgroundSync('changeAccounts', address);
   }
 
   changeChain(chainId: string): void {
-    return this.callBackground('changeChain', chainId);
+    return this.callBackgroundSync('changeChain', chainId);
   }
 }
 
