@@ -26,7 +26,7 @@ function renderSingleOption<T>({
 }) {
   const isActive = option.value === activeOption.value;
   return (
-    renderItem?.(option, isActive) ?? (
+    renderItem?.(option, isActive, onChange) ?? (
       <Pressable
         p="3"
         py="2"

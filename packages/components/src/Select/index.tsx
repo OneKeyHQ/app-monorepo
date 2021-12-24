@@ -40,7 +40,11 @@ export type SelectProps<T = string> = {
   triggerProps?: ComponentProps<typeof Pressable>;
   dropdownProps?: ComponentProps<typeof Box>;
   renderTrigger?: (activeItem: SelectItem<T>) => ReactNode;
-  renderItem?: (item: SelectItem<T>, isActive: boolean) => ReactNode;
+  renderItem?: (
+    item: SelectItem<T>,
+    isActive: boolean,
+    onChange?: (v: T, item: SelectItem<T>) => void,
+  ) => ReactNode;
   dropdownPosition?: 'center' | 'left' | 'right';
   onChange?: (v: T, item: SelectItem<T>) => void;
   footer?: ReactNode;
