@@ -25,7 +25,7 @@ const evmNetworks: ChainInfo[] = [
 
 const solanaNetwork: ChainInfo[] = [{ chain: 'sol', name: 'SOL' }];
 
-const DisplayView: FC = () => {
+export const DisplayView: FC = () => {
   const renderItem = ({ item }: { item: ChainInfo }) => (
     <TouchableOpacity activeOpacity={0.7}>
       <Flex
@@ -85,5 +85,3 @@ const DisplayView: FC = () => {
     </ScrollView>
   );
 };
-
-export default DisplayView;

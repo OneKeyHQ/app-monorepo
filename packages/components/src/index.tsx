@@ -46,8 +46,10 @@ export { default as Form } from './Form';
 export { default as Image } from './Image';
 export { default as SortableList } from './SortableList';
 export { default as TabView, SceneMap } from './TabView';
+export { default as ContentItem } from './ContentItem';
+export { default as ContentItemBox } from './ContentItemBox';
 
 export * from './TabBar/Tab';
 export * from './Provider/hooks';
 
-export { useForm } from 'react-hook-form';
+export { useForm, Controller } from 'react-hook-form';

@@ -24,11 +24,13 @@
     "@types/styled-components": "^5.1.15",
     "@types/styled-components-react-native": "^5.1.3",
     "lodash": "^4.17.21",
+    "lokalise-client": "^1.1.9",
     "prettier": "^2.4.1"
   },
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "fetch:locale": "translations fetch",
     "clean": "rimraf node_modules"
   }
 }
