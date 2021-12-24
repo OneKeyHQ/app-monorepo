@@ -35,7 +35,8 @@ public class MainApplication extends Application implements ReactApplication , V
     new ReactNativeHost(this) {
     @Override
     public boolean getUseDeveloperSupport() {
-      return DevLauncherController.getInstance().getUseDeveloperSupport();
+      return BuildConfig.DEBUG;
+      // return DevLauncherController.getInstance().getUseDeveloperSupport();
     }
 
     @Override
@@ -70,10 +71,13 @@ public class MainApplication extends Application implements ReactApplication , V
     Utils.init(this);
     SoLoader.init(this, /* native exopackage */ false);
 
-    DevLauncherController.initialize(this, getReactNativeHost());
-    if (BuildConfig.DEBUG) {
-      DevLauncherController.getInstance().setUpdatesInterface(UpdatesDevLauncherController.initialize(this));
+    if(BuildConfig.ENABLE_DEV_CLI){
+      DevLauncherController.initialize(this, getReactNativeHost());
+      if (BuildConfig.DEBUG) {
+        DevLauncherController.getInstance().setUpdatesInterface(UpdatesDevLauncherController.initialize(this));
+      }
     }
+
     initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
   }
