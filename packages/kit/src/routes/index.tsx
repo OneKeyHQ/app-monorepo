@@ -18,6 +18,7 @@ import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
 import MarkdownGallery from '../views/Components/stories/Markdown';
 import ModalGallery from '../views/Components/stories/Modal';
+import NftCardGallery from '../views/Components/stories/NftCard';
 import PageActionsGallery from '../views/Components/stories/PageActions';
 import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
@@ -75,6 +76,7 @@ export const stackRoutes = [
   { name: 'Components/Searchbar', component: SearchbarGallery },
   { name: 'Components/Address', component: AddressGallery },
   { name: 'Components/Input', component: InputGallery },
+  { name: 'Components/Card', component: NftCardGallery },
   { name: 'Components/Avatar', component: AvatarGallery },
   { name: 'Components/Typography', component: TypographyGallery },
   { name: 'Components/Token', component: TokenGallery },
