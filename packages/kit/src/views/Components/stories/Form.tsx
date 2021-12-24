@@ -5,6 +5,7 @@ import {
   Center,
   Form,
   Pressable,
+  Spinner,
   Typography,
   useForm,
 } from '@onekeyhq/components';
@@ -19,9 +20,25 @@ type FormValues = {
   options: string;
 };
 
+type Option = { label: string; value: string; speed?: string };
+
 const FormGallery = () => {
   const { control, handleSubmit } = useForm<FormValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
+  const options: Option[] = [
+    {
+      label: 'https://google.com',
+      value: 'https://google.com',
+    },
+    {
+      label: 'https://rpc.onekey.so/eth',
+      value: 'https://rpc.onekey.so/eth',
+    },
+    {
+      label: 'https://baidu.com',
+      value: 'https://baidu.com',
+    },
+  ];
   return (
     <Center flex="1" background="background-hovered">
       <Form>
@@ -70,10 +87,16 @@ const FormGallery = () => {
         >
           <Form.Select
             containerProps={{
-              width: '280px',
               zIndex: 999,
             }}
-            renderItem={(option, isActive) => (
+            triggerProps={{
+              paddingTop: 2,
+              paddingBottom: 2,
+            }}
+            title="Preset RPC URL"
+            footer={null}
+            options={options}
+            renderItem={(option, isActive, onChange) => (
               <Pressable
                 p="3"
                 py="2"
@@ -84,25 +107,18 @@ const FormGallery = () => {
                 alignItems="center"
                 justifyContent="space-between"
                 bg={isActive ? 'surface-selected' : 'transparent'}
+                onPress={() => onChange?.(option.value, option)}
               >
                 <Typography.Body1>{option.label}</Typography.Body1>
-                <Typography.Body1 color="text-success">111ms</Typography.Body1>
+                {Math.random() < 0.5 ? (
+                  <Typography.Body1 color="text-success">
+                    111ms
+                  </Typography.Body1>
+                ) : (
+                  <Spinner size="sm" />
+                )}
               </Pressable>
             )}
-            options={[
-              {
-                label: 'https://google.com',
-                value: 'https://google.com',
-              },
-              {
-                label: 'https://rpc.onekey.so/eth',
-                value: 'https://rpc.onekey.so/eth',
-              },
-              {
-                label: 'https://baidu.com',
-                value: 'https://baidu.com',
-              },
-            ]}
           />
         </Form.Item>
         <Form.Item

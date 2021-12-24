@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 
-import { Center, Select, Stack } from '@onekeyhq/components';
+import {
+  Center,
+  Pressable,
+  Select,
+  Spinner,
+  Stack,
+  Typography,
+} from '@onekeyhq/components';
 
 const Select1 = () => {
   const [value, setValue] = useState('https://rpc.onekey.so/eth');
@@ -11,7 +18,7 @@ const Select1 = () => {
       footer={null}
       containerProps={{
         width: '280px',
-        zIndex: 999,
+        zIndex: 5,
       }}
       defaultValue="https://rpc.onekey.so/eth"
       options={[
@@ -40,7 +47,7 @@ const SelectGallery = () => (
         footer={null}
         containerProps={{
           width: '280px',
-          zIndex: 999,
+          zIndex: 4,
         }}
         defaultValue="https://rpc.onekey.so/eth"
         options={[
@@ -59,14 +66,13 @@ const SelectGallery = () => (
         ]}
       />
       <Select
+        title="Preset RPC URL"
         containerProps={{
           width: '280px',
-          zIndex: 998,
+          zIndex: 3,
         }}
-        triggerProps={{
-          width: '105px',
-        }}
-        dropdownPosition="left"
+        defaultValue="https://google.com"
+        footer={null}
         options={[
           {
             label: 'https://rpc.onekey.so/eth',
@@ -81,8 +87,51 @@ const SelectGallery = () => (
             value: 'https://baidu.com',
           },
         ]}
-        footerText="Customize"
-        footerIcon="PencilOutline"
+        renderItem={(option, isActive, onChange) => (
+          <Pressable
+            p="3"
+            py="2"
+            key={option.value}
+            borderRadius="12px"
+            display="flex"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="space-between"
+            bg={isActive ? 'surface-selected' : 'transparent'}
+            onPress={() => onChange?.(option.value, option)}
+          >
+            <Typography.Body1>{option.label}</Typography.Body1>
+            {Math.random() < 0.5 ? (
+              <Typography.Body1 color="text-success">111ms</Typography.Body1>
+            ) : (
+              <Spinner size="sm" />
+            )}
+          </Pressable>
+        )}
+      />
+      <Select
+        containerProps={{
+          width: '280px',
+          zIndex: 2,
+        }}
+        triggerProps={{
+          width: '105px',
+        }}
+        footer={null}
+        options={[
+          {
+            label: 'https://rpc.onekey.so/eth',
+            value: 'https://rpc.onekey.so/eth',
+          },
+          {
+            label: 'https://google.com',
+            value: 'https://google.com',
+          },
+          {
+            label: 'https://baidu.com',
+            value: 'https://baidu.com',
+          },
+        ]}
       />
       <Select
         containerProps={{

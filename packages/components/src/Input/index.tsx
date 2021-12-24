@@ -1,6 +1,6 @@
 import React, { ComponentProps } from 'react';
 
-import { Input as BaseInput, Pressable, Text } from 'native-base';
+import { Input as BaseInput, Divider, Pressable, Text } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
 
@@ -9,6 +9,7 @@ type Props = {
   isDisabled?: boolean;
   leftText?: string;
   rightText?: string;
+  rightSecondaryText?: string;
   leftIconName?: ICON_NAMES;
   rightIconName?: ICON_NAMES;
   rightSecondaryIconName?: ICON_NAMES;
@@ -16,6 +17,7 @@ type Props = {
   onPressRightText?: () => void;
   onPressLeftIcon?: () => void;
   onPressRightIcon?: () => void;
+  onPressSecondaryRightText?: () => void;
   onPressSecondaryRightIcon?: () => void;
 };
 
@@ -31,11 +33,13 @@ const Input = React.forwardRef<
       rightText,
       leftIconName,
       rightIconName,
+      rightSecondaryText,
       rightSecondaryIconName,
       onPressLeftText,
       onPressRightText,
       onPressLeftIcon,
       onPressRightIcon,
+      onPressSecondaryRightText,
       onPressSecondaryRightIcon,
       ...props
     },
@@ -91,6 +95,23 @@ const Input = React.forwardRef<
             color={isDisabled ? 'text-disabled' : 'text-subdued'}
           />
         </Pressable>,
+      );
+    }
+    if (rightSecondaryText) {
+      if (rightText) {
+        rightElements.push(<Divider orientation="vertical" h="3" mr="2" />);
+      }
+      rightElements.push(
+        <Text
+          key="rightText"
+          mr="2"
+          fontSize={fontSize}
+          onPress={onPressSecondaryRightText}
+          fontWeight={600}
+          color={isDisabled ? 'text-disabled' : 'text-default'}
+        >
+          {rightSecondaryText}
+        </Text>,
       );
     }
     if (rightSecondaryIconName) {
