@@ -1,3 +1,4 @@
+// TODO rename to BackgroundService, WalletService, ProviderService?
 class WalletApi {
   accounts = [
     '0x99f825d80cadd21d77d13b7e13d25960b40a6299',

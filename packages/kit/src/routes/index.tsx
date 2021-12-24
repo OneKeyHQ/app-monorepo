@@ -21,6 +21,7 @@ import ModalGallery from '../views/Components/stories/Modal';
 import PageActionsGallery from '../views/Components/stories/PageActions';
 import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
+import ReduxMessageGallery from '../views/Components/stories/ReduxMessage';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import SelectGallery from '../views/Components/stories/Select';
 import SortableListGallery from '../views/Components/stories/SortableList';
@@ -98,4 +99,5 @@ export const stackRoutes = [
   { name: 'Components/PageActions', component: PageActionsGallery },
   { name: 'Components/SortableList', component: SortableListGallery },
   { name: 'Components/Tabs', component: TabsGallery },
+  { name: 'Components/ReduxMessage', component: ReduxMessageGallery },
 ];
