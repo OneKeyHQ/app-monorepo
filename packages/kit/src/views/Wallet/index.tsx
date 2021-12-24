@@ -6,6 +6,7 @@ import { Box, SceneMap, TabView, useUserDevice } from '@onekeyhq/components';
 
 import AccountInfo from './AccountInfo';
 import AssetsList from './AccountList';
+import Collectibles from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
 const Wallet = () => {
@@ -31,12 +32,17 @@ const Wallet = () => {
                 title: intl.formatMessage({ id: 'asset__tokens' }),
               },
               {
+                key: 'collectibles',
+                title: intl.formatMessage({ id: 'asset__collectibles' }),
+              },
+              {
                 key: 'history',
                 title: intl.formatMessage({ id: 'transaction__history' }),
               },
             ]}
             renderScene={SceneMap({
               tokens: AssetsList,
+              collectibles: Collectibles,
               history: HistoricalRecord,
             })}
           />
