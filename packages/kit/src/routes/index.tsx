@@ -22,6 +22,7 @@ import PageActionsGallery from '../views/Components/stories/PageActions';
 import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
+import SegmentedControl from '../views/Components/stories/SegmentedControl';
 import SelectGallery from '../views/Components/stories/Select';
 import SortableListGallery from '../views/Components/stories/SortableList';
 import SpinnerGallery from '../views/Components/stories/Spinner';
@@ -98,4 +99,5 @@ export const stackRoutes = [
   { name: 'Components/PageActions', component: PageActionsGallery },
   { name: 'Components/SortableList', component: SortableListGallery },
   { name: 'Components/Tabs', component: TabsGallery },
+  { name: 'Components/SegmentedControl', component: SegmentedControl },
 ];

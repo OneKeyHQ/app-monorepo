@@ -30,6 +30,7 @@ export { default as RadioGroup } from './RadioGroup';
 export { default as ScrollView } from './ScrollView';
 export { default as Searchbar } from './Searchbar';
 export { default as SectionList } from './SectionList';
+export { default as SegmentedControl } from './SegmentedControl';
 export { default as Select } from './Select';
 export { default as Spinner } from './Spinner';
 export { default as Stack } from './Stack';
