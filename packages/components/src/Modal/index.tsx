@@ -71,7 +71,10 @@ const Modal: FC<ModalProps> = ({
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;
-    return cloneElement(trigger, { onPress: handleOpen });
+    return cloneElement(trigger, {
+      /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
+      onPress: trigger.props.onPress ?? handleOpen,
+    });
   }, [trigger, handleOpen]);
 
   return (
