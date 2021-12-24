@@ -1,11 +1,19 @@
 import React from 'react';
 
-import { Button, Center, Form, useForm } from '@onekeyhq/components';
+import {
+  Button,
+  Center,
+  Form,
+  Pressable,
+  Typography,
+  useForm,
+} from '@onekeyhq/components';
 
 type FormValues = {
   username: string;
   email: string;
   description: string;
+  url: string;
   agreement: boolean;
   isDev: boolean;
   options: string;
@@ -52,6 +60,50 @@ const FormGallery = () => {
           defaultValue=""
         >
           <Form.Textarea placeholder="textarea" />
+        </Form.Item>
+        <Form.Item
+          name="url"
+          control={control}
+          label="rpcUrl"
+          defaultValue="https://rpc.onekey.so/eth"
+          formControlProps={{ zIndex: 10 }}
+        >
+          <Form.Select
+            containerProps={{
+              width: '280px',
+              zIndex: 999,
+            }}
+            renderItem={(option, isActive) => (
+              <Pressable
+                p="3"
+                py="2"
+                key={option.value as string}
+                borderRadius="12px"
+                display="flex"
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                bg={isActive ? 'surface-selected' : 'transparent'}
+              >
+                <Typography.Body1>{option.label}</Typography.Body1>
+                <Typography.Body1 color="text-success">111ms</Typography.Body1>
+              </Pressable>
+            )}
+            options={[
+              {
+                label: 'https://google.com',
+                value: 'https://google.com',
+              },
+              {
+                label: 'https://rpc.onekey.so/eth',
+                value: 'https://rpc.onekey.so/eth',
+              },
+              {
+                label: 'https://baidu.com',
+                value: 'https://baidu.com',
+              },
+            ]}
+          />
         </Form.Item>
         <Form.Item
           label=""

@@ -22,7 +22,7 @@ const evmNetworks: ChainInfo[] = [
   { chain: 'localhost', name: 'Localhost' },
 ];
 
-const EditableView: FC = () => {
+export const EditableView: FC = () => {
   const [list, setList] = useState(evmNetworks);
   const renderItem = ({
     item,

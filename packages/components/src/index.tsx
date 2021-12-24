@@ -52,4 +52,4 @@ export { default as ContentItemBox } from './ContentItemBox';
 export * from './TabBar/Tab';
 export * from './Provider/hooks';
 
-export { useForm } from 'react-hook-form';
+export { useForm, Controller } from 'react-hook-form';
