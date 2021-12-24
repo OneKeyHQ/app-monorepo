@@ -10,7 +10,6 @@ console.log(
   `[OneKey RN] Extension background page ready: ${new Date().toLocaleTimeString()}`,
 );
 
-
 const bridge = inpageProviderBackground.createHostBridge({
   receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
 });

@@ -26,7 +26,11 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       reload: () => {
         if (iframeRef.current) {
           iframeRef.current.src = 'about:blank';
-          setTimeout(() => (iframeRef.current!.src = src), 150);
+          setTimeout(() => {
+            if (iframeRef.current) {
+              iframeRef.current.src = src;
+            }
+          }, 150);
         }
       },
     });
