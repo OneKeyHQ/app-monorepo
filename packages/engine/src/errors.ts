@@ -8,4 +8,8 @@ class NotImplemented extends OneKeyError {
   key = 'onekey_error_not_implemented';
 }
 
-export { NotImplemented };
+class OneKeyInternalError extends OneKeyError {
+  key = 'onekey_error_internal';
+}
+
+export { NotImplemented, OneKeyInternalError };
