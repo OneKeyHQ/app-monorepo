@@ -1,11 +1,5 @@
-import React, {
-  ReactNode,
-  forwardRef,
-  isValidElement,
-  memo,
-  useMemo,
-} from 'react';
-import type { ForwardedRef, PropsWithChildren } from 'react';
+import React, { isValidElement, memo, useMemo } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import { Box, Image, Pressable } from 'native-base';
 
@@ -14,21 +8,17 @@ import Typography from '../Typography';
 
 import type { IPressableProps } from 'native-base';
 
-export interface CardProps extends IPressableProps {
-  // String or a React Element
-  title?: ReactNode | null;
-  image?: ReactNode | null;
-}
+export type CardProps = IPressableProps & {
+  title?: ReactNode;
+  image?: ReactNode;
+};
 
 /**
  * A NFT Card component that can be used to display a title, nft image.
  * - Should support video
  * + support local and external image
  */
-const NftCard = (
-  { children, image, title, ...props }: PropsWithChildren<CardProps>,
-  ref: ForwardedRef<HTMLDivElement>,
-) => {
+const NftCard: FC<CardProps> = ({ children, image, title, ...props }) => {
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
 
   const cover = useMemo(() => {
@@ -58,23 +48,16 @@ const NftCard = (
       _hover={{ bg: 'surface-hovered' }}
       _focus={{
         bg: 'surface-default',
-        borderColor: 'rgba(0, 184, 18, 0.5)',
+        borderColor: 'focused-default',
       }}
       {...props}
-      ref={ref}
     >
       {cover}
       <Box p={isSmallScreen ? '3' : '4'}>
-        <Typography.Body2
-          whiteSpace="nowrap"
-          overflow="hidden"
-          textOverflow="ellipsis"
-        >
-          {title}
-        </Typography.Body2>
+        <Typography.Body2 numberOfLines={1}>{title}</Typography.Body2>
       </Box>
     </Pressable>
   );
 };
 
-export default memo(forwardRef<HTMLDivElement, CardProps>(NftCard));
+export default memo(NftCard);
