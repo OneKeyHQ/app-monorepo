@@ -18,6 +18,7 @@ export { default as HStack } from './HStack';
 export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
+export { default as Layout } from './Layout';
 export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
 export { default as PresenceTransition } from './PresenceTransition';
@@ -51,7 +52,6 @@ export { default as TabView, SceneMap } from './TabView';
 export { default as ContentItem } from './ContentItem';
 export { default as ContentItemBox } from './ContentItemBox';
 
-export * from './TabBar/Tab';
 export * from './Provider/hooks';
 
 export { useForm, Controller } from 'react-hook-form';

@@ -1,6 +1,5 @@
 import React, { FC, useMemo, useState } from 'react';
 
-import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeBaseProvider, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
@@ -75,27 +74,13 @@ const Provider: FC<UIProviderProps> = ({
       }),
     [themeVariant],
   );
-
-  const navigationTheme = useMemo(
-    () => ({
-      ...DefaultTheme,
-      colors: {
-        ...DefaultTheme.colors,
-        background: COLORS[themeVariant]['background-default'],
-      },
-    }),
-    [themeVariant],
-  );
-
   return (
     <FontProvider>
       <Context.Provider value={providerValue}>
         <StatusBar style={themeVariant === 'dark' ? 'light' : 'dark'} />
-        <NavigationContainer theme={navigationTheme}>
-          <IntlProvider locale={locale} messages={LOCALES[locale]}>
-            <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
-          </IntlProvider>
-        </NavigationContainer>
+        <IntlProvider locale={locale} messages={LOCALES[locale]}>
+          <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
+        </IntlProvider>
       </Context.Provider>
     </FontProvider>
   );
