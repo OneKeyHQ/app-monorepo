@@ -1,11 +1,17 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import BackgroundApiProxy from '../BackgroundApiProxy';
 
+import backgroundApiInit from './backgroundApiInit';
+
+let backgroundApi = null;
+if (!isExtensionUi()) {
+  backgroundApi = backgroundApiInit();
+}
 const backgroundApiProxy = new BackgroundApiProxy({
-  getBackgroundApiAsync: platformEnv.isExtension
-    ? undefined
-    : async () => (await import('./backgroundApi')).default,
+  backgroundApi,
 });
+
+global.$backgroundApiProxy = backgroundApiProxy;
 
 export default backgroundApiProxy;

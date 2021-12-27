@@ -8,6 +8,8 @@ export type IPlatformEnv = {
   isWeb?: boolean;
   isDesktop?: boolean;
   isExtension?: boolean;
+  isExtensionBackground?: boolean;
+  isExtensionUi?: boolean;
   isNative?: boolean;
 
   isMAS?: boolean;
@@ -23,6 +25,19 @@ export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
 
 export const isExtension = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'ext';
+
+export const isExtensionBackground = (): boolean =>
+  isExtension() &&
+  !isBrowser() &&
+  // TODO firefox\edge\brave check
+  // @ts-ignore
+  global.serviceWorker instanceof ServiceWorker;
+
+export const isExtensionUi = (): boolean =>
+  isExtension() &&
+  isBrowser() &&
+  window.location.host === chrome.runtime.id &&
+  window.location.pathname.startsWith('/ui-');
 
 export const isDesktop = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'desktop';
@@ -65,6 +80,8 @@ const platformEnv: IPlatformEnv = {
   isWeb: isWeb(),
   isDesktop: isDesktop(),
   isExtension: isExtension(),
+  isExtensionUi: isExtensionUi(),
+  isExtensionBackground: isExtensionBackground(),
   isNative: isNative(),
 
   isMAS: isMAS(),
@@ -73,5 +90,9 @@ const platformEnv: IPlatformEnv = {
   isIOS: isIOS(),
   isAndroid: isAndroid(),
 };
+
+if (isDev()) {
+  global.$$platformEnv = platformEnv;
+}
 
 export default platformEnv;

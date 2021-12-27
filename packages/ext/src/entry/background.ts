@@ -1,21 +1,20 @@
 import inpageProviderBackground from '@onekeyhq/inpage-provider/src/extension/background';
-import backgroundApi from '@onekeyhq/kit/src/background/instance/backgroundApi';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import serviceWorker from '../background/serviceWorker';
 
-console.log(
-  `[OneKey RN] This is the background page. ${new Date().toLocaleTimeString()}`,
-);
-console.log('     Put the background scripts here. 222');
-
 serviceWorker.disableCacheInBackground();
 
+console.log(
+  `[OneKey RN] Extension background page ready: ${new Date().toLocaleTimeString()}`,
+);
+
 const bridge = inpageProviderBackground.createHostBridge({
-  receiveHandler: backgroundApi.bridgeReceiveHandler,
+  receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
 });
 
-backgroundApi.connectBridge(bridge);
+backgroundApiProxy.connectBridge(bridge);
 
 // extension reload() method expose to dapp
 if (platformEnv.isDev) {

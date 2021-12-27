@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/inpage-provider/src/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { BackgroundApiBridge } from './BackgroundApiProxy';
+import { IBackgroundApiBridge } from './BackgroundApiProxy';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import WalletApi from './WalletApi';
@@ -18,7 +18,7 @@ function throwMethodNotFound(method: string) {
   throw new Error(`dapp provider method not support (method=${method})`);
 }
 
-class BackgroundApiBase implements BackgroundApiBridge {
+class BackgroundApiBase implements IBackgroundApiBridge {
   constructor({ walletApi }: { walletApi: WalletApi }) {
     this.walletApi = walletApi;
   }
@@ -48,7 +48,7 @@ class BackgroundApiBase implements BackgroundApiBridge {
   bridgeReceiveHandler: IJsBridgeReceiveHandler = async (
     payload: IJsBridgeMessagePayload,
   ): Promise<any> => {
-    const { scope, internal } = payload;
+    const { scope, internal, origin } = payload;
     const request = (payload.data ?? {}) as IInpageProviderRequestData;
     const { method, params } = request;
     console.log('receiveHandler', { method, params }, scope);
@@ -67,12 +67,20 @@ class BackgroundApiBase implements BackgroundApiBridge {
       internal &&
       method.startsWith(INTERNAL_METHOD_PREFIX)
     ) {
-      // TODO handleInternalMethods(payload);
       return this.handleInternalMethods(payload);
+    }
+
+    if (origin?.endsWith('.onekey.so')) {
+      return this.handleSelfOriginMethods(payload);
     }
 
     throwMethodNotFound(method);
   };
+
+  handleSelfOriginMethods(payload: IJsBridgeMessagePayload) {
+    // TODO open webview url
+    console.log(payload);
+  }
 
   handleInternalMethods(payload: IJsBridgeMessagePayload) {
     const { method, params } = (payload.data ??

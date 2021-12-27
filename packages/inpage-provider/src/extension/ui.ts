@@ -1,9 +1,9 @@
 // like injected + contentScript
 
-import JsBridgeExtUi from '../jsBridge/JsBridgeExtUi';
+import JsBridgeExtUi, { IJsBridgeExtUiConfig } from '../jsBridge/JsBridgeExtUi';
 
-function createUiJsBridge() {
-  const bridge = new JsBridgeExtUi({});
+function createUiJsBridge(config: IJsBridgeExtUiConfig) {
+  const bridge = new JsBridgeExtUi(config);
   return bridge;
 }
 

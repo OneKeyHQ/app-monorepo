@@ -26,7 +26,13 @@ const AccountSelector = () => {
   }, [visible, handleToggleVisible, size]);
 
   return (
-    <Box width="100%" position="relative">
+    <Box
+      width="100%"
+      position="relative"
+      maxW="260px"
+      justifyContent="center"
+      alignSelf="center"
+    >
       <AccountSelectorTrigger
         visible={visible}
         handleToggleVisible={handleToggleVisible}

@@ -4,4 +4,7 @@ import Select from '../Select';
 
 type FormSelectProps = ComponentProps<typeof Select>;
 
-export const FormSelect: FC<FormSelectProps> = (props) => <Select {...props} />;
+export const FormSelect: FC<FormSelectProps> = ({
+  triggerProps = {},
+  ...rest
+}) => <Select {...rest} triggerProps={{ ...triggerProps, borderWidth: 1 }} />;

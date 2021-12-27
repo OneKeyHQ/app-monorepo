@@ -1,3 +1,5 @@
+import { ComponentType } from 'react';
+
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 
 import ApprovalScreen from '../views/Approval';
@@ -18,10 +20,13 @@ import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
 import MarkdownGallery from '../views/Components/stories/Markdown';
 import ModalGallery from '../views/Components/stories/Modal';
+import NftCardGallery from '../views/Components/stories/NftCard';
 import PageActionsGallery from '../views/Components/stories/PageActions';
 import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
+import ReduxMessageGallery from '../views/Components/stories/ReduxMessage';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
+import SegmentedControl from '../views/Components/stories/SegmentedControl';
 import SelectGallery from '../views/Components/stories/Select';
 import SortableListGallery from '../views/Components/stories/SortableList';
 import SpinnerGallery from '../views/Components/stories/Spinner';
@@ -33,15 +38,16 @@ import ToastGallery from '../views/Components/stories/Toast';
 import TokenGallery from '../views/Components/stories/Token';
 import TypographyGallery from '../views/Components/stories/Typography';
 import DiscoverScreen from '../views/Discover';
+import MeScreen from '../views/Me';
 import PortfolioScreen from '../views/Portfolio';
-import SettingsScreen from '../views/Settings';
 import SwapScreen from '../views/Swap';
-import WalletScreen from '../views/Wallet';
+import HomeScreen from '../views/Wallet';
 
 type TabRoute = {
   icon: ICON_NAMES;
   name: string;
-  component: React.ComponentType<any>;
+  component: ComponentType<any>;
+  translationId: string;
 };
 
 // Define Router names here for TypeScript checking
@@ -59,20 +65,46 @@ export type RootStackParamList = {
 };
 
 export const tabRoutes: TabRoute[] = [
-  { name: 'Wallet', component: WalletScreen, icon: 'HomeOutline' },
-  { name: 'Swap', component: SwapScreen, icon: 'SwitchHorizontalOutline' },
-  { name: 'Portfolio', component: PortfolioScreen, icon: 'TrendingUpOutline' },
-  { name: 'Discover', component: DiscoverScreen, icon: 'CompassOutline' },
-  { name: 'Settings', component: SettingsScreen, icon: 'CogOutline' },
-  { name: 'Home', component: ComponentsScreen, icon: 'ChipOutline' },
+  {
+    name: 'Home',
+    component: HomeScreen,
+    icon: 'HomeOutline',
+    translationId: 'title__home',
+  },
+  {
+    name: 'Swap',
+    component: SwapScreen,
+    icon: 'SwitchHorizontalOutline',
+    translationId: 'title__swap',
+  },
+  {
+    name: 'Portfolio',
+    component: PortfolioScreen,
+    icon: 'TrendingUpOutline',
+    translationId: 'title__portfolio',
+  },
+  {
+    name: 'Discover',
+    component: DiscoverScreen,
+    icon: 'CompassOutline',
+    translationId: 'title__explore',
+  },
+  {
+    name: 'Me',
+    component: MeScreen,
+    icon: 'UserOutline',
+    translationId: 'title__me',
+  },
 ];
 
 export const stackRoutes = [
-  { name: 'Approval', component: ApprovalScreen },
+  { name: 'Dev', component: ComponentsScreen },
+  { name: 'Components/Approval', component: ApprovalScreen },
   { name: 'Components/Textarea', component: TextareaGallery },
   { name: 'Components/Searchbar', component: SearchbarGallery },
   { name: 'Components/Address', component: AddressGallery },
   { name: 'Components/Input', component: InputGallery },
+  { name: 'Components/Card', component: NftCardGallery },
   { name: 'Components/Avatar', component: AvatarGallery },
   { name: 'Components/Typography', component: TypographyGallery },
   { name: 'Components/Token', component: TokenGallery },
@@ -98,4 +130,6 @@ export const stackRoutes = [
   { name: 'Components/PageActions', component: PageActionsGallery },
   { name: 'Components/SortableList', component: SortableListGallery },
   { name: 'Components/Tabs', component: TabsGallery },
+  { name: 'Components/SegmentedControl', component: SegmentedControl },
+  { name: 'Components/ReduxMessage', component: ReduxMessageGallery },
 ];

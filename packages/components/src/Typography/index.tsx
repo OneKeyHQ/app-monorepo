@@ -4,73 +4,73 @@ import { Text } from 'native-base';
 
 type FontProps = ComponentProps<typeof Text>;
 
-const DisplayXLargeProps = {
+export const DisplayXLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 28,
   lineHeight: 36,
 };
-const DisplayLargeProps = {
+export const DisplayLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 24,
   lineHeight: 32,
 };
-const DisplayMediumProps = {
+export const DisplayMediumProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 20,
   lineHeight: 28,
 };
-const DisplaySmallProps = {
+export const DisplaySmallProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 16,
   lineHeight: 24,
 };
-const PageHeadingProps = {
+export const PageHeadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 24,
   lineHeight: 32,
 };
-const HeadingProps = {
+export const HeadingProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 18,
   lineHeight: 28,
 };
-const SubheadingProps = {
+export const SubheadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
   fontWeight: 'bold',
   fontSize: 12,
   lineHeight: 16,
 };
-const Button1Props = {
+export const Button1Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 16,
   lineHeight: 24,
 };
-const Button2Props = {
+export const Button2Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 14,
   lineHeight: 20,
 };
-const Body1Props = {
+export const Body1Props = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 16,
   lineHeight: 24,
 };
-const Body2Props = {
+export const Body2Props = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 14,
   lineHeight: 20,
 };
-const CaptionProps = {
+export const CaptionProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 12,

@@ -17,8 +17,7 @@ const AccountSelectorTrigger: FC<Props> = ({
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
   return (
     <Pressable
-      mx={isSmallScreen ? -3 : 4}
-      my="1"
+      mx="1"
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
@@ -26,7 +25,6 @@ const AccountSelectorTrigger: FC<Props> = ({
       bg={visible ? 'surface-selected' : 'transparent'}
       p="1"
       onPress={handleToggleVisible}
-      w={isSmallScreen ? 178 : 'auto'}
     >
       <Account address={address} name={isSmallScreen ? '' : label} />
       <Icon name="SelectorOutline" />

@@ -48,10 +48,34 @@ jobs:
         if: ${{ github.event.inputs.platform }}
         run: |
           cd packages/app
-          npx eas-cli build --profile=development --platform ${{ github.event.inputs.platform }} --non-interactive --no-wait
+          npx eas-cli build --profile=development --platform ${{ github.event.inputs.platform }} --non-interactive --no-wait > eas-build.log
 
       - name: Build on EAS schedule
         if: ${{ !github.event.inputs.platform }}
         run: |
           cd packages/app
-          npx eas-cli build --profile=development --platform all --non-interactive --no-wait
+          npx eas-cli build --profile=development --platform all --non-interactive --no-wait > eas-build.log
+
+      - name: Read EAS build Info
+        id: build_info
+        run: |
+          cd packages/app
+          export AND_DOWNLOAD_URL=$(egrep '(Android build details: )\S+' eas-build.log | egrep -o '(https?):\/\/[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]' | head -n 1)
+          export IOS_DOWNLOAD_URL=$(egrep '(iOS build details: )\S+' eas-build.log | egrep -o '(https?):\/\/[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]' | head -n 1)
+          echo "::set-output name=and_url::$(echo $AND_DOWNLOAD_URL)"
+          echo "::set-output name=ios_url::$(echo $IOS_DOWNLOAD_URL)"
+          export APP_JSON=`cat app.json`
+          export APP_VERSION=`echo $(jq -r '.expo.version' <<< "$APP_JSON")`
+          echo "::set-output name=version::$(echo $APP_VERSION)"
+
+      - name: Notice Slack Update
+        uses: OneKeyHQ/onekey-github-actions/notice-slack-app-update@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          artifact-type: Native-Wrapper
+          artifact-name: Native-Wrapper-Debug
+          artifact-download-url: ${{ steps.build_info.outputs.and_url }}
+          artifact-bundle-id:  'so.onekey.app.wallet'
+          artifact-version-code:  ${{ steps.build_info.outputs.version }}
+          artifact-version-name:  ${{ steps.build_info.outputs.version }}
+          custom-issue-url: '${{ steps.build_info.outputs.ios_url }}'

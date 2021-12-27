@@ -4,10 +4,14 @@ import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
 
 import JsBridgeBase from './JsBridgeBase';
 
+export type IJsBridgeExtUiConfig = IJsBridgeConfig & {
+  onPortConnect: (port0: chrome.runtime.Port) => void;
+};
+
 class JsBridgeExtUi extends JsBridgeBase {
-  constructor(config: IJsBridgeConfig) {
-    super(config);
-    this.setupMessagePortConnect();
+  constructor(config: IJsBridgeExtUiConfig) {
+    super(config as IJsBridgeConfig);
+    this.setupMessagePortConnect(config);
   }
 
   sendAsString = false;
@@ -20,7 +24,7 @@ class JsBridgeExtUi extends JsBridgeBase {
     }
   }
 
-  setupMessagePortConnect() {
+  setupMessagePortConnect(config: IJsBridgeExtUiConfig) {
     messagePort.connect({
       name: EXT_PORT_UI_TO_BG,
       onMessage: (payload) => {
@@ -28,6 +32,9 @@ class JsBridgeExtUi extends JsBridgeBase {
       },
       onConnect: (port) => {
         this.portToBg = port;
+        setTimeout(() => {
+          config.onPortConnect(port);
+        }, 0);
         return () => {
           this.portToBg = null;
         };
