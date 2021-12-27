@@ -33,8 +33,7 @@ const CollectionModal: FC<CollectionModalProps> = ({
       visible={visible}
       header={collectible.collection.name ?? ''}
       onClose={onClose}
-      // Kinda hack to hide the footer
-      footer={<Typography.Body1 />}
+      footer={null}
     >
       <ScrollView flex={1}>
         <Center>
