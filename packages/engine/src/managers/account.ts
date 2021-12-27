@@ -1,5 +1,5 @@
-import { IMPL_EVM } from './constants';
-import { OneKeyInternalError } from './errors';
+import { IMPL_EVM } from '../constants';
+import { OneKeyInternalError } from '../errors';
 import {
   ACCOUNT_TYPE_MULADDR,
   ACCOUNT_TYPE_SIMPLE,
@@ -7,7 +7,7 @@ import {
   DBAccount,
   DBMulAddrAccount,
   DBSimpleAccount,
-} from './types/account';
+} from '../types/account';
 
 function fromDBAccountToAccount(dbAccount: DBAccount): Account {
   const { type } = dbAccount;

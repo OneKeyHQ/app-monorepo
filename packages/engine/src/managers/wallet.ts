@@ -1,4 +1,4 @@
-import { DBWallet, Wallet } from './types/wallet';
+import { DBWallet, Wallet } from '../types/wallet';
 
 function fromDBWalletToWallet(dbWallet: DBWallet): Wallet {
   return {

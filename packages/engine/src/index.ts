@@ -2,12 +2,19 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import BigNumber from 'bignumber.js';
 
-import { fromDBAccountToAccount, getWatchingAccountToCreate } from './accounts';
 import { IMPL_EVM } from './constants';
 import { DbApi } from './db';
 import { DBAPI } from './db/base';
 import { NotImplemented, OneKeyInternalError } from './errors';
-import { fromDBNetworkToNetwork, getEVMNetworkToCreate } from './networks';
+import {
+  fromDBAccountToAccount,
+  getWatchingAccountToCreate,
+} from './managers/account';
+import {
+  fromDBNetworkToNetwork,
+  getEVMNetworkToCreate,
+} from './managers/network';
+import { fromDBWalletToWallet } from './managers/wallet';
 import {
   getPresetTokensOnNetwork,
   networkIsPreset,
@@ -23,7 +30,6 @@ import {
 } from './types/network';
 import { Token } from './types/token';
 import { DBWallet, Wallet } from './types/wallet';
-import { fromDBWalletToWallet } from './wallets';
 
 class Engine {
   private dbApi: DBAPI;

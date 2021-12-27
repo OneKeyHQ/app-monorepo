@@ -1,6 +1,6 @@
-import { IMPL_EVM } from './constants';
-import { networkIsPreset, presetNetworks } from './presets';
-import { AddEVMNetworkParams, DBNetwork, Network } from './types/network';
+import { IMPL_EVM } from '../constants';
+import { networkIsPreset, presetNetworks } from '../presets';
+import { AddEVMNetworkParams, DBNetwork, Network } from '../types/network';
 
 function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
   // TODO: chain interaction to check rpc url works correctly. Get network id and chain id.
