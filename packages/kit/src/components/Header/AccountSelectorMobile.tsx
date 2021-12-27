@@ -27,6 +27,8 @@ const AccountSelectorMobile: FC<ChildDropdownProps> = ({
       onBackdropPress={handleToggleVisible}
       animationIn="slideInLeft"
       animationOut="slideOutLeft"
+      animationInTiming={150}
+      animationOutTiming={150}
       style={{
         justifyContent: 'flex-end',
         margin: 0,

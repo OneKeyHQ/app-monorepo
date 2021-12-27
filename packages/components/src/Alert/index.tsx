@@ -4,6 +4,7 @@ import { Box, Column, IconButton, Alert as NBAlert, Row } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
 import { useThemeValue } from '../Provider/hooks';
+import { ThemeValues } from '../Provider/theme';
 import Typography from '../Typography';
 
 type AlertType = 'info' | 'warn' | 'error' | 'success';
@@ -18,9 +19,9 @@ export type AlertProps = {
 
 type AlertTypeProps = {
   iconName: ICON_NAMES;
-  iconColor: string;
-  bgColor: string;
-  borderColor: string;
+  iconColor: keyof ThemeValues;
+  bgColor: keyof ThemeValues;
+  borderColor: keyof ThemeValues;
 };
 
 const InfoAlertProps: AlertTypeProps = {
@@ -34,6 +35,7 @@ const WarnAlertProps: AlertTypeProps = {
   iconName: 'ExclamationSolid',
   iconColor: 'icon-warning',
   bgColor: 'surface-warning-subdued',
+  // @ts-expect-error
   borderColor: '#7A6200',
 };
 
@@ -74,7 +76,6 @@ const Alert: FC<AlertProps> = ({
   const alertTypeProps = alertPropWithType(alertType);
   const borderColor = useThemeValue(alertTypeProps.borderColor);
   const bgColor = useThemeValue(alertTypeProps.bgColor);
-  const iconColor = useThemeValue(alertTypeProps.iconColor);
 
   const [display, setDisplay] = useState(true);
 
@@ -95,7 +96,7 @@ const Alert: FC<AlertProps> = ({
               <Icon
                 size={16}
                 name={alertTypeProps.iconName}
-                color={iconColor}
+                color={alertTypeProps.iconColor}
               />
             </Box>
             <Typography.Body2>{title}</Typography.Body2>
@@ -103,7 +104,13 @@ const Alert: FC<AlertProps> = ({
           <IconButton
             padding="2px"
             display={dismiss ? 'flex' : 'none'}
-            icon={<Icon size={12} name="CloseOutline" color={iconColor} />}
+            icon={
+              <Icon
+                size={12}
+                name="CloseOutline"
+                color={alertTypeProps.iconColor}
+              />
+            }
             onPress={() => {
               setDisplay(false);
             }}

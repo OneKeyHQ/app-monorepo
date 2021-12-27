@@ -63,7 +63,7 @@ function Mobile<T>({
         >
           <Typography.Heading>{title}</Typography.Heading>
           <Pressable onPress={toggleVisible}>
-            <Icon name="CloseOutline" size={12} />
+            <Icon name="CloseOutline" size={16} />
           </Pressable>
         </Box>
         <Divider />

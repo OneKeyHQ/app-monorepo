@@ -3,6 +3,7 @@ import React, { FC, useState } from 'react';
 import { Box, Column, IconButton, Row } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
+import { ThemeValues } from '../Provider/theme';
 import Typography from '../Typography';
 
 export { useToast } from 'native-base';
@@ -19,8 +20,8 @@ export type ToastProps = {
 
 export type ToastStatusProps = {
   iconName: ICON_NAMES;
-  iconColor: string;
-  borderColor: string;
+  iconColor: keyof ThemeValues;
+  borderColor: keyof ThemeValues;
 };
 
 const InfoToastProps: ToastStatusProps = {
@@ -32,6 +33,7 @@ const InfoToastProps: ToastStatusProps = {
 const WarnToastProps: ToastStatusProps = {
   iconName: 'ExclamationOutline',
   iconColor: 'icon-warning',
+  // @ts-expect-error
   borderColor: '#7A6200',
 };
 

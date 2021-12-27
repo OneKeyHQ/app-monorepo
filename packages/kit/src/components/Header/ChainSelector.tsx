@@ -1,13 +1,15 @@
 import React, { FC, useCallback, useMemo } from 'react';
 
-import { Select, useUserDevice } from '@onekeyhq/components';
+import { Box, Select, useUserDevice } from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
 
 const ChainSelector: FC = () => {
+  const { size } = useUserDevice();
+  const isHorizontal = ['LARGE', 'XLARGE'].includes(size);
+
   const dispatch = useAppDispatch();
   const activeChainId = useAppSelector((s) => s.chain.chainId);
-  const { size } = useUserDevice();
 
   const handleActiveChainChange = useCallback(
     (chainId) => {
@@ -63,29 +65,24 @@ const ChainSelector: FC = () => {
   );
 
   return (
-    <Select
-      containerProps={
-        ['SMALL', 'NORMAL'].includes(size)
-          ? {
-              width: 'auto',
-              mr: -2,
-            }
-          : {
-              width: 248,
-              mr: 2,
-            }
-      }
-      triggerProps={{
-        width: '140px',
-      }}
-      headerShown={false}
-      dropdownPosition="left"
-      value={activeChainId}
-      onChange={handleActiveChainChange}
-      options={options}
-      footerText="Customize"
-      footerIcon="PencilOutline"
-    />
+    <Box flex="1" w="full">
+      <Select
+        containerProps={{
+          width: isHorizontal ? 248 : 'auto',
+          alignSelf: 'flex-end',
+        }}
+        triggerProps={{
+          width: 160,
+        }}
+        headerShown={false}
+        dropdownPosition="left"
+        value={activeChainId}
+        onChange={handleActiveChainChange}
+        options={options}
+        footerText="Customize"
+        footerIcon="PencilOutline"
+      />
+    </Box>
   );
 };
 

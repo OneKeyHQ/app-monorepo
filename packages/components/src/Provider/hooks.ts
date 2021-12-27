@@ -9,7 +9,7 @@ import { useSafeAreaInsets as useRNSafeAreaInsets } from 'react-native-safe-area
 
 import type { LocaleSymbol } from '../locale';
 import type { DeviceState } from './device';
-import type { ThemeVariant } from './theme';
+import type { ThemeValues, ThemeVariant } from './theme';
 
 export type ContextValue = {
   themeVariant: ThemeVariant;
@@ -35,11 +35,13 @@ export const useTheme = () => {
   );
 };
 
-// TODO: 参数从 COLORS 推断强类型
-export const useThemeValue = <T extends string | number = any>(
-  colorSymbol: T | T[],
-  fallback?: T | T[],
-): string => useToken<T>('colors', colorSymbol, fallback);
+type ThemeToken = keyof ThemeValues;
+
+export const useThemeValue = <T extends ThemeToken[] | ThemeToken>(
+  colorSymbol: T,
+  fallback?: T,
+): T extends Array<string> ? string[] : string =>
+  useToken<any>('colors', colorSymbol, fallback);
 
 export const useLocale = () => {
   const context = useContext(Context);

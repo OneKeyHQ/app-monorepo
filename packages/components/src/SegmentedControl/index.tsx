@@ -49,11 +49,13 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
     }
     if (iconName) {
       return (
-        <Icon
-          {...iconProps}
-          name={iconName}
-          color={active ? 'icon-hovered' : 'icon-default'}
-        />
+        <Box p="2">
+          <Icon
+            {...iconProps}
+            name={iconName}
+            color={active ? 'icon-hovered' : 'icon-default'}
+          />
+        </Box>
       );
     }
     return label;
@@ -80,6 +82,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
             activeTintColor={activeFontColor}
             inactiveTintColor={fontColor}
             name={option.value}
+            key={option.value}
             content={({ active }: { active: boolean }) =>
               renderContent(option, active)
             }
