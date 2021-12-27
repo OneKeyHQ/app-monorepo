@@ -1,8 +1,9 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
-import { OneKeyInternalError } from '../errors';
+import { AccountAlreadyExists, OneKeyInternalError } from '../errors';
 import { presetNetworks } from '../presets';
+import { DBAccount } from '../types/account';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
 import { DBWallet, WALLET_TYPE_WATCHING } from '../types/wallet';
@@ -21,6 +22,7 @@ const DB_NAME = 'OneKey';
 const DB_VERSION = 1;
 
 const WALLET_STORE_NAME = 'wallets';
+const ACCOUNT_STORE_NAME = 'accounts';
 const NETWORK_STORE_NAME = 'networks';
 const TOKEN_STORE_NAME = 'tokens';
 const TOKEN_BINDING_STORE_NAME = 'token_bindings';
@@ -43,6 +45,8 @@ function initDb(request: IDBOpenDBRequest) {
         nextAccountId: { 'global': 1 },
       });
   };
+
+  db.createObjectStore(ACCOUNT_STORE_NAME, { keyPath: 'id' });
 
   db.createObjectStore(NETWORK_STORE_NAME, { keyPath: 'id' });
 
@@ -528,6 +532,100 @@ class FakeDB implements DBAPI {
             .transaction([WALLET_STORE_NAME])
             .objectStore(WALLET_STORE_NAME)
             .get(walletId);
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              resolve(request.result);
+            } else {
+              resolve(undefined);
+            }
+          };
+        }),
+    );
+  }
+
+  addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount> {
+    let ret: DBAccount;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [WALLET_STORE_NAME, ACCOUNT_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to add account to wallet.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            if (typeof ret !== 'undefined') {
+              resolve(ret);
+            } else {
+              reject(
+                new OneKeyInternalError('Failed to add account to wallet.'),
+              );
+            }
+          };
+
+          const walletStore: IDBObjectStore =
+            transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest: IDBRequest = walletStore.get(walletId);
+          getWalletRequest.onsuccess = (_gevent) => {
+            if (getWalletRequest.result === 'undefined') {
+              reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
+              return;
+            }
+            const wallet = getWalletRequest.result as DBWallet;
+            if (wallet.accounts.includes(account.id)) {
+              reject(new AccountAlreadyExists());
+              return;
+            }
+            if (wallet.type !== WALLET_TYPE_WATCHING) {
+              // TODO: other wallets.
+              reject(new OneKeyInternalError('Not implemented.'));
+              return;
+            }
+
+            account.name =
+              account.name || `Watching ${wallet.nextAccountId.global}`;
+            wallet.accounts.push(account.id);
+            wallet.nextAccountId.global += 1;
+            walletStore.put(wallet);
+            transaction.objectStore(ACCOUNT_STORE_NAME).add(account).onsuccess =
+              (_aevent) => {
+                ret = account;
+              };
+          };
+        }),
+    );
+  }
+
+  getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>> {
+    const idsSet = new Set(accountIds);
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([ACCOUNT_STORE_NAME])
+            .objectStore(ACCOUNT_STORE_NAME)
+            .getAll();
+          request.onsuccess = (_event) => {
+            resolve(
+              (request.result as Array<DBAccount>).filter(
+                (dbAccount: DBAccount) => idsSet.has(dbAccount.id),
+              ),
+            );
+          };
+        }),
+    );
+  }
+
+  getAccount(accountId: string): Promise<DBAccount | undefined> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([ACCOUNT_STORE_NAME])
+            .objectStore(ACCOUNT_STORE_NAME)
+            .get(accountId);
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
               resolve(request.result);

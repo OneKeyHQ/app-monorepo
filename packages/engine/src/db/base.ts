@@ -1,3 +1,4 @@
+import { DBAccount } from '../types/account';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
 import { DBWallet } from '../types/wallet';
@@ -21,6 +22,10 @@ interface DBAPI {
 
   getWallets(): Promise<Array<DBWallet>>;
   getWallet(walletId: string): Promise<DBWallet | undefined>;
+
+  addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount>;
+  getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>>;
+  getAccount(accountId: string): Promise<DBAccount | undefined>;
 }
 
 export type { DBAPI };
