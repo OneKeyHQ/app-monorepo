@@ -5,6 +5,7 @@ import { OneKeyInternalError } from '../errors';
 import { presetNetworks } from '../presets';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
+import { DBWallet, WALLET_TYPE_WATCHING } from '../types/wallet';
 
 import { DBAPI } from './base';
 
@@ -19,12 +20,29 @@ require('fake-indexeddb/auto');
 const DB_NAME = 'OneKey';
 const DB_VERSION = 1;
 
+const WALLET_STORE_NAME = 'wallets';
 const NETWORK_STORE_NAME = 'networks';
 const TOKEN_STORE_NAME = 'tokens';
 const TOKEN_BINDING_STORE_NAME = 'token_bindings';
 
 function initDb(request: IDBOpenDBRequest) {
   const db: IDBDatabase = request.result;
+
+  const walletStore = db.createObjectStore(WALLET_STORE_NAME, {
+    keyPath: 'id',
+  });
+  walletStore.transaction.oncomplete = (_event) => {
+    db.transaction([WALLET_STORE_NAME], 'readwrite')
+      .objectStore(WALLET_STORE_NAME)
+      .add({
+        id: 'watching',
+        name: 'watching',
+        type: WALLET_TYPE_WATCHING,
+        backuped: true,
+        accounts: [],
+        nextAccountId: { 'global': 1 },
+      });
+  };
 
   db.createObjectStore(NETWORK_STORE_NAME, { keyPath: 'id' });
 
@@ -481,6 +499,40 @@ class FakeDB implements DBAPI {
               cursor.continue();
             } else if (bindings === 1 && removed) {
               transaction.objectStore(TOKEN_STORE_NAME).delete(tokenId);
+            }
+          };
+        }),
+    );
+  }
+
+  getWallets(): Promise<Array<DBWallet>> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([WALLET_STORE_NAME])
+            .objectStore(WALLET_STORE_NAME)
+            .getAll();
+          request.onsuccess = (_event) => {
+            resolve(request.result as Array<DBWallet>);
+          };
+        }),
+    );
+  }
+
+  getWallet(walletId: string): Promise<DBWallet | undefined> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([WALLET_STORE_NAME])
+            .objectStore(WALLET_STORE_NAME)
+            .get(walletId);
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              resolve(request.result);
+            } else {
+              resolve(undefined);
             }
           };
         }),

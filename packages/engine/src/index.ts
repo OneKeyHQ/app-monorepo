@@ -20,7 +20,8 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { Wallet } from './types/wallet';
+import { DBWallet, Wallet } from './types/wallet';
+import { fromDBWalletToWallet } from './wallets';
 
 class Engine {
   private dbApi: DBAPI;
@@ -31,13 +32,23 @@ class Engine {
 
   getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    throw new NotImplemented();
+    return this.dbApi
+      .getWallets()
+      .then((wallets: Array<DBWallet>) =>
+        wallets.map((w: DBWallet) => fromDBWalletToWallet(w)),
+      );
   }
 
   getWallet(walletId: string): Promise<Wallet> {
     // Return a single wallet.
-    console.log(`getWallet ${walletId}`);
-    throw new NotImplemented();
+    return this.dbApi
+      .getWallet(walletId)
+      .then((dbWallet: DBWallet | undefined) => {
+        if (typeof dbWallet !== 'undefined') {
+          return fromDBWalletToWallet(dbWallet);
+        }
+        throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
+      });
   }
 
   createHDWallet(
