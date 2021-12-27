@@ -13,6 +13,8 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 
+import ManageToken from '../../ManageTokens';
+
 export type AssetToken = {
   chainId: number;
   address: string;
@@ -252,14 +254,13 @@ const AssetsList = () => {
         <Typography.DisplayXLarge>
           {intl.formatMessage({ id: 'asset__tokens' })}
         </Typography.DisplayXLarge>
-        <Pressable
-          p={1}
-          onPress={() => {
-            console.log('Click Manager Token');
-          }}
-        >
-          <Icon name="AdjustmentsOutline" />
-        </Pressable>
+        <ManageToken
+          trigger={
+            <Pressable p={1}>
+              <Icon name="AdjustmentsOutline" />
+            </Pressable>
+          }
+        />
       </Box>
 
       <FlatList

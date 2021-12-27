@@ -53,5 +53,6 @@ export { default as ContentItem } from './ContentItem';
 export { default as ContentItemBox } from './ContentItemBox';
 
 export * from './Provider/hooks';
+export * as utils from './utils';
 
 export { useForm, Controller } from 'react-hook-form';
