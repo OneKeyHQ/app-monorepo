@@ -5,8 +5,8 @@ import { Box } from '@onekeyhq/components';
 import WebView from '../../components/WebView';
 
 const Discover = () => (
-  <Box flex="1" bg="background-hovered">
-    <WebView showWalletActions src="https://discover.onekey.so/" />
+  <Box flex="1">
+    <WebView src="https://discover.test.onekey.so/" />
   </Box>
 );
 

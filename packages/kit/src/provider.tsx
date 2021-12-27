@@ -8,6 +8,7 @@ import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 
 import AccountSelector from './components/Header/AccountSelector';
 import ChainSelector from './components/Header/ChainSelector';
+import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
 import { StackNavigator } from './navigator';
 import { RootStackParamList, stackRoutes, tabRoutes } from './routes';
 import store from './store';
@@ -19,12 +20,8 @@ const StackScreen = () => (
         key={tab.name}
         name={tab.name as keyof RootStackParamList}
         options={{
-          header: ({ navigation, route, options, back }) => (
+          header: () => (
             <LayoutHeader
-              navigation={navigation}
-              route={route}
-              options={options}
-              back={back}
               headerLeft={() => <AccountSelector />}
               headerRight={() => <ChainSelector />}
             />
@@ -54,7 +51,10 @@ const StackScreen = () => (
   </StackNavigator.Navigator>
 );
 
-const Router = () => <StackScreen />;
+const Router = () => {
+  useAutoRedirectToRoute();
+  return <StackScreen />;
+};
 
 const KitProvider: FC = () => (
   <Provider>

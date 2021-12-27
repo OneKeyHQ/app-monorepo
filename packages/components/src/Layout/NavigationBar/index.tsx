@@ -5,7 +5,9 @@ import { useUserDevice } from '../../Provider/hooks';
 import Desktop from './Desktop';
 import Mobile from './Mobile';
 
-export default function NavigationBar(props) {
+import type { ChildProps } from '..';
+
+export default function NavigationBar(props: ChildProps) {
   const { size } = useUserDevice();
 
   if (['SMALL', 'NORMAL'].includes(size)) {

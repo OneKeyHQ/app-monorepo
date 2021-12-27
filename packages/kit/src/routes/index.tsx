@@ -1,6 +1,5 @@
 import { ComponentType } from 'react';
 
-import { Layout } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 
 import ApprovalScreen from '../views/Approval';

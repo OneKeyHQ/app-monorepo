@@ -1,15 +1,33 @@
 import React, { ComponentType, FC, memo, useMemo } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import {
+  NavigationProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/core';
 
 import Box from '../Box';
+import { ICON_NAMES } from '../Icon';
 import { useUserDevice } from '../Provider/hooks';
 
 import NavigationBar from './NavigationBar';
 
+type TabRoute = {
+  icon: ICON_NAMES;
+  name: string;
+  translationId: string;
+};
+
 type Props = {
   content: ComponentType<any>;
   name: string;
+  tabs: TabRoute[];
+};
+
+export type ChildProps = {
+  activeRouteName: string;
+  tabs: TabRoute[];
+  navigation: NavigationProp<any>;
 };
 
 const Layout: FC<Props> = ({ content: Component, name, tabs = [] }) => {

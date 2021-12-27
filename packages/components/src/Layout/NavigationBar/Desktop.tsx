@@ -1,6 +1,6 @@
-import React, { FC, useState } from 'react';
+import React, { FC } from 'react';
 
-import { CommonActions, StackActions } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
@@ -9,7 +9,9 @@ import Pressable from '../../Pressable';
 import { useThemeValue } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
-const Sidebar: FC = ({ tabs, navigation, activeRouteName }) => {
+import type { ChildProps } from '..';
+
+const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
   const intl = useIntl();
   const [activeFontColor, inactiveFontColor] = useThemeValue([
     'text-default',
@@ -29,7 +31,7 @@ const Sidebar: FC = ({ tabs, navigation, activeRouteName }) => {
       >
         <Box px="16px" flex="1" display="flex" flexDirection="column">
           <Box mt="6">
-            {tabs.map((route, index) => {
+            {tabs.map((route) => {
               const isActive = activeRouteName === route.name;
               const onPress = () => {
                 if (isActive) return;
@@ -52,7 +54,7 @@ const Sidebar: FC = ({ tabs, navigation, activeRouteName }) => {
                     <Box display="flex" flexDirection="row" alignItems="center">
                       <Icon
                         name={route.icon}
-                        color={isActive ? activeFontColor : inactiveFontColor}
+                        color={isActive ? 'text-default' : 'text-subdued'}
                         size={24}
                       />
 

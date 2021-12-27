@@ -187,8 +187,8 @@ function Select<T = string>({
         alignItems="center"
         borderRadius="12px"
         borderColor="border-default"
-        bg="action-secondary-default"
-        py={['SMALL', 'NORMAL'].includes(size) ? 1 : 2}
+        bg={visible ? 'surface-selected' : 'transparent'}
+        py="2"
         px="3"
         width="100%"
         onPress={toggleVisible}
@@ -210,7 +210,7 @@ function Select<T = string>({
             <Typography.Body2 numberOfLines={1} flex="1" mr="1">
               {activeOption.label ?? '-'}
             </Typography.Body2>
-            <Icon name="ChevronDownOutline" size={12} />
+            <Icon name="ChevronDownOutline" size={16} />
           </>
         )}
       </Pressable>

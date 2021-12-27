@@ -1,7 +1,6 @@
 import React from 'react';
 
-// import { useNavigationState } from '@react-navigation/core';
-import { CommonActions, StackActions } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Platform, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
@@ -16,6 +15,8 @@ import {
   useUserDevice,
 } from '../../Provider/hooks';
 import Typography from '../../Typography';
+
+import type { ChildProps } from '..';
 
 const DEFAULT_TABBAR_HEIGHT = 49;
 
@@ -35,7 +36,11 @@ export const getTabBarHeight = ({ insets }: { insets: EdgeInsets }) => {
   return DEFAULT_TABBAR_HEIGHT + paddingBottom;
 };
 
-export default function BottomTabBar({ tabs, navigation, activeRouteName }) {
+export default function BottomTabBar({
+  tabs,
+  navigation,
+  activeRouteName,
+}: ChildProps) {
   const { size } = useUserDevice();
   const insets = useSafeAreaInsets();
   const intl = useIntl();
@@ -67,7 +72,7 @@ export default function BottomTabBar({ tabs, navigation, activeRouteName }) {
       py={Math.max(insets.left ?? 0, insets.right ?? 0)}
     >
       <Box accessibilityRole="tablist" flex="1" flexDirection="row">
-        {tabs.map((route, index) => {
+        {tabs.map((route) => {
           const isActive = activeRouteName === route.name;
           const onPress = () => {
             if (isActive) return;
@@ -82,6 +87,7 @@ export default function BottomTabBar({ tabs, navigation, activeRouteName }) {
               alignItems="center"
               bg="surface-subdued"
               onPress={onPress}
+              key={route.name}
               style={
                 horizontal
                   ? {
@@ -96,7 +102,7 @@ export default function BottomTabBar({ tabs, navigation, activeRouteName }) {
             >
               <Icon
                 name={route.icon}
-                color={isActive ? activeFontColor : inactiveFontColor}
+                color={isActive ? 'text-default' : 'text-subdued'}
                 size={24}
               />
               <Typography.Caption
