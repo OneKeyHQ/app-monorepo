@@ -1,8 +1,10 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { Box, Select, useUserDevice } from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
+
+import ManageNetworks from '../../views/ManageNetworks';
 
 const ChainSelector: FC = () => {
   const { size } = useUserDevice();
@@ -10,6 +12,7 @@ const ChainSelector: FC = () => {
 
   const dispatch = useAppDispatch();
   const activeChainId = useAppSelector((s) => s.chain.chainId);
+  const [opened, setOpened] = useState(false);
 
   const handleActiveChainChange = useCallback(
     (chainId) => {
@@ -81,7 +84,9 @@ const ChainSelector: FC = () => {
         options={options}
         footerText="Customize"
         footerIcon="PencilOutline"
+        onPressFooter={() => setOpened(true)}
       />
+      <ManageNetworks opened={opened} onClose={() => setOpened(false)} />
     </Box>
   );
 };

@@ -1,11 +1,4 @@
-import React, {
-  FC,
-  ReactElement,
-  cloneElement,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { Toast } from 'native-base';
 
@@ -39,10 +32,10 @@ const ModalFooter: FC<ModalFooterProps> = ({ editable, onToggle }) => (
   </Box>
 );
 
-type NetworksProps = { trigger?: ReactElement<any> };
+type NetworksProps = { opened: boolean; onClose: () => void };
 
-const Networks: FC<NetworksProps> = ({ trigger }) => {
-  const [open, setOpen] = useState(false);
+const Networks: FC<NetworksProps> = ({ opened, onClose }) => {
+  // const [open, setOpen] = useState(false);
   const [alertOpened, setAlertOpened] = useState(false);
   const [changed] = useState(true);
   const [editable, setEditable] = useState(false);
@@ -52,12 +45,12 @@ const Networks: FC<NetworksProps> = ({ trigger }) => {
     if (changed) {
       setAlertOpened(true);
     } else {
-      setOpen(false);
+      onClose();
     }
   }, [changed]);
-  const onOpen = useCallback(() => setOpen(true), []);
+
   const onCloseAlert = useCallback(() => setAlertOpened(false), []);
-  const onCloseModal = useCallback(() => setOpen(false), []);
+  const onCloseModal = useCallback(() => onClose(), []);
 
   const onToggle = useCallback(() => {
     if (editable) {
@@ -66,16 +59,11 @@ const Networks: FC<NetworksProps> = ({ trigger }) => {
     setEditable(!editable);
   }, [editable]);
 
-  const elem = useMemo(() => {
-    if (!trigger) return undefined;
-    return cloneElement(trigger, { onPress: onOpen });
-  }, [trigger, onOpen]);
   return (
     <>
       <Modal
-        visible={open}
+        visible={opened}
         header="Customize Networks"
-        trigger={elem}
         onClose={onPrepareClose}
         footer={<ModalFooter editable={editable} onToggle={onToggle} />}
       >
