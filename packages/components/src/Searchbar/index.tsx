@@ -1,15 +1,18 @@
-import React, { ComponentProps, FC, useCallback, useState } from 'react';
+import React, { ComponentProps, FC, useCallback } from 'react';
 
 import Input from '../Input';
 
-// type SearchbarProps = {};
+type SearchbarProps = { value?: string; onChangeText?: (text: string) => void };
 
-const Searchbar: FC<ComponentProps<typeof Input>> = ({ ...props }) => {
-  const [value, setValue] = useState('');
+const Searchbar: FC<ComponentProps<typeof Input> & SearchbarProps> = ({
+  value,
+  onChangeText,
+  ...props
+}) => {
   const rightIconName = value ? 'CloseCircleSolid' : undefined;
   const onPressRightIcon = useCallback(() => {
-    setValue('');
-  }, []);
+    onChangeText?.('');
+  }, [onChangeText]);
   return (
     <Input
       value={value}
@@ -17,9 +20,7 @@ const Searchbar: FC<ComponentProps<typeof Input>> = ({ ...props }) => {
       rightIconName={rightIconName}
       placeholder="Search..."
       onPressRightIcon={onPressRightIcon}
-      onChange={(e) => {
-        setValue(e.nativeEvent.text);
-      }}
+      onChangeText={onChangeText}
       {...props}
     />
   );
