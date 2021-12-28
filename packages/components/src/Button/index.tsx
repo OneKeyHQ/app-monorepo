@@ -328,12 +328,9 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
   );
 };
 
-const Button: FC<ComponentProps<typeof NativeBaseButton> & ButtonProps> = ({
-  type = 'basic',
-  size,
-  iconSize,
-  ...props
-}) => {
+const Button: FC<
+  Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps
+> = ({ type = 'basic', size, iconSize, ...props }) => {
   const components: Record<ButtonType, FC<ButtonPropsWithoutType>> = {
     'basic': BasicButton,
     'destructive': DestructiveButton,
