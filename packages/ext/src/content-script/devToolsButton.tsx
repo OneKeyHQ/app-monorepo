@@ -86,10 +86,13 @@ function injectDevToolsButton() {
 }
 
 function inject() {
-  window.addEventListener('DOMContentLoaded', () => {
+  // setTimeout delay required
+  setTimeout(() => {
+    window.addEventListener('DOMContentLoaded', () => {
+      injectDevToolsButton();
+    });
     injectDevToolsButton();
-  });
-  injectDevToolsButton();
+  }, 2000);
 }
 
 export default {

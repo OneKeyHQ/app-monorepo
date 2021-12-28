@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/order
+import './shared';
+
 import inpageProviderBackground from '@onekeyhq/inpage-provider/src/extension/background';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
