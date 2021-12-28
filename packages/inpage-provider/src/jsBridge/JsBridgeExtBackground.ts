@@ -32,7 +32,7 @@ class JsBridgeExtBackground extends JsBridgeBase {
         error &&
         error?.message === 'Attempting to use a disconnected port object'
       ) {
-        console.log('onDisconnect handler');
+        console.error('onDisconnect handler');
       }
       throw error;
     }

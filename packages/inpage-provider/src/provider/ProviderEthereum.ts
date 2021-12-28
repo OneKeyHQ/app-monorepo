@@ -1,4 +1,10 @@
-import { IInjectedProviderNames, IInpageProviderRequestData } from '../types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import {
+  IInjectedProviderNames,
+  IJsonRpcRequest,
+  IJsonRpcResponse,
+} from '../types';
 
 import ProviderBase, { IInpageProviderConfig } from './ProviderBase';
 
@@ -41,8 +47,17 @@ class ProviderEthereum extends ProviderBase {
 
   initProviderState() {
     // TODO use metamask_getProviderState and DO NOT trigger changed events
-    this.request({ method: 'eth_chainId' } as IInpageProviderRequestData);
-    this.request({ method: 'eth_accounts' } as IInpageProviderRequestData);
+    this.request({ method: 'eth_chainId' } as IJsonRpcRequest);
+    this.request({ method: 'eth_accounts' } as IJsonRpcRequest);
+
+    // TODO move to internal or self provider.
+    this.request({
+      method: 'wallet_getDebugLoggerSettings',
+    } as IJsonRpcRequest).then((res: IJsonRpcResponse) => {
+      setTimeout(() => {
+        debugLogger.debug?.enable(res.result);
+      }, 200);
+    });
   }
 
   _updateChainId(chainId: string, { triggerEvent = true } = {}) {
@@ -50,7 +65,7 @@ class ProviderEthereum extends ProviderBase {
       this.chainId = chainId;
       this.networkVersion = `${parseInt(chainId, 16)}`;
       if (triggerEvent) {
-        console.log('event chainChanged', chainId);
+        debugLogger.ethereum('event chainChanged', chainId);
         this.emit('chainChanged', chainId);
       }
     }
@@ -61,30 +76,28 @@ class ProviderEthereum extends ProviderBase {
     if (address && address !== this.selectedAddress) {
       this.selectedAddress = address;
       if (triggerEvent) {
-        console.log('event accountsChanged', accounts);
+        debugLogger.ethereum('event accountsChanged', accounts);
         this.emit('accountsChanged', accounts);
       }
     }
   }
 
-  async request(req: IInpageProviderRequestData) {
+  async request(req: IJsonRpcRequest): Promise<IJsonRpcResponse> {
     // method: "eth_blockNumber", params: []
     // method: "eth_requestAccounts", params: []
     // method: "eth_accounts", params: []
-    console.log('ethereum.request', req);
+    debugLogger.ethereum('request', req);
     const res = (await this.bridge.request({
       data: req ?? {},
       scope: this.providerName,
-    })) as {
-      result: unknown;
-    };
+    })) as IJsonRpcResponse;
     if (req.method === 'eth_accounts' || req.method === 'eth_requestAccounts') {
       this._updateAccounts(res.result as Array<string>);
     }
     if (req.method === 'eth_chainId') {
       this._updateChainId(res.result as string);
     }
-    console.log('ethereum response: \n', req, '\n   --->  ', res);
+    debugLogger.ethereum('request->response', '\n', req, '\n ---> ', res);
     return res;
   }
 
@@ -92,7 +105,7 @@ class ProviderEthereum extends ProviderBase {
     const res = await this.request({
       method,
       params,
-    } as IInpageProviderRequestData);
+    } as IJsonRpcRequest);
     return res;
   }
 }

@@ -1,6 +1,10 @@
+// FIX: Uncaught ReferenceError: global is not defined
+import 'core-js/es7/global';
 import EventEmitter from 'eventemitter3';
 import isPlainObject from 'lodash/isPlainObject';
 import isString from 'lodash/isString';
+
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   IInjectedProviderNamesStrings,
@@ -148,6 +152,7 @@ abstract class JsBridgeBase extends EventEmitter {
       if (this.sendAsString) {
         payloadToSend = JSON.stringify(payload);
       }
+      debugLogger.jsBridge('send', payloadToSend);
       // TODO sendPayload with function field and stringify?
       // TODO rename sendMessage
       this.sendPayload(payloadToSend as string);
@@ -167,6 +172,7 @@ abstract class JsBridgeBase extends EventEmitter {
       internal?: boolean;
     },
   ) {
+    debugLogger.jsBridge('receive', payloadReceived, sender);
     let payload: IJsBridgeMessagePayload = {
       data: null,
     };

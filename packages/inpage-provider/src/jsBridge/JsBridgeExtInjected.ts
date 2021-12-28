@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import {
   JS_BRIDGE_MESSAGE_DIRECTION,
   JS_BRIDGE_MESSAGE_EXT_CHANNEL,
@@ -45,8 +47,7 @@ class JsBridgeExtInjected extends JsBridgeBase {
           eventData.channel === JS_BRIDGE_MESSAGE_EXT_CHANNEL &&
           eventData.direction === JS_BRIDGE_MESSAGE_DIRECTION.HOST_TO_INPAGE
         ) {
-          console.log('event receive in site: ', eventData);
-          // TODO use window.$onekey
+          debugLogger.extInjected('window on message', eventData);
           window?.$onekey?.jsBridge?.receive(eventData.payload);
         }
       },

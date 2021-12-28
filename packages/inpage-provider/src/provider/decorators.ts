@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/restrict-template-expressions */
+
 const INTERNAL_METHOD_PREFIX = 'internal_';
 
 // TODO rename to backgroundMethod()
