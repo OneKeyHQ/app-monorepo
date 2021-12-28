@@ -3321,6 +3321,11 @@
   resolved "https://registry.yarnpkg.com/@stroncium/procfs/-/procfs-1.2.1.tgz#6b9be6fd20fb0a4c20e99a8695e083c699bb2b45"
   integrity sha512-X1Iui3FUNZP18EUvysTHxt+Avu2nlVzyf90YM8OYgP6SGzTzzX/0JgObfO1AQQDzuZtNNz29bVh8h5R97JrjxA==
 
+"@sushiswap/default-token-list@^20.17.0":
+  version "20.17.0"
+  resolved "https://registry.yarnpkg.com/@sushiswap/default-token-list/-/default-token-list-20.17.0.tgz#68e453e60c8a0f54d0ed91fd21daff7019e78785"
+  integrity sha512-5X1bpNktXB92kGbpueprhVxxWfHrZiXDU3bnS3iXOX3uAC8AHSBKb/R75MpTZHmri4XA3rKypEJbzmOGtjfAFQ==
+
 "@svgr/babel-plugin-add-jsx-attribute@^5.4.0":
   version "5.4.0"
   resolved "https://registry.yarnpkg.com/@svgr/babel-plugin-add-jsx-attribute/-/babel-plugin-add-jsx-attribute-5.4.0.tgz#81ef61947bb268eb9d50523446f9c638fb355906"

@@ -100,7 +100,7 @@ class FakeDB implements DBAPI {
           const networkIds = new Set(getNetworkIdsRequest.result);
           let position = networkIds.size;
           // TODO: also sync networks from remote.
-          presetNetworks.forEach((network) => {
+          Object.values(presetNetworks).forEach((network) => {
             if (networkIds.has(network.id)) {
               return;
             }
@@ -340,7 +340,7 @@ class FakeDB implements DBAPI {
     );
   }
 
-  getToken(tokenId: string): Promise<Token | null> {
+  getToken(tokenId: string): Promise<Token | undefined> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -352,7 +352,7 @@ class FakeDB implements DBAPI {
             if (typeof request.result !== 'undefined') {
               resolve(request.result);
             } else {
-              resolve(null);
+              resolve(undefined);
             }
           };
         }),

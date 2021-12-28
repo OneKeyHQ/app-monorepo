@@ -25,7 +25,7 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   const isPresetNetwork = networkIsPreset(dbNetwork.id);
   const presetRpcURLs = isPresetNetwork
-    ? (presetNetworks.get(dbNetwork.id) || { presetRpcURLs: [] }).presetRpcURLs
+    ? (presetNetworks[dbNetwork.id] || { presetRpcURLs: [] }).presetRpcURLs
     : [];
   return {
     ...dbNetwork,

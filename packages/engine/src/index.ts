@@ -16,6 +16,7 @@ import {
 } from './managers/network';
 import { fromDBWalletToWallet } from './managers/wallet';
 import {
+  getPresetToken,
   getPresetTokensOnNetwork,
   networkIsPreset,
   presetNetworks,
@@ -214,20 +215,16 @@ class Engine {
   private getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<Token | null> {
+  ): Promise<Token | undefined> {
     const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    return this.dbApi.getToken(tokenId).then((token: Token | null) => {
-      if (token === null) {
-        // TODO: get token info online, read other info from preset add it to db.
-        return this.dbApi.addToken({
-          id: tokenId,
-          name: 'TESTING',
-          networkId,
-          tokenIdOnNetwork,
-          symbol: 'TTT',
-          decimals: 18,
-          logoURI: '',
-        });
+    return this.dbApi.getToken(tokenId).then((token: Token | undefined) => {
+      if (typeof token === 'undefined') {
+        const toAdd: Token = getPresetToken(networkId, tokenIdOnNetwork);
+        // TODO: get token info online, assign to toAdd.
+        if (toAdd.decimals === -1) {
+          throw new NotImplemented(); // should be prevented by reading its info from rpc.
+        }
+        return this.dbApi.addToken(toAdd);
       }
       return token;
     });
@@ -247,7 +244,7 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<[BigNumber, Token] | null> {
+  ): Promise<[BigNumber, Token] | undefined> {
     // 1. find local token
     // 2. if not, find token online
     // 3. get token balance
@@ -255,9 +252,9 @@ class Engine {
     // TODO: checkout account and network is compatible.
     // TODO: logoURI?
     return this.getOrAddToken(networkId, tokenIdOnNetwork).then(
-      (token: Token | null) => {
-        if (token === null) {
-          return null;
+      (token: Token | undefined) => {
+        if (typeof token === 'undefined') {
+          return undefined;
         }
         return [new BigNumber(0), token];
         // TODO: get balance
@@ -386,7 +383,7 @@ class Engine {
   getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
     return this.dbApi.getNetwork(networkId).then((network: DBNetwork) => {
-      const { presetRpcURLs } = presetNetworks.get(networkId) || {
+      const { presetRpcURLs } = presetNetworks[networkId] || {
         presetRpcURLs: [],
       };
       return [network.rpcURL].concat(
