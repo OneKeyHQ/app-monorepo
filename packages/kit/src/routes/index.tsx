@@ -24,6 +24,7 @@ import NftCardGallery from '../views/Components/stories/NftCard';
 import PageActionsGallery from '../views/Components/stories/PageActions';
 import QRCodeGallery from '../views/Components/stories/QRCode';
 import RadioGallery from '../views/Components/stories/Radio';
+import RadioBoxGallery from '../views/Components/stories/RadioBox';
 import ReduxMessageGallery from '../views/Components/stories/ReduxMessage';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import SegmentedControl from '../views/Components/stories/SegmentedControl';
@@ -132,4 +133,5 @@ export const stackRoutes = [
   { name: 'Components/Tabs', component: TabsGallery },
   { name: 'Components/SegmentedControl', component: SegmentedControl },
   { name: 'Components/ReduxMessage', component: ReduxMessageGallery },
+  { name: 'Components/RadioBox', component: RadioBoxGallery },
 ];
