@@ -1,4 +1,8 @@
+/* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+
 import { PresetNetwork } from '../types/network';
+import { Token } from '../types/token';
 
 import _presetNetworks from './networks.json';
 
@@ -13,4 +17,9 @@ function networkIsPreset(networkId: string): boolean {
   return presetNetworks.has(networkId);
 }
 
-export { presetNetworks, networkIsPreset };
+function getPresetTokensOnNetwork(_networkId: string): Array<Token> {
+  // TODO
+  return [];
+}
+
+export { presetNetworks, networkIsPreset, getPresetTokensOnNetwork };
