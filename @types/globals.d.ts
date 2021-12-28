@@ -11,12 +11,15 @@ declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
 
+  var $onekey: WindowOneKeyHub;
   var $backgroundApiProxy: any;
   var $backgroundApi: any;
   var $$appStore: EnhancedStore;
   var $$appDispatch: any;
   var $$appSelector: any;
+  var $$appStorage: any;
   var $$platformEnv: any;
+  var $$debugLogger: any;
 
   interface Window {
     // All website
