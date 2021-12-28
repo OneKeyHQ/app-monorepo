@@ -9,8 +9,8 @@ import ReactDOM from 'react-dom';
 
 import inpageProviderUi from '@onekeyhq/inpage-provider/src/extension/ui';
 import {
-  IJsonRpcRequest,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';

@@ -3,9 +3,9 @@ import JsBridgeExtBackground from '@onekeyhq/inpage-provider/src/jsBridge/JsBrid
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
-  IJsonRpcRequest,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -102,8 +102,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async handleInternalMethods(payload: IJsBridgeMessagePayload): Promise<any> {
-    const { method, params } = (payload.data ??
-      {}) as IJsonRpcRequest;
+    const { method, params } = (payload.data ?? {}) as IJsonRpcRequest;
     const paramsArr = [].concat(params as any);
 
     /* eslint-disable  */
