@@ -1,3 +1,5 @@
+import * as utils from './utils';
+
 export { default as Account } from './Account';
 export { default as Address } from './Address';
 export { default as Alert } from './Alert';
@@ -55,3 +57,5 @@ export { default as ContentItemBox } from './ContentItemBox';
 export * from './Provider/hooks';
 
 export { useForm, Controller } from 'react-hook-form';
+
+export { utils };
