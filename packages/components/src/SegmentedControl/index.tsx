@@ -36,7 +36,6 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
   const activeBgColor = useThemeValue('surface-default');
   const bgColor = useThemeValue('surface-neutral-default');
   const shadowColor = useThemeValue('surface-default');
-
   const renderContent = useCallback<
     (i: SegmentedControlItem, active: boolean) => ReactNode
   >(({ label, iconProps = {}, iconName }, active) => {
@@ -64,7 +63,6 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
   return (
     <Box w="100%" {...containerProps}>
       <BaseSegmentedControl
-        {...rest}
         activeTintColor={activeBgColor}
         inactiveTintColor={bgColor}
         onChangeValue={onChange}
@@ -76,6 +74,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
           backgroundColor: activeBgColor,
           shadowColor,
         }}
+        {...rest}
       >
         {options.map((option) => (
           <Segment
