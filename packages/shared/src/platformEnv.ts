@@ -11,6 +11,7 @@ export type IPlatformEnv = {
   isExtensionBackground?: boolean;
   isExtensionUi?: boolean;
   isNative?: boolean;
+  isInjected?: boolean;
 
   isMAS?: boolean;
   isDev?: boolean;
@@ -26,6 +27,9 @@ export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
 export const isExtension = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'ext';
 
+export const isInjected = (): boolean =>
+  process.env.ONEKEY_BUILD_TYPE === 'injected';
+
 export const isExtensionBackground = (): boolean =>
   isExtension() &&
   !isBrowser() &&
@@ -38,6 +42,9 @@ export const isExtensionUi = (): boolean =>
   isBrowser() &&
   window.location.host === chrome.runtime.id &&
   window.location.pathname.startsWith('/ui-');
+
+// test by html filename
+// TODO isExtensionUiPopup, isExtensionUiStandaloneWindow, isExtensionUiExpandedTab
 
 export const isDesktop = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'desktop';
@@ -83,6 +90,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUi: isExtensionUi(),
   isExtensionBackground: isExtensionBackground(),
   isNative: isNative(),
+  isInjected: isInjected(),
 
   isMAS: isMAS(),
   isDev: isDev(),
