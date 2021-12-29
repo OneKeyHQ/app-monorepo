@@ -56,6 +56,7 @@ export { default as ContentItemBox } from './ContentItemBox';
 export { default as RadioBox } from './RadioBox';
 export { default as RadioBoxGroup } from './RadioBoxGroup';
 export { default as RadioFee } from './RadioFee';
+export { default as Spacer } from './Spacer';
 
 export * from './Provider/hooks';
 
