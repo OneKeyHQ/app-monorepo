@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Center, Column, Row } from 'native-base';
+import { Center, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
 
