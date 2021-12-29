@@ -20,6 +20,8 @@ export type IPlatformEnv = {
   isAndroid?: boolean;
 };
 
+export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
+
 export const isBrowser = (): boolean => typeof window !== 'undefined';
 
 export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';

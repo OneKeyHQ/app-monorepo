@@ -1,13 +1,16 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
 
-import { isDev, isInjected } from '../platformEnv';
+import { isDev, isInjected, isJest } from '../platformEnv';
 
 import createDebug from './debug/index.js';
 
 // TODO check debugLogger is ready, and wait to execute
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function noop(...args: any[]) {
+  if (isJest()) {
+    return;
+  }
   console.warn('debugLogger not ready yet, fallback to console.log()');
   console.log(...args);
 }
