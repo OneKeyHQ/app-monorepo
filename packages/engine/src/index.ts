@@ -9,11 +9,13 @@ import { NotImplemented, OneKeyInternalError } from './errors';
 import {
   fromDBAccountToAccount,
   getWatchingAccountToCreate,
+  isAccountCompatibleWithNetwork,
 } from './managers/account';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
 } from './managers/network';
+import { getNetworkIdFromTokenId } from './managers/token';
 import { fromDBWalletToWallet } from './managers/wallet';
 import {
   getPresetToken,
@@ -232,6 +234,16 @@ class Engine {
 
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
     // Add an token to account.
+    if (
+      !isAccountCompatibleWithNetwork(
+        accountId,
+        getNetworkIdFromTokenId(tokenId),
+      )
+    ) {
+      throw new OneKeyInternalError(
+        `Cannot add token ${tokenId} to account ${accountId}: incompatible.`,
+      );
+    }
     return this.dbApi.addTokenToAccount(accountId, tokenId);
   }
 
@@ -249,8 +261,12 @@ class Engine {
     // 2. if not, find token online
     // 3. get token balance
     // 4. return
-    // TODO: checkout account and network is compatible.
     // TODO: logoURI?
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      throw new OneKeyInternalError(
+        `account ${accountId} and network ${networkId} isn't compatible.`,
+      );
+    }
     return this.getOrAddToken(networkId, tokenIdOnNetwork).then(
       (token: Token | undefined) => {
         if (typeof token === 'undefined') {

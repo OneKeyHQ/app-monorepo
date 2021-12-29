@@ -432,7 +432,6 @@ class FakeDB implements DBAPI {
             .objectStore(TOKEN_STORE_NAME)
             .get(tokenId);
           getTokenRequest.onsuccess = (_gevent) => {
-            // TODO: check account & token has the same impl.
             if (typeof getTokenRequest.result === 'undefined') {
               return;
             }

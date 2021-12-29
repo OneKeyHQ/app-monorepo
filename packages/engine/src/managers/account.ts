@@ -1,4 +1,4 @@
-import { IMPL_EVM } from '../constants';
+import { IMPL_EVM, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import {
   ACCOUNT_TYPE_MULADDR,
@@ -8,6 +8,15 @@ import {
   DBMulAddrAccount,
   DBSimpleAccount,
 } from '../types/account';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '../types/wallet';
+
+import { isCoinTypeCompatibleWithImpl } from './impl';
+import { getImplFromNetworkId } from './network';
 
 function fromDBAccountToAccount(dbAccount: DBAccount): Account {
   const { type } = dbAccount;
@@ -56,4 +65,39 @@ function getWatchingAccountToCreate(
   };
 }
 
-export { fromDBAccountToAccount, getWatchingAccountToCreate };
+function getCoinTypeFromAccountId(accountId: string): string {
+  if (
+    accountId.startsWith(WALLET_TYPE_IMPORTED) ||
+    accountId.startsWith(WALLET_TYPE_WATCHING)
+  ) {
+    const [walletType, coinType, address] = accountId.split(SEPERATOR);
+    if (walletType && coinType && address) {
+      return coinType;
+    }
+  } else if (
+    accountId.startsWith(WALLET_TYPE_HD) ||
+    accountId.startsWith(WALLET_TYPE_HW)
+  ) {
+    const [walletId, path] = accountId.split(SEPERATOR);
+    if (walletId && path) {
+      const [master, purpose, coinType] = accountId.split(SEPERATOR);
+      if (master === 'm' && purpose && coinType.endsWith("'")) {
+        return coinType.slice(0, -1);
+      }
+    }
+  }
+  throw new OneKeyInternalError(`Invalid accountId ${accountId}.`);
+}
+
+function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
+  return isCoinTypeCompatibleWithImpl(
+    getCoinTypeFromAccountId(accountId),
+    getImplFromNetworkId(networkId),
+  );
+}
+
+export {
+  fromDBAccountToAccount,
+  getWatchingAccountToCreate,
+  isAccountCompatibleWithNetwork,
+};
