@@ -2,7 +2,7 @@ import React, { ComponentProps, FC } from 'react';
 
 import { Text } from 'native-base';
 
-type FontProps = ComponentProps<typeof Text>;
+export type FontProps = ComponentProps<typeof Text>;
 
 export const DisplayXLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',

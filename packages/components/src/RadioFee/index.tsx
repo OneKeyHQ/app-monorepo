@@ -1,8 +1,9 @@
 import React, { FC } from 'react';
 
 import Box from '../Box';
-import RadioBox, { RadioBoxProps } from '../RadioBox';
-import RadioBoxGroup, { RadioBoxGroupProps } from '../RadioBoxGroup';
+import RadioBox from '../RadioBox';
+import { RadioBoxProps } from '../RadioBox/RadioBox';
+import { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
 import Typography from '../Typography';
 
 export type RadioFeeItemProps = {
@@ -43,7 +44,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
       </RadioBox>,
     );
   });
-  return <RadioBoxGroup {...props}>{itemComponents}</RadioBoxGroup>;
+  return <RadioBox.Group {...props}>{itemComponents}</RadioBox.Group>;
 };
 
 export default RadioFee;

@@ -3,7 +3,8 @@ import React, { ComponentProps, FC } from 'react';
 import { IBoxProps, IRadioValue } from 'native-base';
 
 import Box from '../Box';
-import { RadioBoxProps } from '../RadioBox';
+
+import { RadioBoxProps } from './RadioBox';
 
 interface IRadioBoxGroupProps extends IBoxProps<RadioBoxGroupProps> {
   /**
@@ -45,7 +46,7 @@ const RadioBoxGroup: FC<RadioBoxGroupProps> = ({
   radioProps,
   ...props
 }) => (
-  <Box w="100%" flex={1} {...props} p={4}>
+  <Box w="full" flex={1} {...props} p={4}>
     {children &&
       children.map((child) => {
         const { value: childValue, children: childChildren } = child.props;

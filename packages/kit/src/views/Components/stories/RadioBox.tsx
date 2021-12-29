@@ -4,7 +4,6 @@ import {
   Box,
   Center,
   RadioBox,
-  RadioBoxGroup,
   RadioFee,
   ScrollView,
   Typography,
@@ -16,7 +15,7 @@ const RadioBoxGallery = () => {
     <ScrollView flex="1" bg="background-hovered">
       <Center>
         <Typography.Body1>Radio Box One</Typography.Body1>
-        <RadioBoxGroup
+        <RadioBox.Group
           defaultValue="1"
           name="group1"
           value={radioValue}
@@ -43,7 +42,7 @@ const RadioBoxGallery = () => {
             <Typography.Body1>3</Typography.Body1>
           </RadioBox>
           <RadioBox value="4" />
-        </RadioBoxGroup>
+        </RadioBox.Group>
 
         <Typography.Body1>Radio Box Two</Typography.Body1>
         <RadioFee
@@ -79,7 +78,7 @@ const RadioBoxGallery = () => {
         />
 
         <Typography.Body1>Radio Box Three</Typography.Body1>
-        <RadioBoxGroup
+        <RadioBox.Group
           defaultValue="1"
           name="group1"
           value={radioValue}
@@ -108,7 +107,7 @@ const RadioBoxGallery = () => {
           <RadioBox value="4">
             <Typography.Body1>4</Typography.Body1>
           </RadioBox>
-        </RadioBoxGroup>
+        </RadioBox.Group>
       </Center>
     </ScrollView>
   );

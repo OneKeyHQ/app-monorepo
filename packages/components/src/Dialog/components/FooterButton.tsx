@@ -3,7 +3,7 @@ import React, { ComponentProps, FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
-import Button from '../../Button';
+import Button, { ButtonSize } from '../../Button';
 
 export type OnCloseCallback = { onClose?: (() => void) | undefined };
 
@@ -12,6 +12,7 @@ export type FooterButtonProps = {
   secondaryActionTranslationId?: string;
   onPrimaryActionPress?: ({ onClose }: OnCloseCallback) => void;
   onSecondaryActionPress?: () => void;
+  buttonSize?: ButtonSize;
   hidePrimaryAction?: boolean;
   hideSecondaryAction?: boolean;
   primaryActionProps?: ComponentProps<typeof Button>;
@@ -25,18 +26,20 @@ const FooterButton: FC<FooterButtonProps> = ({
   onSecondaryActionPress,
   hidePrimaryAction,
   hideSecondaryAction,
+  buttonSize,
   primaryActionProps,
   secondaryActionProps,
 }) => {
   const intl = useIntl();
   return (
-    <Box flexDirection="row" w="100%">
+    <Box flexDirection="row" w="100%" mt={2}>
       {!hideSecondaryAction && (
         <Button
           flex="1"
           onPress={() => {
             onSecondaryActionPress?.();
           }}
+          size={secondaryActionProps?.size ?? buttonSize}
           {...secondaryActionProps}
         >
           {intl.formatMessage({
@@ -49,6 +52,7 @@ const FooterButton: FC<FooterButtonProps> = ({
         <Button
           flex={1}
           type="primary"
+          size={primaryActionProps?.size ?? buttonSize}
           {...primaryActionProps}
           onPress={() => onPrimaryActionPress?.({})}
         >

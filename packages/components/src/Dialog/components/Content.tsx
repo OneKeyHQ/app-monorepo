@@ -7,6 +7,7 @@ import {
   DialogIconTypeDanger,
   DialogIconTypeInfo,
 } from '../../Icon/react/solid';
+import { useUserDevice } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
 export type IconType = 'danger' | 'info';
@@ -41,19 +42,31 @@ const getIcon = (iconType: IconType) => {
   return !!icon && <Icon mb={4} as={icon} size={12} />;
 };
 
-const Content: FC<ContentProps> = ({ icon, iconType, title, content }) => (
-  <Box flexDirection="column" w="100%" alignItems="center" mb={4}>
-    {!!(icon || iconType) &&
-      (iconType ? getIcon(iconType) : <Box mb={4}>{icon}</Box>)}
-    {!!title && (
-      <Typography.Heading color="text-default">{title}</Typography.Heading>
-    )}
-    {!!content && (
-      <Typography.Body1 textAlign="center" color="text-subdued">
-        {content}
-      </Typography.Body1>
-    )}
-  </Box>
-);
+const Content: FC<ContentProps> = ({ icon, iconType, title, content }) => {
+  const { size } = useUserDevice();
+
+  return (
+    <Box flexDirection="column" w="100%" alignItems="center" mb={4}>
+      {!!(icon || iconType) &&
+        (iconType ? getIcon(iconType) : <Box mb={5}>{icon}</Box>)}
+      {!!title && ['SMALL', 'NORMAL'].includes(size) ? (
+        <Typography.DisplayMedium color="text-default">
+          {title}
+        </Typography.DisplayMedium>
+      ) : (
+        <Typography.Heading color="text-default">{title}</Typography.Heading>
+      )}
+      {!!content && ['SMALL', 'NORMAL'].includes(size) ? (
+        <Typography.Body1 textAlign="center" mt={2} color="text-subdued">
+          {content}
+        </Typography.Body1>
+      ) : (
+        <Typography.Body2 textAlign="center" mt={2} color="text-subdued">
+          {content}
+        </Typography.Body2>
+      )}
+    </Box>
+  );
+};
 
 export default Content;
