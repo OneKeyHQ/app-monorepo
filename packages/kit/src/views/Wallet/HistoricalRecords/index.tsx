@@ -191,7 +191,12 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
     );
 
   const renderHeader = () => (
-    <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      pb={4}
+    >
       <Typography.Heading>
         {intl.formatMessage({ id: 'transaction__history' })}
       </Typography.Heading>
