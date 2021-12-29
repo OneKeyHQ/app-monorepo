@@ -22,6 +22,12 @@ const TypographyGallery = () => (
     <Typography.Body1>Body1</Typography.Body1>
     <Typography.Body2>Body2</Typography.Body2>
     <Typography.Caption>Caption</Typography.Caption>
+    <Typography.Body1Strong>Body1Strong</Typography.Body1Strong>
+    <Typography.Body1Underline>Body1Underline</Typography.Body1Underline>
+    <Typography.Body2Strong>Body2Strong</Typography.Body2Strong>
+    <Typography.Body2Underline>Body2Underline</Typography.Body2Underline>
+    <Typography.CaptionStrong>CaptionStrong</Typography.CaptionStrong>
+    <Typography.CaptionUnderline>CaptionUnderline</Typography.CaptionUnderline>
   </Center>
 );
 
