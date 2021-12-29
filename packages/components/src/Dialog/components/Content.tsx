@@ -45,18 +45,20 @@ const getIcon = (iconType: IconType) => {
 const Content: FC<ContentProps> = ({ icon, iconType, title, content }) => {
   const { size } = useUserDevice();
 
+  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+
   return (
     <Box flexDirection="column" w="100%" alignItems="center" mb={4}>
       {!!(icon || iconType) &&
         (iconType ? getIcon(iconType) : <Box mb={5}>{icon}</Box>)}
-      {!!title && ['SMALL', 'NORMAL'].includes(size) ? (
+      {!!title && isSmallScreen ? (
         <Typography.DisplayMedium color="text-default">
           {title}
         </Typography.DisplayMedium>
       ) : (
         <Typography.Heading color="text-default">{title}</Typography.Heading>
       )}
-      {!!content && ['SMALL', 'NORMAL'].includes(size) ? (
+      {!!content && isSmallScreen ? (
         <Typography.Body1 textAlign="center" mt={2} color="text-subdued">
           {content}
         </Typography.Body1>

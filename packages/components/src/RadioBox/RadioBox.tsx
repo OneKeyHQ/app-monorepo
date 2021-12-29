@@ -2,7 +2,6 @@ import React, { ComponentProps, FC, useState } from 'react';
 
 import { IRadioValue } from 'native-base';
 
-import Box from '../Box';
 import Pressable from '../Pressable';
 
 export type RadioBoxProps = {
@@ -22,7 +21,7 @@ export type RadioBoxProps = {
    * 点击修改状态
    */
   onChange?: (value: IRadioValue) => void;
-} & ComponentProps<typeof Box>;
+} & ComponentProps<typeof Pressable>;
 
 const RadioBox: FC<RadioBoxProps> = ({
   value,

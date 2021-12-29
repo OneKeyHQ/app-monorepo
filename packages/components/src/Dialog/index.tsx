@@ -62,13 +62,6 @@ const Dialog: FC<DialogProps> = ({
     setInnerVisible((v) => !v);
   }, []);
 
-  const padding = useCallback(() => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
-      return 4;
-    }
-    return 6;
-  }, [size]);
-
   const buttonSize = useCallback((): ButtonSize => {
     if (['SMALL', 'NORMAL'].includes(size)) {
       return 'lg';
@@ -79,7 +72,7 @@ const Dialog: FC<DialogProps> = ({
   const container = useMemo(
     () => (
       <Modal
-        bg="backdrop"
+        bg="#00000066"
         animationPreset="fade"
         isOpen={!!visible}
         onClose={() => {
@@ -88,7 +81,8 @@ const Dialog: FC<DialogProps> = ({
         {...props}
       >
         <Box
-          p={padding()}
+          shadow="depth.5"
+          p={{ base: '4', lg: '6' }}
           w="100%"
           maxW="384px"
           alignSelf="center"
@@ -122,7 +116,6 @@ const Dialog: FC<DialogProps> = ({
     [
       visible,
       props,
-      padding,
       contentProps,
       footerButtonProps,
       buttonSize,

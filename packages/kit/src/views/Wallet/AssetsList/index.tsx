@@ -210,21 +210,23 @@ const AssetsList = () => {
   const { size } = useUserDevice();
   const intl = useIntl();
 
-  const renderItem = ({ item }: { item: AssetToken }) => (
-    <Pressable
-      p={4}
+  const renderItem = ({ item, index }: { item: AssetToken; index: number }) => (
+    <Pressable.Item
+      borderTopRadius={index === 0 ? '12px' : '0px'}
+      borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
       onPress={() => {
         console.log('Click Token : ', item.address);
       }}
     >
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token
+          size={8}
           address={item.address}
           chain={item.chainId.toString()}
           src={item.logoURI}
         />
         <Box ml={3} mr={3} flexDirection="column" flex={1}>
-          <Typography.Body1 fontWeight="600" color="text-default">
+          <Typography.Body1 fontWeight="bold" color="text-default">
             {item.amount}
           </Typography.Body1>
           <Typography.Body2 color="text-subdued">
@@ -233,15 +235,15 @@ const AssetsList = () => {
         </Box>
         {['LARGE', 'XLARGE'].includes(size) && (
           <Box ml={3} mr={20} flexDirection="row" flex={1}>
-            <Icon name="ActivityOutline" />
-            <Typography.Body1 ml={3} fontWeight="600" color="text-default">
+            <Icon size={20} name="ActivityOutline" />
+            <Typography.Body1 fontWeight="bold" ml={3} color="text-default">
               {item.fiatAmount}
             </Typography.Body1>
           </Box>
         )}
         <Icon size={20} name="ChevronRightOutline" />
       </Box>
-    </Pressable>
+    </Pressable.Item>
   );
 
   return (
@@ -251,13 +253,13 @@ const AssetsList = () => {
         justifyContent="space-between"
         alignItems="center"
       >
-        <Typography.DisplayXLarge>
+        <Typography.Heading>
           {intl.formatMessage({ id: 'asset__tokens' })}
-        </Typography.DisplayXLarge>
+        </Typography.Heading>
         <ManageToken
           trigger={
-            <Pressable p={1}>
-              <Icon name="AdjustmentsOutline" />
+            <Pressable p={1.5}>
+              <Icon size={20} name="AdjustmentsSolid" />
             </Pressable>
           }
         />

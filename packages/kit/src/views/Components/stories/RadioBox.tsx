@@ -53,6 +53,7 @@ const RadioBoxGallery = () => {
               titleSecond: '30 sec',
               describe: '64.61 GWEI',
               describeSecond: 'Max Fee: 127 GWEI',
+              isDisabled: true,
             },
             {
               value: '2',

@@ -160,8 +160,8 @@ const CheckBox: FC<CheckBoxProps> = ({
           }}
         >
           <Typography.Body2
-            selectable={false}
             fontWeight="bold"
+            selectable={false}
             color={titleColor}
           >
             {title}

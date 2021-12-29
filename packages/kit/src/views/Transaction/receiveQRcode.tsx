@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 
 import { Center, Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -10,15 +10,35 @@ import {
   Dialog,
   Icon,
   QRCode,
+  Toast,
   Typography,
   useThemeValue,
+  useToast,
 } from '@onekeyhq/components';
+
+import { copyToClipboard } from '../../utils/ClipboardUtils';
 
 const ReceiveQRcode = ({ ...rest }) => {
   const { trigger } = rest;
   const borderColor = useThemeValue('border-subdued');
   const bgColor = useThemeValue('surface-subdued');
   const intl = useIntl();
+  const toast = useToast();
+  const toastIdRef = useRef<string>();
+
+  const showToast = useCallback(
+    (msg: string) => {
+      toastIdRef.current = toast.show({
+        render: () => <Toast title={msg} status="success" dismiss />,
+      }) as string;
+    },
+    [toast],
+  );
+
+  const copyAddressToClipboard = () => {
+    copyToClipboard('0x41f28833Be34e6EDe3c58D1f597bef429861c4E2');
+    showToast(intl.formatMessage({ id: 'msg__copied' }));
+  };
 
   return (
     <Dialog trigger={trigger}>
@@ -47,7 +67,7 @@ const ReceiveQRcode = ({ ...rest }) => {
           </Typography.Body2>
         </Center>
 
-        <TouchableOpacity onPress={() => {}}>
+        <TouchableOpacity onPress={copyAddressToClipboard}>
           <Row mt="12px" space="12px" padding="10px">
             <Icon name="DuplicateSolid" />
             <Typography.Button1 textAlign="center">

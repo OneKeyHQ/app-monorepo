@@ -116,8 +116,8 @@ const Radio: FC<RadioProps> = ({
       {!!(description || title) && (
         <Pressable display="flex" flex={1}>
           <Typography.Body2
-            selectable={false}
             fontWeight="bold"
+            selectable={false}
             color={titleColor}
             h="5"
           >
