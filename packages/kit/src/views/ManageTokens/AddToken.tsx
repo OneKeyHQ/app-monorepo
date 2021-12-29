@@ -37,7 +37,6 @@ const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
     <Modal visible={visible} onClose={onClose} header="Add Token">
       <Box>
         <Box
-          flex="1"
           flexDirection="column"
           alignItems="center"
           justifyContent="center"
@@ -53,7 +52,7 @@ const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
           bg="surface-default"
           borderRadius="12"
           mt="3"
-          // mb="3"
+          mb="3"
           data={items}
           renderItem={renderItem}
           ItemSeparatorComponent={() => <Divider />}
