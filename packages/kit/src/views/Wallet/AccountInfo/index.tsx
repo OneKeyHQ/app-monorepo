@@ -10,6 +10,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 
+import ReceiveQRcode from '../../Transaction/receiveQRcode';
 import Transaction from '../../Transaction/transaction';
 
 const AccountInfo = () => {
@@ -46,14 +47,18 @@ const AccountInfo = () => {
             </Button>
           }
         />
-        <Button
-          ml={4}
-          leftIcon={<Icon name="ArrowSmDownOutline" />}
-          minW="126px"
-          type="basic"
-        >
-          {intl.formatMessage({ id: 'action__receive' })}
-        </Button>
+        <ReceiveQRcode
+          trigger={
+            <Button
+              ml={4}
+              leftIcon={<Icon name="ArrowSmDownOutline" />}
+              minW="126px"
+              type="basic"
+            >
+              {intl.formatMessage({ id: 'action__receive' })}
+            </Button>
+          }
+        />
       </Box>
     ),
     [intl],

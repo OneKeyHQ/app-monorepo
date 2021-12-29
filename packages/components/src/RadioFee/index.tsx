@@ -24,8 +24,6 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
       <RadioBox
         value={item.value}
         flexDirection="row"
-        flex={1}
-        w="100%"
         justifyContent="space-between"
       >
         <Box alignItems="flex-start">

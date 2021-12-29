@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { Column, Row, Toast } from 'native-base';
+import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,9 +9,11 @@ import {
   Divider,
   Form,
   Modal,
+  RadioFee,
   SegmentedControl,
   Typography,
   useForm,
+  useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
 
@@ -26,73 +28,106 @@ const TransactionEditFee = ({ ...rest }) => {
   const { trigger } = rest;
   const intl = useIntl();
   const [segmentValue, setSegmentValue] = useState('1');
+  const [radioValue, setValue] = useState('1');
+
   const SelectFee = () => (
-    <Box>
-      <Typography.Body1>1111</Typography.Body1>
+    <Box pt="24px">
+      <RadioFee
+        padding="0px"
+        items={[
+          {
+            value: '1',
+            title: 'Fast',
+            titleSecond: '30 sec',
+            describe: '64.61 GWEI',
+            describeSecond: 'Max Fee: 127 GWEI',
+          },
+          {
+            value: '2',
+            title: 'Normal',
+            titleSecond: '5 min',
+            describe: '64.61 GWEI',
+            describeSecond: 'Max Fee: 127 GWEI',
+          },
+          {
+            value: '3',
+            title: 'Slow',
+            titleSecond: '10 min',
+            describe: '64.61 GWEI',
+            describeSecond: 'Max Fee: 127 GWEI',
+          },
+        ]}
+        defaultValue="1"
+        name="group1"
+        value={radioValue}
+        onChange={(value) => {
+          setValue(value);
+        }}
+      />
     </Box>
   );
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const { control, handleSubmit } = useForm<FeeValues>();
   const onSubmit = handleSubmit((data) => {
-    Toast.show({ title: 'data' });
-
     console.log(data);
   });
   const CustomFee = () => (
-    <Form>
-      <Form.Item
-        label={`${intl.formatMessage({
-          id: 'content__max_priority_fee',
-        })}(Gwei)`}
-        control={control}
-        name="maxPriorityFee"
-        defaultValue=""
-        rules={{
-          required: intl.formatMessage({
-            id: 'form__max_priority_fee_invalid_min',
-          }),
-        }}
-      >
-        <Form.Input w="100%" rightText="0.12USD" />
-      </Form.Item>
-      <Box h="24px" />
-      <Form.Item
-        label={`${intl.formatMessage({ id: 'content__max_fee' })}(Gwei)`}
-        control={control}
-        name="maxFee"
-        defaultValue=""
-        rules={{
-          required: intl.formatMessage({
-            id: 'form__max_fee_invalid_too_low',
-          }),
-        }}
-      >
-        <Form.Input w="100%" rightText="0.12USD" />
-      </Form.Item>
-      <Box h="24px" />
-      <Form.Item
-        label={intl.formatMessage({ id: 'content__gas_limit' })}
-        control={control}
-        name="gasLimit"
-        defaultValue=""
-      >
-        <Form.Input w="100%" />
-      </Form.Item>
-      <Box h="24px" />
-      <Form.Item
-        label={`${intl.formatMessage({ id: 'content__base_fee' })}(Gwei)`}
-        control={control}
-        name="baseFee"
-        defaultValue="62"
-        rules={{
-          required: intl.formatMessage({
-            id: 'form__gas_limit_invalid_min',
-          }),
-        }}
-      >
-        <Form.Input w="100%" rightText="0.12USD" />
-      </Form.Item>
-    </Form>
+    <Box pt="32px">
+      <Form>
+        <Form.Item
+          label={`${intl.formatMessage({
+            id: 'content__max_priority_fee',
+          })}(Gwei)`}
+          control={control}
+          name="maxPriorityFee"
+          defaultValue=""
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__max_priority_fee_invalid_min',
+            }),
+          }}
+        >
+          <Form.Input w="100%" rightText="0.12USD" />
+        </Form.Item>
+        <Box h="24px" />
+        <Form.Item
+          label={`${intl.formatMessage({ id: 'content__max_fee' })}(Gwei)`}
+          control={control}
+          name="maxFee"
+          defaultValue=""
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__max_fee_invalid_too_low',
+            }),
+          }}
+        >
+          <Form.Input w="100%" rightText="0.12USD" />
+        </Form.Item>
+        <Box h="24px" />
+        <Form.Item
+          label={intl.formatMessage({ id: 'content__gas_limit' })}
+          control={control}
+          name="gasLimit"
+          defaultValue=""
+        >
+          <Form.Input w="100%" />
+        </Form.Item>
+        <Box h="24px" />
+        <Form.Item
+          label={`${intl.formatMessage({ id: 'content__base_fee' })}(Gwei)`}
+          control={control}
+          name="baseFee"
+          defaultValue="62"
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__gas_limit_invalid_min',
+            }),
+          }}
+        >
+          <Form.Input w="100%" rightText="0.12USD" />
+        </Form.Item>
+      </Form>
+    </Box>
   );
 
   const saveButton = () =>
@@ -115,6 +150,7 @@ const TransactionEditFee = ({ ...rest }) => {
         </Typography.Body1Strong>
       </Button>
     );
+  const bgColor = useThemeValue('surface-neutral-default');
 
   return (
     <Modal
@@ -138,6 +174,10 @@ const TransactionEditFee = ({ ...rest }) => {
     >
       <Column flex="1">
         <SegmentedControl
+          style={{
+            height: '36px',
+            backgroundColor: bgColor,
+          }}
           containerProps={{
             width: '100%',
           }}
@@ -156,7 +196,7 @@ const TransactionEditFee = ({ ...rest }) => {
             setSegmentValue(value);
           }}
         />
-        <Box height={isSmallScreen ? '100%' : '500px'} pt="32px">
+        <Box height={isSmallScreen ? '100%' : '500px'}>
           {segmentValue === '1' ? SelectFee() : CustomFee()}
         </Box>
       </Column>
