@@ -1,5 +1,7 @@
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Dialog,
@@ -52,6 +54,7 @@ const mylist: IToken[] = [
 
 type TokensModalProps = { trigger?: ReactElement<any> };
 const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
+  const intl = useIntl();
   const [keyword, setKeyword] = useState<string>('');
   const [token, setToken] = useState<IToken>();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -133,9 +136,18 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
       />
     ) : (
       <Empty
-        title="No Result"
-        subTitle="The token you searched for was not found"
-        actionTitle="Add Custom Token"
+        title={intl.formatMessage({
+          id: 'content__no_results',
+          defaultMessage: 'No Result',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'content__no_results_desc',
+          defaultMessage: 'The token you searched for was not found',
+        })}
+        actionTitle={intl.formatMessage({
+          id: 'action__add_custom_tokens',
+          defaultMessage: 'Add Custom Token',
+        })}
         handleAction={() => {}}
       />
     );
@@ -143,7 +155,12 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
     contentView = (
       <Box>
         <Box>
-          <Typography.Heading>MY TOKENS</Typography.Heading>
+          <Typography.Heading>
+            {intl.formatMessage({
+              id: 'form__my_tokens',
+              defaultMessage: 'MY TOKENS',
+            })}
+          </Typography.Heading>
           <FlatList
             bg="surface-default"
             borderRadius="12"
@@ -157,7 +174,12 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
           />
         </Box>
         <Box>
-          <Typography.Heading>TOP 50 TOKENS</Typography.Heading>
+          <Typography.Heading>
+            {intl.formatMessage({
+              id: 'form__top_50_tokens',
+              defaultMessage: 'TOP 50 TOKENS',
+            })}
+          </Typography.Heading>
           <FlatList
             bg="surface-default"
             borderRadius="12"
@@ -176,13 +198,22 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
             onClose={() => setToken(undefined)}
             footerButtonProps={{
               onPrimaryActionPress: () => setToken(undefined),
+              primaryActionTranslationId: 'action__delete',
+              primaryActionProps: { type: 'destructive' },
             }}
             contentProps={{
               iconType: 'danger',
-              title: 'Delete this token?',
-              content: `${token?.name ?? 'Token'} (${
-                token?.symbol ?? ''
-              }) will be removed from my tokens`,
+              title: intl.formatMessage({
+                id: 'modal__delete_this_token',
+                defaultMessage: 'Delete this token?',
+              }),
+              content: intl.formatMessage(
+                {
+                  id: 'modal__delete_this_token_desc',
+                  defaultMessage: '{token} will be removed from my tokens',
+                },
+                { token: token?.name },
+              ),
             }}
           />
         </Box>
@@ -194,16 +225,24 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
     <>
       <Modal
         trigger={trigger}
-        header="Manage Tokens"
+        header={intl.formatMessage({
+          id: 'title__manage_tokens',
+          defaultMessage: 'Manage Tokens',
+        })}
         hideSecondaryAction
         onPrimaryActionPress={() => {
           setShowAddCustomModal(true);
         }}
+        primaryActionTranslationId="action__add_custom_tokens"
+        primaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
       >
         <Flex>
           <Searchbar
             w="full"
-            placeholder="Search Tokens"
+            placeholder={intl.formatMessage({
+              id: 'form__search_tokens',
+              defaultMessage: 'Search Tokens',
+            })}
             mb="6"
             value={keyword}
             onClear={() => setKeyword('')}

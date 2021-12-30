@@ -57,6 +57,7 @@ export { default as RadioBox } from './RadioBox';
 export { default as RadioBoxGroup } from './RadioBoxGroup';
 export { default as RadioFee } from './RadioFee';
 export { default as Spacer } from './Spacer';
+export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 
 export * from './Provider/hooks';
 
