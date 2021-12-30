@@ -191,16 +191,16 @@ console.log('------- webpackConfig', {
   devtool: webpackConfig.devtool,
 });
 // process.exit(1);
-
-devUtils.writePreviewWebpackConfigJson(
-  webpackConfig,
-  'webpack.config.preview.json',
-);
 devUtils.cleanWebpackDebugFields(webpackConfig);
 
 webpackConfig = webpackTools.normalizeConfig({
   platform: 'ext',
   config: webpackConfig,
 });
+
+devUtils.writePreviewWebpackConfigJson(
+  webpackConfig,
+  'webpack.config.preview.json',
+);
 
 module.exports = webpackConfig;

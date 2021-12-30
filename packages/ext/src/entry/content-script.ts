@@ -8,7 +8,10 @@ import devToolsButton from '../content-script/devToolsButton';
 console.log('[OneKey RN]: Content script works! 222');
 console.log('   Must reload extension for modifications to take effect.');
 
-if (process.env.NODE_ENV !== 'production') {
+if (
+  process.env.NODE_ENV !== 'production' &&
+  process.env.EXT_INJECT_RELOAD_BUTTON
+) {
   devToolsButton.inject();
 }
 
