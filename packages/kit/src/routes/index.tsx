@@ -29,6 +29,7 @@ import ReduxMessageGallery from '../views/Components/stories/ReduxMessage';
 import SearchbarGallery from '../views/Components/stories/Searchbar';
 import SegmentedControl from '../views/Components/stories/SegmentedControl';
 import SelectGallery from '../views/Components/stories/Select';
+import ShadowsGallery from '../views/Components/stories/Shadows';
 import SortableListGallery from '../views/Components/stories/SortableList';
 import SpinnerGallery from '../views/Components/stories/Spinner';
 import SwitchGallery from '../views/Components/stories/Switch';
@@ -130,6 +131,7 @@ export const stackRoutes = [
   { name: 'Components/Dialog', component: DialogGallery },
   { name: 'Components/PageActions', component: PageActionsGallery },
   { name: 'Components/SortableList', component: SortableListGallery },
+  { name: 'Components/Shadows', component: ShadowsGallery },
   { name: 'Components/Tabs', component: TabsGallery },
   { name: 'Components/SegmentedControl', component: SegmentedControl },
   { name: 'Components/ReduxMessage', component: ReduxMessageGallery },

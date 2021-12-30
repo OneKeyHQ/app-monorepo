@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 
 import ManageToken from '../../ManageTokens';
+import { defaultCipherList } from 'constants';
 
 export type AssetToken = {
   chainId: number;
