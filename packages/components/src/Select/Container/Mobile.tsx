@@ -55,7 +55,8 @@ function Mobile<T>({
         {...dropdownProps}
       >
         <Box
-          p="4"
+          py="3"
+          px="4"
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
@@ -63,7 +64,7 @@ function Mobile<T>({
         >
           <Typography.Heading>{title}</Typography.Heading>
           <Pressable onPress={toggleVisible}>
-            <Icon name="CloseOutline" size={16} />
+            <Icon name="CloseOutline" size={24} />
           </Pressable>
         </Box>
         <Divider />
