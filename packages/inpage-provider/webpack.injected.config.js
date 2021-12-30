@@ -15,7 +15,10 @@ module.exports = {
     injectedExtension: './src/injected/injectedExtension.tsx',
   },
   output: {
-    // libraryTarget: 'umd' // Fix: "Uncaught ReferenceError: exports is not defined".
+    library: {
+      // Fix: "Uncaught ReferenceError: exports is not defined".
+      type: 'umd',
+    },
     path: path.resolve(__dirname, 'src/injected-autogen'),
     filename: '[name].text.js',
   },
