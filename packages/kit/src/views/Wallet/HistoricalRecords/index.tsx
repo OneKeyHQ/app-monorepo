@@ -176,15 +176,23 @@ const HistoricalRecords = () => {
   }: {
     section: { title: string; data: Transaction[] };
   }) => (
-    <Box pb={2} pt={5} flexDirection="row" alignItems="center">
-      <Typography.Subheading color="text-subdued">
-        {title}
-      </Typography.Subheading>
-      {data[0] != null && data[0].state === 'pending' && (
-        <Box ml={3}>
-          <Badge title={data.length.toString()} type="Default" size="sm" />
-        </Box>
-      )}
+    <Box pt={3} flexDirection="row">
+      <Box
+        bg="background-default"
+        borderRadius="8px"
+        flexDirection="row"
+        alignItems="center"
+        p={2}
+      >
+        <Typography.Subheading color="text-subdued">
+          {title}
+        </Typography.Subheading>
+        {data[0] != null && data[0].state === 'pending' && (
+          <Box ml={3}>
+            <Badge title={data.length.toString()} type="Default" size="sm" />
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 

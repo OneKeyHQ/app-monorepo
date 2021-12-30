@@ -2,8 +2,6 @@ import React, { FC, useState } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
-import Box from '../Box';
-
 export type PressableItemProps = React.ComponentProps<typeof NBPressable>;
 
 const PressableItem: FC<PressableItemProps> = ({ children, ...props }) => {
