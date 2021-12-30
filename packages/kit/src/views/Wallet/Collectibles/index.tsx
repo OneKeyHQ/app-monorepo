@@ -70,7 +70,7 @@ const Collectibles = ({ route }: { route: ScrollRoute }) => {
   }, [collectibleModalConfig]);
 
   return (
-    <Box flex={1} p={4}>
+    <Box flex={1} p={4} pb={0}>
       <CollectibleGallery
         index={tabPageIndex}
         collectibles={collectibles}

@@ -41,9 +41,8 @@ const CollectibleList: FC<CollectibleListProps> = ({
     item,
     index: itemIndex,
   }) => (
-    <Pressable
+    <Pressable.Item
       p={4}
-      bgColor="surface-default"
       borderTopRadius={itemIndex === 0 ? '12px' : '0px'}
       borderRadius={itemIndex === collectibles.length - 1 ? '12px' : '0px'}
       onPress={() => onPressItem(item)}
@@ -55,16 +54,16 @@ const CollectibleList: FC<CollectibleListProps> = ({
             {item.collection.name}
           </Typography.Body1>
         </Box>
-        <HStack space={2}>
+        <HStack space={3}>
           <Badge
             type="Default"
             title={item.assets.length.toString()}
             size="sm"
           />
-          <Icon name="ChevronRightOutline" />
+          <Icon size={20} name="ChevronRightSolid" />
         </HStack>
       </HStack>
-    </Pressable>
+    </Pressable.Item>
   );
 
   return (
@@ -75,6 +74,7 @@ const CollectibleList: FC<CollectibleListProps> = ({
       ListEmptyComponent={renderEmpty}
       ListHeaderComponent={renderHeader}
       ItemSeparatorComponent={Divider}
+      ListFooterComponent={() => <Box h="20px" />}
       data={collectibles}
       extraData={collectibles}
       style={{
@@ -90,8 +90,8 @@ type CollectibleSection = { title: string; data: [Collectible] };
 type CollectibleGridProps = {
   index: number;
   collectibleSections: CollectibleSection[];
-  renderHeader: ScrollableSectionListProps<Asset>['ListHeaderComponent'];
-  renderEmpty: ScrollableSectionListProps<Asset>['ListEmptyComponent'];
+  renderHeader: ScrollableSectionListProps<Collectible>['ListHeaderComponent'];
+  renderEmpty: ScrollableSectionListProps<Collectible>['ListEmptyComponent'];
   onPressItem: (item: SelectedAsset) => void;
 };
 
@@ -105,56 +105,59 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
   collectibleSections,
   onPressItem,
 }) => {
-  const renderItem = ({
+  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
+
+  const renderItem: ScrollableSectionListProps<Collectible>['renderItem'] = ({
     item: col,
-  }: {
-    item: CollectibleSection['data'][number];
   }) => (
     <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
-      {col.assets.map((asset) => (
-        <NftCard
-          key={
-            asset.id ??
-            stringAppend(col.collection.name, asset.name, asset.tokenId)
-          }
-          image={asset.imageUrl}
-          title={asset.name}
-          w={{ sm: '45%', md: '177px', base: '173px' }}
-          minW={['auto', '177px']}
-          maxH="222px"
-          mb={4}
-          mr={4}
-          borderColor="background-default"
-          onPress={() =>
-            onPressItem({
-              ...asset,
-              chain: col.chain,
-              contractAddress: col.contract.address,
-            })
-          }
-        />
-      ))}
+      {col.assets.map((asset, itemIndex) => {
+        const marginRight = isSmallScreen && !(itemIndex % 2 === 0) ? 0 : 4;
+
+        return (
+          <NftCard
+            key={
+              asset.id ??
+              stringAppend(col.collection.name, asset.name, asset.tokenId)
+            }
+            image={asset.imageUrl}
+            title={asset.name}
+            mr={marginRight}
+            mb={4}
+            borderColor="background-default"
+            onPress={() =>
+              onPressItem({
+                ...asset,
+                chain: col.chain,
+                contractAddress: col.contract.address,
+              })
+            }
+          />
+        );
+      })}
     </HStack>
   );
 
-  const renderSectionHeader = (({
-    section: {
-      data: [col],
-      title,
-    },
-  }: {
-    // eslint-disable-next-line react/no-unused-prop-types
-    section: { data: [Collectible]; title: string };
-  }) => (
-    <HStack space={3} py={2} alignItems="center">
-      <Typography.Subheading color="text-subdued">
-        {title}
-      </Typography.Subheading>
-      {!!col.assets?.length && (
-        <Badge type="Default" title={col.assets.length.toString()} size="sm" />
-      )}
-    </HStack>
-  )) as ScrollableSectionListProps<Collectible>['renderSectionHeader'];
+  const renderSectionHeader: ScrollableSectionListProps<Collectible>['renderSectionHeader'] =
+    ({
+      section: {
+        data: [col],
+        title,
+      },
+    }) => (
+      <HStack space={3} py={2} pb={2} alignItems="center">
+        <Typography.Subheading color="text-subdued">
+          {title}
+        </Typography.Subheading>
+        {!!col.assets?.length && (
+          <Badge
+            type="Default"
+            title={col.assets.length.toString()}
+            size="sm"
+          />
+        )}
+      </HStack>
+    );
 
   return (
     <ScrollableSectionList
@@ -164,8 +167,9 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListEmptyComponent={renderEmpty}
-      ItemSeparatorComponent={() => <Divider />}
       ListHeaderComponent={renderHeader}
+      ListFooterComponent={() => <Box h="20px" />}
+      ItemSeparatorComponent={() => <Divider />}
       keyExtractor={(item: Collectible, index) =>
         String(item.id ?? item.collection.name ?? index)
       }

@@ -191,12 +191,7 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
     );
 
   const renderHeader = () => (
-    <Box
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      pb={4}
-    >
+    <Box flexDirection="row" justifyContent="space-between" alignItems="center">
       <Typography.Heading>
         {intl.formatMessage({ id: 'transaction__history' })}
       </Typography.Heading>
@@ -235,6 +230,7 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
           renderSectionHeader={renderSectionHeader}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
+          ListFooterComponent={() => <Box h="20px" />}
           ItemSeparatorComponent={() => <Divider />}
           keyExtractor={(_, index: number) => index.toString()}
           showsVerticalScrollIndicator={false}

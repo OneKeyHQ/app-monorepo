@@ -39,7 +39,7 @@ const AccountInfo = () => {
         <Transaction
           trigger={
             <Button
-              leftIcon={<Icon name="ArrowSmUpSolid" />}
+              leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
               minW="126px"
               type="basic"
             >
@@ -51,7 +51,7 @@ const AccountInfo = () => {
           trigger={
             <Button
               ml={4}
-              leftIcon={<Icon name="ArrowSmDownSolid" />}
+              leftIcon={<Icon size={20} name="ArrowSmDownSolid" />}
               minW="126px"
               type="basic"
             >

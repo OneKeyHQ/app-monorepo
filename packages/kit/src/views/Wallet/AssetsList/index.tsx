@@ -219,7 +219,6 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
   }) => (
     <Pressable.Item
       p={4}
-      bgColor="surface-default"
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
       onPress={() => {
@@ -249,7 +248,7 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
             </Typography.Body1>
           </Box>
         )}
-        <Icon size={20} name="ChevronRightOutline" />
+        <Icon size={20} name="ChevronRightSolid" />
       </Box>
     </Pressable.Item>
   );
@@ -265,6 +264,7 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
+            pb={4}
           >
             <Typography.Heading>
               {intl.formatMessage({ id: 'asset__tokens' })}

@@ -4,7 +4,7 @@ import React from 'react';
 import { HeaderTabViewContainer, SceneMap } from '@onekeyhq/components';
 
 import AccountInfo from '../../Wallet/AccountInfo';
-import AssetsList from '../../Wallet/AccountList';
+import AssetsList from '../../Wallet/AssetsList';
 import Collectibles from '../../Wallet/Collectibles';
 import HistoricalRecord from '../../Wallet/HistoricalRecords';
 
