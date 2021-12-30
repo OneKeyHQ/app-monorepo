@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
-import { Box, Button, HStack, Select, VStack } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Center,
+  HStack,
+  Select,
+  VStack,
+} from '@onekeyhq/components';
 import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types';
 import InpageProviderWebView from '@onekeyhq/inpage-provider/src/webview/InpageProviderWebView';
 import useWebViewBridge from '@onekeyhq/inpage-provider/src/webview/useWebViewBridge';
@@ -10,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 // TODO remove: ui should use walletApi by backgroundApiProxy
 import walletApi from '../../background/instance/walletApi';
+import extUtils from '../../utils/extUtils';
 
 const { isDesktop, isExtension } = platformEnv;
 
@@ -21,10 +29,12 @@ const srcList = [
 
 function WebView({
   src,
+  openUrlInExt = false,
   showDemoActions = false,
   showWalletActions = false,
 }: {
   src: string;
+  openUrlInExt?: boolean;
   showDemoActions?: boolean;
   showWalletActions?: boolean;
 }): JSX.Element {
@@ -65,6 +75,15 @@ function WebView({
   }, [jsBridge]);
 
   const showActionsAndDemoPanel = showWalletActions || showDemoActions;
+
+  if (!platformEnv.isExtensionUiExpandTab && openUrlInExt) {
+    return (
+      <Center flex={1}>
+        <Button onPress={() => extUtils.openUrl(src)}>Open</Button>
+      </Center>
+    );
+  }
+
   return (
     <Box flex={1}>
       {showActionsAndDemoPanel && (

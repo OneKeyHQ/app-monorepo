@@ -14,6 +14,8 @@ function createHtmlPlugin({ name }) {
 
 const pluginsHtml = [
   'ui-popup', // main ui
+  'ui-expand-tab',
+  'ui-standalone-window',
   'ui-content-script-iframe', // allow site load iframe html force service-worker update
   // 'ui-options',
   // 'ui-newtab',
