@@ -27,14 +27,20 @@ const ContentItem: FC<ContentItemProps> = ({
       justifyContent="space-between"
       alignItems="center"
     >
-      <Typography.Body1 color="text-subdued">{title}</Typography.Body1>
+      <Typography.Body1 h="100%" color="text-subdued">
+        {title}
+      </Typography.Body1>
       <Box flex={1} ml={3} flexDirection="column" alignItems="flex-end">
         {!!children && children}
         {!!value && (
-          <Typography.Body1 color="text-default">{value}</Typography.Body1>
+          <Typography.Body1 color="text-default" textAlign="right">
+            {value}
+          </Typography.Body1>
         )}
         {!!describe && (
-          <Typography.Body2 color="text-subdued">{describe}</Typography.Body2>
+          <Typography.Body2 color="text-subdued" textAlign="right">
+            {describe}
+          </Typography.Body2>
         )}
       </Box>
     </Box>

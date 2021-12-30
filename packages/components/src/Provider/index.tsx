@@ -71,6 +71,60 @@ const Provider: FC<UIProviderProps> = ({
     () =>
       extendTheme({
         colors: COLORS[themeVariant],
+        shadows: {
+          depth: {
+            1: {
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 1,
+              },
+              shadowOpacity: 0.05,
+              shadowRadius: 1.0,
+              elevation: 1,
+            },
+            2: {
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 1,
+              },
+              shadowOpacity: 0.15,
+              shadowRadius: 2.0,
+              elevation: 2,
+            },
+            3: {
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 2,
+              },
+              shadowOpacity: 0.1,
+              shadowRadius: 10.0,
+              elevation: 4,
+            },
+            4: {
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 4,
+              },
+              shadowOpacity: 0.15,
+              shadowRadius: 20.0,
+              elevation: 8,
+            },
+            5: {
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 8,
+              },
+              shadowOpacity: 0.2,
+              shadowRadius: 40.0,
+              elevation: 16,
+            },
+          },
+        },
       }),
     [themeVariant],
   );

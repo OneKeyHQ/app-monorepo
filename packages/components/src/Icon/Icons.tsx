@@ -10,9 +10,6 @@ import StarBadgeIllus from "./react/illus/StarBadge";
 import TxStatusFailureCircleIllus from "./react/illus/TxStatusFailureCircle";
 import TxStatusSuccessCircleIllus from "./react/illus/TxStatusSuccessCircle";
 import TxStatusWarningCircleIllus from "./react/illus/TxStatusWarningCircle";
-import TxTypeApproveCircleIllus from "./react/illus/TxTypeApproveCircle";
-import TxTypeReceiveCircleIllus from "./react/illus/TxTypeReceiveCircle";
-import TxTypeSendCircleIllus from "./react/illus/TxTypeSendCircle";
 import AcademicCapOutline from "./react/outline/AcademicCap";
 import ActivityOutline from "./react/outline/Activity";
 import AdjustmentsOutline from "./react/outline/Adjustments";
@@ -431,6 +428,7 @@ import RssSolid from "./react/solid/Rss";
 import SaveSolid from "./react/solid/Save";
 import SaveAsSolid from "./react/solid/SaveAs";
 import ScaleSolid from "./react/solid/Scale";
+import ScanSolid from "./react/solid/Scan";
 import ScissorsSolid from "./react/solid/Scissors";
 import SearchSolid from "./react/solid/Search";
 import SearchCircleSolid from "./react/solid/SearchCircle";
@@ -483,7 +481,6 @@ import VolumeUpSolid from "./react/solid/VolumeUp";
 import WifiSolid from "./react/solid/Wifi";
 import ZoomInSolid from "./react/solid/ZoomIn";
 import ZoomOutSolid from "./react/solid/ZoomOut";
-import ScanSolid from "./react/solid/Scan";
 
 export type ICON_NAMES =
   | "BrandLogoIllus"
@@ -496,9 +493,6 @@ export type ICON_NAMES =
   | "TxStatusFailureCircleIllus"
   | "TxStatusSuccessCircleIllus"
   | "TxStatusWarningCircleIllus"
-  | "TxTypeApproveCircleIllus"
-  | "TxTypeReceiveCircleIllus"
-  | "TxTypeSendCircleIllus"
   | "AcademicCapOutline"
   | "ActivityOutline"
   | "AdjustmentsOutline"
@@ -982,9 +976,6 @@ export default {
   TxStatusFailureCircleIllus: TxStatusFailureCircleIllus,
   TxStatusSuccessCircleIllus: TxStatusSuccessCircleIllus,
   TxStatusWarningCircleIllus: TxStatusWarningCircleIllus,
-  TxTypeApproveCircleIllus: TxTypeApproveCircleIllus,
-  TxTypeReceiveCircleIllus: TxTypeReceiveCircleIllus,
-  TxTypeSendCircleIllus: TxTypeSendCircleIllus,
   AcademicCapOutline: AcademicCapOutline,
   ActivityOutline: ActivityOutline,
   AdjustmentsOutline: AdjustmentsOutline,
