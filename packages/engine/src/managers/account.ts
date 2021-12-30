@@ -1,5 +1,9 @@
+import BigNumber from 'bignumber.js';
+
+import { BaseClient } from '@onekeyhq/blockchain-libs/dist/provider/abc';
+
 import { IMPL_EVM, SEPERATOR } from '../constants';
-import { OneKeyInternalError } from '../errors';
+import { NotImplemented, OneKeyInternalError } from '../errors';
 import {
   ACCOUNT_TYPE_MULADDR,
   ACCOUNT_TYPE_SIMPLE,
@@ -50,7 +54,6 @@ function getWatchingAccountToCreate(
   target: string,
   name?: string,
 ): DBAccount {
-  // TODO: check target is valid
   if (impl !== IMPL_EVM) {
     throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
   }
@@ -96,8 +99,42 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   );
 }
 
+function getAccountBalance(
+  client: BaseClient,
+  address: string,
+  tokenIds: Array<string>,
+  withMain = true,
+): Promise<Array<BigNumber | undefined>> {
+  const requests = (withMain ? [{ address, coin: {} }] : []).concat(
+    tokenIds.map((tokenId) => ({ address, coin: { tokenAddress: tokenId } })),
+  );
+  return client.getBalances(requests);
+}
+
+function getDBAccountBalance(
+  client: BaseClient,
+  dbAccount: DBAccount | undefined,
+  tokenIds: Array<string>,
+  withMain = true,
+): Promise<Array<BigNumber | undefined>> {
+  if (typeof dbAccount === 'undefined') {
+    throw new OneKeyInternalError(`Account not found.`);
+  }
+  if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+    throw new NotImplemented();
+  }
+  return getAccountBalance(
+    client,
+    (dbAccount as DBSimpleAccount).address,
+    tokenIds,
+    withMain,
+  );
+}
+
 export {
   fromDBAccountToAccount,
   getWatchingAccountToCreate,
   isAccountCompatibleWithNetwork,
+  getAccountBalance,
+  getDBAccountBalance,
 };
