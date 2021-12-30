@@ -76,13 +76,15 @@ const Networks: FC<NetworksProps> = ({ opened, onClose }) => {
         onClose={onPrepareClose}
         footer={<ModalFooter editable={editable} onToggle={onToggle} />}
       >
-        {children}
+        <>
+          {children}
+          <DiscardAlert
+            visible={alertOpened}
+            onConfirm={onCloseModal}
+            onClose={onCloseAlert}
+          />
+        </>
       </Modal>
-      <DiscardAlert
-        visible={alertOpened}
-        onConfirm={onCloseModal}
-        onClose={onCloseAlert}
-      />
     </>
   );
 };
