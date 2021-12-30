@@ -47,7 +47,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://assets.coingecko.com/coins/images/12409/thumb/amp-200x200.png?1599625397',
     'amount': '9999999.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '99.11 USD',
   },
   {
     'name': 'Aragon Network Token',
@@ -58,7 +58,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x960b236A07cf122663c4303350609A66A7B288C0/logo.png',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '999.11 USD',
   },
   {
     'name': 'Balancer',
@@ -69,7 +69,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xba100000625a3754423978a60c9317c58a424e3D/logo.png',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '9999.11 USD',
   },
   {
     'chainId': 1,
@@ -80,7 +80,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://assets.coingecko.com/coins/images/9545/thumb/band-protocol.png?1568730326',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '99999.11 USD',
   },
   {
     'name': 'Bancor Network Token',
@@ -91,7 +91,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C/logo.png',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '9999999.11 USD',
   },
   {
     'name': 'Compound',
@@ -102,7 +102,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xc00e94Cb662C3520282E6f5717214004A7f26888/logo.png',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '999999999.11 USD',
   },
   {
     'name': 'Curve DAO Token',
@@ -147,7 +147,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://assets.coingecko.com/coins/images/849/thumb/district0x.png?1547223762',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '99999999.11 USD',
   },
   {
     'chainId': 1,
@@ -158,7 +158,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://assets.coingecko.com/coins/images/19785/thumb/acatxTm8_400x400.jpg?1635850140',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '999999.11 USD',
   },
   {
     'name': 'Gnosis Token',
@@ -169,7 +169,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x6810e776880C02933D47DB1b9fc05908e5386b96/logo.png',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '99999.11 USD',
   },
   {
     'chainId': 1,
@@ -180,7 +180,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://assets.coingecko.com/coins/images/13397/thumb/Graph_Token.png?1608145566',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '9999.11 USD',
   },
   {
     'chainId': 1,
@@ -191,7 +191,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://assets.coingecko.com/coins/images/3373/thumb/IuNzUb5b_400x400.jpg?1589526336',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '999.11 USD',
   },
   {
     'name': 'Kyber Network Crystal',
@@ -202,7 +202,7 @@ const TOKEN_DATA: AssetToken[] = [
     'logoURI':
       'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdd974D5C2e2928deA5F71b9825b8b646686BD200/logo.png',
     'amount': '0.0000000123 ETH',
-    fiatAmount: '999999999999.11 USD',
+    fiatAmount: '99.11 USD',
   },
 ];
 
@@ -224,7 +224,7 @@ const AssetsList = () => {
           src={item.logoURI}
         />
         <Box ml={3} mr={3} flexDirection="column" flex={1}>
-          <Typography.Body1 color="text-default">
+          <Typography.Body1 fontWeight="600" color="text-default">
             {item.amount}
           </Typography.Body1>
           <Typography.Body2 color="text-subdued">
@@ -232,14 +232,14 @@ const AssetsList = () => {
           </Typography.Body2>
         </Box>
         {['LARGE', 'XLARGE'].includes(size) && (
-          <Box ml={3} mr={3} flexDirection="row" flex={1}>
+          <Box ml={3} mr={20} flexDirection="row" flex={1}>
             <Icon name="ActivityOutline" />
-            <Typography.Body1 ml={3} color="text-default">
+            <Typography.Body1 ml={3} fontWeight="600" color="text-default">
               {item.fiatAmount}
             </Typography.Body1>
           </Box>
         )}
-        <Icon name="ChevronRightOutline" />
+        <Icon size={20} name="ChevronRightOutline" />
       </Box>
     </Pressable>
   );

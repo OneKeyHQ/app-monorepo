@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import {
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord, {
   Transaction,
+  getTransactionStatusStr,
 } from '../../Components/transactionRecord';
 import TransactionDetails from '../../TransactionDetails';
 
@@ -36,7 +37,7 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
     state: 'pending',
     'chainId': 1,
     'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
+    'amount': 10001.0000000001,
     'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
     'date': new Date(1640064397 * 1000),
     confirmed: 0,
@@ -56,7 +57,7 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
     state: 'success',
     'chainId': 1,
     'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
+    'amount': 9999910001.000000099991,
     'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
     'date': new Date(1634793997 * 1000),
     confirmed: 123,
@@ -128,7 +129,7 @@ const HistoricalRecords = () => {
         if (_current.state === 'pending') {
           key = 'QUEUE';
         } else {
-          key = formatMonth(_current.date);
+          key = formatMonth(_current.date).toUpperCase();
         }
 
         let dateGroup = _pre.find((x) => x.title === key);
@@ -142,6 +143,11 @@ const HistoricalRecords = () => {
       [],
     );
   };
+
+  useEffect(() => {
+    setTransactionRecords(handleData(TRANSACTION_RECORDS_DATA));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const renderItem = ({
     item,
@@ -171,7 +177,7 @@ const HistoricalRecords = () => {
   }: {
     section: { title: string; data: Transaction[] };
   }) => (
-    <Box pb={2} pt={2} flexDirection="row" alignItems="center">
+    <Box pb={2} pt={5} flexDirection="row" alignItems="center">
       <Typography.Subheading color="text-subdued">
         {title}
       </Typography.Subheading>
@@ -189,10 +195,6 @@ const HistoricalRecords = () => {
         icon={<Icon name="DatabaseOutline" size={48} />}
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({ id: 'transaction__history_empty_desc' })}
-        actionTitle={intl.formatMessage({ id: 'action__reset' })}
-        handleAction={() => {
-          setTransactionRecords(handleData(TRANSACTION_RECORDS_DATA));
-        }}
       />
     </Box>
   );
@@ -217,7 +219,6 @@ const HistoricalRecords = () => {
         </Pressable>
       </Box>
       <SectionList
-        mt={3}
         mb={3}
         sections={transactionRecords}
         renderItem={renderItem}
@@ -231,7 +232,7 @@ const HistoricalRecords = () => {
       />
       <Modal
         footer={<Box />}
-        header={detailsInfo?.state}
+        header={getTransactionStatusStr(intl, detailsInfo?.state)}
         visible={detailsVisible}
         onClose={() => setDetailsVisible(false)}
       >
