@@ -70,8 +70,9 @@ const Networks: FC<NetworksProps> = ({ opened, onClose }) => {
 
   return (
     <>
+      {children}
       <Modal
-        visible={opened}
+        visible={false && opened}
         header={intl.formatMessage({ id: 'action__customize_network' })}
         onClose={onPrepareClose}
         footer={<ModalFooter editable={editable} onToggle={onToggle} />}

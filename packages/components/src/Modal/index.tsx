@@ -9,14 +9,17 @@ import React, {
   useState,
 } from 'react';
 
+import Box from '../Box';
 import Button from '../Button';
+import FlatList from '../FlatList';
 import { useUserDevice } from '../Provider/hooks';
+import ScrollView from '../ScrollView';
+import SectionList from '../SectionList';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
 export type ModalProps = {
-  // TODO: translation id
   header?: string;
   trigger?: ReactElement<any>;
   visible?: boolean;
@@ -32,6 +35,10 @@ export type ModalProps = {
   footer?: ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
+  scrollViewProps?: ComponentProps<typeof ScrollView>;
+  flatListProps?: ComponentProps<typeof FlatList>;
+  sectionListProps?: ComponentProps<typeof SectionList>;
+  staticChildrenProps?: ComponentProps<typeof Box>;
 };
 
 const defaultProps = {
@@ -42,6 +49,10 @@ const Modal: FC<ModalProps> = ({
   trigger,
   visible: outerVisible,
   onClose,
+  sectionListProps,
+  flatListProps,
+  scrollViewProps,
+  staticChildrenProps,
   ...rest
 }) => {
   const { size } = useUserDevice();
@@ -61,13 +72,51 @@ const Modal: FC<ModalProps> = ({
     setInnerVisible((v) => !v);
   }, []);
 
-  const modalContainer = useMemo(() => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
-      return <Mobile visible={visible} onClose={handleClose} {...rest} />;
+  const modalContent = useMemo(() => {
+    if (sectionListProps) {
+      return <SectionList {...sectionListProps} />;
     }
 
-    return <Desktop visible={visible} onClose={handleClose} {...rest} />;
-  }, [size, visible, handleClose, rest]);
+    if (flatListProps) {
+      return <FlatList {...flatListProps} />;
+    }
+
+    if (scrollViewProps) {
+      return <ScrollView {...scrollViewProps} />;
+    }
+
+    if (staticChildrenProps) {
+      return <Box {...staticChildrenProps}>{rest.children}</Box>;
+    }
+
+    return (
+      <Box p="6" flex="1">
+        {rest.children}
+      </Box>
+    );
+  }, [
+    sectionListProps,
+    flatListProps,
+    scrollViewProps,
+    staticChildrenProps,
+    rest.children,
+  ]);
+
+  const modalContainer = useMemo(() => {
+    if (['SMALL', 'NORMAL'].includes(size)) {
+      return (
+        <Mobile visible={visible} onClose={handleClose} {...rest}>
+          {modalContent}
+        </Mobile>
+      );
+    }
+
+    return (
+      <Desktop visible={visible} onClose={handleClose} {...rest}>
+        {modalContent}
+      </Desktop>
+    );
+  }, [size, visible, handleClose, rest, modalContent]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;

@@ -10,8 +10,8 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 
-import ReceiveQRcode from '../../Transaction/receiveQRcode';
-import Transaction from '../../Transaction/transaction';
+// import ReceiveQRcode from '../../Transaction/receiveQRcode';
+// import Transaction from '../../Transaction/transaction';
 
 const AccountInfo = () => {
   const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
@@ -35,30 +35,23 @@ const AccountInfo = () => {
 
   const accountOption = useMemo(
     () => (
-      <Box flexDirection="row" my={8} justifyContent="center">
-        <Transaction
-          trigger={
-            <Button
-              leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
-              minW="126px"
-              type="basic"
-            >
-              {intl.formatMessage({ id: 'action__send' })}
-            </Button>
-          }
-        />
-        <ReceiveQRcode
-          trigger={
-            <Button
-              ml={4}
-              leftIcon={<Icon size={20} name="ArrowSmDownSolid" />}
-              minW="126px"
-              type="basic"
-            >
-              {intl.formatMessage({ id: 'action__receive' })}
-            </Button>
-          }
-        />
+      <Box flexDirection="row" mt={8} justifyContent="center">
+        <Button
+          leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
+          minW="126px"
+          type="basic"
+        >
+          {intl.formatMessage({ id: 'action__send' })}
+        </Button>
+
+        <Button
+          ml={4}
+          leftIcon={<Icon name="ArrowSmDownSolid" />}
+          minW="126px"
+          type="basic"
+        >
+          {intl.formatMessage({ id: 'action__receive' })}
+        </Button>
       </Box>
     ),
     [intl],

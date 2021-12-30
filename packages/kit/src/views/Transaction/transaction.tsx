@@ -69,6 +69,7 @@ const Transaction = ({ ...rest }) => {
   const { control, handleSubmit } = useForm<TransactionValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
   const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { trigger } = rest;
   const renderSelecterItem = (asset: AssetType) => (
     <Row space="12px">
@@ -87,7 +88,7 @@ const Transaction = ({ ...rest }) => {
       hidePrimaryAction
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
-      trigger={trigger}
+      visible={false}
       footer={
         <Column>
           <Divider />

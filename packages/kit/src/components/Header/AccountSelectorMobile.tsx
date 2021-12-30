@@ -41,7 +41,7 @@ const AccountSelectorMobile: FC<ChildDropdownProps> = ({
         flexDirection="row"
         pt={`${top}px`}
       >
-        <AccountSelectorChildren />
+        <AccountSelectorChildren handleToggleVisible={handleToggleVisible} />
       </Box>
     </Modal>
   );

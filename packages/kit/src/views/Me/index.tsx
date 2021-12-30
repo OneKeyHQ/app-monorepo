@@ -12,11 +12,19 @@ import {
   useLocale,
   useTheme,
 } from '@onekeyhq/components';
+import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  StackRoutesParams,
+  StackBasicRoutes.Developer
+>;
 
 const Me = () => {
   const { setThemeVariant, themeVariant } = useTheme();
   const { locale, setLocale } = useLocale();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   return (
     <Box flex="1" p="4">
       <VStack space="3">
@@ -69,7 +77,7 @@ const Me = () => {
           flexDirection="row"
           alignItems="center"
           justifyContent="space-between"
-          onPress={() => navigation.navigate('Dev' as any)}
+          onPress={() => navigation.navigate(StackBasicRoutes.Developer)}
         >
           <Typography.Body1>development</Typography.Body1>
           <Icon name="ChevronRightOutline" size={12} />

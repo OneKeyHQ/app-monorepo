@@ -4,14 +4,13 @@ import { Box, Select, useUserDevice } from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
 
-import ManageNetworks from '../../views/ManageNetworks';
-
 const ChainSelector: FC = () => {
   const { size } = useUserDevice();
   const isHorizontal = ['LARGE', 'XLARGE'].includes(size);
 
   const dispatch = useAppDispatch();
   const activeChainId = useAppSelector((s) => s.chain.chainId);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [opened, setOpened] = useState(false);
 
   const handleActiveChainChange = useCallback(
@@ -86,7 +85,7 @@ const ChainSelector: FC = () => {
         footerIcon="PencilOutline"
         onPressFooter={() => setOpened(true)}
       />
-      <ManageNetworks opened={opened} onClose={() => setOpened(false)} />
+      {/* <ManageNetworks opened={opened} onClose={() => setOpened(false)} /> */}
     </Box>
   );
 };
