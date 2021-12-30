@@ -5,15 +5,17 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Divider,
-  FlatList,
   Icon,
   Pressable,
+  ScrollableFlatList,
+  ScrollableFlatListProps,
   Token,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
 
 import ManageToken from '../../ManageTokens';
+import { ScrollRoute } from '../type';
 
 export type AssetToken = {
   chainId: number;
@@ -206,12 +208,18 @@ const TOKEN_DATA: AssetToken[] = [
   },
 ];
 
-const AssetsList = () => {
+const AssetsList = ({ route }: { route: ScrollRoute }) => {
   const { size } = useUserDevice();
+  const { index: tabPageIndex } = route;
   const intl = useIntl();
 
-  const renderItem = ({ item, index }: { item: AssetToken; index: number }) => (
+  const renderItem: ScrollableFlatListProps<AssetToken>['renderItem'] = ({
+    item,
+    index,
+  }) => (
     <Pressable.Item
+      p={4}
+      bgColor="surface-default"
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
       onPress={() => {
@@ -248,31 +256,30 @@ const AssetsList = () => {
 
   return (
     <Box flex={1} pt={4} pr={4} pl={4}>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__tokens' })}
-        </Typography.Heading>
-        <ManageToken
-          trigger={
-            <Pressable p={1.5}>
-              <Icon size={20} name="AdjustmentsSolid" />
-            </Pressable>
-          }
-        />
-      </Box>
-
-      <FlatList
-        bg="surface-default"
-        borderRadius="12px"
-        mt={3}
-        mb={3}
+      <ScrollableFlatList
+        index={tabPageIndex}
         data={TOKEN_DATA}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <Divider />}
+        ListHeaderComponent={() => (
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'asset__tokens' })}
+            </Typography.Heading>
+            <ManageToken
+              trigger={
+                <Pressable p={1.5}>
+                  <Icon size={20} name="AdjustmentsSolid" />
+                </Pressable>
+              }
+            />
+          </Box>
+        )}
+        ItemSeparatorComponent={Divider}
+        ListFooterComponent={() => <Box h="20px" />}
         keyExtractor={(_item: AssetToken, index: number) => index.toString()}
         extraData={size}
         showsVerticalScrollIndicator={false}

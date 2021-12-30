@@ -14,10 +14,10 @@ import ReceiveQRcode from '../../Transaction/receiveQRcode';
 import Transaction from '../../Transaction/transaction';
 
 const AccountInfo = () => {
-  const { size: accountInfoSize } = useUserDevice();
+  const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const intl = useIntl();
 
-  const AccountAmountInfo = useCallback(
+  const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
       <Box alignItems={isCenter ? 'center' : 'flex-start'} mt={8}>
         <Typography.Subheading color="text-subdued">
@@ -33,9 +33,9 @@ const AccountInfo = () => {
     [intl],
   );
 
-  const AccountOption = useCallback(
+  const accountOption = useMemo(
     () => (
-      <Box flexDirection="row" mt={8} justifyContent="center">
+      <Box flexDirection="row" my={8} justifyContent="center">
         <Transaction
           trigger={
             <Button
@@ -65,11 +65,11 @@ const AccountInfo = () => {
   );
 
   return useMemo(() => {
-    if (['SMALL', 'NORMAL'].includes(accountInfoSize)) {
+    if (isSmallView) {
       return (
-        <Box w="100%" flexDirection="column">
-          {AccountAmountInfo(true)}
-          {AccountOption()}
+        <Box w="100%" flexDirection="column" bgColor="background-default">
+          {renderAccountAmountInfo(true)}
+          {accountOption}
         </Box>
       );
     }
@@ -80,12 +80,13 @@ const AccountInfo = () => {
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
+        bgColor="background-default"
       >
-        <Box>{AccountAmountInfo(false)}</Box>
-        <Box>{AccountOption()}</Box>
+        <Box>{renderAccountAmountInfo(false)}</Box>
+        <Box>{accountOption}</Box>
       </Box>
     );
-  }, [AccountAmountInfo, AccountOption, accountInfoSize]);
+  }, [isSmallView, renderAccountAmountInfo, accountOption]);
 };
 
 export default AccountInfo;
