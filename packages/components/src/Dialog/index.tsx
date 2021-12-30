@@ -8,9 +8,11 @@ import React, {
   useState,
 } from 'react';
 
-import Modal from 'react-native-modal';
+import { Modal } from 'native-base';
 
 import Box from '../Box';
+import { ButtonSize } from '../Button';
+import { useUserDevice } from '../Provider/hooks';
 
 import DialogCommon from './components';
 
@@ -43,6 +45,7 @@ const Dialog: FC<DialogProps> = ({
   onClose,
   ...props
 }) => {
+  const { size } = useUserDevice();
   const [innerVisible, setInnerVisible] = useState(false);
   const visible = outerVisible ?? innerVisible;
 
@@ -59,25 +62,29 @@ const Dialog: FC<DialogProps> = ({
     setInnerVisible((v) => !v);
   }, []);
 
+  const buttonSize = useCallback((): ButtonSize => {
+    if (['SMALL', 'NORMAL'].includes(size)) {
+      return 'lg';
+    }
+    return 'base';
+  }, [size]);
+
   const container = useMemo(
     () => (
       <Modal
-        useNativeDriver
-        propagateSwipe
-        hideModalContentWhileAnimating
-        isVisible={!!visible}
-        swipeDirection={['down']}
-        onBackdropPress={() => {
+        bg="#00000066"
+        animationPreset="fade"
+        isOpen={!!visible}
+        onClose={() => {
           if (canceledOnTouchOutside) handleClose();
         }}
-        animationIn="zoomIn"
-        animationOut="zoomOut"
         {...props}
       >
         <Box
-          p="16px"
+          shadow="depth.5"
+          p={{ base: '4', lg: '6' }}
           w="100%"
-          maxW="560px"
+          maxW="384px"
           alignSelf="center"
           borderRadius="24px"
           bg="surface-subdued"
@@ -90,6 +97,7 @@ const Dialog: FC<DialogProps> = ({
               {(!footerButtonProps?.hidePrimaryAction ||
                 !footerButtonProps?.hideSecondaryAction) && (
                 <DialogCommon.FooterButton
+                  buttonSize={buttonSize()}
                   {...footerButtonProps}
                   onSecondaryActionPress={() => {
                     handleClose();
@@ -110,6 +118,7 @@ const Dialog: FC<DialogProps> = ({
       props,
       contentProps,
       footerButtonProps,
+      buttonSize,
       canceledOnTouchOutside,
       handleClose,
       onClose,

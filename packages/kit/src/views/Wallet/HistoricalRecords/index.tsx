@@ -84,7 +84,7 @@ const TRANSACTION_RECORDS_DATA: Transaction[] = [
     'amount': 10001,
     'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
     'date': new Date(1634793997 * 1000),
-    confirmed: 123,
+    confirmed: 1,
     approveInfo: {
       url: 'swap.onekey.so',
       token: 'WBTC',
@@ -158,8 +158,7 @@ const HistoricalRecords = () => {
     index: number;
     section: { data: [] };
   }) => (
-    <Pressable
-      bg="surface-default"
+    <Pressable.Item
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       onPress={() => {
@@ -169,7 +168,7 @@ const HistoricalRecords = () => {
       }}
     >
       <TransactionRecord transaction={item} />
-    </Pressable>
+    </Pressable.Item>
   );
 
   const renderSectionHeader = ({
@@ -177,15 +176,23 @@ const HistoricalRecords = () => {
   }: {
     section: { title: string; data: Transaction[] };
   }) => (
-    <Box pb={2} pt={5} flexDirection="row" alignItems="center">
-      <Typography.Subheading color="text-subdued">
-        {title}
-      </Typography.Subheading>
-      {data[0] != null && data[0].state === 'pending' && (
-        <Box ml={3}>
-          <Badge title={data.length.toString()} type="Default" size="sm" />
-        </Box>
-      )}
+    <Box pt={3} flexDirection="row">
+      <Box
+        bg="background-default"
+        borderRadius="8px"
+        flexDirection="row"
+        alignItems="center"
+        p={2}
+      >
+        <Typography.Subheading color="text-subdued">
+          {title}
+        </Typography.Subheading>
+        {data[0] != null && data[0].state === 'pending' && (
+          <Box ml={3}>
+            <Badge title={data.length.toString()} type="Default" size="sm" />
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 
@@ -206,16 +213,16 @@ const HistoricalRecords = () => {
         justifyContent="space-between"
         alignItems="center"
       >
-        <Typography.DisplayXLarge>
+        <Typography.Heading>
           {intl.formatMessage({ id: 'transaction__history' })}
-        </Typography.DisplayXLarge>
+        </Typography.Heading>
         <Pressable
-          p={1}
+          p={1.5}
           onPress={() => {
             console.log('Click Jump block browser');
           }}
         >
-          <Icon name="ExternalLinkOutline" />
+          <Icon size={20} name="ExternalLinkSolid" />
         </Pressable>
       </Box>
       <SectionList

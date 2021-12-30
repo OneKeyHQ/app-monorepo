@@ -68,9 +68,9 @@ const Switch: FC<SwitchProps> = ({
     >
       {labelType !== 'false' && (
         <Typography.Body2
+          fontWeight="bold"
           mr={3}
           ml={3}
-          fontWeight="bold"
           color={isDisabled ? 'text-disabled' : 'text-default'}
         >
           {label}

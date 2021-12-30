@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Box, SceneMap, TabView, useUserDevice } from '@onekeyhq/components';
 
 import AccountInfo from './AccountInfo';
-import AssetsList from './AccountList';
+import AssetsList from './AssetsList';
 import Collectibles from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
