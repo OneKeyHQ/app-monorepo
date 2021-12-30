@@ -4,7 +4,6 @@ import {
   Box,
   Center,
   Divider,
-  Flex,
   Icon,
   Image,
   Modal,
@@ -80,7 +79,7 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
             {!!asset.traits?.length && (
               <VStack space={3}>
                 <Typography.Heading>Attributes</Typography.Heading>
-                <Flex direction="row" wrap="wrap">
+                <Box display="flex" flexDirection="row" flexWrap="wrap">
                   {asset.traits.map((trait) => (
                     <Box
                       px="3"
@@ -94,18 +93,17 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                       <Typography.Body2>{trait.value}</Typography.Body2>
                     </Box>
                   ))}
-                </Flex>
+                </Box>
               </VStack>
             )}
 
             <VStack>
               <Typography.Heading>Details</Typography.Heading>
               <VStack divider={<Divider />}>
-                <Flex
+                <Box
                   display="inline-flex"
-                  direction="row"
-                  align="start"
-                  justify="space-between"
+                  flexDirection="row"
+                  justifyContent="space-between"
                   py="4"
                 >
                   <Typography.Body1
@@ -123,13 +121,12 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                   >
                     {asset.tokenId}
                   </Typography.Body1>
-                </Flex>
+                </Box>
                 {!!asset.chain && (
-                  <Flex
+                  <Box
                     display="inline-flex"
-                    direction="row"
-                    align="start"
-                    justify="space-between"
+                    flexDirection="row"
+                    justifyContent="space-between"
                     py="4"
                   >
                     <Typography.Body1
@@ -148,14 +145,13 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                     >
                       {asset.chain}
                     </Typography.Body1>
-                  </Flex>
+                  </Box>
                 )}
                 {!!asset.contractAddress && (
-                  <Flex
+                  <Box
                     display="inline-flex"
-                    direction="row"
-                    align="start"
-                    justify="space-between"
+                    flexDirection="row"
+                    justifyContent="space-between"
                     py="4"
                   >
                     <Typography.Body1
@@ -174,7 +170,7 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                     >
                       {asset.contractAddress}
                     </Typography.Body1>
-                  </Flex>
+                  </Box>
                 )}
               </VStack>
             </VStack>

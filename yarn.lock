@@ -8867,10 +8867,12 @@ expo-barcode-scanner@^11.2.0:
     "@expo/config-plugins" "^4.0.2"
     expo-image-loader "~3.1.0"
 
-expo-clipboard@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/expo-clipboard/-/expo-clipboard-2.1.0.tgz#33e32ca453cdc2e3da8ccecc86b197da554c3387"
-  integrity sha512-wJLATd1roEUsatx+GNREBtS8g5vkPWS/0jsLoaPTDVjBVib7RgavaMHj5Wob430qujg+leQmnhPViFk1BXzLYw==
+expo-clipboard@2.0.3:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/expo-clipboard/-/expo-clipboard-2.0.3.tgz#4f2b1f441a26c45e77e218506256ab0cebf58d62"
+  integrity sha512-fcv9rUFoKSMWknL4wJnln+DGnPQdYKYjILap58k9MPsywZ5Gp2PRI17oqMVyM9r/yIhsr5PKUsSGGIjvxUBYrA==
+  dependencies:
+    expo-modules-core "~0.4.4"
 
 expo-constants@~12.1.3:
   version "12.1.3"

@@ -8,6 +8,8 @@ PODS:
     - ExpoModulesCore
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
+  - EXClipboard (2.0.3):
+    - ExpoModulesCore
   - EXConstants (12.1.3):
     - ExpoModulesCore
   - EXFileSystem (13.0.3):
@@ -404,6 +406,7 @@ DEPENDENCIES:
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
+  - EXClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
@@ -475,6 +478,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-application/ios"
   EXBarCodeScanner:
     :path: "../../../node_modules/expo-barcode-scanner/ios"
+  EXClipboard:
+    :path: "../../../node_modules/expo-clipboard/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
   EXFileSystem:
@@ -591,6 +596,7 @@ SPEC CHECKSUMS:
   DoubleConversion: cf9b38bf0b2d048436d9a82ad2abe1404f11e7de
   EXApplication: 0e15240e4d125b62f1cae48759ffbbd32b9286a6
   EXBarCodeScanner: 7deeeb35f396ce9a13434a75b581c19fc2564205
+  EXClipboard: ead52260683fc856e58f5cc70f5ea5999bb9c049
   EXConstants: 6d585d93723b18d7a8c283591a335609e3bc153e
   EXFileSystem: 99aac7962c11c680681819dd9cbca24e20e5b1e7
   EXFont: 2e1c6fe726d008a039db80df95f48b4921b7fe59
@@ -610,7 +616,7 @@ SPEC CHECKSUMS:
   EXUpdates: 061b67c33f0e7f8fd335bbb48697c4a4fc8a5157
   EXUpdatesInterface: e1c01b4f5ec76bd1d6cc714938f9edf5ef6379b9
   FBLazyVector: c71c5917ec0ad2de41d5d06a5855f6d5eda06971
-  FBReactNativeSpec: 6c06096c28312c7b9252493cde2c07f5ca3e60cd
+  FBReactNativeSpec: a5ac448611d2135e989ccd457a6d7ebf2c973ec3
   glog: 73c2498ac6884b13ede40eda8228cb1eee9d9d62
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   RCT-Folly: ec7a233ccc97cc556cf7237f0db1ff65b986f27c
@@ -651,4 +657,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 39203f2b7c31cbcc64db32c70236daa76a911db0
 
-COCOAPODS: 1.11.2
+COCOAPODS: 1.10.1

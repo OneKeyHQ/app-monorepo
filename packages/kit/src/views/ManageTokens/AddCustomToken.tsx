@@ -2,7 +2,9 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Form, Modal, useForm } from '@onekeyhq/components';
+import { Form, Icon, Modal, Pressable, useForm } from '@onekeyhq/components';
+
+import { getClipboard } from '../../utils/ClipboardUtils';
 
 type AddCustomTokenValues = {
   address: string;
@@ -23,7 +25,7 @@ const AddCustomToken: FC<AddCustomTokenProps> = ({
   onSubmit,
   onClose,
 }) => {
-  const { control, handleSubmit } = useForm<AddCustomTokenValues>({
+  const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
     defaultValues,
   });
   const onPress = handleSubmit((data) => onSubmit?.(data));
@@ -50,6 +52,15 @@ const AddCustomToken: FC<AddCustomTokenProps> = ({
             defaultMessage: 'Contract Address',
           })}
           control={control}
+          labelAddon={
+            <Pressable
+              onPress={() => {
+                getClipboard().then((text) => setValue('address', text));
+              }}
+            >
+              <Icon size={16} name="ClipboardOutline" />
+            </Pressable>
+          }
         >
           <Form.Textarea
             placeholder={intl.formatMessage({
