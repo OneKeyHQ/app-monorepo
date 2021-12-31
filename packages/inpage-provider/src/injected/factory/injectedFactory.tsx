@@ -4,6 +4,7 @@ function createCodeWithScriptTag({ code }: { code: string }): string {
     (function(){
       const s = document.createElement('script');
       s.setAttribute('async', 'false');
+      s.setAttribute('data-onekey-injected', 'true');
       s.textContent=${JSON.stringify(code)};
       (document.head || document.documentElement).appendChild(s);
       s.remove();
@@ -23,6 +24,7 @@ function injectCodeWithScriptTag({
   (function () {
     const s = document.createElement('script');
     s.setAttribute('async', 'false');
+    s.setAttribute('data-onekey-injected', 'true');
     if (code) {
       s.textContent = JSON.stringify(code);
     }

@@ -20,6 +20,7 @@ function inject(filename: string) {
   // Manifest V3 V2
   injectedFactory.injectCodeWithScriptTag({
     file: chrome.runtime.getURL(filename),
+    remove: true,
   });
 }
 
