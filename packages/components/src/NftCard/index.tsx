@@ -1,8 +1,12 @@
 import React, { isValidElement, memo, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { Box, Image, Pressable } from 'native-base';
+import { Pressable } from 'native-base';
 
+import Box from '../Box';
+import Center from '../Center';
+import Icon from '../Icon';
+import Image from '../Image';
 import { useUserDevice } from '../Provider/hooks';
 import Typography from '../Typography';
 
@@ -29,13 +33,17 @@ const NftCard: FC<CardProps> = ({ children, image, title, ...props }) => {
         source={{
           uri: image,
         }}
-        alt="Alternate Text"
-        size="xl"
+        alt={`image of ${typeof title === 'string' ? title : 'nft'}`}
+        size={170}
         width="100%"
-        flex="1"
+        fallbackElement={
+          <Center>
+            <Icon name="QuestionMarkOutline" size={170} />
+          </Center>
+        }
       />
     );
-  }, [image]);
+  }, [image, title]);
 
   return (
     <Pressable

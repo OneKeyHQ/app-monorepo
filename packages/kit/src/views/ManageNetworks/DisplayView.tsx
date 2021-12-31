@@ -6,7 +6,6 @@ import {
   Box,
   Divider,
   FlatList,
-  Flex,
   Icon,
   IconButton,
   ScrollView,
@@ -28,28 +27,29 @@ const solanaNetwork: ChainInfo[] = [{ chain: 'sol', name: 'SOL' }];
 export const DisplayView: FC = () => {
   const renderItem = ({ item }: { item: ChainInfo }) => (
     <TouchableOpacity activeOpacity={0.7}>
-      <Flex
-        direction="row"
+      <Box
+        flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
         p="4"
       >
         <Token chain={item.chain} name={item.name} size={8} />
         <Icon name="ChevronRightOutline" />
-      </Flex>
+      </Box>
     </TouchableOpacity>
   );
   return (
     <ScrollView>
       <Box>
-        <Flex
-          direction="row"
+        <Box
+          display="flex"
+          flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
         >
           <Typography.Heading>EVM</Typography.Heading>
           <IconButton type="plain" name="PlusSolid" />
-        </Flex>
+        </Box>
         <FlatList
           bg="surface-default"
           borderRadius="12"
@@ -63,13 +63,14 @@ export const DisplayView: FC = () => {
         />
       </Box>
       <Box>
-        <Flex
-          direction="row"
+        <Box
+          display="flex"
+          flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
         >
           <Typography.Heading>Solana</Typography.Heading>
-        </Flex>
+        </Box>
         <FlatList
           bg="surface-default"
           borderRadius="12"

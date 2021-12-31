@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 
 import {
+  Box,
   Center,
-  Flex,
   Icon,
   Pressable,
   SortableList,
@@ -33,27 +33,28 @@ const SortableListGallery = () => {
         data={list}
         onDragEnd={({ data }) => setList(data)}
         renderItem={({ item, drag }) => (
-          <Flex
+          <Box
+            display="flex"
             borderBottomWidth="1"
             borderColor="border-default"
-            direction="row"
+            flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
             h="10"
             minW="80"
           >
-            <Flex direction="row" alignItems="center">
+            <Box display="flex" flexDirection="row" alignItems="center">
               <Pressable onPressIn={() => drag()}>
                 <Icon name="MenuOutline" size={16} />
               </Pressable>
               <Typography.Body1 ml="2">{item.text}</Typography.Body1>
-            </Flex>
+            </Box>
             <Switch
               labelType="false"
               isChecked={enable}
               onToggle={() => setEnable(!enable)}
             />
-          </Flex>
+          </Box>
         )}
       />
     </Center>

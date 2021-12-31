@@ -3,7 +3,9 @@ import React, { ComponentProps, FC } from 'react';
 import { IBoxProps, IRadioValue } from 'native-base';
 
 import Box from '../Box';
-import { RadioBoxProps } from '../RadioBox';
+import Pressable from '../Pressable';
+
+import { RadioBoxProps } from './RadioBox';
 
 interface IRadioBoxGroupProps extends IBoxProps<RadioBoxGroupProps> {
   /**
@@ -29,7 +31,7 @@ interface IRadioBoxGroupProps extends IBoxProps<RadioBoxGroupProps> {
   /**
    * 选项通用样式
    */
-  radioProps?: ComponentProps<typeof Box>;
+  radioProps?: ComponentProps<typeof Pressable>;
   children?: React.ReactElement<RadioBoxProps>[];
 }
 
@@ -45,20 +47,23 @@ const RadioBoxGroup: FC<RadioBoxGroupProps> = ({
   radioProps,
   ...props
 }) => (
-  <Box w="100%" flex={1} {...props} p={4}>
+  <Box w="full" flex={1} {...props} p={4}>
     {children &&
       children.map((child) => {
         const { value: childValue, children: childChildren } = child.props;
 
-        return React.cloneElement(child, {
-          ...child.props,
-          ...radioProps,
-          isChecked: value === childValue,
-          onChange: (checkedValue: IRadioValue) => {
-            if (onChange) onChange(checkedValue);
+        return React.cloneElement(
+          child,
+          {
+            ...child.props,
+            ...radioProps,
+            isChecked: value === childValue,
+            onChange: (checkedValue: IRadioValue) => {
+              if (onChange) onChange(checkedValue);
+            },
           },
-          children: childChildren,
-        });
+          childChildren,
+        );
       })}
   </Box>
 );

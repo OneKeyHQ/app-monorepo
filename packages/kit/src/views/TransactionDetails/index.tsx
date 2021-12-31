@@ -6,8 +6,7 @@ import {
   Address,
   Box,
   Button,
-  ContentItem,
-  ContentItemBox,
+  Container,
   Icon,
   Pressable,
   ScrollView,
@@ -99,78 +98,78 @@ const TransactionDetails: FC<TransactionDetailsProps> = ({ txId }) => {
         >
           {getTransactionStatusStr(intl, txInfo.state)}
         </Typography.Heading>
-        <ContentItemBox mt={6}>
-          <ContentItem title={intl.formatMessage({ id: 'content__hash' })}>
+        <Container.Box mt={6}>
+          <Container.Item title={intl.formatMessage({ id: 'content__hash' })}>
             <Box flexDirection="row">
               <Address text={txInfo.txId} short />
               <Pressable ml={3} onPress={copyAddressToClipboard}>
                 <Icon name="ClipboardCopySolid" />
               </Pressable>
             </Box>
-          </ContentItem>
-          <ContentItem
+          </Container.Item>
+          <Container.Item
             title={intl.formatMessage({ id: 'content__from' })}
             value="Account1"
             describe="0x4d16878c27c3847f18bd6d51d67f5b83b52ffe75"
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__to' })}
             value="0xd3f1530766492bf1be9a2ccda487c556d21f1ab8"
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__amount' })}
             value={txInfo.amount.toString()}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__fee' })}
             value={txInfo.amount.toString()}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__total' })}
             value={txInfo.amount.toString()}
             describe={txInfo.amount.toString()}
           />
-        </ContentItemBox>
+        </Container.Box>
 
         <Typography.Subheading mt={6} w="100%" color="text-subdued">
           {intl.formatMessage({ id: 'content__more_details' })}
         </Typography.Subheading>
-        <ContentItemBox mt={2}>
-          <ContentItem
+        <Container.Box mt={2}>
+          <Container.Item
             title={intl.formatMessage({ id: 'content__gas_limit' })}
             value={txInfo.amount.toString()}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__gas_used' })}
             value={txInfo.amount.toString()}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__gas_price' })}
             value={txInfo.amount.toString()}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__nonce' })}
             value={txInfo.amount.toString()}
           />
-        </ContentItemBox>
+        </Container.Box>
 
         <Typography.Subheading mt={6} w="100%" color="text-subdued">
           {intl.formatMessage({ id: 'content__activity_logs' })}
         </Typography.Subheading>
-        <ContentItemBox mt={2}>
-          <ContentItem
+        <Container.Box mt={2}>
+          <Container.Item
             title={intl.formatMessage({ id: 'content__created' })}
             value={formatDate(txInfo.date)}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__submitted' })}
             value={formatDate(txInfo.date)}
           />
-          <ContentItem
+          <Container.Item
             title={intl.formatMessage({ id: 'content__confirmed' })}
             value={formatDate(txInfo.date)}
           />
-        </ContentItemBox>
+        </Container.Box>
 
         <Button
           w="100%"
