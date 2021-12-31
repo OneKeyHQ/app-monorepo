@@ -7,9 +7,11 @@ import React, {
 } from 'react';
 
 import { flatten } from 'lodash';
+import { Icon as NBIcon } from 'native-base';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
+import { ChevronDown } from '../Icon/react/solid';
 import Pressable from '../Pressable';
 import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
@@ -186,10 +188,12 @@ function Select<T = string>({
         justifyContent="space-between"
         alignItems="center"
         borderRadius="12px"
+        borderWidth={1}
         borderColor="border-default"
-        bg={visible ? 'surface-selected' : 'transparent'}
+        // bg={visible ? 'surface-selected' : 'transparent'}
         py="2"
-        px="3"
+        pl="3"
+        pr="2.5"
         width="100%"
         onPress={toggleVisible}
         alignSelf={getTriggerAlignSelf(dropdownPosition)}
@@ -198,19 +202,19 @@ function Select<T = string>({
         {renderTrigger?.(activeOption) ?? (
           <>
             {!!activeOption.tokenProps && (
-              <Box mr="2">
+              <Box mr="3">
                 <Token size={6} {...activeOption.tokenProps} />
               </Box>
             )}
             {!!activeOption.iconProps && (
-              <Box mr="2">
+              <Box mr="3">
                 <Icon size={6} {...activeOption.iconProps} />
               </Box>
             )}
             <Typography.Body2 numberOfLines={1} flex="1" mr="1">
               {activeOption.label ?? '-'}
             </Typography.Body2>
-            <Icon name="ChevronDownOutline" size={16} />
+            <NBIcon as={ChevronDown} size={5} color="icon-default" />
           </>
         )}
       </Pressable>

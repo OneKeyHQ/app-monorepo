@@ -1,9 +1,14 @@
-import React, { Fragment } from 'react';
+import React, { Fragment, useMemo } from 'react';
+
+import { Icon as NBIcon } from 'native-base';
 
 import Box from '../../Box';
 import Divider from '../../Divider';
 import Icon from '../../Icon';
+import { Check as CheckOUtline } from '../../Icon/react/outline';
+import { Check as CheckSolid } from '../../Icon/react/solid';
 import Pressable from '../../Pressable';
+import { useUserDevice } from '../../Provider/hooks';
 import Token from '../../Token';
 import Typography from '../../Typography';
 
@@ -16,7 +21,7 @@ function isGroup<T>(
   return false;
 }
 
-function renderSingleOption<T>({
+function RenderSingleOption<T>({
   option,
   activeOption,
   onChange,
@@ -25,30 +30,51 @@ function renderSingleOption<T>({
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
+  const { size } = useUserDevice();
+  // TODO, optimized the responsive-relatived code in future
+  const OptionLabel = useMemo(() => {
+    if (['SMALL', 'NORMAL'].includes(size)) {
+      return <Typography.Body1>{option.label}</Typography.Body1>;
+    }
+
+    return <Typography.Body2>{option.label}</Typography.Body2>;
+  }, [size, option.label]);
+  // TODO, optimized the responsive-relatived code in future
+  const CheckMark = useMemo(() => {
+    if (['SMALL', 'NORMAL'].includes(size)) {
+      return <NBIcon as={CheckOUtline} size={6} color="interactive-default" />;
+    }
+
+    return <NBIcon as={CheckSolid} size={5} color="interactive-default" />;
+  }, [size]);
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable
-        p="3"
-        py="2"
+        px={{ base: '4', lg: '2' }}
+        py={{ base: '3', lg: '2' }}
         key={option.value as unknown as string}
         onPress={() => onChange?.(option.value, option)}
         borderRadius="12px"
         display="flex"
         flexDirection="row"
         alignItems="center"
-        bg={isActive ? 'surface-selected' : 'transparent'}
+        bg={isActive ? 'surface-selected' : ''}
+        _hover={{ bg: 'surface-hovered' }}
       >
-        {!!option.tokenProps && (
-          <Box mr="2">
-            <Token size={6} {...option.tokenProps} />
-          </Box>
-        )}
-        {!!option.iconProps && (
-          <Box mr="2">
-            <Icon size={6} {...option.iconProps} />
-          </Box>
-        )}
-        <Typography.Body1>{option.label}</Typography.Body1>
+        <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
+          {!!option.tokenProps && (
+            <Box mr="3">
+              <Token size={{ base: '8', lg: '6' }} {...option.tokenProps} />
+            </Box>
+          )}
+          {!!option.iconProps && (
+            <Box mr="3">
+              <Icon size={6} {...option.iconProps} />
+            </Box>
+          )}
+          {OptionLabel}
+        </Box>
+        {!!isActive && CheckMark}
       </Pressable>
     )
   );
@@ -68,24 +94,32 @@ export function renderOptions<T>({
       const isLast = index === options.length - 1;
       return (
         <Fragment key={option.title}>
-          <Typography.Subheading pt="3" pb="1" px="3" color="text-subdued">
+          <Typography.Subheading
+            px={{ base: '4', lg: '2' }}
+            py={{ base: '3', lg: '2' }}
+            color="text-subdued"
+          >
             {option.title}
           </Typography.Subheading>
           {option.options.map((subOption) =>
-            renderSingleOption<T>({
+            RenderSingleOption<T>({
               activeOption,
               renderItem,
               onChange,
               option: subOption,
             }),
           )}
-          {!isLast && <Divider my="1" />}
+          {!isLast && (
+            <Box px={{ base: '4', lg: '2' }} py={{ base: '2', lg: '1' }}>
+              <Divider />
+            </Box>
+          )}
         </Fragment>
       );
     }
 
     const singleOption = option;
-    return renderSingleOption<T>({
+    return RenderSingleOption<T>({
       activeOption,
       renderItem,
       onChange,

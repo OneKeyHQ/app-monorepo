@@ -1,9 +1,9 @@
-import React, { Fragment, isValidElement } from 'react';
+import React, { isValidElement } from 'react';
 
 import Box from '../../Box';
+import Button from '../../Button';
 import Divider from '../../Divider';
-import Icon from '../../Icon';
-import Pressable from '../../Pressable';
+import IconButton from '../../IconButton';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
@@ -43,21 +43,26 @@ function Desktop<T>({
       {headerShown ? (
         <>
           <Box
-            p="3"
+            p="2"
+            pl="3"
             display="flex"
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
           >
-            <Typography.Heading>{title}</Typography.Heading>
-            <Pressable onPress={toggleVisible}>
-              <Icon name="CloseOutline" size={12} onPress={toggleVisible} />
-            </Pressable>
+            <Typography.Body2Strong>{title}</Typography.Body2Strong>
+            <IconButton
+              name="CloseSolid"
+              type="plain"
+              size="xs"
+              onPress={toggleVisible}
+              circle
+            />
           </Box>
-          <Divider />
+          {!!title && <Divider />}
         </>
       ) : null}
-      <ScrollView p="2" flex="1">
+      <ScrollView p="1" flex="1">
         {renderOptions<T>({ options, activeOption, renderItem, onChange })}
       </ScrollView>
       {isValidElement(footer) || footer === null ? (
@@ -65,17 +70,16 @@ function Desktop<T>({
       ) : (
         <>
           <Divider />
-          <Pressable
-            p="3"
-            display="flex"
-            flexDirection="row"
-            justifyContent="center"
-            alignItems="center"
-            onPress={onPressFooter}
-          >
-            {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
-            <Typography.Body2 mx="2">{footerText}</Typography.Body2>
-          </Pressable>
+          <Box p="1.5">
+            <Button
+              size="xs"
+              type="plain"
+              leftIconName={footerIcon}
+              onPress={onPressFooter}
+            >
+              {footerText}
+            </Button>
+          </Box>
         </>
       )}
     </Box>

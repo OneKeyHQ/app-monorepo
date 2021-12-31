@@ -77,13 +77,13 @@ const ChainSelector: FC = () => {
         triggerProps={{
           width: 160,
         }}
-        headerShown={false}
         dropdownPosition="left"
         value={activeChainId}
         onChange={handleActiveChainChange}
+        title="Networks"
         options={options}
         footerText="Customize"
-        footerIcon="PencilOutline"
+        footerIcon="PencilSolid"
         onPressFooter={() => setOpened(true)}
       />
       <ManageNetworks opened={opened} onClose={() => setOpened(false)} />

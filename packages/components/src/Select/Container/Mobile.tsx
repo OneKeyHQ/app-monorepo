@@ -3,9 +3,9 @@ import React, { isValidElement } from 'react';
 import Modal from 'react-native-modal';
 
 import Box from '../../Box';
+import Button from '../../Button';
 import Divider from '../../Divider';
-import Icon from '../../Icon';
-import Pressable from '../../Pressable';
+import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
@@ -55,18 +55,25 @@ function Mobile<T>({
         {...dropdownProps}
       >
         <Box
-          p="4"
+          py="1"
+          px="2"
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
         >
+          {/* placeholder */}
+          <Box width="12" />
           <Typography.Heading>{title}</Typography.Heading>
-          <Pressable onPress={toggleVisible}>
-            <Icon name="CloseOutline" size={16} />
-          </Pressable>
+          <IconButton
+            name="CloseOutline"
+            type="plain"
+            size="xl"
+            onPress={toggleVisible}
+            circle
+          />
         </Box>
-        <Divider />
+        {!!title && <Divider />}
         <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
           {renderOptions<T>({ options, activeOption, renderItem, onChange })}
         </ScrollView>
@@ -75,17 +82,16 @@ function Mobile<T>({
         ) : (
           <Box pb={`${bottom}px`}>
             <Divider />
-            <Pressable
-              p="3"
-              display="flex"
-              flexDirection="row"
-              justifyContent="center"
-              alignItems="center"
-              onPress={onPressFooter}
-            >
-              {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
-              <Typography.Body2 mx="2">{footerText}</Typography.Body2>
-            </Pressable>
+            <Box px="4" py="2">
+              <Button
+                size="lg"
+                type="plain"
+                leftIconName={footerIcon}
+                onPress={onPressFooter}
+              >
+                {footerText}
+              </Button>
+            </Box>
           </Box>
         )}
       </Box>
