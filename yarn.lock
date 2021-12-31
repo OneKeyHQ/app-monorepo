@@ -15636,6 +15636,11 @@ react-native-gesture-handler@~1.10.2:
     invariant "^2.2.4"
     prop-types "^15.7.2"
 
+react-native-head-tab-view@^4.0.0-rc.13:
+  version "4.0.0-rc.13"
+  resolved "https://registry.yarnpkg.com/react-native-head-tab-view/-/react-native-head-tab-view-4.0.0-rc.13.tgz#bf33216b897d0ffd0b7422d752b186df35f94304"
+  integrity sha512-wal0cOy63BI/vjsxFRruqBm5B8QaDlOa4MX2CnuetMMbGR4522q0mtIya3EE0nO7GShwKk9TD1JvBvvpZa71AQ==
+
 react-native-jazzicon@^0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/react-native-jazzicon/-/react-native-jazzicon-0.1.2.tgz#af0bd041685644ce283c0a330e3cf639d470720a"
@@ -15728,6 +15733,11 @@ react-native-svg@9.13.6:
   dependencies:
     css-select "^2.0.2"
     css-tree "^1.0.0-alpha.37"
+
+react-native-tab-view-collapsible-header@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/react-native-tab-view-collapsible-header/-/react-native-tab-view-collapsible-header-2.0.1.tgz#95232173b4b63414c7779cbf56e177a0c92d0651"
+  integrity sha512-yvRya4/DC0DmrdLRKNmdPObSIh5X03Ogm4iYNpa56SSwvdxIhSvewe2IlG4q8rEeCXszQln84uWYSYIiyYuUaQ==
 
 react-native-tab-view@^3.1.1:
   version "3.1.1"
