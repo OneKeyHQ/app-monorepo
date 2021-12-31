@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-shadow */
 import React, { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, useForm } from '@onekeyhq/components';
+import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -12,24 +13,31 @@ import {
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+type PrivateKeyFormValues = {
+  network: string;
+  name: string;
+};
+
+type CreateAccountProps = {
+  visible: boolean;
+  onClose: () => void;
+};
+
 type NavigationProps = NativeStackNavigationProp<
   CreateAccountRoutesParams,
   CreateAccountModalRoutes.RecoveryAccountForm
 >;
-type PrivateKeyFormValues = {
-  network: string;
-  name: string;
-  address: string;
-};
 
-const WatchedAccount: FC = () => {
+const CreateAccount: FC<CreateAccountProps> = ({ visible, onClose }) => {
   const intl = useIntl();
   const { control } = useForm<PrivateKeyFormValues>();
   const navigation = useNavigation<NavigationProps>();
   return (
     <Modal
+      visible={visible}
       header={intl.formatMessage({ id: 'wallet__watched_accounts' })}
-      primaryActionTranslationId="action__import"
+      onClose={onClose}
+      primaryActionTranslationId="action__create"
       onPrimaryActionPress={() =>
         navigation.navigate(ModalRoutes.RecoveryAccountForm)
       }
@@ -37,21 +45,20 @@ const WatchedAccount: FC = () => {
     >
       <Box
         w="full"
-        zIndex={999}
         display="flex"
         flex="1"
         flexDirection="row"
         justifyContent="center"
-        bg="background-default"
+        zIndex={999}
       >
-        <Form w="full">
+        <Form w="full" zIndex={999}>
           <Form.Item
             name="network"
             control={control}
             label={intl.formatMessage({ id: 'network__network' })}
             helpText={intl.formatMessage({ id: 'form__network_helperText' })}
             defaultValue="https://rpc.onekey.so/eth"
-            formControlProps={{ zIndex: 10, maxW: '80' }}
+            formControlProps={{ zIndex: 999, maxW: '80' }}
           >
             <Form.Select
               title={intl.formatMessage({ id: 'network__network' })}
@@ -86,18 +93,22 @@ const WatchedAccount: FC = () => {
           >
             <Form.Input />
           </Form.Item>
-          <Form.Item
-            name="address"
-            label={intl.formatMessage({ id: 'form__address' })}
-            control={control}
-            helpText={intl.formatMessage({ id: 'form__address_helperText' })}
-          >
-            <Form.Textarea />
-          </Form.Item>
         </Form>
+      </Box>
+      <Box alignItems="center">
+        <Typography.Body1>
+          {intl.formatMessage({
+            id: 'account__restore_a_previously_used_account',
+          })}
+        </Typography.Body1>
+        <Typography.Body1>
+          {intl.formatMessage({
+            id: 'action__recover_accounts',
+          })}
+        </Typography.Body1>
       </Box>
     </Modal>
   );
 };
 
-export default WatchedAccount;
+export default CreateAccount;

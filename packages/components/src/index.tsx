@@ -63,3 +63,4 @@ export * from './HeaderTabViewContainer';
 export { useForm, Controller } from 'react-hook-form';
 
 export { utils };
+export type { ICON_NAMES } from './Icon/Icons';

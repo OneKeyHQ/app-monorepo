@@ -21,29 +21,34 @@ const ImportedAccount: FC<ImportedAccountProps> = ({ trigger }) => {
       header={intl.formatMessage({ id: 'wallet__imported_accounts' })}
       primaryActionTranslationId="action__import"
       onPrimaryActionPress={({ onClose }) => onClose?.()}
-    >
-      <Box mb="4" w="full">
-        <SegmentedControl
-          containerProps={{
-            width: '100%',
-          }}
-          defaultValue={activeSegment}
-          onChange={setActiveSegment}
-          options={[
-            {
-              label: intl.formatMessage({ id: 'form__private_key' }),
-              value: 'privateKey',
-            },
-            {
-              label: intl.formatMessage({ id: 'form__keystore' }),
-              value: 'keystore',
-            },
-          ]}
-        />
-      </Box>
-      {activeSegment === 'privateKey' && <PrivateKeyForm />}
-      {activeSegment === 'keystore' && <KeyStoreForm />}
-    </Modal>
+      scrollViewProps={{
+        children: (
+          <>
+            <Box mb="4" w="full">
+              <SegmentedControl
+                containerProps={{
+                  width: '100%',
+                }}
+                defaultValue={activeSegment}
+                onChange={setActiveSegment}
+                options={[
+                  {
+                    label: intl.formatMessage({ id: 'form__private_key' }),
+                    value: 'privateKey',
+                  },
+                  {
+                    label: intl.formatMessage({ id: 'form__keystore' }),
+                    value: 'keystore',
+                  },
+                ]}
+              />
+            </Box>
+            {activeSegment === 'privateKey' && <PrivateKeyForm />}
+            {activeSegment === 'keystore' && <KeyStoreForm />}
+          </>
+        ),
+      }}
+    />
   );
 };
 

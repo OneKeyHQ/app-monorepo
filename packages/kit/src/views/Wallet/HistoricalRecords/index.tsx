@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,13 +10,17 @@ import {
   Divider,
   Empty,
   Icon,
-  Modal,
   Pressable,
   ScrollableSectionList,
   ScrollableSectionListProps,
   Typography,
 } from '@onekeyhq/components';
+import {
+  TransactionDetailModalRoutes,
+  TransactionDetailRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
+import { ModalRoutes } from '../../../routes';
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord, {
   Transaction,
@@ -22,6 +28,13 @@ import TransactionRecord, {
 } from '../../Components/transactionRecord';
 import TransactionDetails from '../../TransactionDetails';
 import { ScrollRoute } from '../type';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  TransactionDetailRoutesParams,
+  TransactionDetailModalRoutes.TransactionDetailModal
+>;
 
 const TRANSACTION_RECORDS_DATA: Transaction[] = [
   {
@@ -139,6 +152,7 @@ const toTransactionSection = (_data: Transaction[]): TransactionGroup[] => {
 const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
   const tabPageIndex = route.index;
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [detailsInfo, setDetailsInfo] = useState<Transaction>();
   const [transactionRecords, setTransactionRecords] = useState<
@@ -160,7 +174,7 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       onPress={() => {
         setDetailsInfo(item);
-        setDetailsVisible(true);
+        navigation.navigate(ModalRoutes.TransactionDetailModal);
         console.log('Click Transaction : ', item.txId);
       }}
     >
@@ -236,14 +250,14 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
           showsVerticalScrollIndicator={false}
         />
       </Box>
-      <Modal
+      {/* <Modal
         footer={<Box />}
         header={getTransactionStatusStr(intl, detailsInfo?.state)}
         visible={detailsVisible}
         onClose={() => setDetailsVisible(false)}
       >
         <TransactionDetails txId={detailsInfo?.txId ?? ''} />
-      </Modal>
+      </Modal> */}
     </>
   );
 };

@@ -43,7 +43,8 @@ function Desktop<T>({
       {headerShown ? (
         <>
           <Box
-            p="3"
+            p="2"
+            px="3"
             display="flex"
             flexDirection="row"
             justifyContent="space-between"
@@ -51,7 +52,7 @@ function Desktop<T>({
           >
             <Typography.Heading>{title}</Typography.Heading>
             <Pressable onPress={toggleVisible}>
-              <Icon name="CloseOutline" size={12} onPress={toggleVisible} />
+              <Icon name="CloseOutline" size={24} onPress={toggleVisible} />
             </Pressable>
           </Box>
           <Divider />
@@ -71,7 +72,12 @@ function Desktop<T>({
             flexDirection="row"
             justifyContent="center"
             alignItems="center"
-            onPress={onPressFooter}
+            onPress={() => {
+              toggleVisible();
+              setTimeout(() => {
+                onPressFooter?.();
+              }, 200);
+            }}
           >
             {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
             <Typography.Body2 mx="2">{footerText}</Typography.Body2>

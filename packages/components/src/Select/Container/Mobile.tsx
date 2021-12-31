@@ -27,6 +27,7 @@ function Mobile<T>({
   onPressFooter,
   activeOption,
   renderItem,
+  onModalHide,
 }: ChildProps<T>) {
   const { bottom } = useSafeAreaInsets();
   return (
@@ -35,6 +36,7 @@ function Mobile<T>({
       propagateSwipe
       hideModalContentWhileAnimating
       isVisible={!!visible}
+      onModalHide={onModalHide}
       swipeDirection={['down']}
       onSwipeComplete={toggleVisible}
       onBackdropPress={toggleVisible}
@@ -55,7 +57,8 @@ function Mobile<T>({
         {...dropdownProps}
       >
         <Box
-          p="4"
+          py="3"
+          px="4"
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
@@ -63,7 +66,7 @@ function Mobile<T>({
         >
           <Typography.Heading>{title}</Typography.Heading>
           <Pressable onPress={toggleVisible}>
-            <Icon name="CloseOutline" size={16} />
+            <Icon name="CloseOutline" size={24} />
           </Pressable>
         </Box>
         <Divider />
@@ -81,7 +84,12 @@ function Mobile<T>({
               flexDirection="row"
               justifyContent="center"
               alignItems="center"
-              onPress={onPressFooter}
+              onPress={() => {
+                toggleVisible();
+                setTimeout(() => {
+                  onPressFooter?.();
+                }, 200);
+              }}
             >
               {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
               <Typography.Body2 mx="2">{footerText}</Typography.Body2>

@@ -14,7 +14,6 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 
-import ManageToken from '../../ManageTokens';
 import { ScrollRoute } from '../type';
 
 export type AssetToken = {
@@ -269,13 +268,9 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
             <Typography.Heading>
               {intl.formatMessage({ id: 'asset__tokens' })}
             </Typography.Heading>
-            <ManageToken
-              trigger={
-                <Pressable p={1.5}>
-                  <Icon size={20} name="AdjustmentsSolid" />
-                </Pressable>
-              }
-            />
+            <Pressable p={1.5}>
+              <Icon size={20} name="AdjustmentsSolid" />
+            </Pressable>
           </Box>
         )}
         ItemSeparatorComponent={Divider}
