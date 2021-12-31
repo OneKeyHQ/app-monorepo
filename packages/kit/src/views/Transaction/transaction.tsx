@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -16,9 +17,21 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import {
+  TransactionModalRoutes,
+  TransactionModalRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/Transaction';
 
-import TransactionConfirm from './transactionConfirm';
-import TransactionEditFee from './transactionEditFee';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  TransactionModalRoutesParams,
+  TransactionModalRoutes.TransactionConfirmModal
+> &
+  NativeStackNavigationProp<
+    TransactionModalRoutesParams,
+    TransactionModalRoutes.TransactionEditFeeModal
+  >;
 
 type TransactionValues = {
   username: string;
@@ -65,12 +78,12 @@ function selectOptionData() {
   return options;
 }
 
-const Transaction = ({ ...rest }) => {
+const Transaction = () => {
+  const navigation = useNavigation<NavigationProps>();
   const { control, handleSubmit } = useForm<TransactionValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
   const intl = useIntl();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { trigger } = rest;
+
   const renderSelecterItem = (asset: AssetType) => (
     <Row space="12px">
       <Token chain={asset.token} size="32px" />
@@ -88,7 +101,6 @@ const Transaction = ({ ...rest }) => {
       hidePrimaryAction
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
-      visible={false}
       footer={
         <Column>
           <Divider />
@@ -107,146 +119,156 @@ const Transaction = ({ ...rest }) => {
                 3 min
               </Typography.Caption>
             </Column>
-
-            <TransactionConfirm
-              trigger={
-                <Button
-                  type="primary"
-                  size="lg"
-                  isDisabled={false}
-                  onPress={onSubmit}
-                >
-                  <Typography.Body1Strong>
-                    {intl.formatMessage({ id: 'action__continue' })}
-                  </Typography.Body1Strong>
-                </Button>
-              }
-            />
+            <Button
+              type="primary"
+              size="lg"
+              isDisabled={false}
+              onPress={() => {
+                onSubmit();
+                navigation.navigate(
+                  TransactionModalRoutes.TransactionConfirmModal,
+                );
+              }}
+            >
+              <Typography.Body1Strong>
+                {intl.formatMessage({ id: 'action__continue' })}
+              </Typography.Body1Strong>
+            </Button>
           </Row>
         </Column>
       }
-    >
-      <Column flex="1">
-        <Form>
-          <Row justifyContent="space-between">
-            <Typography.Body2Strong>
-              {intl.formatMessage({ id: 'action__send' })}
-            </Typography.Body2Strong>
-            <Row space="4px">
-              <IconButton
-                iconSize={20}
-                size="xs"
-                name="BookOpenSolid"
-                type="plain"
-              />
-              <IconButton
-                iconSize={20}
-                size="xs"
-                name="ClipboardSolid"
-                type="plain"
-              />
-              <IconButton
-                iconSize={20}
-                size="xs"
-                name="ScanSolid"
-                type="plain"
-              />
-            </Row>
-          </Row>
-          <Form.Item
-            control={control}
-            name="description"
-            rules={{
-              required: intl.formatMessage({ id: 'form__address_invalid' }),
-            }}
-            defaultValue=""
-          >
-            <Form.Textarea
-              placeholder={intl.formatMessage({ id: 'form__address' })}
-              borderRadius="12px"
-            />
-          </Form.Item>
-          <Typography.Body2Strong mt="24px" mb="4px">
-            {intl.formatMessage({ id: 'content__asset' })}
-          </Typography.Body2Strong>
-          <Select
-            // onChange={(v) => {}}
-            headerShown={false}
-            footer={null}
-            containerProps={{
-              width: '100%',
-              zIndex: 999,
-              borderColor: 'border-default',
-              borderWidth: '1px',
-              borderRadius: '12px',
-              mb: '24px',
-            }}
-            renderTrigger={() => (
-              <Row justifyContent="space-between" alignItems="center" flex={1}>
-                {renderSelecterItem(AssetMockData[0])}
-                <Icon name="ChevronDownSolid" size={20} />
+      scrollViewProps={{
+        children: (
+          <Column flex="1">
+            <Form>
+              <Row justifyContent="space-between">
+                <Typography.Body2Strong>
+                  {intl.formatMessage({ id: 'action__send' })}
+                </Typography.Body2Strong>
+                <Row space="4px">
+                  <IconButton
+                    iconSize={20}
+                    size="xs"
+                    name="BookOpenSolid"
+                    type="plain"
+                  />
+                  <IconButton
+                    iconSize={20}
+                    size="xs"
+                    name="ClipboardSolid"
+                    type="plain"
+                  />
+                  <IconButton
+                    iconSize={20}
+                    size="xs"
+                    name="ScanSolid"
+                    type="plain"
+                  />
+                </Row>
               </Row>
-            )}
-            renderItem={(item) => (
-              <Column pt="8px">{renderSelecterItem(item.value)}</Column>
-            )}
-            options={selectOptionData()}
-          />
-          <Form.Item
-            label={intl.formatMessage({ id: 'content__amount' })}
-            control={control}
-            name="username"
-            defaultValue=""
-            rules={{
-              required: intl.formatMessage({ id: 'form__amount_invalid' }),
-            }}
-          >
-            <Form.Input
-              w="100%"
-              rightSecondaryText={intl.formatMessage({ id: 'action__max' })}
-              rightText="ETH"
-            />
-          </Form.Item>
-          <Typography.Body2 mt="8px" color="text-subdued">
-            0 USD
-          </Typography.Body2>
-          <Typography.Body2Strong mt="24px" mb="4px">
-            {intl.formatMessage({ id: 'content__fee' })}
-          </Typography.Body2Strong>
-          <Row
-            justifyContent="space-between"
-            alignItems="center"
-            bgColor="surface-default"
-            borderColor="border-default"
-            borderWidth="1px"
-            borderRadius="12px"
-            paddingX="12px"
-            paddingY="8px"
-          >
-            <Column>
-              <Typography.Body1Strong>
-                Normal (64.11 Gwei)
-              </Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued">
-                0.001694 ETH ~ 0.001977 ETH
+              <Form.Item
+                control={control}
+                name="description"
+                rules={{
+                  required: intl.formatMessage({ id: 'form__address_invalid' }),
+                }}
+                defaultValue=""
+              >
+                <Form.Textarea
+                  placeholder={intl.formatMessage({ id: 'form__address' })}
+                  borderRadius="12px"
+                />
+              </Form.Item>
+              <Typography.Body2Strong mt="24px" mb="4px">
+                {intl.formatMessage({ id: 'content__asset' })}
+              </Typography.Body2Strong>
+              <Select
+                // onChange={(v) => {}}
+                headerShown={false}
+                footer={null}
+                containerProps={{
+                  width: '100%',
+                  zIndex: 999,
+                  borderColor: 'border-default',
+                  borderWidth: '1px',
+                  borderRadius: '12px',
+                  mb: '24px',
+                }}
+                renderTrigger={() => (
+                  <Row
+                    justifyContent="space-between"
+                    alignItems="center"
+                    flex={1}
+                  >
+                    {renderSelecterItem(AssetMockData[0])}
+                    <Icon name="ChevronDownSolid" size={20} />
+                  </Row>
+                )}
+                renderItem={(item) => (
+                  <Column pt="8px">{renderSelecterItem(item.value)}</Column>
+                )}
+                options={selectOptionData()}
+              />
+              <Form.Item
+                label={intl.formatMessage({ id: 'content__amount' })}
+                control={control}
+                name="username"
+                defaultValue=""
+                rules={{
+                  required: intl.formatMessage({ id: 'form__amount_invalid' }),
+                }}
+              >
+                <Form.Input
+                  w="100%"
+                  rightSecondaryText={intl.formatMessage({ id: 'action__max' })}
+                  rightText="ETH"
+                />
+              </Form.Item>
+              <Typography.Body2 mt="8px" color="text-subdued">
+                0 USD
               </Typography.Body2>
-              <Typography.Body2 color="text-subdued">3 min</Typography.Body2>
-            </Column>
-            <TransactionEditFee
-              trigger={
+              <Typography.Body2Strong mt="24px" mb="4px">
+                {intl.formatMessage({ id: 'content__fee' })}
+              </Typography.Body2Strong>
+              <Row
+                justifyContent="space-between"
+                alignItems="center"
+                bgColor="surface-default"
+                borderColor="border-default"
+                borderWidth="1px"
+                borderRadius="12px"
+                paddingX="12px"
+                paddingY="8px"
+              >
+                <Column>
+                  <Typography.Body1Strong>
+                    Normal (64.11 Gwei)
+                  </Typography.Body1Strong>
+                  <Typography.Body2 color="text-subdued">
+                    0.001694 ETH ~ 0.001977 ETH
+                  </Typography.Body2>
+                  <Typography.Body2 color="text-subdued">
+                    3 min
+                  </Typography.Body2>
+                </Column>
                 <IconButton
                   iconSize={20}
                   size="xs"
                   name="PencilSolid"
                   type="plain"
+                  onPress={() => {
+                    navigation.navigate(
+                      TransactionModalRoutes.TransactionEditFeeModal,
+                    );
+                  }}
                 />
-              }
-            />
-          </Row>
-          <Box height="50px" />
-        </Form>
-      </Column>
-    </Modal>
+              </Row>
+              <Box height="50px" />
+            </Form>
+          </Column>
+        ),
+      }}
+    />
   );
 };
 export default Transaction;

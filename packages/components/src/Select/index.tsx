@@ -51,6 +51,7 @@ export type SelectProps<T = string> = {
   footerText?: string;
   footerIcon?: ICON_NAMES;
   onPressFooter?: () => void;
+  onModalHide?: () => void;
 };
 
 export type ChildProps<T> = Pick<
@@ -65,6 +66,7 @@ export type ChildProps<T> = Pick<
   | 'onPressFooter'
   | 'renderItem'
   | 'headerShown'
+  | 'onModalHide'
 > & {
   toggleVisible: () => void;
   visible: boolean;

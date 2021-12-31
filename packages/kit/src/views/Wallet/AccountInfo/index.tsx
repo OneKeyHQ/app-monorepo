@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,13 +10,30 @@ import {
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
+import {
+  ReceiveQRCodeModalRoutes,
+  ReceiveQRCodeRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/ReceiveToken';
+import {
+  SendTokenModalRoutes,
+  SendTokenRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/SendToken';
 
-// import ReceiveQRcode from '../../Transaction/receiveQRcode';
-// import Transaction from '../../Transaction/transaction';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  SendTokenRoutesParams,
+  SendTokenModalRoutes.SendTokenModal
+> &
+  NativeStackNavigationProp<
+    ReceiveQRCodeRoutesParams,
+    ReceiveQRCodeModalRoutes.ReceiveQRCodeModal
+  >;
 
 const AccountInfo = () => {
   const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -40,21 +58,26 @@ const AccountInfo = () => {
           leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
           minW="126px"
           type="basic"
+          onPress={() => {
+            navigation.navigate(SendTokenModalRoutes.SendTokenModal);
+          }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
-
         <Button
           ml={4}
           leftIcon={<Icon name="ArrowSmDownSolid" />}
           minW="126px"
           type="basic"
+          onPress={() => {
+            navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
+          }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
       </Box>
     ),
-    [intl],
+    [intl, navigation],
   );
 
   return useMemo(() => {

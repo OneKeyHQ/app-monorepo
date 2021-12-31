@@ -74,15 +74,15 @@ const Modal: FC<ModalProps> = ({
 
   const modalContent = useMemo(() => {
     if (sectionListProps) {
-      return <SectionList {...sectionListProps} />;
+      return <SectionList p="6" {...sectionListProps} />;
     }
 
     if (flatListProps) {
-      return <FlatList {...flatListProps} />;
+      return <FlatList p="6" {...flatListProps} />;
     }
 
     if (scrollViewProps) {
-      return <ScrollView {...scrollViewProps} />;
+      return <ScrollView p="6" {...scrollViewProps} />;
     }
 
     if (staticChildrenProps) {

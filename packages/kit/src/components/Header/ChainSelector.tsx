@@ -1,17 +1,30 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { Box, Select, useUserDevice } from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/ManageNetwork';
 import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
 
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkModalRoutes.ManageNetworkModal
+>;
 const ChainSelector: FC = () => {
+  const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const { size } = useUserDevice();
   const isHorizontal = ['LARGE', 'XLARGE'].includes(size);
 
   const dispatch = useAppDispatch();
   const activeChainId = useAppSelector((s) => s.chain.chainId);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [opened, setOpened] = useState(false);
 
   const handleActiveChainChange = useCallback(
     (chainId) => {
@@ -81,11 +94,12 @@ const ChainSelector: FC = () => {
         value={activeChainId}
         onChange={handleActiveChainChange}
         options={options}
-        footerText="Customize"
+        footerText={intl.formatMessage({ id: 'action__customize_network' })}
         footerIcon="PencilOutline"
-        onPressFooter={() => setOpened(true)}
+        onPressFooter={() =>
+          navigation.navigate(ManageNetworkModalRoutes.ManageNetworkModal)
+        }
       />
-      {/* <ManageNetworks opened={opened} onClose={() => setOpened(false)} /> */}
     </Box>
   );
 };

@@ -72,7 +72,12 @@ function Desktop<T>({
             flexDirection="row"
             justifyContent="center"
             alignItems="center"
-            onPress={onPressFooter}
+            onPress={() => {
+              toggleVisible();
+              setTimeout(() => {
+                onPressFooter?.();
+              }, 200);
+            }}
           >
             {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
             <Typography.Body2 mx="2">{footerText}</Typography.Body2>

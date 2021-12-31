@@ -23,7 +23,7 @@ const ImportedAccount: FC<ImportedAccountProps> = ({ trigger }) => {
       onPrimaryActionPress={({ onClose }) => onClose?.()}
       scrollViewProps={{
         children: (
-          <Box p="6">
+          <>
             <Box mb="4" w="full">
               <SegmentedControl
                 containerProps={{
@@ -45,7 +45,7 @@ const ImportedAccount: FC<ImportedAccountProps> = ({ trigger }) => {
             </Box>
             {activeSegment === 'privateKey' && <PrivateKeyForm />}
             {activeSegment === 'keystore' && <KeyStoreForm />}
-          </Box>
+          </>
         ),
       }}
     />
