@@ -6,7 +6,6 @@ import {
   Box,
   Divider,
   FlatList,
-  Flex,
   Modal,
   Token,
   Typography,
@@ -52,16 +51,16 @@ const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
     },
   ];
   const renderItem = ({ item }: { item: ListItem }) => (
-    <Flex
+    <Box
       display="flex"
-      direction="row"
+      flexDirection="row"
       justifyContent="space-between"
       p="4"
       alignItems="center"
     >
       <Typography.Body1 color="text-subdued">{item.label}</Typography.Body1>
       <Typography.Body1>{item.value}</Typography.Body1>
-    </Flex>
+    </Box>
   );
   return (
     <Modal

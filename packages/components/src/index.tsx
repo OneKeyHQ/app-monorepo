@@ -14,12 +14,12 @@ export { default as CheckBox } from './CheckBox';
 export { default as Divider } from './Divider';
 export { default as Empty } from './Empty';
 export { default as FlatList } from './FlatList';
-export { default as Flex } from './Flex';
 export { default as FormControl } from './FormControl';
 export { default as HStack } from './HStack';
 export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
+export { default as HeaderTabViewContainer } from './HeaderTabViewContainer';
 export { default as Layout } from './Layout';
 export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
@@ -51,16 +51,16 @@ export { default as Form } from './Form';
 export { default as Image } from './Image';
 export { default as SortableList } from './SortableList';
 export { default as TabView, SceneMap } from './TabView';
-export { default as ContentItem } from './ContentItem';
-export { default as ContentItemBox } from './ContentItemBox';
+export { default as Container } from './ContentBox';
 export { default as RadioBox } from './RadioBox';
-export { default as RadioBoxGroup } from './RadioBoxGroup';
 export { default as RadioFee } from './RadioFee';
 export { default as Spacer } from './Spacer';
 export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 
 export * from './Provider/hooks';
+export * from './HeaderTabViewContainer';
 
 export { useForm, Controller } from 'react-hook-form';
 
 export { utils };
+export type { ICON_NAMES } from './Icon/Icons';

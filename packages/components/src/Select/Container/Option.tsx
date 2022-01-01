@@ -1,4 +1,4 @@
-import React, { Fragment, useMemo } from 'react';
+import React, { Fragment } from 'react';
 
 import { Icon as NBIcon } from 'native-base';
 
@@ -8,7 +8,7 @@ import Icon from '../../Icon';
 import { Check as CheckOUtline } from '../../Icon/react/outline';
 import { Check as CheckSolid } from '../../Icon/react/solid';
 import Pressable from '../../Pressable';
-import { useUserDevice } from '../../Provider/hooks';
+import { useIsVerticalLayout } from '../../Provider/hooks';
 import Token from '../../Token';
 import Typography from '../../Typography';
 
@@ -26,27 +26,36 @@ function RenderSingleOption<T>({
   activeOption,
   onChange,
   renderItem,
-}: Pick<ChildProps<T>, 'activeOption' | 'onChange' | 'renderItem'> & {
+  asAction,
+}: Pick<
+  ChildProps<T>,
+  'activeOption' | 'onChange' | 'renderItem' | 'asAction'
+> & {
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
-  const { size } = useUserDevice();
-  // TODO, optimized the responsive-relatived code in future
-  const OptionLabel = useMemo(() => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
-      return <Typography.Body1>{option.label}</Typography.Body1>;
-    }
-
-    return <Typography.Body2>{option.label}</Typography.Body2>;
-  }, [size, option.label]);
-  // TODO, optimized the responsive-relatived code in future
-  const CheckMark = useMemo(() => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
-      return <NBIcon as={CheckOUtline} size={6} color="interactive-default" />;
-    }
-
-    return <NBIcon as={CheckSolid} size={5} color="interactive-default" />;
-  }, [size]);
+  const isSmallScreen = useIsVerticalLayout();
+  const OptionLabel = () =>
+    isSmallScreen ? (
+      <Typography.Body1
+        color={option.destructive ? 'text-critical' : 'text-default'}
+      >
+        {option.label}
+      </Typography.Body1>
+    ) : (
+      <Typography.Body2
+        color={option.destructive ? 'text-critical' : 'text-default'}
+      >
+        {option.label}
+      </Typography.Body2>
+    );
+  const SelectedIndicator = () => (
+    <NBIcon
+      as={isSmallScreen ? CheckOUtline : CheckSolid}
+      size={{ base: '6', lg: '5' }}
+      color="interactive-default"
+    />
+  );
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable
@@ -58,8 +67,15 @@ function RenderSingleOption<T>({
         display="flex"
         flexDirection="row"
         alignItems="center"
-        bg={isActive ? 'surface-selected' : ''}
-        _hover={{ bg: 'surface-hovered' }}
+        bg={isActive && !asAction ? 'surface-selected' : ''}
+        _hover={
+          // eslint-disable-next-line no-nested-ternary
+          isActive && !asAction
+            ? {}
+            : option.destructive
+            ? { bg: 'surface-critical-default' }
+            : { bg: 'surface-hovered' }
+        } // do not apply the hover effect on the activated item.
       >
         <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
           {!!option.tokenProps && (
@@ -69,12 +85,16 @@ function RenderSingleOption<T>({
           )}
           {!!option.iconProps && (
             <Box mr="3">
-              <Icon size={6} {...option.iconProps} />
+              <Icon
+                color={option.destructive ? 'icon-critical' : 'icon-default'}
+                size={isSmallScreen ? 24 : 20}
+                {...option.iconProps}
+              />
             </Box>
           )}
-          {OptionLabel}
+          <OptionLabel />
         </Box>
-        {!!isActive && CheckMark}
+        {isActive && !asAction && <SelectedIndicator />}
       </Pressable>
     )
   );
@@ -85,9 +105,10 @@ export function renderOptions<T>({
   activeOption,
   renderItem,
   onChange,
+  asAction,
 }: Pick<
   ChildProps<T>,
-  'activeOption' | 'onChange' | 'renderItem' | 'options'
+  'activeOption' | 'onChange' | 'renderItem' | 'options' | 'asAction'
 >) {
   return options.map((option, index) => {
     if (isGroup<T>(option)) {
@@ -107,6 +128,7 @@ export function renderOptions<T>({
               renderItem,
               onChange,
               option: subOption,
+              asAction,
             }),
           )}
           {!isLast && (
@@ -124,6 +146,7 @@ export function renderOptions<T>({
       renderItem,
       onChange,
       option: singleOption,
+      asAction,
     });
   });
 }

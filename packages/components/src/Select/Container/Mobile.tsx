@@ -27,6 +27,8 @@ function Mobile<T>({
   onPressFooter,
   activeOption,
   renderItem,
+  onModalHide,
+  asAction,
 }: ChildProps<T>) {
   const { bottom } = useSafeAreaInsets();
   return (
@@ -35,6 +37,7 @@ function Mobile<T>({
       propagateSwipe
       hideModalContentWhileAnimating
       isVisible={!!visible}
+      onModalHide={onModalHide}
       swipeDirection={['down']}
       onSwipeComplete={toggleVisible}
       onBackdropPress={toggleVisible}
@@ -75,7 +78,13 @@ function Mobile<T>({
         </Box>
         {!!title && <Divider />}
         <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
-          {renderOptions<T>({ options, activeOption, renderItem, onChange })}
+          {renderOptions<T>({
+            options,
+            activeOption,
+            renderItem,
+            onChange,
+            asAction,
+          })}
         </ScrollView>
         {isValidElement(footer) || footer === null ? (
           footer

@@ -38,19 +38,15 @@ const renderTitleDetailView = (title: string, detail: string) => (
   </Row>
 );
 
-const TransactionConfirm = ({ ...rest }) => {
+const TransactionConfirm = () => {
   const cardBgColor = useThemeValue('surface-default');
-  const { visible } = rest;
-  const { trigger } = rest;
   const intl = useIntl();
 
   return (
     <Modal
-      visible={visible}
       primaryActionTranslationId="Confirm"
       secondaryActionTranslationId="Reject"
       header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
-      trigger={trigger}
     >
       <Column flex="1">
         <Center>

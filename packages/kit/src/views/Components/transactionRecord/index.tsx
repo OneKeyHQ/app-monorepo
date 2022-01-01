@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Icon,
-  Spacer,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -162,13 +161,15 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
       >
         <Box minW="128px">{basicInfo()}</Box>
         {transaction.type === 'Approve' ? (
-          <Typography.Body2 flex={1} textAlign="center" color="text-subdued">
+          <Typography.Body2 textAlign="left" color="text-subdued">
             {transaction?.approveInfo?.url}
           </Typography.Body2>
         ) : (
-          <Address color="text-subdued" text={transaction.to} />
+          <Box>
+            <Address color="text-subdued" text={transaction.to} />
+          </Box>
         )}
-        {displayAmount() ? amountInfo() : <Spacer />}
+        {displayAmount() ? amountInfo() : <Box minW="156px" />}
       </Box>
     );
   }, [
@@ -182,7 +183,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
   ]);
 
   return (
-    <Box p={4} flexDirection="row">
+    <Box flexDirection="row">
       <Box mt={1.5}>
         <Box
           borderRadius="full"
@@ -201,10 +202,11 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
         {transaction.state === 'pending' && (
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>
-              {transaction.confirmed > 6 ??
+              {transaction.confirmed < 6 &&
                 intl.formatMessage({ id: 'transaction__not_confirmed' })}
             </Typography.Caption>
             <Button
+              size="xs"
               ml={2}
               onPress={() => {
                 console.log('Click: Cancel');
@@ -214,6 +216,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
             </Button>
             <Button
               type="primary"
+              size="xs"
               ml={2}
               onPress={() => {
                 console.log('Click: Speed Up');

@@ -43,6 +43,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       borderColor={borderColor}
       borderWidth="0"
       borderBottomWidth={StyleSheet.hairlineWidth}
+      zIndex={999}
     >
       <Box
         flex="1"

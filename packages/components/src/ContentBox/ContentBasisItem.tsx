@@ -4,13 +4,13 @@ import Box from '../Box';
 import Divider from '../Divider';
 import Typography from '../Typography';
 
+import { ContentItemBaseProps } from './Container';
+
 export type ContentItemProps = {
   title: string;
   value?: string;
   describe?: string;
-  hasDivider?: boolean;
-  children?: JSX.Element;
-};
+} & ContentItemBaseProps;
 
 const ContentItem: FC<ContentItemProps> = ({
   title,
@@ -21,19 +21,24 @@ const ContentItem: FC<ContentItemProps> = ({
 }) => (
   <Box w="100%" flexDirection="column">
     <Box
-      p={4}
+      px={{ base: '4', lg: '6' }}
+      py={4}
       w="100%"
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
     >
-      <Typography.Body1 h="100%" color="text-subdued">
+      <Typography.Body1 fontWeight="bold" h="100%" color="text-subdued">
         {title}
       </Typography.Body1>
       <Box flex={1} ml={3} flexDirection="column" alignItems="flex-end">
         {!!children && children}
         {!!value && (
-          <Typography.Body1 color="text-default" textAlign="right">
+          <Typography.Body1
+            fontWeight="bold"
+            color="text-default"
+            textAlign="right"
+          >
             {value}
           </Typography.Body1>
         )}

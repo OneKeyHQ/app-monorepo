@@ -67,7 +67,7 @@ export default function BottomTabBar({
       bottom="0"
       bg="surface-subdued"
       borderTopColor="border-subdued"
-      paddingBottom={paddingBottom}
+      paddingBottom={`${paddingBottom}px`}
       height={tabBarHeight}
       py={Math.max(insets.left ?? 0, insets.right ?? 0)}
     >
