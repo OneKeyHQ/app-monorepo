@@ -52,6 +52,7 @@ function Desktop<T>({
         bg="surface-subdued"
         borderColor="border-subdued"
         borderWidth="1px"
+        shadow="depth.3"
         {...dropdownProps}
       >
         {headerShown ? (
@@ -63,6 +64,8 @@ function Desktop<T>({
               flexDirection="row"
               justifyContent="space-between"
               alignItems="center"
+              borderBottomWidth={title ? 1 : undefined}
+              borderBottomColor="border-subdued"
             >
               <Typography.Body2Strong>{title}</Typography.Body2Strong>
               <IconButton
@@ -73,7 +76,6 @@ function Desktop<T>({
                 circle
               />
             </Box>
-            {!!title && <Divider />}
           </>
         ) : null}
         <ScrollView p="1" flex="1">
@@ -88,19 +90,16 @@ function Desktop<T>({
         {isValidElement(footer) || footer === null ? (
           footer
         ) : (
-          <>
-            <Divider />
-            <Box p="1.5">
-              <Button
-                size="xs"
-                type="plain"
-                leftIconName={footerIcon}
-                onPress={onPressFooter}
-              >
-                {footerText}
-              </Button>
-            </Box>
-          </>
+          <Box p="1.5" borderTopWidth={1} borderTopColor="border-subdued">
+            <Button
+              size="xs"
+              type="plain"
+              leftIconName={footerIcon}
+              onPress={onPressFooter}
+            >
+              {footerText}
+            </Button>
+          </Box>
         )}
       </Box>
     </PresenceTransition>

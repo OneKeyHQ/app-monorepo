@@ -52,15 +52,15 @@ function RenderSingleOption<T>({
   const SelectedIndicator = () => (
     <NBIcon
       as={isSmallScreen ? CheckOUtline : CheckSolid}
-      size={{ base: '6', lg: '5' }}
+      size={{ base: '6', md: '5' }}
       color="interactive-default"
     />
   );
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable
-        px={{ base: '4', lg: '2' }}
-        py={{ base: '3', lg: '2' }}
+        px={{ base: '4', md: '2' }}
+        py={{ base: '3', md: '2' }}
         key={option.value as unknown as string}
         onPress={() => onChange?.(option.value, option)}
         borderRadius="xl"
@@ -80,7 +80,7 @@ function RenderSingleOption<T>({
         <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
           {!!option.tokenProps && (
             <Box mr="3">
-              <Token size={{ base: '8', lg: '6' }} {...option.tokenProps} />
+              <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
             </Box>
           )}
           {!!option.iconProps && (
