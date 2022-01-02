@@ -63,11 +63,11 @@ function RenderSingleOption<T>({
         py={{ base: '3', lg: '2' }}
         key={option.value as unknown as string}
         onPress={() => onChange?.(option.value, option)}
-        borderRadius="12px"
+        borderRadius="xl"
         display="flex"
         flexDirection="row"
         alignItems="center"
-        bg={isActive && !asAction ? 'surface-selected' : ''}
+        bg={isActive && !asAction ? 'surface-selected' : undefined}
         _hover={
           // eslint-disable-next-line no-nested-ternary
           isActive && !asAction

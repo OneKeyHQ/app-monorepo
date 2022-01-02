@@ -48,7 +48,7 @@ function Desktop<T>({
         right={dropdownPosition === 'right' ? '0' : ''}
         left={dropdownPosition === 'left' ? '0' : ''}
         maxHeight="480px"
-        borderRadius="xl"
+        borderRadius="12"
         bg="surface-subdued"
         borderColor="border-subdued"
         borderWidth="1px"

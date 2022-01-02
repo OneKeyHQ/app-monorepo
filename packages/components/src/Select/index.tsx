@@ -196,10 +196,16 @@ function Select<T = string>({
       <Pressable
         width="100%"
         onPress={toggleVisible}
-        borderWidth={isTriggerPlain && renderTrigger ? '' : '1'}
-        borderColor={isTriggerPlain && renderTrigger ? '' : 'border-default'}
-        bg={isTriggerPlain && renderTrigger ? '' : 'action-secondary-default'}
-        borderRadius={renderTrigger ? '' : 'xl'}
+        borderWidth={isTriggerPlain && renderTrigger ? undefined : '1'}
+        borderColor={
+          isTriggerPlain && renderTrigger ? undefined : 'border-default'
+        }
+        bg={
+          isTriggerPlain && renderTrigger
+            ? undefined
+            : 'action-secondary-default'
+        }
+        borderRadius={renderTrigger ? undefined : 'xl'}
         _hover={
           // eslint-disable-next-line no-nested-ternary
           renderTrigger
@@ -214,33 +220,34 @@ function Select<T = string>({
           <Box
             display="flex"
             flexDirection="row"
-            justifyContent="space-between"
             alignItems="center"
             // bg={visible ? 'surface-selected' : 'transparent'}
             py="2"
             pl="3"
             pr="2.5"
           >
-            {!!activeOption.tokenProps && (
-              <Box mr="3">
-                <Token size={6} {...activeOption.tokenProps} />
-              </Box>
-            )}
-            {!!activeOption.iconProps && (
-              <Box mr="3">
-                <Icon size={6} {...activeOption.iconProps} />
-              </Box>
-            )}
-            {isSmallScreen ? (
-              <Typography.Body1 numberOfLines={1} flex="1" mr="1">
-                {activeOption.label ?? '-'}
-              </Typography.Body1>
-            ) : (
-              <Typography.Body2 numberOfLines={1} flex="1" mr="1">
-                {activeOption.label ?? '-'}
-              </Typography.Body2>
-            )}
-            <NBIcon as={ChevronDown} size={5} color="icon-default" />
+            <Box display="flex" flexDirection="row" alignItems="center" mr="1">
+              {!!activeOption.tokenProps && (
+                <Box mr="3">
+                  <Token size={6} {...activeOption.tokenProps} />
+                </Box>
+              )}
+              {!!activeOption.iconProps && (
+                <Box mr="3">
+                  <Icon size={6} {...activeOption.iconProps} />
+                </Box>
+              )}
+              {isSmallScreen ? (
+                <Typography.Body1 numberOfLines={1}>
+                  {activeOption.label ?? '-'}
+                </Typography.Body1>
+              ) : (
+                <Typography.Body2 numberOfLines={1}>
+                  {activeOption.label ?? '-'}
+                </Typography.Body2>
+              )}
+            </Box>
+            <NBIcon as={ChevronDown} size={5} color="icon-default" ml="auto" />
           </Box>
         )}
       </Pressable>
