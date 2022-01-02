@@ -76,19 +76,12 @@ export type ChildProps<T> = Pick<
   | 'onModalHide'
   | 'isTriggerPlain'
   | 'asAction'
+  | 'dropdownPosition'
 > & {
   toggleVisible: () => void;
   visible: boolean;
   activeOption: SelectItem<T>;
 };
-
-function getTriggerAlignSelf(
-  dropdownPosition: SelectProps['dropdownPosition'],
-) {
-  if (dropdownPosition === 'left') return 'flex-end';
-  if (dropdownPosition === 'right') return 'flex-start';
-  return 'center';
-}
 
 const defaultProps = {
   headerShown: true,
@@ -113,9 +106,9 @@ function Select<T = string>({
   footerIcon,
   onPressFooter,
   headerShown,
-  dropdownPosition,
   isTriggerPlain,
   asAction,
+  dropdownPosition,
 }: SelectProps<T>) {
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
@@ -172,6 +165,7 @@ function Select<T = string>({
       headerShown,
       onChange: handleChange,
       asAction,
+      dropdownPosition,
     };
 
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -194,6 +188,7 @@ function Select<T = string>({
     renderItem,
     headerShown,
     asAction,
+    dropdownPosition,
   ]);
 
   return (
@@ -201,7 +196,6 @@ function Select<T = string>({
       <Pressable
         width="100%"
         onPress={toggleVisible}
-        alignSelf={getTriggerAlignSelf(dropdownPosition)}
         borderWidth={isTriggerPlain && renderTrigger ? '' : '1'}
         borderColor={isTriggerPlain && renderTrigger ? '' : 'border-default'}
         bg={isTriggerPlain && renderTrigger ? '' : 'action-secondary-default'}

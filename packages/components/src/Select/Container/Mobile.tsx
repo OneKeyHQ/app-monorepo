@@ -53,6 +53,7 @@ function Mobile<T>({
       <Box
         maxHeight="70%"
         minHeight="180px"
+        minW="full"
         bg="surface-subdued"
         borderTopRadius="24px"
         {...dropdownProps}

@@ -49,7 +49,7 @@ function renderSideAction(
   if (type === 'normal') {
     return (
       <Select
-        dropdownPosition="right"
+        dropdownPosition="left"
         onChange={onChange}
         asAction
         options={[

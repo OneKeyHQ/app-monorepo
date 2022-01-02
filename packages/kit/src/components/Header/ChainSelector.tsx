@@ -80,22 +80,16 @@ const ChainSelector: FC = () => {
   );
 
   return (
-    <Box flex="1" w="full">
+    <Box>
       <Select
-        containerProps={{
-          width: isHorizontal ? 248 : 'auto',
-          alignSelf: 'flex-end',
-        }}
-        triggerProps={{
-          width: 160,
-        }}
-        dropdownPosition="left"
+        dropdownPosition="right"
+        dropdownProps={{ w: '56' }}
         value={activeChainId}
         onChange={handleActiveChainChange}
         title="Networks"
         options={options}
         footerText={intl.formatMessage({ id: 'action__customize_network' })}
-        footerIcon="PencilOutline"
+        footerIcon="PencilSolid"
         onPressFooter={() =>
           navigation.navigate(ManageNetworkModalRoutes.ManageNetworkModal)
         }

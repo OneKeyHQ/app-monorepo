@@ -26,6 +26,7 @@ function Desktop<T>({
   activeOption,
   renderItem,
   headerShown,
+  dropdownPosition,
   asAction,
 }: ChildProps<T>) {
   return (
@@ -43,7 +44,9 @@ function Desktop<T>({
       <Box
         zIndex={999}
         position="absolute"
-        width="100%"
+        width="full"
+        right={dropdownPosition === 'right' ? '0' : ''}
+        left={dropdownPosition === 'left' ? '0' : ''}
         maxHeight="480px"
         borderRadius="xl"
         bg="surface-subdued"
