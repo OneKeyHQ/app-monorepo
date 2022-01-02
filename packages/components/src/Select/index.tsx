@@ -22,6 +22,7 @@ import Mobile from './Container/Mobile';
 
 export type SelectItem<T = string> = {
   label: string;
+  description: string;
   value: T;
   tokenProps?: ComponentProps<typeof Token>;
   iconProps?: ComponentProps<typeof Icon>;
@@ -192,9 +193,9 @@ function Select<T = string>({
   ]);
 
   return (
-    <Box width="100%" position="relative" {...containerProps}>
+    <Box w="full" position="relative" {...containerProps}>
       <Pressable
-        width="100%"
+        w="full"
         onPress={toggleVisible}
         borderWidth={isTriggerPlain || renderTrigger ? undefined : '1'}
         borderColor={
@@ -229,7 +230,10 @@ function Select<T = string>({
             <Box display="flex" flexDirection="row" alignItems="center" mr="1">
               {!!activeOption.tokenProps && (
                 <Box mr="3">
-                  <Token size={6} {...activeOption.tokenProps} />
+                  <Token
+                    size={activeOption.description ? 8 : 6}
+                    {...activeOption.tokenProps}
+                  />
                 </Box>
               )}
               {!!activeOption.iconProps && (
@@ -237,15 +241,22 @@ function Select<T = string>({
                   <Icon size={6} {...activeOption.iconProps} />
                 </Box>
               )}
-              {isSmallScreen ? (
-                <Typography.Body1 numberOfLines={1}>
-                  {activeOption.label ?? '-'}
-                </Typography.Body1>
-              ) : (
-                <Typography.Body2 numberOfLines={1}>
-                  {activeOption.label ?? '-'}
-                </Typography.Body2>
-              )}
+              <Box>
+                {isSmallScreen ? (
+                  <Typography.Body1 numberOfLines={1}>
+                    {activeOption.label ?? '-'}
+                  </Typography.Body1>
+                ) : (
+                  <Typography.Body2 numberOfLines={1}>
+                    {activeOption.label ?? '-'}
+                  </Typography.Body2>
+                )}
+                {activeOption.description && (
+                  <Typography.Body2 color="text-subdued">
+                    {activeOption.description ?? '-'}
+                  </Typography.Body2>
+                )}
+              </Box>
             </Box>
             <NBIcon as={ChevronDown} size={5} color="icon-default" ml="auto" />
           </Box>

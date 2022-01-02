@@ -92,7 +92,14 @@ function RenderSingleOption<T>({
               />
             </Box>
           )}
-          <OptionLabel />
+          <Box>
+            <OptionLabel />
+            {!!option.description && (
+              <Typography.Body2 color="text-subdued">
+                {option.description ?? '-'}
+              </Typography.Body2>
+            )}
+          </Box>
         </Box>
         {isActive && !asAction && <SelectedIndicator />}
       </Pressable>
