@@ -2,7 +2,6 @@ import React, { isValidElement } from 'react';
 
 import Box from '../../Box';
 import Button from '../../Button';
-import Divider from '../../Divider';
 import IconButton from '../../IconButton';
 import PresenceTransition from '../../PresenceTransition';
 import ScrollView from '../../ScrollView';

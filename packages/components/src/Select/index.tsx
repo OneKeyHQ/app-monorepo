@@ -22,7 +22,7 @@ import Mobile from './Container/Mobile';
 
 export type SelectItem<T = string> = {
   label: string;
-  description: string;
+  description?: string;
   value: T;
   tokenProps?: ComponentProps<typeof Token>;
   iconProps?: ComponentProps<typeof Icon>;

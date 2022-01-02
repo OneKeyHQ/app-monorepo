@@ -4,7 +4,6 @@ import Modal from 'react-native-modal';
 
 import Box from '../../Box';
 import Button from '../../Button';
-import Divider from '../../Divider';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
@@ -65,6 +64,8 @@ function Mobile<T>({
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
+          borderBottomColor="border-subdued"
+          borderBottomWidth={title ? 1 : undefined}
         >
           {/* placeholder */}
           <Box width="12" />
@@ -77,7 +78,6 @@ function Mobile<T>({
             circle
           />
         </Box>
-        {!!title && <Divider />}
         <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
           {renderOptions<T>({
             options,
@@ -91,8 +91,12 @@ function Mobile<T>({
           footer
         ) : (
           <Box pb={`${bottom}px`}>
-            <Divider />
-            <Box px="4" py="2">
+            <Box
+              px="4"
+              py="2"
+              borderTopWidth={1}
+              borderTopColor="border-subdued"
+            >
               <Button
                 size="lg"
                 type="plain"
