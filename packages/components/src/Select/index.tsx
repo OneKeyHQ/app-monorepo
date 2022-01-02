@@ -196,12 +196,12 @@ function Select<T = string>({
       <Pressable
         width="100%"
         onPress={toggleVisible}
-        borderWidth={isTriggerPlain && renderTrigger ? undefined : '1'}
+        borderWidth={isTriggerPlain || renderTrigger ? undefined : '1'}
         borderColor={
-          isTriggerPlain && renderTrigger ? undefined : 'border-default'
+          isTriggerPlain || renderTrigger ? undefined : 'border-default'
         }
         bg={
-          isTriggerPlain && renderTrigger
+          isTriggerPlain || renderTrigger
             ? undefined
             : 'action-secondary-default'
         }

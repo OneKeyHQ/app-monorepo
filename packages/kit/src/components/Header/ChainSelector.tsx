@@ -3,7 +3,7 @@ import React, { FC, useCallback, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Select, useUserDevice } from '@onekeyhq/components';
+import { Box, Select } from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   ManageNetworkModalRoutes,
@@ -20,8 +20,6 @@ type NavigationProps = NativeStackNavigationProp<
 const ChainSelector: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { size } = useUserDevice();
-  const isHorizontal = ['LARGE', 'XLARGE'].includes(size);
 
   const dispatch = useAppDispatch();
   const activeChainId = useAppSelector((s) => s.chain.chainId);
@@ -39,7 +37,7 @@ const ChainSelector: FC = () => {
         title: 'EVM',
         options: [
           {
-            label: 'Ethereum',
+            label: 'ETH',
             value: 'ethereum',
             tokenProps: {
               chain: 'eth',
@@ -90,6 +88,7 @@ const ChainSelector: FC = () => {
         options={options}
         footerText={intl.formatMessage({ id: 'action__customize_network' })}
         footerIcon="PencilSolid"
+        isTriggerPlain
         onPressFooter={() =>
           navigation.navigate(ManageNetworkModalRoutes.ManageNetworkModal)
         }
