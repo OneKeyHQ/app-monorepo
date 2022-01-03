@@ -95,7 +95,7 @@ const MobileModal: FC<ModalProps> = ({
                 flex="1"
                 size="lg"
                 type="primary"
-                ml="3"
+                ml="4"
                 onPress={() => {
                   onPrimaryActionPress?.({ onClose });
                 }}
