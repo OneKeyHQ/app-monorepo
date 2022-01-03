@@ -6,9 +6,7 @@ import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Button from '../../Button';
-import Divider from '../../Divider';
-import Icon from '../../Icon';
-import Pressable from '../../Pressable';
+import IconButton from '../../IconButton';
 import Typography from '../../Typography';
 
 import type { ModalProps } from '..';
@@ -28,6 +26,7 @@ const DesktopModal: FC<ModalProps> = ({
   onSecondaryActionPress,
   header,
   size,
+  headerDescription,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -71,46 +70,55 @@ const DesktopModal: FC<ModalProps> = ({
         zIndex={999}
       >
         <Box
-          py="5"
-          px="6"
+          p={4}
+          pl={index ? 4 : 6}
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
+          borderBottomColor="border-subdued"
+          borderBottomWidth={header ? 1 : undefined}
         >
           {index ? (
-            <Pressable
+            <IconButton
+              size="base"
+              name="ArrowLeftSolid"
+              type="plain"
+              circle
               onPress={() => {
                 if (navigation.canGoBack()) {
                   navigation.goBack();
                 }
               }}
-            >
-              <Icon name="ChevronLeftOutline" size={24} />
-            </Pressable>
+            />
           ) : null}
-          <Typography.Heading flex="1" textAlign="center">
-            {header}
-          </Typography.Heading>
+          <Box flex="1" ml={index ? 4 : undefined}>
+            <Typography.Heading>{header}</Typography.Heading>
+            {!!headerDescription && (
+              <Typography.Caption color="text-subdued">
+                {headerDescription}
+              </Typography.Caption>
+            )}
+          </Box>
           {!!closeable && (
-            <Pressable
+            <IconButton
+              size="base"
+              name="CloseSolid"
+              type="plain"
+              circle
               onPress={() => {
                 // @ts-expect-error
                 navigation?.popToTop?.();
                 navigation.goBack();
               }}
-            >
-              <Icon name="CloseOutline" size={20} />
-            </Pressable>
+            />
           )}
         </Box>
-        <Divider />
         {children}
         {isValidElement(footer) || footer === null ? (
           footer
         ) : (
-          <Box height="70px">
-            <Divider />
+          <Box borderTopWidth={1} borderTopColor="border-subdued">
             <Box
               py="4"
               px="6"
