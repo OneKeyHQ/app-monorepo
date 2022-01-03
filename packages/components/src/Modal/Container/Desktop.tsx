@@ -34,23 +34,21 @@ const DesktopModal: FC<ModalProps> = ({
   const index = useNavigationState((state) => state.index);
 
   function modalSizing(modalSize: string | undefined) {
-    if (modalSize === 'xs') {
-      return '400px';
-    }
-    if (modalSize === 'sm') {
-      return '480px';
-    }
-    if (modalSize === 'md') {
-      return '560px';
-    }
-    if (modalSize === 'lg') {
-      return '640px';
-    }
-    if (modalSize === 'xl') {
-      return '720px';
-    }
-    if (modalSize === '2xl') {
-      return '800px';
+    switch (modalSize) {
+      case 'xs':
+        return '400px';
+      case 'sm':
+        return '480px';
+      case 'md':
+        return '560px';
+      case 'lg':
+        return '640px';
+      case 'xl':
+        return '720px';
+      case '2xl':
+        return '800px';
+      default:
+        return '';
     }
   }
 
@@ -70,7 +68,6 @@ const DesktopModal: FC<ModalProps> = ({
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"
-        height="548px"
         zIndex={999}
       >
         <Box
