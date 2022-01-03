@@ -27,10 +27,32 @@ const DesktopModal: FC<ModalProps> = ({
   onPrimaryActionPress,
   onSecondaryActionPress,
   header,
+  size,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const index = useNavigationState((state) => state.index);
+
+  function modalSizing(modalSize: string | undefined) {
+    if (modalSize === 'xs') {
+      return '400px';
+    }
+    if (modalSize === 'sm') {
+      return '480px';
+    }
+    if (modalSize === 'md') {
+      return '560px';
+    }
+    if (modalSize === 'lg') {
+      return '640px';
+    }
+    if (modalSize === 'xl') {
+      return '720px';
+    }
+    if (modalSize === '2xl') {
+      return '800px';
+    }
+  }
 
   return (
     <Box
@@ -44,7 +66,7 @@ const DesktopModal: FC<ModalProps> = ({
       zIndex={99}
     >
       <Box
-        width="720px"
+        width={modalSizing(size)}
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"

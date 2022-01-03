@@ -39,10 +39,12 @@ export type ModalProps = {
   flatListProps?: ComponentProps<typeof FlatList>;
   sectionListProps?: ComponentProps<typeof SectionList>;
   staticChildrenProps?: ComponentProps<typeof Box>;
+  size?: 'xs' | 'md' | 'lg' | 'xl' | '2xl';
 };
 
 const defaultProps = {
   closeable: true,
+  size: 'xs',
 } as const;
 
 const Modal: FC<ModalProps> = ({
