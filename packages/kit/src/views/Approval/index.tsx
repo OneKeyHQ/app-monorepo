@@ -8,7 +8,7 @@ const Approval = () => {
   const navigation = useNavigation();
   return (
     <Center flex="1" bg="background-hovered">
-      <Button onPress={() => navigation.navigate('Components/Address' as any)}>
+      <Button onPress={() => navigation.navigate('component/address' as any)}>
         Go To Components
       </Button>
       <Typography.Body2>Approval</Typography.Body2>

@@ -60,6 +60,11 @@ export const useUserDevice = () => {
   return useMemo(() => context.device, [context.device]);
 };
 
+export const useIsVerticalLayout = () => {
+  const { size } = useUserDevice();
+  return ['SMALL', 'NORMAL'].includes(size);
+};
+
 const customFont = {
   'PlusJakartaSans-Bold': require('./fonts/PlusJakartaSans-Bold.ttf'),
   'PlusJakartaSans-Medium': require('./fonts/PlusJakartaSans-Medium.ttf'),

@@ -9,7 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LOCALES, { LocaleSymbol, getDefaultLocale } from '../locale';
 
-import { getSize } from './device';
+import { SCREEN_SIZE, getSize } from './device';
 import { Context, useLoadCustomFonts } from './hooks';
 import COLORS, { ThemeVariant, getDefaultTheme } from './theme';
 
@@ -71,6 +71,12 @@ const Provider: FC<UIProviderProps> = ({
     () =>
       extendTheme({
         colors: COLORS[themeVariant],
+        breakpoints: {
+          base: 0,
+          sm: SCREEN_SIZE.MEDIUM,
+          md: SCREEN_SIZE.LARGE,
+          lg: SCREEN_SIZE.XLARGE,
+        },
         shadows: {
           depth: {
             1: {

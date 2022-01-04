@@ -1,4 +1,6 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
 
 import {
   Account,
@@ -13,8 +15,19 @@ import {
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
+import {
+  CreateAccountModalRoutes,
+  CreateAccountRoutesParams,
+  ModalRoutes,
+} from '@onekeyhq/kit/src/routes';
 import ImportedAccount from '@onekeyhq/kit/src/views/Account/ImportedAccount';
-import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  CreateAccountRoutesParams,
+  CreateAccountModalRoutes.CreateAccountForm
+>;
 
 // const WATCHED_ACCOUNTS = [];
 // const IMPORTED_ACCOUNTS = [];
@@ -28,18 +41,30 @@ const NORMAL_ACCOUNTS = [
 
 type AccountType = 'normal' | 'hd' | 'imported' | 'watched';
 
-function renderSideAction(type: AccountType, size: string) {
+function renderSideAction(
+  type: AccountType,
+  size: string,
+  onChange: (v: string) => void,
+) {
   if (type === 'normal') {
     return (
       <Select
-        dropdownPosition="right"
+        dropdownPosition="left"
+        onChange={onChange}
+        asAction
         options={[
           {
             label: 'Rename',
             value: 'rename',
             iconProps: {
               name: 'TagOutline',
-              size: 24,
+            },
+          },
+          {
+            label: 'Add Account',
+            value: 'addAccount',
+            iconProps: {
+              name: 'PlusCircleOutline',
             },
           },
           {
@@ -47,7 +72,6 @@ function renderSideAction(type: AccountType, size: string) {
             value: 'detail',
             iconProps: {
               name: 'DocumentTextSolid',
-              size: 24,
             },
           },
           {
@@ -55,7 +79,6 @@ function renderSideAction(type: AccountType, size: string) {
             value: 'export',
             iconProps: {
               name: 'UploadSolid',
-              size: 24,
             },
           },
           {
@@ -63,9 +86,8 @@ function renderSideAction(type: AccountType, size: string) {
             value: 'remove',
             iconProps: {
               name: 'TrashSolid',
-              size: 24,
-              color: 'icon-critical',
             },
+            destructive: true,
           },
         ]}
         triggerProps={{
@@ -87,13 +109,9 @@ function renderSideAction(type: AccountType, size: string) {
 
   if (type === 'watched') {
     return (
-      <WatchedAccount
-        trigger={
-          <Pressable px="2" justifyContent="center">
-            <Icon name="PlusOutline" />
-          </Pressable>
-        }
-      />
+      <Pressable px="2" justifyContent="center">
+        <Icon name="PlusOutline" />
+      </Pressable>
     );
   }
 
@@ -110,10 +128,32 @@ function renderSideAction(type: AccountType, size: string) {
   }
 }
 
-const AccountSelectorChildren: FC = () => {
+type ChildrenProps = {
+  handleToggleVisible: () => void;
+};
+
+const AccountSelectorChildren: FC<ChildrenProps> = ({
+  handleToggleVisible,
+}) => {
   const { size } = useUserDevice();
+  const navigation = useNavigation<NavigationProps>();
+
   const [activeAccountType, setActiveAccountType] =
     useState<AccountType>('normal');
+
+  const handleChange = useCallback(
+    (type) => {
+      if (type === 'addAccount') {
+        // setAddAccountVisible(true);
+        handleToggleVisible();
+        setTimeout(() => {
+          navigation.navigate(ModalRoutes.CreateAccountForm);
+        }, 200);
+      }
+    },
+    [navigation, handleToggleVisible],
+  );
+
   return (
     <>
       <Box p="2">
@@ -222,8 +262,12 @@ const AccountSelectorChildren: FC = () => {
             <Typography.Body1>Wallet #2</Typography.Body1>
             <Typography.Caption>Network: Ethereum</Typography.Caption>
           </Box>
-          {renderSideAction(activeAccountType, size)}
+          {renderSideAction(activeAccountType, size, handleChange)}
         </Box>
+        {/* <CreateAccount
+          visible={addAccountVisible}
+          onClose={() => setAddAccountVisible(false)}
+        /> */}
         <FlatList
           data={NORMAL_ACCOUNTS}
           keyExtractor={(_, index) => index.toString()}
