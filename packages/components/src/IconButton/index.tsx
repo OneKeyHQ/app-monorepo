@@ -13,22 +13,22 @@ type IconButtonProps = {
 };
 
 function getRect(size: ButtonSize = 'base') {
-  const sizeMap: Record<ButtonSize, number> = {
-    'base': 9,
-    'xs': 8,
-    'sm': 8,
-    'lg': 10,
-    'xl': 12,
+  const paddingMap: Record<ButtonSize, number> = {
+    'base': 2,
+    'xs': 1,
+    'sm': 1.5,
+    'lg': 2,
+    'xl': 3,
   };
-  return sizeMap[size];
+  return paddingMap[size];
 }
 
 function getIconSize(size: ButtonSize = 'base') {
   const sizeMap: Record<ButtonSize, number> = {
     'base': 20,
-    'xs': 16,
+    'xs': 20,
     'sm': 20,
-    'lg': 20,
+    'lg': 24,
     'xl': 24,
   };
   return sizeMap[size];
@@ -50,8 +50,10 @@ const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
       isLoading={isLoading}
       isDisabled={isDisabled}
       type={type}
-      width={rect}
-      height={rect}
+      pt={rect}
+      pr={rect}
+      pb={rect}
+      pl={rect}
       borderRadius={circle ? 'full' : 12}
       leftIconName={name}
       iconSize={iconSize}

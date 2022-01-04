@@ -3,9 +3,8 @@ import React, { isValidElement } from 'react';
 import Modal from 'react-native-modal';
 
 import Box from '../../Box';
-import Divider from '../../Divider';
-import Icon from '../../Icon';
-import Pressable from '../../Pressable';
+import Button from '../../Button';
+import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
@@ -28,6 +27,7 @@ function Mobile<T>({
   activeOption,
   renderItem,
   onModalHide,
+  asAction,
 }: ChildProps<T>) {
   const { bottom } = useSafeAreaInsets();
   return (
@@ -52,48 +52,60 @@ function Mobile<T>({
       <Box
         maxHeight="70%"
         minHeight="180px"
+        minW="full"
         bg="surface-subdued"
         borderTopRadius="24px"
         {...dropdownProps}
       >
         <Box
-          py="3"
-          px="4"
+          py="1"
+          px="2"
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
+          borderBottomColor="border-subdued"
+          borderBottomWidth={title ? 1 : undefined}
         >
+          {/* placeholder */}
+          <Box width="12" />
           <Typography.Heading>{title}</Typography.Heading>
-          <Pressable onPress={toggleVisible}>
-            <Icon name="CloseOutline" size={24} />
-          </Pressable>
+          <IconButton
+            name="CloseOutline"
+            type="plain"
+            size="xl"
+            onPress={toggleVisible}
+            circle
+          />
         </Box>
-        <Divider />
         <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
-          {renderOptions<T>({ options, activeOption, renderItem, onChange })}
+          {renderOptions<T>({
+            options,
+            activeOption,
+            renderItem,
+            onChange,
+            asAction,
+          })}
         </ScrollView>
         {isValidElement(footer) || footer === null ? (
           footer
         ) : (
           <Box pb={`${bottom}px`}>
-            <Divider />
-            <Pressable
-              p="3"
-              display="flex"
-              flexDirection="row"
-              justifyContent="center"
-              alignItems="center"
-              onPress={() => {
-                toggleVisible();
-                setTimeout(() => {
-                  onPressFooter?.();
-                }, 200);
-              }}
+            <Box
+              px="4"
+              py="2"
+              borderTopWidth={1}
+              borderTopColor="border-subdued"
             >
-              {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
-              <Typography.Body2 mx="2">{footerText}</Typography.Body2>
-            </Pressable>
+              <Button
+                size="lg"
+                type="plain"
+                leftIconName={footerIcon}
+                onPress={onPressFooter}
+              >
+                {footerText}
+              </Button>
+            </Box>
           </Box>
         )}
       </Box>

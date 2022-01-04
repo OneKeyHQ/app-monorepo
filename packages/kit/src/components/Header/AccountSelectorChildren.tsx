@@ -49,15 +49,15 @@ function renderSideAction(
   if (type === 'normal') {
     return (
       <Select
-        dropdownPosition="right"
+        dropdownPosition="left"
         onChange={onChange}
+        asAction
         options={[
           {
             label: 'Rename',
             value: 'rename',
             iconProps: {
               name: 'TagOutline',
-              size: 24,
             },
           },
           {
@@ -65,7 +65,6 @@ function renderSideAction(
             value: 'addAccount',
             iconProps: {
               name: 'PlusCircleOutline',
-              size: 24,
             },
           },
           {
@@ -73,7 +72,6 @@ function renderSideAction(
             value: 'detail',
             iconProps: {
               name: 'DocumentTextSolid',
-              size: 24,
             },
           },
           {
@@ -81,7 +79,6 @@ function renderSideAction(
             value: 'export',
             iconProps: {
               name: 'UploadSolid',
-              size: 24,
             },
           },
           {
@@ -89,9 +86,8 @@ function renderSideAction(
             value: 'remove',
             iconProps: {
               name: 'TrashSolid',
-              size: 24,
-              color: 'icon-critical',
             },
+            destructive: true,
           },
         ]}
         triggerProps={{
