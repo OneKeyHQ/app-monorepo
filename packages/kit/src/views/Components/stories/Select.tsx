@@ -41,7 +41,7 @@ const Select1 = () => {
 
 const SelectGallery = () => (
   <Center flex="1" bg="background-default">
-    <Stack direction="column" space="2" mb="2" alignItems="center">
+    <Stack direction="column" space="2" mb="2" alignItems="center" w="72">
       <Select1 />
       <Select
         footer={null}
@@ -216,6 +216,55 @@ const SelectGallery = () => (
         ]}
         footerText="Customize"
         footerIcon="PencilOutline"
+      />
+      <Select
+        containerProps={{
+          w: 'full',
+        }}
+        headerShown={false}
+        defaultValue="ethereum"
+        options={[
+          {
+            label: 'ETH',
+            value: 'ethereum',
+            description: 'description...',
+            tokenProps: {
+              chain: 'eth',
+            },
+          },
+          {
+            label: 'BSC',
+            value: 'bsc',
+            description: 'description...',
+            tokenProps: {
+              chain: 'bsc',
+            },
+          },
+          {
+            label: 'HECO',
+            value: 'heco',
+            description: 'description...',
+            tokenProps: {
+              chain: 'heco',
+            },
+          },
+          {
+            label: 'Polygon',
+            value: 'polygon',
+            description: 'description...',
+            tokenProps: {
+              chain: 'polygon',
+            },
+          },
+          {
+            label: 'Fantom',
+            value: 'fantom',
+            description: 'description...',
+            tokenProps: {
+              chain: 'fantom',
+            },
+          },
+        ]}
       />
     </Stack>
   </Center>
