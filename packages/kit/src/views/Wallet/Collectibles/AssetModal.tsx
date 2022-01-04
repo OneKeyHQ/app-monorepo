@@ -1,5 +1,7 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Center,
@@ -21,6 +23,8 @@ type CollectionModalProps = {
 };
 
 const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
+  const intl = useIntl();
+
   if (!asset) return null;
 
   return (
@@ -120,7 +124,7 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                     py="4"
                   >
                     <Typography.Body1 fontWeight="600" color="text-subdued">
-                      Blockchain
+                      {intl.formatMessage({ id: 'content__blockchain' })}
                     </Typography.Body1>
 
                     <Typography.Body1
@@ -146,7 +150,9 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                     py="4"
                   >
                     <Typography.Body1 fontWeight="600" color="text-subdued">
-                      Contract Address
+                      {intl.formatMessage({
+                        id: 'transaction__contract_address',
+                      })}
                     </Typography.Body1>
 
                     <Typography.Body1
