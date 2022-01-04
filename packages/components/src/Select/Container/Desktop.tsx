@@ -1,9 +1,9 @@
-import React, { Fragment, isValidElement } from 'react';
+import React, { isValidElement } from 'react';
 
 import Box from '../../Box';
-import Divider from '../../Divider';
-import Icon from '../../Icon';
-import Pressable from '../../Pressable';
+import Button from '../../Button';
+import IconButton from '../../IconButton';
+import PresenceTransition from '../../PresenceTransition';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
@@ -25,66 +25,83 @@ function Desktop<T>({
   activeOption,
   renderItem,
   headerShown,
+  dropdownPosition,
+  asAction,
 }: ChildProps<T>) {
-  if (!visible) return null;
   return (
-    <Box
-      zIndex={999}
-      position="absolute"
-      top="48px"
-      width="100%"
-      maxHeight="480px"
-      borderRadius="12px"
-      bg="surface-subdued"
-      borderColor="border-subdued"
-      borderWidth="1px"
-      {...dropdownProps}
+    <PresenceTransition
+      visible={visible}
+      initial={{ opacity: 0, translateY: 0 }}
+      animate={{
+        opacity: 1,
+        translateY: 8,
+        transition: {
+          duration: 150,
+        },
+      }}
     >
-      {headerShown ? (
-        <>
-          <Box
-            p="2"
-            px="3"
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            <Typography.Heading>{title}</Typography.Heading>
-            <Pressable onPress={toggleVisible}>
-              <Icon name="CloseOutline" size={24} onPress={toggleVisible} />
-            </Pressable>
+      <Box
+        zIndex={999}
+        position="absolute"
+        width="full"
+        right={dropdownPosition === 'right' ? '0' : ''}
+        left={dropdownPosition === 'left' ? '0' : ''}
+        maxHeight="480px"
+        borderRadius="12"
+        bg="surface-subdued"
+        borderColor="border-subdued"
+        borderWidth="1px"
+        shadow="depth.3"
+        {...dropdownProps}
+      >
+        {headerShown ? (
+          <>
+            <Box
+              p="2"
+              pl="3"
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              borderBottomWidth={title ? 1 : undefined}
+              borderBottomColor="border-subdued"
+            >
+              <Typography.Body2Strong>{title}</Typography.Body2Strong>
+              <IconButton
+                name="CloseSolid"
+                type="plain"
+                size="xs"
+                onPress={toggleVisible}
+                circle
+              />
+            </Box>
+          </>
+        ) : null}
+        <ScrollView p="1" flex="1">
+          {renderOptions<T>({
+            options,
+            activeOption,
+            renderItem,
+            onChange,
+            asAction,
+          })}
+        </ScrollView>
+        {isValidElement(footer) || footer === null ? (
+          footer
+        ) : (
+          <Box p="1.5" borderTopWidth={1} borderTopColor="border-subdued">
+            <Button
+              size="xs"
+              type="plain"
+              leftIconName={footerIcon}
+              onPress={onPressFooter}
+            >
+              {footerText}
+            </Button>
           </Box>
-          <Divider />
-        </>
-      ) : null}
-      <ScrollView p="2" flex="1">
-        {renderOptions<T>({ options, activeOption, renderItem, onChange })}
-      </ScrollView>
-      {isValidElement(footer) || footer === null ? (
-        footer
-      ) : (
-        <>
-          <Divider />
-          <Pressable
-            p="3"
-            display="flex"
-            flexDirection="row"
-            justifyContent="center"
-            alignItems="center"
-            onPress={() => {
-              toggleVisible();
-              setTimeout(() => {
-                onPressFooter?.();
-              }, 200);
-            }}
-          >
-            {footerIcon ? <Icon name={footerIcon} size={12} /> : null}
-            <Typography.Body2 mx="2">{footerText}</Typography.Body2>
-          </Pressable>
-        </>
-      )}
-    </Box>
+        )}
+      </Box>
+    </PresenceTransition>
   );
 }
 
