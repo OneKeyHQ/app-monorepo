@@ -32,4 +32,5 @@ export const ScrollableSectionList = platformEnv.isNative
 export const ScrollableScrollView = platformEnv.isNative
   ? HScrollView
   : ScrollView;
+
 export default HeaderTabViewContainer;

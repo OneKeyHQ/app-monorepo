@@ -30,6 +30,7 @@ import TransactionDetails from '../../TransactionDetails';
 import { ScrollRoute } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import RenderCounter from '../../../components/RenderCount';
 
 type NavigationProps = NativeStackNavigationProp<
   TransactionDetailRoutesParams,
@@ -195,6 +196,7 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
           <Typography.Subheading color="text-subdued">
             {title}
           </Typography.Subheading>
+          <RenderCounter label={title} />
           {data[0] != null && data[0].state === 'pending' && (
             <Box ml={3}>
               <Badge title={data.length.toString()} type="Default" size="sm" />
@@ -209,6 +211,9 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
       <Typography.Heading>
         {intl.formatMessage({ id: 'transaction__history' })}
       </Typography.Heading>
+      <RenderCounter
+        label={`${intl.formatMessage({ id: 'transaction__history' })} header`}
+      />
       <Pressable
         p={1.5}
         onPress={() => {
@@ -248,6 +253,7 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
           ItemSeparatorComponent={() => <Divider />}
           keyExtractor={(_, index: number) => index.toString()}
           showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={false}
         />
       </Box>
       {/* <Modal

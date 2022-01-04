@@ -38,7 +38,7 @@ const HeaderTabViewContainer = <T extends Route>({
   onIndexChange,
   tabsRefreshEnabled,
   ...rest
-}: HeaderTabViewProps<T>) => {
+}: HeaderTabViewProps<T> & Partial<ZTabViewProps<T>>) => {
   const [index, setIndex] = useState(0);
   const layout = useWindowDimensions();
   const tabWidth = (layout.width - paddingX * 2) / routes.length;

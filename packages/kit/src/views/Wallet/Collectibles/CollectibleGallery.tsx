@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 
 import { Asset, Collectible, CollectibleView, SelectedAsset } from './types';
+import RenderCounter from '../../../components/RenderCount';
 
 // List
 type CollectibleListProps = {
@@ -37,51 +38,58 @@ const CollectibleList: FC<CollectibleListProps> = ({
   collectibles,
   onPressItem,
 }) => {
-  const renderItem: ScrollableFlatListProps<Collectible>['renderItem'] = ({
-    item,
-    index: itemIndex,
-  }) => (
-    <Pressable.Item
-      p={4}
-      borderTopRadius={itemIndex === 0 ? '12px' : '0px'}
-      borderRadius={itemIndex === collectibles.length - 1 ? '12px' : '0px'}
-      onPress={() => onPressItem(item)}
-    >
-      <HStack space={3} w="100%" flexDirection="row" alignItems="center">
-        <Token src={item.collection.imageUrl ?? undefined} />
-        <Box flex={1}>
-          <Typography.Body1Strong color="text-default">
-            {item.collection.name}
-          </Typography.Body1Strong>
-        </Box>
-        <HStack space={3}>
-          <Badge
-            type="Default"
-            title={item.assets.length.toString()}
-            size="sm"
+  const renderItem = React.useCallback<
+    ScrollableFlatListProps<Collectible>['renderItem']
+  >(
+    ({ item, index: itemIndex }) => (
+      <Pressable.Item
+        p={4}
+        borderTopRadius={itemIndex === 0 ? '12px' : '0px'}
+        borderRadius={itemIndex === collectibles.length - 1 ? '12px' : '0px'}
+        onPress={() => onPressItem(item)}
+      >
+        <HStack space={3} w="100%" flexDirection="row" alignItems="center">
+          <Token src={item.collection.imageUrl ?? undefined} />
+          <Box flex={1}>
+            <Typography.Body1Strong color="text-default">
+              {item.collection.name}
+            </Typography.Body1Strong>
+          </Box>
+          <RenderCounter
+            label={item.collection.name ?? `collectible ${itemIndex}`}
           />
-          <Icon size={20} name="ChevronRightSolid" />
+          <HStack space={3}>
+            <Badge
+              type="Default"
+              title={item.assets.length.toString()}
+              size="sm"
+            />
+            <Icon size={20} name="ChevronRightSolid" />
+          </HStack>
         </HStack>
-      </HStack>
-    </Pressable.Item>
+      </Pressable.Item>
+    ),
+    [collectibles, onPressItem],
   );
 
-  return (
-    <ScrollableFlatList
-      index={index}
-      renderItem={renderItem}
-      keyExtractor={(_, idx) => String(idx)}
-      ListEmptyComponent={renderEmpty}
-      ListHeaderComponent={renderHeader}
-      ItemSeparatorComponent={Divider}
-      ListFooterComponent={() => <Box h="20px" />}
-      data={collectibles}
-      extraData={collectibles}
-      style={{
-        backgroundColor: !collectibles.length ? 'initial' : 'surface-default',
-        borderRadius: 12,
-      }}
-    />
+  return React.useMemo(
+    () => (
+      <ScrollableFlatList
+        index={index}
+        renderItem={renderItem}
+        keyExtractor={(_, idx) => String(idx)}
+        ListEmptyComponent={renderEmpty}
+        ListHeaderComponent={renderHeader}
+        ItemSeparatorComponent={Divider}
+        ListFooterComponent={() => <Box h="20px" />}
+        data={collectibles}
+        style={{
+          backgroundColor: !collectibles.length ? 'initial' : 'surface-default',
+          borderRadius: 12,
+        }}
+      />
+    ),
+    [index, renderItem, renderEmpty, renderHeader, collectibles],
   );
 };
 
@@ -107,38 +115,47 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
 }) => {
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
 
-  const renderItem: ScrollableSectionListProps<Collectible>['renderItem'] = ({
-    item: col,
-  }) => (
-    <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
-      {col.assets.map((asset, itemIndex) => {
-        const marginRight = isSmallScreen && !(itemIndex % 2 === 0) ? 0 : 4;
+  const renderItem = React.useCallback<
+    ScrollableSectionListProps<Collectible>['renderItem']
+  >(
+    ({ item: col }) => (
+      <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
+        <RenderCounter
+          label={col.id ?? col.collection.name ?? col.contract.address}
+        />
 
-        return (
-          <NftCard
-            key={
-              asset.id ??
-              stringAppend(col.collection.name, asset.name, asset.tokenId)
-            }
-            image={asset.imageUrl}
-            title={asset.name}
-            mr={marginRight}
-            mb={4}
-            borderColor="background-default"
-            onPress={() =>
-              onPressItem({
-                ...asset,
-                chain: col.chain,
-                contractAddress: col.contract.address,
-              })
-            }
-          />
-        );
-      })}
-    </HStack>
+        {col.assets.map((asset, itemIndex) => {
+          const marginRight = isSmallScreen && !(itemIndex % 2 === 0) ? 0 : 4;
+
+          return (
+            <NftCard
+              key={
+                asset.id ??
+                stringAppend(col.collection.name, asset.name, asset.tokenId)
+              }
+              image={asset.imageUrl}
+              title={asset.name}
+              mr={marginRight}
+              mb={4}
+              borderColor="background-default"
+              onPress={() =>
+                onPressItem({
+                  ...asset,
+                  chain: col.chain,
+                  contractAddress: col.contract.address,
+                })
+              }
+            />
+          );
+        })}
+      </HStack>
+    ),
+    [isSmallScreen, onPressItem],
   );
 
-  const renderSectionHeader: ScrollableSectionListProps<Collectible>['renderSectionHeader'] =
+  const renderSectionHeader = React.useCallback<
+    ScrollableSectionListProps<Collectible>['renderSectionHeader']
+  >(
     ({
       section: {
         data: [col],
@@ -149,6 +166,7 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
         <Typography.Subheading color="text-subdued">
           {title}
         </Typography.Subheading>
+        <RenderCounter label={title} />
         {!!col.assets?.length && (
           <Badge
             type="Default"
@@ -157,24 +175,37 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
           />
         )}
       </HStack>
-    );
+    ),
+    [],
+  );
 
-  return (
-    <ScrollableSectionList
-      index={tabPageIndex}
-      sections={collectibleSections}
-      extraData={collectibleSections}
-      renderItem={renderItem}
-      renderSectionHeader={renderSectionHeader}
-      ListEmptyComponent={renderEmpty}
-      ListHeaderComponent={renderHeader}
-      ListFooterComponent={() => <Box h="20px" />}
-      ItemSeparatorComponent={() => <Divider />}
-      keyExtractor={(item: Collectible, index) =>
-        String(item.id ?? item.collection.name ?? index)
-      }
-      showsVerticalScrollIndicator={false}
-    />
+  return React.useMemo(
+    () => (
+      <ScrollableSectionList
+        index={tabPageIndex}
+        sections={collectibleSections}
+        extraData={collectibleSections}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        ListEmptyComponent={renderEmpty}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={() => <Box h="20px" />}
+        ItemSeparatorComponent={() => <Divider />}
+        keyExtractor={(item: Collectible, index) =>
+          String(item.id ?? item.collection.name ?? index)
+        }
+        stickySectionHeadersEnabled
+        showsVerticalScrollIndicator={false}
+      />
+    ),
+    [
+      collectibleSections,
+      renderEmpty,
+      renderHeader,
+      renderItem,
+      renderSectionHeader,
+      tabPageIndex,
+    ],
   );
 };
 
@@ -207,8 +238,9 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     }
   }, [isSmallScreen]);
 
-  const renderEmpty = () => (
-    <Empty title="No Collectible" subTitle="NFTs will show here" />
+  const renderEmpty = React.useCallback(
+    () => <Empty title="No Collectible" subTitle="NFTs will show here" />,
+    [],
   );
 
   const renderHeader = React.useCallback(() => {
@@ -222,6 +254,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         pb={4}
       >
         <Typography.Heading>Collectibles</Typography.Heading>
+        <RenderCounter label="collectible header" />
         <Pressable
           // no delay acts like debounce
           delayLongPress={0}
@@ -255,27 +288,37 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     );
   }, [collectibles, isSmallScreen, view]);
 
-  if (view === CollectibleView.Flat) {
+  return React.useMemo(() => {
+    if (view === CollectibleView.Flat) {
+      return (
+        <CollectibleList
+          index={index}
+          renderHeader={renderHeader}
+          renderEmpty={renderEmpty}
+          collectibles={collectibles}
+          onPressItem={onSelectCollectible}
+        />
+      );
+    }
+
     return (
-      <CollectibleList
+      <CollectibleGrid
         index={index}
         renderHeader={renderHeader}
         renderEmpty={renderEmpty}
-        collectibles={collectibles}
-        onPressItem={onSelectCollectible}
+        collectibleSections={toSections(collectibles)}
+        onPressItem={onSelectAsset}
       />
     );
-  }
-
-  return (
-    <CollectibleGrid
-      index={index}
-      renderHeader={renderHeader}
-      renderEmpty={renderEmpty}
-      collectibleSections={toSections(collectibles)}
-      onPressItem={onSelectAsset}
-    />
-  );
+  }, [
+    collectibles,
+    index,
+    onSelectAsset,
+    onSelectCollectible,
+    renderEmpty,
+    renderHeader,
+    view,
+  ]);
 };
 
 export default CollectibleGallery;

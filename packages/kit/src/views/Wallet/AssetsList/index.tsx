@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 
 import { ScrollRoute } from '../type';
+import RenderCounter from '../../../components/RenderCount';
 
 export type AssetToken = {
   chainId: number;
@@ -213,74 +214,86 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
   const { index: tabPageIndex } = route;
   const intl = useIntl();
 
-  const renderItem: ScrollableFlatListProps<AssetToken>['renderItem'] = ({
-    item,
-    index,
-  }) => (
-    <Pressable.Item
-      p={4}
-      borderTopRadius={index === 0 ? '12px' : '0px'}
-      borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
-      onPress={() => {
-        console.log('Click Token : ', item.address);
-      }}
-    >
-      <Box w="100%" flexDirection="row" alignItems="center">
-        <Token
-          size={8}
-          address={item.address}
-          chain={item.chainId.toString()}
-          src={item.logoURI}
-        />
-        <Box ml={3} mr={3} flexDirection="column" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', lg: 'Body2Strong' }}>
-            {item.amount}
-          </Text>
-          <Typography.Body2 color="text-subdued">
-            {item.fiatAmount}
-          </Typography.Body2>
-        </Box>
-        {['LARGE', 'XLARGE'].includes(size) && (
-          <Box ml={3} mr={20} flexDirection="row" flex={1}>
-            <Icon size={20} name="ActivityOutline" />
-            <Typography.Body2Strong ml={3}>
+  const renderItem = React.useCallback<
+    ScrollableFlatListProps<AssetToken>['renderItem']
+  >(
+    ({ item, index }) => (
+      <Pressable.Item
+        p={4}
+        borderTopRadius={index === 0 ? '12px' : '0px'}
+        borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
+        onPress={() => {
+          console.log('Click Token : ', item.address);
+        }}
+      >
+        <Box w="100%" flexDirection="row" alignItems="center">
+          <Token
+            size={8}
+            address={item.address}
+            chain={item.chainId.toString()}
+            src={item.logoURI}
+          />
+          <Box ml={3} mr={3} flexDirection="column" flex={1}>
+            <Text typography={{ sm: 'Body1Strong', lg: 'Body2Strong' }}>
+              {item.amount}
+            </Text>
+            <Typography.Body2 color="text-subdued">
               {item.fiatAmount}
-            </Typography.Body2Strong>
+            </Typography.Body2>
           </Box>
-        )}
-        <Icon size={20} name="ChevronRightSolid" />
-      </Box>
-    </Pressable.Item>
+          <RenderCounter label={item.symbol} />
+          {['LARGE', 'XLARGE'].includes(size) && (
+            <Box ml={3} mr={20} flexDirection="row" flex={1}>
+              <Icon size={20} name="ActivityOutline" />
+              <Typography.Body1 fontWeight="bold" ml={3} color="text-default">
+                {item.fiatAmount}
+              </Typography.Body1>
+            </Box>
+          )}
+          <Icon size={20} name="ChevronRightSolid" />
+        </Box>
+      </Pressable.Item>
+    ),
+    [size],
   );
 
-  return (
-    <Box flex={1} pt={4} pr={4} pl={4}>
-      <ScrollableFlatList
-        index={tabPageIndex}
-        data={TOKEN_DATA}
-        renderItem={renderItem}
-        ListHeaderComponent={() => (
-          <Box
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            pb={4}
-          >
-            <Typography.Heading>
-              {intl.formatMessage({ id: 'asset__tokens' })}
-            </Typography.Heading>
-            <Pressable p={1.5}>
-              <Icon size={20} name="AdjustmentsSolid" />
-            </Pressable>
-          </Box>
-        )}
-        ItemSeparatorComponent={Divider}
-        ListFooterComponent={() => <Box h="20px" />}
-        keyExtractor={(_item: AssetToken, index: number) => index.toString()}
-        extraData={size}
-        showsVerticalScrollIndicator={false}
-      />
-    </Box>
+  const renderHeader = React.useCallback(
+    () => (
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        pb={4}
+      >
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'asset__tokens' })}
+        </Typography.Heading>
+        <RenderCounter label="tokens header" />
+        <Pressable p={1.5}>
+          <Icon size={20} name="AdjustmentsSolid" />
+        </Pressable>
+      </Box>
+    ),
+    [intl],
+  );
+
+  return React.useMemo(
+    () => (
+      <Box flex={1} pt={4} pr={4} pl={4}>
+        <ScrollableFlatList
+          index={tabPageIndex}
+          data={TOKEN_DATA}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          ItemSeparatorComponent={Divider}
+          ListFooterComponent={() => <Box h="20px" />}
+          keyExtractor={(_item: AssetToken, index: number) => index.toString()}
+          extraData={size}
+          showsVerticalScrollIndicator={false}
+        />
+      </Box>
+    ),
+    [renderHeader, renderItem, size, tabPageIndex],
   );
 };
 

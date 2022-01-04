@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/SendToken';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import RenderCounter from '../../../components/RenderCount';
 
 type NavigationProps = NativeStackNavigationProp<
   SendTokenRoutesParams,
@@ -90,6 +91,7 @@ const AccountInfo = () => {
         <Box w="100%" flexDirection="column" bgColor="background-default">
           {renderAccountAmountInfo(true)}
           {accountOption}
+          <RenderCounter label="Wallet Header" />
         </Box>
       );
     }
@@ -104,6 +106,7 @@ const AccountInfo = () => {
       >
         <Box>{renderAccountAmountInfo(false)}</Box>
         <Box>{accountOption}</Box>
+        <RenderCounter label="Wallet Header" />
       </Box>
     );
   }, [isSmallView, renderAccountAmountInfo, accountOption]);
