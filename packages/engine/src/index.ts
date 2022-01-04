@@ -1,17 +1,26 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM } from './constants';
 import { DbApi } from './db';
 import { DBAPI } from './db/base';
 import { NotImplemented, OneKeyInternalError } from './errors';
-import { fromDBNetworkToNetwork, getEVMNetworkToCreate } from './networks';
+import {
+  fromDBAccountToAccount,
+  getWatchingAccountToCreate,
+} from './managers/account';
+import {
+  fromDBNetworkToNetwork,
+  getEVMNetworkToCreate,
+} from './managers/network';
+import { fromDBWalletToWallet } from './managers/wallet';
 import {
   getPresetTokensOnNetwork,
   networkIsPreset,
   presetNetworks,
 } from './presets';
-import { Account, ImportableHDAccount } from './types/account';
+import { Account, DBAccount, ImportableHDAccount } from './types/account';
 import {
   AddNetworkParams,
   DBNetwork,
@@ -20,7 +29,7 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { Wallet } from './types/wallet';
+import { DBWallet, Wallet } from './types/wallet';
 
 class Engine {
   private dbApi: DBAPI;
@@ -31,13 +40,23 @@ class Engine {
 
   getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    throw new NotImplemented();
+    return this.dbApi
+      .getWallets()
+      .then((wallets: Array<DBWallet>) =>
+        wallets.map((w: DBWallet) => fromDBWalletToWallet(w)),
+      );
   }
 
   getWallet(walletId: string): Promise<Wallet> {
     // Return a single wallet.
-    console.log(`getWallet ${walletId}`);
-    throw new NotImplemented();
+    return this.dbApi
+      .getWallet(walletId)
+      .then((dbWallet: DBWallet | undefined) => {
+        if (typeof dbWallet !== 'undefined') {
+          return fromDBWalletToWallet(dbWallet);
+        }
+        throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
+      });
   }
 
   createHDWallet(
@@ -80,24 +99,46 @@ class Engine {
 
   getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
     // List accounts by account ids. No token info are returned, only base account info are included.
-    console.log(`getAccounts ${JSON.stringify(accountIds)}`);
-    throw new NotImplemented();
+    return this.dbApi
+      .getAccounts(accountIds)
+      .then((accounts: Array<DBAccount>) =>
+        accounts.map((a: DBAccount) => fromDBAccountToAccount(a)),
+      );
   }
 
-  getAccount(accountId: string): Promise<Account> {
+  getAccount(accountId: string, networkId: string): Promise<Account> {
     // Get account by id. Raise an error if account doesn't exist.
     // Token ids are included.
-    console.log(`getAccount ${accountId}`);
-    throw new NotImplemented();
+    return this.dbApi
+      .getAccount(accountId)
+      .then((dbAccount: DBAccount | undefined) => {
+        if (typeof dbAccount !== 'undefined') {
+          const account: Account = fromDBAccountToAccount(dbAccount);
+          return this.dbApi
+            .getTokens(networkId, accountId)
+            .then((tokens: Array<Token>) => {
+              account.tokens = tokens;
+              return account;
+            });
+        }
+        throw new OneKeyInternalError(`Account ${accountId} not found.`);
+      });
   }
 
   getAccountBalance(
     accountId: string,
-    tokenIds: Array<string>,
-  ): Map<string, number> {
+    networkId: string,
+    tokenIdsOnNetwork: Array<string>,
+  ): Promise<Map<string, BigNumber>> {
     // Get account balance, main token balance is always included.
-    console.log(`getAccountBalance ${accountId} ${JSON.stringify(tokenIds)}`);
-    throw new NotImplemented();
+    // TODO: chain interactions.
+    const ret = new Map([['main', new BigNumber(0)]]);
+    tokenIdsOnNetwork.forEach((tokenIdOnNetwork: string) => {
+      ret.set(tokenIdOnNetwork, new BigNumber(0));
+    });
+    return new Promise((resolve, _reject) => {
+      resolve(ret);
+    });
   }
 
   searchHDAccounts(
@@ -143,10 +184,18 @@ class Engine {
     throw new NotImplemented();
   }
 
-  addWatchingAccount(impl: string, target: string): Promise<Account> {
+  addWatchingAccount(
+    impl: string,
+    target: string,
+    name?: string,
+  ): Promise<Account> {
     // Add an watching account. Raise an error if account already exists.
-    console.log(`addWatchingAccount ${impl} ${target}`);
-    throw new NotImplemented();
+    return this.dbApi
+      .addAccountToWallet(
+        'watching',
+        getWatchingAccountToCreate(impl, target, name),
+      )
+      .then((a: DBAccount) => fromDBAccountToAccount(a));
   }
 
   removeAccount(accountId: string, password: string): Promise<void> {
@@ -198,7 +247,7 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<[number, Token] | null> {
+  ): Promise<[BigNumber, Token] | null> {
     // 1. find local token
     // 2. if not, find token online
     // 3. get token balance
@@ -210,7 +259,7 @@ class Engine {
         if (token === null) {
           return null;
         }
-        return [0, token];
+        return [new BigNumber(0), token];
         // TODO: get balance
       },
     );
@@ -351,7 +400,7 @@ class Engine {
   // estimateGasLimit();
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
-  getPrices(networkId: string, tokens?: Array<string>): Map<string, number> {
+  getPrices(networkId: string, tokens?: Array<string>): Map<string, BigNumber> {
     // Get price info. Main token price (in fiat) is always included.
     console.log(`getPrices ${networkId} ${JSON.stringify(tokens || [])}`);
     throw new NotImplemented();
