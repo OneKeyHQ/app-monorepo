@@ -30,9 +30,9 @@ const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
     >
       <VStack flex={1}>
         {/* AccountSelector */}
-        <Box py={1} px={4}>
+        {/* <Box py={1} px={4}>
           <Typography.Body2Strong>AccountSelector here.</Typography.Body2Strong>
-        </Box>
+        </Box> */}
         {/* Scrollable area */}
         <ScrollView
           _contentContainerStyle={{
@@ -88,11 +88,11 @@ const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
               );
             })}
           </VStack>
-          <VStack space={1} pt={1} mt="auto">
+          {/* <VStack space={1} pt={1} mt="auto">
             <Typography.Body2Strong>
               Address book and settings here.
             </Typography.Body2Strong>
-          </VStack>
+          </VStack> */}
         </ScrollView>
       </VStack>
     </Box>

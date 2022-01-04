@@ -150,6 +150,11 @@ function Select<T = string>({
     [onChange, toggleVisible],
   );
 
+  const handlePressFooter = useCallback(() => {
+    toggleVisible();
+    onPressFooter?.();
+  }, [onPressFooter, toggleVisible]);
+
   const container = useMemo(() => {
     const childContainerProps = {
       visible,
@@ -160,13 +165,13 @@ function Select<T = string>({
       footer,
       footerText,
       footerIcon,
-      onPressFooter,
       activeOption,
       renderItem,
       headerShown,
       onChange: handleChange,
       asAction,
       dropdownPosition,
+      onPressFooter: handlePressFooter,
     };
 
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -184,7 +189,7 @@ function Select<T = string>({
     footer,
     footerText,
     footerIcon,
-    onPressFooter,
+    handlePressFooter,
     activeOption,
     renderItem,
     headerShown,
