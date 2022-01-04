@@ -1,9 +1,14 @@
 import React, { Fragment } from 'react';
 
+import { Icon as NBIcon } from 'native-base';
+
 import Box from '../../Box';
 import Divider from '../../Divider';
 import Icon from '../../Icon';
+import { Check as CheckOUtline } from '../../Icon/react/outline';
+import { Check as CheckSolid } from '../../Icon/react/solid';
 import Pressable from '../../Pressable';
+import { useIsVerticalLayout } from '../../Provider/hooks';
 import Token from '../../Token';
 import Typography from '../../Typography';
 
@@ -16,39 +21,87 @@ function isGroup<T>(
   return false;
 }
 
-function renderSingleOption<T>({
+function RenderSingleOption<T>({
   option,
   activeOption,
   onChange,
   renderItem,
-}: Pick<ChildProps<T>, 'activeOption' | 'onChange' | 'renderItem'> & {
+  asAction,
+}: Pick<
+  ChildProps<T>,
+  'activeOption' | 'onChange' | 'renderItem' | 'asAction'
+> & {
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
+  const isSmallScreen = useIsVerticalLayout();
+  const OptionLabel = () =>
+    isSmallScreen ? (
+      <Typography.Body1
+        color={option.destructive ? 'text-critical' : 'text-default'}
+      >
+        {option.label}
+      </Typography.Body1>
+    ) : (
+      <Typography.Body2
+        color={option.destructive ? 'text-critical' : 'text-default'}
+      >
+        {option.label}
+      </Typography.Body2>
+    );
+  const SelectedIndicator = () => (
+    <NBIcon
+      as={isSmallScreen ? CheckOUtline : CheckSolid}
+      size={{ base: '6', md: '5' }}
+      color="interactive-default"
+    />
+  );
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable
-        p="3"
-        py="2"
+        px={{ base: '4', md: '2' }}
+        py={{ base: '3', md: '2' }}
         key={option.value as unknown as string}
         onPress={() => onChange?.(option.value, option)}
-        borderRadius="12px"
+        borderRadius="xl"
         display="flex"
         flexDirection="row"
         alignItems="center"
-        bg={isActive ? 'surface-selected' : 'transparent'}
+        bg={isActive && !asAction ? 'surface-selected' : undefined}
+        _hover={
+          // eslint-disable-next-line no-nested-ternary
+          isActive && !asAction
+            ? {}
+            : option.destructive
+            ? { bg: 'surface-critical-default' }
+            : { bg: 'surface-hovered' }
+        } // do not apply the hover effect on the activated item.
       >
-        {!!option.tokenProps && (
-          <Box mr="2">
-            <Token size={6} {...option.tokenProps} />
+        <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
+          {!!option.tokenProps && (
+            <Box mr="3">
+              <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
+            </Box>
+          )}
+          {!!option.iconProps && (
+            <Box mr="3">
+              <Icon
+                color={option.destructive ? 'icon-critical' : 'icon-default'}
+                size={isSmallScreen ? 24 : 20}
+                {...option.iconProps}
+              />
+            </Box>
+          )}
+          <Box>
+            <OptionLabel />
+            {!!option.description && (
+              <Typography.Body2 color="text-subdued">
+                {option.description ?? '-'}
+              </Typography.Body2>
+            )}
           </Box>
-        )}
-        {!!option.iconProps && (
-          <Box mr="2">
-            <Icon size={6} {...option.iconProps} />
-          </Box>
-        )}
-        <Typography.Body1>{option.label}</Typography.Body1>
+        </Box>
+        {isActive && !asAction && <SelectedIndicator />}
       </Pressable>
     )
   );
@@ -59,37 +112,48 @@ export function renderOptions<T>({
   activeOption,
   renderItem,
   onChange,
+  asAction,
 }: Pick<
   ChildProps<T>,
-  'activeOption' | 'onChange' | 'renderItem' | 'options'
+  'activeOption' | 'onChange' | 'renderItem' | 'options' | 'asAction'
 >) {
   return options.map((option, index) => {
     if (isGroup<T>(option)) {
       const isLast = index === options.length - 1;
       return (
         <Fragment key={option.title}>
-          <Typography.Subheading pt="3" pb="1" px="3" color="text-subdued">
+          <Typography.Subheading
+            px={{ base: '4', lg: '2' }}
+            py={{ base: '3', lg: '2' }}
+            color="text-subdued"
+          >
             {option.title}
           </Typography.Subheading>
           {option.options.map((subOption) =>
-            renderSingleOption<T>({
+            RenderSingleOption<T>({
               activeOption,
               renderItem,
               onChange,
               option: subOption,
+              asAction,
             }),
           )}
-          {!isLast && <Divider my="1" />}
+          {!isLast && (
+            <Box px={{ base: '4', lg: '2' }} py={{ base: '2', lg: '1' }}>
+              <Divider />
+            </Box>
+          )}
         </Fragment>
       );
     }
 
     const singleOption = option;
-    return renderSingleOption<T>({
+    return RenderSingleOption<T>({
       activeOption,
       renderItem,
       onChange,
       option: singleOption,
+      asAction,
     });
   });
 }
