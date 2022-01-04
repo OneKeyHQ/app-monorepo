@@ -50,9 +50,9 @@ const CollectibleList: FC<CollectibleListProps> = ({
       <HStack space={3} w="100%" flexDirection="row" alignItems="center">
         <Token src={item.collection.imageUrl ?? undefined} />
         <Box flex={1}>
-          <Typography.Body1 color="text-default" fontWeight="bold">
+          <Typography.Body1Strong color="text-default">
             {item.collection.name}
-          </Typography.Body1>
+          </Typography.Body1Strong>
         </Box>
         <HStack space={3}>
           <Badge

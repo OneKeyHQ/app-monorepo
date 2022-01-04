@@ -7,9 +7,11 @@ import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';
 import { CDN_PREFIX } from '../utils';
 
+import type { ResponsiveValue } from 'native-base/lib/typescript/components/types';
+
 export type TokenProps = {
   src?: string;
-  size?: number | string;
+  size?: ResponsiveValue<string | number>;
   className?: string | null;
   chain?: string;
   name?: string;

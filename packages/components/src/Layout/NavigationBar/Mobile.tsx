@@ -18,7 +18,7 @@ import Typography from '../../Typography';
 
 import type { ChildProps } from '..';
 
-const DEFAULT_TABBAR_HEIGHT = 49;
+const DEFAULT_TABBAR_HEIGHT = 55;
 
 type Options = {
   deviceSize: DeviceState['size'];
@@ -82,48 +82,52 @@ export default function BottomTabBar({
           };
 
           return (
-            <Pressable
-              flex="1"
-              alignItems="center"
-              bg="surface-subdued"
-              onPress={onPress}
-              key={route.name}
-              style={
-                horizontal
-                  ? {
-                      justifyContent: 'center',
-                      flexDirection: 'row',
-                    }
-                  : {
-                      justifyContent: 'flex-end',
-                      flexDirection: 'column',
-                    }
-              }
-            >
-              <Icon
-                name={route.icon}
-                color={isActive ? 'text-default' : 'text-subdued'}
-                size={24}
-              />
-              <Typography.Caption
-                numberOfLines={1}
-                textAlign="center"
-                color={isActive ? activeFontColor : inactiveFontColor}
-                style={[
+            <Box flex={1} p={1}>
+              <Pressable
+                alignItems="center"
+                p={0.5}
+                bg="surface-subdued"
+                onPress={onPress}
+                _hover={{ bg: 'surface-hovered' }}
+                rounded="xl"
+                justifyContent="center"
+                key={route.name}
+                style={
                   horizontal
                     ? {
-                        fontSize: 13,
-                        marginLeft: 20,
-                        marginTop: 3,
+                        flexDirection: 'row',
                       }
                     : {
-                        fontSize: 10,
-                      },
-                ]}
+                        flexDirection: 'column',
+                      }
+                }
               >
-                {intl.formatMessage({ id: route.translationId })}
-              </Typography.Caption>
-            </Pressable>
+                <Icon
+                  name={route.icon}
+                  color={isActive ? 'icon-pressed' : 'icon-subdued'}
+                  size={24}
+                />
+                <Typography.Caption
+                  numberOfLines={1}
+                  mt={0.5}
+                  textAlign="center"
+                  color={isActive ? activeFontColor : inactiveFontColor}
+                  style={[
+                    horizontal
+                      ? {
+                          fontSize: 13,
+                          marginLeft: 20,
+                          marginTop: 3,
+                        }
+                      : {
+                          fontSize: 10,
+                        },
+                  ]}
+                >
+                  {intl.formatMessage({ id: route.translationId })}
+                </Typography.Caption>
+              </Pressable>
+            </Box>
           );
         })}
       </Box>
