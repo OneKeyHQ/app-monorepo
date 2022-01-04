@@ -96,18 +96,17 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                 justifyContent="space-between"
                 py="4"
               >
-                <Typography.Body1 fontWeight="600" color="text-subdued">
+                <Typography.Body1Strong color="text-subdued">
                   Token ID
-                </Typography.Body1>
-                <Typography.Body1
+                </Typography.Body1Strong>
+                <Typography.Body1Strong
                   ml="4"
-                  fontWeight="600"
                   textAlign="right"
                   flex="1"
                   numberOfLines={999}
                 >
                   {asset.tokenId}
-                </Typography.Body1>
+                </Typography.Body1Strong>
               </Box>
               {!!asset.chain && (
                 <>
@@ -119,19 +118,18 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                     justifyContent="space-between"
                     py="4"
                   >
-                    <Typography.Body1 fontWeight="600" color="text-subdued">
+                    <Typography.Body1Strong color="text-subdued">
                       Blockchain
-                    </Typography.Body1>
+                    </Typography.Body1Strong>
 
-                    <Typography.Body1
+                    <Typography.Body1Strong
                       ml="4"
                       flex="1"
-                      fontWeight="600"
                       textAlign="right"
                       numberOfLines={999}
                     >
                       {asset.chain}
-                    </Typography.Body1>
+                    </Typography.Body1Strong>
                   </Box>
                 </>
               )}
@@ -145,19 +143,18 @@ const AssetModal: FC<CollectionModalProps> = ({ asset, visible, onClose }) => {
                     justifyContent="space-between"
                     py="4"
                   >
-                    <Typography.Body1 fontWeight="600" color="text-subdued">
+                    <Typography.Body1Strong color="text-subdued">
                       Contract Address
-                    </Typography.Body1>
+                    </Typography.Body1Strong>
 
-                    <Typography.Body1
+                    <Typography.Body1Strong
                       ml="4"
                       flex="1"
-                      fontWeight="600"
                       textAlign="right"
                       numberOfLines={999}
                     >
                       {asset.contractAddress}
-                    </Typography.Body1>
+                    </Typography.Body1Strong>
                   </Box>
                 </>
               )}
