@@ -1,19 +1,17 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { FC, isValidElement } from 'react';
 
+import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import Modal from 'react-native-modal';
 
 import Box from '../../Box';
 import Button from '../../Button';
-import Divider from '../../Divider';
-import Icon from '../../Icon';
-import Pressable from '../../Pressable';
+import IconButton from '../../IconButton';
 import Typography from '../../Typography';
 
 import type { ModalProps } from '..';
 
 const DesktopModal: FC<ModalProps> = ({
-  visible,
   children,
   onClose,
   closeable,
@@ -27,47 +25,100 @@ const DesktopModal: FC<ModalProps> = ({
   onPrimaryActionPress,
   onSecondaryActionPress,
   header,
+  size,
+  headerDescription,
 }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
+  const index = useNavigationState((state) => state.index);
+
+  function modalSizing(modalSize: string | undefined) {
+    switch (modalSize) {
+      case 'xs':
+        return '400px';
+      case 'sm':
+        return '480px';
+      case 'md':
+        return '560px';
+      case 'lg':
+        return '640px';
+      case 'xl':
+        return '720px';
+      case '2xl':
+        return '800px';
+      default:
+        return '';
+    }
+  }
+
   return (
-    <Modal
-      useNativeDriver
-      hideModalContentWhileAnimating
-      isVisible={!!visible}
-      animationIn="fadeIn"
-      animationOut="fadeOut"
-      onBackdropPress={closeable ? onClose : undefined}
+    <Box
+      position="absolute"
+      top="0"
+      left="0"
+      right="0"
+      bottom="0"
+      justifyContent="center"
+      alignItems="center"
+      zIndex={99}
     >
       <Box
-        width="720px"
+        width={modalSizing(size)}
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"
+        zIndex={999}
       >
         <Box
-          py="5"
-          px="6"
+          p={4}
+          pl={index ? 4 : 6}
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
+          borderBottomColor="border-subdued"
+          borderBottomWidth={header ? 1 : undefined}
         >
-          <Typography.Heading flex="1">{header}</Typography.Heading>
+          {index ? (
+            <IconButton
+              size="base"
+              name="ArrowLeftSolid"
+              type="plain"
+              circle
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
+            />
+          ) : null}
+          <Box flex="1" ml={index ? 4 : undefined}>
+            <Typography.Heading>{header}</Typography.Heading>
+            {!!headerDescription && (
+              <Typography.Caption color="text-subdued">
+                {headerDescription}
+              </Typography.Caption>
+            )}
+          </Box>
           {!!closeable && (
-            <Pressable onPress={onClose}>
-              <Icon name="CloseOutline" size={20} />
-            </Pressable>
+            <IconButton
+              size="base"
+              name="CloseSolid"
+              type="plain"
+              circle
+              onPress={() => {
+                // @ts-expect-error
+                navigation?.popToTop?.();
+                navigation.goBack();
+              }}
+            />
           )}
         </Box>
-        <Divider />
-        <Box p="6" minHeight="70px">
-          {children}
-        </Box>
+        {children}
         {isValidElement(footer) || footer === null ? (
           footer
         ) : (
-          <Box height="70px">
-            <Divider />
+          <Box borderTopWidth={1} borderTopColor="border-subdued">
             <Box
               py="4"
               px="6"
@@ -108,7 +159,7 @@ const DesktopModal: FC<ModalProps> = ({
           </Box>
         )}
       </Box>
-    </Modal>
+    </Box>
   );
 };
 

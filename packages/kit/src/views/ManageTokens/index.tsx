@@ -1,11 +1,13 @@
-import React, { FC, ReactElement, useState } from 'react';
+import React, { FC, ReactElement, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Box,
   Dialog,
   Divider,
+  Empty,
   FlatList,
-  Flex,
   IconButton,
   Modal,
   Searchbar,
@@ -14,15 +16,16 @@ import {
   utils,
 } from '@onekeyhq/components';
 
+import AddCustomToken from './AddCustomToken';
 import AddTokenModal from './AddToken';
 
-type Token = {
+type IToken = {
   name: string;
   symbol: string;
   address: string;
 };
 
-const top50list: Token[] = [
+const top50list: IToken[] = [
   {
     name: 'Tether USD',
     symbol: 'USDT',
@@ -35,7 +38,7 @@ const top50list: Token[] = [
   },
 ];
 
-const mylist: Token[] = [
+const mylist: IToken[] = [
   {
     name: 'HEX',
     symbol: 'HEX',
@@ -50,13 +53,29 @@ const mylist: Token[] = [
 
 type TokensModalProps = { trigger?: ReactElement<any> };
 const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
+  const intl = useIntl();
   const [keyword, setKeyword] = useState<string>('');
-  const [token, setToken] = useState<Token>();
+  const [token, setToken] = useState<IToken>();
   const [showAddModal, setShowAddModal] = useState(false);
-  const renderItem = ({ item }: { item: Token }) => (
-    <Flex
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
+
+  const searched = useMemo(() => {
+    if (!keyword) {
+      return [];
+    }
+    const allTokens: IToken[] = ([] as IToken[]).concat(mylist, top50list);
+    const result = allTokens.filter(
+      (item) =>
+        item.name.toLowerCase().includes(keyword.toLowerCase()) ||
+        item.symbol.toLowerCase().includes(keyword.toLowerCase()),
+    );
+    return result;
+  }, [keyword]);
+
+  const renderItem = ({ item }: { item: IToken }) => (
+    <Box
       display="flex"
-      direction="row"
+      flexDirection="row"
       justifyContent="space-between"
       p="4"
       alignItems="center"
@@ -73,12 +92,12 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
         type="plain"
         onPress={() => setShowAddModal(true)}
       />
-    </Flex>
+    </Box>
   );
-  const renderOwnedItem = ({ item }: { item: Token }) => (
-    <Flex
+  const renderOwnedItem = ({ item }: { item: IToken }) => (
+    <Box
       display="flex"
-      direction="row"
+      flexDirection="row"
       justifyContent="space-between"
       p="4"
       alignItems="center"
@@ -97,72 +116,152 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
           setToken(item);
         }}
       />
-    </Flex>
+    </Box>
   );
+
+  let contentView: ReactElement | undefined;
+  if (keyword) {
+    contentView = searched.length ? (
+      <FlatList
+        bg="surface-default"
+        borderRadius="12"
+        mt="3"
+        mb="3"
+        data={searched}
+        renderItem={renderOwnedItem}
+        ItemSeparatorComponent={() => <Divider />}
+        keyExtractor={(_, index: number) => index.toString()}
+        showsVerticalScrollIndicator={false}
+      />
+    ) : (
+      <Empty
+        title={intl.formatMessage({
+          id: 'content__no_results',
+          defaultMessage: 'No Result',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'content__no_results_desc',
+          defaultMessage: 'The token you searched for was not found',
+        })}
+        actionTitle={intl.formatMessage({
+          id: 'action__add_custom_tokens',
+          defaultMessage: 'Add Custom Token',
+        })}
+        handleAction={() => {}}
+      />
+    );
+  } else {
+    contentView = (
+      <Box>
+        <Box>
+          <Typography.Heading>
+            {intl.formatMessage({
+              id: 'form__my_tokens',
+              defaultMessage: 'MY TOKENS',
+            })}
+          </Typography.Heading>
+          <FlatList
+            bg="surface-default"
+            borderRadius="12"
+            mt="3"
+            mb="3"
+            data={mylist}
+            renderItem={renderOwnedItem}
+            ItemSeparatorComponent={() => <Divider />}
+            keyExtractor={(_, index: number) => index.toString()}
+            showsVerticalScrollIndicator={false}
+          />
+        </Box>
+        <Box>
+          <Typography.Heading>
+            {intl.formatMessage({
+              id: 'form__top_50_tokens',
+              defaultMessage: 'TOP 50 TOKENS',
+            })}
+          </Typography.Heading>
+          <FlatList
+            bg="surface-default"
+            borderRadius="12"
+            mt="3"
+            mb="3"
+            data={top50list}
+            renderItem={renderItem}
+            ItemSeparatorComponent={() => <Divider />}
+            keyExtractor={(_, index: number) => index.toString()}
+            showsVerticalScrollIndicator={false}
+          />
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <>
-      <Modal trigger={trigger} header="Manage Tokens" hideSecondaryAction>
-        <Flex>
-          <Searchbar
-            w="full"
-            placeholder="Search Tokens"
-            mb="6"
-            value={keyword}
-            onChangeText={(text) => setKeyword(text.trim())}
-          />
+      <Modal
+        trigger={trigger}
+        header={intl.formatMessage({
+          id: 'title__manage_tokens',
+          defaultMessage: 'Manage Tokens',
+        })}
+        hideSecondaryAction
+        onPrimaryActionPress={() => {
+          setShowAddCustomModal(true);
+        }}
+        primaryActionTranslationId="action__add_custom_tokens"
+        primaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
+      >
+        <>
           <Box>
-            <Box>
-              <Typography.Heading>MY TOKENS</Typography.Heading>
-              <FlatList
-                bg="surface-default"
-                borderRadius="12"
-                mt="3"
-                mb="3"
-                data={mylist}
-                renderItem={renderOwnedItem}
-                ItemSeparatorComponent={() => <Divider />}
-                keyExtractor={(_, index: number) => index.toString()}
-                showsVerticalScrollIndicator={false}
-              />
-            </Box>
-            <Box>
-              <Typography.Heading>TOP 50 TOKENS</Typography.Heading>
-              <FlatList
-                bg="surface-default"
-                borderRadius="12"
-                mt="3"
-                mb="3"
-                data={top50list}
-                renderItem={renderItem}
-                ItemSeparatorComponent={() => <Divider />}
-                keyExtractor={(_, index: number) => index.toString()}
-                showsVerticalScrollIndicator={false}
-              />
-            </Box>
-            <Box>
-              <Dialog
-                visible={!!token}
-                onClose={() => setToken(undefined)}
-                footerButtonProps={{
-                  onPrimaryActionPress: () => setToken(undefined),
-                }}
-                contentProps={{
-                  iconType: 'danger',
-                  title: 'Delete this token?',
-                  content: `${token?.name ?? 'Token'} (${
-                    token?.symbol ?? ''
-                  }) will be removed from my tokens`,
-                }}
-              />
-            </Box>
+            <Searchbar
+              w="full"
+              placeholder={intl.formatMessage({
+                id: 'form__search_tokens',
+                defaultMessage: 'Search Tokens',
+              })}
+              mb="6"
+              value={keyword}
+              onClear={() => setKeyword('')}
+              onChangeText={(text) => setKeyword(text.trim())}
+            />
+            {contentView}
           </Box>
-        </Flex>
+          <AddTokenModal
+            visible={showAddModal}
+            onClose={() => setShowAddModal(false)}
+          />
+          <AddCustomToken
+            visible={showAddCustomModal}
+            defaultValues={{ address: '', symbol: '', decimal: '' }}
+            onSubmit={() => {
+              setShowAddCustomModal(false);
+            }}
+            onClose={() => setShowAddCustomModal(false)}
+          />
+          <Dialog
+            visible={!!token}
+            onClose={() => setToken(undefined)}
+            footerButtonProps={{
+              onPrimaryActionPress: () => setToken(undefined),
+              primaryActionTranslationId: 'action__delete',
+              primaryActionProps: { type: 'destructive' },
+            }}
+            contentProps={{
+              iconType: 'danger',
+              title: intl.formatMessage({
+                id: 'modal__delete_this_token',
+                defaultMessage: 'Delete this token?',
+              }),
+              content: intl.formatMessage(
+                {
+                  id: 'modal__delete_this_token_desc',
+                  defaultMessage: '{token} will be removed from my tokens',
+                },
+                { token: token?.name },
+              ),
+            }}
+          />
+        </>
       </Modal>
-      <AddTokenModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-      />
     </>
   );
 };

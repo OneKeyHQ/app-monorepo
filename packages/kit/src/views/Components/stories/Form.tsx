@@ -4,10 +4,13 @@ import {
   Button,
   Center,
   Form,
+  Icon,
   Pressable,
   Spinner,
+  Stack,
   Typography,
   useForm,
+  useUserDevice,
 } from '@onekeyhq/components';
 
 type FormValues = {
@@ -23,7 +26,9 @@ type FormValues = {
 type Option = { label: string; value: string; speed?: string };
 
 const FormGallery = () => {
-  const { control, handleSubmit } = useForm<FormValues>();
+  const { size } = useUserDevice();
+  const formWith = size === 'SMALL' ? 'full' : '320';
+  const { control, handleSubmit, setError } = useForm<FormValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
   const options: Option[] = [
     {
@@ -39,11 +44,25 @@ const FormGallery = () => {
       value: 'https://baidu.com',
     },
   ];
+  const labelAddon = (
+    <Stack direction="row" space="2">
+      <Pressable onPress={() => setError('email', { message: 'custom error' })}>
+        <Icon size={16} name="ClipboardOutline" />
+      </Pressable>
+      <Pressable>
+        <Icon size={16} name="BookOpenOutline" />
+      </Pressable>
+      <Pressable>
+        <Icon size={16} name="FilterSolid" />
+      </Pressable>
+    </Stack>
+  );
   return (
-    <Center flex="1" background="background-hovered">
-      <Form>
+    <Center flex="1" background="background-hovered" p="2">
+      <Form width={formWith}>
         <Form.Item
           label="Username"
+          labelAddon={labelAddon}
           control={control}
           name="username"
           defaultValue=""
@@ -129,26 +148,6 @@ const FormGallery = () => {
           defaultValue={false}
         >
           <Form.CheckBox title="xxx xxx xxx" />
-        </Form.Item>
-        <Form.Item
-          control={control}
-          name="isDev"
-          rules={{ required: 'isDev cannot be empty' }}
-          defaultValue={false}
-        >
-          <Form.Switch labelType="after" label="is Dev Mode" />
-        </Form.Item>
-        <Form.Item
-          label="options"
-          control={control}
-          name="options"
-          defaultValue="A"
-        >
-          <Form.RadioGroup name="options">
-            <Form.Radio value="A" title="A" />
-            <Form.Radio value="B" title="B" />
-            <Form.Radio value="C" title="C" />
-          </Form.RadioGroup>
         </Form.Item>
         <Button mt="2" onPress={onSubmit}>
           Submit

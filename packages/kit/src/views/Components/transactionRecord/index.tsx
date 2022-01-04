@@ -38,16 +38,14 @@ export const getTransactionStatusStr = (
   state: TransactionState = 'pending',
 ): string => {
   const stringKeys: Record<TransactionState, string> = {
-    'pending': '等待',
-    'success': '成功',
-    'failed': '失败',
-    'dropped': '被替代',
+    'pending': 'transaction__pending',
+    'success': 'transaction__success',
+    'failed': 'transaction__failed',
+    'dropped': 'transaction__dropped',
   };
-  //   return intl.formatMessage({
-  //     id: stringKeys[state],
-  //   });
-
-  return stringKeys[state];
+  return intl.formatMessage({
+    id: stringKeys[state],
+  });
 };
 
 const getTransactionTypeStr = (
@@ -62,15 +60,13 @@ const getTransactionTypeStr = (
   }
 
   const stringKeys: Record<TransactionType, string> = {
-    'Send': '发送',
-    'Receive': '接收',
-    'Approve': '授权',
+    'Send': 'action__send',
+    'Receive': 'action__receive',
+    'Approve': 'action__send',
   };
-  //   return intl.formatMessage({
-  //     id: stringKeys[state],
-  //   });
-
-  return stringKeys[transaction.type ?? 'Send'];
+  return intl.formatMessage({
+    id: stringKeys[transaction.type ?? 'Send'],
+  });
 };
 
 const getTransactionStatusColor = (
@@ -89,9 +85,9 @@ const getTransactionTypeIcon = (
   state: TransactionType = 'Send',
 ): ICON_NAMES => {
   const stringKeys: Record<TransactionType, ICON_NAMES> = {
-    'Send': 'TxTypeSendCircleIllus',
-    'Receive': 'TxTypeReceiveCircleIllus',
-    'Approve': 'TxTypeApproveCircleIllus',
+    'Send': 'ArrowUpSolid',
+    'Receive': 'ArrowDownSolid',
+    'Approve': 'BadgeCheckSolid',
   };
   return stringKeys[state];
 };
@@ -109,10 +105,10 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
 
   const basicInfo = useCallback(
     () => (
-      <Box flex={1}>
-        <Typography.Body1 fontWeight="bold">
+      <Box minW="156px" flex={1}>
+        <Typography.Body1Strong>
           {getTransactionTypeStr(intl, transaction)}
-        </Typography.Body1>
+        </Typography.Body1Strong>
         <Typography.Body2 color={getTransactionStatusColor(transaction.state)}>
           {transaction.state === 'success'
             ? formatDate(transaction.date)
@@ -125,11 +121,11 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
 
   const amountInfo = useCallback(
     () => (
-      <Box alignItems="flex-end">
-        <Typography.Body1 fontWeight="bold">
+      <Box alignItems="flex-end" minW="156px">
+        <Typography.Body1Strong>
           {transaction.type === 'Send' ?? '-'}
           {transaction.amount}
-        </Typography.Body1>
+        </Typography.Body1Strong>
         <Typography.Body2 color="text-subdued">
           {transaction.type === 'Send' ?? '-'}99.89 USD
         </Typography.Body2>
@@ -165,13 +161,15 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
       >
         <Box minW="128px">{basicInfo()}</Box>
         {transaction.type === 'Approve' ? (
-          <Typography.Body2 color="text-subdued">
+          <Typography.Body2 textAlign="left" color="text-subdued">
             {transaction?.approveInfo?.url}
           </Typography.Body2>
         ) : (
-          <Address color="text-subdued" text={transaction.to} />
+          <Box>
+            <Address color="text-subdued" text={transaction.to} />
+          </Box>
         )}
-        {displayAmount() && amountInfo()}
+        {displayAmount() ? amountInfo() : <Box minW="156px" />}
       </Box>
     );
   }, [
@@ -185,9 +183,18 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
   ]);
 
   return (
-    <Box p={4} flexDirection="row">
+    <Box flexDirection="row">
       <Box mt={1.5}>
-        <Icon size={32} name={getTransactionTypeIcon(transaction.type)} />
+        <Box
+          borderRadius="full"
+          h="32px"
+          w="32px"
+          bg="surface-neutral-default"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon size={18} name={getTransactionTypeIcon(transaction.type)} />
+        </Box>
       </Box>
 
       <Box flexDirection="column" flex={1} ml={3}>
@@ -195,11 +202,11 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
         {transaction.state === 'pending' && (
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>
-              {transaction.confirmed > 0
-                ? `${transaction.confirmed.toString()} confirmed`
-                : intl.formatMessage({ id: 'transaction__not_confirmed' })}
+              {transaction.confirmed < 6 &&
+                intl.formatMessage({ id: 'transaction__not_confirmed' })}
             </Typography.Caption>
             <Button
+              size="xs"
               ml={2}
               onPress={() => {
                 console.log('Click: Cancel');
@@ -209,6 +216,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
             </Button>
             <Button
               type="primary"
+              size="xs"
               ml={2}
               onPress={() => {
                 console.log('Click: Speed Up');

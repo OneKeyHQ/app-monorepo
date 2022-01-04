@@ -1,7 +1,48 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React from 'react';
 
-import { RootStackParamList } from './routes';
+import {
+  TransitionPresets,
+  createStackNavigator,
+} from '@react-navigation/stack';
 
-const StackNavigator = createNativeStackNavigator<RootStackParamList>();
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
-export { StackNavigator };
+import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
+import modalConfigList from './routes/Modal';
+import StackScreens, { StackRoutes } from './routes/Stack';
+
+const ModalStack = createStackNavigator();
+
+const ModalStackNavigator = () => {
+  const isVerticalLayout = useIsVerticalLayout();
+  return (
+    <ModalStack.Navigator
+      initialRouteName={StackRoutes.Home}
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: true,
+        presentation: 'transparentModal',
+        ...(isVerticalLayout
+          ? TransitionPresets.ModalPresentationIOS
+          : TransitionPresets.ModalFadeTransition),
+      }}
+    >
+      <ModalStack.Screen name={StackRoutes.Home} component={StackScreens} />
+
+      {modalConfigList.map((modal) => (
+        <ModalStack.Screen
+          key={modal.name}
+          name={modal.name}
+          component={modal.component}
+        />
+      ))}
+    </ModalStack.Navigator>
+  );
+};
+
+const Navigator = () => {
+  useAutoRedirectToRoute();
+  return <ModalStackNavigator />;
+};
+
+export default Navigator;

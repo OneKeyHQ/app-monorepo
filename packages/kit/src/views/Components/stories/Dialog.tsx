@@ -37,10 +37,6 @@ const Modal1 = () => {
           },
           primaryActionProps: {
             type: 'outline',
-            size: 'xl',
-          },
-          secondaryActionProps: {
-            size: 'xl',
           },
         }}
         onClose={() => setVisible(!visible)}

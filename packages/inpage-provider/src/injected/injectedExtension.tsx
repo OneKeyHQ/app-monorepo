@@ -11,4 +11,4 @@ const bridge = new JsBridgeExtInjected({
 injectJsBridge(bridge);
 
 injectWeb3Provider();
-console.log('============== injected.js in extension done!  111');
+console.log('============== injected.js in extension done!  222');

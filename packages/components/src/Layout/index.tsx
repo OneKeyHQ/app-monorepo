@@ -8,7 +8,7 @@ import {
 
 import Box from '../Box';
 import { ICON_NAMES } from '../Icon';
-import { useUserDevice } from '../Provider/hooks';
+import { useIsVerticalLayout } from '../Provider/hooks';
 
 import NavigationBar from './NavigationBar';
 
@@ -31,19 +31,18 @@ export type ChildProps = {
 };
 
 const Layout: FC<Props> = ({ content: Component, name, tabs = [] }) => {
-  const { size } = useUserDevice();
   const navigation = useNavigation();
   const route = useRoute();
+  const isVerticalLayout = useIsVerticalLayout();
 
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
   const shouldShowTab = useMemo(
-    () => tabs.map((tab) => tab.name).includes(name) || !isSmallScreen,
-    [name, isSmallScreen, tabs],
+    () => tabs.map((tab) => tab.name).includes(name) || !isVerticalLayout,
+    [name, isVerticalLayout, tabs],
   );
 
   return (
     <Box
-      flexDirection={isSmallScreen ? 'column' : 'row-reverse'}
+      flexDirection={isVerticalLayout ? 'column' : 'row-reverse'}
       flex="1"
       bg="background-default"
     >

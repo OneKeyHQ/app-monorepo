@@ -52,11 +52,11 @@ const Radio: FC<RadioProps> = ({
   }
 
   const { ...radioProps } = props as IRadioProps;
-  const { ...boxPorps } = props as IBoxProps;
+  const { ...boxProps } = props as IBoxProps;
 
   return (
     <Box
-      {...boxPorps}
+      {...boxProps}
       display="flex"
       flexDirection="row"
       alignItems="flex-start"
@@ -72,10 +72,11 @@ const Radio: FC<RadioProps> = ({
           borderColor="border-default"
           // @ts-ignore
           _hover={{
-            bg: 'action-primary-hovered',
-            borderColor: 'border-hovered',
+            borderColor: isChecked
+              ? 'action-primary-default'
+              : 'border-default',
             _interactionBox: {
-              bg: 'action-primary-hovered',
+              bg: 'surface-hovered',
             },
           }}
           _icon={{
@@ -84,6 +85,16 @@ const Radio: FC<RadioProps> = ({
           _checked={{
             borderColor: 'action-primary-default',
             bg: 'action-primary-default',
+          }}
+          _focus={{
+            _interactionBox: {
+              bg: 'action-primary-focus',
+            },
+          }}
+          _focusVisible={{
+            _interactionBox: {
+              bg: 'action-primary-focus',
+            },
           }}
           _disabled={{
             opacity: 1,
@@ -97,21 +108,16 @@ const Radio: FC<RadioProps> = ({
           _pressed={{
             bg: 'action-primary-pressed',
             _interactionBox: {
-              bg: 'action-secondary-hovered',
+              bg: 'action-primary-focus',
             },
           }}
         />
       </Box>
       {!!(description || title) && (
         <Pressable display="flex" flex={1}>
-          <Typography.Body2
-            selectable={false}
-            fontWeight="bold"
-            color={titleColor}
-            h="5"
-          >
+          <Typography.Body2Strong selectable={false} color={titleColor} h="5">
             {title}
-          </Typography.Body2>
+          </Typography.Body2Strong>
           {!!description && (
             <Typography.Body2 selectable={false} color={describeColor}>
               {description}

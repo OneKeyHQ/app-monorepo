@@ -1,10 +1,11 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Divider,
   FlatList,
-  Flex,
   Modal,
   Token,
   Typography,
@@ -14,30 +15,66 @@ type AddTokenProps = { visible: boolean; onClose: () => void };
 type ListItem = { label: string; value: string };
 
 const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
+  const intl = useIntl();
   const items: ListItem[] = [
-    { label: 'Name', value: 'USD Coain' },
-    { label: 'Symbol', value: 'USDC' },
-    { label: 'Contact', value: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' },
-    { label: 'Decimal', value: '6' },
-    { label: 'Balance', value: '11USDC' },
+    {
+      label: intl.formatMessage({
+        id: 'title__add_token',
+        defaultMessage: 'Name',
+      }),
+      value: 'USD Coain',
+    },
+    {
+      label: intl.formatMessage({ id: 'form_name', defaultMessage: 'Symbol' }),
+      value: 'USDC',
+    },
+    {
+      label: intl.formatMessage({
+        id: 'form_contract',
+        defaultMessage: 'Contact',
+      }),
+      value: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    },
+    {
+      label: intl.formatMessage({
+        id: 'form_decimal',
+        defaultMessage: 'Decimal',
+      }),
+      value: '6',
+    },
+    {
+      label: intl.formatMessage({
+        id: 'content__balance',
+        defaultMessage: 'Balance',
+      }),
+      value: '11USDC',
+    },
   ];
   const renderItem = ({ item }: { item: ListItem }) => (
-    <Flex
+    <Box
       display="flex"
-      direction="row"
+      flexDirection="row"
       justifyContent="space-between"
       p="4"
       alignItems="center"
     >
       <Typography.Body1 color="text-subdued">{item.label}</Typography.Body1>
       <Typography.Body1>{item.value}</Typography.Body1>
-    </Flex>
+    </Box>
   );
   return (
-    <Modal visible={visible} onClose={onClose} header="Add Token">
+    <Modal
+      visible={visible}
+      onClose={onClose}
+      header={intl.formatMessage({
+        id: 'title__add_token',
+        defaultMessage: 'Add Token',
+      })}
+      primaryActionTranslationId="action__confirm"
+      hideSecondaryAction
+    >
       <Box>
         <Box
-          flex="1"
           flexDirection="column"
           alignItems="center"
           justifyContent="center"
@@ -53,7 +90,7 @@ const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
           bg="surface-default"
           borderRadius="12"
           mt="3"
-          // mb="3"
+          mb="3"
           data={items}
           renderItem={renderItem}
           ItemSeparatorComponent={() => <Divider />}
