@@ -1,8 +1,4 @@
-const result = require('dotenv').config({ path: '../../.env' });
-
-if (result.error) {
-  throw result.error;
-}
+require('../../../development/env');
 
 module.exports = {
   translations: {

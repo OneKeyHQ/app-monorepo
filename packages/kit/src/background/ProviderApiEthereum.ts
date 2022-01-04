@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/inpage-provider/src/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import extUtils from '../utils/extUtils';
+
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
@@ -20,16 +22,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @permissionRequired()
   eth_sendTransaction() {
     if (platformEnv.isExtension) {
-      return new Promise(() => {
-        chrome.windows.create({
-          focused: true,
-          type: 'popup',
-          // init size same to ext ui-popup.html
-          height: 600 + 50, // height including title bar, so should add 50 more
-          width: 375,
-          url: '/ui-popup.html?router=Approval#approval-window',
-        });
-      });
+      return extUtils.openApprovalWindow();
     }
     return Promise.resolve(this.rpcResult({ txid: '111110000' }));
   }

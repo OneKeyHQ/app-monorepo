@@ -1,3 +1,5 @@
+require('./env');
+
 const webpack = require('webpack');
 const lodash = require('lodash');
 
@@ -22,6 +24,9 @@ function normalizeConfig({ platform, config }) {
     config.plugins.push(
       new webpack.DefinePlugin({
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
+        'process.env.EXT_INJECT_RELOAD_BUTTON': JSON.stringify(
+          process.env.EXT_INJECT_RELOAD_BUTTON,
+        ),
       }),
     );
   }

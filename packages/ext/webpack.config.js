@@ -70,6 +70,11 @@ let webpackConfig = {
     'background': path.join(__dirname, 'src/entry/background.ts'),
     'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
     'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
+    'ui-expand-tab': path.join(__dirname, 'src/entry/ui-expand-tab.tsx'),
+    'ui-standalone-window': path.join(
+      __dirname,
+      'src/entry/ui-standalone-window.tsx',
+    ),
     // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
     // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
     'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
@@ -191,16 +196,16 @@ console.log('------- webpackConfig', {
   devtool: webpackConfig.devtool,
 });
 // process.exit(1);
-
-devUtils.writePreviewWebpackConfigJson(
-  webpackConfig,
-  'webpack.config.preview.json',
-);
 devUtils.cleanWebpackDebugFields(webpackConfig);
 
 webpackConfig = webpackTools.normalizeConfig({
   platform: 'ext',
   config: webpackConfig,
 });
+
+devUtils.writePreviewWebpackConfigJson(
+  webpackConfig,
+  'webpack.config.preview.json',
+);
 
 module.exports = webpackConfig;
