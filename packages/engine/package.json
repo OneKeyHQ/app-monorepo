@@ -21,6 +21,8 @@
     "@onekeyhq/blockchain-libs": "^0.0.16",
     "@sushiswap/default-token-list": "^20.17.0",
     "bignumber.js": "^9.0.1",
+    "bip39": "^3.0.4",
+    "buffer": "^6.0.3",
     "fake-indexeddb": "^3.1.7"
   }
 }

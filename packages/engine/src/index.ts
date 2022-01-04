@@ -1,8 +1,13 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import BigNumber from 'bignumber.js';
+import * as bip39 from 'bip39';
 
 import { BaseClient } from '@onekeyhq/blockchain-libs/dist/provider/abc';
+import {
+  mnemonicFromEntropy,
+  revealableSeedFromMnemonic,
+} from '@onekeyhq/blockchain-libs/dist/secret';
 
 import { IMPL_EVM } from './constants';
 import { DbApi } from './db';
@@ -20,7 +25,12 @@ import {
   getEVMNetworkToCreate,
 } from './managers/network';
 import { getNetworkIdFromTokenId } from './managers/token';
-import { fromDBWalletToWallet } from './managers/wallet';
+import {
+  fromDBWalletToWallet,
+  walletCanBeRemoved,
+  walletIsHD,
+  walletNameCanBeUpdated,
+} from './managers/wallet';
 import {
   getPresetToken,
   getPresetTokensOnNetwork,
@@ -84,40 +94,64 @@ class Engine {
 
   createHDWallet(
     password: string,
-    seed?: string,
+    mnemonic?: string,
     name?: string,
   ): Promise<Wallet> {
     // Create an HD wallet, generate seed if not provided.
-    const walletSeed =
-      seed ||
-      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-    const walletName = name || 'place holder';
-    console.log(`createHDWallet ${password} ${walletSeed} ${walletName}`);
-    throw new NotImplemented();
+    const usedMnemonic = mnemonic || bip39.generateMnemonic();
+    let rs;
+    try {
+      rs = revealableSeedFromMnemonic(usedMnemonic, password);
+    } catch {
+      throw new OneKeyInternalError('Invalid mnemonic.');
+    }
+    if (
+      !bip39.validateMnemonic(usedMnemonic) ||
+      usedMnemonic !== mnemonicFromEntropy(rs.entropyWithLangPrefixed, password)
+    ) {
+      throw new OneKeyInternalError('Invalid mnemonic.');
+    }
+    return this.dbApi
+      .createHDWallet(password, rs, name)
+      .then((dbWallet: DBWallet) => fromDBWalletToWallet(dbWallet));
   }
 
   removeWallet(walletId: string, password: string): Promise<void> {
     // Remove a wallet, raise an error if trying to remove the imported or watching wallet.
-    console.log(`removeWallet ${walletId} ${password}`);
-    throw new NotImplemented();
+    if (!walletCanBeRemoved(walletId)) {
+      throw new OneKeyInternalError(`Wallet ${walletId} cannot be removed.`);
+    }
+    return this.dbApi.removeWallet(walletId, password);
   }
 
   setWalletName(walletId: string, name: string): Promise<Wallet> {
     // Rename a wallet, raise an error if trying to rename the imported or watching wallet.
-    console.log(`setWalletName ${walletId} ${name}`);
-    throw new NotImplemented();
+    if (!walletNameCanBeUpdated(walletId)) {
+      throw new OneKeyInternalError(
+        `Wallet ${walletId}'s name cannot be updated.`,
+      );
+    }
+    return this.dbApi
+      .setWalletName(walletId, name)
+      .then((dbWallet: DBWallet) => fromDBWalletToWallet(dbWallet));
   }
 
   revealHDWalletSeed(walletId: string, password: string): Promise<string> {
     // Reveal the wallet seed, raise an error if wallet isn't HD, doesn't exist or password is wrong.
-    console.log(`revealHDWalletSeed ${walletId} ${password}`);
-    throw new NotImplemented();
+    if (!walletIsHD(walletId)) {
+      throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
+    }
+    return this.dbApi.revealHDWalletSeed(walletId, password);
   }
 
   confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
     // Confirm that the wallet seed is backed up. Raise an error if wallet isn't HD, doesn't exist. Nothing happens if the wallet is already backed up before this call.
-    console.log(`confirmHDWalletBackuped ${walletId}`);
-    throw new NotImplemented();
+    if (!walletIsHD(walletId)) {
+      throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
+    }
+    return this.dbApi
+      .confirmHDWalletBackuped(walletId)
+      .then((dbWallet: DBWallet) => fromDBWalletToWallet(dbWallet));
   }
 
   getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
