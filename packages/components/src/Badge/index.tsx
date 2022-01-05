@@ -67,14 +67,14 @@ export const Badge: FC<BadgeProps> = ({ title, type, size }) => {
       borderRadius="6px"
       bgColor={bgColor}
     >
-      <Typography.Caption
+      <Typography.CaptionStrong
         marginX={badgeTypeProps.marginX}
         marginY="2px"
         fontSize={badgeTypeProps.fontSize}
         lineHeight={badgeTypeProps.lineHeight}
       >
         {title}
-      </Typography.Caption>
+      </Typography.CaptionStrong>
     </NBBadge>
   );
 };
