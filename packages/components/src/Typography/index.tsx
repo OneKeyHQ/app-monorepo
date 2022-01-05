@@ -2,7 +2,7 @@ import React, { ComponentProps, FC } from 'react';
 
 import { Text as NBText } from 'native-base';
 
-import { useUserDevice } from '../Provider/hooks';
+import { useIsVerticalLayout } from '../Provider/hooks';
 
 export type TypographyStyle =
   | 'DisplayXLarge'
@@ -275,18 +275,17 @@ export const CaptionUnderline: FC<FontProps> = ({ children, ...rest }) => (
 type TextProps = {
   typography:
     | TypographyStyle
-    | { 'sm': TypographyStyle; 'lg': TypographyStyle };
+    | { 'sm': TypographyStyle; 'md': TypographyStyle };
 } & FontProps;
 
 export const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
-  const { size } = useUserDevice();
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+  const isSmallScreen = useIsVerticalLayout();
   let props;
   if (typeof typography === 'string') {
     props = getTypographyStyleProps(typography);
   } else {
     props = getTypographyStyleProps(
-      isSmallScreen ? typography.sm : typography.lg,
+      isSmallScreen ? typography.sm : typography.md,
     );
   }
   return (

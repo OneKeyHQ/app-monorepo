@@ -1,12 +1,12 @@
 import React, { ComponentProps } from 'react';
 
-import { Input as BaseInput, Divider, Pressable, Text } from 'native-base';
+import { Input as BaseInput, Divider, Pressable } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
-import { getTypographyStyleProps } from '../Typography';
+import { useIsVerticalLayout } from '../Provider/hooks';
+import { Text, getTypographyStyleProps } from '../Typography';
 
 type Props = {
-  small?: boolean;
   isDisabled?: boolean;
   leftText?: string;
   rightText?: string;
@@ -28,7 +28,6 @@ const Input = React.forwardRef<
 >(
   (
     {
-      small,
       isDisabled,
       leftText,
       rightText,
@@ -48,7 +47,7 @@ const Input = React.forwardRef<
   ) => {
     const leftElements: JSX.Element[] = [];
     const rightElements: JSX.Element[] = [];
-    const fontSize = small ? 'sm' : 'md';
+    const small = useIsVerticalLayout();
     const textProps = small
       ? getTypographyStyleProps('Body1')
       : (getTypographyStyleProps('Body2') as Pick<
@@ -59,9 +58,9 @@ const Input = React.forwardRef<
     if (leftText) {
       leftElements.push(
         <Text
+          typography={{ sm: 'Body1', md: 'Body2' }}
           ml="2"
           key="leftText"
-          fontSize={fontSize}
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
           onPress={onPressLeftText}
         >
@@ -83,9 +82,9 @@ const Input = React.forwardRef<
     if (rightText) {
       rightElements.push(
         <Text
+          typography={{ sm: 'Body1', md: 'Body2' }}
           key="rightText"
           mr="2"
-          fontSize={fontSize}
           onPress={onPressRightText}
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
         >
@@ -110,11 +109,10 @@ const Input = React.forwardRef<
       }
       rightElements.push(
         <Text
+          typography={{ sm: 'Button1', md: 'Button2' }}
           key="rightText"
           mr="2"
-          fontSize={fontSize}
           onPress={onPressSecondaryRightText}
-          fontWeight={600}
           color={isDisabled ? 'text-disabled' : 'text-default'}
         >
           {rightSecondaryText}

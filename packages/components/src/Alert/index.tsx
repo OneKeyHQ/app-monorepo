@@ -99,7 +99,7 @@ const Alert: FC<AlertProps> = ({
                 color={alertTypeProps.iconColor}
               />
             </Box>
-            <Typography.Body2>{title}</Typography.Body2>
+            <Typography.Body2Strong>{title}</Typography.Body2Strong>
           </Row>
           <IconButton
             padding="2px"
