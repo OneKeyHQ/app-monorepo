@@ -14,7 +14,9 @@ export enum TransactionModalRoutes {
 }
 
 export type TransactionModalRoutesParams = {
-  [key in TransactionModalRoutes]: undefined;
+  [TransactionModalRoutes.TransactionModal]: undefined;
+  [TransactionModalRoutes.TransactionConfirmModal]: undefined;
+  [TransactionModalRoutes.TransactionEditFeeModal]: undefined;
 };
 
 const TransactionModalNavigator =

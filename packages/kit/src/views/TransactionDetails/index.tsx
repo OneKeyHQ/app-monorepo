@@ -1,5 +1,7 @@
 import React, { FC, useCallback, useRef } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+import { RouteProp } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +17,10 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import {
+  TransactionDetailModalRoutes,
+  TransactionDetailRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
@@ -27,6 +33,11 @@ import {
 export type TransactionDetailsProps = {
   txId: string;
 };
+
+type TransactionDetailRouteProp = RouteProp<
+  TransactionDetailRoutesParams,
+  TransactionDetailModalRoutes.TransactionDetailModal
+>;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getTxInfo = (_txId: string): Transaction => ({
@@ -43,11 +54,12 @@ const getTxInfo = (_txId: string): Transaction => ({
 /**
  * 交易详情
  */
-const TransactionDetails: FC<TransactionDetailsProps> = ({
-  txId = '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-}) => {
+const TransactionDetails: FC<TransactionDetailsProps> = () => {
   const intl = useIntl();
   const toast = useToast();
+  const route = useRoute<TransactionDetailRouteProp>();
+
+  const { txId } = route.params;
   const toastIdRef = useRef<string>();
 
   const txInfo = getTxInfo(txId);
