@@ -68,172 +68,203 @@ const resolveExtensions = fileExtensions
   .map((extension) => `.${extension}`)
   .concat(['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.css']);
 
-let webpackConfig = {
-  // add custom config, will be deleted later
-  chromeExtensionBoilerplate: {
-    notHotReload: [
-      // ignore background
-      'background',
-      'content-script',
-      'ui-devtools',
-    ],
-  },
-  mode: IS_DEV ? 'development' : 'production', // development, production
-  // mode: 'development',
-  entry: {
-    'background': path.join(__dirname, 'src/entry/background.ts'),
-    'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
-    'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
-    'ui-expand-tab': path.join(__dirname, 'src/entry/ui-expand-tab.tsx'),
-    'ui-standalone-window': path.join(
-      __dirname,
-      'src/entry/ui-standalone-window.tsx',
-    ),
-    // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
-    // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
-    'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
-    'ui-devtools-panel': path.join(
-      __dirname,
-      'src/entry/ui-devtools-panel.tsx',
-    ),
-  },
-  output: {
-    path: path.resolve(__dirname, 'build', buildTargetBrowser),
-    filename: '[name].bundle.js',
-    publicPath: ASSET_PATH,
-    globalObject: 'this', // FIX: window is not defined in service-worker background
-  },
-  module: {
-    rules: [
-      {
-        __ruleName__: 'shtml-rule',
-        // project/html-loader
-        test: /\.(shtml)$/i, // MUST BE .shtml different with withExpo() builtin .html
-        use: { loader: 'html-loader' },
-        exclude: /node_modules/,
-      },
-      {
-        __ruleName__: 'css-rule',
-        // project/css-loader
-        // look for .css or .scss files
-        test: /\.(css)$/i,
-        // in the `src` directory
-        use: [
-          {
-            loader: 'style-loader',
-          },
-          {
-            loader: 'css-loader',
-          },
-        ],
-      },
-      // {
-      //   test: new RegExp(`.(${fileExtensions.join('|')})$`),
-      //   loader: 'file-loader',
-      //   options: {
-      //     name: '[name].[ext]',
-      //     esModule: false,
-      //   },
-      //   exclude: /node_modules/,
-      // },
-      // {
-      //   test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
-      //   loader: 'next-image-loader',
-      //   issuer: { not: /\.(css|scss|sass)(\.webpack\[javascript\/auto\])?$/ },
-      //   // dependency: { not: [Array] },
-      //   options: { isServer: false, isDev: true, assetPrefix: '' },
-      // },
-    ],
-  },
-  resolve: {
-    alias,
-    extensions: [
-      // move to: ./development/resolveExtension.js
-    ],
-  },
-  plugins: [
-    new webpack.ProgressPlugin(),
-    // expose and write the allowed env vars on the compiled bundle
-    new webpack.EnvironmentPlugin(['NODE_ENV']),
-    new webpack.DefinePlugin({
-      'process.env.VERSION': JSON.stringify(packageJson.version),
-    }),
-    // FIX ERROR: process is not defined
-    new webpack.ProvidePlugin({
-      process: 'process/browser',
-    }),
-    ...pluginsCopy,
-    ...pluginsHtml,
-  ],
-  infrastructureLogging: {
-    level: 'info',
-  },
-  optimization: {
-    splitChunks: {
-      chunks: 'all',
-      minSize: 2000000,
-      maxSize: 4000000,
-      name: false,
-      hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
-      automaticNameDelimiter: '.', // ~ => .
+function createConfig() {
+  let webpackConfig = {
+    // add custom config, will be deleted later
+    chromeExtensionBoilerplate: {
+      notHotReload: [
+        // ignore background
+        'background',
+        'content-script',
+        'ui-devtools',
+      ],
     },
-  },
-};
-
-webpackConfig = nextWebpack(webpackConfig, {
-  transpileModules,
-  debug: false,
-  projectRoot: __dirname,
-});
-
-if (IS_DEV) {
-  // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
-  webpackConfig.devtool = 'cheap-module-source-map';
-  //
-  // Reset sourcemap here, withExpo will change this value
-  //    only inline-source-map supported in extension
-  // TODO use external file sourcemap
-  // webpackConfig.devtool = 'inline-source-map';
-  //
-
-  webpackConfig.devtool = false;
-  webpackConfig.plugins.push(
-    new webpack.SourceMapDevToolPlugin({
-      append: `\n//# sourceMappingURL=http://127.0.0.1:${SOURCE_MAP_SERVER_PORT}/[url]`,
-      filename: '[file].map',
-      // TODO eval is NOT support in Ext.
-      //      sourcemap building is very very very SLOW
-      module: true,
-      columns: true,
-    }),
-  );
-} else {
-  webpackConfig.optimization = {
-    ...webpackConfig.optimization,
-    minimize: true,
-    minimizer: [
-      new TerserPlugin({
-        extractComments: false,
+    mode: IS_DEV ? 'development' : 'production', // development, production
+    // mode: 'development',
+    entry: {
+      // DO NOT set entry here, set by multipleEntryConfigs later
+    },
+    output: {
+      path: path.resolve(__dirname, 'build', buildTargetBrowser),
+      filename: '[name].bundle.js',
+      publicPath: ASSET_PATH,
+      globalObject: 'this', // FIX: window is not defined in service-worker background
+    },
+    module: {
+      rules: [
+        {
+          __ruleName__: 'shtml-rule',
+          // project/html-loader
+          test: /\.(shtml)$/i, // MUST BE .shtml different with withExpo() builtin .html
+          use: { loader: 'html-loader' },
+          exclude: /node_modules/,
+        },
+        {
+          __ruleName__: 'css-rule',
+          // project/css-loader
+          // look for .css or .scss files
+          test: /\.(css)$/i,
+          // in the `src` directory
+          use: [
+            {
+              loader: 'style-loader',
+            },
+            {
+              loader: 'css-loader',
+            },
+          ],
+        },
+        // {
+        //   test: new RegExp(`.(${fileExtensions.join('|')})$`),
+        //   loader: 'file-loader',
+        //   options: {
+        //     name: '[name].[ext]',
+        //     esModule: false,
+        //   },
+        //   exclude: /node_modules/,
+        // },
+        // {
+        //   test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
+        //   loader: 'next-image-loader',
+        //   issuer: { not: /\.(css|scss|sass)(\.webpack\[javascript\/auto\])?$/ },
+        //   // dependency: { not: [Array] },
+        //   options: { isServer: false, isDev: true, assetPrefix: '' },
+        // },
+      ],
+    },
+    resolve: {
+      alias,
+      extensions: [
+        // move to: ./development/resolveExtension.js
+      ],
+    },
+    plugins: [
+      new webpack.ProgressPlugin(),
+      // expose and write the allowed env vars on the compiled bundle
+      new webpack.EnvironmentPlugin(['NODE_ENV']),
+      new webpack.DefinePlugin({
+        'process.env.VERSION': JSON.stringify(packageJson.version),
       }),
+      // FIX ERROR: process is not defined
+      new webpack.ProvidePlugin({
+        process: 'process/browser',
+      }),
+      ...pluginsCopy,
+      ...pluginsHtml,
     ],
+    infrastructureLogging: {
+      level: 'info',
+    },
+    optimization: {},
   };
+
+  webpackConfig = nextWebpack(webpackConfig, {
+    transpileModules,
+    debug: false,
+    projectRoot: __dirname,
+  });
+
+  if (IS_DEV) {
+    // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+    webpackConfig.devtool = 'cheap-module-source-map';
+    //
+    // Reset sourcemap here, withExpo will change this value
+    //    only inline-source-map supported in extension
+    // TODO use external file sourcemap
+    // webpackConfig.devtool = 'inline-source-map';
+    //
+
+    webpackConfig.devtool = false;
+    webpackConfig.plugins.push(
+      new webpack.SourceMapDevToolPlugin({
+        append: `\n//# sourceMappingURL=http://127.0.0.1:${SOURCE_MAP_SERVER_PORT}/[url]`,
+        filename: '[file].map',
+        // TODO eval is NOT support in Ext.
+        //      sourcemap building is very very very SLOW
+        module: true,
+        columns: true,
+      }),
+    );
+  } else {
+    webpackConfig.optimization = {
+      ...webpackConfig.optimization,
+      minimize: true,
+      minimizer: [
+        new TerserPlugin({
+          extractComments: false,
+        }),
+      ],
+    };
+  }
+
+  console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
+  console.log('------- webpackConfig', {
+    devtool: webpackConfig.devtool,
+  });
+
+  devUtils.cleanWebpackDebugFields(webpackConfig);
+
+  webpackConfig = webpackTools.normalizeConfig({
+    platform: 'ext',
+    config: webpackConfig,
+  });
+
+  return webpackConfig;
 }
 
-console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
-console.log('------- webpackConfig', {
-  devtool: webpackConfig.devtool,
-});
-// process.exit(1);
-devUtils.cleanWebpackDebugFields(webpackConfig);
+// https://webpack.js.org/configuration/configuration-types/#exporting-multiple-configurations
+const multipleEntryConfigs = [
+  {
+    config: {
+      name: 'ui',
+      entry: {
+        'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
+        'ui-expand-tab': path.join(__dirname, 'src/entry/ui-expand-tab.tsx'),
+        'ui-standalone-window': path.join(
+          __dirname,
+          'src/entry/ui-standalone-window.tsx',
+        ),
+        // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
+        // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
+        'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
+        'ui-devtools-panel': path.join(
+          __dirname,
+          'src/entry/ui-devtools-panel.tsx',
+        ),
+      },
+    },
+    configUpdater(config) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        minSize: 0, // 2000000
+        maxSize: 4000000,
+        name: false,
+        hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
+        automaticNameDelimiter: '.', // ~ => .
+      };
+      return config;
+    },
+  },
+  {
+    config: {
+      name: 'background',
+      // dependencies: ['ui'],
+      entry: {
+        'background': path.join(__dirname, 'src/entry/background.ts'),
+        'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
+      },
+    },
+    configUpdater(config) {
+      return config;
+    },
+  },
+];
 
-webpackConfig = webpackTools.normalizeConfig({
-  platform: 'ext',
-  config: webpackConfig,
-});
-
-devUtils.writePreviewWebpackConfigJson(
-  webpackConfig,
-  'webpack.config.preview.json',
+const configs = devUtils.createMultipleEntryConfigs(
+  createConfig,
+  multipleEntryConfigs,
 );
 
-module.exports = webpackConfig;
+devUtils.writePreviewWebpackConfigJson(configs, 'webpack.config.preview.json');
+
+module.exports = configs;

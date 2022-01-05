@@ -9,6 +9,6 @@ module.exports = {
   // https://developer.chrome.com/docs/extensions/mv3/migrating_to_service_workers/
   'background': {
     // TODO move js file to root, as some browsers will not working
-    'service_worker': 'background.493df0b3.bundle.js',
+    'service_worker': 'background.bundle.js',
   },
 };
