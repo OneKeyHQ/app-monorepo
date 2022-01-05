@@ -2,7 +2,7 @@ import React, { FC, useCallback, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
+import { IntlShape, useIntl } from 'react-intl';
 
 import {
   Address,
@@ -27,6 +27,7 @@ import { formatDate } from '../../utils/DateUtils';
 import {
   Transaction,
   TransactionState,
+  TransactionType,
   getTransactionStatusStr,
 } from '../Components/transactionRecord';
 
@@ -50,6 +51,20 @@ const getTxInfo = (_txId: string): Transaction => ({
   date: new Date(1637472397 * 1000),
   confirmed: 123,
 });
+
+const getTransactionTypeStr = (
+  intl: IntlShape,
+  transaction: Transaction,
+): string => {
+  const stringKeys: Record<TransactionType, string> = {
+    'Send': 'action__send',
+    'Receive': 'action__receive',
+    'Approve': 'action__send',
+  };
+  return intl.formatMessage({
+    id: stringKeys[transaction.type ?? 'Send'],
+  });
+};
 
 /**
  * 交易详情
@@ -104,9 +119,12 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
 
   return (
     <Modal
+      header={getTransactionTypeStr(intl, txInfo)}
+      headerDescription={txInfo.to}
+      footer={null}
       scrollViewProps={{
         children: (
-          <Box flexDirection="column" alignItems="center">
+          <Box flexDirection="column" alignItems="center" mb={6}>
             <Icon name={getTransactionStatusIcon(txInfo.state)} size={56} />
             <Typography.Heading
               mt={2}
@@ -118,7 +136,12 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
               <Container.Item
                 title={intl.formatMessage({ id: 'content__hash' })}
               >
-                <Box flexDirection="row">
+                <Box
+                  flexDirection="row"
+                  justifyContent="flex-end"
+                  w="100%"
+                  flexWrap="wrap"
+                >
                   <Address text={txInfo.txId} short />
                   <Pressable ml={3} onPress={copyAddressToClipboard}>
                     <Icon name="ClipboardCopySolid" />

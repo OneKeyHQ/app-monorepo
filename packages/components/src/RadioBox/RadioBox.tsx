@@ -85,7 +85,6 @@ const RadioBox: FC<RadioBoxProps> = ({
       borderRadius="12px"
       borderWidth="1px"
       borderColor={brColor}
-      // @ts-ignore
       bg={bgColor}
       p={4}
       mt="1.5"
