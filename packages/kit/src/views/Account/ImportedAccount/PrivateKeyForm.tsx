@@ -28,7 +28,7 @@ const PrivateKeyForm: FC = () => {
           label={intl.formatMessage({ id: 'network__network' })}
           helpText={intl.formatMessage({ id: 'form__network_helperText' })}
           defaultValue="https://rpc.onekey.so/eth"
-          formControlProps={{ zIndex: 10, maxW: '80' }}
+          formControlProps={{ zIndex: 10 }}
         >
           <Form.Select
             title={intl.formatMessage({ id: 'network__network' })}

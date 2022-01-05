@@ -2,6 +2,10 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import ImportAccountModal, {
+  ImportAccountModalRoutes,
+  ImportAccountRoutesParams,
+} from './ImportAccount';
 import ManageNetworkModal, {
   ManageNetworkModalRoutes,
   ManageNetworkRoutesParams,
@@ -18,6 +22,10 @@ import TransactionDetailModal, {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
 } from './TransactionDetail';
+import WatchedAccountModal, {
+  WatchedAccountModalRoutes,
+  WatchedAccountRoutesParams,
+} from './WatchedAccount';
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
@@ -42,6 +50,14 @@ const modalStackScreenList = [
     name: TransactionDetailModalRoutes.TransactionDetailModal,
     component: TransactionDetailModal,
   },
+  {
+    name: ImportAccountModalRoutes.ImportAccountModal,
+    component: ImportAccountModal,
+  },
+  {
+    name: WatchedAccountModalRoutes.WatchedAccountModal,
+    component: WatchedAccountModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -50,6 +66,8 @@ export const ModalRoutes = {
   ...TransactionModalRoutes,
   ...ManageNetworkModalRoutes,
   ...TransactionDetailModalRoutes,
+  ...ImportAccountModalRoutes,
+  ...WatchedAccountModalRoutes,
 };
 
 export type ModalTypes = {
@@ -58,6 +76,8 @@ export type ModalTypes = {
   [ReceiveQRCodeModalRoutes.ReceiveQRCodeModal]: NavigatorScreenParams<ReceiveQRCodeRoutesParams>;
   [TransactionModalRoutes.TransactionModal]: NavigatorScreenParams<TransactionModalRoutesParams>;
   [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
+  [ImportAccountModalRoutes.ImportAccountModal]: NavigatorScreenParams<ImportAccountRoutesParams>;
+  [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
 };
 
 export default modalStackScreenList;
