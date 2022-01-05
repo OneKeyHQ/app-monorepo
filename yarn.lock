@@ -2239,8 +2239,8 @@
 
 "@onekeyhq/blockchain-link@1.0.19":
   version "1.0.19"
-  resolved "https://npm.pkg.github.com/download/@onekeyhq/blockchain-link/1.0.19/1e4446addf052f2020fe584a3d1d3b9ac69a1f18806cccd3adb1bfda86a47b59#6bd0284cc040257426b1f03630c6d4b41682cc49"
-  integrity sha512-OxWaIwsu10EGoNU9iqxMGboEwtZc4NdOV/i9d0GCCQ9w1j5bwuS2/LxWR1rguLWDNFFu6SaxctAvRFzeLM4xIw==
+  resolved "https://registry.yarnpkg.com/@onekeyhq/blockchain-link/-/blockchain-link-1.0.19.tgz#a251c608bd1740865d4f45c8f48948dd9458699d"
+  integrity sha512-KGYhPKd3PX/tnw5uVgWKQRDDWfKGh15A0TYTX7Z52nuWMhZ0AxgWmPGVtSQR7mTS7XIo4fmK9TNF1CNDkDD+ng==
   dependencies:
     bignumber.js "^9.0.1"
     es6-promise "^4.2.8"
@@ -2251,8 +2251,8 @@
 
 "@onekeyhq/connect@8.7.0-extended":
   version "8.7.0-extended"
-  resolved "https://npm.pkg.github.com/download/@onekeyhq/connect/8.7.0-extended/dd8b045adde08b3ecde87a3d1b527c40dc586aeada88a91f0423c1e8401bf1ca#57d1ab7a1c5e4a8a1ccc555ef71ae22dd71a5cd4"
-  integrity sha512-N8CAM1Fz+uUblVUp/MIkV2BSFZPyyxeYTf4U2wADGrZirDuMeKVDfrM3Ob64gNMZCaeSRAfCWHik2IVvbp15ig==
+  resolved "https://registry.yarnpkg.com/@onekeyhq/connect/-/connect-8.7.0-extended.tgz#9254fe5f5e6663d742db7a4e4f98d6cba2536de6"
+  integrity sha512-6ZpAWt29KIHrMYZQ+tYn9eX0NReJaLHmI64KKzL8E8JtEM8ZTB7/Gs6xASTKDj7NJql/HgjWmcyuSkrd19e1oQ==
   dependencies:
     "@babel/runtime" "^7.12.5"
     "@onekeyhq/blockchain-link" "1.0.19"
@@ -2280,8 +2280,8 @@
 
 "@onekeyhq/link@1.7.5":
   version "1.7.5"
-  resolved "https://npm.pkg.github.com/download/@onekeyhq/link/1.7.5/1bdce865ec2d3341867e4a06a0e428b55865de7e2cca5191ae838b347a394fba#549f2a8fb54699f976e0ac260598c6cbc81c0f50"
-  integrity sha512-biDf4fVamQXroX/OVPG4KvTUvvh+MXNe0xwMJBm0Si7SuxWj3rYHh/+x/ROnjDwJJK/qNbpKrASMFhBOIAkk1A==
+  resolved "https://registry.yarnpkg.com/@onekeyhq/link/-/link-1.7.5.tgz#e54edbdeafb93c1f72fb2f3ffceb2d9327bc8e1f"
+  integrity sha512-KpjAt5Ex4WYyYJYfkIU+3NKdUMoYdnMreLbjtUg+o4l/VIteVSAlFoi5N/KPxmA8hR+AZPmqjHO2h6mbF4c6HQ==
   dependencies:
     bigi "^1.4.1"
     ecurve "^1.0.3"
@@ -2294,8 +2294,8 @@
 
 "@onekeyhq/rollout@1.0.6":
   version "1.0.6"
-  resolved "https://npm.pkg.github.com/download/@onekeyhq/rollout/1.0.6/dab197211436334fa96d5e9c4796aacf7ffc82e58c26e5b8110d5f5663175bd2#ecf85780b70827d566c5ed4bb48f4a2553b1cdd4"
-  integrity sha512-jMH5C+G9jEU7TeUnUSXvw54+VKq2jXFdN0eJrmFTMi8CybwcaQwlUfKtcbU5jm3KCX3+VBA7XK3ka/7e+lL1jg==
+  resolved "https://registry.yarnpkg.com/@onekeyhq/rollout/-/rollout-1.0.6.tgz#963febab33f015294d4f2002b972ae5d2c328ed3"
+  integrity sha512-wsR27EMOArkKDVy/F8NyRCuT2PsfDOOR7hMGTUXxfnlbzfz/K4rxROR6mtBicu0PwgFeDXch8fKUnndON2Moeg==
   dependencies:
     cross-fetch "^3.0.6"
     runtypes "^5.0.1"
