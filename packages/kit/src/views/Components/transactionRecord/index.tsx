@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Icon,
+  Text,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -106,9 +107,9 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
   const basicInfo = useCallback(
     () => (
       <Box minW="156px" flex={1}>
-        <Typography.Body1Strong>
+        <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
           {getTransactionTypeStr(intl, transaction)}
-        </Typography.Body1Strong>
+        </Text>
         <Typography.Body2 color={getTransactionStatusColor(transaction.state)}>
           {transaction.state === 'success'
             ? formatDate(transaction.date)

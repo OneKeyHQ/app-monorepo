@@ -70,7 +70,7 @@ const Radio: FC<RadioProps> = ({
           isDisabled={isDisabled}
           borderRadius="full"
           borderColor="border-default"
-          // @ts-ignore
+          // @ts-expect-error
           _hover={{
             borderColor: isChecked
               ? 'action-primary-default'
@@ -124,9 +124,9 @@ const Radio: FC<RadioProps> = ({
             {title}
           </Text>
           {!!description && (
-            <Typography.Body2 selectable={false} color={describeColor}>
+            <Typography.Body2Strong selectable={false} color={describeColor}>
               {description}
-            </Typography.Body2>
+            </Typography.Body2Strong>
           )}
         </Pressable>
       )}

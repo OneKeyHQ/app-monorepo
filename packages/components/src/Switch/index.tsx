@@ -67,14 +67,14 @@ const Switch: FC<SwitchProps> = ({
       flexDirection={labelType === 'after' ? 'row-reverse' : 'row'}
     >
       {labelType !== 'false' && (
-        <Typography.Body2
+        <Typography.Body2Strong
           fontWeight="bold"
           mr={3}
           ml={3}
           color={isDisabled ? 'text-disabled' : 'text-default'}
         >
           {label}
-        </Typography.Body2>
+        </Typography.Body2Strong>
       )}
 
       <BaseSwitch
