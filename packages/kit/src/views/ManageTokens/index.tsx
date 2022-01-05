@@ -16,9 +16,6 @@ import {
   utils,
 } from '@onekeyhq/components';
 
-import AddCustomToken from './AddCustomToken';
-import AddTokenModal from './AddToken';
-
 type IToken = {
   name: string;
   symbol: string;
@@ -51,13 +48,10 @@ const mylist: IToken[] = [
   },
 ];
 
-type TokensModalProps = { trigger?: ReactElement<any> };
-const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
+const TokensModal: FC = () => {
   const intl = useIntl();
   const [keyword, setKeyword] = useState<string>('');
   const [token, setToken] = useState<IToken>();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
 
   const searched = useMemo(() => {
     if (!keyword) {
@@ -87,11 +81,7 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
         address={item.address}
         description={utils.shortenAddress(item.address)}
       />
-      <IconButton
-        name="PlusOutline"
-        type="plain"
-        onPress={() => setShowAddModal(true)}
-      />
+      <IconButton name="PlusOutline" type="plain" onPress={() => {}} />
     </Box>
   );
   const renderOwnedItem = ({ item }: { item: IToken }) => (
@@ -198,15 +188,12 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
   return (
     <>
       <Modal
-        trigger={trigger}
         header={intl.formatMessage({
           id: 'title__manage_tokens',
           defaultMessage: 'Manage Tokens',
         })}
         hideSecondaryAction
-        onPrimaryActionPress={() => {
-          setShowAddCustomModal(true);
-        }}
+        onPrimaryActionPress={() => {}}
         primaryActionTranslationId="action__add_custom_tokens"
         primaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
       >
@@ -225,18 +212,6 @@ const TokensModal: FC<TokensModalProps> = ({ trigger }) => {
             />
             {contentView}
           </Box>
-          <AddTokenModal
-            visible={showAddModal}
-            onClose={() => setShowAddModal(false)}
-          />
-          <AddCustomToken
-            visible={showAddCustomModal}
-            defaultValues={{ address: '', symbol: '', decimal: '' }}
-            onSubmit={() => {
-              setShowAddCustomModal(false);
-            }}
-            onClose={() => setShowAddCustomModal(false)}
-          />
           <Dialog
             visible={!!token}
             onClose={() => setToken(undefined)}
