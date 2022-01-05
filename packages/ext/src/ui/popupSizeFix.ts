@@ -1,15 +1,26 @@
 // set default size on ui.shtml
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
 const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 
 // TODO auto fix on window.addEventListener('resize', reportWindowSize);
 function popupSizeFix() {
-  if (window.innerHeight < UI_HTML_DEFAULT_MIN_HEIGHT) {
-    document.documentElement.style.minHeight = '0';
+  // only set size if in popup
+  if (!platformEnv.isExtensionUiPopup) {
+    return;
   }
-  if (window.innerWidth < UI_HTML_DEFAULT_MIN_WIDTH) {
-    document.documentElement.style.minWidth = '0';
+
+  // TODO set initial value in html, and remove it from js (not popup.html env)
+  document.documentElement.style.minHeight = `${UI_HTML_DEFAULT_MIN_HEIGHT}px`;
+  document.documentElement.style.minWidth = `${UI_HTML_DEFAULT_MIN_WIDTH}px`;
+
+  // firefox should set to body element, chrome should set to html element
+  if (platformEnv.isFirefox) {
+    document.body.style.minHeight = `${UI_HTML_DEFAULT_MIN_HEIGHT}px`;
+    document.body.style.minWidth = `${UI_HTML_DEFAULT_MIN_WIDTH}px`;
   }
+  // console
 }
 
 export default popupSizeFix;
