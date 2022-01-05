@@ -75,7 +75,11 @@ function WebView({
 
   const showActionsAndDemoPanel = showWalletActions || showDemoActions;
 
-  if (!platformEnv.isExtensionUiExpandTab && openUrlInExt) {
+  if (
+    platformEnv.isExtension &&
+    !platformEnv.isExtensionUiExpandTab &&
+    openUrlInExt
+  ) {
     return (
       <Center flex={1}>
         <Button onPress={() => extUtils.openUrl(src)}>Open</Button>
