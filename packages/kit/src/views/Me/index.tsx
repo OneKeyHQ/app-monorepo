@@ -25,8 +25,9 @@ const Me = () => {
   const { setThemeVariant, themeVariant } = useTheme();
   const { locale, setLocale } = useLocale();
   const navigation = useNavigation<NavigationProps>();
+
   return (
-    <Box flex="1" p="4">
+    <Box flex="1" p="4" maxW="1024px" w="100%" marginX="auto">
       <VStack space="3">
         <Box
           p="4"
@@ -68,6 +69,26 @@ const Me = () => {
             ]}
             defaultValue={locale}
             onChange={(l) => setLocale(l as 'zh-CN')}
+          />
+        </Box>
+        <Box
+          p="4"
+          bg="surface-default"
+          borderRadius="12px"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Typography.Body1>法币</Typography.Body1>
+          <SegmentedControl
+            containerProps={{
+              width: '148px',
+            }}
+            options={[
+              { label: '美元', value: 'USD' },
+              { label: '人民币', value: 'yuan' },
+            ]}
+            defaultValue="USD"
           />
         </Box>
         <Pressable

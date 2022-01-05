@@ -29,7 +29,7 @@ const InputGallery = () => {
       >
         <Stack space="2">
           <Input placeholder="Placeholder" value="hello world" />
-          <Input placeholder="Placeholder" small value="hello world" />
+          <Input placeholder="Placeholder" value="hello world" />
           <Input placeholder="Placeholder" value="disabled" isDisabled />
           <Input leftText="$" placeholder="Placeholder" />
           <Input leftIconName="AdjustmentsOutline" placeholder="Placeholder" />
@@ -58,7 +58,6 @@ const InputGallery = () => {
             placeholder="Placeholder"
           />
           <Input
-            small
             rightIconName="QrcodeSolid"
             onPressRightIcon={onQrScan}
             rightSecondaryIconName="UserSolid"

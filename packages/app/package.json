@@ -12,8 +12,7 @@
     "postinstall": "expo-yarn-workspaces postinstall",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules && rimraf .expo && rimraf __generated__",
-    "eas-build-post-install": "expo-yarn-workspaces postinstall",
-    "eas-build-pre-install": "echo \"@onekeyhq:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${NPM_TOKEN}\" > ~/.npmrc"
+    "eas-build-post-install": "expo-yarn-workspaces postinstall"
   },
   "dependencies": {
     "@onekeyhq/components": "*",

@@ -233,7 +233,7 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
           src={item.logoURI}
         />
         <Box ml={3} mr={3} flexDirection="column" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', lg: 'Body2Strong' }}>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {item.amount}
           </Text>
           <Typography.Body2 color="text-subdued">

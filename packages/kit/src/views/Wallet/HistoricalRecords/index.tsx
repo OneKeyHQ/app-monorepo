@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,24 +15,20 @@ import {
   ScrollableSectionListProps,
   Typography,
 } from '@onekeyhq/components';
-import {
-  TransactionDetailModalRoutes,
-  TransactionDetailRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
+import { ModalTypes } from '@onekeyhq/kit/src/routes';
+import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
-import { ModalRoutes } from '../../../routes';
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord, {
   Transaction,
   getTransactionStatusStr,
 } from '../../Components/transactionRecord';
-import TransactionDetails from '../../TransactionDetails';
 import { ScrollRoute } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  TransactionDetailRoutesParams,
+type ModalTransactionDetailScreenNavigationProp = NativeStackNavigationProp<
+  ModalTypes,
   TransactionDetailModalRoutes.TransactionDetailModal
 >;
 
@@ -152,7 +148,8 @@ const toTransactionSection = (_data: Transaction[]): TransactionGroup[] => {
 const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
   const tabPageIndex = route.index;
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation =
+    useNavigation<ModalTransactionDetailScreenNavigationProp>();
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [detailsInfo, setDetailsInfo] = useState<Transaction>();
   const [transactionRecords, setTransactionRecords] = useState<
@@ -174,7 +171,16 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       onPress={() => {
         setDetailsInfo(item);
-        navigation.navigate(ModalRoutes.TransactionDetailModal);
+
+        navigation.navigate(
+          TransactionDetailModalRoutes.TransactionDetailModal,
+          {
+            screen: TransactionDetailModalRoutes.TransactionDetailModal,
+            params: {
+              txId: item.txId,
+            },
+          },
+        );
         console.log('Click Transaction : ', item.txId);
       }}
     >

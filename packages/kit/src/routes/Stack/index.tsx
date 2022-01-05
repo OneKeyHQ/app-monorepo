@@ -22,6 +22,7 @@ import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/st
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
+import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
@@ -43,6 +44,7 @@ import ThemeGallery from '@onekeyhq/kit/src/views/Components/stories/Theme';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
+import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
@@ -99,6 +101,8 @@ export enum StackBasicRoutes {
   ComponentSegmentedControl = 'component/segmented-control',
   ComponentReduxMessage = 'component/redux-message',
   ComponentHeaderTabViewContainerGallery = 'component/header-tab-view',
+  ComponentLogger = 'component/logger',
+  ComponentWebview = 'component/webview',
 }
 
 export type StackBasicRoutesParams = {
@@ -188,6 +192,14 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentHeaderTabViewContainerGallery,
     component: HeaderTabViewContainerGallery,
+  },
+  {
+    name: StackRoutes.ComponentLogger,
+    component: LoggerGallery,
+  },
+  {
+    name: StackRoutes.ComponentWebview,
+    component: WebViewGallery,
   },
 ];
 

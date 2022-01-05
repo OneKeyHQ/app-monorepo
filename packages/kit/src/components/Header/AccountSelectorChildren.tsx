@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Account,
@@ -41,93 +42,6 @@ const NORMAL_ACCOUNTS = [
 
 type AccountType = 'normal' | 'hd' | 'imported' | 'watched';
 
-function renderSideAction(
-  type: AccountType,
-  size: string,
-  onChange: (v: string) => void,
-) {
-  if (type === 'normal') {
-    return (
-      <Select
-        dropdownPosition="left"
-        onChange={onChange}
-        asAction
-        options={[
-          {
-            label: 'Rename',
-            value: 'rename',
-            iconProps: {
-              name: 'TagOutline',
-            },
-          },
-          {
-            label: 'Add Account',
-            value: 'addAccount',
-            iconProps: {
-              name: 'PlusCircleOutline',
-            },
-          },
-          {
-            label: 'View Details',
-            value: 'detail',
-            iconProps: {
-              name: 'DocumentTextSolid',
-            },
-          },
-          {
-            label: 'Export Private Key',
-            value: 'export',
-            iconProps: {
-              name: 'UploadSolid',
-            },
-          },
-          {
-            label: 'Remove Account',
-            value: 'remove',
-            iconProps: {
-              name: 'TrashSolid',
-            },
-            destructive: true,
-          },
-        ]}
-        triggerProps={{
-          width: 'auto',
-          py: 1,
-          px: 2,
-          borderRadius: 32,
-        }}
-        headerShown={false}
-        footer={null}
-        containerProps={{ width: 'auto' }}
-        dropdownProps={{
-          width: ['SMALL', 'NORMAL'].includes(size) ? '100%' : 248,
-        }}
-        renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
-      />
-    );
-  }
-
-  if (type === 'watched') {
-    return (
-      <Pressable px="2" justifyContent="center">
-        <Icon name="PlusOutline" />
-      </Pressable>
-    );
-  }
-
-  if (type === 'imported') {
-    return (
-      <ImportedAccount
-        trigger={
-          <Pressable px="2" justifyContent="center">
-            <Icon name="PlusOutline" />
-          </Pressable>
-        }
-      />
-    );
-  }
-}
-
 type ChildrenProps = {
   handleToggleVisible: () => void;
 };
@@ -136,6 +50,7 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
   handleToggleVisible,
 }) => {
   const { size } = useUserDevice();
+  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
   const [activeAccountType, setActiveAccountType] =
@@ -153,6 +68,89 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
     },
     [navigation, handleToggleVisible],
   );
+
+  function renderSideAction(type: AccountType, onChange: (v: string) => void) {
+    if (type === 'normal') {
+      return (
+        <Select
+          dropdownPosition="left"
+          onChange={onChange}
+          asAction
+          options={[
+            {
+              label: intl.formatMessage({ id: 'action__rename' }),
+              value: 'rename',
+              iconProps: {
+                name: 'TagOutline',
+              },
+            },
+            {
+              label: intl.formatMessage({ id: 'action__add_account' }),
+              value: 'addAccount',
+              iconProps: {
+                name: 'PlusCircleOutline',
+              },
+            },
+            {
+              label: intl.formatMessage({ id: 'action__view_details' }),
+              value: 'detail',
+              iconProps: {
+                name: 'DocumentTextSolid',
+              },
+            },
+            {
+              label: intl.formatMessage({ id: 'action__export_private_key' }),
+              value: 'export',
+              iconProps: {
+                name: 'UploadSolid',
+              },
+            },
+            {
+              label: intl.formatMessage({ id: 'action__remove_account' }),
+              value: 'remove',
+              iconProps: {
+                name: 'TrashSolid',
+              },
+              destructive: true,
+            },
+          ]}
+          triggerProps={{
+            width: 'auto',
+            py: 1,
+            px: 2,
+            borderRadius: 32,
+          }}
+          headerShown={false}
+          footer={null}
+          containerProps={{ width: 'auto' }}
+          dropdownProps={{
+            width: ['SMALL', 'NORMAL'].includes(size) ? '100%' : 248,
+          }}
+          renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
+        />
+      );
+    }
+
+    if (type === 'watched') {
+      return (
+        <Pressable px="2" justifyContent="center">
+          <Icon name="PlusOutline" />
+        </Pressable>
+      );
+    }
+
+    if (type === 'imported') {
+      return (
+        <ImportedAccount
+          trigger={
+            <Pressable px="2" justifyContent="center">
+              <Icon name="PlusOutline" />
+            </Pressable>
+          }
+        />
+      );
+    }
+  }
 
   return (
     <>
@@ -262,12 +260,8 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
             <Typography.Body1>Wallet #2</Typography.Body1>
             <Typography.Caption>Network: Ethereum</Typography.Caption>
           </Box>
-          {renderSideAction(activeAccountType, size, handleChange)}
+          {renderSideAction(activeAccountType, handleChange)}
         </Box>
-        {/* <CreateAccount
-          visible={addAccountVisible}
-          onClose={() => setAddAccountVisible(false)}
-        /> */}
         <FlatList
           data={NORMAL_ACCOUNTS}
           keyExtractor={(_, index) => index.toString()}

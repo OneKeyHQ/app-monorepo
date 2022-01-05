@@ -10,7 +10,7 @@ export enum TransactionDetailModalRoutes {
 }
 
 export type TransactionDetailRoutesParams = {
-  [key in TransactionDetailModalRoutes]: undefined;
+  [TransactionDetailModalRoutes.TransactionDetailModal]: { txId: string };
 };
 
 const TransactionDetailNavigator =

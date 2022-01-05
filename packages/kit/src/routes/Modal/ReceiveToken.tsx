@@ -10,7 +10,7 @@ export enum ReceiveQRCodeModalRoutes {
 }
 
 export type ReceiveQRCodeRoutesParams = {
-  [key in ReceiveQRCodeModalRoutes]: undefined;
+  [ReceiveQRCodeModalRoutes.ReceiveQRCodeModal]: undefined;
 };
 
 const ReceiveQRCodeNavigator =
