@@ -1,5 +1,7 @@
 import React from 'react';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import injectedFactory from '../injected/factory/injectedFactory';
 import {
   IElectronWebView,
@@ -25,9 +27,17 @@ class JsBridgeDesktopHost extends JsBridgeBase {
       const inpageReceiveCode =
         injectedFactory.createCodeJsBridgeReceive(payloadStr);
 
-      this.webviewRef.current?.executeJavaScript?.(inpageReceiveCode);
-      // webviewRef.current?.send(JS_BRIDGE_MESSAGE_CHANNEL, payloadStr);
-      // preload.js ipcRenderer.on(JS_BRIDGE_MESSAGE_CHANNEL) window.$onekey.jsBridge.receive()
+      if (
+        this.webviewRef.current &&
+        this.webviewRef.current.executeJavaScript
+      ) {
+        debugLogger.webview('executeJavaScript', inpageReceiveCode, payload);
+        this.webviewRef.current?.executeJavaScript?.(inpageReceiveCode);
+      } else {
+        throw new Error(
+          'JsBridgeDesktopHost executeJavaScript failed: webview ref not ready yet',
+        );
+      }
     }
   }
 }

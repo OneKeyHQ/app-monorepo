@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
-import { Box, Button, HStack, Select, VStack } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Center,
+  HStack,
+  Select,
+  VStack,
+} from '@onekeyhq/components';
 import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types';
 import InpageProviderWebView from '@onekeyhq/inpage-provider/src/webview/InpageProviderWebView';
 import useWebViewBridge from '@onekeyhq/inpage-provider/src/webview/useWebViewBridge';
@@ -10,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 // TODO remove: ui should use walletApi by backgroundApiProxy
 import walletApi from '../../background/instance/walletApi';
+import extUtils from '../../utils/extUtils';
 
 const { isDesktop, isExtension } = platformEnv;
 
@@ -21,10 +29,12 @@ const srcList = [
 
 function WebView({
   src,
+  openUrlInExt = false,
   showDemoActions = false,
   showWalletActions = false,
 }: {
   src: string;
+  openUrlInExt?: boolean;
   showDemoActions?: boolean;
   showWalletActions?: boolean;
 }): JSX.Element {
@@ -39,7 +49,6 @@ function WebView({
     }
     backgroundApiProxy.connectBridge(jsBridge);
     const onMessage = (event: IJsBridgeMessagePayload) => {
-      console.log('jsBridge onMessage', event);
       if ((event?.data as { method: string })?.method) {
         // handleProviderMethods(jsBridge, event, isApp);
       } else {
@@ -65,12 +74,21 @@ function WebView({
   }, [jsBridge]);
 
   const showActionsAndDemoPanel = showWalletActions || showDemoActions;
+
+  if (!platformEnv.isExtensionUiExpandTab && openUrlInExt) {
+    return (
+      <Center flex={1}>
+        <Button onPress={() => extUtils.openUrl(src)}>Open</Button>
+      </Center>
+    );
+  }
+
   return (
     <Box flex={1}>
       {showActionsAndDemoPanel && (
         <VStack p={2} space={2} zIndex={2} bgColor="white">
           {showWalletActions && (
-            <HStack space={2}>
+            <HStack space={2} zIndex={2}>
               <Select
                 containerProps={{
                   width: '180px',
@@ -124,18 +142,21 @@ function WebView({
               >
                 Toggle WebView Visible
               </Button>
-              <Select
-                containerProps={{
-                  width: '360px',
-                  zIndex: 999,
-                }}
-                value={srcLocal}
-                onChange={(v) => setSrcLocal(v)}
-                options={srcList.map((uri) => ({
-                  value: uri,
-                  label: uri,
-                }))}
-              />
+
+              <Box zIndex={2}>
+                <Select
+                  containerProps={{
+                    width: '360px',
+                    zIndex: 999,
+                  }}
+                  value={srcLocal}
+                  onChange={(v) => setSrcLocal(v)}
+                  options={srcList.map((uri) => ({
+                    value: uri,
+                    label: uri,
+                  }))}
+                />
+              </Box>
 
               <HStack space={2}>
                 <Button

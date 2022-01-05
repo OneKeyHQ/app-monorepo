@@ -8,6 +8,8 @@ import React, {
 
 import { WebView } from 'react-native-webview';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { injectedNative } from '../injected-autogen';
 import JsBridgeNativeHost from '../jsBridge/JsBridgeNativeHost';
 import { IJsBridgeReceiveHandler } from '../types';
@@ -62,7 +64,7 @@ const NativeWebView = forwardRef(
           const { data }: { data: string } = event.nativeEvent;
           const uri = new URL(event.nativeEvent.url);
           const { origin } = uri;
-          console.log('NativeWebView receive message', origin, data);
+          debugLogger.webview('onMessage', origin, data);
           // - receive
           jsBridge.receive(data, { origin });
         }}

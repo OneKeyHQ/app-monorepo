@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { IInpageProviderRequestData, IJsBridgeMessagePayload } from '../types';
+import { IJsBridgeMessagePayload, IJsonRpcRequest } from '../types';
 
 function injectedProviderReceiveHandler(payload: IJsBridgeMessagePayload) {
   // ethereum, solana, conflux
   const providerHub = window.$onekey;
 
   console.log('ethereum onMessage', payload);
-  const payloadData = payload.data as IInpageProviderRequestData;
+  const payloadData = payload.data as IJsonRpcRequest;
   const { method } = payloadData;
 
   const { ethereum } = providerHub;

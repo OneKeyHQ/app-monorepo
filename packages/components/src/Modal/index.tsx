@@ -21,6 +21,7 @@ import Mobile from './Container/Mobile';
 
 export type ModalProps = {
   header?: string;
+  headerDescription?: string;
   trigger?: ReactElement<any>;
   visible?: boolean;
   closeable?: boolean;
@@ -39,10 +40,12 @@ export type ModalProps = {
   flatListProps?: ComponentProps<typeof FlatList>;
   sectionListProps?: ComponentProps<typeof SectionList>;
   staticChildrenProps?: ComponentProps<typeof Box>;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 };
 
 const defaultProps = {
   closeable: true,
+  size: 'xs',
 } as const;
 
 const Modal: FC<ModalProps> = ({
@@ -74,15 +77,17 @@ const Modal: FC<ModalProps> = ({
 
   const modalContent = useMemo(() => {
     if (sectionListProps) {
-      return <SectionList p="6" {...sectionListProps} />;
+      return (
+        <SectionList py={6} px={{ base: 4, md: 6 }} {...sectionListProps} />
+      );
     }
 
     if (flatListProps) {
-      return <FlatList p="6" {...flatListProps} />;
+      return <FlatList py={6} px={{ base: 4, md: 6 }} {...flatListProps} />;
     }
 
     if (scrollViewProps) {
-      return <ScrollView p="6" {...scrollViewProps} />;
+      return <ScrollView py={6} px={{ base: 4, md: 6 }} {...scrollViewProps} />;
     }
 
     if (staticChildrenProps) {
@@ -90,7 +95,7 @@ const Modal: FC<ModalProps> = ({
     }
 
     return (
-      <Box p="6" flex="1">
+      <Box py={6} px={{ base: 4, md: 6 }} flex="1">
         {rest.children}
       </Box>
     );

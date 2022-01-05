@@ -19,6 +19,7 @@ import HeaderTabViewContainerGallery from '../views/Components/stories/HeaderTab
 import IconGallery from '../views/Components/stories/Icon';
 import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
+import LoggerGallery from '../views/Components/stories/Logger';
 import MarkdownGallery from '../views/Components/stories/Markdown';
 import ModalGallery from '../views/Components/stories/Modal';
 import NftCardGallery from '../views/Components/stories/NftCard';
@@ -40,6 +41,7 @@ import ThemeGallery from '../views/Components/stories/Theme';
 import ToastGallery from '../views/Components/stories/Toast';
 import TokenGallery from '../views/Components/stories/Token';
 import TypographyGallery from '../views/Components/stories/Typography';
+import WebViewGallery from '../views/Components/stories/WebView';
 import DiscoverScreen from '../views/Discover';
 import MeScreen from '../views/Me';
 import PortfolioScreen from '../views/Portfolio';
@@ -56,12 +58,10 @@ type TabRoute = {
 // Define Router names here for TypeScript checking
 export type RootStackParamList = {
   Home?: undefined;
-  Wallet?: undefined;
   Swap?: undefined;
   Portfolio?: undefined;
   Discover?: undefined;
-  Settings?: undefined;
-  Approval?: undefined;
+  Me?: undefined;
   // demo
   PageProfileSample?: { userId: string };
   PageFeedSample?: { sort: 'latest' | 'top' };
@@ -137,5 +137,7 @@ export const stackRoutes = [
   { name: 'Components/SegmentedControl', component: SegmentedControl },
   { name: 'Components/ReduxMessage', component: ReduxMessageGallery },
   { name: 'Components/RadioBox', component: RadioBoxGallery },
+  { name: 'Components/WebView', component: WebViewGallery },
+  { name: 'Components/$Logger', component: LoggerGallery },
   { name: 'Components/HeaderTab', component: HeaderTabViewContainerGallery },
 ];

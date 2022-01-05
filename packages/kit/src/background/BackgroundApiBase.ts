@@ -3,10 +3,11 @@ import JsBridgeExtBackground from '@onekeyhq/inpage-provider/src/jsBridge/JsBrid
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
-  IInpageProviderRequestData,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IBackgroundApiBridge } from './BackgroundApiProxy';
@@ -45,13 +46,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.bridge = bridge;
   }
 
-  bridgeReceiveHandler: IJsBridgeReceiveHandler = async (
-    payload: IJsBridgeMessagePayload,
-  ): Promise<any> => {
+  async _bridgeReceiveHandler(payload: IJsBridgeMessagePayload): Promise<any> {
     const { scope, internal, origin } = payload;
-    const request = (payload.data ?? {}) as IInpageProviderRequestData;
+    const request = (payload.data ?? {}) as IJsonRpcRequest;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { method, params } = request;
-    console.log('receiveHandler', { method, params }, scope);
+
+    debugLogger.backgroundApi('bridgeReceiveHandler', scope, request, payload);
 
     const provider: ProviderApiBase | null = scope
       ? this.providers[scope]
@@ -75,6 +76,23 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
 
     throwMethodNotFound(method);
+  }
+
+  bridgeReceiveHandler: IJsBridgeReceiveHandler = async (
+    payload: IJsBridgeMessagePayload,
+  ): Promise<any> => {
+    const res = await this._bridgeReceiveHandler(payload);
+    debugLogger.backgroundApi(
+      'bridgeReceiveHandler->response',
+      payload.scope,
+      '\n',
+      payload,
+      '\n',
+      payload.data,
+      '\n -----> ',
+      res,
+    );
+    return res;
   };
 
   handleSelfOriginMethods(payload: IJsBridgeMessagePayload) {
@@ -82,9 +100,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     console.log(payload);
   }
 
-  handleInternalMethods(payload: IJsBridgeMessagePayload) {
-    const { method, params } = (payload.data ??
-      {}) as IInpageProviderRequestData;
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async handleInternalMethods(payload: IJsBridgeMessagePayload): Promise<any> {
+    const { method, params } = (payload.data ?? {}) as IJsonRpcRequest;
     const paramsArr = [].concat(params as any);
 
     /* eslint-disable  */

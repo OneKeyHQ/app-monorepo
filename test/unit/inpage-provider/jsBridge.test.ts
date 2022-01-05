@@ -1,6 +1,10 @@
 // @ts-nocheck
-import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types.d';
+import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
+
 import JsBridgeSimple from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeSimple';
+import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types.d';
+
+jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
 it('two bridge communication', async () => {
   let currentChainId = '0x3';
@@ -8,7 +12,7 @@ it('two bridge communication', async () => {
   const host = new JsBridgeSimple({
     sendAsString: false,
     receiveHandler(event: IJsBridgeMessagePayload) {
-      console.log('host onMessage', event);
+      console.log('jest: host onMessage', event);
       // throw new Error('hhhhhh');
       const { method } = event.data;
       if (method === 'eth_chainId') {
@@ -20,7 +24,7 @@ it('two bridge communication', async () => {
   const inpage = new JsBridgeSimple({
     sendAsString: false,
     receiveHandler(event: IJsBridgeMessagePayload) {
-      console.log('inpage onMessage', event);
+      console.log('jest: inpage onMessage', event);
       const { method, params } = event.data;
       if (method === 'metamask_chainChanged') {
         currentChainId = params.chainId;

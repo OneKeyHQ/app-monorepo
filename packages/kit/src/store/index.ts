@@ -61,7 +61,6 @@ export type IAppThunk<ReturnType = void> = ThunkAction<
 
 let backgroundDispatch: IAppDispatch | ((action: any) => void) | null = null;
 
-// eslint-disable-next-line @typescript-eslint/require-await
 export async function appDispatch(
   action: PayloadAction<any> | ((dispatch: Dispatch) => Promise<unknown>),
 ) {

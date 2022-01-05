@@ -4,10 +4,13 @@ import { Alert } from 'react-native';
 import { permissionRequired } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
-  IInpageProviderRequestData,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import extUtils from '../utils/extUtils';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -20,18 +23,14 @@ class ProviderApiEthereum extends ProviderApiBase {
   @permissionRequired()
   eth_sendTransaction() {
     if (platformEnv.isExtension) {
-      return new Promise(() => {
-        chrome.windows.create({
-          focused: true,
-          type: 'popup',
-          // init size same to ext ui-popup.html
-          height: 600 + 50, // height including title bar, so should add 50 more
-          width: 375,
-          url: '/ui-popup.html?router=Approval#approval-window',
-        });
-      });
+      return extUtils.openApprovalWindow();
     }
     return Promise.resolve(this.rpcResult({ txid: '111110000' }));
+  }
+
+  async wallet_getDebugLoggerSettings() {
+    const result = (await debugLogger.debug?.load()) || '';
+    return this.rpcResult(result);
   }
 
   async eth_requestAccounts(payload: IJsBridgeMessagePayload) {
@@ -84,7 +83,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this.rpcResult('0xd29f1a');
   }
 
-  protected rpcCall(request: IInpageProviderRequestData): any {
+  protected rpcCall(request: IJsonRpcRequest): any {
     console.log('RPC CALL:', request);
   }
 

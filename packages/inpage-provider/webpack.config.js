@@ -11,6 +11,10 @@ module.exports = {
     main: './src/index.tsx',
   },
   output: {
+    library: {
+      // Fix: "Uncaught ReferenceError: exports is not defined".
+      type: 'umd',
+    },
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
   },
@@ -39,7 +43,14 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
+      'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('injected'),
+    }),
+    new webpack.DefinePlugin({
       'process.env.VERSION': JSON.stringify(packageJson.version),
+    }),
+    // FIX ERROR: process is not defined
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
     }),
   ],
 };

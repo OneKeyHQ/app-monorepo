@@ -14,10 +14,17 @@ type Wallet = HasName & {
   nextAccountId: Map<string, number>; // purpose + cointype => index
 };
 
+type DBWallet = HasName & {
+  type: WalletType;
+  backuped: boolean;
+  accounts: Array<string>;
+  nextAccountId: Record<string, number>;
+};
+
 export {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 };
-export type { WalletType, Wallet };
+export type { WalletType, DBWallet, Wallet };

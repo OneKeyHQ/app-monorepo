@@ -4,6 +4,7 @@ import JsBridgeBase from '../../jsBridge/JsBridgeBase';
 import ProviderEthereum from '../../provider/ProviderEthereum';
 
 export type WindowOneKeyHub = {
+  debugLogger?: any;
   jsBridge?: JsBridgeBase;
   ethereum?: ProviderEthereum;
 };
@@ -20,9 +21,9 @@ function injectWeb3Provider() {
 
   // providerHub
   const $onekey = {
+    ...window.$onekey,
     jsBridge: bridge,
     ethereum,
-    web3: ethereum,
     solana: null,
     conflux: null,
     sollet: null,
