@@ -30,6 +30,7 @@ const TextArea = React.forwardRef<
     _invalid={{
       borderColor: 'border-critical-default',
     }}
+    shadow="depth.1"
     {...props}
   />
 ));

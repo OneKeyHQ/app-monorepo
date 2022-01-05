@@ -1,14 +1,12 @@
 import React, { ComponentProps, FC } from 'react';
 
-import { Button as NativeBaseButton } from 'native-base';
+import { Button as NativeBaseButton, Text } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
 import { Spinner } from '../Spinner';
-import {
-  FontProps,
-  TypographyStyle,
-  getTypographyStyleProps,
-} from '../Typography';
+import { TypographyStyle, getTypographyStyleProps } from '../Typography';
+
+type FontProps = ComponentProps<typeof Text>;
 
 export type ButtonSize = 'base' | 'xs' | 'sm' | 'lg' | 'xl';
 export type ButtonType =
@@ -25,18 +23,32 @@ type ButtonPropsWithoutType = {
   iconSize?: number;
   leftIconName?: ICON_NAMES;
   rightIconName?: ICON_NAMES;
+  textProps?: FontProps;
   onPress?: () => void;
 };
 
 export type ButtonProps = ButtonPropsWithoutType & { type?: ButtonType };
 
-const getPadding = (size: ButtonSize = 'base'): [number, number] => {
-  const sizeMap: Record<ButtonSize, [number, number]> = {
-    'base': [4, 2],
-    'xs': [2.5, 1.5],
-    'sm': [3, 1.5],
-    'lg': [4, 2],
-    'xl': [6, 3],
+const getPadding = (
+  size: ButtonSize = 'base',
+): [number, number, number, number] => {
+  const sizeMap: Record<ButtonSize, [number, number, number, number]> = {
+    'base': [2, 4, 2, 4],
+    'xs': [1.5, 2.5, 1.5, 2.5],
+    'sm': [1.5, 3, 1.5, 3],
+    'lg': [2, 4, 2, 4],
+    'xl': [3, 6, 3, 6],
+  };
+  return sizeMap[size];
+};
+
+const getPaddingWithIcon = (size: ButtonSize = 'base'): number => {
+  const sizeMap: Record<ButtonSize, number> = {
+    'base': 3.5,
+    'xs': 2,
+    'sm': 2.5,
+    'lg': 3.5,
+    'xl': 5,
   };
   return sizeMap[size];
 };
@@ -70,6 +82,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
   leftIconName,
   rightIconName,
   iconSize,
+  textProps,
   children,
   ...props
 }) => {
@@ -87,7 +100,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
       color={isDisabled ? 'icon-disabled' : 'icon-default'}
     />
   ) : undefined;
-  const textProps = getTextProps(size);
+  const nbTextProps = { ...getTextProps(size), ...textProps };
   return (
     <NativeBaseButton
       isDisabled={isDisabled || isLoading}
@@ -99,7 +112,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
       bg="action-secondary-default"
       borderWidth="1"
       borderColor="border-default"
-      _text={{ color: 'text-default', ...textProps }}
+      _text={{ color: 'text-default', ...nbTextProps }}
       _hover={{
         bg: 'action-secondary-hovered',
         borderColor: 'border-default',
@@ -117,7 +130,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'border-disabled',
       }}
       spinner={<Spinner size="sm" />}
-      shadow="1"
+      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
       {...props}
     >
       {children}
@@ -132,10 +145,11 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
   leftIconName,
   rightIconName,
   iconSize,
+  textProps,
   children,
   ...props
 }) => {
-  const textProps = getTextProps(size);
+  const nbTextProps = { ...getTextProps(size), ...textProps };
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -158,15 +172,24 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="solid"
-      shadow="1"
-      _text={{ color: 'text-on-primary', ...textProps }}
+      borderWidth="1"
+      borderColor="action-primary-default"
+      _text={{ color: 'text-on-primary', ...nbTextProps }}
       bg="action-primary-default"
       _hover={{ bg: 'action-primary-hovered' }}
       _focus={{ bg: 'action-primary-default' }}
       _pressed={{ bg: 'action-primary-hovered' }}
-      _loading={{ bg: 'action-primary-disabled' }}
-      _disabled={{ bg: 'action-primary-disabled', color: 'text-disabled' }}
+      _loading={{
+        bg: 'action-primary-disabled',
+        borderColor: 'action-primary-disabled',
+      }}
+      _disabled={{
+        bg: 'action-primary-disabled',
+        borderColor: 'action-primary-disabled',
+        color: 'text-disabled',
+      }}
       spinner={<Spinner size="sm" />}
+      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
       {...props}
     >
       {children}
@@ -181,10 +204,11 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
   leftIconName,
   rightIconName,
   iconSize,
+  textProps,
   children,
   ...props
 }) => {
-  const textProps = getTextProps(size);
+  const nbTextProps = { ...getTextProps(size), ...textProps };
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -207,7 +231,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="ghost"
-      _text={{ color: 'text-default', ...textProps }}
+      _text={{ color: 'text-default', ...nbTextProps }}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: undefined }}
       _focus={{ bg: undefined }}
@@ -227,10 +251,11 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
   leftIconName,
   rightIconName,
   iconSize,
+  textProps,
   children,
   ...props
 }) => {
-  const textProps = getTextProps(size);
+  const nbTextProps = { ...getTextProps(size), ...textProps };
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -253,12 +278,21 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="solid"
+      borderWidth="1"
+      borderColor="action-critical-default"
       bg="action-critical-default"
       _hover={{ bg: 'action-critical-hovered' }}
-      _disabled={{ bg: 'action-critical-disabled' }}
+      _loading={{
+        bg: 'action-critical-disabled',
+        borderColor: 'action-critical-disabled',
+      }}
+      _disabled={{
+        bg: 'action-critical-disabled',
+        borderColor: 'action-critical-disabled',
+      }}
       _text={{
         color: 'text-on-critical',
-        ...textProps,
+        ...nbTextProps,
       }}
       _focus={{
         bg: 'action-critical-hovered',
@@ -268,7 +302,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
       }}
       _spinner={{ size: iconSize }}
       spinner={<Spinner size="sm" />}
-      shadow="1"
+      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
       {...props}
     >
       {children}
@@ -283,10 +317,11 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
   leftIconName,
   rightIconName,
   iconSize,
+  textProps,
   children,
   ...props
 }) => {
-  const textProps = getTextProps(size);
+  const nbTextProps = { ...getTextProps(size), ...textProps };
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -311,7 +346,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
       variant="outline"
       borderWidth="1"
       borderColor="border-critical-default"
-      _text={{ color: 'text-critical', ...textProps }}
+      _text={{ color: 'text-critical', ...nbTextProps }}
       _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
       _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
       _hover={{
@@ -327,7 +362,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
         _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
-      shadow="1"
+      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
       {...props}
     >
       {children}
@@ -337,7 +372,14 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
 
 const Button: FC<
   Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps
-> = ({ type = 'basic', size, iconSize, ...props }) => {
+> = ({
+  type = 'basic',
+  size,
+  iconSize,
+  leftIconName,
+  rightIconName,
+  ...props
+}) => {
   const components: Record<ButtonType, FC<ButtonPropsWithoutType>> = {
     'basic': BasicButton,
     'destructive': DestructiveButton,
@@ -345,15 +387,33 @@ const Button: FC<
     'plain': PlainButton,
     'primary': PrimaryButton,
   };
-  const [px, py] = getPadding(size);
+  let [pt, pr, pb, pl] = getPadding(size);
   const buttonIconSize = iconSize ?? getIconSize(size);
   const Component = components[type];
+  let textProps: FontProps | undefined;
+  if (leftIconName) {
+    pl = getPaddingWithIcon(size);
+    if (size === 'xl' || size === 'lg') {
+      textProps = { pl: '1' };
+    }
+  }
+  if (rightIconName) {
+    pr = getPaddingWithIcon(size);
+    if (size === 'xl' || size === 'lg') {
+      textProps = { pr: '1' };
+    }
+  }
   return (
     <Component
-      px={px}
-      py={py}
+      pt={pt}
+      pr={pr}
+      pb={pb}
+      pl={pl}
+      textProps={textProps}
       iconSize={buttonIconSize}
       size={size}
+      leftIconName={leftIconName}
+      rightIconName={rightIconName}
       {...props}
     />
   );
