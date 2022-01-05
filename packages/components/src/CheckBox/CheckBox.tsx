@@ -159,13 +159,13 @@ const CheckBox: FC<CheckBoxProps> = ({
             }
           }}
         >
-          <Typography.Body2
+          <Typography.Body2Strong
             fontWeight="bold"
             selectable={false}
             color={titleColor}
           >
             {title}
-          </Typography.Body2>
+          </Typography.Body2Strong>
           {!!description && (
             <Typography.Body2 selectable={false} color={descriptionColor}>
               {description}

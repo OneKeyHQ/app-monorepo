@@ -55,7 +55,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             justifyContent="space-between"
           >
             <FormControl.Label>
-              <Typography.Body2>{label}</Typography.Body2>
+              <Typography.Body2Strong>{label}</Typography.Body2Strong>
             </FormControl.Label>
             {labelAddon}
           </Box>
