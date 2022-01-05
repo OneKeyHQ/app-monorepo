@@ -4,6 +4,7 @@ const fse = require('fs-extra');
 const fs = require('fs');
 const TerserPlugin = require('terser-webpack-plugin');
 const lodash = require('lodash');
+const httpServer = require('http-server');
 const env = require('./development/env');
 const pluginsHtml = require('./development/pluginsHtml');
 const pluginsCopy = require('./development/pluginsCopy');
@@ -14,6 +15,19 @@ const webpackTools = require('../../development/webpackTools');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
+
+const buildTargetBrowser =
+  process.argv[process.argv.length - 1] === '--firefox'
+    ? 'firefox'
+    : process.env.EXT_BUILD_BROWSER || 'chrome';
+process.env.EXT_BUILD_BROWSER = buildTargetBrowser;
+
+// Start stand-alone sourcemap file server: http://127.0.0.1:31317
+const SOURCE_MAP_SERVER_PORT = 31317;
+const server = httpServer.createServer({
+  root: `./build/${buildTargetBrowser}`,
+});
+server.listen(SOURCE_MAP_SERVER_PORT, null);
 
 // FIX error:
 //    Module parse failed: Unexpected token (7:11)
@@ -84,10 +98,10 @@ let webpackConfig = {
     ),
   },
   output: {
-    path: path.resolve(__dirname, 'build'),
-    filename: 'js/[name].bundle.js',
-    clean: true,
+    path: path.resolve(__dirname, 'build', buildTargetBrowser),
+    filename: '[name].bundle.js',
     publicPath: ASSET_PATH,
+    globalObject: 'this', // FIX: window is not defined in service-worker background
   },
   module: {
     rules: [
@@ -155,13 +169,13 @@ let webpackConfig = {
     level: 'info',
   },
   optimization: {
-    // splitChunks
-    // minimize
-    // minimizer
     splitChunks: {
       chunks: 'all',
-      minSize: 300000,
-      maxSize: 500000,
+      minSize: 2000000,
+      maxSize: 4000000,
+      name: false,
+      hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
+      automaticNameDelimiter: '.', // ~ => .
     },
   },
 };
@@ -173,12 +187,26 @@ webpackConfig = nextWebpack(webpackConfig, {
 });
 
 if (IS_DEV) {
-  // webpackConfig.devtool = 'cheap-module-source-map';
-
+  // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+  webpackConfig.devtool = 'cheap-module-source-map';
+  //
   // Reset sourcemap here, withExpo will change this value
   //    only inline-source-map supported in extension
-  // TODO external file sourcemap
-  webpackConfig.devtool = 'inline-source-map';
+  // TODO use external file sourcemap
+  // webpackConfig.devtool = 'inline-source-map';
+  //
+
+  webpackConfig.devtool = false;
+  webpackConfig.plugins.push(
+    new webpack.SourceMapDevToolPlugin({
+      append: `\n//# sourceMappingURL=http://127.0.0.1:${SOURCE_MAP_SERVER_PORT}/[url]`,
+      filename: '[file].map',
+      // TODO eval is NOT support in Ext.
+      //      sourcemap building is very very very SLOW
+      module: true,
+      columns: true,
+    }),
+  );
 } else {
   webpackConfig.optimization = {
     ...webpackConfig.optimization,

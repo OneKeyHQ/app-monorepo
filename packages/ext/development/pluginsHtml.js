@@ -13,6 +13,7 @@ function createHtmlPlugin({ name }) {
 }
 
 const pluginsHtml = [
+  'background',
   'ui-popup', // main ui
   'ui-expand-tab',
   'ui-standalone-window',

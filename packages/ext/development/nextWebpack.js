@@ -12,6 +12,7 @@ const nextOptions = {
   },
 };
 let nextConfig = {
+  // always should be true even if webpack4
   webpack5: true,
   // webpack:() => config
 };
