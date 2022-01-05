@@ -1,5 +1,7 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Box,
@@ -198,6 +200,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   onSelectAsset,
   onSelectCollectible,
 }) => {
+  const intl = useIntl();
   const [view, setView] = React.useState(CollectibleView.Flat);
   // Set it to grid view when not in mobile
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
@@ -208,7 +211,10 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   }, [isSmallScreen]);
 
   const renderEmpty = () => (
-    <Empty title="No Collectible" subTitle="NFTs will show here" />
+    <Empty
+      title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
+      subTitle={intl.formatMessage({ id: 'asset__collectibles_empty_desc' })}
+    />
   );
 
   const renderHeader = React.useCallback(() => {
@@ -221,7 +227,9 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         justifyContent="space-between"
         pb={4}
       >
-        <Typography.Heading>Collectibles</Typography.Heading>
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'asset__collectibles' })}
+        </Typography.Heading>
         <Pressable
           // no delay acts like debounce
           delayLongPress={0}
@@ -253,7 +261,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         </Pressable>
       </HStack>
     );
-  }, [collectibles, isSmallScreen, view]);
+  }, [collectibles.length, intl, isSmallScreen, view]);
 
   if (view === CollectibleView.Flat) {
     return (
