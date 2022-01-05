@@ -1,3 +1,5 @@
+require('./env');
+
 function normalizeConfig(config) {
   config.plugins = [
     ...(config.plugins || []),

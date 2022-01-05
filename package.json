@@ -10,7 +10,7 @@
     "node": "^16.0.0"
   },
   "scripts": {
-    "postinstall": "husky install && yarn build:connect && yarn build:inject",
+    "postinstall": "yarn setup:env && husky install && yarn build:connect && yarn build:inject",
     "build:inject": "yarn workspace @onekeyhq/inpage-provider build",
     "watch:inject": "yarn workspace @onekeyhq/inpage-provider watch-inject",
     "build:connect": "yarn build:connect:desktop && yarn build:connect:native",
@@ -32,7 +32,8 @@
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
     "test": "yarn test:unit",
-    "test:unit": "yarn jest ./test/unit/"
+    "test:unit": "yarn jest ./test/unit/",
+    "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi"
   },
   "dependencies": {},
   "devDependencies": {

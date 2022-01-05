@@ -15,6 +15,7 @@ import CheckBoxGallery from '../views/Components/stories/CheckBox';
 import DialogGallery from '../views/Components/stories/Dialog';
 import EmptyGallery from '../views/Components/stories/Empty';
 import FormGallery from '../views/Components/stories/Form';
+import HeaderTabViewContainerGallery from '../views/Components/stories/HeaderTabViewContainer';
 import IconGallery from '../views/Components/stories/Icon';
 import IconButtons from '../views/Components/stories/IconButtons';
 import InputGallery from '../views/Components/stories/Input';
@@ -138,4 +139,5 @@ export const stackRoutes = [
   { name: 'Components/RadioBox', component: RadioBoxGallery },
   { name: 'Components/WebView', component: WebViewGallery },
   { name: 'Components/$Logger', component: LoggerGallery },
+  { name: 'Components/HeaderTab', component: HeaderTabViewContainerGallery },
 ];

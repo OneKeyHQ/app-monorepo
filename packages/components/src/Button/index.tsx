@@ -4,6 +4,11 @@ import { Button as NativeBaseButton } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
 import { Spinner } from '../Spinner';
+import {
+  FontProps,
+  TypographyStyle,
+  getTypographyStyleProps,
+} from '../Typography';
 
 export type ButtonSize = 'base' | 'xs' | 'sm' | 'lg' | 'xl';
 export type ButtonType =
@@ -36,17 +41,6 @@ const getPadding = (size: ButtonSize = 'base'): [number, number] => {
   return sizeMap[size];
 };
 
-const getFontSize = (size: ButtonSize = 'base'): string => {
-  const sizeMap: Record<ButtonSize, string> = {
-    'base': 'sm',
-    'xs': 'xs',
-    'sm': 'sm',
-    'lg': 'md',
-    'xl': 'md',
-  };
-  return sizeMap[size];
-};
-
 const getIconSize = (size: ButtonSize = 'base'): number => {
   const sizeMap: Record<ButtonSize, number> = {
     'base': 20,
@@ -56,6 +50,17 @@ const getIconSize = (size: ButtonSize = 'base'): number => {
     'xl': 20,
   };
   return sizeMap[size];
+};
+
+const getTextProps = (size: ButtonSize = 'base'): FontProps => {
+  const styleMap: Record<ButtonSize, TypographyStyle> = {
+    'base': 'Button2',
+    'xs': 'CaptionStrong',
+    'sm': 'Button2',
+    'lg': 'Button1',
+    'xl': 'Button1',
+  };
+  return getTypographyStyleProps(styleMap[size]);
 };
 
 const BasicButton: FC<ButtonPropsWithoutType> = ({
@@ -68,7 +73,6 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
   children,
   ...props
 }) => {
-  const fontSize = getFontSize(size);
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -83,6 +87,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
       color={isDisabled ? 'icon-disabled' : 'icon-default'}
     />
   ) : undefined;
+  const textProps = getTextProps(size);
   return (
     <NativeBaseButton
       isDisabled={isDisabled || isLoading}
@@ -94,7 +99,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
       bg="action-secondary-default"
       borderWidth="1"
       borderColor="border-default"
-      _text={{ color: 'text-default', fontSize }}
+      _text={{ color: 'text-default', ...textProps }}
       _hover={{
         bg: 'action-secondary-hovered',
         borderColor: 'border-default',
@@ -130,7 +135,7 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
   children,
   ...props
 }) => {
-  const fontSize = getFontSize(size);
+  const textProps = getTextProps(size);
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -154,7 +159,7 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
       borderRadius="12"
       variant="solid"
       shadow="1"
-      _text={{ color: 'text-on-primary', fontSize }}
+      _text={{ color: 'text-on-primary', ...textProps }}
       bg="action-primary-default"
       _hover={{ bg: 'action-primary-hovered' }}
       _focus={{ bg: 'action-primary-default' }}
@@ -179,7 +184,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
   children,
   ...props
 }) => {
-  const fontSize = getFontSize(size);
+  const textProps = getTextProps(size);
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -202,7 +207,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
       rightIcon={rightIcon}
       borderRadius="12"
       variant="ghost"
-      _text={{ color: 'text-default', fontSize }}
+      _text={{ color: 'text-default', ...textProps }}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: undefined }}
       _focus={{ bg: undefined }}
@@ -225,7 +230,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
   children,
   ...props
 }) => {
-  const fontSize = getFontSize(size);
+  const textProps = getTextProps(size);
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -253,7 +258,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
       _disabled={{ bg: 'action-critical-disabled' }}
       _text={{
         color: 'text-on-critical',
-        fontSize,
+        ...textProps,
       }}
       _focus={{
         bg: 'action-critical-hovered',
@@ -281,7 +286,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
   children,
   ...props
 }) => {
-  const fontSize = getFontSize(size);
+  const textProps = getTextProps(size);
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
@@ -306,7 +311,7 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
       variant="outline"
       borderWidth="1"
       borderColor="border-critical-default"
-      _text={{ color: 'text-critical', fontSize }}
+      _text={{ color: 'text-critical', ...textProps }}
       _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
       _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
       _hover={{
@@ -343,7 +348,15 @@ const Button: FC<
   const [px, py] = getPadding(size);
   const buttonIconSize = iconSize ?? getIconSize(size);
   const Component = components[type];
-  return <Component px={px} py={py} iconSize={buttonIconSize} {...props} />;
+  return (
+    <Component
+      px={px}
+      py={py}
+      iconSize={buttonIconSize}
+      size={size}
+      {...props}
+    />
+  );
 };
 
 export default Button;

@@ -11,6 +11,10 @@ module.exports = {
     main: './src/index.tsx',
   },
   output: {
+    library: {
+      // Fix: "Uncaught ReferenceError: exports is not defined".
+      type: 'umd',
+    },
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
   },

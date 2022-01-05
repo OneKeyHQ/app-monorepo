@@ -5,15 +5,17 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Divider,
-  FlatList,
   Icon,
   Pressable,
+  ScrollableFlatList,
+  ScrollableFlatListProps,
+  Text,
   Token,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
 
-import ManageToken from '../../ManageTokens';
+import { ScrollRoute } from '../type';
 
 export type AssetToken = {
   chainId: number;
@@ -206,12 +208,17 @@ const TOKEN_DATA: AssetToken[] = [
   },
 ];
 
-const AssetsList = () => {
+const AssetsList = ({ route }: { route: ScrollRoute }) => {
   const { size } = useUserDevice();
+  const { index: tabPageIndex } = route;
   const intl = useIntl();
 
-  const renderItem = ({ item, index }: { item: AssetToken; index: number }) => (
+  const renderItem: ScrollableFlatListProps<AssetToken>['renderItem'] = ({
+    item,
+    index,
+  }) => (
     <Pressable.Item
+      p={4}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
       onPress={() => {
@@ -226,9 +233,9 @@ const AssetsList = () => {
           src={item.logoURI}
         />
         <Box ml={3} mr={3} flexDirection="column" flex={1}>
-          <Typography.Body1 fontWeight="bold" color="text-default">
+          <Text typography={{ sm: 'Body1Strong', lg: 'Body2Strong' }}>
             {item.amount}
-          </Typography.Body1>
+          </Text>
           <Typography.Body2 color="text-subdued">
             {item.fiatAmount}
           </Typography.Body2>
@@ -236,43 +243,39 @@ const AssetsList = () => {
         {['LARGE', 'XLARGE'].includes(size) && (
           <Box ml={3} mr={20} flexDirection="row" flex={1}>
             <Icon size={20} name="ActivityOutline" />
-            <Typography.Body1 fontWeight="bold" ml={3} color="text-default">
+            <Typography.Body2Strong ml={3}>
               {item.fiatAmount}
-            </Typography.Body1>
+            </Typography.Body2Strong>
           </Box>
         )}
-        <Icon size={20} name="ChevronRightOutline" />
+        <Icon size={20} name="ChevronRightSolid" />
       </Box>
     </Pressable.Item>
   );
 
   return (
     <Box flex={1} pt={4} pr={4} pl={4}>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__tokens' })}
-        </Typography.Heading>
-        <ManageToken
-          trigger={
+      <ScrollableFlatList
+        index={tabPageIndex}
+        data={TOKEN_DATA}
+        renderItem={renderItem}
+        ListHeaderComponent={() => (
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            pb={4}
+          >
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'asset__tokens' })}
+            </Typography.Heading>
             <Pressable p={1.5}>
               <Icon size={20} name="AdjustmentsSolid" />
             </Pressable>
-          }
-        />
-      </Box>
-
-      <FlatList
-        bg="surface-default"
-        borderRadius="12px"
-        mt={3}
-        mb={3}
-        data={TOKEN_DATA}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <Divider />}
+          </Box>
+        )}
+        ItemSeparatorComponent={Divider}
+        ListFooterComponent={() => <Box h="20px" />}
         keyExtractor={(_item: AssetToken, index: number) => index.toString()}
         extraData={size}
         showsVerticalScrollIndicator={false}

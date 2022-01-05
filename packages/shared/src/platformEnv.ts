@@ -10,6 +10,9 @@ export type IPlatformEnv = {
   isExtension?: boolean;
   isExtensionBackground?: boolean;
   isExtensionUi?: boolean;
+  isExtensionUiPopup?: boolean;
+  isExtensionUiExpandTab?: boolean;
+  isExtensionUiStandaloneWindow?: boolean;
   isNative?: boolean;
   isInjected?: boolean;
 
@@ -45,8 +48,15 @@ export const isExtensionUi = (): boolean =>
   window.location.host === chrome.runtime.id &&
   window.location.pathname.startsWith('/ui-');
 
-// test by html filename
-// TODO isExtensionUiPopup, isExtensionUiStandaloneWindow, isExtensionUiExpandedTab
+export const isExtensionUiPopup = (): boolean =>
+  isExtensionUi() && window.location.pathname.startsWith('/ui-popup.html');
+
+export const isExtensionUiExpandTab = (): boolean =>
+  isExtensionUi() && window.location.pathname.startsWith('/ui-expand-tab.html');
+
+export const isExtensionUiStandaloneWindow = (): boolean =>
+  isExtensionUi() &&
+  window.location.pathname.startsWith('/ui-standalone-window.html');
 
 export const isDesktop = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'desktop';
@@ -89,8 +99,11 @@ const platformEnv: IPlatformEnv = {
   isWeb: isWeb(),
   isDesktop: isDesktop(),
   isExtension: isExtension(),
-  isExtensionUi: isExtensionUi(),
   isExtensionBackground: isExtensionBackground(),
+  isExtensionUi: isExtensionUi(),
+  isExtensionUiPopup: isExtensionUiPopup(),
+  isExtensionUiExpandTab: isExtensionUiExpandTab(),
+  isExtensionUiStandaloneWindow: isExtensionUiStandaloneWindow(),
   isNative: isNative(),
   isInjected: isInjected(),
 

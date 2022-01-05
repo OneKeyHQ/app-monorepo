@@ -12,7 +12,7 @@ function useAutoRedirectToRoute() {
     // noop
     if (platformEnv.isExtension) {
       const searchParams = new URLSearchParams(window.location.search);
-      const routerName = searchParams.get('router');
+      const routerName = searchParams.get('route');
       if (routerName) {
         navigation.navigate(routerName as any);
       }
