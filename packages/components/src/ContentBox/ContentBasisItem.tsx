@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 
 import Box from '../Box';
 import Divider from '../Divider';
-import Typography from '../Typography';
+import Typography, { Text } from '../Typography';
 
 import { ContentItemBaseProps } from './Container';
 
@@ -28,18 +28,32 @@ const ContentItem: FC<ContentItemProps> = ({
       justifyContent="space-between"
       alignItems="center"
     >
-      <Typography.Body1Strong h="100%" color="text-subdued">
+      <Text
+        h="100%"
+        color="text-subdued"
+        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+      >
         {title}
-      </Typography.Body1Strong>
-      <Box flex={1} ml={3} flexDirection="column" alignItems="flex-end">
+      </Text>
+      <Box
+        flex={1}
+        ml={3}
+        flexDirection="column"
+        flexWrap="wrap"
+        alignItems="flex-end"
+      >
         {!!children && children}
         {!!value && (
-          <Typography.Body1Strong color="text-default" textAlign="right">
+          <Typography.Body1Strong
+            w="100%"
+            color="text-default"
+            textAlign="right"
+          >
             {value}
           </Typography.Body1Strong>
         )}
         {!!describe && (
-          <Typography.Body2 color="text-subdued" textAlign="right">
+          <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
             {describe}
           </Typography.Body2>
         )}
