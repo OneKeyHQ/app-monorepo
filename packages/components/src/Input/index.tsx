@@ -3,6 +3,7 @@ import React, { ComponentProps } from 'react';
 import { Input as BaseInput, Divider, Pressable, Text } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
+import { getTypographyStyleProps } from '../Typography';
 
 type Props = {
   small?: boolean;
@@ -48,6 +49,12 @@ const Input = React.forwardRef<
     const leftElements: JSX.Element[] = [];
     const rightElements: JSX.Element[] = [];
     const fontSize = small ? 'sm' : 'md';
+    const textProps = small
+      ? getTypographyStyleProps('Body1')
+      : (getTypographyStyleProps('Body2') as Pick<
+          ComponentProps<typeof Text>,
+          'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
+        >);
 
     if (leftText) {
       leftElements.push(
@@ -66,7 +73,7 @@ const Input = React.forwardRef<
       leftElements.push(
         <Pressable ml="2" onPress={onPressLeftIcon} key="leftIconName">
           <Icon
-            size={16}
+            size={20}
             name={leftIconName}
             color={isDisabled ? 'text-disabled' : 'text-subdued'}
           />
@@ -90,7 +97,7 @@ const Input = React.forwardRef<
       rightElements.push(
         <Pressable mr="2" onPress={onPressRightIcon} key="rightIconName">
           <Icon
-            size={16}
+            size={20}
             name={rightIconName}
             color={isDisabled ? 'text-disabled' : 'text-subdued'}
           />
@@ -122,7 +129,7 @@ const Input = React.forwardRef<
           key="rightSecondaryIconName"
         >
           <Icon
-            size={16}
+            size={20}
             name={rightSecondaryIconName}
             color={isDisabled ? 'text-disabled' : 'text-subdued'}
           />
@@ -140,7 +147,6 @@ const Input = React.forwardRef<
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}
         borderRadius="12"
-        fontSize={fontSize}
         py="2"
         px="2"
         _disabled={{
@@ -149,14 +155,15 @@ const Input = React.forwardRef<
         }}
         _hover={{
           bg: 'action-secondary-default',
-          borderColor: 'focused-default',
+          borderColor: 'border-hovered',
         }}
         _focus={{
           bg: 'action-secondary-default',
-          borderColor: 'action-secondary-default',
+          borderColor: 'focused-default',
         }}
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
+        {...textProps}
         {...props}
       />
     );
