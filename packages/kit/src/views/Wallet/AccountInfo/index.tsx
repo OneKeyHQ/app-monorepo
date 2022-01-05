@@ -15,15 +15,15 @@ import {
   ReceiveQRCodeRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ReceiveToken';
 import {
-  SendTokenModalRoutes,
-  SendTokenRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/SendToken';
+  TransactionModalRoutes,
+  TransactionModalRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/Transaction';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  SendTokenRoutesParams,
-  SendTokenModalRoutes.SendTokenModal
+  TransactionModalRoutesParams,
+  TransactionModalRoutes.TransactionModal
 > &
   NativeStackNavigationProp<
     ReceiveQRCodeRoutesParams,
@@ -62,7 +62,7 @@ const AccountInfo = () => {
           minW="126px"
           type="basic"
           onPress={() => {
-            navigation.navigate(SendTokenModalRoutes.SendTokenModal);
+            navigation.navigate(TransactionModalRoutes.TransactionModal);
           }}
         >
           {intl.formatMessage({ id: 'action__send' })}

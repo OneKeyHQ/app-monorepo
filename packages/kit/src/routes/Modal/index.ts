@@ -10,10 +10,6 @@ import ReceiveQRCodeModal, {
   ReceiveQRCodeModalRoutes,
   ReceiveQRCodeRoutesParams,
 } from './ReceiveToken';
-import SendTokenModal, {
-  SendTokenModalRoutes,
-  SendTokenRoutesParams,
-} from './SendToken';
 import TransactionModal, {
   TransactionModalRoutes,
   TransactionModalRoutesParams,
@@ -35,10 +31,6 @@ const modalStackScreenList = [
     component: ReceiveQRCodeModal,
   },
   {
-    name: SendTokenModalRoutes.SendTokenModal,
-    component: SendTokenModal,
-  },
-  {
     name: TransactionModalRoutes.TransactionModal,
     component: TransactionModal,
   },
@@ -55,7 +47,6 @@ const modalStackScreenList = [
 export const ModalRoutes = {
   ...CreateAccountModalRoutes,
   ...ReceiveQRCodeModalRoutes,
-  ...SendTokenModalRoutes,
   ...TransactionModalRoutes,
   ...ManageNetworkModalRoutes,
   ...TransactionDetailModalRoutes,
@@ -65,7 +56,6 @@ export type ModalTypes = {
   [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
   [ManageNetworkModalRoutes.ManageNetworkModal]: NavigatorScreenParams<ManageNetworkRoutesParams>;
   [ReceiveQRCodeModalRoutes.ReceiveQRCodeModal]: NavigatorScreenParams<ReceiveQRCodeRoutesParams>;
-  [SendTokenModalRoutes.SendTokenModal]: NavigatorScreenParams<SendTokenRoutesParams>;
   [TransactionModalRoutes.TransactionModal]: NavigatorScreenParams<TransactionModalRoutesParams>;
   [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
 };
