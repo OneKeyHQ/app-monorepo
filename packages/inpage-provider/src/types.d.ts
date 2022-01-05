@@ -18,11 +18,16 @@ export enum IInjectedProviderNames {
 
 export type IInjectedProviderNamesStrings = keyof typeof IInjectedProviderNames;
 
-// TODO rename IRpcMessage
-export type IInpageProviderRequestData = {
+export type IJsonRpcRequest = {
   id?: number | string;
   method: string;
   params: Record<string, unknown> | Array<unknown> | unknown;
+};
+
+export type IJsonRpcResponse = {
+  id?: number | string;
+  jsonrpc: string;
+  result: any | unknown;
 };
 
 export type IJsBridgeCallback = {
@@ -34,7 +39,7 @@ export type IJsBridgeCallback = {
 
 export type IJsBridgeMessagePayload = {
   id?: number;
-  data?: unknown | IInpageProviderRequestData;
+  data?: unknown | IJsonRpcRequest;
   error?: unknown;
   remoteId?: number | string | null;
   type?: IJsBridgeMessageTypesStrings;

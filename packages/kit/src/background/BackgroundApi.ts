@@ -1,7 +1,7 @@
 import cloneDeep from 'lodash/cloneDeep';
 
 import { internalMethod } from '@onekeyhq/inpage-provider/src/provider/decorators';
-import { IInpageProviderRequestData } from '@onekeyhq/inpage-provider/src/types';
+import { IJsonRpcRequest } from '@onekeyhq/inpage-provider/src/types';
 
 import store from '../store';
 
@@ -25,7 +25,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       // TODO use consts
       method: 'dispatchActionBroadcast',
       params: action,
-    } as IInpageProviderRequestData);
+    } as IJsonRpcRequest);
     // * TODO async action
     // * TODO auto sync full state to UI when ui mount
   }

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access */
 import {
   IInjectedProviderNamesStrings,
-  IInpageProviderRequestData,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
 
 import WalletApi from './WalletApi';
@@ -34,7 +34,7 @@ abstract class ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void;
 
-  protected abstract rpcCall(request: IInpageProviderRequestData): any;
+  protected abstract rpcCall(request: IJsonRpcRequest): any;
 
   protected rpcResult(result: any) {
     return {
@@ -46,7 +46,7 @@ abstract class ProviderApiBase {
 
   async handleMethods(payload: IJsBridgeMessagePayload) {
     const { origin, data } = payload;
-    const request = data as IInpageProviderRequestData;
+    const request = data as IJsonRpcRequest;
     const { method, params = [] } = request;
     const paramsArr = [].concat(params as any);
 

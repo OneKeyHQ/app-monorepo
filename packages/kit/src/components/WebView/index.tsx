@@ -49,7 +49,6 @@ function WebView({
     }
     backgroundApiProxy.connectBridge(jsBridge);
     const onMessage = (event: IJsBridgeMessagePayload) => {
-      console.log('jsBridge onMessage', event);
       if ((event?.data as { method: string })?.method) {
         // handleProviderMethods(jsBridge, event, isApp);
       } else {
@@ -89,7 +88,7 @@ function WebView({
       {showActionsAndDemoPanel && (
         <VStack p={2} space={2} zIndex={2} bgColor="white">
           {showWalletActions && (
-            <HStack space={2}>
+            <HStack space={2} zIndex={2}>
               <Select
                 containerProps={{
                   width: '180px',
@@ -143,18 +142,21 @@ function WebView({
               >
                 Toggle WebView Visible
               </Button>
-              <Select
-                containerProps={{
-                  width: '360px',
-                  zIndex: 999,
-                }}
-                value={srcLocal}
-                onChange={(v) => setSrcLocal(v)}
-                options={srcList.map((uri) => ({
-                  value: uri,
-                  label: uri,
-                }))}
-              />
+
+              <Box zIndex={2}>
+                <Select
+                  containerProps={{
+                    width: '360px',
+                    zIndex: 999,
+                  }}
+                  value={srcLocal}
+                  onChange={(v) => setSrcLocal(v)}
+                  options={srcList.map((uri) => ({
+                    value: uri,
+                    label: uri,
+                  }))}
+                />
+              </Box>
 
               <HStack space={2}>
                 <Button

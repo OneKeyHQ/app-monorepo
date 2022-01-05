@@ -4,9 +4,10 @@ import { Alert } from 'react-native';
 import { permissionRequired } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
-  IInpageProviderRequestData,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../utils/extUtils';
@@ -25,6 +26,11 @@ class ProviderApiEthereum extends ProviderApiBase {
       return extUtils.openApprovalWindow();
     }
     return Promise.resolve(this.rpcResult({ txid: '111110000' }));
+  }
+
+  async wallet_getDebugLoggerSettings() {
+    const result = (await debugLogger.debug?.load()) || '';
+    return this.rpcResult(result);
   }
 
   async eth_requestAccounts(payload: IJsBridgeMessagePayload) {
@@ -77,7 +83,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this.rpcResult('0xd29f1a');
   }
 
-  protected rpcCall(request: IInpageProviderRequestData): any {
+  protected rpcCall(request: IJsonRpcRequest): any {
     console.log('RPC CALL:', request);
   }
 

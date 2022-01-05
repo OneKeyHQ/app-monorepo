@@ -6,8 +6,8 @@ import ReactDOM from 'react-dom';
 
 import inpageProviderUi from '@onekeyhq/inpage-provider/src/extension/ui';
 import {
-  IInpageProviderRequestData,
   IJsBridgeMessagePayload,
+  IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
@@ -20,7 +20,7 @@ function init() {
   popupSizeFix();
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {
     console.log('jsBridgeReceiveHandler Ext-UI', payload);
-    const { method, params } = payload.data as IInpageProviderRequestData;
+    const { method, params } = payload.data as IJsonRpcRequest;
     if (method === 'dispatchActionBroadcast') {
       store.dispatch(params as PayloadAction);
     }

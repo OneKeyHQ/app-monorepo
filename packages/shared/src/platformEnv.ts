@@ -14,6 +14,7 @@ export type IPlatformEnv = {
   isExtensionUiExpandTab?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
   isNative?: boolean;
+  isInjected?: boolean;
 
   isMAS?: boolean;
   isDev?: boolean;
@@ -22,12 +23,17 @@ export type IPlatformEnv = {
   isAndroid?: boolean;
 };
 
+export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
+
 export const isBrowser = (): boolean => typeof window !== 'undefined';
 
 export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
 
 export const isExtension = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'ext';
+
+export const isInjected = (): boolean =>
+  process.env.ONEKEY_BUILD_TYPE === 'injected';
 
 export const isExtensionBackground = (): boolean =>
   isExtension() &&
@@ -99,6 +105,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiExpandTab: isExtensionUiExpandTab(),
   isExtensionUiStandaloneWindow: isExtensionUiStandaloneWindow(),
   isNative: isNative(),
+  isInjected: isInjected(),
 
   isMAS: isMAS(),
   isDev: isDev(),

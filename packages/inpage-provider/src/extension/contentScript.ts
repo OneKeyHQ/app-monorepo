@@ -1,3 +1,5 @@
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import {
   EXT_PORT_CS_TO_BG,
   JS_BRIDGE_MESSAGE_DIRECTION,
@@ -49,7 +51,7 @@ function setupMessagePort() {
           eventData.channel === JS_BRIDGE_MESSAGE_EXT_CHANNEL &&
           eventData.direction === JS_BRIDGE_MESSAGE_DIRECTION.INPAGE_TO_HOST
         ) {
-          console.log('event receive in content-scripts: ', event.data);
+          debugLogger.extContentScripts('onWindowPostMessage', event.data);
           // #### content-script -> background
           port.postMessage(eventData.payload);
         }

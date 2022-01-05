@@ -43,7 +43,14 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
+      'process.env.ONEKEY_BUILD_TYPE': JSON.stringify('injected'),
+    }),
+    new webpack.DefinePlugin({
       'process.env.VERSION': JSON.stringify(packageJson.version),
+    }),
+    // FIX ERROR: process is not defined
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
     }),
   ],
 };
