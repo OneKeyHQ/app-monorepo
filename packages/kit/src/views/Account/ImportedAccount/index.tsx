@@ -1,4 +1,4 @@
-import React, { FC, ReactElement, useState } from 'react';
+import React, { FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,18 +7,16 @@ import { Box, Modal, SegmentedControl } from '@onekeyhq/components';
 import KeyStoreForm from './KeyStoreForm';
 import PrivateKeyForm from './PrivateKeyForm';
 
-type ImportedAccountProps = {
-  trigger: ReactElement<any>;
-};
-
-const ImportedAccount: FC<ImportedAccountProps> = ({ trigger }) => {
+const ImportedAccount: FC = () => {
   const intl = useIntl();
   const [activeSegment, setActiveSegment] = useState('privateKey');
   return (
     <Modal
       hideSecondaryAction
-      trigger={trigger}
-      header={intl.formatMessage({ id: 'wallet__imported_accounts' })}
+      header={intl.formatMessage({ id: 'action__add_account' })}
+      headerDescription={intl.formatMessage({
+        id: 'wallet__imported_accounts',
+      })}
       primaryActionTranslationId="action__import"
       onPrimaryActionPress={({ onClose }) => onClose?.()}
       scrollViewProps={{
