@@ -11,10 +11,10 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-type AddTokenProps = { visible: boolean; onClose: () => void };
+type AddTokenProps = { onClose?: () => void };
 type ListItem = { label: string; value: string };
 
-const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
+const AddToken: FC<AddTokenProps> = ({ onClose }) => {
   const intl = useIntl();
   const items: ListItem[] = [
     {
@@ -64,7 +64,6 @@ const AddToken: FC<AddTokenProps> = ({ visible, onClose }) => {
   );
   return (
     <Modal
-      visible={visible}
       onClose={onClose}
       header={intl.formatMessage({
         id: 'title__add_token',
