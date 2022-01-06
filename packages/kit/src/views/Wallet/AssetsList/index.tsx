@@ -2,13 +2,13 @@ import React from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Tabs } from 'react-native-collapsible-tab-view';
 
 import {
   Box,
   Divider,
   Icon,
   Pressable,
-  ScrollableFlatList,
   ScrollableFlatListProps,
   Text,
   Token,
@@ -19,8 +19,6 @@ import {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManageToken';
-
-import { ScrollRoute } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -220,14 +218,9 @@ const TOKEN_DATA: AssetToken[] = [
   },
 ];
 
-type AssetsListProps = {
-  route: ScrollRoute;
-};
-
-const AssetsList = ({ route }: AssetsListProps) => {
+const AssetsList = () => {
   const navigation = useNavigation<NavigationProps>();
   const { size } = useUserDevice();
-  const { index: tabPageIndex } = route;
   const intl = useIntl();
 
   const renderItem: ScrollableFlatListProps<AssetToken>['renderItem'] = ({
@@ -271,38 +264,36 @@ const AssetsList = ({ route }: AssetsListProps) => {
   );
 
   return (
-    <Box flex={1} pt={4} pr={4} pl={4}>
-      <ScrollableFlatList
-        index={tabPageIndex}
-        data={TOKEN_DATA}
-        renderItem={renderItem}
-        ListHeaderComponent={() => (
-          <Box
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            pb={4}
+    <Tabs.FlatList
+      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
+      data={TOKEN_DATA}
+      renderItem={renderItem}
+      ListHeaderComponent={() => (
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          pb={4}
+        >
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'asset__tokens' })}
+          </Typography.Heading>
+          <Pressable
+            p={1.5}
+            onPress={() =>
+              navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
+            }
           >
-            <Typography.Heading>
-              {intl.formatMessage({ id: 'asset__tokens' })}
-            </Typography.Heading>
-            <Pressable
-              p={1.5}
-              onPress={() =>
-                navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
-              }
-            >
-              <Icon size={20} name="AdjustmentsSolid" />
-            </Pressable>
-          </Box>
-        )}
-        ItemSeparatorComponent={Divider}
-        ListFooterComponent={() => <Box h="20px" />}
-        keyExtractor={(_item: AssetToken, index: number) => index.toString()}
-        extraData={size}
-        showsVerticalScrollIndicator={false}
-      />
-    </Box>
+            <Icon size={20} name="AdjustmentsSolid" />
+          </Pressable>
+        </Box>
+      )}
+      ItemSeparatorComponent={Divider}
+      ListFooterComponent={() => <Box h="20px" />}
+      keyExtractor={(_item: AssetToken, index: number) => index.toString()}
+      extraData={size}
+      showsVerticalScrollIndicator={false}
+    />
   );
 };
 
