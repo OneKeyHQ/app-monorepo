@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { TouchableOpacity } from 'react-native';
 
 import {
@@ -12,8 +13,19 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
+import {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/ManageNetwork';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type ChainInfo = { chain: string; name: string };
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkModalRoutes.NetworkListViewModal
+>;
 
 const evmNetworks: ChainInfo[] = [
   { chain: 'eth', name: 'ETH' },
@@ -25,8 +37,22 @@ const evmNetworks: ChainInfo[] = [
 const solanaNetwork: ChainInfo[] = [{ chain: 'sol', name: 'SOL' }];
 
 export const DisplayView: FC = () => {
+  const navigation = useNavigation<NavigationProps>();
   const renderItem = ({ item }: { item: ChainInfo }) => (
-    <TouchableOpacity activeOpacity={0.7}>
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => {
+        navigation.navigate(ManageNetworkModalRoutes.NetworkCustomViewModal, {
+          defaultValues: {
+            name: 'EVM',
+            url: 'https://rpc.onekey.so/eth',
+            chainId: '1',
+            symbol: 'ETH',
+            exploreUrl: 'https://etherscan.io/',
+          },
+        });
+      }}
+    >
       <Box
         flexDirection="row"
         justifyContent="space-between"
@@ -48,7 +74,13 @@ export const DisplayView: FC = () => {
           alignItems="center"
         >
           <Typography.Heading>EVM</Typography.Heading>
-          <IconButton type="plain" name="PlusSolid" />
+          <IconButton
+            type="plain"
+            name="PlusSolid"
+            onPress={() => {
+              navigation.navigate(ManageNetworkModalRoutes.NetworkAddViewModal);
+            }}
+          />
         </Box>
         <FlatList
           bg="surface-default"

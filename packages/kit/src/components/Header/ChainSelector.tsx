@@ -12,17 +12,17 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
 import {
   ManageNetworkModalRoutes,
   ManageNetworkRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManageNetwork';
-import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
+} from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkModalRoutes.ManageNetworkModal
+  ManageNetworkModalRoutes.NetworkListViewModal
 >;
 const ChainSelector: FC = () => {
   const intl = useIntl();
@@ -98,7 +98,7 @@ const ChainSelector: FC = () => {
         isTriggerPlain
         onPressFooter={() =>
           setTimeout(() => {
-            navigation.navigate(ManageNetworkModalRoutes.ManageNetworkModal);
+            navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
           }, 200)
         }
         renderTrigger={(activeOption, isHovered, visible) => (

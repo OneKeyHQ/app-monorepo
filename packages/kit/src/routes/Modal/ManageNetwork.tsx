@@ -3,23 +3,29 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import ManageNetworks from '@onekeyhq/kit/src/views/ManageNetworks';
-
-export enum ManageNetworkModalRoutes {
-  ManageNetworkModal = 'ManageNetworkModal',
-}
-
-export type ManageNetworkRoutesParams = {
-  [ManageNetworkModalRoutes.ManageNetworkModal]: undefined;
-};
+import { NetworkAddView } from '@onekeyhq/kit/src/views/ManageNetworks/NetworkAddView';
+import { NetworkCustomView } from '@onekeyhq/kit/src/views/ManageNetworks/NetworkCustomView';
+import { NetworkListView } from '@onekeyhq/kit/src/views/ManageNetworks/NetworkListView';
+import {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 const ManageNetworkNavigator =
   createStackNavigator<ManageNetworkRoutesParams>();
 
 const modalRoutes = [
   {
-    name: ManageNetworkModalRoutes.ManageNetworkModal,
-    component: ManageNetworks,
+    name: ManageNetworkModalRoutes.NetworkListViewModal,
+    component: NetworkListView,
+  },
+  {
+    name: ManageNetworkModalRoutes.NetworkAddViewModal,
+    component: NetworkAddView,
+  },
+  {
+    name: ManageNetworkModalRoutes.NetworkCustomViewModal,
+    component: NetworkCustomView,
   },
 ];
 
@@ -44,3 +50,5 @@ const ManageNetworkModalStack = () => {
 };
 
 export default ManageNetworkModalStack;
+export { ManageNetworkModalRoutes };
+export type { ManageNetworkRoutesParams };

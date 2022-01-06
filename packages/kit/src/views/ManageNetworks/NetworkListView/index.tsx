@@ -36,14 +36,14 @@ const ModalFooter: FC<ModalFooterProps> = ({ editable, onToggle }) => {
   );
 };
 
-type NetworksProps = { onClose: () => void };
-
-const Networks: FC<NetworksProps> = ({ onClose }) => {
+export const NetworkListView: FC = () => {
   const intl = useIntl();
   const [alertOpened, setAlertOpened] = useState(false);
   const [changed] = useState(true);
   const [editable, setEditable] = useState(false);
   const children = editable ? <EditableView /> : <DisplayView />;
+
+  const onClose = useCallback(() => {}, []);
 
   const onPrepareClose = useCallback(() => {
     if (changed) {
@@ -89,4 +89,4 @@ const Networks: FC<NetworksProps> = ({ onClose }) => {
   );
 };
 
-export default Networks;
+export default NetworkListView;
