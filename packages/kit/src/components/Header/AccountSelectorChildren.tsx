@@ -18,7 +18,7 @@ import {
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
-import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+// import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -59,6 +59,31 @@ type AccountType = 'normal' | 'hd' | 'imported' | 'watched';
 type ChildrenProps = {
   handleToggleVisible: () => void;
 };
+
+type CustomSelectTriggerProps = {
+  isSelectVisible?: boolean;
+  isTriggerHovered?: boolean;
+};
+
+const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
+  isSelectVisible,
+  isTriggerHovered,
+}) => (
+  <Box
+    p={2}
+    borderRadius="xl"
+    bg={
+      // eslint-disable-next-line no-nested-ternary
+      isSelectVisible
+        ? 'surface-selected'
+        : isTriggerHovered
+        ? 'surface-hovered'
+        : 'transparent'
+    }
+  >
+    <Icon size={20} name="DotsHorizontalSolid" />
+  </Box>
+);
 
 const AccountSelectorChildren: FC<ChildrenProps> = ({
   handleToggleVisible,
@@ -141,16 +166,13 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
           footer={null}
           containerProps={{ width: 'auto' }}
           dropdownProps={{
-            width: ['SMALL', 'NORMAL'].includes(size) ? '100%' : 248,
+            width: 248,
           }}
-          renderTrigger={(isHovered) => (
-            <Box
-              p={2}
-              borderRadius="xl"
-              bg={isHovered ? 'surface-hovered' : 'transparent'}
-            >
-              <Icon size={20} name="DotsHorizontalSolid" />
-            </Box>
+          renderTrigger={(activeOption, isHovered, visible) => (
+            <CustomSelectTrigger
+              isTriggerHovered={isHovered}
+              isSelectVisible={visible}
+            />
           )}
         />
       );
@@ -158,9 +180,9 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
 
     if (type === 'watched') {
       return (
-        <Pressable
-          px="2"
-          justifyContent="center"
+        <IconButton
+          name="PlusSolid"
+          type="plain"
           onPress={() => {
             handleToggleVisible();
             setTimeout(
@@ -171,17 +193,15 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               150,
             );
           }}
-        >
-          <Icon name="PlusOutline" />
-        </Pressable>
+        />
       );
     }
 
     if (type === 'imported') {
       return (
-        <Pressable
-          px="2"
-          justifyContent="center"
+        <IconButton
+          name="PlusSolid"
+          type="plain"
           onPress={() => {
             handleToggleVisible();
             setTimeout(
@@ -192,9 +212,7 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               150,
             );
           }}
-        >
-          <Icon name="PlusOutline" />
-        </Pressable>
+        />
       );
     }
   }
@@ -282,7 +300,7 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               />
             </VStack>
             {/* Hardware Wallet */}
-            <VStack space={2}>
+            {/* <VStack space={2}>
               <WalletItem
                 onPress={() => setActiveAccountType('hd')}
                 isSelected={activeAccountType === 'hd'}
@@ -290,7 +308,7 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
                 walletType="hd"
                 deviceIconUrl={MiniDeviceIcon}
               />
-            </VStack>
+            </VStack> */}
             {/* Imported or watched wallet */}
             <VStack space={2}>
               <WalletItem
@@ -320,21 +338,48 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
           </VStack>
           {renderSideAction(activeAccountType, handleChange)}
         </HStack>
-        <FlatList
-          data={NORMAL_ACCOUNTS}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
-            <Pressable
-              p="2"
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Account address={item.address} name={item.label} />
-              <IconButton type="plain" name="DotsHorizontalOutline" />
-            </Pressable>
-          )}
-        />
+        <ScrollView px={2}>
+          <FlatList
+            data={NORMAL_ACCOUNTS}
+            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item }) => (
+              <Pressable>
+                {({ isHovered }) => (
+                  <HStack
+                    p="7px"
+                    borderWidth={1}
+                    borderColor={isHovered ? 'border-hovered' : 'transparent'}
+                    space={4}
+                    borderRadius="xl"
+                  >
+                    <Box flex={1}>
+                      <Account address={item.address} name={item.label} />
+                    </Box>
+                    <CustomSelectTrigger />
+                  </HStack>
+                )}
+              </Pressable>
+            )}
+          />
+          <Pressable mt={2}>
+            {({ isHovered }) => (
+              <HStack
+                p={2}
+                borderRadius="xl"
+                space={3}
+                borderWidth={1}
+                borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                borderStyle="dashed"
+                alignItems="center"
+              >
+                <Icon name="PlusCircleOutline" />
+                <Typography.Body2Strong color="text-subdued">
+                  {intl.formatMessage({ id: 'action__add_account' })}
+                </Typography.Body2Strong>
+              </HStack>
+            )}
+          </Pressable>
+        </ScrollView>
       </VStack>
     </>
   );
