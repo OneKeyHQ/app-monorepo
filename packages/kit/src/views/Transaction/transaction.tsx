@@ -10,12 +10,13 @@ import {
   Divider,
   Form,
   Icon,
-  IconButton,
   Modal,
+  Pressable,
   Select,
-  Token,
+  Stack,
   Typography,
   useForm,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   TransactionModalRoutes,
@@ -49,17 +50,17 @@ type AssetType = {
 };
 const AssetMockData: AssetType[] = [
   {
-    token: 'ETH',
+    token: 'eth',
     name: 'ETH',
     balance: '2.11014',
   },
   {
-    token: 'USDT',
+    token: 'usdt',
     name: 'USDT',
     balance: '2.11014',
   },
   {
-    token: 'BTC',
+    token: 'btc',
     name: 'BTC',
     balance: '2.11014',
   },
@@ -72,6 +73,10 @@ function selectOptionData() {
     options.push({
       label: asset.token,
       value: asset,
+      description: asset.balance,
+      tokenProps: {
+        chain: asset.token,
+      },
     });
   }
 
@@ -83,17 +88,20 @@ const Transaction = () => {
   const { control, handleSubmit } = useForm<TransactionValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
 
-  const renderSelecterItem = (asset: AssetType) => (
-    <Row space="12px">
-      <Token chain={asset.token} size="32px" />
-      <Column>
-        <Typography.Body2Strong>{asset.name}</Typography.Body2Strong>
-        <Typography.Body2 color="text-subdued">
-          {asset.balance}
-        </Typography.Body2>
-      </Column>
-    </Row>
+  const labelAddon = (
+    <Stack direction="row" space="2">
+      <Pressable onPress={() => {}}>
+        <Icon size={20} name="BookOpenSolid" />
+      </Pressable>
+      <Pressable>
+        <Icon size={20} name="ClipboardSolid" />
+      </Pressable>
+      <Pressable>
+        <Icon size={20} name="ScanSolid" />
+      </Pressable>
+    </Stack>
   );
 
   return (
@@ -101,6 +109,7 @@ const Transaction = () => {
       hidePrimaryAction
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
+      headerDescription="Ethereum"
       footer={
         <Column>
           <Divider />
@@ -108,7 +117,8 @@ const Transaction = () => {
             justifyContent="space-between"
             alignItems="center"
             paddingX="24px"
-            paddingY="16px"
+            paddingTop="16px"
+            paddingBottom={bottom}
           >
             <Column>
               <Typography.Body2 color="text-subdued">
@@ -141,34 +151,12 @@ const Transaction = () => {
         children: (
           <Column flex="1">
             <Form>
-              <Row justifyContent="space-between">
-                <Typography.Body2Strong>
-                  {intl.formatMessage({ id: 'action__send' })}
-                </Typography.Body2Strong>
-                <Row space="4px">
-                  <IconButton
-                    iconSize={20}
-                    size="xs"
-                    name="BookOpenSolid"
-                    type="plain"
-                  />
-                  <IconButton
-                    iconSize={20}
-                    size="xs"
-                    name="ClipboardSolid"
-                    type="plain"
-                  />
-                  <IconButton
-                    iconSize={20}
-                    size="xs"
-                    name="ScanSolid"
-                    type="plain"
-                  />
-                </Row>
-              </Row>
               <Form.Item
+                label={intl.formatMessage({ id: 'action__send' })}
+                labelAddon={labelAddon}
                 control={control}
                 name="description"
+                formControlProps={{ width: 'full' }}
                 rules={{
                   required: intl.formatMessage({ id: 'form__address_invalid' }),
                 }}
@@ -183,33 +171,20 @@ const Transaction = () => {
                 {intl.formatMessage({ id: 'content__asset' })}
               </Typography.Body2Strong>
               <Select
-                // onChange={(v) => {}}
-                headerShown={false}
-                footer={null}
                 containerProps={{
-                  width: '100%',
+                  w: 'full',
                   zIndex: 999,
+                  mb: '24px',
                   borderColor: 'border-default',
                   borderWidth: '1px',
                   borderRadius: '12px',
-                  mb: '24px',
                 }}
-                renderTrigger={() => (
-                  <Row
-                    justifyContent="space-between"
-                    alignItems="center"
-                    flex={1}
-                  >
-                    {renderSelecterItem(AssetMockData[0])}
-                    <Icon name="ChevronDownSolid" size={20} />
-                  </Row>
-                )}
-                renderItem={(item) => (
-                  <Column pt="8px">{renderSelecterItem(item.value)}</Column>
-                )}
+                headerShown={false}
+                defaultValue={AssetMockData[0]}
                 options={selectOptionData()}
               />
               <Form.Item
+                formControlProps={{ width: 'full' }}
                 label={intl.formatMessage({ id: 'content__amount' })}
                 control={control}
                 name="username"
@@ -230,39 +205,39 @@ const Transaction = () => {
               <Typography.Body2Strong mt="24px" mb="4px">
                 {intl.formatMessage({ id: 'content__fee' })}
               </Typography.Body2Strong>
-              <Row
-                justifyContent="space-between"
-                alignItems="center"
-                bgColor="surface-default"
-                borderColor="border-default"
-                borderWidth="1px"
-                borderRadius="12px"
-                paddingX="12px"
-                paddingY="8px"
+
+              <Pressable
+                onPress={() => {
+                  navigation.navigate(
+                    TransactionModalRoutes.TransactionEditFeeModal,
+                  );
+                }}
               >
-                <Column>
-                  <Typography.Body1Strong>
-                    Normal (64.11 Gwei)
-                  </Typography.Body1Strong>
-                  <Typography.Body2 color="text-subdued">
-                    0.001694 ETH ~ 0.001977 ETH
-                  </Typography.Body2>
-                  <Typography.Body2 color="text-subdued">
-                    3 min
-                  </Typography.Body2>
-                </Column>
-                <IconButton
-                  iconSize={20}
-                  size="xs"
-                  name="PencilSolid"
-                  type="plain"
-                  onPress={() => {
-                    navigation.navigate(
-                      TransactionModalRoutes.TransactionEditFeeModal,
-                    );
-                  }}
-                />
-              </Row>
+                <Row
+                  justifyContent="space-between"
+                  alignItems="center"
+                  bgColor="surface-default"
+                  borderColor="border-default"
+                  borderWidth="1px"
+                  borderRadius="12px"
+                  paddingX="12px"
+                  paddingY="8px"
+                >
+                  <Column>
+                    <Typography.Body1Strong>
+                      Normal (64.11 Gwei)
+                    </Typography.Body1Strong>
+                    <Typography.Body2 color="text-subdued">
+                      0.001694 ETH ~ 0.001977 ETH
+                    </Typography.Body2>
+                    <Typography.Body2 color="text-subdued">
+                      3 min
+                    </Typography.Body2>
+                  </Column>
+                  <Icon size={20} name="PencilSolid" />
+                </Row>
+              </Pressable>
+
               <Box height="50px" />
             </Form>
           </Column>
