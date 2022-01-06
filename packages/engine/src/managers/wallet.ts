@@ -7,7 +7,7 @@ function fromDBWalletToWallet(dbWallet: DBWallet): Wallet {
     type: dbWallet.type,
     backuped: dbWallet.backuped,
     accounts: new Set(dbWallet.accounts),
-    nextAccountId: new Map(Object.entries(dbWallet.nextAccountId)),
+    nextAccountIds: new Map(Object.entries(dbWallet.nextAccountIds)),
   };
 }
 
