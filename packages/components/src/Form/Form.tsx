@@ -7,5 +7,7 @@ import Box from '../Box';
 // type FormProps = {};
 
 export const Form: FC<IBoxProps> = ({ children, ...props }) => (
-  <Box {...props}>{children}</Box>
+  <Box w="full" {...props}>
+    {children}
+  </Box>
 );
