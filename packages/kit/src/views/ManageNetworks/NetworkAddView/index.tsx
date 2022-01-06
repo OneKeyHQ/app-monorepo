@@ -1,15 +1,8 @@
-import React, { FC, ReactElement, useCallback, useState } from 'react';
+import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  Dialog,
-  Form,
-  Modal,
-  useForm,
-} from '@onekeyhq/components';
+import { Box, Form, Modal, useForm } from '@onekeyhq/components';
 
 type NetworkValues = {
   name?: string;
@@ -19,34 +12,31 @@ type NetworkValues = {
   exploreUrl?: string;
 };
 
-type NetworksProps = {
-  trigger?: ReactElement<any>;
-  defaultValues: NetworkValues;
-  onSubmit?: (values: NetworkValues) => void;
-};
+export type NetworkAddViewProps = undefined;
 
-export const NetworkDetail: FC<NetworksProps> = ({
-  trigger,
-  defaultValues,
-  onSubmit,
-}) => {
-  const { control, handleSubmit, reset } = useForm<NetworkValues>({
+export const NetworkAddView: FC<NetworkAddViewProps> = () => {
+  const intl = useIntl();
+  const defaultValues = {
+    name: '',
+    url: '',
+    chainId: '',
+    symbol: '',
+    exploreUrl: '',
+  };
+  const { control, handleSubmit } = useForm<NetworkValues>({
     defaultValues,
   });
-  const intl = useIntl();
-  const [resetOpened, setResetOpened] = useState(false);
-  const onReset = useCallback(() => {
-    setResetOpened(true);
-  }, []);
-  const onPress = handleSubmit((data) => onSubmit?.(data));
+
+  const onSubmit = handleSubmit((data) => console.log(data));
 
   return (
     <>
       <Modal
-        trigger={trigger}
-        onPrimaryActionPress={({ onClose }) => {
-          onPress();
-          onClose?.();
+        header="Add Network"
+        hideSecondaryAction
+        primaryActionTranslationId="action__save"
+        onPrimaryActionPress={() => {
+          onSubmit();
         }}
       >
         <Box
@@ -64,6 +54,12 @@ export const NetworkDetail: FC<NetworksProps> = ({
                 defaultMessage: 'Network Name',
               })}
               control={control}
+              rules={{
+                required: {
+                  value: true,
+                  message: 'network name can not be empty',
+                },
+              }}
             >
               <Form.Input />
             </Form.Item>
@@ -86,9 +82,6 @@ export const NetworkDetail: FC<NetworksProps> = ({
                 containerProps={{
                   zIndex: 999,
                   padding: 0,
-                }}
-                triggerProps={{
-                  py: 2,
                 }}
                 options={[
                   {
@@ -136,48 +129,11 @@ export const NetworkDetail: FC<NetworksProps> = ({
             >
               <Form.Input />
             </Form.Item>
-            <Button w="80" onPress={onReset} mt="2">
-              {intl.formatMessage({
-                id: 'action__reset',
-                defaultMessage: 'Reset',
-              })}
-            </Button>
           </Form>
         </Box>
       </Modal>
-      <Dialog
-        visible={resetOpened}
-        contentProps={{
-          iconType: 'info',
-          title: intl.formatMessage({
-            id: 'dialog__reset_network_title',
-            defaultMessage: 'Reset Network',
-          }),
-          content: intl.formatMessage(
-            {
-              id: 'dialog__reset_network_desc',
-              defaultMessage:
-                'Ethereum Mainnet will be revert to the default config',
-            },
-            { 0: 'Ethereum Mainnet' },
-          ),
-        }}
-        footerButtonProps={{
-          onPrimaryActionPress: ({ onClose }) => {
-            reset(defaultValues);
-            onClose?.();
-          },
-          primaryActionTranslationId: 'action_reset',
-          primaryActionProps: {
-            type: 'primary',
-            size: 'xl',
-          },
-          secondaryActionProps: {
-            size: 'xl',
-          },
-        }}
-        onClose={() => setResetOpened(false)}
-      />
     </>
   );
 };
+
+export default NetworkAddView;

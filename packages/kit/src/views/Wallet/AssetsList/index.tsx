@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,8 +15,19 @@ import {
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
+import {
+  ManageTokenModalRoutes,
+  ManageTokenRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/ManageToken';
 
 import { ScrollRoute } from '../type';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageTokenRoutesParams,
+  ManageTokenModalRoutes.ManageTokensModal
+>;
 
 export type AssetToken = {
   chainId: number;
@@ -208,7 +220,12 @@ const TOKEN_DATA: AssetToken[] = [
   },
 ];
 
-const AssetsList = ({ route }: { route: ScrollRoute }) => {
+type AssetsListProps = {
+  route: ScrollRoute;
+};
+
+const AssetsList = ({ route }: AssetsListProps) => {
+  const navigation = useNavigation<NavigationProps>();
   const { size } = useUserDevice();
   const { index: tabPageIndex } = route;
   const intl = useIntl();
@@ -269,7 +286,12 @@ const AssetsList = ({ route }: { route: ScrollRoute }) => {
             <Typography.Heading>
               {intl.formatMessage({ id: 'asset__tokens' })}
             </Typography.Heading>
-            <Pressable p={1.5}>
+            <Pressable
+              p={1.5}
+              onPress={() =>
+                navigation.navigate(ManageTokenModalRoutes.ManageTokensModal)
+              }
+            >
               <Icon size={20} name="AdjustmentsSolid" />
             </Pressable>
           </Box>

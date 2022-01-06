@@ -35,13 +35,14 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
   const activeFontColor = useThemeValue('text-default');
   const activeBgColor = useThemeValue('surface-default');
   const bgColor = useThemeValue('surface-neutral-default');
-  const shadowColor = useThemeValue('surface-default');
+  // const shadowColor = useThemeValue('surface-default');
   const renderContent = useCallback<
     (i: SegmentedControlItem, active: boolean) => ReactNode
   >(({ label, iconProps = {}, iconName }, active) => {
     if (typeof label === 'string') {
       return (
         <Typography.Body2Strong
+          ml="3px"
           color={active ? 'text-default' : 'text-subdued'}
         >
           {label}
@@ -50,19 +51,21 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
     }
     if (iconName) {
       return (
-        <Icon
-          size={20}
-          {...iconProps}
-          name={iconName}
-          color={active ? 'icon-hovered' : 'icon-default'}
-        />
+        <Box ml="3px">
+          <Icon
+            size={20}
+            {...iconProps}
+            name={iconName}
+            color={active ? 'icon-hovered' : 'icon-default'}
+          />
+        </Box>
       );
     }
     return label;
   }, []);
 
   return (
-    <Box bgColor={bgColor} borderRadius="12px" {...containerProps}>
+    <Box bgColor={bgColor} pr={0.5} borderRadius="12px" {...containerProps}>
       <BaseSegmentedControl
         activeTintColor={activeBgColor}
         inactiveTintColor={bgColor}
@@ -71,14 +74,22 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
         style={{
           backgroundColor: bgColor,
           height: 36,
-          marginRight: 2,
           borderRadius: 12,
         }}
         sliderStyle={{
           backgroundColor: activeBgColor,
-          shadowColor,
           height: 32,
-          borderRadius: 12,
+          borderRadius: 10,
+          /* 
+            note:
+            do not define the shadow radius, otherwise the shadow will not work properly
+          */
+          shadowColor: '#000000',
+          shadowOffset: {
+            width: 0,
+            height: 1,
+          },
+          shadowOpacity: 0.05,
         }}
         {...rest}
       >
