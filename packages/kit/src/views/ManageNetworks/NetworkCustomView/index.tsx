@@ -73,7 +73,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                 defaultMessage: 'RPC URL',
               })}
               defaultValue="https://rpc.onekey.so/eth"
-              formControlProps={{ zIndex: 10, maxW: '80' }}
+              formControlProps={{ zIndex: 10 }}
             >
               <Form.Select
                 title={intl.formatMessage({
@@ -84,9 +84,6 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                 containerProps={{
                   zIndex: 999,
                   padding: 0,
-                }}
-                triggerProps={{
-                  py: 2,
                 }}
                 options={[
                   {
@@ -134,7 +131,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
             >
               <Form.Input />
             </Form.Item>
-            <Button w="80" onPress={onButtonPress} mt="2">
+            <Button w="full" onPress={onButtonPress} mt="2">
               {intl.formatMessage({
                 id: 'action__reset',
                 defaultMessage: 'Reset',
