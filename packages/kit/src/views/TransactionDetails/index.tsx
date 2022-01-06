@@ -123,6 +123,7 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
       headerDescription={txInfo.to}
       footer={null}
       scrollViewProps={{
+        pt: 4,
         children: (
           <Box flexDirection="column" alignItems="center" mb={6}>
             <Icon name={getTransactionStatusIcon(txInfo.state)} size={56} />
