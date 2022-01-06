@@ -24,7 +24,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
-  ManageTokenModalRoutes.ManageTokensModal
+  ManageTokenModalRoutes.ListTokensModal
 >;
 
 export type AssetToken = {
@@ -281,7 +281,7 @@ const AssetsList = () => {
           <Pressable
             p={1.5}
             onPress={() =>
-              navigation.navigate(ManageTokenModalRoutes.ManageTokensModal)
+              navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
             }
           >
             <Icon size={20} name="AdjustmentsSolid" />
