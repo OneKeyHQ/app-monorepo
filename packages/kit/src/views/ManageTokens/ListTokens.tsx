@@ -1,5 +1,6 @@
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +16,15 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
+
+import { ManageTokenModalRoutes, ManageTokenRoutesParams } from './types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageTokenRoutesParams,
+  ManageTokenModalRoutes.ListTokensModal
+>;
 
 type IToken = {
   name: string;
@@ -48,8 +58,9 @@ const mylist: IToken[] = [
   },
 ];
 
-const TokensModal: FC = () => {
+export const ListTokens: FC = () => {
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const [keyword, setKeyword] = useState<string>('');
   const [token, setToken] = useState<IToken>();
 
@@ -81,7 +92,13 @@ const TokensModal: FC = () => {
         address={item.address}
         description={utils.shortenAddress(item.address)}
       />
-      <IconButton name="PlusOutline" type="plain" onPress={() => {}} />
+      <IconButton
+        name="PlusOutline"
+        type="plain"
+        onPress={() => {
+          navigation.navigate(ManageTokenModalRoutes.AddTokenModal);
+        }}
+      />
     </Box>
   );
   const renderOwnedItem = ({ item }: { item: IToken }) => (
@@ -193,7 +210,9 @@ const TokensModal: FC = () => {
           defaultMessage: 'Manage Tokens',
         })}
         hideSecondaryAction
-        onPrimaryActionPress={() => {}}
+        onPrimaryActionPress={() => {
+          navigation.navigate(ManageTokenModalRoutes.AddCustomTokenModal);
+        }}
         primaryActionTranslationId="action__add_custom_tokens"
         primaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
       >
@@ -241,4 +260,4 @@ const TokensModal: FC = () => {
   );
 };
 
-export default TokensModal;
+export default ListTokens;
