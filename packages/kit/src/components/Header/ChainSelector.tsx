@@ -3,7 +3,14 @@ import React, { FC, useCallback, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Select } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  Icon,
+  Select,
+  Token,
+  Typography,
+} from '@onekeyhq/components';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
 import {
@@ -94,6 +101,30 @@ const ChainSelector: FC = () => {
             navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
           }, 200)
         }
+        renderTrigger={(activeOption, isHovered, visible) => (
+          <HStack
+            p={2}
+            space={1}
+            bg={
+              // eslint-disable-next-line no-nested-ternary
+              visible
+                ? 'surface-selected'
+                : isHovered
+                ? 'surface-hovered'
+                : 'surface-default'
+            }
+            borderRadius="xl"
+            alignItems="center"
+          >
+            <HStack space={{ base: 2, md: 3 }} alignItems="center">
+              <Token size={{ base: 5, md: 6 }} {...activeOption.tokenProps} />
+              <Typography.Body2Strong>
+                {activeOption.label}
+              </Typography.Body2Strong>
+            </HStack>
+            <Icon size={20} name="ChevronDownSolid" />
+          </HStack>
+        )}
       />
     </Box>
   );
