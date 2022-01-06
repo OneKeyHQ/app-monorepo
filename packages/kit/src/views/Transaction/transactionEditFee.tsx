@@ -10,9 +10,11 @@ import {
   Form,
   Modal,
   RadioFee,
+  ScrollView,
   SegmentedControl,
   Typography,
   useForm,
+  useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
 
@@ -30,7 +32,7 @@ const TransactionEditFee = ({ ...rest }) => {
   const [radioValue, setValue] = useState('1');
 
   const SelectFee = () => (
-    <Box pt="24px">
+    <ScrollView pt="24px" flex="1" bg="background-hovered">
       <RadioFee
         padding="0px"
         items={[
@@ -63,7 +65,7 @@ const TransactionEditFee = ({ ...rest }) => {
           setValue(value);
         }}
       />
-    </Box>
+    </ScrollView>
   );
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const { control, handleSubmit } = useForm<FeeValues>();
@@ -149,6 +151,7 @@ const TransactionEditFee = ({ ...rest }) => {
         </Typography.Body1Strong>
       </Button>
     );
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Modal
@@ -163,7 +166,8 @@ const TransactionEditFee = ({ ...rest }) => {
             justifyContent="flex-end"
             alignItems="center"
             paddingX="24px"
-            paddingY="16px"
+            paddingTop="16px"
+            paddingBottom={bottom}
           >
             {saveButton()}
           </Row>
