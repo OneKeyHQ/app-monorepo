@@ -1,7 +1,7 @@
 const BTN_ID = 'onekey-inpage-debug-dev-tools-button';
 const BTN_TEXT = 'RELOAD';
 const IFRAME_ID = 'onekey-inpage-debug-dev-tools-iframe';
-const IFRAME_URL = `chrome-extension://${chrome.runtime.id}/ui-content-script-iframe.html`;
+const IFRAME_URL = chrome.runtime.getURL('ui-content-script-iframe.html');
 
 // iframe is a HACK for background service-worker updating.
 function injectIframe() {
@@ -67,20 +67,27 @@ function injectDevToolsButton() {
     devToolsButton.style.top = `${startTop + (pageY - startY)}px`;
   });
   devToolsButton.addEventListener('click', () => {
-    console.log(chrome.runtime);
-    console.log('========================================');
-    console.log('>>>>>>>> OneKey Extension reloading in 3s...');
-    console.log('========================================');
-    chrome.runtime.sendMessage({
-      channel: 'EXTENSION_INTERNAL_CHANNEL',
-      method: 'reload',
-    });
-    setTimeout(() => {
-      iframe.src = IFRAME_URL;
+    try {
+      console.log('chrome.runtime', chrome.runtime);
+      console.log('========================================');
+      console.log('>>>>>>>> OneKey Extension reloading in 3s...');
+      console.log(`>>>>>>>> ${IFRAME_URL}`);
+      console.log('========================================');
+
       setTimeout(() => {
-        window.location.reload();
-      }, 500);
-    }, 1000);
+        iframe.src = IFRAME_URL;
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }, 1000);
+
+      chrome.runtime.sendMessage({
+        channel: 'EXTENSION_INTERNAL_CHANNEL',
+        method: 'reload',
+      });
+    } catch (err) {
+      console.error(err);
+    }
   });
   document.body.appendChild(devToolsButton);
 }

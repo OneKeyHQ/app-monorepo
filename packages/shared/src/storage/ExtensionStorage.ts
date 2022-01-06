@@ -2,6 +2,8 @@
 
 // copy from:
 //    node_modules/@react-native-async-storage/async-storage/types/index.d.ts
+import { isFirefox } from '../platformEnv';
+
 interface AsyncStorage {
   /**
    * Fetches key and passes the result to callback, along with an Error if there is any.
@@ -84,20 +86,22 @@ interface AsyncStorage {
 }
 
 class ExtensionStorage implements AsyncStorage {
-  browser = chrome;
+  browserApi: typeof chrome = isFirefox() ? global.browser : global.chrome;
 
   setItem(key: string, value: string) {
-    return this.browser.storage.local.set({
+    return this.browserApi.storage.local.set({
       [key]: value,
     });
   }
 
   async getItem(key: string) {
-    return (await this.browser.storage.local.get(key))[key] as string;
+    const data = (await this.browserApi.storage.local.get(key)) ?? {};
+    const value = data[key] as string;
+    return value;
   }
 
   async removeItem(key: string) {
-    return this.browser.storage.local.remove(key);
+    return this.browserApi.storage.local.remove(key);
   }
 
   clear(callback?: (error?: Error) => void): Promise<void> {

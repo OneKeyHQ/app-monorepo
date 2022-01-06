@@ -31,6 +31,11 @@ if (platformEnv.isDev) {
       if (channel === 'EXTENSION_INTERNAL_CHANNEL') {
         console.log('chrome.runtime.onMessage', message);
         if (method === 'reload') {
+          console.log(`
+          ========================================
+          >>>>>>> chrome.runtime.reload();
+          ========================================
+          `);
           chrome.runtime.reload();
           // chrome.tabs.create({url: 'ui-popup.html'});
         }

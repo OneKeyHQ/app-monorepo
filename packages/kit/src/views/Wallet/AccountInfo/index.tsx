@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Icon,
+  IconButton,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -18,6 +19,9 @@ import {
   TransactionModalRoutes,
   TransactionModalRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Transaction';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import extUtils from '../../../utils/extUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -79,6 +83,15 @@ const AccountInfo = () => {
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
+        {platformEnv.isExtensionUiPopup && (
+          <IconButton
+            onPress={() => {
+              extUtils.openExpandTab({ route: '/' });
+            }}
+            ml={4}
+            name="ArrowsExpandOutline"
+          />
+        )}
       </Box>
     ),
     [intl, isSmallScreen, navigation],

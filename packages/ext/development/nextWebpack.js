@@ -3,23 +3,23 @@ const withPlugins = require('next-compose-plugins');
 const { PHASE_EXPORT } = require('next/constants');
 const withTM = require('./withTM');
 
-const nextOptions = {
-  isServer: false,
-  defaultLoaders: {
-    babel: {
-      loader: 'babel-loader',
-    },
-  },
-};
-let nextConfig = {
-  webpack5: true,
-  // webpack:() => config
-};
-
 function nextWebpack(
   webpackConfig,
   { transpileModules = [], debug = false, projectRoot },
 ) {
+  const nextOptions = {
+    isServer: false,
+    defaultLoaders: {
+      babel: {
+        loader: 'babel-loader',
+      },
+    },
+  };
+  let nextConfig = {
+    // always should be true even if webpack4
+    webpack5: true,
+    // webpack:() => config
+  };
   const nextWithTM = withTM([...transpileModules], {
     resolveSymlinks: true,
     debug,

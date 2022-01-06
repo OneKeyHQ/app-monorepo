@@ -19,6 +19,7 @@ export type IPlatformEnv = {
   isMAS?: boolean;
   isDev?: boolean;
   isBrowser?: boolean;
+  isFirefox?: boolean;
   isIOS?: boolean;
   isAndroid?: boolean;
 };
@@ -26,6 +27,9 @@ export type IPlatformEnv = {
 export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
 
 export const isBrowser = (): boolean => typeof window !== 'undefined';
+
+// @ts-ignore
+export const isFirefox = (): boolean => typeof InstallTrigger !== 'undefined';
 
 export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
 
@@ -43,10 +47,7 @@ export const isExtensionBackground = (): boolean =>
   global.serviceWorker instanceof ServiceWorker;
 
 export const isExtensionUi = (): boolean =>
-  isExtension() &&
-  isBrowser() &&
-  window.location.host === chrome.runtime.id &&
-  window.location.pathname.startsWith('/ui-');
+  isExtension() && isBrowser() && window.location.pathname.startsWith('/ui-');
 
 export const isExtensionUiPopup = (): boolean =>
   isExtensionUi() && window.location.pathname.startsWith('/ui-popup.html');
@@ -110,6 +111,7 @@ const platformEnv: IPlatformEnv = {
   isMAS: isMAS(),
   isDev: isDev(),
   isBrowser: isBrowser(),
+  isFirefox: isFirefox(),
   isIOS: isIOS(),
   isAndroid: isAndroid(),
 };

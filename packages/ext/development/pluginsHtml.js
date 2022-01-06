@@ -12,7 +12,7 @@ function createHtmlPlugin({ name }) {
   });
 }
 
-const pluginsHtml = [
+const uiHtml = [
   'ui-popup', // main ui
   'ui-expand-tab',
   'ui-standalone-window',
@@ -23,4 +23,9 @@ const pluginsHtml = [
   // 'ui-devtools-panel',
 ].map((name) => createHtmlPlugin({ name }));
 
-module.exports = pluginsHtml;
+const backgroundHtml = ['background'].map((name) => createHtmlPlugin({ name }));
+
+module.exports = {
+  uiHtml,
+  backgroundHtml,
+};
