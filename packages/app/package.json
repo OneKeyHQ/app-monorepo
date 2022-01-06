@@ -17,6 +17,7 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
+    "@react-native-async-storage/async-storage": "^1.15.14",
     "@react-navigation/native": "^6.0.6",
     "@react-navigation/native-stack": "^6.2.5",
     "@react-navigation/stack": "^6.0.11",
@@ -35,6 +36,7 @@
     "react-native": "0.64.3",
     "react-native-base64": "^0.2.1",
     "react-native-ble-plx": "^2.0.3",
+    "react-native-collapsible-tab-view": "^4.4.0",
     "react-native-config": "^1.4.5",
     "react-native-gesture-handler": "~1.10.2",
     "react-native-pager-view": "^5.4.9",
@@ -43,8 +45,7 @@
     "react-native-screens": "~3.8.0",
     "react-native-svg": "9.13.6",
     "react-native-web": "0.17.1",
-    "react-native-webview": "^11.15.0",
-    "@react-native-async-storage/async-storage": "^1.15.14"
+    "react-native-webview": "^11.15.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
