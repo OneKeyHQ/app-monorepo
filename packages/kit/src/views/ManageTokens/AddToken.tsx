@@ -11,10 +11,9 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-type AddTokenProps = { onClose?: () => void };
 type ListItem = { label: string; value: string };
 
-const AddToken: FC<AddTokenProps> = ({ onClose }) => {
+export const AddToken: FC = () => {
   const intl = useIntl();
   const items: ListItem[] = [
     {
@@ -59,12 +58,13 @@ const AddToken: FC<AddTokenProps> = ({ onClose }) => {
       alignItems="center"
     >
       <Typography.Body1 color="text-subdued">{item.label}</Typography.Body1>
-      <Typography.Body1>{item.value}</Typography.Body1>
+      <Typography.Body1 maxW="56" textAlign="right">
+        {item.value}
+      </Typography.Body1>
     </Box>
   );
   return (
     <Modal
-      onClose={onClose}
       header={intl.formatMessage({
         id: 'title__add_token',
         defaultMessage: 'Add Token',

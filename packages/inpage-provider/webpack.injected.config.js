@@ -21,11 +21,9 @@ module.exports = {
     injectedExtension: './src/injected/injectedExtension.tsx',
   },
   output: {
-    library: {
-      // Fix: "Uncaught ReferenceError: exports is not defined".
-      // Fix: JIRA window.require('...') error
-      type: 'umd',
-    },
+    // Fix: "Uncaught ReferenceError: exports is not defined".
+    // Fix: JIRA window.require('...') error
+    libraryTarget: 'umd',
     // Fix: "Uncaught ReferenceError: global is not defined"
     globalObject: 'window',
     path: path.resolve(__dirname, 'src/injected-autogen'),

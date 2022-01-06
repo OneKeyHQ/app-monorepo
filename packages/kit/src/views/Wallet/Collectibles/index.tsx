@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
@@ -70,25 +71,25 @@ const Collectibles = ({ route }: { route: ScrollRoute }) => {
   }, [collectibleModalConfig]);
 
   return (
-    <Box flex={1} p={4} pb={0}>
-      <CollectibleGallery
-        index={tabPageIndex}
-        collectibles={collectibles}
-        onSelectCollectible={handleSelectCollectible}
-        onSelectAsset={handleSelectAsset}
-      />
-      <CollectionModal
-        collectible={selectedCollectible}
-        visible={collectibleModalConfig.isOpen}
-        onClose={handleCloseCollectibleModal}
-        onSelectAsset={handleSelectAsset}
-      />
-      <AssetModal
-        asset={selectedAsset}
-        visible={assetModalConfig.isOpen}
-        onClose={handleCloseAssetModal}
-      />
-    </Box>
+    // <Box flex={1} p={4} pb={0}>
+    <CollectibleGallery
+      index={tabPageIndex}
+      collectibles={collectibles}
+      onSelectCollectible={handleSelectCollectible}
+      onSelectAsset={handleSelectAsset}
+    />
+    // <CollectionModal
+    //   collectible={selectedCollectible}
+    //   visible={collectibleModalConfig.isOpen}
+    //   onClose={handleCloseCollectibleModal}
+    //   onSelectAsset={handleSelectAsset}
+    // />
+    // <AssetModal
+    //   asset={selectedAsset}
+    //   visible={assetModalConfig.isOpen}
+    //   onClose={handleCloseAssetModal}
+    // />
+    // </Box>
   );
 };
 

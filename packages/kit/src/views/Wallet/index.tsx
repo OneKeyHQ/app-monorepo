@@ -1,81 +1,62 @@
 import React from 'react';
 
 import { useIntl } from 'react-intl';
+import { MaterialTabBar, Tabs } from 'react-native-collapsible-tab-view';
 
-import {
-  Box,
-  HeaderTabViewContainer,
-  SceneMap,
-  TabView,
-  useUserDevice,
-} from '@onekeyhq/components';
-import { isNative } from '@onekeyhq/shared/src/platformEnv';
+import { useThemeValue } from '@onekeyhq/components';
+import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 
 import AccountInfo from './AccountInfo';
 import AssetsList from './AssetsList';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Collectibles from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
-import { ScrollRoute } from './type';
 
-const Wallet = () => {
-  const { size } = useUserDevice();
+import type { TextStyle } from 'react-native';
+
+const Home: React.FC = () => {
   const intl = useIntl();
-
-  const renderScene = SceneMap({
-    tokens: AssetsList,
-    collectibles: Collectibles,
-    history: HistoricalRecord,
-  });
-
-  // Index is required for passing into sub scrollable page
-  const routes = [
-    {
-      key: 'tokens',
-      title: intl.formatMessage({ id: 'asset__tokens' }),
-      index: 0,
-    },
-    {
-      key: 'collectibles',
-      title: intl.formatMessage({ id: 'asset__collectibles' }),
-      index: 1,
-    },
-    {
-      key: 'history',
-      title: intl.formatMessage({ id: 'transaction__history' }),
-      index: 2,
-    },
-  ] as ScrollRoute[];
-
-  if (isNative()) {
-    return (
-      <HeaderTabViewContainer
-        renderScrollHeader={AccountInfo}
-        routes={routes}
-        renderScene={renderScene}
-      />
-    );
-  }
-
+  const [tabbarBgColor, activeLabelColor, labelColor, indicatorColor] =
+    useThemeValue([
+      'background-default',
+      'text-default',
+      'text-subdued',
+      'action-primary-default',
+    ]);
   return (
-    <Box
-      flex={1}
-      alignItems="center"
-      flexDirection="column"
-      bg="background-default"
+    <Tabs.Container
+      renderHeader={AccountInfo}
+      headerHeight={190}
+      containerStyle={{
+        maxWidth: 768,
+        marginHorizontal: 'auto',
+      }}
+      headerContainerStyle={{
+        shadowOffset: { width: 0, height: 0 },
+      }}
+      renderTabBar={(props) => (
+        <MaterialTabBar
+          {...props}
+          activeColor={activeLabelColor}
+          inactiveColor={labelColor}
+          labelStyle={{ ...(Body2StrongProps as TextStyle) }}
+          indicatorStyle={{ backgroundColor: indicatorColor }}
+          style={{
+            backgroundColor: tabbarBgColor,
+          }}
+          contentContainerStyle={{ maxWidth: 768 }}
+          tabStyle={{ backgroundColor: tabbarBgColor }}
+        />
+      )}
     >
-      <Box flex={1} w="100%" flexDirection="column" maxW="1024px">
-        <AccountInfo />
-        <Box mt={8} flex={1}>
-          <TabView
-            paddingX={16}
-            autoWidth={!['SMALL'].includes(size)}
-            routes={routes}
-            renderScene={renderScene}
-          />
-        </Box>
-      </Box>
-    </Box>
+      <Tabs.Tab name={intl.formatMessage({ id: 'asset__tokens' })}>
+        <AssetsList />
+      </Tabs.Tab>
+      <Tabs.Tab name={intl.formatMessage({ id: 'transaction__history' })}>
+        <HistoricalRecord />
+      </Tabs.Tab>
+    </Tabs.Container>
   );
 };
 
-export default Wallet;
+export default Home;

@@ -1,12 +1,6 @@
-import React, {
-  ComponentProps,
-  ReactElement,
-  cloneElement,
-  useMemo,
-} from 'react';
+import React, { ComponentProps, ReactElement, cloneElement } from 'react';
 
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
-import { useWindowDimensions } from 'react-native';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
@@ -31,8 +25,6 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   labelAddon,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormItemProps) {
-  const { width } = useWindowDimensions();
-  const formWidth = useMemo(() => (width < 768 ? 'full' : '320'), [width]);
   return (
     <Controller
       name={name}
@@ -46,7 +38,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
         <FormControl
           isInvalid={!!error}
           mb="2"
-          width={formWidth}
+          width="full"
           {...formControlProps}
         >
           <Box

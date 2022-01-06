@@ -12,36 +12,23 @@ type AddCustomTokenValues = {
   decimal: string;
 };
 
-type AddCustomTokenProps = {
-  visible: boolean;
-  defaultValues: AddCustomTokenValues;
-  onSubmit?: (values: AddCustomTokenValues) => void;
-  onClose?: () => void;
-};
-
-const AddCustomToken: FC<AddCustomTokenProps> = ({
-  visible,
-  defaultValues,
-  onSubmit,
-  onClose,
-}) => {
-  const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
-    defaultValues,
-  });
-  const onPress = handleSubmit((data) => onSubmit?.(data));
+export const AddCustomToken: FC = () => {
   const intl = useIntl();
+  const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
+    defaultValues: { address: '', symbol: '', decimal: '' },
+  });
+  const onSubmit = handleSubmit((data) => console.log(data));
+
   return (
     <Modal
-      visible={visible}
       header={intl.formatMessage({
         id: 'action__add_custom_tokens',
         defaultMessage: 'Add Custom Token',
       })}
       hideSecondaryAction
       primaryActionTranslationId="action__add"
-      onClose={onClose}
       onPrimaryActionPress={() => {
-        onPress();
+        onSubmit();
       }}
     >
       <Form>

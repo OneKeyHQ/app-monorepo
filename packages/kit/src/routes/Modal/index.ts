@@ -63,7 +63,7 @@ const modalStackScreenList = [
     component: WatchedAccountModal,
   },
   {
-    name: ManageTokenModalRoutes.ManageTokensModal,
+    name: ManageTokenModalRoutes.ListTokensModal,
     component: ManageTokenModal,
   },
 ];
@@ -86,7 +86,7 @@ export type ModalTypes = {
   [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
   [ImportAccountModalRoutes.ImportAccountModal]: NavigatorScreenParams<ImportAccountRoutesParams>;
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
-  [ManageTokenModalRoutes.ManageTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
+  [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
 };
 
 export default modalStackScreenList;

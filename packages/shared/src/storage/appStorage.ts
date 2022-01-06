@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { isDev, isExtension } from '../platformEnv';
 
+// TODO use localForage (indexedDB fallback)
 import ExtensionStorage from './ExtensionStorage';
 
 // const appStorage: WebStorage = storage; // use redux-persist built-in storage

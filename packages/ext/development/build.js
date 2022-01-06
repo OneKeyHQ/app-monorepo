@@ -4,12 +4,13 @@ process.env.NODE_ENV = 'production';
 process.env.ASSET_PATH = '/';
 
 const webpack = require('webpack');
-const config = require('../webpack.config');
+const configs = require('../webpack.config');
+const devUtils = require('./devUtils');
 
-delete config.chromeExtensionBoilerplate;
+devUtils.cleanWebpackDebugFields(configs, { boilerplate: true });
 
-config.mode = 'production';
+[].concat(configs).forEach((config) => (config.mode = 'production'));
 
-webpack(config, (err) => {
+webpack(configs, (err) => {
   if (err) throw err;
 });

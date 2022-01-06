@@ -1,6 +1,6 @@
 import React, { ComponentProps } from 'react';
 
-import { Input as BaseInput, Divider, Pressable } from 'native-base';
+import { Input as BaseInput, Divider, Pressable, Stack } from 'native-base';
 
 import Icon, { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
@@ -47,6 +47,8 @@ const Input = React.forwardRef<
   ) => {
     const leftElements: JSX.Element[] = [];
     const rightElements: JSX.Element[] = [];
+    let pl = '3';
+    let pr = '3';
     const small = useIsVerticalLayout();
     const textProps = small
       ? getTypographyStyleProps('Body1')
@@ -59,7 +61,6 @@ const Input = React.forwardRef<
       leftElements.push(
         <Text
           typography={{ sm: 'Body1', md: 'Body2' }}
-          ml="2"
           key="leftText"
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
           onPress={onPressLeftText}
@@ -70,7 +71,7 @@ const Input = React.forwardRef<
     }
     if (leftIconName) {
       leftElements.push(
-        <Pressable ml="2" onPress={onPressLeftIcon} key="leftIconName">
+        <Pressable onPress={onPressLeftIcon} key="leftIconName">
           <Icon
             size={20}
             name={leftIconName}
@@ -84,7 +85,6 @@ const Input = React.forwardRef<
         <Text
           typography={{ sm: 'Body1', md: 'Body2' }}
           key="rightText"
-          mr="2"
           onPress={onPressRightText}
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
         >
@@ -94,7 +94,7 @@ const Input = React.forwardRef<
     }
     if (rightIconName) {
       rightElements.push(
-        <Pressable mr="2" onPress={onPressRightIcon} key="rightIconName">
+        <Pressable onPress={onPressRightIcon} key="rightIconName">
           <Icon
             size={20}
             name={rightIconName}
@@ -105,13 +105,12 @@ const Input = React.forwardRef<
     }
     if (rightSecondaryText) {
       if (rightText) {
-        rightElements.push(<Divider orientation="vertical" h="3" mr="2" />);
+        rightElements.push(<Divider orientation="vertical" h="3" />);
       }
       rightElements.push(
         <Text
           typography={{ sm: 'Button1', md: 'Button2' }}
           key="rightText"
-          mr="2"
           onPress={onPressSecondaryRightText}
           color={isDisabled ? 'text-disabled' : 'text-default'}
         >
@@ -122,7 +121,6 @@ const Input = React.forwardRef<
     if (rightSecondaryIconName) {
       rightElements.push(
         <Pressable
-          mr="2"
           onPress={onPressSecondaryRightIcon}
           key="rightSecondaryIconName"
         >
@@ -134,19 +132,38 @@ const Input = React.forwardRef<
         </Pressable>,
       );
     }
+    let inputLeftElement;
+    let inputRightElement;
+    if (leftElements.length > 0) {
+      inputLeftElement = (
+        <Stack space="2" ml="3" direction="row" alignItems="center">
+          {leftElements}
+        </Stack>
+      );
+      pl = '2';
+    }
+    if (rightElements.length > 0) {
+      inputRightElement = (
+        <Stack space="2" mr="3" direction="row" alignItems="center">
+          {rightElements}
+        </Stack>
+      );
+      pr = '2';
+    }
     return (
       <BaseInput
         ref={ref}
         isDisabled={isDisabled}
-        InputLeftElement={leftElements}
-        InputRightElement={rightElements}
+        InputLeftElement={inputLeftElement}
+        InputRightElement={inputRightElement}
         w="80"
         borderColor="border-default"
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}
         borderRadius="12"
         py="2"
-        px="2"
+        pl={pl}
+        pr={pr}
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',

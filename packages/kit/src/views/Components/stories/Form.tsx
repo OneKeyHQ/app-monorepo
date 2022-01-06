@@ -108,10 +108,6 @@ const FormGallery = () => {
             containerProps={{
               zIndex: 999,
             }}
-            triggerProps={{
-              paddingTop: 2,
-              paddingBottom: 2,
-            }}
             title="Preset RPC URL"
             footer={null}
             options={options}
