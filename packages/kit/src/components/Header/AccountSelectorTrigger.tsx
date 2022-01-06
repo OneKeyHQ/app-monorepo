@@ -26,7 +26,7 @@ const AccountSelectorTrigger: FC<Props> = ({
       p="1"
       onPress={handleToggleVisible}
     >
-      <Account address={address} name={isSmallScreen ? '' : label} />
+      <Account address={address} name={isSmallScreen ? undefined : label} />
       <Icon name="SelectorOutline" />
     </Pressable>
   );

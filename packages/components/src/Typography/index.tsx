@@ -273,7 +273,7 @@ export const CaptionUnderline: FC<FontProps> = ({ children, ...rest }) => (
 );
 
 type TextProps = {
-  typography:
+  typography?:
     | TypographyStyle
     | { 'sm': TypographyStyle; 'md': TypographyStyle };
 } & FontProps;
@@ -281,12 +281,14 @@ type TextProps = {
 export const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   let props;
-  if (typeof typography === 'string') {
-    props = getTypographyStyleProps(typography);
-  } else {
-    props = getTypographyStyleProps(
-      isSmallScreen ? typography.sm : typography.md,
-    );
+  if (typography) {
+    if (typeof typography === 'string') {
+      props = getTypographyStyleProps(typography);
+    } else {
+      props = getTypographyStyleProps(
+        isSmallScreen ? typography.sm : typography.md,
+      );
+    }
   }
   return (
     <NBText color="text-default" {...props} {...rest}>
