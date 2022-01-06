@@ -45,7 +45,13 @@ export type SelectProps<T = string> = {
   containerProps?: ComponentProps<typeof Box>;
   triggerProps?: ComponentProps<typeof Pressable>;
   dropdownProps?: ComponentProps<typeof Box>;
-  renderTrigger?: (activeItem: SelectItem<T>) => ReactNode;
+  renderTrigger?: (
+    activeItem: SelectItem<T>,
+    isHovered: boolean,
+    isFocused: boolean,
+    isPressed: boolean,
+    visible: boolean,
+  ) => ReactNode;
   renderItem?: (
     item: SelectItem<T>,
     isActive: boolean,
@@ -199,73 +205,92 @@ function Select<T = string>({
 
   return (
     <Box w="full" position="relative" {...containerProps}>
-      <Pressable
-        w="full"
-        onPress={toggleVisible}
-        borderWidth={isTriggerPlain || renderTrigger ? undefined : '1'}
-        borderColor={
-          isTriggerPlain || renderTrigger ? undefined : 'border-default'
-        }
-        bg={
-          isTriggerPlain || renderTrigger
-            ? undefined
-            : 'action-secondary-default'
-        }
-        borderRadius={renderTrigger ? undefined : 'xl'}
-        _hover={
-          // eslint-disable-next-line no-nested-ternary
-          renderTrigger
-            ? {}
-            : isTriggerPlain
-            ? { bg: 'surface-hovered' }
-            : { borderColor: 'border-hovered' }
-        }
-        {...triggerProps}
-      >
-        {renderTrigger?.(activeOption) ?? (
-          <Box
-            display="flex"
-            flexDirection="row"
-            alignItems="center"
-            // bg={visible ? 'surface-selected' : 'transparent'}
-            py="2"
-            pl="3"
-            pr="2.5"
-          >
-            <Box display="flex" flexDirection="row" alignItems="center" mr="1">
-              {!!activeOption.tokenProps && (
-                <Box mr="3">
-                  <Token
-                    size={activeOption.description ? 8 : 6}
-                    {...activeOption.tokenProps}
-                  />
-                </Box>
-              )}
-              {!!activeOption.iconProps && (
-                <Box mr="3">
-                  <Icon size={6} {...activeOption.iconProps} />
-                </Box>
-              )}
-              <Box>
-                {isSmallScreen ? (
-                  <Typography.Body1 numberOfLines={1}>
-                    {activeOption.label ?? '-'}
-                  </Typography.Body1>
-                ) : (
-                  <Typography.Body2 numberOfLines={1}>
-                    {activeOption.label ?? '-'}
-                  </Typography.Body2>
+      <Pressable w="full" onPress={toggleVisible} {...triggerProps}>
+        {({ isHovered, isFocused, isPressed }) =>
+          renderTrigger?.(
+            activeOption,
+            isHovered,
+            isFocused,
+            isPressed,
+            visible,
+          ) ?? (
+            <Box
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+              py="2"
+              pl="3"
+              pr="2.5"
+              borderWidth={isTriggerPlain ? undefined : '1'}
+              borderColor={
+                // eslint-disable-next-line no-nested-ternary
+                isTriggerPlain
+                  ? undefined
+                  : // eslint-disable-next-line no-nested-ternary
+                  visible
+                  ? 'focused-default'
+                  : isHovered
+                  ? 'border-hovered'
+                  : 'border-default'
+              }
+              borderRadius="xl"
+              bg={
+                // eslint-disable-next-line no-nested-ternary
+                visible
+                  ? 'surface-selected'
+                  : // eslint-disable-next-line no-nested-ternary
+                  isHovered
+                  ? 'surface-hovered'
+                  : isTriggerPlain
+                  ? undefined
+                  : 'surface-default'
+              }
+            >
+              <Box
+                display="flex"
+                flexDirection="row"
+                alignItems="center"
+                mr="1"
+              >
+                {!!activeOption.tokenProps && (
+                  <Box mr="3">
+                    <Token
+                      size={activeOption.description ? 8 : 6}
+                      {...activeOption.tokenProps}
+                    />
+                  </Box>
                 )}
-                {activeOption.description && (
-                  <Typography.Body2 color="text-subdued">
-                    {activeOption.description ?? '-'}
-                  </Typography.Body2>
+                {!!activeOption.iconProps && (
+                  <Box mr="3">
+                    <Icon size={6} {...activeOption.iconProps} />
+                  </Box>
                 )}
+                <Box>
+                  {isSmallScreen ? (
+                    <Typography.Body1 numberOfLines={1}>
+                      {activeOption.label ?? '-'}
+                    </Typography.Body1>
+                  ) : (
+                    <Typography.Body2 numberOfLines={1}>
+                      {activeOption.label ?? '-'}
+                    </Typography.Body2>
+                  )}
+                  {activeOption.description && (
+                    <Typography.Body2 color="text-subdued">
+                      {activeOption.description ?? '-'}
+                    </Typography.Body2>
+                  )}
+                </Box>
               </Box>
+              <NBIcon
+                as={ChevronDown}
+                size={5}
+                color="icon-default"
+                ml="auto"
+              />
             </Box>
-            <NBIcon as={ChevronDown} size={5} color="icon-default" ml="auto" />
-          </Box>
-        )}
+          )
+        }
       </Pressable>
       {container}
     </Box>
