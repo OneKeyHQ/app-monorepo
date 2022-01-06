@@ -10,7 +10,7 @@ const Swap = () => {
   const url = `https://swap.test.onekey.so/#/swap?theme=${themeVariant}&locale=${locale}`;
   return (
     <Box flex="1">
-      <WebView src={url} openUrlInExt />
+      <WebView key={url} src={url} openUrlInExt />
     </Box>
   );
 };

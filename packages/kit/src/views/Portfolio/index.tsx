@@ -10,7 +10,7 @@ const Portfolio = () => {
   const url = `https://portfolio.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
   return (
     <Box flex="1">
-      <WebView src={url} openUrlInExt />
+      <WebView key={url} src={url} openUrlInExt />
     </Box>
   );
 };
