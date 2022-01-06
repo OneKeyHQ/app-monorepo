@@ -91,7 +91,7 @@ function Desktop<T>({
         ) : (
           <Box p="1.5" borderTopWidth={1} borderTopColor="border-subdued">
             <Button
-              size="xs"
+              size="sm"
               type="plain"
               leftIconName={footerIcon}
               onPress={onPressFooter}
