@@ -1,14 +1,26 @@
+type OpenUrlRouteInfo = {
+  route: string;
+  hash?: string;
+};
+
+function buildExtRouteUrl(
+  htmlFile: string,
+  { route, hash = '' }: OpenUrlRouteInfo,
+) {
+  return chrome.runtime.getURL(`/${htmlFile}?route=${route}#${hash}`);
+}
+
 function openUrl(url: string) {
   window.open(url, '_blank');
 }
 
-function openStandaloneWindow({
-  route,
-  hash = '',
-}: {
-  route: string;
-  hash?: string;
-}) {
+function openExpandTab(routeInfo: OpenUrlRouteInfo) {
+  const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
+  window.open(url, '_blank');
+}
+
+function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
+  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   return chrome.windows.create({
     focused: true,
     type: 'popup',
@@ -16,20 +28,21 @@ function openStandaloneWindow({
     height: 600 + 50, // height including title bar, so should add 50 more
     width: 375,
     // check useAutoRedirectToRoute()
-    url: `/ui-standalone-window.html?route=${route}#${hash}`,
+    url,
   });
 }
 
 // TODO open only single approval window
 function openApprovalWindow() {
   return openStandaloneWindow({
-    route: 'Components/Approval',
+    route: 'component/approval',
     hash: 'approval-window',
   });
 }
 
 export default {
   openUrl,
+  openExpandTab,
   openStandaloneWindow,
   openApprovalWindow,
 };

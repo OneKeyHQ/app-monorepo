@@ -21,6 +21,8 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/Transaction';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import extUtils from '../../../utils/extUtils';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -81,10 +83,10 @@ const AccountInfo = () => {
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
-        {platformEnv.isExtensionUi && (
+        {platformEnv.isExtensionUiPopup && (
           <IconButton
             onPress={() => {
-              window.open(window.location.href);
+              extUtils.openExpandTab({ route: '/' });
             }}
             ml={4}
             name="ArrowsExpandOutline"

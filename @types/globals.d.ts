@@ -21,6 +21,9 @@ declare global {
   var $$platformEnv: any;
   var $$debugLogger: any;
 
+  var chrome: typeof chrome; // chrome api
+  var browser: typeof chrome; // firefox api
+
   interface Window {
     // All website
     ethereum: any;

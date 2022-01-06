@@ -149,8 +149,6 @@ function createConfig() {
       new webpack.ProvidePlugin({
         process: 'process/browser',
       }),
-      ...pluginsCopy,
-      ...pluginsHtml,
     ],
     infrastructureLogging: {
       level: 'info',
@@ -242,19 +240,25 @@ const multipleEntryConfigs = [
         hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
         automaticNameDelimiter: '.', // ~ => .
       };
+      config.plugins = [...config.plugins, ...pluginsHtml.uiHtml];
       return config;
     },
   },
   {
     config: {
       name: 'background',
-      // dependencies: ['ui'],
+      dependencies: ['ui'],
       entry: {
         'background': path.join(__dirname, 'src/entry/background.ts'),
         'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
       },
     },
     configUpdater(config) {
+      config.plugins = [
+        ...config.plugins,
+        ...pluginsHtml.backgroundHtml,
+        ...pluginsCopy,
+      ];
       return config;
     },
   },

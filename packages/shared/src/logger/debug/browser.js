@@ -216,7 +216,13 @@ function formatArgs(args) {
  *
  * @api public
  */
-exports.log = console.debug || console.log || (() => {});
+exports.log = (...args) => {
+  if (console.debug) {
+    console.debug(...args);
+  } else if (console.log) {
+    console.log(...args);
+  }
+};
 
 /**
  * Save `namespaces`.

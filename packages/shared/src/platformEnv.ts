@@ -47,10 +47,7 @@ export const isExtensionBackground = (): boolean =>
   global.serviceWorker instanceof ServiceWorker;
 
 export const isExtensionUi = (): boolean =>
-  isExtension() &&
-  isBrowser() &&
-  window.location.host === chrome.runtime.id &&
-  window.location.pathname.startsWith('/ui-');
+  isExtension() && isBrowser() && window.location.pathname.startsWith('/ui-');
 
 export const isExtensionUiPopup = (): boolean =>
   isExtensionUi() && window.location.pathname.startsWith('/ui-popup.html');
