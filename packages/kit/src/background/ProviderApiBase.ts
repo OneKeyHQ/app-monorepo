@@ -24,7 +24,7 @@ abstract class ProviderApiBase {
     return this.backgroundApi.walletApi as WalletApi;
   }
 
-  protected abstract providerName: IInjectedProviderNamesStrings;
+  public abstract providerName: IInjectedProviderNamesStrings;
 
   public abstract notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,

@@ -17,7 +17,7 @@ import ProviderApiBase, {
 } from './ProviderApiBase';
 
 class ProviderApiEthereum extends ProviderApiBase {
-  protected providerName = IInjectedProviderNames.ethereum;
+  public providerName = IInjectedProviderNames.ethereum;
 
   // @ts-expect-error
   @permissionRequired()

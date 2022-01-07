@@ -45,7 +45,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappAccountsChanged({
         address,
-        send: this.sendMessagesToInjectedBridge,
+        send: this.sendForProvider(provider.providerName),
       });
     });
   }
@@ -58,7 +58,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappChainChanged({
         chainId,
-        send: this.sendMessagesToInjectedBridge,
+        send: this.sendForProvider(provider.providerName),
       });
     });
   }

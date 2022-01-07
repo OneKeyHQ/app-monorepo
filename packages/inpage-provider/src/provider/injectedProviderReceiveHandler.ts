@@ -7,7 +7,12 @@ function injectedProviderReceiveHandler(payload: IJsBridgeMessagePayload) {
   // ethereum, solana, conflux
   const providerHub = window.$onekey;
 
-  console.log('ethereum onMessage', payload);
+  // TODO providerName check
+  const providerName = payload.scope;
+  console.log(
+    `injectedProviderReceiveHandler onMessage from (${providerName as string})`,
+    payload,
+  );
   const payloadData = payload.data as IJsonRpcRequest;
   const { method } = payloadData;
 

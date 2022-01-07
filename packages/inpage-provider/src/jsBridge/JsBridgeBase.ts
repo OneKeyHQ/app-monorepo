@@ -242,13 +242,16 @@ abstract class JsBridgeBase extends EventEmitter {
 
   public requestSync({
     data,
+    scope,
     remoteId,
   }: {
     data: unknown;
+    scope?: IInjectedProviderNamesStrings;
     remoteId?: number | string | null;
   }): void {
     this.send({
       type: IJsBridgeMessageTypes.REQUEST,
+      scope,
       data,
       remoteId,
       sync: true,
