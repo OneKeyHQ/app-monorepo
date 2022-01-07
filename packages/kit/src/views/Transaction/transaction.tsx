@@ -109,7 +109,7 @@ const Transaction = () => {
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
       headerDescription="Ethereum"
-      height="640px"
+      height="576px"
       footer={
         <Column>
           <Divider />
