@@ -32,7 +32,7 @@ const TransactionEditFee = ({ ...rest }) => {
   const [radioValue, setValue] = useState('1');
 
   const SelectFee = () => (
-    <ScrollView pt="24px" flex="1" bg="background-hovered">
+    <ScrollView pt="24px" flex="1" bg="surface-subdued">
       <RadioFee
         padding="0px"
         items={[
@@ -152,7 +152,6 @@ const TransactionEditFee = ({ ...rest }) => {
       </Button>
     );
   const { bottom } = useSafeAreaInsets();
-
   return (
     <Modal
       trigger={trigger}
@@ -167,7 +166,7 @@ const TransactionEditFee = ({ ...rest }) => {
             alignItems="center"
             paddingX="24px"
             paddingTop="16px"
-            paddingBottom={bottom}
+            paddingBottom={bottom + 16}
           >
             {saveButton()}
           </Row>

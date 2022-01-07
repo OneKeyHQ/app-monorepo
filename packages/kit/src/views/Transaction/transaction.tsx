@@ -118,7 +118,7 @@ const Transaction = () => {
             alignItems="center"
             paddingX="24px"
             paddingTop="16px"
-            paddingBottom={bottom}
+            paddingBottom={bottom + 16}
           >
             <Column>
               <Typography.Body2 color="text-subdued">
@@ -140,9 +140,7 @@ const Transaction = () => {
                 );
               }}
             >
-              <Typography.Body1Strong>
-                {intl.formatMessage({ id: 'action__continue' })}
-              </Typography.Body1Strong>
+              {intl.formatMessage({ id: 'action__continue' })}
             </Button>
           </Row>
         </Column>
