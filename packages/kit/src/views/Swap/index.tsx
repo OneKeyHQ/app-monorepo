@@ -1,13 +1,18 @@
 import React from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { Box, useLocale, useTheme } from '@onekeyhq/components';
 
 import WebView from '../../components/WebView';
 
-const Swap = () => (
-  <Box flex="1">
-    <WebView src="https://swap.test.onekey.so/#/" openUrlInExt />
-  </Box>
-);
+const Swap = () => {
+  const { themeVariant } = useTheme();
+  const { locale } = useLocale();
+  const url = `https://swap.test.onekey.so/#/swap?theme=${themeVariant}&locale=${locale}`;
+  return (
+    <Box flex="1">
+      <WebView key={url} src={url} openUrlInExt />
+    </Box>
+  );
+};
 
 export default Swap;
