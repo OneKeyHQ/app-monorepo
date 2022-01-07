@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { Tabs } from 'react-native-collapsible-tab-view';
 
 import {
   Badge,
@@ -23,7 +24,6 @@ import TransactionRecord, {
   Transaction,
   getTransactionStatusStr,
 } from '../../Components/transactionRecord';
-import { ScrollRoute } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -145,8 +145,7 @@ const toTransactionSection = (_data: Transaction[]): TransactionGroup[] => {
   }, []);
 };
 
-const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
-  const tabPageIndex = route.index;
+const HistoricalRecords = () => {
   const intl = useIntl();
   const navigation =
     useNavigation<ModalTransactionDetailScreenNavigationProp>();
@@ -241,30 +240,18 @@ const HistoricalRecords = ({ route }: { route: ScrollRoute }) => {
   );
 
   return (
-    <>
-      <Box flex={1} pt={4} pr={4} pl={4}>
-        <ScrollableSectionList<Transaction>
-          index={tabPageIndex}
-          sections={transactionRecords}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={() => <Box h="20px" />}
-          ItemSeparatorComponent={() => <Divider />}
-          keyExtractor={(_, index: number) => index.toString()}
-          showsVerticalScrollIndicator={false}
-        />
-      </Box>
-      {/* <Modal
-        footer={<Box />}
-        header={getTransactionStatusStr(intl, detailsInfo?.state)}
-        visible={detailsVisible}
-        onClose={() => setDetailsVisible(false)}
-      >
-        <TransactionDetails txId={detailsInfo?.txId ?? ''} />
-      </Modal> */}
-    </>
+    <Tabs.SectionList
+      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
+      sections={transactionRecords}
+      renderItem={renderItem}
+      renderSectionHeader={renderSectionHeader}
+      ListHeaderComponent={renderHeader}
+      ListEmptyComponent={renderEmpty}
+      ListFooterComponent={() => <Box h="20px" />}
+      ItemSeparatorComponent={() => <Divider />}
+      keyExtractor={(_, index: number) => index.toString()}
+      showsVerticalScrollIndicator={false}
+    />
   );
 };
 

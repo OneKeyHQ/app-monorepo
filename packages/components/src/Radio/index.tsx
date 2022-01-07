@@ -70,11 +70,9 @@ const Radio: FC<RadioProps> = ({
           isDisabled={isDisabled}
           borderRadius="full"
           borderColor="border-default"
+          bg="surface-default"
           // @ts-expect-error
           _hover={{
-            borderColor: isChecked
-              ? 'action-primary-default'
-              : 'border-default',
             _interactionBox: {
               bg: 'surface-hovered',
             },

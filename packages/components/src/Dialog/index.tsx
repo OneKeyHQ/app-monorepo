@@ -80,36 +80,38 @@ const Dialog: FC<DialogProps> = ({
         }}
         {...props}
       >
-        <Box
-          shadow="depth.5"
-          p={{ base: '4', lg: '6' }}
-          w="100%"
-          maxW="384px"
-          alignSelf="center"
-          borderRadius="24px"
-          bg="surface-subdued"
-        >
-          {props.children ? (
-            props.children
-          ) : (
-            <Box>
-              {!!contentProps && <DialogCommon.Content {...contentProps} />}
-              {(!footerButtonProps?.hidePrimaryAction ||
-                !footerButtonProps?.hideSecondaryAction) && (
-                <DialogCommon.FooterButton
-                  buttonSize={buttonSize()}
-                  {...footerButtonProps}
-                  onSecondaryActionPress={() => {
-                    handleClose();
-                    footerButtonProps?.onSecondaryActionPress?.();
-                  }}
-                  onPrimaryActionPress={() => {
-                    footerButtonProps?.onPrimaryActionPress?.({ onClose });
-                  }}
-                />
-              )}
-            </Box>
-          )}
+        <Box m={6}>
+          <Box
+            shadow="depth.5"
+            p={{ base: '4', lg: '6' }}
+            w="100%"
+            maxW="384px"
+            alignSelf="center"
+            borderRadius="24px"
+            bg="surface-subdued"
+          >
+            {props.children ? (
+              props.children
+            ) : (
+              <Box>
+                {!!contentProps && <DialogCommon.Content {...contentProps} />}
+                {(!footerButtonProps?.hidePrimaryAction ||
+                  !footerButtonProps?.hideSecondaryAction) && (
+                  <DialogCommon.FooterButton
+                    buttonSize={buttonSize()}
+                    {...footerButtonProps}
+                    onSecondaryActionPress={() => {
+                      handleClose();
+                      footerButtonProps?.onSecondaryActionPress?.();
+                    }}
+                    onPrimaryActionPress={() => {
+                      footerButtonProps?.onPrimaryActionPress?.({ onClose });
+                    }}
+                  />
+                )}
+              </Box>
+            )}
+          </Box>
         </Box>
       </Modal>
     ),

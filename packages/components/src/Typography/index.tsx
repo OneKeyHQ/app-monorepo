@@ -100,14 +100,14 @@ export const CaptionProps = {
   lineHeight: 16,
 };
 
-const Body1StrongProps = {
+export const Body1StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 16,
   lineHeight: 24,
 };
 
-const Body1UnderlineProps = {
+export const Body1UnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 16,
@@ -115,14 +115,14 @@ const Body1UnderlineProps = {
   underline: true,
 };
 
-const Body2StrongProps = {
+export const Body2StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 14,
   lineHeight: 20,
 };
 
-const Body2UnderlineProps = {
+export const Body2UnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 14,
@@ -130,14 +130,14 @@ const Body2UnderlineProps = {
   underline: true,
 };
 
-const CaptionStrongProps = {
+export const CaptionStrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: 'semibold',
   fontSize: 12,
   lineHeight: 16,
 };
 
-const CaptionUnderlineProps = {
+export const CaptionUnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
   fontWeight: 'medium',
   fontSize: 12,
@@ -273,7 +273,7 @@ export const CaptionUnderline: FC<FontProps> = ({ children, ...rest }) => (
 );
 
 type TextProps = {
-  typography:
+  typography?:
     | TypographyStyle
     | { 'sm': TypographyStyle; 'md': TypographyStyle };
 } & FontProps;
@@ -281,12 +281,14 @@ type TextProps = {
 export const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   let props;
-  if (typeof typography === 'string') {
-    props = getTypographyStyleProps(typography);
-  } else {
-    props = getTypographyStyleProps(
-      isSmallScreen ? typography.sm : typography.md,
-    );
+  if (typography) {
+    if (typeof typography === 'string') {
+      props = getTypographyStyleProps(typography);
+    } else {
+      props = getTypographyStyleProps(
+        isSmallScreen ? typography.sm : typography.md,
+      );
+    }
   }
   return (
     <NBText color="text-default" {...props} {...rest}>

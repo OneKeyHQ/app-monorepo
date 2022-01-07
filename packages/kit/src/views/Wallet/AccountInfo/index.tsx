@@ -43,7 +43,7 @@ const AccountInfo = () => {
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
-      <Box alignItems={isCenter ? 'center' : 'flex-start'} mt={8}>
+      <Box alignItems={isCenter ? 'center' : 'flex-start'}>
         <Typography.Subheading color="text-subdued">
           {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
         </Typography.Subheading>
@@ -59,7 +59,7 @@ const AccountInfo = () => {
 
   const accountOption = useMemo(
     () => (
-      <Box flexDirection="row" mt={8} justifyContent="center">
+      <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
           size={isSmallScreen ? 'lg' : 'base'}
           leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
@@ -100,16 +100,20 @@ const AccountInfo = () => {
   return useMemo(() => {
     if (isSmallView) {
       return (
-        <Box w="100%" flexDirection="column" bgColor="background-default">
+        <Box
+          w="100%"
+          flexDirection="column"
+          bgColor="background-default"
+          py={8}
+        >
           {renderAccountAmountInfo(true)}
-          {accountOption}
+          <Box mt={8}>{accountOption}</Box>
         </Box>
       );
     }
     return (
       <Box
-        pl={4}
-        pr={4}
+        py={12}
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
