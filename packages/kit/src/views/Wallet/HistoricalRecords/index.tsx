@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { SectionListProps } from 'react-native';
 import { Tabs } from 'react-native-collapsible-tab-view';
 
 import {
@@ -12,8 +13,6 @@ import {
   Empty,
   Icon,
   Pressable,
-  ScrollableSectionList,
-  ScrollableSectionListProps,
   Typography,
 } from '@onekeyhq/components';
 import { ModalTypes } from '@onekeyhq/kit/src/routes';
@@ -22,7 +21,6 @@ import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Tra
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord, {
   Transaction,
-  getTransactionStatusStr,
 } from '../../Components/transactionRecord';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -160,7 +158,7 @@ const HistoricalRecords = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const renderItem: ScrollableSectionListProps<Transaction>['renderItem'] = ({
+  const renderItem: SectionListProps<Transaction>['renderItem'] = ({
     item,
     index,
     section,
@@ -187,7 +185,7 @@ const HistoricalRecords = () => {
     </Pressable.Item>
   );
 
-  const renderSectionHeader: ScrollableSectionListProps<Transaction>['renderSectionHeader'] =
+  const renderSectionHeader: SectionListProps<Transaction>['renderSectionHeader'] =
     ({ section: { title, data } }) => (
       <Box pt={3} flexDirection="row">
         <Box
@@ -251,6 +249,7 @@ const HistoricalRecords = () => {
       ItemSeparatorComponent={() => <Divider />}
       keyExtractor={(_, index: number) => index.toString()}
       showsVerticalScrollIndicator={false}
+      stickySectionHeadersEnabled={false}
     />
   );
 };

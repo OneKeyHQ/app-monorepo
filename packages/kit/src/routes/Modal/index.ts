@@ -1,3 +1,7 @@
+import CollectibleModal, {
+  CollectiblesModalRoutes,
+  CollectiblesRoutesParams,
+} from './Collectibles';
 import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -66,6 +70,10 @@ const modalStackScreenList = [
     name: ManageTokenModalRoutes.ListTokensModal,
     component: ManageTokenModal,
   },
+  {
+    name: CollectiblesModalRoutes.CollectionModal,
+    component: CollectibleModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -76,6 +84,7 @@ export const ModalRoutes = {
   ...TransactionDetailModalRoutes,
   ...ImportAccountModalRoutes,
   ...WatchedAccountModalRoutes,
+  ...CollectiblesModalRoutes,
 };
 
 export type ModalTypes = {
@@ -87,6 +96,7 @@ export type ModalTypes = {
   [ImportAccountModalRoutes.ImportAccountModal]: NavigatorScreenParams<ImportAccountRoutesParams>;
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
   [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
+  [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
 };
 
 export default modalStackScreenList;
