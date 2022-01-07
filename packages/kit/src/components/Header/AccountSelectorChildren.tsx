@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { ComponentProps, FC, useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,16 +6,19 @@ import { useIntl } from 'react-intl';
 import {
   Account,
   Box,
-  Divider,
   FlatList,
+  HStack,
   Icon,
   IconButton,
+  Image,
   Pressable,
+  ScrollView,
   Select,
   Typography,
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
+// import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -57,6 +60,31 @@ type ChildrenProps = {
   handleToggleVisible: () => void;
 };
 
+type CustomSelectTriggerProps = {
+  isSelectVisible?: boolean;
+  isTriggerHovered?: boolean;
+};
+
+const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
+  isSelectVisible,
+  isTriggerHovered,
+}) => (
+  <Box
+    p={2}
+    borderRadius="xl"
+    bg={
+      // eslint-disable-next-line no-nested-ternary
+      isSelectVisible
+        ? 'surface-selected'
+        : isTriggerHovered
+        ? 'surface-hovered'
+        : 'transparent'
+    }
+  >
+    <Icon size={20} name="DotsHorizontalSolid" />
+  </Box>
+);
+
 const AccountSelectorChildren: FC<ChildrenProps> = ({
   handleToggleVisible,
 }) => {
@@ -91,61 +119,70 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               label: intl.formatMessage({ id: 'action__rename' }),
               value: 'rename',
               iconProps: {
-                name: 'TagOutline',
+                name: ['SMALL', 'NORMAL'].includes(size)
+                  ? 'TagOutline'
+                  : 'TagSolid',
               },
             },
             {
               label: intl.formatMessage({ id: 'action__add_account' }),
               value: 'addAccount',
               iconProps: {
-                name: 'PlusCircleOutline',
+                name: ['SMALL', 'NORMAL'].includes(size)
+                  ? 'PlusCircleOutline'
+                  : 'PlusCircleSolid',
               },
             },
             {
               label: intl.formatMessage({ id: 'action__view_details' }),
               value: 'detail',
               iconProps: {
-                name: 'DocumentTextSolid',
+                name: ['SMALL', 'NORMAL'].includes(size)
+                  ? 'DocumentTextOutline'
+                  : 'DocumentTextSolid',
               },
             },
             {
               label: intl.formatMessage({ id: 'action__export_private_key' }),
               value: 'export',
               iconProps: {
-                name: 'UploadSolid',
+                name: ['SMALL', 'NORMAL'].includes(size)
+                  ? 'UploadOutline'
+                  : 'UploadSolid',
               },
             },
             {
               label: intl.formatMessage({ id: 'action__remove_account' }),
               value: 'remove',
               iconProps: {
-                name: 'TrashSolid',
+                name: ['SMALL', 'NORMAL'].includes(size)
+                  ? 'TrashOutline'
+                  : 'TrashSolid',
               },
               destructive: true,
             },
           ]}
-          triggerProps={{
-            width: 'auto',
-            py: 1,
-            px: 2,
-            borderRadius: 32,
-          }}
           headerShown={false}
           footer={null}
           containerProps={{ width: 'auto' }}
           dropdownProps={{
-            width: ['SMALL', 'NORMAL'].includes(size) ? '100%' : 248,
+            width: 248,
           }}
-          renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
+          renderTrigger={(activeOption, isHovered, visible) => (
+            <CustomSelectTrigger
+              isTriggerHovered={isHovered}
+              isSelectVisible={visible}
+            />
+          )}
         />
       );
     }
 
     if (type === 'watched') {
       return (
-        <Pressable
-          px="2"
-          justifyContent="center"
+        <IconButton
+          name="PlusSolid"
+          type="plain"
           onPress={() => {
             handleToggleVisible();
             setTimeout(
@@ -156,17 +193,15 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               150,
             );
           }}
-        >
-          <Icon name="PlusOutline" />
-        </Pressable>
+        />
       );
     }
 
     if (type === 'imported') {
       return (
-        <Pressable
-          px="2"
-          justifyContent="center"
+        <IconButton
+          name="PlusSolid"
+          type="plain"
           onPress={() => {
             handleToggleVisible();
             setTimeout(
@@ -177,139 +212,175 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               150,
             );
           }}
-        >
-          <Icon name="PlusOutline" />
-        </Pressable>
+        />
       );
     }
   }
 
+  type WalletItemProps = {
+    isSelected?: boolean;
+    decorationColor?: string;
+    walletType?: AccountType;
+    emoji?: string;
+    deviceIconUrl?: string;
+  } & ComponentProps<typeof Pressable>;
+
+  const WalletItemDefaultProps = {
+    isSelected: false,
+    decorationColor: 'surface-neutral-default',
+  } as const;
+
+  const WalletItem: FC<WalletItemProps> = ({
+    isSelected,
+    decorationColor,
+    walletType,
+    emoji,
+    deviceIconUrl,
+    ...rest
+  }) => (
+    <Pressable {...rest}>
+      {({ isHovered }) => (
+        <HStack pr={2} space="5px">
+          <Box
+            w="3px"
+            borderTopRightRadius="full"
+            borderBottomRightRadius="full"
+            bg={
+              // eslint-disable-next-line no-nested-ternary
+              isSelected
+                ? 'interactive-default'
+                : isHovered
+                ? 'icon-subdued'
+                : 'transparent'
+            }
+          />
+          <Box
+            w={12}
+            h={12}
+            bg={decorationColor}
+            borderRadius={isSelected ? 'xl' : 'full'}
+            alignItems="center"
+            justifyContent="center"
+          >
+            {walletType === 'normal' && (
+              <Typography.DisplayLarge>
+                {emoji && emoji}
+              </Typography.DisplayLarge>
+            )}
+            {walletType === 'hd' && (
+              <Image
+                width="22px"
+                height="32px"
+                source={{ uri: deviceIconUrl }}
+              />
+            )}
+            {walletType === 'imported' && <Icon name="SaveOutline" />}
+            {walletType === 'watched' && <Icon name="EyeOutline" />}
+          </Box>
+        </HStack>
+      )}
+    </Pressable>
+  );
+
+  WalletItem.defaultProps = WalletItemDefaultProps;
+
   return (
     <>
-      <Box p="2">
-        <VStack space={2}>
-          <Box
-            borderLeftWidth="3px"
-            borderColor={
-              activeAccountType === 'normal'
-                ? 'interactive-default'
-                : 'transparent'
-            }
-            pl="1"
-          >
-            <Pressable
-              w="48px"
-              h="48px"
-              bg="#FFF7D7"
-              borderRadius="48px"
-              justifyContent="center"
-              alignItems="center"
-              onPress={() => setActiveAccountType('normal')}
-            >
-              <Typography.Heading>👽</Typography.Heading>
-            </Pressable>
-          </Box>
-        </VStack>
-        <Divider bg="border-subdued" my="2" />
-        <VStack space={2}>
-          <Box
-            borderLeftWidth="3px"
-            borderColor={
-              activeAccountType === 'hd' ? 'interactive-default' : 'transparent'
-            }
-            pl="1"
-          >
-            <Pressable
-              w="48px"
-              h="48px"
-              bg="#FFE0DF"
-              borderRadius="48px"
-              justifyContent="center"
-              alignItems="center"
-              onPress={() => setActiveAccountType('hd')}
-            >
-              <Typography.Heading>👽</Typography.Heading>
-            </Pressable>
-          </Box>
-        </VStack>
-        <Divider bg="border-subdued" my="2" />
-        <VStack space={2}>
-          <Box
-            borderLeftWidth="3px"
-            borderColor={
-              activeAccountType === 'imported'
-                ? 'interactive-default'
-                : 'transparent'
-            }
-            pl="1"
-          >
-            <Pressable
-              w="48px"
-              h="48px"
-              bg="surface-neutral-default"
-              borderRadius="48px"
-              justifyContent="center"
-              alignItems="center"
-              onPress={() => setActiveAccountType('imported')}
-            >
-              <Icon name="InboxInOutline" />
-            </Pressable>
-          </Box>
-          <Box
-            borderLeftWidth="3px"
-            borderColor={
-              activeAccountType === 'watched'
-                ? 'interactive-default'
-                : 'transparent'
-            }
-            pl="1"
-          >
-            <Pressable
-              w="48px"
-              h="48px"
-              bg="surface-neutral-default"
-              borderRadius="48px"
-              justifyContent="center"
-              alignItems="center"
-              onPress={() => setActiveAccountType('watched')}
-            >
-              <Icon name="EyeOutline" />
-            </Pressable>
-          </Box>
-        </VStack>
-        <Divider bg="border-subdued" my="2" />
-      </Box>
-      <Divider orientation="vertical" bg="border-subdued" />
-      <Box p="2" flex="1">
-        <Box
-          p="2"
-          flexDirection="row"
-          justifyContent="space-between"
-          width="100%"
-          zIndex={99}
-        >
-          <Box>
-            <Typography.Body1>Wallet #2</Typography.Body1>
-            <Typography.Caption>Network: Ethereum</Typography.Caption>
-          </Box>
-          {renderSideAction(activeAccountType, handleChange)}
+      <VStack borderRightWidth={1} borderRightColor="border-subdued">
+        <ScrollView>
+          <VStack space={6} py={2}>
+            {/* APP Wallet */}
+            <VStack space={2}>
+              <WalletItem
+                onPress={() => setActiveAccountType('normal')}
+                isSelected={activeAccountType === 'normal'}
+                decorationColor="#FFF7D7"
+                walletType="normal"
+                emoji="👽"
+              />
+            </VStack>
+            {/* Hardware Wallet */}
+            {/* <VStack space={2}>
+              <WalletItem
+                onPress={() => setActiveAccountType('hd')}
+                isSelected={activeAccountType === 'hd'}
+                decorationColor="#FFE0DF"
+                walletType="hd"
+                deviceIconUrl={MiniDeviceIcon}
+              />
+            </VStack> */}
+            {/* Imported or watched wallet */}
+            <VStack space={2}>
+              <WalletItem
+                onPress={() => setActiveAccountType('imported')}
+                isSelected={activeAccountType === 'imported'}
+                walletType="imported"
+              />
+              <WalletItem
+                onPress={() => setActiveAccountType('watched')}
+                isSelected={activeAccountType === 'watched'}
+                walletType="watched"
+              />
+            </VStack>
+          </VStack>
+        </ScrollView>
+        <Box p={2}>
+          <IconButton type="plain" name="PlusOutline" size="xl" />
         </Box>
-        <FlatList
-          data={NORMAL_ACCOUNTS}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
-            <Pressable
-              p="2"
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Account address={item.address} name={item.label} />
-              <IconButton type="plain" name="DotsHorizontalOutline" />
-            </Pressable>
-          )}
-        />
-      </Box>
+      </VStack>
+      <VStack flex={1}>
+        <HStack zIndex={99} py={3} px={4} space={4} alignItems="center">
+          <VStack flex={1}>
+            <Typography.Body1Strong>Wallet #2</Typography.Body1Strong>
+            <Typography.Caption color="text-subdued">
+              Network: Ethereum
+            </Typography.Caption>
+          </VStack>
+          {renderSideAction(activeAccountType, handleChange)}
+        </HStack>
+        <ScrollView px={2}>
+          <FlatList
+            data={NORMAL_ACCOUNTS}
+            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item }) => (
+              <Pressable>
+                {({ isHovered }) => (
+                  <HStack
+                    p="7px"
+                    borderWidth={1}
+                    borderColor={isHovered ? 'border-hovered' : 'transparent'}
+                    space={4}
+                    borderRadius="xl"
+                  >
+                    <Box flex={1}>
+                      <Account address={item.address} name={item.label} />
+                    </Box>
+                    <CustomSelectTrigger />
+                  </HStack>
+                )}
+              </Pressable>
+            )}
+          />
+          <Pressable mt={2}>
+            {({ isHovered }) => (
+              <HStack
+                p={2}
+                borderRadius="xl"
+                space={3}
+                borderWidth={1}
+                borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                borderStyle="dashed"
+                alignItems="center"
+              >
+                <Icon name="PlusCircleOutline" />
+                <Typography.Body2Strong color="text-subdued">
+                  {intl.formatMessage({ id: 'action__add_account' })}
+                </Typography.Body2Strong>
+              </HStack>
+            )}
+          </Pressable>
+        </ScrollView>
+      </VStack>
     </>
   );
 };

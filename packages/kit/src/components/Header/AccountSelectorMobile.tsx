@@ -35,7 +35,7 @@ const AccountSelectorMobile: FC<ChildDropdownProps> = ({
       }}
     >
       <Box
-        width="80%"
+        width="88%"
         flex="1"
         bg="surface-subdued"
         flexDirection="row"
