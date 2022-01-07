@@ -94,6 +94,7 @@ const CheckBox: FC<CheckBoxProps> = ({
           accessibilityLabel={title}
           borderRadius="md"
           borderColor="border-default"
+          bg="surface-default"
           _text={{
             color: 'text-default',
             fontWeight: 'bold',
@@ -104,22 +105,19 @@ const CheckBox: FC<CheckBoxProps> = ({
           }}
           _hover={{
             value,
-            borderColor: isChecked
-              ? 'action-primary-default'
-              : 'border-hovered',
             _interactionBox: {
-              value: '',
+              value,
               bg: 'surface-hovered',
             },
           }}
-          // @ts-ignore
           _focus={{
+            value,
             _interactionBox: {
-              value: '',
+              value,
               bg: 'action-primary-focus',
             },
           }}
-          // @ts-ignore
+          // @ts-expect-error
           _focusVisible={{
             _interactionBox: {
               bg: 'action-primary-focus',

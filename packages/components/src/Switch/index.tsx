@@ -1,6 +1,7 @@
 import React, { ComponentProps, FC } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
+import { ISizes } from 'native-base/lib/typescript/theme/base/sizes';
 
 import Box from '../Box';
 import Typography from '../Typography';
@@ -42,10 +43,10 @@ const defaultProps = {
   label: 'false',
 } as const;
 
-const getRectSize = (size: SwitchSize = 'sm'): [number, number] => {
-  const sizeMap: Record<SwitchSize, [number, number]> = {
-    'sm': [10, 5],
-    'lg': [12, 6],
+const getRectSize = (size: SwitchSize = 'sm'): ISizes => {
+  const sizeMap: Record<SwitchSize, ISizes> = {
+    'sm': 'md',
+    'lg': 'lg',
   };
   return sizeMap[size];
 };
@@ -59,7 +60,7 @@ const Switch: FC<SwitchProps> = ({
   onToggle,
   ...props
 }) => {
-  const [w, h] = getRectSize(size);
+  const iSize = getRectSize(size);
 
   return (
     <Box
@@ -78,8 +79,7 @@ const Switch: FC<SwitchProps> = ({
       )}
 
       <BaseSwitch
-        w={w}
-        h={h}
+        size={iSize}
         onThumbColor="icon-on-primary"
         offThumbColor="icon-on-primary"
         onTrackColor="action-primary-default"
