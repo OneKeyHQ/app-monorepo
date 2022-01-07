@@ -4,7 +4,7 @@ import Box from '../Box';
 import RadioBox from '../RadioBox';
 import { RadioBoxProps } from '../RadioBox/RadioBox';
 import { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
-import Typography from '../Typography';
+import Typography, { Text } from '../Typography';
 
 export type RadioFeeItemProps = {
   value: string;
@@ -28,13 +28,15 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
           value={item.value}
           flexDirection="row"
           justifyContent="space-between"
+          mt={3}
         >
           <Box alignItems="flex-start">
-            <Typography.Body1
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}
             >
               {item.title}
-            </Typography.Body1>
+            </Text>
             <Typography.Body2
               color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
             >
@@ -42,11 +44,12 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
             </Typography.Body2>
           </Box>
           <Box alignItems="flex-end">
-            <Typography.Body1
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}
             >
               {item.describe}
-            </Typography.Body1>
+            </Text>
             <Typography.Body2
               color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
             >

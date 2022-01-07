@@ -20,7 +20,6 @@ import { copyToClipboard } from '../../utils/ClipboardUtils';
 
 const ReceiveQRcode = () => {
   const borderColor = useThemeValue('border-subdued');
-  const bgColor = useThemeValue('surface-subdued');
   const intl = useIntl();
   const toast = useToast();
   const toastIdRef = useRef<string>();
@@ -43,6 +42,7 @@ const ReceiveQRcode = () => {
     <Modal
       footer={null}
       header={intl.formatMessage({ id: 'action__receive' })}
+      height="auto"
       scrollViewProps={{
         children: (
           <Box flexDirection="column" alignItems="center">
@@ -52,6 +52,7 @@ const ReceiveQRcode = () => {
               padding="16px"
               borderWidth="1px"
               borderRadius="12px"
+              bgColor="surface-default"
               borderColor={borderColor}
             >
               <QRCode value="https://onekey.so/" size={160} />
@@ -61,7 +62,6 @@ const ReceiveQRcode = () => {
               mt="24px"
               borderWidth="1px"
               borderRadius="12px"
-              bgColor={bgColor}
               borderColor={borderColor}
               borderStyle="dashed"
             >

@@ -12,6 +12,7 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components/src/Typography';
 
 const MockData = {
   token: {
@@ -31,10 +32,20 @@ const MockData = {
 
 const renderTitleDetailView = (title: string, detail: string) => (
   <Row justifyContent="space-between" space="16px" padding="16px">
-    <Typography.Body1 color="text-subdued">{title}</Typography.Body1>
-    <Typography.Body1 textAlign="right" flex={1} numberOfLines={1}>
+    <Text
+      color="text-subdued"
+      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+    >
+      {title}
+    </Text>
+    <Text
+      textAlign="right"
+      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+      flex={1}
+      numberOfLines={1}
+    >
       {detail}
-    </Typography.Body1>
+    </Text>
   </Row>
 );
 
@@ -59,11 +70,16 @@ const TransactionConfirm = () => {
             <Column bg={cardBgColor} borderRadius="12px" mt="24px">
               {/* From */}
               <Row justifyContent="space-between" space="16px" padding="16px">
-                <Typography.Body1 color="text-subdued">
+                <Text
+                  color="text-subdued"
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                >
                   {intl.formatMessage({ id: 'content__from' })}
-                </Typography.Body1>
+                </Text>
                 <Column alignItems="flex-end" w="auto" flex={1}>
-                  <Typography.Body1>ETH #1</Typography.Body1>
+                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                    ETH #1
+                  </Text>
                   <Typography.Body2 textAlign="right" color="text-subdued">
                     {MockData.fromAddress}
                   </Typography.Body2>
@@ -72,12 +88,20 @@ const TransactionConfirm = () => {
               <Divider />
               {/* To */}
               <Row justifyContent="space-between" space="16px" padding="16px">
-                <Typography.Body1 color="text-subdued">
+                <Text
+                  color="text-subdued"
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                >
                   {intl.formatMessage({ id: 'content__to' })}
-                </Typography.Body1>
-                <Typography.Body1 textAlign="right" flex={1}>
+                </Text>
+                <Text
+                  textAlign="right"
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                  flex={1}
+                  noOfLines={3}
+                >
                   {MockData.toAddress}
-                </Typography.Body1>
+                </Text>
               </Row>
             </Column>
             <Box>
@@ -86,7 +110,7 @@ const TransactionConfirm = () => {
               </Typography.Subheading>
             </Box>
 
-            <Column bg={cardBgColor} borderRadius="12px" mt="24px">
+            <Column bg={cardBgColor} borderRadius="12px" mt="2">
               {renderTitleDetailView(
                 intl.formatMessage({ id: 'content__amount' }),
                 MockData.detail.amount,

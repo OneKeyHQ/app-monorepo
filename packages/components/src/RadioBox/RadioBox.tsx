@@ -59,9 +59,7 @@ const RadioBox: FC<RadioBoxProps> = ({
       onBlur={() => setFocused(false)}
       _hover={{
         bg: isFocused ? 'surface-hovered' : 'action-secondary-hovered',
-        borderColor: isFocused
-          ? 'action-primary-focus'
-          : 'action-secondary-hovered',
+        borderColor: isFocused ? 'interactive-default' : brColor,
       }}
       _focus={{
         bg: 'surface-hovered',
@@ -86,9 +84,8 @@ const RadioBox: FC<RadioBoxProps> = ({
       borderWidth="1px"
       borderColor={brColor}
       bg={bgColor}
-      p={4}
-      mt="1.5"
-      mb="1.5"
+      py={4}
+      px={{ base: 4, md: 6 }}
       onPress={() => {
         if (onChange) onChange(value);
       }}

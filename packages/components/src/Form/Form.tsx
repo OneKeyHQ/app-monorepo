@@ -2,12 +2,12 @@ import React, { FC } from 'react';
 
 import { IBoxProps } from 'native-base';
 
-import Box from '../Box';
+import VStack from '../VStack';
 
 // type FormProps = {};
 
 export const Form: FC<IBoxProps> = ({ children, ...props }) => (
-  <Box w="full" {...props}>
+  <VStack space={6} w="full" {...props}>
     {children}
-  </Box>
+  </VStack>
 );
