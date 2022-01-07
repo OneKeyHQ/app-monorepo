@@ -2,24 +2,32 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import BigNumber from 'bignumber.js';
 
+import { BaseClient } from '@onekeyhq/blockchain-libs/dist/provider/abc';
+
 import { IMPL_EVM } from './constants';
 import { DbApi } from './db';
 import { DBAPI } from './db/base';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import {
   fromDBAccountToAccount,
+  getAccountBalance,
+  getDBAccountBalance,
   getWatchingAccountToCreate,
+  isAccountCompatibleWithNetwork,
 } from './managers/account';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
 } from './managers/network';
+import { getNetworkIdFromTokenId } from './managers/token';
 import { fromDBWalletToWallet } from './managers/wallet';
 import {
+  getPresetToken,
   getPresetTokensOnNetwork,
   networkIsPreset,
   presetNetworks,
 } from './presets';
+import { initClientFromDBNetwork } from './proxy';
 import { Account, DBAccount, ImportableHDAccount } from './types/account';
 import {
   AddNetworkParams,
@@ -34,8 +42,23 @@ import { DBWallet, Wallet } from './types/wallet';
 class Engine {
   private dbApi: DBAPI;
 
+  private clients: Record<string, BaseClient>;
+
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
+    this.clients = {};
+  }
+
+  private getClient(networkId: string): Promise<BaseClient> {
+    if (typeof this.clients[networkId] === 'undefined') {
+      return this.dbApi.getNetwork(networkId).then((dbNetwork: DBNetwork) => {
+        this.clients[networkId] = initClientFromDBNetwork(dbNetwork);
+        return this.clients[networkId];
+      });
+    }
+    return new Promise((resolve, _reject) => {
+      resolve(this.clients[networkId]);
+    });
   }
 
   getWallets(): Promise<Array<Wallet>> {
@@ -129,15 +152,40 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
-  ): Promise<Map<string, BigNumber>> {
+    withMain = true,
+  ): Promise<Record<string, BigNumber | undefined>> {
     // Get account balance, main token balance is always included.
-    // TODO: chain interactions.
-    const ret = new Map([['main', new BigNumber(0)]]);
-    tokenIdsOnNetwork.forEach((tokenIdOnNetwork: string) => {
-      ret.set(tokenIdOnNetwork, new BigNumber(0));
-    });
-    return new Promise((resolve, _reject) => {
-      resolve(ret);
+    return Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+      this.getClient(networkId),
+      this.getTokens(networkId, accountId),
+    ]).then(([dbAccount, network, client, tokens]) => {
+      const decimalsMap: Record<string, number> = {};
+      tokens.forEach((token) => {
+        if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
+          decimalsMap[token.tokenIdOnNetwork] = token.decimals;
+        }
+      });
+      const tokensToGet = tokenIdsOnNetwork.filter(
+        (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
+      );
+      return getDBAccountBalance(client, dbAccount, tokensToGet, withMain).then(
+        (balances) => {
+          const ret: Record<string, BigNumber | undefined> = {};
+          if (withMain && typeof balances[0] !== 'undefined') {
+            ret.main = balances[0].div(new BigNumber(10).pow(network.decimals));
+          }
+          balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
+            const tokenId = tokensToGet[index];
+            const decimals = decimalsMap[tokenId];
+            if (typeof balance !== 'undefined') {
+              ret[tokenId] = balance.div(new BigNumber(10).pow(decimals));
+            }
+          });
+          return ret;
+        },
+      );
     });
   }
 
@@ -190,12 +238,30 @@ class Engine {
     name?: string,
   ): Promise<Account> {
     // Add an watching account. Raise an error if account already exists.
+    // TODO: now only adding by address is supported.
     return this.dbApi
-      .addAccountToWallet(
-        'watching',
-        getWatchingAccountToCreate(impl, target, name),
-      )
-      .then((a: DBAccount) => fromDBAccountToAccount(a));
+      .listNetworks()
+      .then((networks) => networks.filter((n) => n.impl === impl)[0])
+      .then((network) => {
+        if (typeof network === 'undefined') {
+          throw new OneKeyInternalError(
+            `Unable to add watching account: wrong implementation ${impl}`,
+          );
+        }
+        return this.getClient(network.id);
+      })
+      .then((client) => getAccountBalance(client, target, []))
+      .then((balance) => {
+        if (typeof balance === 'undefined') {
+          throw new OneKeyInternalError('Invalid address.'); // TODO: better error report.
+        }
+        return this.dbApi
+          .addAccountToWallet(
+            'watching',
+            getWatchingAccountToCreate(impl, target, name),
+          )
+          .then((a: DBAccount) => fromDBAccountToAccount(a));
+      });
   }
 
   removeAccount(accountId: string, password: string): Promise<void> {
@@ -214,20 +280,21 @@ class Engine {
   private getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<Token | null> {
+  ): Promise<Token | undefined> {
     const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    return this.dbApi.getToken(tokenId).then((token: Token | null) => {
-      if (token === null) {
-        // TODO: get token info online, read other info from preset add it to db.
-        return this.dbApi.addToken({
-          id: tokenId,
-          name: 'TESTING',
-          networkId,
-          tokenIdOnNetwork,
-          symbol: 'TTT',
-          decimals: 18,
-          logoURI: '',
-        });
+    return this.dbApi.getToken(tokenId).then((token) => {
+      if (typeof token === 'undefined') {
+        const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
+        return this.getClient(networkId)
+          .then((client) => client.getTokenInfos([tokenIdOnNetwork]))
+          .then(([info]) => {
+            toAdd.id = tokenId;
+            Object.assign(toAdd, info);
+            if (toAdd.decimals === -1) {
+              throw new NotImplemented();
+            }
+            return this.dbApi.addToken(toAdd);
+          });
       }
       return token;
     });
@@ -235,6 +302,16 @@ class Engine {
 
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
     // Add an token to account.
+    if (
+      !isAccountCompatibleWithNetwork(
+        accountId,
+        getNetworkIdFromTokenId(tokenId),
+      )
+    ) {
+      throw new OneKeyInternalError(
+        `Cannot add token ${tokenId} to account ${accountId}: incompatible.`,
+      );
+    }
     return this.dbApi.addTokenToAccount(accountId, tokenId);
   }
 
@@ -247,22 +324,35 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<[BigNumber, Token] | null> {
+  ): Promise<[BigNumber | undefined, Token] | undefined> {
     // 1. find local token
     // 2. if not, find token online
     // 3. get token balance
     // 4. return
-    // TODO: checkout account and network is compatible.
     // TODO: logoURI?
-    return this.getOrAddToken(networkId, tokenIdOnNetwork).then(
-      (token: Token | null) => {
-        if (token === null) {
-          return null;
-        }
-        return [new BigNumber(0), token];
-        // TODO: get balance
-      },
-    );
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+      throw new OneKeyInternalError(
+        `account ${accountId} and network ${networkId} isn't compatible.`,
+      );
+    }
+    return this.getOrAddToken(networkId, tokenIdOnNetwork).then((token) => {
+      if (typeof token === 'undefined') {
+        return undefined;
+      }
+      return Promise.all([
+        this.dbApi.getAccount(accountId),
+        this.getClient(networkId),
+      ]).then(([dbAccount, client]) =>
+        getDBAccountBalance(client, dbAccount, [tokenIdOnNetwork], false).then(
+          ([balance]) => {
+            if (typeof balance === 'undefined') {
+              return undefined;
+            }
+            return [balance.div(new BigNumber(10).pow(token.decimals)), token];
+          },
+        ),
+      );
+    });
   }
 
   getTokens(networkId: string, accountId?: string): Promise<Array<Token>> {
@@ -386,7 +476,7 @@ class Engine {
   getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
     return this.dbApi.getNetwork(networkId).then((network: DBNetwork) => {
-      const { presetRpcURLs } = presetNetworks.get(networkId) || {
+      const { presetRpcURLs } = presetNetworks[networkId] || {
         presetRpcURLs: [],
       };
       return [network.rpcURL].concat(

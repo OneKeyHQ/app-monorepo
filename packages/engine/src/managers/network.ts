@@ -1,4 +1,5 @@
-import { IMPL_EVM } from '../constants';
+import { IMPL_EVM, SEPERATOR } from '../constants';
+import { OneKeyInternalError } from '../errors';
 import { networkIsPreset, presetNetworks } from '../presets';
 import { AddEVMNetworkParams, DBNetwork, Network } from '../types/network';
 
@@ -25,7 +26,7 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   const isPresetNetwork = networkIsPreset(dbNetwork.id);
   const presetRpcURLs = isPresetNetwork
-    ? (presetNetworks.get(dbNetwork.id) || { presetRpcURLs: [] }).presetRpcURLs
+    ? (presetNetworks[dbNetwork.id] || { presetRpcURLs: [] }).presetRpcURLs
     : [];
   return {
     ...dbNetwork,
@@ -34,4 +35,12 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   };
 }
 
-export { getEVMNetworkToCreate, fromDBNetworkToNetwork };
+function getImplFromNetworkId(networkId: string): string {
+  const [impl, chainId] = networkId.split(SEPERATOR);
+  if (impl && chainId) {
+    return impl;
+  }
+  throw new OneKeyInternalError(`Invalid networkId ${networkId}.`);
+}
+
+export { getEVMNetworkToCreate, fromDBNetworkToNetwork, getImplFromNetworkId };

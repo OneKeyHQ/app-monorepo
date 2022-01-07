@@ -15,7 +15,7 @@ interface DBAPI {
   deleteNetwork(networkId: string): Promise<void>;
 
   addToken(token: Token): Promise<Token>;
-  getToken(tokenId: string): Promise<Token | null>;
+  getToken(tokenId: string): Promise<Token | undefined>;
   getTokens(networkId: string, accountId?: string): Promise<Array<Token>>;
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token>;
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void>;
