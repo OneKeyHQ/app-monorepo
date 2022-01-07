@@ -7,10 +7,21 @@ const webpack = require('webpack');
 const configs = require('../webpack.config');
 const devUtils = require('./devUtils');
 
+devUtils.cleanBrowserBuild();
+
 devUtils.cleanWebpackDebugFields(configs, { boilerplate: true });
 
 [].concat(configs).forEach((config) => (config.mode = 'production'));
 
-webpack(configs, (err) => {
-  if (err) throw err;
+webpack(configs, (err, stats) => {
+  if (err) {
+    console.error(stats);
+    throw err;
+  }
+  if (stats.hasErrors()) {
+    console.error(stats);
+    process.exit(1);
+  }
+  // Done processing
+  process.exit(0);
 });
