@@ -9,7 +9,7 @@
     "clean-autogen": "rm -rf ./src/injected-autogen/",
     "build-inject": "webpack --config webpack.injected.config.js && sh ./post-build.sh",
     "watch-inject": "gulp watch",
-    "build": "yarn clean && yarn build-inject && webpack",
+    "build": "yarn clean && yarn build-inject",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "dependencies": {
