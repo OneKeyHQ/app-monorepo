@@ -82,7 +82,7 @@ export default function BottomTabBar({
           };
 
           return (
-            <Box flex={1} p={1}>
+            <Box flex={1} p={1} key={route.name}>
               <Pressable
                 alignItems="center"
                 p={0.5}
