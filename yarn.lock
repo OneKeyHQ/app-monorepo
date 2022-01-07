@@ -2408,26 +2408,10 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyhq/blockchain-libs@^0.0.16":
-  version "0.0.16"
-  resolved "https://npm.pkg.github.com/download/@onekeyhq/blockchain-libs/0.0.16/f1169f0a57d230de036adc16286772f6a6fffe0c08ff49b90ff7afeebfaee2af#e5f983fbd6b03138f675ad581f297947e09f6208"
-  integrity sha512-6dtRrBNVJtse6eW7wcdKmMbEQ09WwNO7GMhoVNywbqnWYHNMJVw8A6KvhA8iJ2g95VB3kDce3OIIZxGQ2I8nqA==
-  dependencies:
-    "@ethersproject/abi" "^5.4.1"
-    "@ethersproject/transactions" "^5.4.0"
-    algo-msgpack-with-bigint "^2.1.1"
-    bignumber.js "^9.0.1"
-    bip39 "^3.0.4"
-    cross-fetch "^3.1.4"
-    elliptic "^6.5.4"
-    hi-base32 "^0.5.1"
-    timeout-signal "^1.1.0"
-    tweetnacl "^1.0.3"
-
-"@onekeyhq/blockchain-link@1.0.19":
+"@onekeyfe/blockchain-link@1.0.19":
   version "1.0.19"
-  resolved "https://registry.yarnpkg.com/@onekeyhq/blockchain-link/-/blockchain-link-1.0.19.tgz#a251c608bd1740865d4f45c8f48948dd9458699d"
-  integrity sha512-KGYhPKd3PX/tnw5uVgWKQRDDWfKGh15A0TYTX7Z52nuWMhZ0AxgWmPGVtSQR7mTS7XIo4fmK9TNF1CNDkDD+ng==
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-link/-/blockchain-link-1.0.19.tgz#6732e11e17b3ff7083d627a25b352278bec59049"
+  integrity sha512-hoZ3ELzqmy1idoSxeLtGpYot6PyJmYm5Bwr4R4FLTOtLR7avI5+HIZDv7xLlPAM+6mEPksbHpp1gwxsDt0DbXg==
   dependencies:
     bignumber.js "^9.0.1"
     es6-promise "^4.2.8"
@@ -2436,15 +2420,15 @@
     tiny-worker "^2.3.0"
     ws "^7.4.0"
 
-"@onekeyhq/connect@8.7.0-extended":
+"@onekeyfe/connect@8.7.0-extended":
   version "8.7.0-extended"
-  resolved "https://registry.yarnpkg.com/@onekeyhq/connect/-/connect-8.7.0-extended.tgz#9254fe5f5e6663d742db7a4e4f98d6cba2536de6"
-  integrity sha512-6ZpAWt29KIHrMYZQ+tYn9eX0NReJaLHmI64KKzL8E8JtEM8ZTB7/Gs6xASTKDj7NJql/HgjWmcyuSkrd19e1oQ==
+  resolved "https://registry.yarnpkg.com/@onekeyfe/connect/-/connect-8.7.0-extended.tgz#4507776b48e94de970c462474dac43acb7b2ffac"
+  integrity sha512-4zVWEE/w24zUdcNR9YxYj0fBy5um5V2nOZGZLjYlkIpO3B4FbOfXAvj0bPi4c+VFJkj3MlxMOMtq1NZwGWOYUQ==
   dependencies:
     "@babel/runtime" "^7.12.5"
-    "@onekeyhq/blockchain-link" "1.0.19"
-    "@onekeyhq/link" "1.7.5"
-    "@onekeyhq/rollout" "1.0.6"
+    "@onekeyfe/blockchain-link" "1.0.19"
+    "@onekeyfe/link" "1.7.5"
+    "@onekeyfe/rollout" "1.0.6"
     "@sentry/browser" "^6.4.0"
     "@sentry/integrations" "^6.4.0"
     "@sentry/tracing" "^6.4.0"
@@ -2465,10 +2449,10 @@
     url-join "^4.0.1"
     whatwg-fetch "^3.5.0"
 
-"@onekeyhq/link@1.7.5":
+"@onekeyfe/link@1.7.5":
   version "1.7.5"
-  resolved "https://registry.yarnpkg.com/@onekeyhq/link/-/link-1.7.5.tgz#e54edbdeafb93c1f72fb2f3ffceb2d9327bc8e1f"
-  integrity sha512-KpjAt5Ex4WYyYJYfkIU+3NKdUMoYdnMreLbjtUg+o4l/VIteVSAlFoi5N/KPxmA8hR+AZPmqjHO2h6mbF4c6HQ==
+  resolved "https://registry.yarnpkg.com/@onekeyfe/link/-/link-1.7.5.tgz#64ab57fc65652e6e753ec72d9a2defe3980d38f7"
+  integrity sha512-7SnF8+EUdsRghGS0EaD3mWwg/eN5AAlGu0V4CONvj2daKjytIaG7LLkYsQXSC3VRakjgGpjhUeBR0h7GBoha8Q==
   dependencies:
     bigi "^1.4.1"
     ecurve "^1.0.3"
@@ -2479,13 +2463,29 @@
     semver-compare "^1.0.0"
     whatwg-fetch "^3.5.0"
 
-"@onekeyhq/rollout@1.0.6":
+"@onekeyfe/rollout@1.0.6":
   version "1.0.6"
-  resolved "https://registry.yarnpkg.com/@onekeyhq/rollout/-/rollout-1.0.6.tgz#963febab33f015294d4f2002b972ae5d2c328ed3"
-  integrity sha512-wsR27EMOArkKDVy/F8NyRCuT2PsfDOOR7hMGTUXxfnlbzfz/K4rxROR6mtBicu0PwgFeDXch8fKUnndON2Moeg==
+  resolved "https://registry.yarnpkg.com/@onekeyfe/rollout/-/rollout-1.0.6.tgz#3d2f1121be525a48cb97543434fe599e592208a1"
+  integrity sha512-zPJO0BOkzE2nbtEM8KGUgWGuzhNLjyLr7MnnL6Il4RnS/VQ7gsN84c76cmz0VksM7nL09Zk9K7HmxPdIkC1gyQ==
   dependencies:
     cross-fetch "^3.0.6"
     runtypes "^5.0.1"
+
+"@onekeyhq/blockchain-libs@^0.0.16":
+  version "0.0.16"
+  resolved "https://npm.pkg.github.com/download/@onekeyhq/blockchain-libs/0.0.16/f1169f0a57d230de036adc16286772f6a6fffe0c08ff49b90ff7afeebfaee2af#e5f983fbd6b03138f675ad581f297947e09f6208"
+  integrity sha512-6dtRrBNVJtse6eW7wcdKmMbEQ09WwNO7GMhoVNywbqnWYHNMJVw8A6KvhA8iJ2g95VB3kDce3OIIZxGQ2I8nqA==
+  dependencies:
+    "@ethersproject/abi" "^5.4.1"
+    "@ethersproject/transactions" "^5.4.0"
+    algo-msgpack-with-bigint "^2.1.1"
+    bignumber.js "^9.0.1"
+    bip39 "^3.0.4"
+    cross-fetch "^3.1.4"
+    elliptic "^6.5.4"
+    hi-base32 "^0.5.1"
+    timeout-signal "^1.1.0"
+    tweetnacl "^1.0.3"
 
 "@react-aria/checkbox@^3.2.1":
   version "3.2.3"

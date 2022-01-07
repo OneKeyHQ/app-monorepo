@@ -11,7 +11,7 @@ module.exports = function (api) {
         {
           root: ['./'],
           alias: {
-            '@onekeyhq/connect': './src/public/static/connect/index.js',
+            '@onekeyfe/connect': './src/public/static/connect/index.js',
           },
         },
       ],

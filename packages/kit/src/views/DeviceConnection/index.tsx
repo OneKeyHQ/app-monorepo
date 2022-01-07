@@ -2,6 +2,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import React, { FC, useCallback, useState } from 'react';
 
+import OneKeyConnect, {
+  BLOCKCHAIN_EVENT,
+  DEVICE_EVENT,
+  Features,
+  TRANSPORT_EVENT,
+  UI_EVENT,
+} from '@onekeyfe/connect';
+
 import {
   Button,
   Center,
@@ -12,13 +20,6 @@ import {
   VStack,
   useTheme,
 } from '@onekeyhq/components';
-import OneKeyConnect, {
-  BLOCKCHAIN_EVENT,
-  DEVICE_EVENT,
-  Features,
-  TRANSPORT_EVENT,
-  UI_EVENT,
-} from '@onekeyhq/connect';
 import * as buildUtils from '@onekeyhq/shared/src/platformEnv';
 // import ble from '../../utils/ble/handler';
 

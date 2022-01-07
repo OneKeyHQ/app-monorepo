@@ -7,7 +7,7 @@ const RemovePlugin = require('remove-files-webpack-plugin');
 
 const path = require('path');
 
-const SRC = 'node_modules/@onekeyhq/connect';
+const SRC = 'node_modules/@onekeyfe/connect';
 const DATA_SRC = `${SRC}/data`;
 
 // iframe is not in npm, so we have its template here
@@ -18,7 +18,7 @@ const DIST = path.resolve(__dirname, '../../app/src/public/static', 'connect');
 module.exports = {
   mode: 'production',
   entry: {
-    index: `./node_modules/@onekeyhq/connect/lib/index.js`,
+    index: `./node_modules/@onekeyfe/connect/lib/index.js`,
   },
   output: {
     filename: '[name].js',
