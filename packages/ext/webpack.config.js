@@ -187,7 +187,7 @@ function createConfig() {
     };
   }
 
-  console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
+  // console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
   console.log('------- webpackConfig', {
     devtool: webpackConfig.devtool,
   });
