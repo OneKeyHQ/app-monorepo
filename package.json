@@ -27,7 +27,7 @@
     "web": "yarn workspace @onekeyhq/web start",
     "firefox": "yarn workspace @onekeyhq/ext firefox",
     "ext": "yarn workspace @onekeyhq/ext start",
-    "build:ext": "yarn build:inject && yarn workspace @onekeyhq/ext build",
+    "build:ext": "yarn build:inject && yarn workspace @onekeyhq/ext build:all",
     "desktop": "yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn build:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",

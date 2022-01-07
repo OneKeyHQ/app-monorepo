@@ -11,6 +11,8 @@ const configs = require('../webpack.config');
 const env = require('./env');
 const devUtils = require('./devUtils');
 
+devUtils.cleanBrowserBuild();
+
 function addHotReload(config) {
   const options = config.chromeExtensionBoilerplate || {};
   const excludeEntriesToHotReload = options.notHotReload || [];
