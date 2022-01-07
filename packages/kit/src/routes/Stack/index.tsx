@@ -49,6 +49,7 @@ import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
+import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 
 export enum TabRoutes {
@@ -103,6 +104,7 @@ export enum StackBasicRoutes {
   ComponentHeaderTabViewContainerGallery = 'component/header-tab-view',
   ComponentLogger = 'component/logger',
   ComponentWebview = 'component/webview',
+  ScreenTokenDetail = 'TokenDetailScreen',
 }
 
 export type StackBasicRoutesParams = {
@@ -200,6 +202,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentWebview,
     component: WebViewGallery,
+  },
+  {
+    name: StackRoutes.ScreenTokenDetail,
+    component: TokenDetail,
   },
 ];
 
