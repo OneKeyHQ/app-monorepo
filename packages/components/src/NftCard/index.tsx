@@ -28,7 +28,9 @@ const MARGIN = 16;
 const NftCard: FC<CardProps> = ({ children, image, title, ...props }) => {
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const dimensions = useWindowDimensions();
-  const width = isSmallScreen ? (dimensions.width - MARGIN * 3) / 2 : 171;
+  const width = isSmallScreen
+    ? Math.floor((dimensions.width - MARGIN * 3) / 2)
+    : 171;
   const cover = useMemo(() => {
     if (!image || typeof image !== 'string') return null;
     if (isValidElement(image)) return image;
