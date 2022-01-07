@@ -9,7 +9,7 @@ export type SelectedAsset = Asset & {
 };
 
 export type Collectible = {
-  id: number | string | null;
+  id: number | string;
   chain?: string | null;
   collection: {
     // Name of the collection
@@ -33,7 +33,7 @@ export type Collectible = {
 };
 
 export type Asset = {
-  id: number | string | null;
+  id: number | string;
   name: string | null;
   tokenId: string;
   description?: string | null;

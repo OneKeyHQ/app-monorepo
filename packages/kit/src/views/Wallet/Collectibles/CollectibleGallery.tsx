@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
+import { FlatList, SectionList } from 'react-native-collapsible-tab-view';
 
 import {
   Badge,
@@ -11,9 +12,7 @@ import {
   Icon,
   NftCard,
   Pressable,
-  ScrollableFlatList,
   ScrollableFlatListProps,
-  ScrollableSectionList,
   ScrollableSectionListProps,
   SegmentedControl,
   Token,
@@ -25,7 +24,6 @@ import { Asset, Collectible, CollectibleView, SelectedAsset } from './types';
 
 // List
 type CollectibleListProps = {
-  index: number;
   collectibles: Collectible[];
   renderEmpty: ScrollableFlatListProps<Collectible>['ListEmptyComponent'];
   renderHeader: ScrollableFlatListProps<Collectible>['ListHeaderComponent'];
@@ -33,7 +31,6 @@ type CollectibleListProps = {
 };
 
 const CollectibleList: FC<CollectibleListProps> = ({
-  index,
   renderEmpty,
   renderHeader,
   collectibles,
@@ -69,8 +66,8 @@ const CollectibleList: FC<CollectibleListProps> = ({
   );
 
   return (
-    <ScrollableFlatList
-      index={index}
+    <FlatList
+      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
       renderItem={renderItem}
       keyExtractor={(_, idx) => String(idx)}
       ListEmptyComponent={renderEmpty}
@@ -90,7 +87,6 @@ const CollectibleList: FC<CollectibleListProps> = ({
 // Grid
 type CollectibleSection = { title: string; data: [Collectible] };
 type CollectibleGridProps = {
-  index: number;
   collectibleSections: CollectibleSection[];
   renderHeader: ScrollableSectionListProps<Collectible>['ListHeaderComponent'];
   renderEmpty: ScrollableSectionListProps<Collectible>['ListEmptyComponent'];
@@ -103,7 +99,6 @@ const stringAppend = (...args: Array<string | null | undefined>) =>
 const CollectibleGrid: FC<CollectibleGridProps> = ({
   renderHeader,
   renderEmpty,
-  index: tabPageIndex,
   collectibleSections,
   onPressItem,
 }) => {
@@ -162,8 +157,8 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
     );
 
   return (
-    <ScrollableSectionList
-      index={tabPageIndex}
+    <SectionList
+      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
       sections={collectibleSections}
       extraData={collectibleSections}
       renderItem={renderItem}
@@ -176,13 +171,13 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
         String(item.id ?? item.collection.name ?? index)
       }
       showsVerticalScrollIndicator={false}
+      stickySectionHeadersEnabled={false}
     />
   );
 };
 
 type CollectibleGalleryProps = {
   collectibles: Collectible[];
-  index: number;
   onSelectCollectible: (cols: Collectible) => void;
   onSelectAsset: (asset: Asset) => void;
 };
@@ -195,7 +190,6 @@ const toSections = (collectibles: Collectible[]) =>
   }));
 
 const CollectibleGallery: FC<CollectibleGalleryProps> = ({
-  index,
   collectibles,
   onSelectAsset,
   onSelectCollectible,
@@ -266,7 +260,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   if (view === CollectibleView.Flat) {
     return (
       <CollectibleList
-        index={index}
         renderHeader={renderHeader}
         renderEmpty={renderEmpty}
         collectibles={collectibles}
@@ -277,7 +270,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
 
   return (
     <CollectibleGrid
-      index={index}
       renderHeader={renderHeader}
       renderEmpty={renderEmpty}
       collectibleSections={toSections(collectibles)}

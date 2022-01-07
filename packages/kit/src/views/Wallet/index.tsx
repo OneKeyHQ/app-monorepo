@@ -39,7 +39,10 @@ const Home: React.FC = () => {
           {...props}
           activeColor={activeLabelColor}
           inactiveColor={labelColor}
-          labelStyle={{ ...(Body2StrongProps as TextStyle) }}
+          labelStyle={{
+            ...(Body2StrongProps as TextStyle),
+            textTransform: 'capitalize',
+          }}
           indicatorStyle={{ backgroundColor: indicatorColor }}
           style={{
             backgroundColor: tabbarBgColor,
@@ -51,6 +54,9 @@ const Home: React.FC = () => {
     >
       <Tabs.Tab name={intl.formatMessage({ id: 'asset__tokens' })}>
         <AssetsList />
+      </Tabs.Tab>
+      <Tabs.Tab name={intl.formatMessage({ id: 'asset__collectibles' })}>
+        <Collectibles />
       </Tabs.Tab>
       <Tabs.Tab name={intl.formatMessage({ id: 'transaction__history' })}>
         <HistoricalRecord />
