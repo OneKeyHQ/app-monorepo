@@ -4,10 +4,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
   Button,
   Dialog,
   Form,
+  KeyboardDismissView,
   Modal,
   useForm,
 } from '@onekeyhq/components';
@@ -47,13 +47,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
           onSubmit();
         }}
       >
-        <Box
-          w="full"
-          display="flex"
-          flex="1"
-          flexDirection="row"
-          justifyContent="center"
-        >
+        <KeyboardDismissView flexDirection="row" justifyContent="center">
           <Form>
             <Form.Item
               name="name"
@@ -138,7 +132,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
               })}
             </Button>
           </Form>
-        </Box>
+        </KeyboardDismissView>
       </Modal>
       <Dialog
         visible={resetOpened}

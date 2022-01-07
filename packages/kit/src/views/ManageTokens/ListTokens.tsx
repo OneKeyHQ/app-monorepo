@@ -10,6 +10,7 @@ import {
   Empty,
   FlatList,
   IconButton,
+  KeyboardDismissView,
   Modal,
   Searchbar,
   Token,
@@ -217,20 +218,22 @@ export const ListTokens: FC = () => {
         primaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
       >
         <>
-          <Box>
-            <Searchbar
-              w="full"
-              placeholder={intl.formatMessage({
-                id: 'form__search_tokens',
-                defaultMessage: 'Search Tokens',
-              })}
-              mb="6"
-              value={keyword}
-              onClear={() => setKeyword('')}
-              onChangeText={(text) => setKeyword(text.trim())}
-            />
-            {contentView}
-          </Box>
+          <KeyboardDismissView>
+            <Box>
+              <Searchbar
+                w="full"
+                placeholder={intl.formatMessage({
+                  id: 'form__search_tokens',
+                  defaultMessage: 'Search Tokens',
+                })}
+                mb="6"
+                value={keyword}
+                onClear={() => setKeyword('')}
+                onChangeText={(text) => setKeyword(text.trim())}
+              />
+              {contentView}
+            </Box>
+          </KeyboardDismissView>
           <Dialog
             visible={!!token}
             onClose={() => setToken(undefined)}

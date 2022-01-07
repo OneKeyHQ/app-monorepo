@@ -6,6 +6,7 @@ import {
   Box,
   Divider,
   FlatList,
+  KeyboardDismissView,
   Modal,
   Token,
   Typography,
@@ -72,31 +73,33 @@ export const AddToken: FC = () => {
       primaryActionTranslationId="action__confirm"
       hideSecondaryAction
     >
-      <Box>
-        <Box
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          my="4"
-        >
-          <Token
-            chain="eth"
-            address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      <KeyboardDismissView>
+        <Box>
+          <Box
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            my="4"
+          >
+            <Token
+              chain="eth"
+              address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+            />
+            <Typography.Heading>USDC Coin(USDC)</Typography.Heading>
+          </Box>
+          <FlatList
+            bg="surface-default"
+            borderRadius="12"
+            mt="3"
+            mb="3"
+            data={items}
+            renderItem={renderItem}
+            ItemSeparatorComponent={() => <Divider />}
+            keyExtractor={(_, index: number) => index.toString()}
+            showsVerticalScrollIndicator={false}
           />
-          <Typography.Heading>USDC Coin(USDC)</Typography.Heading>
         </Box>
-        <FlatList
-          bg="surface-default"
-          borderRadius="12"
-          mt="3"
-          mb="3"
-          data={items}
-          renderItem={renderItem}
-          ItemSeparatorComponent={() => <Divider />}
-          keyExtractor={(_, index: number) => index.toString()}
-          showsVerticalScrollIndicator={false}
-        />
-      </Box>
+      </KeyboardDismissView>
     </Modal>
   );
 };
