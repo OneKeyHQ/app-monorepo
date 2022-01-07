@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { Box, PresenceTransition } from '@onekeyhq/components';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
 
@@ -12,26 +12,33 @@ type ChildDropdownProps = {
 const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
   visible,
   handleToggleVisible,
-}) => {
-  if (!visible) return null;
-
-  return (
+}) => (
+  <PresenceTransition
+    visible={visible}
+    initial={{ opacity: 0, translateY: 0 }}
+    animate={{
+      opacity: 1,
+      translateY: 8,
+      transition: {
+        duration: 150,
+      },
+    }}
+  >
     <Box
       zIndex={999}
       position="absolute"
-      top="72px"
       width="320px"
-      left="16px"
       height="564px"
-      borderRadius="12px"
+      borderRadius="xl"
       bg="surface-subdued"
       borderColor="border-subdued"
       borderWidth="1px"
       flexDirection="row"
+      shadow="depth.3"
     >
       <AccountSelectorChildren handleToggleVisible={handleToggleVisible} />
     </Box>
-  );
-};
+  </PresenceTransition>
+);
 
 export default AccountSelectorDesktop;

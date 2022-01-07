@@ -105,18 +105,16 @@ const Account: FC<AccountProps> = ({
         <Box display="flex" justifyContent="center">
           {!!(primaryContent || hasPrimaryAddress) &&
             (hasPrimaryAddress ? (
-              <Address text={address} short />
+              <Address typography="Body2Strong" text={address} short />
             ) : (
-              <Typography.Body1>{primaryContent}</Typography.Body1>
+              <Typography.Body2Strong>{primaryContent}</Typography.Body2Strong>
             ))}
 
           {!!(secondContent || hasSecondAddress) &&
             (hasSecondAddress ? (
               <Address
                 color="text-subdued"
-                fontWeight="medium"
-                fontSize="14"
-                lineHeight="20"
+                typography="Body2"
                 text={address}
                 short
               />
