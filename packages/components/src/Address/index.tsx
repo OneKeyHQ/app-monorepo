@@ -1,6 +1,6 @@
 import React, { ComponentProps, FC } from 'react';
 
-import Typography from '../Typography';
+import { Text } from '../Typography';
 import { shortenAddress } from '../utils';
 
 export type AddressProps = {
@@ -12,7 +12,7 @@ export type AddressProps = {
    * 是否缩写，默认为 false
    */
   short?: boolean;
-} & ComponentProps<typeof Typography.DisplaySmall>;
+} & ComponentProps<typeof Text>;
 
 const defaultProps = {
   short: false,
@@ -28,9 +28,7 @@ const Address: FC<AddressProps> = ({ text, short, ...rest }) => {
     textContent = shortenAddress(textContent);
   }
 
-  return (
-    <Typography.DisplaySmall {...rest}>{textContent}</Typography.DisplaySmall>
-  );
+  return <Text {...rest}>{textContent}</Text>;
 };
 
 Address.displayName = 'Address';
