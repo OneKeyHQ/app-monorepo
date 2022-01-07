@@ -2,7 +2,12 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, useForm } from '@onekeyhq/components';
+import {
+  Form,
+  KeyboardDismissView,
+  Modal,
+  useForm,
+} from '@onekeyhq/components';
 
 type NetworkValues = {
   name?: string;
@@ -39,13 +44,7 @@ export const NetworkAddView: FC<NetworkAddViewProps> = () => {
           onSubmit();
         }}
       >
-        <Box
-          w="full"
-          display="flex"
-          flex="1"
-          flexDirection="row"
-          justifyContent="center"
-        >
+        <KeyboardDismissView flexDirection="row" justifyContent="center">
           <Form>
             <Form.Item
               name="name"
@@ -130,7 +129,7 @@ export const NetworkAddView: FC<NetworkAddViewProps> = () => {
               <Form.Input />
             </Form.Item>
           </Form>
-        </Box>
+        </KeyboardDismissView>
       </Modal>
     </>
   );
