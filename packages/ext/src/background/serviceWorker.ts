@@ -5,6 +5,7 @@
 // BG:
 // disable service-worker cache after extension reload.
 function disableCacheInBackground() {
+  // TODO check only service-worker background only (manifest v3)
   // eslint-disable-next-line no-restricted-globals
   self.addEventListener('install', () => {
     // @ts-expect-error

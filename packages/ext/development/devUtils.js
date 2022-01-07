@@ -1,5 +1,12 @@
 const fse = require('fs-extra');
 const lodash = require('lodash');
+const childProcess = require('child_process');
+const path = require('path');
+
+function execSync(cmd) {
+  console.log('execSyncCmd: \n    ', cmd);
+  childProcess.execSync(cmd);
+}
 
 function pluginWithName(plugin) {
   plugin.__pluginName__ = plugin.constructor.name;
@@ -48,9 +55,32 @@ function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {
   return configs;
 }
 
+function getBuildTargetBrowser() {
+  console.log('getBuildTargetBrowser: process.argv', process.argv);
+  const buildTargetBrowser =
+    process.argv[process.argv.length - 1] === '--firefox'
+      ? 'firefox'
+      : process.env.EXT_BUILD_BROWSER || 'chrome';
+  process.env.EXT_BUILD_BROWSER = buildTargetBrowser;
+  return buildTargetBrowser;
+}
+
+function cleanBrowserBuild() {
+  const buildTargetBrowser = getBuildTargetBrowser();
+  const cmd = `rm -rf ${path.resolve(
+    __dirname,
+    '../build',
+    buildTargetBrowser,
+  )}`;
+  execSync(cmd);
+}
+
 module.exports = {
+  execSync,
   pluginWithName,
   writePreviewWebpackConfigJson,
   cleanWebpackDebugFields,
   createMultipleEntryConfigs,
+  getBuildTargetBrowser,
+  cleanBrowserBuild,
 };

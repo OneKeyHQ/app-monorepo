@@ -16,11 +16,7 @@ const webpackTools = require('../../development/webpackTools');
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
-const buildTargetBrowser =
-  process.argv[process.argv.length - 1] === '--firefox'
-    ? 'firefox'
-    : process.env.EXT_BUILD_BROWSER || 'chrome';
-process.env.EXT_BUILD_BROWSER = buildTargetBrowser;
+const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 
 // Start stand-alone sourcemap file server: http://127.0.0.1:31317
 const SOURCE_MAP_SERVER_PORT = 31317;

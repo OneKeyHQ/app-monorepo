@@ -86,7 +86,7 @@ const AccountInfo = () => {
         {platformEnv.isExtensionUiPopup && (
           <IconButton
             onPress={() => {
-              extUtils.openExpandTab({ route: '/' });
+              extUtils.openExpandTab({ route: '' });
             }}
             ml={4}
             name="ArrowsExpandOutline"
