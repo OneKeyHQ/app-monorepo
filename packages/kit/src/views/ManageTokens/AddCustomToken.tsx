@@ -2,7 +2,14 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Form, Icon, Modal, Pressable, useForm } from '@onekeyhq/components';
+import {
+  Form,
+  Icon,
+  KeyboardDismissView,
+  Modal,
+  Pressable,
+  useForm,
+} from '@onekeyhq/components';
 
 import { getClipboard } from '../../utils/ClipboardUtils';
 
@@ -31,52 +38,54 @@ export const AddCustomToken: FC = () => {
         onSubmit();
       }}
     >
-      <Form>
-        <Form.Item
-          name="address"
-          label={intl.formatMessage({
-            id: 'transaction__contract_address',
-            defaultMessage: 'Contract Address',
-          })}
-          control={control}
-          labelAddon={
-            <Pressable
-              onPress={() => {
-                getClipboard().then((text) => setValue('address', text));
-              }}
-            >
-              <Icon size={16} name="ClipboardOutline" />
-            </Pressable>
-          }
-        >
-          <Form.Textarea
-            placeholder={intl.formatMessage({
-              id: 'form__enter_or_paste_contract_address',
-              defaultMessage: 'Enter or paste contract address',
+      <KeyboardDismissView>
+        <Form>
+          <Form.Item
+            name="address"
+            label={intl.formatMessage({
+              id: 'transaction__contract_address',
+              defaultMessage: 'Contract Address',
             })}
-          />
-        </Form.Item>
-        <Form.Item
-          name="symbol"
-          label={intl.formatMessage({
-            id: 'form__token_symbol',
-            defaultMessage: 'Token Symbol',
-          })}
-          control={control}
-        >
-          <Form.Input />
-        </Form.Item>
-        <Form.Item
-          name="decimal"
-          label={intl.formatMessage({
-            id: 'form_decimal',
-            defaultMessage: 'Decimal',
-          })}
-          control={control}
-        >
-          <Form.Input />
-        </Form.Item>
-      </Form>
+            control={control}
+            labelAddon={
+              <Pressable
+                onPress={() => {
+                  getClipboard().then((text) => setValue('address', text));
+                }}
+              >
+                <Icon size={16} name="ClipboardOutline" />
+              </Pressable>
+            }
+          >
+            <Form.Textarea
+              placeholder={intl.formatMessage({
+                id: 'form__enter_or_paste_contract_address',
+                defaultMessage: 'Enter or paste contract address',
+              })}
+            />
+          </Form.Item>
+          <Form.Item
+            name="symbol"
+            label={intl.formatMessage({
+              id: 'form__token_symbol',
+              defaultMessage: 'Token Symbol',
+            })}
+            control={control}
+          >
+            <Form.Input />
+          </Form.Item>
+          <Form.Item
+            name="decimal"
+            label={intl.formatMessage({
+              id: 'form_decimal',
+              defaultMessage: 'Decimal',
+            })}
+            control={control}
+          >
+            <Form.Input />
+          </Form.Item>
+        </Form>
+      </KeyboardDismissView>
     </Modal>
   );
 };
