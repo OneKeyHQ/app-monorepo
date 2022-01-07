@@ -10,7 +10,7 @@ const Discover = () => {
   const url = `https://discover.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
   return (
     <Box flex="1">
-      <WebView key={url} src={url} openUrlInExt />
+      <WebView key={url} src={url} />
     </Box>
   );
 };
