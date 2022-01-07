@@ -1,9 +1,15 @@
 import React, { FC, useCallback, useState } from 'react';
 
-import { Toast } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Divider, Modal } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Divider,
+  Modal,
+  useToast,
+  Toast,
+} from '@onekeyhq/components';
 
 import { DiscardAlert } from './DiscardAlert';
 import { DisplayView } from './DisplayView';
@@ -38,6 +44,7 @@ const ModalFooter: FC<ModalFooterProps> = ({ editable, onToggle }) => {
 
 export const NetworkListView: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const [alertOpened, setAlertOpened] = useState(false);
   const [changed] = useState(true);
   const [editable, setEditable] = useState(false);
@@ -58,11 +65,15 @@ export const NetworkListView: FC = () => {
 
   const onToggle = useCallback(() => {
     if (editable) {
-      Toast.show({
-        title: intl.formatMessage({
-          id: 'msg__change_saved',
-          defaultMessage: 'Change saved!',
-        }),
+      toast.show({
+        render: () => (
+          <Toast
+            title={intl.formatMessage({
+              id: 'msg__change_saved',
+              defaultMessage: 'Change saved!',
+            })}
+          ></Toast>
+        ),
       });
     }
     setEditable(!editable);
