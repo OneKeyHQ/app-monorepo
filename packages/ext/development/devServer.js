@@ -8,10 +8,12 @@ const webpack = require('webpack');
 const path = require('path');
 const lodash = require('lodash');
 const configs = require('../webpack.config');
-const env = require('./env');
 const devUtils = require('./devUtils');
+const serverPort = require('./serverPort');
 
 devUtils.cleanBrowserBuild();
+
+const port = serverPort.getDevServerPort();
 
 function addHotReload(config) {
   const options = config.chromeExtensionBoilerplate || {};
@@ -22,7 +24,7 @@ function addHotReload(config) {
     if (excludeEntriesToHotReload.indexOf(entryName) === -1) {
       config.entry[entryName] = [
         'webpack/hot/dev-server',
-        `webpack-dev-server/client?hot=true&hostname=localhost&port=${env.PORT}`,
+        `webpack-dev-server/client?hot=true&hostname=localhost&port=${port}`,
       ].concat(config.entry[entryName]);
     }
   }
@@ -49,12 +51,12 @@ const server = new WebpackDevServer(
     hot: false,
     client: false,
     host: 'localhost',
-    port: env.PORT,
+    port,
     static: {
       directory: path.join(__dirname, '../build'),
     },
     devMiddleware: {
-      publicPath: `http://localhost:${env.PORT}/`,
+      publicPath: `http://localhost:${port}/`,
       writeToDisk: true,
     },
     headers: {

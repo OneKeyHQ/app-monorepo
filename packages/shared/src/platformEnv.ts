@@ -9,6 +9,8 @@ export type IPlatformEnv = {
   isDesktop?: boolean;
   isExtension?: boolean;
   isExtensionBackground?: boolean;
+  isExtensionBackgroundHtml?: boolean;
+  isExtensionBackgroundServiceWorker?: boolean;
   isExtensionUi?: boolean;
   isExtensionUiPopup?: boolean;
   isExtensionUiExpandTab?: boolean;
@@ -39,12 +41,23 @@ export const isExtension = (): boolean =>
 export const isInjected = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'injected';
 
-export const isExtensionBackground = (): boolean =>
+// Ext manifest v2 background
+export const isExtensionBackgroundHtml = (): boolean =>
+  isExtension() &&
+  isBrowser() &&
+  window.location.pathname.startsWith('/background.html');
+
+// Ext manifest v3 background
+export const isExtensionBackgroundServiceWorker = (): boolean =>
   isExtension() &&
   !isBrowser() &&
-  // TODO firefox\edge\brave check
+  // @ts-ignore
+  Boolean(global.serviceWorker) &&
   // @ts-ignore
   global.serviceWorker instanceof ServiceWorker;
+
+export const isExtensionBackground = (): boolean =>
+  isExtensionBackgroundHtml() || isExtensionBackgroundServiceWorker();
 
 export const isExtensionUi = (): boolean =>
   isExtension() && isBrowser() && window.location.pathname.startsWith('/ui-');
@@ -101,6 +114,8 @@ const platformEnv: IPlatformEnv = {
   isDesktop: isDesktop(),
   isExtension: isExtension(),
   isExtensionBackground: isExtensionBackground(),
+  isExtensionBackgroundHtml: isExtensionBackgroundHtml(),
+  isExtensionBackgroundServiceWorker: isExtensionBackgroundServiceWorker(),
   isExtensionUi: isExtensionUi(),
   isExtensionUiPopup: isExtensionUiPopup(),
   isExtensionUiExpandTab: isExtensionUiExpandTab(),
