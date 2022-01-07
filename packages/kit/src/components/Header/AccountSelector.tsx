@@ -31,13 +31,7 @@ const AccountSelector = () => {
   }, [visible, handleToggleVisible, isVerticalLayout]);
 
   return (
-    <Box
-      width="100%"
-      position="relative"
-      maxW="260px"
-      justifyContent="center"
-      alignSelf="center"
-    >
+    <Box position="relative" w={{ md: 'full' }}>
       <AccountSelectorTrigger
         visible={visible}
         handleToggleVisible={handleToggleVisible}
