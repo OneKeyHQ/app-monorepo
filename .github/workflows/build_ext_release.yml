@@ -1,0 +1,55 @@
+name: build-ext
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ext:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        node-version: [16.x]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - name: Yarn cache
+        uses: actions/cache@v2
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: 'yarn && yarn global add expo-cli'
+
+      - name: Build Ext
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: 'cd packages/ext && yarn build:all'
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: onekey-ext
+          path: |
+            ./packages/ext/build/*.zip
