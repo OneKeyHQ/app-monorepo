@@ -24,7 +24,10 @@ function injectJsBridge(bridge: JsBridgeBase): void {
     window.$onekey.jsBridge = bridge;
   }
 
-  console.log('OneKey jsBridge injected success! 8888');
+  console.log(
+    '===== OneKey jsBridge injected success! >>>>> ',
+    performance.now(),
+  );
 }
 
 export default injectJsBridge;

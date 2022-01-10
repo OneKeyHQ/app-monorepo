@@ -1,4 +1,5 @@
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { isDev } from '@onekeyhq/shared/src/platformEnv';
 
 import {
   EXT_PORT_CS_TO_BG,
@@ -22,7 +23,7 @@ function inject(filename: string) {
   // Manifest V3 V2
   injectedFactory.injectCodeWithScriptTag({
     file: chrome.runtime.getURL(filename),
-    remove: true,
+    remove: !isDev(),
   });
 }
 
