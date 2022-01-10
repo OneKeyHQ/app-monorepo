@@ -1,7 +1,9 @@
-import React, { ComponentProps } from 'react';
+import React, { ComponentProps, ReactNode } from 'react';
 
-import { Input as BaseInput, Divider, Pressable, Stack } from 'native-base';
+import { Input as BaseInput, Pressable, Stack } from 'native-base';
 
+import Divider from '../Divider';
+import HStack from '../HStack';
 import Icon, { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
@@ -13,6 +15,7 @@ type Props = {
   rightSecondaryText?: string;
   leftIconName?: ICON_NAMES;
   rightIconName?: ICON_NAMES;
+  rightCustomElement?: ReactNode;
   rightSecondaryIconName?: ICON_NAMES;
   onPressLeftText?: () => void;
   onPressRightText?: () => void;
@@ -41,6 +44,7 @@ const Input = React.forwardRef<
       onPressRightIcon,
       onPressSecondaryRightText,
       onPressSecondaryRightIcon,
+      rightCustomElement,
       ...props
     },
     ref,
@@ -105,7 +109,9 @@ const Input = React.forwardRef<
     }
     if (rightSecondaryText) {
       if (rightText) {
-        rightElements.push(<Divider orientation="vertical" h="3" />);
+        rightElements.push(
+          <Divider bg="border-subdued" orientation="vertical" h="3" />,
+        );
       }
       rightElements.push(
         <Text
@@ -116,6 +122,13 @@ const Input = React.forwardRef<
         >
           {rightSecondaryText}
         </Text>,
+      );
+    }
+    if (rightCustomElement) {
+      rightElements.push(
+        <HStack alignItems="center" mr={-3}>
+          {rightCustomElement}
+        </HStack>,
       );
     }
     if (rightSecondaryIconName) {

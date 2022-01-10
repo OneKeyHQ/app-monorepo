@@ -26,6 +26,7 @@ const DesktopModal: FC<ModalProps> = ({
   onSecondaryActionPress,
   header,
   size,
+  height,
   headerDescription,
 }) => {
   const intl = useIntl();
@@ -64,6 +65,7 @@ const DesktopModal: FC<ModalProps> = ({
     >
       <Box
         width={modalSizing(size)}
+        height={height}
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"

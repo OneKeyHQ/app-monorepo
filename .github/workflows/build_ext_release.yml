@@ -1,15 +1,17 @@
-name: build-desktop
+name: build-ext
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
-  build-desktop:
+  build-ext:
     runs-on: macos-latest
     strategy:
       matrix:
         node-version: [16.x]
 
     steps:
+
       - name: Checkout Source Code
         uses: actions/checkout@v2
         with:
@@ -26,7 +28,7 @@ jobs:
           echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
           # echo "::set-env name=GITHUB_TAG::$github_ref"
 
-          eval "$(node -e 'const v=require("./packages/desktop/package.json").version; console.log("pkg_version="+v)')"
+          eval "$(node -e 'const v=require("./packages/ext/package.json").version; console.log("pkg_version="+v)')"
           echo '$pkg_version='$pkg_version
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
 
@@ -35,6 +37,7 @@ jobs:
 
         env:
           github_ref: ${{ github.ref }}
+
 
       - name: Setup Node
         uses: actions/setup-node@v2
@@ -48,7 +51,8 @@ jobs:
         id: yarn-cache-dir-path
         run: echo "::set-output name=dir::$(yarn cache dir)"
 
-      - uses: actions/cache@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
         id: yarn-cache
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
@@ -61,36 +65,25 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'yarn && yarn global add expo-cli'
 
-      - name: Setup Code Signing file
-        run: |
-          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
-
-      - name: Build and Sign Static Linux / Macos / Windows Installer
+      - name: Build Ext
         env:
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn publish:all'
+        run: 'cd packages/ext && yarn build:all'
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: onekey-desktop
+          name: onekey-extension-rn
           path: |
-            ./packages/desktop/build-electron/*.dmg
-            ./packages/desktop/build-electron/*.exe
-            ./packages/desktop/build-electron/*.AppImage
+            ./packages/ext/build/_dist/*.zip
 
       - name: 'Notify to Slack'
         uses: onekeyhq/onekey-github-actions/notice-slack-app-update@main
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-RN
-          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-type: Extension
+          artifact-name: OneKey-Extension-RN
+          artifact-bundle-id: 'so.onekey.wallet.extension'
           artifact-version-name: '${{ env.PKG_VERSION }}@${{ env.GITHUB_TAG }}'
           artifact-version-code: '${{ env.GITHUB_TAG }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
@@ -98,3 +91,6 @@ jobs:
           custom-issue-url: ''
           custom-message-title: ''
           custom-message-payload: ''
+
+
+
