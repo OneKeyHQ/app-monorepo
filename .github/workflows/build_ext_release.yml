@@ -81,7 +81,7 @@ jobs:
         uses: onekeyhq/onekey-github-actions/notice-slack-app-update@main
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
-          artifact-type: Web-FE
+          artifact-type: Extension
           artifact-name: OneKey-Extension-RN
           artifact-bundle-id: 'so.onekey.wallet.extension'
           artifact-version-name: '${{ env.PKG_VERSION }}@${{ env.GITHUB_TAG }}'
