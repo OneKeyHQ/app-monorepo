@@ -16,6 +16,7 @@ import {
 type FormValues = {
   username: string;
   email: string;
+  password: string;
   description: string;
   url: string;
   agreement: boolean;
@@ -72,6 +73,18 @@ const FormGallery = () => {
           }}
         >
           <Form.Input placeholder="placeholder" />
+        </Form.Item>
+        <Form.Item
+          label="Password"
+          control={control}
+          name="password"
+          defaultValue=""
+          rules={{
+            required: 'Password cannot be empty',
+            maxLength: { value: 10, message: 'The maximum length is 10.' },
+          }}
+        >
+          <Form.PasswordInput placeholder="password" />
         </Form.Item>
         <Form.Item
           label="Email"

@@ -7,6 +7,7 @@ import { FormRadioGroup } from './FormRadioGroup';
 import { FormSelect } from './FormSelect';
 import { FormSwitch } from './FormSwitch';
 import { FormTextarea } from './FormTextarea';
+import { FormPasswordInput } from './FormPasswordInput'
 
 /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
 
@@ -19,6 +20,7 @@ Base.Switch = FormSwitch;
 Base.Radio = FormRadio;
 Base.RadioGroup = FormRadioGroup;
 Base.Select = FormSelect;
+Base.PasswordInput = FormPasswordInput;
 
 type IFormComponentType = typeof BaseForm & {
   Item: typeof FormItem;
@@ -29,6 +31,7 @@ type IFormComponentType = typeof BaseForm & {
   Radio: typeof FormRadio;
   RadioGroup: typeof FormRadioGroup;
   Select: typeof FormSelect;
+  PasswordInput: typeof FormPasswordInput;
 };
 
 const Form = Base as IFormComponentType;
