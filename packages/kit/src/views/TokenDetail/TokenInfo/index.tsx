@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,9 +6,11 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Icon,
   IconButton,
+  Token,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
   ReceiveQRCodeModalRoutes,
@@ -21,6 +23,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../../utils/extUtils';
+import { AssetToken } from '../../Wallet/AssetsList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -33,36 +36,43 @@ type NavigationProps = NativeStackNavigationProp<
     ReceiveQRCodeModalRoutes.ReceiveQRCodeModal
   >;
 
-const AccountInfo = () => {
-  const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
+export type TokenInfoProps = {
+  token: AssetToken;
+};
+
+const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
+  const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { size } = useUserDevice();
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
 
-  const renderAccountAmountInfo = useCallback(
-    (isCenter: boolean) => (
-      <Box alignItems={isCenter ? 'center' : 'flex-start'}>
-        <Typography.Subheading color="text-subdued">
-          {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
-        </Typography.Subheading>
-        <Box flexDirection="row" mt={2}>
-          <Typography.DisplayXLarge>10.100</Typography.DisplayXLarge>
-          <Typography.DisplayXLarge pl={2}>ETH</Typography.DisplayXLarge>
+  const renderAccountAmountInfo = useMemo(
+    () => (
+      <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
+        <Token size={12} src={token.logoURI} />
+        <Box
+          ml={isVertical ? 0 : 4}
+          alignItems={isVertical ? 'center' : 'flex-start'}
+        >
+          <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
+            <Typography.DisplayXLarge>{token.amount}</Typography.DisplayXLarge>
+            <Typography.DisplayXLarge pl={2}>
+              {token.symbol}
+            </Typography.DisplayXLarge>
+          </Box>
+          <Typography.Body2 mt={1}>{token.fiatAmount}</Typography.Body2>
         </Box>
-        <Typography.Body2 mt={1}>43123.12 USD</Typography.Body2>
       </Box>
     ),
-    [intl],
+    [token, isVertical],
   );
 
   const accountOption = useMemo(
     () => (
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
-          size={isSmallScreen ? 'lg' : 'base'}
-          leftIconName="ArrowSmUpSolid"
-          minW={{ base: '126px', md: 'auto' }}
+          size={isVertical ? 'lg' : 'base'}
+          leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
+          minW="126px"
           type="basic"
           onPress={() => {
             navigation.navigate(TransactionModalRoutes.TransactionModal);
@@ -71,10 +81,10 @@ const AccountInfo = () => {
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
         <Button
-          size={isSmallScreen ? 'lg' : 'base'}
+          size={isVertical ? 'lg' : 'base'}
           ml={4}
-          leftIconName="ArrowSmDownSolid"
-          minW={{ base: '126px', md: 'auto' }}
+          leftIcon={<Icon name="ArrowSmDownSolid" />}
+          minW="126px"
           type="basic"
           onPress={() => {
             navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
@@ -85,7 +95,7 @@ const AccountInfo = () => {
         {platformEnv.isExtensionUiPopup && (
           <IconButton
             onPress={() => {
-              extUtils.openExpandTab({ route: '' });
+              extUtils.openExpandTab({ route: '/' });
             }}
             ml={4}
             name="ArrowsExpandOutline"
@@ -93,36 +103,28 @@ const AccountInfo = () => {
         )}
       </Box>
     ),
-    [intl, isSmallScreen, navigation],
+    [intl, isVertical, navigation],
   );
 
-  return useMemo(() => {
-    if (isSmallView) {
-      return (
-        <Box
-          w="100%"
-          flexDirection="column"
-          bgColor="background-default"
-          py={8}
-        >
-          {renderAccountAmountInfo(true)}
-          <Box mt={8}>{accountOption}</Box>
-        </Box>
-      );
-    }
-    return (
+  return useMemo(
+    () => (
       <Box
-        py={12}
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
+        w="100%"
+        py={isVertical ? 8 : 12}
+        px={isVertical ? 0 : 4}
+        flexDirection={isVertical ? 'column' : 'row'}
+        justifyContent={isVertical ? 'flex-start' : 'space-between'}
+        alignItems={isVertical ? 'stretch' : 'center'}
         bgColor="background-default"
       >
-        <Box>{renderAccountAmountInfo(false)}</Box>
-        <Box>{accountOption}</Box>
+        <Box w="100%" flex={1}>
+          {renderAccountAmountInfo}
+        </Box>
+        <Box mt={isVertical ? 8 : 0}>{accountOption}</Box>
       </Box>
-    );
-  }, [isSmallView, renderAccountAmountInfo, accountOption]);
+    ),
+    [isVertical, renderAccountAmountInfo, accountOption],
+  );
 };
 
-export default AccountInfo;
+export default TokenInfo;
