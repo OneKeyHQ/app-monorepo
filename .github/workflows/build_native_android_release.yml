@@ -39,4 +39,4 @@ jobs:
         run: |
           cd packages/app
           npx eas-cli build --profile=production --platform android --non-interactive --no-wait
-          npx eas-cli build --profile=production_store --platform android --non-interactive --no-wait
+          npx eas-cli build --profile=production-store --platform android --non-interactive --no-wait
