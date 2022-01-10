@@ -1,5 +1,9 @@
 import { Platform } from 'react-native';
 
+/*
+DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
+ */
+
 export type IPlatformEnv = {
   isMac?: boolean;
   isWindows?: boolean;
@@ -7,6 +11,7 @@ export type IPlatformEnv = {
 
   isWeb?: boolean;
   isDesktop?: boolean;
+  isManifestV3?: boolean;
   isExtension?: boolean;
   isExtensionBackground?: boolean;
   isExtensionBackgroundHtml?: boolean;
@@ -72,6 +77,10 @@ export const isExtensionUiStandaloneWindow = (): boolean =>
   isExtensionUi() &&
   window.location.pathname.startsWith('/ui-standalone-window.html');
 
+export const isManifestV3 = (): boolean =>
+  // TODO firefox check v3
+  isExtension() && chrome.runtime.getManifest().manifest_version === 3;
+
 export const isDesktop = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'desktop';
 
@@ -112,6 +121,7 @@ const platformEnv: IPlatformEnv = {
 
   isWeb: isWeb(),
   isDesktop: isDesktop(),
+  isManifestV3: isManifestV3(),
   isExtension: isExtension(),
   isExtensionBackground: isExtensionBackground(),
   isExtensionBackgroundHtml: isExtensionBackgroundHtml(),
@@ -134,5 +144,9 @@ const platformEnv: IPlatformEnv = {
 if (isDev()) {
   global.$$platformEnv = platformEnv;
 }
+
+/*
+DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
+ */
 
 export default platformEnv;

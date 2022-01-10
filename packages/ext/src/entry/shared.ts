@@ -12,4 +12,6 @@ if (platformEnv.isFirefox) {
   global.chromeLegacy = global.chrome;
   // @ts-ignore
   global.chrome = browser;
+} else {
+  global.browser = global.browser || browser;
 }

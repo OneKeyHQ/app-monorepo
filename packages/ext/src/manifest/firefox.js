@@ -30,9 +30,10 @@ module.exports = {
     'persistent': true,
   },
   'web_accessible_resources': [
-    'inpage.js',
-    'phishing.html',
-    'phishing_en.html',
+    // allow content-script inject js file
+    'injected.js',
+    // allow site load iframe force service-worker update
+    'ui-content-script-iframe.html',
   ],
 };
 /*
