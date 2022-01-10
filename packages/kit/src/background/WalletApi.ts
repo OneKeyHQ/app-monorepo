@@ -11,7 +11,7 @@ class WalletApi {
 
   selectedAddress = this.accounts[0];
 
-  isConnected = false;
+  isConnected = true; // current dapp isConnected
 }
 
 export default WalletApi;

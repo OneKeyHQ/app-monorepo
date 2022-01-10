@@ -10,6 +10,7 @@ import WalletApi from './WalletApi';
 export type IProviderBaseBackgroundNotifyInfo = {
   address?: string;
   chainId?: string;
+  networkVersion?: string;
   send: (data: any) => void;
 };
 

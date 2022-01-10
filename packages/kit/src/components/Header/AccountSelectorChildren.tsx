@@ -52,6 +52,10 @@ const NORMAL_ACCOUNTS = [
     address: '0x76f3f64cb3cd19debee51436df630a342b736c24',
     label: 'Wallet',
   },
+  {
+    address: '0x76b4a2de2e67ef5ee4a5050352aec077208fc7f1',
+    label: 'Wallet',
+  },
 ];
 
 type AccountType = 'normal' | 'hd' | 'imported' | 'watched';

@@ -17,7 +17,7 @@ export interface IBackgroundApi {
   getStoreState(): Promise<any>;
   // ----------------------------------------------
   changeAccounts(address: string): void;
-  changeChain(chainId: string): void;
+  changeChain(chainId: string, networkVersion?: string): void;
 }
 
 class BackgroundApiProxy implements IBackgroundApi, IBackgroundApiBridge {
@@ -92,8 +92,8 @@ class BackgroundApiProxy implements IBackgroundApi, IBackgroundApiBridge {
     return this.callBackgroundSync('changeAccounts', address);
   }
 
-  changeChain(chainId: string): void {
-    return this.callBackgroundSync('changeChain', chainId);
+  changeChain(chainId: string, networkVersion?: string): void {
+    return this.callBackgroundSync('changeChain', chainId, networkVersion);
   }
 }
 

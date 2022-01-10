@@ -1,40 +1,25 @@
-import { Duplex } from 'stream';
-
-import ObjectMultiplex from '@metamask/object-multiplex';
-import SafeEventEmitter from '@metamask/safe-event-emitter';
+/* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 import { EthereumRpcError, ethErrors } from 'eth-rpc-errors';
 import dequal from 'fast-deep-equal';
-import { duplex as isDuplex } from 'is-stream';
-import {
-  JsonRpcEngine,
-  JsonRpcId,
-  JsonRpcMiddleware,
-  JsonRpcRequest,
-  JsonRpcSuccess,
-  JsonRpcVersion,
-  createIdRemapMiddleware,
-} from 'json-rpc-engine';
-import { createStreamMiddleware } from 'json-rpc-middleware-stream';
-import pump from 'pump';
 
-import ProviderBase, { IInpageProviderConfig } from '../ProviderBase';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import {
+  IInjectedProviderNames,
+  IJsonRpcRequest,
+  IJsonRpcResponse,
+} from '../../types';
+import ProviderBase, {
+  IBridgeRequestCallback,
+  IInpageProviderConfig,
+} from '../ProviderBase';
 
 import messages from './messages';
 import {
   ConsoleLike,
   EMITTED_NOTIFICATIONS,
-  Maybe,
-  createErrorMiddleware,
-  getRpcPromiseCallback,
   logStreamDisconnectWarning,
 } from './utils';
-
-export interface UnvalidatedJsonRpcRequest {
-  id?: JsonRpcId;
-  jsonrpc?: JsonRpcVersion;
-  method: string;
-  params?: unknown;
-}
 
 export interface BaseProviderOptions {
   /**
@@ -69,22 +54,14 @@ export interface BaseProviderState {
   isPermanentlyDisconnected: boolean;
 }
 
-export interface JsonRpcConnection {
-  events: SafeEventEmitter;
-  middleware: JsonRpcMiddleware<unknown, unknown>;
-  stream: Duplex;
-}
-
 export default class BaseProvider extends ProviderBase {
+  protected providerName = IInjectedProviderNames.ethereum;
+
+  public isMetaMask = true;
+
   protected readonly _log: ConsoleLike;
 
   protected _state: BaseProviderState;
-
-  // TODO remove
-  protected _rpcEngine: JsonRpcEngine;
-
-  // TODO remove
-  protected _jsonRpcConnection: JsonRpcConnection;
 
   protected static _defaultState: BaseProviderState = {
     accounts: null,
@@ -111,9 +88,10 @@ export default class BaseProvider extends ProviderBase {
     super(config);
 
     // TODO use debugLogger.ethereum()
-    this._log = config.logger ?? window.console.bind(window.console);
+    // @ts-ignore
+    this._log = config.logger ?? window.console;
     // TODO remove
-    this.setMaxListeners(config.maxEventListeners ?? 100);
+    // this.setMaxListeners(config.maxEventListeners ?? 100);
 
     // private state
     this._state = {
@@ -159,7 +137,7 @@ export default class BaseProvider extends ProviderBase {
     this._initializeState();
 
     // handle JSON-RPC notifications
-    this._jsonRpcConnection.events.on('notification', (payload) => {
+    this.bridge.on('notification', (payload) => {
       const { method, params } = payload;
       if (method === 'metamask_accountsChanged') {
         this._handleAccountsChanged(params);
@@ -173,9 +151,8 @@ export default class BaseProvider extends ProviderBase {
           data: params,
         });
       } else if (method === 'METAMASK_STREAM_FAILURE') {
-        connectionStream.destroy(
-          new Error(messages.errors.permanentlyDisconnected()),
-        );
+        // TODO destroy bridge connection
+        const error = new Error(messages.errors.permanentlyDisconnected());
       }
     });
   }
@@ -201,7 +178,9 @@ export default class BaseProvider extends ProviderBase {
    * @returns A Promise that resolves with the result of the RPC method,
    * or rejects if an error is encountered.
    */
-  async request<T>(args: RequestArguments): Promise<Maybe<T>> {
+  async request<T>(args: RequestArguments): Promise<T> {
+    debugLogger.ethereum('request', args);
+
     if (!args || typeof args !== 'object' || Array.isArray(args)) {
       throw ethErrors.rpc.invalidRequest({
         message: messages.errors.invalidRequestArgs(),
@@ -211,7 +190,9 @@ export default class BaseProvider extends ProviderBase {
 
     const { method, params } = args;
 
-    if (typeof method !== 'string' || method.length === 0) {
+    if (!method || typeof method !== 'string' || method.length === 0) {
+      // createErrorMiddleware
+      // `The request 'method' must be a non-empty string.`,
       throw ethErrors.rpc.invalidRequest({
         message: messages.errors.invalidRequestMethod(),
         data: args,
@@ -229,12 +210,12 @@ export default class BaseProvider extends ProviderBase {
       });
     }
 
-    return new Promise<T>((resolve, reject) => {
-      this._rpcRequest(
-        { method, params },
-        getRpcPromiseCallback(resolve, reject),
-      );
-    });
+    // TODO error logger
+    //      log.error(`MetaMask - RPC Error: ${error.message}`, error);
+    const res = (await this._rpcRequest({ method, params })) as T;
+    debugLogger.ethereum('request->response', '\n', args, '\n ---> ', res);
+
+    return res;
   }
 
   //= ===================
@@ -248,15 +229,27 @@ export default class BaseProvider extends ProviderBase {
    */
   private async _initializeState() {
     try {
-      const { accounts, chainId, isUnlocked, networkVersion } =
-        (await this.request({
-          method: 'metamask_getProviderState',
-        })) as {
-          accounts: string[];
-          chainId: string;
-          isUnlocked: boolean;
-          networkVersion: string;
-        };
+      const res = await this.request({
+        method: 'metamask_getProviderState',
+      });
+      const {
+        accounts,
+        chainId,
+        isUnlocked,
+        networkVersion,
+        debugLoggerSettings,
+      } = res as {
+        accounts: string[];
+        chainId: string;
+        isUnlocked: boolean;
+        networkVersion: string;
+        debugLoggerSettings?: string;
+      };
+
+      // Sync debugLogger settings to injected.js
+      if (window?.$onekey?.debugLogger?.debug?.enable) {
+        window.$onekey.debugLogger.debug.enable(debugLoggerSettings || '');
+      }
 
       // indicate that we've connected, for EIP-1193 compliance
       this.emit('connect', { chainId });
@@ -280,35 +273,33 @@ export default class BaseProvider extends ProviderBase {
    * Also remap ids inbound and outbound.
    *
    * @param payload - The RPC request object.
-   * @param callback - The consumer's callback.
+   * @param callback
    */
-  protected _rpcRequest(
-    payload: UnvalidatedJsonRpcRequest | UnvalidatedJsonRpcRequest[],
-    callback: (...args: any[]) => void,
+  protected async _rpcRequest(
+    payload: IJsonRpcRequest | IJsonRpcRequest[],
+    callback?: IBridgeRequestCallback,
   ) {
-    let cb = callback;
-
     if (!Array.isArray(payload)) {
       if (!payload.jsonrpc) {
         payload.jsonrpc = '2.0';
       }
+      const res = await this.bridgeRequest(payload, callback);
 
       if (
         payload.method === 'eth_accounts' ||
         payload.method === 'eth_requestAccounts'
       ) {
         // handle accounts changing
-        cb = (err: Error, res: JsonRpcSuccess<string[]>) => {
-          this._handleAccountsChanged(
-            res.result || [],
-            payload.method === 'eth_accounts',
-          );
-          callback(err, res);
-        };
+        this._handleAccountsChanged(
+          // @ts-expect-error
+          (res.result as unknown[]) || [],
+          payload.method === 'eth_accounts',
+        );
       }
-      return this._rpcEngine.handle(payload as JsonRpcRequest<unknown>, cb);
+      return res;
     }
-    return this._rpcEngine.handle(payload as JsonRpcRequest<unknown>[], cb);
+    // TODO array payload?
+    return this.bridgeRequest(payload, callback);
   }
 
   /**
@@ -346,12 +337,14 @@ export default class BaseProvider extends ProviderBase {
 
       let error;
       if (isRecoverable) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         error = new EthereumRpcError(
           1013, // Try again later
           errorMessage || messages.errors.disconnected(),
         );
         this._log.debug(error);
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         error = new EthereumRpcError(
           1011, // Internal error
           errorMessage || messages.errors.permanentlyDisconnected(),
@@ -434,6 +427,7 @@ export default class BaseProvider extends ProviderBase {
     accounts: unknown[],
     isEthAccounts = false,
   ): void {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     let _accounts = accounts;
 
     if (!Array.isArray(accounts)) {

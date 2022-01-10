@@ -20,14 +20,15 @@ export type IInjectedProviderNamesStrings = keyof typeof IInjectedProviderNames;
 
 export type IJsonRpcRequest = {
   id?: number | string;
+  jsonrpc?: '2.0' | '1.0';
   method: string;
   params: Record<string, unknown> | Array<unknown> | unknown;
 };
 
-export type IJsonRpcResponse = {
+export type IJsonRpcResponse<T> = {
   id?: number | string;
   jsonrpc: string;
-  result: any | unknown;
+  result: any | unknown | T;
 };
 
 export type IJsBridgeCallback = {

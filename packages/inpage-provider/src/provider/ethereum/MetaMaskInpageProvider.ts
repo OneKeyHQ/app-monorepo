@@ -1,13 +1,15 @@
+/* eslint-disable no-dupe-class-members */
 import { ethErrors } from 'eth-rpc-errors';
-import sendSiteMetadata from './siteMetadata';
-import messages from './messages';
-import { EMITTED_NOTIFICATIONS, getRpcPromiseCallback, NOOP } from './utils';
-import BaseProvider, {
-  BaseProviderOptions,
-  UnvalidatedJsonRpcRequest,
-} from './BaseProvider';
 
-export interface SendSyncJsonRpcRequest extends JsonRpcRequest<unknown> {
+import { IJsonRpcRequest } from '../../types';
+import { IBridgeRequestCallback, IInpageProviderConfig } from '../ProviderBase';
+
+import BaseProvider, { BaseProviderOptions } from './BaseProvider';
+import messages from './messages';
+import sendSiteMetadata from './siteMetadata';
+import { EMITTED_NOTIFICATIONS, NOOP } from './utils';
+
+export interface SendSyncJsonRpcRequest extends IJsonRpcRequest {
   method:
     | 'eth_accounts'
     | 'eth_coinbase'
@@ -78,16 +80,9 @@ export default class MetaMaskInpageProvider extends BaseProvider {
    * @param options.shouldSendMetadata - Whether the provider should
    * send page metadata. Default: true
    */
-  constructor(
-    connectionStream: Duplex,
-    {
-      jsonRpcStreamName = 'metamask-provider',
-      logger = console,
-      maxEventListeners = 100,
-      shouldSendMetadata = true,
-    }: MetaMaskInpageProviderOptions = {},
-  ) {
-    super(connectionStream, { jsonRpcStreamName, logger, maxEventListeners });
+  constructor(config: IInpageProviderConfig) {
+    super(config);
+    const shouldSendMetadata = config.shouldSendMetadata ?? true;
 
     this.networkVersion = null;
     this.isMetaMask = true;
@@ -101,24 +96,25 @@ export default class MetaMaskInpageProvider extends BaseProvider {
     this._metamask = this._getExperimentalApi();
 
     // handle JSON-RPC notifications
-    this._jsonRpcConnection.events.on('notification', (payload) => {
+    this.bridge.on('notification', (payload: IJsonRpcRequest) => {
       const { method } = payload;
       if (EMITTED_NOTIFICATIONS.includes(method)) {
         // deprecated
         // emitted here because that was the original order
         this.emit('data', payload);
         // deprecated
-        this.emit('notification', payload.params.result);
+        const payloadParams = payload.params as { result: any };
+        this.emit('notification', payloadParams.result);
       }
     });
 
     // send website metadata
     if (shouldSendMetadata) {
       if (document.readyState === 'complete') {
-        sendSiteMetadata(this._rpcEngine, this._log);
+        sendSiteMetadata(this.bridge, this._log);
       } else {
         const domContentLoadedHandler = () => {
-          sendSiteMetadata(this._rpcEngine, this._log);
+          sendSiteMetadata(this.bridge, this._log);
           window.removeEventListener(
             'DOMContentLoaded',
             domContentLoadedHandler,
@@ -129,20 +125,17 @@ export default class MetaMaskInpageProvider extends BaseProvider {
     }
   }
 
-  //====================
+  //= ===================
   // Public Methods
-  //====================
+  //= ===================
 
   /**
    * Submits an RPC request per the given JSON-RPC request object.
    *
    * @param payload - The RPC request object.
-   * @param cb - The callback function.
+   * @param callback
    */
-  sendAsync(
-    payload: JsonRpcRequest<unknown>,
-    callback: (error: Error | null, result?: JsonRpcResponse<unknown>) => void,
-  ): void {
+  sendAsync(payload: IJsonRpcRequest, callback?: IBridgeRequestCallback): void {
     this._rpcRequest(payload, callback);
   }
 
@@ -152,16 +145,19 @@ export default class MetaMaskInpageProvider extends BaseProvider {
    *   addListener, on, once, prependListener, prependOnceListener
    */
 
+  // @ts-ignore
   addListener(eventName: string, listener: (...args: unknown[]) => void) {
     this._warnOfDeprecation(eventName);
     return super.addListener(eventName, listener);
   }
 
+  // @ts-ignore
   on(eventName: string, listener: (...args: unknown[]) => void) {
     this._warnOfDeprecation(eventName);
     return super.on(eventName, listener);
   }
 
+  // @ts-ignore
   once(eventName: string, listener: (...args: unknown[]) => void) {
     this._warnOfDeprecation(eventName);
     return super.once(eventName, listener);
@@ -169,7 +165,7 @@ export default class MetaMaskInpageProvider extends BaseProvider {
 
   prependListener(eventName: string, listener: (...args: unknown[]) => void) {
     this._warnOfDeprecation(eventName);
-    return super.prependListener(eventName, listener);
+    return super.addListener(eventName, listener);
   }
 
   prependOnceListener(
@@ -177,12 +173,12 @@ export default class MetaMaskInpageProvider extends BaseProvider {
     listener: (...args: unknown[]) => void,
   ) {
     this._warnOfDeprecation(eventName);
-    return super.prependOnceListener(eventName, listener);
+    return super.once(eventName, listener);
   }
 
-  //====================
+  //= ===================
   // Private Methods
-  //====================
+  //= ===================
 
   /**
    * When the provider becomes disconnected, updates internal state and emits
@@ -212,9 +208,9 @@ export default class MetaMaskInpageProvider extends BaseProvider {
     }
   }
 
-  //====================
+  //= ===================
   // Deprecated Methods
-  //====================
+  //= ===================
 
   /**
    * Equivalent to: ethereum.request('eth_requestAccounts')
@@ -222,57 +218,17 @@ export default class MetaMaskInpageProvider extends BaseProvider {
    * @deprecated Use request({ method: 'eth_requestAccounts' }) instead.
    * @returns A promise that resolves to an array of addresses.
    */
-  enable(): Promise<string[]> {
+  async enable(): Promise<string[]> {
     if (!this._sentWarnings.enable) {
       this._log.warn(messages.warnings.enableDeprecation);
       this._sentWarnings.enable = true;
     }
 
-    return new Promise<string[]>((resolve, reject) => {
-      try {
-        this._rpcRequest(
-          { method: 'eth_requestAccounts', params: [] },
-          getRpcPromiseCallback(resolve, reject),
-        );
-      } catch (error) {
-        reject(error);
-      }
-    });
+    return (await this._rpcRequest({
+      method: 'eth_requestAccounts',
+      params: [],
+    })) as Promise<string[]>;
   }
-
-  /**
-   * Submits an RPC request for the given method, with the given params.
-   *
-   * @deprecated Use "request" instead.
-   * @param method - The method to request.
-   * @param params - Any params for the method.
-   * @returns A Promise that resolves with the JSON-RPC response object for the
-   * request.
-   */
-  send<T>(method: string, params?: T[]): Promise<JsonRpcResponse<T>>;
-
-  /**
-   * Submits an RPC request per the given JSON-RPC request object.
-   *
-   * @deprecated Use "request" instead.
-   * @param payload - A JSON-RPC request object.
-   * @param callback - An error-first callback that will receive the JSON-RPC
-   * response object.
-   */
-  send<T>(
-    payload: JsonRpcRequest<unknown>,
-    callback: (error: Error | null, result?: JsonRpcResponse<T>) => void,
-  ): void;
-
-  /**
-   * Accepts a JSON-RPC request object, and synchronously returns the cached result
-   * for the given method. Only supports 4 specific RPC methods.
-   *
-   * @deprecated Use "request" instead.
-   * @param payload - A JSON-RPC request object.
-   * @returns A JSON-RPC response object.
-   */
-  send<T>(payload: SendSyncJsonRpcRequest): JsonRpcResponse<T>;
 
   send(methodOrPayload: unknown, callbackOrArgs?: unknown): unknown {
     if (!this._sentWarnings.send) {
@@ -284,24 +240,20 @@ export default class MetaMaskInpageProvider extends BaseProvider {
       typeof methodOrPayload === 'string' &&
       (!callbackOrArgs || Array.isArray(callbackOrArgs))
     ) {
-      return new Promise((resolve, reject) => {
-        try {
-          this._rpcRequest(
-            { method: methodOrPayload, params: callbackOrArgs },
-            getRpcPromiseCallback(resolve, reject, false),
-          );
-        } catch (error) {
-          reject(error);
-        }
+      return this._rpcRequest({
+        method: methodOrPayload,
+        params: callbackOrArgs,
       });
-    } else if (
+    }
+
+    if (
       methodOrPayload &&
       typeof methodOrPayload === 'object' &&
       typeof callbackOrArgs === 'function'
     ) {
       return this._rpcRequest(
-        methodOrPayload as JsonRpcRequest<unknown>,
-        callbackOrArgs as (...args: unknown[]) => void,
+        methodOrPayload as IJsonRpcRequest,
+        callbackOrArgs as IBridgeRequestCallback,
       );
     }
     return this._sendSync(methodOrPayload as SendSyncJsonRpcRequest);
@@ -368,7 +320,7 @@ export default class MetaMaskInpageProvider extends BaseProvider {
         /**
          * Make a batch RPC request.
          */
-        requestBatch: async (requests: UnvalidatedJsonRpcRequest[]) => {
+        requestBatch: async (requests: IJsonRpcRequest[]) => {
           if (!Array.isArray(requests)) {
             throw ethErrors.rpc.invalidRequest({
               message:
@@ -376,10 +328,7 @@ export default class MetaMaskInpageProvider extends BaseProvider {
               data: requests,
             });
           }
-
-          return new Promise((resolve, reject) => {
-            this._rpcRequest(requests, getRpcPromiseCallback(resolve, reject));
-          });
+          return this._rpcRequest(requests);
         },
       },
       {
@@ -388,6 +337,7 @@ export default class MetaMaskInpageProvider extends BaseProvider {
             this._log.warn(messages.warnings.experimentalMethods);
             this._sentWarnings.experimentalMethods = true;
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return Reflect.get(obj, prop, ...args);
         },
       },

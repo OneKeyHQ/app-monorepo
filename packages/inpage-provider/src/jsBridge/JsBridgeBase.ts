@@ -12,6 +12,7 @@ import {
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IJsBridgeMessageTypes,
+  IJsonRpcResponse,
 } from '../types';
 
 abstract class JsBridgeBase extends EventEmitter {
@@ -152,7 +153,7 @@ abstract class JsBridgeBase extends EventEmitter {
       if (this.sendAsString) {
         payloadToSend = JSON.stringify(payload);
       }
-      debugLogger.jsBridge('send', payloadToSend);
+      debugLogger.jsBridge('send', payload.data, payload);
       // TODO sendPayload with function field and stringify?
       // TODO rename sendMessage
       this.sendPayload(payloadToSend as string);
@@ -161,7 +162,7 @@ abstract class JsBridgeBase extends EventEmitter {
     if (sync) {
       executor();
     } else {
-      return new Promise(executor);
+      return new Promise(executor) as Promise<IJsonRpcResponse<unknown>>;
     }
   }
 
@@ -172,7 +173,6 @@ abstract class JsBridgeBase extends EventEmitter {
       internal?: boolean;
     },
   ) {
-    debugLogger.jsBridge('receive', payloadReceived, sender);
     let payload: IJsBridgeMessagePayload = {
       data: null,
     };
@@ -187,6 +187,8 @@ abstract class JsBridgeBase extends EventEmitter {
 
     payload.origin = sender?.origin || payload.origin;
     payload.internal = Boolean(sender?.internal);
+
+    debugLogger.jsBridge('receive', payload.data, payload, sender);
 
     const { type, id, data, error, origin, remoteId } = payload;
     this.remoteInfo = {
@@ -263,8 +265,9 @@ abstract class JsBridgeBase extends EventEmitter {
     data: unknown;
     remoteId?: number | string | null;
     scope?: IInjectedProviderNamesStrings;
-  }) {
+  }): Promise<IJsonRpcResponse<unknown>> {
     const { data, remoteId, scope } = info;
+    // @ts-ignore
     return this.send({
       type: IJsBridgeMessageTypes.REQUEST,
       data,

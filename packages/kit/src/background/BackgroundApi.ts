@@ -52,12 +52,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   // @ts-expect-error
   @internalMethod()
-  changeChain(chainId: string) {
+  changeChain(chainId: string, networkVersion?: string) {
     this.walletApi.chainId = chainId;
-
+    // TODO EVM Only
+    // eslint-disable-next-line no-param-reassign
+    networkVersion = networkVersion ?? `${parseInt(chainId, 16)}`;
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappChainChanged({
         chainId,
+        networkVersion,
         send: this.sendForProvider(provider.providerName),
       });
     });

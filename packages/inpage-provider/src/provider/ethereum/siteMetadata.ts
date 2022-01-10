@@ -1,7 +1,9 @@
-import { JsonRpcEngine } from 'json-rpc-engine';
+/* eslint-disable @typescript-eslint/no-use-before-define */
+import JsBridgeBase from '../../jsBridge/JsBridgeBase';
+import { IInjectedProviderNames } from '../../types';
 
 import messages from './messages';
-import { ConsoleLike, NOOP } from './utils';
+import { ConsoleLike } from './utils';
 
 /**
  * Sends site metadata over an RPC request.
@@ -10,21 +12,21 @@ import { ConsoleLike, NOOP } from './utils';
  * @param log - The logging API to use.
  */
 export default async function sendSiteMetadata(
-  engine: JsonRpcEngine,
+  engine: JsBridgeBase,
   log: ConsoleLike,
 ): Promise<void> {
   try {
     const domainMetadata = await getSiteMetadata();
     // call engine.handle directly to avoid normal RPC request handling
-    engine.handle(
-      {
+    engine.request({
+      scope: IInjectedProviderNames.ethereum,
+      data: {
         jsonrpc: '2.0',
         id: 1,
         method: 'metamask_sendDomainMetadata',
         params: domainMetadata,
       },
-      NOOP,
-    );
+    });
   } catch (error) {
     log.error({
       message: messages.errors.sendSiteMetadata(),
@@ -83,7 +85,9 @@ async function getSiteIcon(
   const icons: NodeListOf<HTMLLinkElement> = document.querySelectorAll(
     'head > link[rel~="icon"]',
   );
-  for (const icon of icons) {
+  // @ts-ignore
+  const iconsArr = icons as HTMLLinkElement[];
+  for (const icon of iconsArr) {
     if (icon && (await imgExists(icon.href))) {
       return icon.href;
     }

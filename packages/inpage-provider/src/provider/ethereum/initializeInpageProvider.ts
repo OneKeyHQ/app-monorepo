@@ -1,14 +1,12 @@
-import { Duplex } from 'stream';
+import JsBridgeBase from '../../jsBridge/JsBridgeBase';
+
 import MetaMaskInpageProvider, {
   MetaMaskInpageProviderOptions,
 } from './MetaMaskInpageProvider';
 import shimWeb3 from './shimWeb3';
 
 interface InitializeProviderOptions extends MetaMaskInpageProviderOptions {
-  /**
-   * The stream used to connect to the wallet.
-   */
-  connectionStream: Duplex;
+  bridge: JsBridgeBase;
 
   /**
    * Whether the provider should be set as window.ethereum.
@@ -34,16 +32,15 @@ interface InitializeProviderOptions extends MetaMaskInpageProviderOptions {
  * @returns The initialized provider (whether set or not).
  */
 export function initializeProvider({
-  connectionStream,
-  jsonRpcStreamName,
+  bridge,
   logger = console,
   maxEventListeners = 100,
   shouldSendMetadata = true,
   shouldSetOnWindow = true,
   shouldShimWeb3 = false,
 }: InitializeProviderOptions): MetaMaskInpageProvider {
-  let provider = new MetaMaskInpageProvider(connectionStream, {
-    jsonRpcStreamName,
+  let provider = new MetaMaskInpageProvider({
+    bridge,
     logger,
     maxEventListeners,
     shouldSendMetadata,
@@ -55,6 +52,7 @@ export function initializeProvider({
   });
 
   if (shouldSetOnWindow) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     setGlobalProvider(provider);
   }
 

@@ -13,7 +13,7 @@ exports.formatArgs = formatArgs;
 exports.save = save;
 exports.load = load;
 exports.useColors = useColors;
-exports.storage = localstorage();
+exports.storage = customLocalStorage();
 exports.humanize = require('ms');
 
 exports.destroy = (() => {
@@ -279,7 +279,7 @@ async function load() {
  * @api private
  */
 
-function localstorage() {
+function customLocalStorage() {
   try {
     // TVMLKit (Apple TV JS Runtime) does not have a window object, just localStorage in the global context
     // The Browser also has localStorage in the global context.
