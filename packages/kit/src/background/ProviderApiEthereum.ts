@@ -33,6 +33,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     return true;
   }
 
+  // ----------------------------------------------
+
   // @ts-expect-error
   @permissionRequired()
   eth_sendTransaction() {
@@ -48,11 +50,17 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   eth_requestAccounts() {
+    // TODO show approval confirmation, skip in whitelist domain
     console.log('=============== confirm check');
     if (!this.walletApi.isConnected) {
       this.walletApi.isConnected = true;
     }
 
+    return this.eth_accounts();
+  }
+
+  eth_coinbase() {
+    // TODO some different with eth_accounts, check metamask code source
     return this.eth_accounts();
   }
 
@@ -64,10 +72,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this.rpcResult(this._getCurrentChainId());
   }
 
+  net_version() {
+    return this.rpcResult(this._getCurrentNetworkVersion());
+  }
+
   eth_blockNumber() {
     return this.rpcResult('0xd29f1a');
   }
 
+  // TODO @publicMethod()
   async metamask_getProviderState() {
     // pass debugLoggerSettings to dapp injected provider
     const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
@@ -80,8 +93,29 @@ class ProviderApiEthereum extends ProviderApiBase {
     });
   }
 
+  // get and save Dapp site icon & title
+  metamask_sendDomainMetadata() {
+    // TODO save to DB
+    return this.rpcResult({});
+  }
+
+  metamask_logWeb3ShimUsage() {
+    // TODO
+    return this.rpcResult({});
+  }
+
+  eth_subscription() {
+    // TODO
+    return this.rpcResult({});
+  }
+
+  // ----------------------------------------------
+
   protected rpcCall(request: IJsonRpcRequest): any {
     console.log('MOCK CHAIN RPC CALL:', request);
+    return this.rpcResult({});
+    // TODO use metamask error object
+    // throw new Error(`provider method=${request.method} NOT SUPPORTED yet!`);
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
@@ -99,6 +133,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
     info.send(data);
   }
+
+  // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
 }

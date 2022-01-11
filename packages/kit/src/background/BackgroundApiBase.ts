@@ -136,7 +136,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     data: unknown,
   ) => {
     if (!this.bridge) {
-      throw new Error('bridge should be connected first.');
+      console.warn('bridge should be connected first.');
+      return;
     }
     if (platformEnv.isExtension) {
       // TODO scope

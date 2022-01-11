@@ -49,7 +49,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   @internalMethod()
   changeChain(chainId: string, networkVersion?: string) {
     this.walletApi.chainId = chainId;
-    // TODO EVM Only
+    // TODO networkVersion EVM Only
     // eslint-disable-next-line no-param-reassign
     networkVersion = networkVersion ?? `${parseInt(chainId, 16)}`;
     this.walletApi.networkVersion = networkVersion;

@@ -42,12 +42,11 @@ abstract class ProviderBase extends EventEmitter {
       hasCallback = true;
     }
     try {
-      const res = await this.bridge.request({
+      const resData = await this.bridge.request({
         data: data ?? {},
         scope: this.providerName,
       });
-      console.log('===--========== bridge request res', data, res);
-      const result = res.result as unknown;
+      const result = resData ? (resData.result as unknown) : undefined;
       if (callback && hasCallback) {
         callback(null, result);
       }

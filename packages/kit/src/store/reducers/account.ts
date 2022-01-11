@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 // TODO: strong type definition
 type Account = {
@@ -19,7 +19,13 @@ const initialState: InitialState = {
 export const accountSlicer = createSlice({
   name: 'account',
   initialState,
-  reducers: {},
+  reducers: {
+    updateActiveAddress: (state, action: PayloadAction<string>) => {
+      state.address = action.payload;
+    },
+  },
 });
+
+export const { updateActiveAddress } = accountSlicer.actions;
 
 export default accountSlicer.reducer;
