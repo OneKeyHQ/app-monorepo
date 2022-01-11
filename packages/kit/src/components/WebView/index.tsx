@@ -60,11 +60,22 @@ function WebView({
     debugLogger.webview('webview isFocused and connectBridge', src);
     // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
-    // timeout wait for webview DOM ready
-    const timer = setTimeout(() => {
+
+    // Native App needs instance notify
+    if (platformEnv.isNative) {
+      debugLogger.webview('webview notify changed events1', src);
       backgroundApiProxy.notifyAccountsChanged();
       backgroundApiProxy.notifyChainChanged();
-    }, 600);
+    }
+
+    // Desktop needs timeout wait for webview DOM ready
+    //  FIX: Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
+    const timer = setTimeout(() => {
+      debugLogger.webview('webview notify changed events2', src);
+      backgroundApiProxy.notifyAccountsChanged();
+      backgroundApiProxy.notifyChainChanged();
+    }, 1500);
+
     const onMessage = (event: IJsBridgeMessagePayload) => {
       if ((event?.data as { method: string })?.method) {
         // handleProviderMethods(jsBridge, event, isApp);
