@@ -1,4 +1,4 @@
-package so.onekey.app.wallet.nfc.entries
+package so.onekey.app.wallet.onekeyLite.entitys
 
 import android.nfc.tech.IsoDep
 

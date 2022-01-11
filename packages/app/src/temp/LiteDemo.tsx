@@ -90,6 +90,10 @@ export default class LiteDemo extends Component {
     OKLiteManager.cancel();
   }
 
+  setting() {
+    OKLiteManager.intoSetting();
+  }
+
   render() {
     return (
       <View style={styles.container}>
@@ -111,6 +115,10 @@ export default class LiteDemo extends Component {
 
         <TouchableOpacity style={styles.button} onPress={this.cancel}>
           <Text>取消扫描(Android Only)</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.button} onPress={this.setting}>
+          <Text>NFC 设置(Android Only)</Text>
         </TouchableOpacity>
       </View>
     );

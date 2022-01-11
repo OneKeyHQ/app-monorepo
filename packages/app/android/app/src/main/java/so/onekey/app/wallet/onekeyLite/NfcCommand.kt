@@ -1,13 +1,12 @@
-package so.onekey.app.wallet.nfc
+package so.onekey.app.wallet.onekeyLite
 
 import android.nfc.tech.IsoDep
 import android.util.Log
 import org.haobtc.onekey.card.gpchannel.GPChannelNatives
 import so.onekey.app.wallet.keys.KeysNativeProvider
-import so.onekey.app.wallet.nfc.entries.CardResponse
-import so.onekey.app.wallet.nfc.entries.ParsedCertInfo
-import so.onekey.app.wallet.nfc.entries.SecureChanelParam
-import so.onekey.app.wallet.utils.AssetManagerUtils
+import so.onekey.app.wallet.onekeyLite.entitys.CardResponse
+import so.onekey.app.wallet.onekeyLite.entitys.ParsedCertInfo
+import so.onekey.app.wallet.onekeyLite.entitys.SecureChanelParam
 import so.onekey.app.wallet.utils.HexUtils
 import so.onekey.app.wallet.utils.Utils
 import java.io.IOException
@@ -179,7 +178,7 @@ class NfcCommand {
                 return false
             }
             val changePin: String? =
-                    NfcCommand.setPinCommand(setUpPin)
+                    setPinCommand(setUpPin)
             val res = send(isoDep, changePin)
             Log.d(LITE_TAG, " set Pin command result --->$res")
             return if (res.isNullOrEmpty()) {
@@ -249,7 +248,7 @@ class NfcCommand {
         // 主安全域
         fun selectIssuerSd(isoDep: IsoDep): Boolean {
             try {
-                val selectSd: String? = NfcCommand.selectSdCommand()
+                val selectSd: String? = selectSdCommand()
                 val res: String? = send(isoDep, selectSd)
                 Log.d(LITE_TAG, "-----$res")
                 if (res.isNullOrEmpty()) {
@@ -269,7 +268,7 @@ class NfcCommand {
             if (!success) {
                 return null
             }
-            val cardId = NfcCommand.getCardCert(isoDep)
+            val cardId = getCardCert(isoDep)
             if (cardId.isNullOrEmpty()) {
                 return NOT_MATCH_DEVICE
             }
@@ -305,7 +304,7 @@ class NfcCommand {
 
         @JvmStatic
         fun getCardInfo(isoDep: IsoDep): String {
-            val getSNCommand = NfcCommand.getSNCommand()
+            val getSNCommand = getSNCommand()
             var res: String? = send(isoDep, getSNCommand)
             if (res.isNullOrEmpty()) {
                 return NOT_MATCH_DEVICE
@@ -351,7 +350,7 @@ class NfcCommand {
         @JvmStatic
         fun getCardCert(isoDep: IsoDep?): String? {
             // #1.NFC:GET CERT.SD.ECKA 获取智能卡证书
-            val getCertCommand = NfcCommand.getCenterCardCommand()
+            val getCertCommand = getCenterCardCommand()
             val rawCert = send(isoDep, getCertCommand)
             if (rawCert.isNullOrEmpty()) {
                 return null
@@ -394,7 +393,7 @@ class NfcCommand {
 
         @JvmStatic
         fun selectBackupApp(isoDep: IsoDep): Boolean {
-            val selectApp = NfcCommand.selectAppCommand()
+            val selectApp = selectAppCommand()
             val res = send(isoDep, selectApp)
             if (res.isNullOrEmpty()) {
                 return false

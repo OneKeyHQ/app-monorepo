@@ -1,4 +1,4 @@
-package so.onekey.app.wallet.nfc.entries;
+package so.onekey.app.wallet.onekeyLite.entitys;
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;

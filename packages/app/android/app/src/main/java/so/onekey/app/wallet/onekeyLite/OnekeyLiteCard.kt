@@ -1,4 +1,4 @@
-package so.onekey.app.wallet.nfc
+package so.onekey.app.wallet.onekeyLite
 
 import android.app.Activity
 import android.content.Context
@@ -7,35 +7,29 @@ import android.util.Log
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import so.onekey.app.wallet.nfc.entries.CardState
+import so.onekey.app.wallet.nfc.NFCExceptions
+import so.onekey.app.wallet.nfc.NfcUtils
+import so.onekey.app.wallet.onekeyLite.entitys.CardState
 import so.onekey.app.wallet.utils.HexUtils
+import so.onekey.app.wallet.utils.NfcPermissionUtils
 
 object OnekeyLiteCard {
-    private const val LITE_NFC_SUPPORT = "lite_nfc_support"
     const val TAG = "OnekeyLiteCard"
 
-    fun isSupportLiteNfc(context: Context): Boolean {
-        return context.getSharedPreferences("Preferences", Activity.MODE_PRIVATE)
-                .getBoolean(LITE_NFC_SUPPORT, true)
-    }
 
-    fun setSupportLiteNfc(context: Context, enable: Boolean) {
-        context.getSharedPreferences("Preferences", Activity.MODE_PRIVATE)
-                .edit()
-                .putBoolean(LITE_NFC_SUPPORT, enable)
-                .apply()
-    }
-
-    suspend fun startNfc(activity: FragmentActivity, callback: (() -> Unit)? = null) = withContext(Dispatchers.Main) {
-        if (isSupportLiteNfc(activity)) {
+    suspend fun startNfc(activity: FragmentActivity, callback: ((Boolean) -> Unit)? = null) = withContext(Dispatchers.Main) {
+        if (NfcUtils.isNfcExits(activity)) {
             NfcUtils.init(activity)
         }
-        if (NfcUtils.checkPermission(activity)) {
+
+        NfcPermissionUtils.checkPermission(activity) {
             NfcUtils.mNfcAdapter?.enableForegroundDispatch(
                     activity, NfcUtils.mPendingIntent, NfcUtils.mIntentFilter, NfcUtils.mTechList
             )
-            callback?.invoke()
+            callback?.invoke(true)
+            return@withContext
         }
+        callback?.invoke(false)
     }
 
     fun stopNfc(activity: Activity) {
