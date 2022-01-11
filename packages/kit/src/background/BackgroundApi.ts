@@ -42,6 +42,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   changeAccounts(address: string) {
     this.walletApi.selectedAddress = address;
 
+    this.notifyAccountsChanged();
+  }
+
+  // @ts-expect-error
+  @internalMethod()
+  changeChain(chainId: string, networkVersion?: string) {
+    this.walletApi.chainId = chainId;
+    // TODO EVM Only
+    // eslint-disable-next-line no-param-reassign
+    networkVersion = networkVersion ?? `${parseInt(chainId, 16)}`;
+    this.walletApi.networkVersion = networkVersion;
+
+    this.notifyChainChanged();
+  }
+
+  // @ts-expect-error
+  @internalMethod()
+  notifyAccountsChanged(): void {
+    const address = this.walletApi.selectedAddress;
+
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappAccountsChanged({
         address,
@@ -52,11 +72,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   // @ts-expect-error
   @internalMethod()
-  changeChain(chainId: string, networkVersion?: string) {
-    this.walletApi.chainId = chainId;
-    // TODO EVM Only
-    // eslint-disable-next-line no-param-reassign
-    networkVersion = networkVersion ?? `${parseInt(chainId, 16)}`;
+  notifyChainChanged(): void {
+    const { chainId, networkVersion } = this.walletApi;
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappChainChanged({
         chainId,

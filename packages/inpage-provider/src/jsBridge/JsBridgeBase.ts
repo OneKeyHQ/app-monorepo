@@ -28,9 +28,11 @@ abstract class JsBridgeBase extends EventEmitter {
 
   protected sendAsString = true;
 
+  public globalOnMessageEnabled = true;
+
   private globalOnMessage = async (message: IJsBridgeMessagePayload) => {
     try {
-      if (this.config.receiveHandler) {
+      if (this.config.receiveHandler && this.globalOnMessageEnabled) {
         const returnValue: unknown = await this.config.receiveHandler(message);
         if (message.id) {
           this.response({

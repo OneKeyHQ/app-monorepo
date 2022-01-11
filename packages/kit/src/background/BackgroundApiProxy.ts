@@ -18,6 +18,8 @@ export interface IBackgroundApi {
   // ----------------------------------------------
   changeAccounts(address: string): void;
   changeChain(chainId: string, networkVersion?: string): void;
+  notifyAccountsChanged(): void;
+  notifyChainChanged(): void;
 }
 
 class BackgroundApiProxy implements IBackgroundApi, IBackgroundApiBridge {
@@ -94,6 +96,14 @@ class BackgroundApiProxy implements IBackgroundApi, IBackgroundApiBridge {
 
   changeChain(chainId: string, networkVersion?: string): void {
     return this.callBackgroundSync('changeChain', chainId, networkVersion);
+  }
+
+  notifyAccountsChanged(): void {
+    return this.callBackground('notifyAccountsChanged');
+  }
+
+  notifyChainChanged(): void {
+    return this.callBackground('notifyChainChanged');
   }
 }
 

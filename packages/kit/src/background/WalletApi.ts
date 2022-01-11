@@ -9,6 +9,8 @@ class WalletApi {
 
   chainId = '0x1'; // 0x3 Ropsten
 
+  networkVersion = '';
+
   selectedAddress = this.accounts[0];
 
   isConnected = true; // current dapp isConnected
