@@ -48,6 +48,7 @@ export default function shimWeb3(
               log.debug('MetaMask: Failed to log web3 shim usage.', error);
             });
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return Reflect.get(target, property, ...args);
       },
       set: (...args) => {
