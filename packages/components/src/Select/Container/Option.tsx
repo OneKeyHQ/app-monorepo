@@ -38,13 +38,17 @@ function RenderSingleOption<T>({
   const OptionLabel = () =>
     isSmallScreen ? (
       <Typography.Body1
-        color={option.destructive ? 'text-critical' : 'text-default'}
+        color={
+          option.destructive ? 'text-critical' : option.color ?? 'text-default'
+        }
       >
         {option.label}
       </Typography.Body1>
     ) : (
       <Typography.Body2
-        color={option.destructive ? 'text-critical' : 'text-default'}
+        color={
+          option.destructive ? 'text-critical' : option.color ?? 'text-default'
+        }
       >
         {option.label}
       </Typography.Body2>

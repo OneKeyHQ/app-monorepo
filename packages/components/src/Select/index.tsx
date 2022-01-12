@@ -8,6 +8,7 @@ import React, {
 
 import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
+import { ColorType } from 'native-base/lib/typescript/components/types';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
@@ -29,6 +30,7 @@ export type SelectItem<T = string> = {
   OutlineIcon?: string;
   SolidIcon?: string;
   destructive?: boolean;
+  color?: ColorType;
 };
 
 export type SelectGroupItem<T = string> = {

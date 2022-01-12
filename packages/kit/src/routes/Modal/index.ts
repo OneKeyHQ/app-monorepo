@@ -6,6 +6,10 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import HardwareConnectModal, {
+  HardwareConnectModalRoutes,
+  HardwareConnectRoutesParams,
+} from './HardwareConnect';
 import HelpModal, { HelpModalRoutes, HelpModalRoutesParams } from './Help';
 import ImportAccountModal, {
   ImportAccountModalRoutes,
@@ -87,6 +91,10 @@ const modalStackScreenList = [
     name: HelpModalRoutes.SubmitRequestModal,
     component: HelpModal,
   },
+  {
+    name: HardwareConnectModalRoutes.HardwareConnectModal,
+    component: HardwareConnectModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -100,6 +108,7 @@ export const ModalRoutes = {
   ...CollectiblesModalRoutes,
   ...SettingsModalRoutes,
   ...HelpModalRoutes,
+  ...HardwareConnectModalRoutes,
 };
 
 export type ModalTypes = {
@@ -114,6 +123,7 @@ export type ModalTypes = {
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
   [HelpModalRoutes.SubmitRequestModal]: NavigatorScreenParams<HelpModalRoutesParams>;
+  [HardwareConnectModalRoutes.HardwareConnectModal]: NavigatorScreenParams<HardwareConnectRoutesParams>;
 };
 
 export default modalStackScreenList;
