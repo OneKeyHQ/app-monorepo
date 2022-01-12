@@ -33,6 +33,8 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>NFC tag to read NDEF messages into the application</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -48,6 +50,16 @@
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Use bluetooth to connect OneKey hardware devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Use blutooth peripheral to connect OneKey hardware devices.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Use camera to scan QR codes.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to authenticate and unlcok your wallet.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Use photo library to to save QR images.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Use photo library to to save QR images.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -70,27 +82,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>NFCReaderUsageDescription</key>
-	<string>NFC tag to read NDEF messages into the application</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<string>A000000151000000</string>
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
 	</array>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Use blutooth peripheral to connect OneKey hardware devices.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Use camera to scan QR codes.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to authenticate and unlcok your wallet.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Use photo library to to save QR images.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Use photo library to to save QR images.</string>
 </dict>
 </plist>
