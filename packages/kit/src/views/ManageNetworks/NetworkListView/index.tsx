@@ -1,46 +1,20 @@
 import React, { FC, useCallback, useState } from 'react';
 
-import { Toast } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Divider, Modal } from '@onekeyhq/components';
+import { Modal, Toast, useToast, useUserDevice } from '@onekeyhq/components';
 
 import { DiscardAlert } from './DiscardAlert';
 import { DisplayView } from './DisplayView';
 import { EditableView } from './EditableView';
 
-type ModalFooterProps = { editable?: boolean; onToggle?: () => void };
-const ModalFooter: FC<ModalFooterProps> = ({ editable, onToggle }) => {
-  const intl = useIntl();
-  return (
-    <Box height="70px">
-      <Divider />
-      <Box
-        py="4"
-        px="6"
-        display="flex"
-        flexDirection="row-reverse"
-        alignItems="center"
-      >
-        {editable ? (
-          <Button type="primary" minW="120px" onPress={onToggle}>
-            {intl.formatMessage({ id: 'action__done', defaultMessage: 'Done' })}
-          </Button>
-        ) : (
-          <Button ml="3" minW="120px" onPress={onToggle}>
-            {intl.formatMessage({ id: 'action__edit', defaultMessage: 'Edit' })}
-          </Button>
-        )}
-      </Box>
-    </Box>
-  );
-};
-
 export const NetworkListView: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const [alertOpened, setAlertOpened] = useState(false);
   const [changed] = useState(true);
   const [editable, setEditable] = useState(false);
+  const { size } = useUserDevice();
   const children = editable ? <EditableView /> : <DisplayView />;
 
   const onClose = useCallback(() => {}, []);
@@ -58,34 +32,45 @@ export const NetworkListView: FC = () => {
 
   const onToggle = useCallback(() => {
     if (editable) {
-      Toast.show({
-        title: intl.formatMessage({
-          id: 'msg__change_saved',
-          defaultMessage: 'Change saved!',
-        }),
+      toast.show({
+        render: () => (
+          <Toast
+            title={intl.formatMessage({
+              id: 'msg__change_saved',
+              defaultMessage: 'Change saved!',
+            })}
+          />
+        ),
       });
     }
     setEditable(!editable);
-  }, [editable, intl]);
+  }, [editable, intl, toast]);
+
+  const secondaryActionTranslationId = editable
+    ? 'action__done'
+    : 'action__edit';
 
   return (
-    <>
-      {/* {children} */}
-      <Modal
-        header={intl.formatMessage({ id: 'action__customize_network' })}
-        onClose={onPrepareClose}
-        footer={<ModalFooter editable={editable} onToggle={onToggle} />}
-      >
-        <>
-          {children}
-          <DiscardAlert
-            visible={alertOpened}
-            onConfirm={onCloseModal}
-            onClose={onCloseAlert}
-          />
-        </>
-      </Modal>
-    </>
+    <Modal
+      header={intl.formatMessage({ id: 'action__customize_network' })}
+      onClose={onPrepareClose}
+      hidePrimaryAction
+      secondaryActionProps={{
+        type: editable ? 'primary' : 'basic',
+        onPress: () => onToggle(),
+        w: size === 'SMALL' ? 'full' : undefined,
+      }}
+      secondaryActionTranslationId={secondaryActionTranslationId}
+    >
+      <>
+        {children}
+        <DiscardAlert
+          visible={alertOpened}
+          onConfirm={onCloseModal}
+          onClose={onCloseAlert}
+        />
+      </>
+    </Modal>
   );
 };
 

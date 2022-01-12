@@ -48,6 +48,7 @@ import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
+import Settings from '@onekeyhq/kit/src/views/Settings';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
@@ -105,6 +106,7 @@ export enum StackBasicRoutes {
   ComponentLogger = 'component/logger',
   ComponentWebview = 'component/webview',
   ScreenTokenDetail = 'TokenDetailScreen',
+  SettingsScreen = 'Settings',
 }
 
 export type StackBasicRoutesParams = {
@@ -206,6 +208,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ScreenTokenDetail,
     component: TokenDetail,
+  },
+  {
+    name: StackRoutes.SettingsScreen,
+    component: Settings,
   },
 ];
 
