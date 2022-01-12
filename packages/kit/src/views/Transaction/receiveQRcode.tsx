@@ -1,6 +1,6 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 
-import { Center, Row } from 'native-base';
+import { Center, Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
 
@@ -10,6 +10,7 @@ import {
   Icon,
   Modal,
   QRCode,
+  Text,
   Toast,
   Typography,
   useThemeValue,
@@ -17,6 +18,9 @@ import {
 } from '@onekeyhq/components';
 
 import { copyToClipboard } from '../../utils/ClipboardUtils';
+
+const Address = '0x41f28833Be34e6EDe3c58D1f5900x41f28833Be34e6EDe3c58D1f590';
+const AccountName = 'ETH #1';
 
 const ReceiveQRcode = () => {
   const borderColor = useThemeValue('border-subdued');
@@ -34,9 +38,14 @@ const ReceiveQRcode = () => {
   );
 
   const copyAddressToClipboard = () => {
-    copyToClipboard('0x41f28833Be34e6EDe3c58D1f597bef429861c4E2');
+    copyToClipboard(Address);
     showToast(intl.formatMessage({ id: 'msg__copied' }));
   };
+
+  const account = useMemo(
+    () => <Account avatarSize="sm" name={AccountName} address="" />,
+    [],
+  );
 
   return (
     <Modal
@@ -45,33 +54,47 @@ const ReceiveQRcode = () => {
       height="auto"
       scrollViewProps={{
         children: (
-          <Box flexDirection="column" alignItems="center">
-            <Account avatarSize="sm" name="ETH #1" address="" />
-            <Center
-              mt="16px"
-              padding="16px"
-              borderWidth="1px"
-              borderRadius="12px"
-              bgColor="surface-default"
-              borderColor={borderColor}
-            >
-              <QRCode value="https://onekey.so/" size={160} />
+          <Column flex={1}>
+            <Center>
+              {account}
+              <Box
+                mt="16px"
+                padding="16px"
+                borderWidth="1px"
+                borderRadius="12px"
+                bgColor="surface-default"
+                borderColor={borderColor}
+                width="192px"
+              >
+                <QRCode value="https://onekey.so/" size={160} />
+              </Box>
             </Center>
-            <Center
+            <Row
+              justifyContent="space-between"
               padding="16px"
-              mt="24px"
               borderWidth="1px"
               borderRadius="12px"
               borderColor={borderColor}
               borderStyle="dashed"
+              mt="24px"
             >
-              <Typography.Body2 textAlign="center">
-                0x41f28833Be34e6EDe3c58D1f597bef429861c4E2
-              </Typography.Body2>
-            </Center>
+              <Text
+                textAlign="center"
+                typography="Body2"
+                flex={1}
+                noOfLines={3}
+              >
+                {Address}
+              </Text>
+            </Row>
 
             <TouchableOpacity onPress={copyAddressToClipboard}>
-              <Row mt="12px" space="12px" padding="10px">
+              <Row
+                mt="12px"
+                space="12px"
+                padding="10px"
+                justifyContent="center"
+              >
                 <Icon name="DuplicateSolid" />
                 <Typography.Button1 textAlign="center">
                   {intl.formatMessage({
@@ -80,7 +103,7 @@ const ReceiveQRcode = () => {
                 </Typography.Button1>
               </Row>
             </TouchableOpacity>
-          </Box>
+          </Column>
         ),
       }}
     />
