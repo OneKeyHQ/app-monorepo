@@ -59,7 +59,7 @@ const Home: React.FC = () => {
         <Collectibles />
       </Tabs.Tab>
       <Tabs.Tab name={intl.formatMessage({ id: 'transaction__history' })}>
-        <HistoricalRecord />
+        <HistoricalRecord isTab />
       </Tabs.Tab>
     </Tabs.Container>
   );

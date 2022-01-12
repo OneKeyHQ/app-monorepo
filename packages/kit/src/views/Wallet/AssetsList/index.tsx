@@ -20,12 +20,16 @@ import {
   ManageTokenRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManageToken';
 
+import { StackBasicRoutes } from '../../../routes';
+import { TokenDetailNavigation } from '../../TokenDetail/routes';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
   ManageTokenModalRoutes.ListTokensModal
->;
+> &
+  TokenDetailNavigation;
 
 export type AssetToken = {
   chainId: number;
@@ -232,6 +236,13 @@ const AssetsList = () => {
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
       onPress={() => {
+        navigation.navigate(StackBasicRoutes.ScreenTokenDetail, {
+          defaultValues: {
+            accountId: '',
+            networkId: '',
+            tokenId: '',
+          },
+        });
         console.log('Click Token : ', item.address);
       }}
     >

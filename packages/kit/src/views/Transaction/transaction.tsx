@@ -10,12 +10,15 @@ import {
   Divider,
   Form,
   Icon,
+  IconButton,
   Modal,
   Pressable,
   Select,
   Stack,
+  Text,
   Typography,
   useForm,
+  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
@@ -92,17 +95,13 @@ const Transaction = () => {
 
   const labelAddon = (
     <Stack direction="row" space="2">
-      <Pressable onPress={() => {}}>
-        <Icon size={20} name="BookOpenSolid" />
-      </Pressable>
-      <Pressable>
-        <Icon size={20} name="ClipboardSolid" />
-      </Pressable>
-      <Pressable>
-        <Icon size={20} name="ScanSolid" />
-      </Pressable>
+      <IconButton type="plain" size="xs" name="BookOpenSolid" />
+      <IconButton type="plain" size="xs" name="ClipboardSolid" />
+      <IconButton type="plain" size="xs" name="ScanSolid" />
     </Stack>
   );
+
+  const isSmallScreen = useIsVerticalLayout();
 
   return (
     <Modal
@@ -110,15 +109,16 @@ const Transaction = () => {
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
       headerDescription="Ethereum"
+      height="576px"
       footer={
         <Column>
           <Divider />
           <Row
             justifyContent="space-between"
             alignItems="center"
-            paddingX="24px"
-            paddingTop="16px"
-            paddingBottom={bottom}
+            px={{ base: 4, md: 6 }}
+            pt={4}
+            pb={4 + bottom}
           >
             <Column>
               <Typography.Body2 color="text-subdued">
@@ -131,7 +131,7 @@ const Transaction = () => {
             </Column>
             <Button
               type="primary"
-              size="lg"
+              size={isSmallScreen ? 'lg' : 'base'}
               isDisabled={false}
               onPress={() => {
                 onSubmit();
@@ -140,16 +140,14 @@ const Transaction = () => {
                 );
               }}
             >
-              <Typography.Body1Strong>
-                {intl.formatMessage({ id: 'action__continue' })}
-              </Typography.Body1Strong>
+              {intl.formatMessage({ id: 'action__continue' })}
             </Button>
           </Row>
         </Column>
       }
       scrollViewProps={{
         children: (
-          <Column flex="1">
+          <>
             <Form>
               <Form.Item
                 label={intl.formatMessage({ id: 'action__send' })}
@@ -167,22 +165,20 @@ const Transaction = () => {
                   borderRadius="12px"
                 />
               </Form.Item>
-              <Typography.Body2Strong mt="24px" mb="4px">
-                {intl.formatMessage({ id: 'content__asset' })}
-              </Typography.Body2Strong>
-              <Select
-                containerProps={{
-                  w: 'full',
-                  zIndex: 999,
-                  mb: '24px',
-                  borderColor: 'border-default',
-                  borderWidth: '1px',
-                  borderRadius: '12px',
-                }}
-                headerShown={false}
-                defaultValue={AssetMockData[0]}
-                options={selectOptionData()}
-              />
+              <Box zIndex={999}>
+                <Typography.Body2Strong mb="4px">
+                  {intl.formatMessage({ id: 'content__asset' })}
+                </Typography.Body2Strong>
+                <Select
+                  containerProps={{
+                    w: 'full',
+                  }}
+                  headerShown={false}
+                  defaultValue={AssetMockData[0]}
+                  options={selectOptionData()}
+                  footer={null}
+                />
+              </Box>
               <Form.Item
                 formControlProps={{ width: 'full' }}
                 label={intl.formatMessage({ id: 'content__amount' })}
@@ -192,55 +188,73 @@ const Transaction = () => {
                 rules={{
                   required: intl.formatMessage({ id: 'form__amount_invalid' }),
                 }}
+                helpText="0 USD"
               >
                 <Form.Input
                   w="100%"
-                  rightSecondaryText={intl.formatMessage({ id: 'action__max' })}
-                  rightText="ETH"
+                  rightCustomElement={
+                    <>
+                      <Typography.Body2 mr={4} color="text-subdued">
+                        ETH
+                      </Typography.Body2>
+                      <Divider
+                        orientation="vertical"
+                        bg="border-subdued"
+                        h={5}
+                      />
+                      <Button type="plain">
+                        {intl.formatMessage({ id: 'action__max' })}
+                      </Button>
+                    </>
+                  }
                 />
               </Form.Item>
-              <Typography.Body2 mt="8px" color="text-subdued">
-                0 USD
-              </Typography.Body2>
-              <Typography.Body2Strong mt="24px" mb="4px">
-                {intl.formatMessage({ id: 'content__fee' })}
-              </Typography.Body2Strong>
+              <Box>
+                <Typography.Body2Strong mb="4px">
+                  {intl.formatMessage({ id: 'content__fee' })}
+                </Typography.Body2Strong>
 
-              <Pressable
-                onPress={() => {
-                  navigation.navigate(
-                    TransactionModalRoutes.TransactionEditFeeModal,
-                  );
-                }}
-              >
-                <Row
-                  justifyContent="space-between"
-                  alignItems="center"
-                  bgColor="surface-default"
-                  borderColor="border-default"
-                  borderWidth="1px"
-                  borderRadius="12px"
-                  paddingX="12px"
-                  paddingY="8px"
+                <Pressable
+                  onPress={() => {
+                    navigation.navigate(
+                      TransactionModalRoutes.TransactionEditFeeModal,
+                    );
+                  }}
                 >
-                  <Column>
-                    <Typography.Body1Strong>
-                      Normal (64.11 Gwei)
-                    </Typography.Body1Strong>
-                    <Typography.Body2 color="text-subdued">
-                      0.001694 ETH ~ 0.001977 ETH
-                    </Typography.Body2>
-                    <Typography.Body2 color="text-subdued">
-                      3 min
-                    </Typography.Body2>
-                  </Column>
-                  <Icon size={20} name="PencilSolid" />
-                </Row>
-              </Pressable>
-
-              <Box height="50px" />
+                  {({ isHovered }) => (
+                    <Row
+                      justifyContent="space-between"
+                      alignItems="center"
+                      bgColor={
+                        isHovered ? 'surface-hovered' : 'surface-default'
+                      }
+                      borderColor="border-default"
+                      borderWidth="1px"
+                      borderRadius="12px"
+                      paddingX="12px"
+                      paddingY="8px"
+                    >
+                      <Column>
+                        <Text
+                          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                        >
+                          Normal (64.11 Gwei)
+                        </Text>
+                        <Typography.Body2 color="text-subdued">
+                          0.001694 ETH ~ 0.001977 ETH
+                        </Typography.Body2>
+                        <Typography.Body2 color="text-subdued">
+                          3 min
+                        </Typography.Body2>
+                      </Column>
+                      <Icon size={20} name="PencilSolid" />
+                    </Row>
+                  )}
+                </Pressable>
+              </Box>
             </Form>
-          </Column>
+            <Box display={{ md: 'none' }} h={10} />
+          </>
         ),
       }}
     />

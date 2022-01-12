@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Icon,
   IconButton,
   Typography,
   useUserDevice,
@@ -62,8 +61,8 @@ const AccountInfo = () => {
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
           size={isSmallScreen ? 'lg' : 'base'}
-          leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
-          minW="126px"
+          leftIconName="ArrowSmUpSolid"
+          minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
             navigation.navigate(TransactionModalRoutes.TransactionModal);
@@ -74,8 +73,8 @@ const AccountInfo = () => {
         <Button
           size={isSmallScreen ? 'lg' : 'base'}
           ml={4}
-          leftIcon={<Icon name="ArrowSmDownSolid" />}
-          minW="126px"
+          leftIconName="ArrowSmDownSolid"
+          minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
             navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
