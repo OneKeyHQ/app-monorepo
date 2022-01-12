@@ -2,12 +2,12 @@ import { Form as BaseForm } from './Form';
 import { FormCheckBox } from './FormCheckBox';
 import { FormInput } from './FormInput';
 import { FormItem } from './FormItem';
+import { FormPasswordInput } from './FormPasswordInput';
 import { FormRadio } from './FormRadio';
 import { FormRadioGroup } from './FormRadioGroup';
 import { FormSelect } from './FormSelect';
 import { FormSwitch } from './FormSwitch';
 import { FormTextarea } from './FormTextarea';
-import { FormPasswordInput } from './FormPasswordInput'
 
 /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
 

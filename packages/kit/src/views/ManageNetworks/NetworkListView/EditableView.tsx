@@ -3,8 +3,7 @@ import React, { FC, useState } from 'react';
 import {
   Box,
   Divider,
-  Icon,
-  Pressable,
+  IconButton,
   ScrollView,
   SortableList,
   Switch,
@@ -38,9 +37,13 @@ export const EditableView: FC = () => {
       p="4"
     >
       <Box display="flex" flexDirection="row" alignItems="center">
-        <Pressable onPressIn={() => drag()} mr="2">
-          <Icon name="MenuOutline" size={16} />
-        </Pressable>
+        <IconButton
+          mr="2"
+          type="plain"
+          name="MenuOutline"
+          iconSize={16}
+          onPressIn={() => drag()}
+        />
         <Token chain={item.chain} name={item.name} size={8} />
       </Box>
       <Switch labelType="false" />
