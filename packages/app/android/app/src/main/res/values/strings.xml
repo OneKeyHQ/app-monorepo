@@ -2,7 +2,7 @@
 <resources>
   <string name="app_name">OneKey Wallet</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
-  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+  <string name="expo_splash_screen_status_bar_translucent" translatable="false">true</string>
   <string name="action__cancel">Cancel</string>
   <string name="action__confirm">Confirm</string>
   <string name="action__ok">OK</string>
