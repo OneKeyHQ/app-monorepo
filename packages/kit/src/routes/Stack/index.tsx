@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { ComponentType } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { ICON_NAMES, Layout } from '@onekeyhq/components';
+import { ICON_NAMES, Layout, useThemeValue } from '@onekeyhq/components';
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
@@ -27,6 +28,7 @@ import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import PageActionsGallery from '@onekeyhq/kit/src/views/Components/stories/PageActions';
+import PinCodeGallery from '@onekeyhq/kit/src/views/Components/stories/PinCode';
 import QRCodeGallery from '@onekeyhq/kit/src/views/Components/stories/QRCode';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import RadioBoxGallery from '@onekeyhq/kit/src/views/Components/stories/RadioBox';
@@ -105,6 +107,7 @@ export enum StackBasicRoutes {
   ComponentHeaderTabViewContainerGallery = 'component/header-tab-view',
   ComponentLogger = 'component/logger',
   ComponentWebview = 'component/webview',
+  ComponentPinCode = 'component/pincode',
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'Settings',
 }
@@ -193,6 +196,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentSegmentedControl, component: SegmentedControl },
   { name: StackRoutes.ComponentShadow, component: ShadowsGallery },
   { name: StackRoutes.ComponentReduxMessage, component: ReduxMessageGallery },
+  { name: StackRoutes.ComponentPinCode, component: PinCodeGallery },
   {
     name: StackRoutes.ComponentHeaderTabViewContainerGallery,
     component: HeaderTabViewContainerGallery,
@@ -217,39 +221,65 @@ export const stackScreenList = [
 
 export const StackNavigator = createNativeStackNavigator<StackRoutesParams>();
 
-const StackScreen = () => (
-  <StackNavigator.Navigator>
-    {tabRoutes.map((tab) => (
-      <StackNavigator.Screen
-        key={tab.name}
-        name={tab.name}
-        options={{
-          header: () => (
-            <LayoutHeader
-              headerLeft={() => <AccountSelector />}
-              headerRight={() => <ChainSelector />}
+const StackScreen = () => {
+  const [bgColor, textColor] = useThemeValue([
+    'surface-subdued',
+    'text-default',
+  ]);
+  return (
+    <StackNavigator.Navigator>
+      {tabRoutes.map((tab) => (
+        <StackNavigator.Screen
+          key={tab.name}
+          name={tab.name}
+          options={({ navigation }) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            const { routes } = navigation.getState();
+            const currentRoute = routes[routes.length - 1];
+            return {
+              header: () => (
+                <LayoutHeader
+                  headerLeft={() => <AccountSelector />}
+                  headerRight={() => <ChainSelector />}
+                />
+              ),
+
+              animation: tabRoutes
+                .map((tabRoute) => tabRoute.name)
+                .includes(currentRoute.name)
+                ? 'none'
+                : 'slide_from_right',
+            };
+          }}
+        >
+          {() => (
+            <Layout name={tab.name} content={tab.component} tabs={tabRoutes} />
+          )}
+        </StackNavigator.Screen>
+      ))}
+      {stackScreenList.map((stack) => (
+        <StackNavigator.Screen
+          key={stack.name}
+          name={stack.name}
+          options={{
+            headerBackTitle: '',
+            headerStyle: {
+              backgroundColor: bgColor,
+            },
+            headerTintColor: textColor,
+          }}
+        >
+          {() => (
+            <Layout
+              name={stack.name}
+              content={stack.component}
+              tabs={tabRoutes}
             />
-          ),
-          animation: 'none',
-        }}
-      >
-        {() => (
-          <Layout name={tab.name} content={tab.component} tabs={tabRoutes} />
-        )}
-      </StackNavigator.Screen>
-    ))}
-    {stackScreenList.map((stack) => (
-      <StackNavigator.Screen key={stack.name} name={stack.name}>
-        {() => (
-          <Layout
-            name={stack.name}
-            content={stack.component}
-            tabs={tabRoutes}
-          />
-        )}
-      </StackNavigator.Screen>
-    ))}
-  </StackNavigator.Navigator>
-);
+          )}
+        </StackNavigator.Screen>
+      ))}
+    </StackNavigator.Navigator>
+  );
+};
 
 export default StackScreen;

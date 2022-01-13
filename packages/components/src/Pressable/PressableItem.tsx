@@ -7,6 +7,7 @@ export type PressableItemProps = React.ComponentProps<typeof NBPressable>;
 const PressableItem: FC<PressableItemProps> = ({ children, ...props }) => {
   const [isFocused, setFocused] = useState(false);
 
+  // TODO: use child function to check hover state
   return (
     <NBPressable
       px={{ base: '4', lg: '6' }}

@@ -9,7 +9,7 @@ const Discover = () => {
   const { locale } = useLocale();
   const url = `https://discover.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
   return (
-    <Box flex="1">
+    <Box flex="1" bg="background-default">
       <WebView key={url} src={url} />
     </Box>
   );

@@ -23,6 +23,7 @@ export { default as HeaderTabViewContainer } from './HeaderTabViewContainer';
 export { default as Layout } from './Layout';
 export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
+export { default as PinCode } from './PinCode';
 export { default as PresenceTransition } from './PresenceTransition';
 export { default as Pressable } from './Pressable';
 export { default as Provider } from './Provider';

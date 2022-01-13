@@ -39,6 +39,7 @@
     "react-native-ble-plx": "^2.0.3",
     "react-native-collapsible-tab-view": "^4.4.0",
     "react-native-config": "^1.4.5",
+    "react-native-confirmation-code-field": "^7.2.0",
     "react-native-gesture-handler": "~1.10.2",
     "react-native-pager-view": "^5.4.9",
     "react-native-reanimated": "~2.2.0",
