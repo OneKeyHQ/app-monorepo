@@ -191,7 +191,9 @@ const Input = React.forwardRef<
         }}
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
-        {...textProps}
+        fontSize={textProps.fontSize}
+        fontWeight={textProps.fontWeight}
+        fontFamily={textProps.fontFamily}
         {...props}
       />
     );

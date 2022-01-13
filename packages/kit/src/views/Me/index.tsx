@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 
 import {
   Box,
+  HStack,
   Icon,
   Pressable,
   SegmentedControl,
@@ -29,6 +30,49 @@ const Me = () => {
   return (
     <Box flex="1" p="4" maxW="1024px" w="100%" marginX="auto">
       <VStack space="3">
+        <Pressable
+          p="4"
+          bg="surface-default"
+          borderRadius="12px"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <HStack space="4">
+            <Icon name="BookOpenOutline" />
+            <Typography.Body1>Address Book</Typography.Body1>
+          </HStack>
+          <Icon name="ChevronRightOutline" />
+        </Pressable>
+        <Pressable
+          p="4"
+          bg="surface-default"
+          borderRadius="12px"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <HStack space="4">
+            <Icon name="CreditCardOutline" />
+            <Typography.Body1>OneKey Lite</Typography.Body1>
+          </HStack>
+          <Icon name="ChevronRightOutline" />
+        </Pressable>
+        <Pressable
+          p="4"
+          bg="surface-default"
+          borderRadius="12px"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+          onPress={() => navigation.navigate(StackBasicRoutes.SettingsScreen)}
+        >
+          <HStack space="4">
+            <Icon name="CogOutline" />
+            <Typography.Body1>Settings</Typography.Body1>
+          </HStack>
+          <Icon name="ChevronRightOutline" />
+        </Pressable>
         <Box
           p="4"
           bg="surface-default"

@@ -46,94 +46,97 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
         onPrimaryActionPress={() => {
           onSubmit();
         }}
-      >
-        <KeyboardDismissView flexDirection="row" justifyContent="center">
-          <Form>
-            <Form.Item
-              name="name"
-              label={intl.formatMessage({
-                id: 'form__network_name',
-                defaultMessage: 'Network Name',
-              })}
-              control={control}
-            >
-              <Form.Input />
-            </Form.Item>
-            <Form.Item
-              name="url"
-              control={control}
-              label={intl.formatMessage({
-                id: 'form__rpc_url',
-                defaultMessage: 'RPC URL',
-              })}
-              defaultValue="https://rpc.onekey.so/eth"
-              formControlProps={{ zIndex: 10 }}
-            >
-              <Form.Select
-                title={intl.formatMessage({
-                  id: 'content__preset_rpc',
-                  defaultMessage: 'Preset PRC URLs',
-                })}
-                footer={null}
-                containerProps={{
-                  zIndex: 999,
-                  padding: 0,
-                }}
-                options={[
-                  {
-                    label: 'https://google.com',
-                    value: 'https://google.com',
-                  },
-                  {
-                    label: 'https://rpc.onekey.so/eth',
-                    value: 'https://rpc.onekey.so/eth',
-                  },
-                  {
-                    label: 'https://baidu.com',
-                    value: 'https://baidu.com',
-                  },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item
-              name="chainId"
-              label={intl.formatMessage({
-                id: 'form__chain_id',
-                defaultMessage: 'Chain ID',
-              })}
-              control={control}
-            >
-              <Form.Input placeholder="chain id" />
-            </Form.Item>
-            <Form.Item
-              name="symbol"
-              label={intl.formatMessage({
-                id: 'form__symbol',
-                defaultMessage: 'Symbol',
-              })}
-              control={control}
-            >
-              <Form.Input placeholder="ETH" />
-            </Form.Item>
-            <Form.Item
-              name="exploreUrl"
-              label={intl.formatMessage({
-                id: 'form__blockchain_explorer_url',
-                defaultMessage: 'Blockchain Explore URL',
-              })}
-              control={control}
-            >
-              <Form.Input />
-            </Form.Item>
-            <Button w="full" onPress={onButtonPress} mt="2">
-              {intl.formatMessage({
-                id: 'action__reset',
-                defaultMessage: 'Reset',
-              })}
-            </Button>
-          </Form>
-        </KeyboardDismissView>
-      </Modal>
+        scrollViewProps={{
+          children: (
+            <KeyboardDismissView flexDirection="row" justifyContent="center">
+              <Form>
+                <Form.Item
+                  name="name"
+                  label={intl.formatMessage({
+                    id: 'form__network_name',
+                    defaultMessage: 'Network Name',
+                  })}
+                  control={control}
+                >
+                  <Form.Input />
+                </Form.Item>
+                <Form.Item
+                  name="url"
+                  control={control}
+                  label={intl.formatMessage({
+                    id: 'form__rpc_url',
+                    defaultMessage: 'RPC URL',
+                  })}
+                  defaultValue="https://rpc.onekey.so/eth"
+                  formControlProps={{ zIndex: 10 }}
+                >
+                  <Form.Select
+                    title={intl.formatMessage({
+                      id: 'content__preset_rpc',
+                      defaultMessage: 'Preset PRC URLs',
+                    })}
+                    footer={null}
+                    containerProps={{
+                      zIndex: 999,
+                      padding: 0,
+                    }}
+                    options={[
+                      {
+                        label: 'https://google.com',
+                        value: 'https://google.com',
+                      },
+                      {
+                        label: 'https://rpc.onekey.so/eth',
+                        value: 'https://rpc.onekey.so/eth',
+                      },
+                      {
+                        label: 'https://baidu.com',
+                        value: 'https://baidu.com',
+                      },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="chainId"
+                  label={intl.formatMessage({
+                    id: 'form__chain_id',
+                    defaultMessage: 'Chain ID',
+                  })}
+                  control={control}
+                >
+                  <Form.Input placeholder="chain id" />
+                </Form.Item>
+                <Form.Item
+                  name="symbol"
+                  label={intl.formatMessage({
+                    id: 'form__symbol',
+                    defaultMessage: 'Symbol',
+                  })}
+                  control={control}
+                >
+                  <Form.Input placeholder="ETH" />
+                </Form.Item>
+                <Form.Item
+                  name="exploreUrl"
+                  label={intl.formatMessage({
+                    id: 'form__blockchain_explorer_url',
+                    defaultMessage: 'Blockchain Explore URL',
+                  })}
+                  control={control}
+                >
+                  <Form.Input />
+                </Form.Item>
+                <Button w="full" onPress={onButtonPress} mt="2">
+                  {intl.formatMessage({
+                    id: 'action__reset',
+                    defaultMessage: 'Reset',
+                  })}
+                </Button>
+              </Form>
+            </KeyboardDismissView>
+          ),
+        }}
+      />
       <Dialog
         visible={resetOpened}
         contentProps={{
@@ -156,7 +159,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
             reset(defaultValues);
             onClose?.();
           },
-          primaryActionTranslationId: 'action_reset',
+          primaryActionTranslationId: 'action__reset',
           primaryActionProps: {
             type: 'primary',
             size: 'xl',
