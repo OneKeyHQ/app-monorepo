@@ -38,16 +38,19 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    console.log('ProviderApiPrivate-notifyDappAccountsChanged', info);
+    // noop
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    console.log('ProviderApiPrivate-notifyDappChainChanged', info);
+    // noop
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected rpcCall(request: IJsonRpcRequest): any {
-    console.log('ProviderApiPrivate-rpcCall', request);
+    // noop
   }
 }
 
