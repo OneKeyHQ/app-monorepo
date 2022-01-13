@@ -2,13 +2,16 @@ import React, { FC, useMemo } from 'react';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { Provider as ReduxProvider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
 
 import { Provider } from '@onekeyhq/components';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import Navigator from './navigator';
-import store from './store';
+import store, { persistor } from './store';
 
 const NavigationApp = () => {
+  const { theme, locale } = useSettings();
   const navigationTheme = useMemo(
     () => ({
       ...DefaultTheme,
@@ -20,19 +23,22 @@ const NavigationApp = () => {
     }),
     [],
   );
+
   return (
-    <NavigationContainer theme={navigationTheme}>
-      <Navigator />
-    </NavigationContainer>
+    <Provider themeVariant={theme} locale={locale}>
+      <NavigationContainer theme={navigationTheme}>
+        <Navigator />
+      </NavigationContainer>
+    </Provider>
   );
 };
 
 const KitProvider: FC = () => (
-  <Provider>
-    <ReduxProvider store={store}>
+  <ReduxProvider store={store}>
+    <PersistGate loading={null} persistor={persistor}>
       <NavigationApp />
-    </ReduxProvider>
-  </Provider>
+    </PersistGate>
+  </ReduxProvider>
 );
 
 export default KitProvider;

@@ -12,6 +12,7 @@
     "expo-clipboard": "2.0.3",
     "react-intl": "^5.21.2",
     "react-native-url-polyfill": "^1.3.0",
+    "redux-persist": "^6.0.0",
     "react-redux": "^7.2.6"
   },
   "devDependencies": {},
