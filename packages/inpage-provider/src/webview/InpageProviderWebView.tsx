@@ -13,7 +13,7 @@ const isApp = isNative;
 
 export type InpageProviderWebViewProps = {
   src?: string;
-  receiveHandler: IJsBridgeReceiveHandler;
+  receiveHandler?: IJsBridgeReceiveHandler;
   ref?: any;
 };
 

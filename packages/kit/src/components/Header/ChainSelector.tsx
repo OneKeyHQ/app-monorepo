@@ -18,6 +18,8 @@ import {
   ManageNetworkRoutesParams,
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -34,6 +36,19 @@ const ChainSelector: FC = () => {
   const handleActiveChainChange = useCallback(
     (chainId) => {
       dispatch(updateActiveChainId(chainId));
+      const chainIdHex = {
+        ethereum: '0x1',
+        bsc: '0x38',
+        heco: '0x80',
+        polygon: '0x89',
+        fantom: '0xfa',
+      }[chainId as string];
+      if (!chainIdHex) {
+        throw new Error('chainId not available.');
+      }
+      if (chainIdHex) {
+        backgroundApiProxy.changeChain(chainIdHex);
+      }
     },
     [dispatch],
   );

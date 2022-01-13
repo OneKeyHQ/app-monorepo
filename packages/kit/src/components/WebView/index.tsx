@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
+
 import {
   Box,
   Button,
@@ -12,6 +14,7 @@ import {
 import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types';
 import InpageProviderWebView from '@onekeyhq/inpage-provider/src/webview/InpageProviderWebView';
 import useWebViewBridge from '@onekeyhq/inpage-provider/src/webview/useWebViewBridge';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -38,16 +41,41 @@ function WebView({
   showDemoActions?: boolean;
   showWalletActions?: boolean;
 }): JSX.Element {
+  const isFocused = useIsFocused();
   const [srcLocal, setSrcLocal] = useState(src || srcList[0]);
   const [name, setName] = useState('');
   const [resName, setResName] = useState('');
   const { jsBridge, webviewRef, setWebViewRef } = useWebViewBridge();
   const [webviewVisible, setWebViewVisible] = useState(true);
   useEffect(() => {
-    if (!jsBridge) {
+    if (jsBridge) {
+      // only enable message for current focused webview
+      jsBridge.globalOnMessageEnabled = isFocused;
+    }
+  }, [isFocused, jsBridge]);
+  useEffect(() => {
+    if (!jsBridge || !isFocused) {
       return;
     }
+    debugLogger.webview('webview isFocused and connectBridge', src);
+    // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
+
+    // Native App needs instance notify
+    if (platformEnv.isNative) {
+      debugLogger.webview('webview notify changed events1', src);
+      backgroundApiProxy.notifyAccountsChanged();
+      backgroundApiProxy.notifyChainChanged();
+    }
+
+    // Desktop needs timeout wait for webview DOM ready
+    //  FIX: Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
+    const timer = setTimeout(() => {
+      debugLogger.webview('webview notify changed events2', src);
+      backgroundApiProxy.notifyAccountsChanged();
+      backgroundApiProxy.notifyChainChanged();
+    }, 1500);
+
     const onMessage = (event: IJsBridgeMessagePayload) => {
       if ((event?.data as { method: string })?.method) {
         // handleProviderMethods(jsBridge, event, isApp);
@@ -68,10 +96,11 @@ function WebView({
     // window.webviewJsBridge = jsBridge;
     jsBridge.on('message', onMessage);
     return () => {
+      clearTimeout(timer);
       // TODO off event
       jsBridge.off('message', onMessage);
     };
-  }, [jsBridge]);
+  }, [jsBridge, isFocused, src]);
 
   const showActionsAndDemoPanel = showWalletActions || showDemoActions;
 
@@ -215,9 +244,8 @@ function WebView({
                         onekeyName: newName,
                       },
                     });
-                    setResName(
-                      (res as { onekeyNameRes: string })?.onekeyNameRes,
-                    );
+                    // @ts-ignore
+                    setResName(res?.onekeyNameRes);
                   }}
                 >
                   requestToInpage
@@ -233,6 +261,7 @@ function WebView({
       <Box flex={1}>
         {webviewVisible && srcLocal && (
           <InpageProviderWebView
+            key={srcLocal}
             ref={setWebViewRef}
             src={srcLocal}
             receiveHandler={backgroundApiProxy.bridgeReceiveHandler}

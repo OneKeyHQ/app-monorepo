@@ -10,6 +10,7 @@ import WalletApi from './WalletApi';
 export type IProviderBaseBackgroundNotifyInfo = {
   address?: string;
   chainId?: string;
+  networkVersion?: string;
   send: (data: any) => void;
 };
 
@@ -24,7 +25,7 @@ abstract class ProviderApiBase {
     return this.backgroundApi.walletApi as WalletApi;
   }
 
-  protected abstract providerName: IInjectedProviderNamesStrings;
+  public abstract providerName: IInjectedProviderNamesStrings;
 
   public abstract notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,

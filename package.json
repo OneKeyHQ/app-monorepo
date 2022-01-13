@@ -100,6 +100,8 @@
     "next-image-loader": "^2.0.6",
     "http-server": "^14.0.0",
     "gulp-webpack-sourcemaps": "^0.3.2",
-    "gulp-load-plugins": "^2.0.7"
+    "gulp-load-plugins": "^2.0.7",
+    "node-notifier": "^10.0.0",
+    "eth-rpc-errors": "^4.0.3"
   }
 }

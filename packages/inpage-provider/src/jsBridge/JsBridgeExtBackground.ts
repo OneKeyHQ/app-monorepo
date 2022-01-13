@@ -1,5 +1,9 @@
 import { EXT_PORT_CS_TO_BG, EXT_PORT_UI_TO_BG } from '../consts';
-import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
+import {
+  IInjectedProviderNamesStrings,
+  IJsBridgeConfig,
+  IJsBridgeMessagePayload,
+} from '../types';
 
 import JsBridgeBase from './JsBridgeBase';
 
@@ -80,7 +84,7 @@ class JsBridgeExtBackground extends JsBridgeBase {
     });
   }
 
-  requestToAllCS(data: unknown) {
+  requestToAllCS(scope: IInjectedProviderNamesStrings, data: unknown) {
     // TODO optimize rename: broadcastRequest
     Object.entries(this.ports).forEach(([portId, port]) => {
       if (port.name === EXT_PORT_CS_TO_BG) {
@@ -88,6 +92,7 @@ class JsBridgeExtBackground extends JsBridgeBase {
         // TODO check ports disconnected
         this.requestSync({
           data,
+          scope,
           remoteId: portId,
         });
       }

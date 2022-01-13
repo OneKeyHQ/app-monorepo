@@ -13,6 +13,13 @@ import ExtensionStorage from './ExtensionStorage';
 // const appStorage = AsyncStorage
 const appStorage = isExtension() ? new ExtensionStorage() : AsyncStorage;
 
+/*
+- Extension internal: ExtensionStorage
+- Extension injected: AsyncStorage -> window.localStorage
+- App: AsyncStorage -> RN AsyncStorage
+- Desktop: AsyncStorage -> window.localStorage
+ */
+
 if (isDev()) {
   global.$$appStorage = appStorage;
 }

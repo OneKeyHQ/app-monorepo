@@ -3,6 +3,7 @@ import JsBridgeExtBackground from '@onekeyhq/inpage-provider/src/jsBridge/JsBrid
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
   IJsonRpcRequest,
@@ -117,15 +118,33 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     throwMethodNotFound(method);
   }
 
-  sendMessagesToInjectedBridge = (data: unknown) => {
+  sendForProviderMaps: Record<string, any> = {};
+
+  sendForProvider(providerName: IInjectedProviderNamesStrings): any {
+    if (!providerName) {
+      throw new Error('sendForProvider: providerName is required.');
+    }
+    if (!this.sendForProviderMaps[providerName]) {
+      this.sendForProviderMaps[providerName] =
+        this.sendMessagesToInjectedBridge.bind(this, providerName);
+    }
+    return this.sendForProviderMaps[providerName];
+  }
+
+  sendMessagesToInjectedBridge = (
+    scope: IInjectedProviderNamesStrings,
+    data: unknown,
+  ) => {
     if (!this.bridge) {
-      throw new Error('bridge should be connected first.');
+      console.warn('bridge should be connected first.');
+      return;
     }
     if (platformEnv.isExtension) {
+      // TODO scope
       // send to all dapp sites content-script
-      this.bridgeExtBg?.requestToAllCS(data);
+      this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
-      this.bridge.requestSync({ data });
+      this.bridge.requestSync({ data, scope });
     }
   };
 }

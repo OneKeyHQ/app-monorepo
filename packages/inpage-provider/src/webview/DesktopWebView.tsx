@@ -43,7 +43,7 @@ const DesktopWebView = forwardRef(
       ...props
     }: {
       src: string;
-      receiveHandler: IJsBridgeReceiveHandler;
+      receiveHandler?: IJsBridgeReceiveHandler;
     },
     ref: any,
   ) => {

@@ -24,7 +24,7 @@ const NativeWebView = forwardRef(
       ...props
     }: {
       src: string;
-      receiveHandler: IJsBridgeReceiveHandler;
+      receiveHandler?: IJsBridgeReceiveHandler;
     },
     ref,
   ) => {
