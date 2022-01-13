@@ -11,7 +11,7 @@
   },
   "scripts": {
     "postinstall": "yarn setup:env && husky install && yarn build:connect && yarn build:inject && yarn fetch:locale",
-    "build:inject": "yarn workspace @onekeyhq/inpage-provider build",
+    "build:inject": "cross-env NODE_ENV=production yarn workspace @onekeyhq/inpage-provider build",
     "watch:inject": "yarn workspace @onekeyhq/inpage-provider watch-inject",
     "build:connect": "yarn build:connect:desktop && yarn build:connect:native",
     "build:connect:desktop": "yarn webpack --config ./packages/kit/development/desktop.connect.webpack.config.js",

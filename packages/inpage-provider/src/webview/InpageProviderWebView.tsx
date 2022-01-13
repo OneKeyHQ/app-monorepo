@@ -2,7 +2,7 @@ import React, { FC, forwardRef, useImperativeHandle, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IJsBridgeReceiveHandler } from '../types';
+import { InpageProviderWebViewProps } from '../types';
 
 import DesktopWebView from './DesktopWebView';
 import NativeWebView from './NativeWebView';
@@ -11,14 +11,11 @@ import useWebViewBridge, { IWebViewWrapperRef } from './useWebViewBridge';
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
 
-export type InpageProviderWebViewProps = {
-  src?: string;
-  receiveHandler?: IJsBridgeReceiveHandler;
-  ref?: any;
-};
-
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
-  ({ src = '', receiveHandler }: InpageProviderWebViewProps, ref: any) => {
+  (
+    { src = '', onSrcChange, receiveHandler }: InpageProviderWebViewProps,
+    ref: any,
+  ) => {
     const { webviewRef, setWebViewRef } = useWebViewBridge();
     const isRenderAsIframe = isWeb || isExtension;
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -33,6 +30,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           }, 150);
         }
       },
+      loadURL: () => {
+        // noop
+      },
     });
 
     useImperativeHandle(ref, (): IWebViewWrapperRef | null =>
@@ -43,19 +43,22 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       <>
         {isDesktop && (
           <DesktopWebView
-            src={src}
             ref={setWebViewRef}
+            src={src}
+            onSrcChange={onSrcChange}
             receiveHandler={receiveHandler}
           />
         )}
         {isApp && (
           <NativeWebView
-            src={src}
             ref={setWebViewRef}
+            src={src}
+            onSrcChange={onSrcChange}
             receiveHandler={receiveHandler}
           />
         )}
         {isRenderAsIframe && (
+          // TODO define new IframeSimWebview class
           <iframe
             ref={iframeRef}
             title="iframe-web"

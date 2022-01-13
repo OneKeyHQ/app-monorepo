@@ -6,8 +6,8 @@ function connect({
 }: {
   reconnect?: boolean;
   name: string;
-  onMessage: (payload: any) => void;
-  onConnect: (port0: chrome.runtime.Port) => () => void;
+  onMessage: (payload: any, port: chrome.runtime.Port) => void;
+  onConnect: (port: chrome.runtime.Port) => () => void;
 }) {
   try {
     if (reconnect) {
