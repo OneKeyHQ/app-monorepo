@@ -18,6 +18,7 @@ import { setTheme } from '@onekeyhq/kit/src/store/reducers/settings';
 export const Settings = () => {
   const dispatch = useAppDispatch();
   const { theme } = useSettings();
+
   return (
     <ScrollView
       _contentContainerStyle={{

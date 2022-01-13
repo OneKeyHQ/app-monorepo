@@ -1,4 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import uuid from 'react-native-uuid';
 
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
@@ -14,7 +15,7 @@ const initialState: SettingsState = {
   theme: 'dark',
   locale: 'zh-CN',
   version: '1.0.0',
-  instanceId: '',
+  instanceId: uuid.v4() as string,
 };
 
 export const settingsSlice = createSlice({
