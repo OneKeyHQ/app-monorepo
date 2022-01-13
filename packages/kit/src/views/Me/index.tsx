@@ -37,7 +37,7 @@ const Me = () => {
             <Icon name="BookOpenOutline" />
             <Typography.Body1>Address Book</Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightOutline" />
+          <Icon name="ChevronRightOutline" size={12} />
         </Pressable>
         <Pressable
           p="4"
@@ -51,7 +51,7 @@ const Me = () => {
             <Icon name="CreditCardOutline" />
             <Typography.Body1>OneKey Lite</Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightOutline" />
+          <Icon name="ChevronRightOutline" size={12} />
         </Pressable>
         <Pressable
           p="4"
@@ -66,7 +66,7 @@ const Me = () => {
             <Icon name="CogOutline" />
             <Typography.Body1>Settings</Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightOutline" />
+          <Icon name="ChevronRightOutline" size={12} />
         </Pressable>
         <Pressable
           p="4"

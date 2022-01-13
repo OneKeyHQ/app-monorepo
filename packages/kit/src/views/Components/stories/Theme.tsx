@@ -11,7 +11,7 @@ import theme from '@onekeyhq/components/src/Provider/theme';
 
 const ThemeGallery = () => {
   const { themeVariant } = useTheme();
-  const themeVars = theme[themeVariant];
+  const themeVars = theme[themeVariant as 'light'];
   const list = Object.keys(themeVars).reduce<{ name: string; color: string }[]>(
     (memo, curr) => [
       ...memo,
