@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/components';
 import theme from '@onekeyhq/components/src/Provider/theme';
 
-const AddressGallery = () => {
+const ThemeGallery = () => {
   const { themeVariant } = useTheme();
   const themeVars = theme[themeVariant];
   const list = Object.keys(themeVars).reduce<{ name: string; color: string }[]>(
@@ -45,4 +45,4 @@ const AddressGallery = () => {
   );
 };
 
-export default AddressGallery;
+export default ThemeGallery;

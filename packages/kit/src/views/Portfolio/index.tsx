@@ -9,7 +9,7 @@ const Portfolio = () => {
   const { locale } = useLocale();
   const url = `https://portfolio.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
   return (
-    <Box flex="1">
+    <Box flex="1" bg="background-default">
       <WebView key={url} src={url} openUrlInExt />
     </Box>
   );

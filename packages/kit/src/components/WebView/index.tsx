@@ -117,7 +117,7 @@ function WebView({
   }
 
   return (
-    <Box flex={1}>
+    <Box flex={1} bg="background-default">
       {showActionsAndDemoPanel && (
         <VStack p={2} space={2} zIndex={2} bgColor="white">
           {showWalletActions && (
