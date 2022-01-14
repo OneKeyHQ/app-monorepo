@@ -14,9 +14,15 @@ function openUrl(url: string) {
   window.open(url, '_blank');
 }
 
+function openUrlInTab(url: string) {
+  return chrome.tabs.create({
+    url,
+  });
+}
+
 function openExpandTab(routeInfo: OpenUrlRouteInfo) {
   const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
-  window.open(url, '_blank');
+  return openUrlInTab(url);
 }
 
 function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
@@ -42,6 +48,7 @@ function openApprovalWindow() {
 
 export default {
   openUrl,
+  openUrlInTab,
   openExpandTab,
   openStandaloneWindow,
   openApprovalWindow,

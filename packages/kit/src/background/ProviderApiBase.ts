@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access */
+import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
 import {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
@@ -23,6 +24,10 @@ abstract class ProviderApiBase {
 
   get walletApi() {
     return this.backgroundApi.walletApi as WalletApi;
+  }
+
+  get bridge() {
+    return this.backgroundApi.bridge as JsBridgeBase;
   }
 
   public abstract providerName: IInjectedProviderNamesStrings;

@@ -32,11 +32,13 @@ const srcList = [
 
 function WebView({
   src,
+  onSrcChange,
   openUrlInExt = false,
   showDemoActions = false,
   showWalletActions = false,
 }: {
   src: string;
+  onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
   showDemoActions?: boolean;
   showWalletActions?: boolean;
@@ -111,7 +113,7 @@ function WebView({
   ) {
     return (
       <Center flex={1}>
-        <Button onPress={() => extUtils.openUrl(src)}>Open</Button>
+        <Button onPress={() => extUtils.openUrlInTab(src)}>Open</Button>
       </Center>
     );
   }
@@ -259,11 +261,11 @@ function WebView({
       )}
 
       <Box flex={1}>
-        {webviewVisible && srcLocal && (
+        {webviewVisible && src && (
           <InpageProviderWebView
-            key={srcLocal}
             ref={setWebViewRef}
-            src={srcLocal}
+            src={src}
+            onSrcChange={onSrcChange}
             receiveHandler={backgroundApiProxy.bridgeReceiveHandler}
           />
         )}

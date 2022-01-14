@@ -12,7 +12,7 @@ function noop(...args: any[]) {
     return;
   }
   console.warn('debugLogger not ready yet, fallback to console.log()');
-  console.log(...args);
+  console.log('[debugLogger]: ', ...args);
 }
 
 /*

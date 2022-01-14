@@ -24,7 +24,12 @@ abstract class JsBridgeBase extends EventEmitter {
     if (this.config.receiveHandler) {
       this.on('message', this.globalOnMessage);
     }
+    this.on('error', (error) =>
+      console.error('OneKey JsBridge ERROR: ', error),
+    );
   }
+
+  protected isInjected = false;
 
   protected sendAsString = true;
 
@@ -37,6 +42,7 @@ abstract class JsBridgeBase extends EventEmitter {
         if (message.id) {
           this.response({
             id: message.id,
+            scope: message.scope,
             remoteId: message.remoteId,
             data: returnValue,
           });
@@ -52,7 +58,6 @@ abstract class JsBridgeBase extends EventEmitter {
       }
       // TODO custom Error class
       this.emit('error', error);
-      throw error;
     } finally {
       // noop
     }
@@ -187,8 +192,20 @@ abstract class JsBridgeBase extends EventEmitter {
       payload = JSON.parse(payloadReceived) as IJsBridgeMessagePayload;
     }
 
-    payload.origin = sender?.origin || payload.origin;
+    // !IMPORTANT: force overwrite origin and internal field
+    //    DO NOT trust dapp params
+    payload.origin = sender?.origin;
     payload.internal = Boolean(sender?.internal);
+
+    if (!payload.origin && !this.isInjected) {
+      throw new Error('JsBridge receive message [payload.origin] is required.');
+    }
+
+    if (!payload.internal && !payload.scope) {
+      throw new Error(
+        'JsBridge receive message [payload.scope] is required for non-internal method call.',
+      );
+    }
 
     debugLogger.jsBridge('receive', payload.data, payload, sender);
 
@@ -203,7 +220,7 @@ abstract class JsBridgeBase extends EventEmitter {
     if (type === IJsBridgeMessageTypes.RESPONSE) {
       if (id === undefined || id === null) {
         throw new Error(
-          'id is required in JsBridge.receive REQUEST type message',
+          'id is required in JsBridge receive() REQUEST type message',
         );
       }
       // TODO resolveCallback() rejectCallback() finallyCallback(resolve,reject)
@@ -214,14 +231,12 @@ abstract class JsBridgeBase extends EventEmitter {
             if (callbackInfo.reject) {
               callbackInfo.reject(error);
             }
-            // TODO new Error, emit('error') and throw
+            this.emit('error', error);
           } else if (callbackInfo.resolve) {
             callbackInfo.resolve(data);
           }
-          // throw new Error('test resolve error');
         } catch (error0) {
           this.emit('error', error0);
-          throw error0;
         } finally {
           // TODO timeout reject
           // TODO auto clean callbacks
@@ -284,9 +299,11 @@ abstract class JsBridgeBase extends EventEmitter {
     id,
     data,
     remoteId,
+    scope,
   }: {
     id: number;
     data: unknown;
+    scope?: IInjectedProviderNamesStrings;
     remoteId?: number | string | null;
   }): void {
     // if (error) {
@@ -298,6 +315,7 @@ abstract class JsBridgeBase extends EventEmitter {
       data,
       id,
       remoteId,
+      scope,
       sync: true,
     });
   }

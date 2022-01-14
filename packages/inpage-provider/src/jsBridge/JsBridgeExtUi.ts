@@ -27,8 +27,21 @@ class JsBridgeExtUi extends JsBridgeBase {
   setupMessagePortConnect(config: IJsBridgeExtUiConfig) {
     messagePort.connect({
       name: EXT_PORT_UI_TO_BG,
-      onMessage: (payload) => {
-        this.receive(payload);
+      // #### background -> ui
+      onMessage: (payload: any, port0: chrome.runtime.Port) => {
+        let origin = port0.sender?.origin || '';
+
+        // in ext ui, port.sender?.origin is always empty,
+        //    so we trust remote (background) origin
+        origin = origin || (payload as IJsBridgeMessagePayload).origin || '';
+
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const jsBridge = this;
+        jsBridge.receive(payload, {
+          origin,
+          // trust message from background
+          internal: port0.name === EXT_PORT_UI_TO_BG,
+        });
       },
       onConnect: (port) => {
         this.portToBg = port;

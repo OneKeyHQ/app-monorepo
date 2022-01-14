@@ -10,6 +10,8 @@ import JsBridgeBase from './JsBridgeBase';
 class JsBridgeDesktopInjected extends JsBridgeBase {
   sendAsString = true;
 
+  isInjected = true;
+
   sendPayload(payload: IJsBridgeMessagePayload | string) {
     // send to renderer (webview host)
     ipcRenderer.sendToHost(JS_BRIDGE_MESSAGE_IPC_CHANNEL, payload);

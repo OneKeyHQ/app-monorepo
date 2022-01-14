@@ -19,7 +19,6 @@ module.exports = {
   'manifest_version': 2,
   'browser_action': {
     'default_icon': {
-      '34': 'icon-34.png',
       '128': 'icon-128.png',
     },
     'default_title': 'OneKey',

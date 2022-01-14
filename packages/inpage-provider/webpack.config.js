@@ -2,11 +2,13 @@ const path = require('path');
 const webpack = require('webpack');
 const packageJson = require('./package.json');
 
+const IS_PRD = process.env.NODE_ENV === 'production';
+
 // TODO building components WebView
 // https://github.com/expo/expo-cli/blob/master/packages/next-adapter/src/withExpo.ts
 
 module.exports = {
-  mode: 'production', // development, production
+  mode: IS_PRD ? 'production' : 'development', // development, production
   entry: {
     main: './src/index.tsx',
   },

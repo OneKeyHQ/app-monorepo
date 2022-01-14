@@ -63,10 +63,14 @@ class JsBridgeExtBackground extends JsBridgeBase {
         ) => {
           const origin = port0.sender?.origin || '';
           payload.remoteId = portId;
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          const jsBridge = this;
           // TODO if EXT_PORT_CS_TO_BG ignore "internal_" prefix methods
           //    ignore scope=walletPrivate
-          this.receive(payload, {
+          // - receive
+          jsBridge.receive(payload, {
             origin,
+            // only trust message from UI, but NOT from content-script(dapp)
             internal: port.name === EXT_PORT_UI_TO_BG,
           });
         };

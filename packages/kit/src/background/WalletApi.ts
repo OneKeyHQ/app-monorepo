@@ -10,7 +10,7 @@ class WalletApi {
 
   chainId = '0x1'; // 0x3 Ropsten
 
-  networkVersion = '';
+  networkVersion = '1';
 
   selectedAddress = this.accounts[0];
 
