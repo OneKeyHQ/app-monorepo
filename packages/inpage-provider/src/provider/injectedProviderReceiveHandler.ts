@@ -9,7 +9,6 @@ function injectedProviderReceiveHandler(payload: IJsBridgeMessagePayload) {
   // ethereum, solana, conflux
   const providerHub = window.$onekey;
 
-  // TODO providerName check
   const providerName = payload.scope;
   console.log(
     `injectedProviderReceiveHandler onMessage from (${providerName as string})`,
@@ -19,14 +18,14 @@ function injectedProviderReceiveHandler(payload: IJsBridgeMessagePayload) {
 
   if (!providerName) {
     throw new Error(
-      'providerName is required in injectedProviderReceiveHandler',
+      'providerName (scope) is required in injectedProviderReceiveHandler.',
     );
   }
 
   // @ts-expect-error
   const provider = providerHub[providerName] as ProviderBase;
   if (!provider) {
-    return;
+    throw new Error(`[${providerName}] provider is NOT injected to document.`);
   }
   provider.bridge.emit('notification', payloadData);
 }

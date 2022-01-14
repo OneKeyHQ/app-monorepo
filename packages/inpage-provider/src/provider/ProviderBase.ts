@@ -22,7 +22,7 @@ export type IInpageProviderConfig = {
 };
 
 abstract class ProviderBase extends EventEmitter {
-  protected constructor(config: IInpageProviderConfig) {
+  constructor(config: IInpageProviderConfig) {
     super();
     this.config = config;
     this.bridge = config.bridge;

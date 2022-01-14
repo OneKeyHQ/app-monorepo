@@ -283,7 +283,7 @@ export default class BaseProvider extends ProviderBase {
       if (!payload.jsonrpc) {
         payload.jsonrpc = '2.0';
       }
-      const res = await this.bridgeRequest(payload, callback);
+      const result = await this.bridgeRequest(payload, callback);
 
       if (
         payload.method === 'eth_accounts' ||
@@ -291,12 +291,11 @@ export default class BaseProvider extends ProviderBase {
       ) {
         // handle accounts changing
         this._handleAccountsChanged(
-          // @ts-expect-error
-          (res.result as unknown[]) || [],
+          (result as unknown[]) || [],
           payload.method === 'eth_accounts',
         );
       }
-      return res;
+      return result;
     }
     // TODO array payload?
     return this.bridgeRequest(payload, callback);

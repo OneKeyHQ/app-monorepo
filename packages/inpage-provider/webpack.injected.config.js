@@ -1,7 +1,9 @@
 const path = require('path');
 const config = require('./webpack.config');
 
-const IS_DEV = process.env.NODE_ENV !== 'production';
+const IS_PRD = process.env.NODE_ENV === 'production';
+
+console.log('============ , IS_PRD', IS_PRD, process.env.NODE_ENV);
 
 module.exports = {
   ...config,
@@ -13,7 +15,7 @@ module.exports = {
   //   },
   // },
 
-  devtool: IS_DEV ? 'inline-source-map' : undefined,
+  devtool: IS_PRD ? undefined : 'inline-source-map',
   target: 'electron-preload', // web, electron-preload, electron-renderer, node12.18.2
   entry: {
     injectedDesktop: './src/injected/injectedDesktop.tsx',

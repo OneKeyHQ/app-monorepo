@@ -47,7 +47,10 @@ function injectCodeWithScriptTag({
 
 function createCodeJsBridgeReceive(payloadStr: string): string {
   return `
+  if(window.$onekey && window.$onekey.jsBridge){
     window.$onekey.jsBridge.receive(${JSON.stringify(payloadStr)});
+  }
+  void 0;
   `;
 }
 
