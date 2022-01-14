@@ -51,8 +51,11 @@ import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
 import Settings from '@onekeyhq/kit/src/views/Settings';
+import ChangePassword from '@onekeyhq/kit/src/views/Settings/ChangePassword';
+import SettingsWebview from '@onekeyhq/kit/src/views/Settings/Webview';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
+import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 
 export enum TabRoutes {
@@ -110,6 +113,9 @@ export enum StackBasicRoutes {
   ComponentPinCode = 'component/pincode',
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'Settings',
+  ChangePasswordScreen = 'ChangePassword',
+  UnlockScreen = 'Unlock',
+  SettingsWebviewScreen = 'SettingsWebviewScreen',
 }
 
 export type StackBasicRoutesParams = {
@@ -216,6 +222,18 @@ export const stackScreenList = [
   {
     name: StackRoutes.SettingsScreen,
     component: Settings,
+  },
+  {
+    name: StackRoutes.ChangePasswordScreen,
+    component: ChangePassword,
+  },
+  {
+    name: StackRoutes.UnlockScreen,
+    component: Unlock,
+  },
+  {
+    name: StackRoutes.SettingsWebviewScreen,
+    component: SettingsWebview,
   },
 ];
 

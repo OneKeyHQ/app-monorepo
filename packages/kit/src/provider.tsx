@@ -1,6 +1,7 @@
 import React, { FC, useMemo } from 'react';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { useColorScheme } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
@@ -11,6 +12,7 @@ import Navigator from './navigator';
 import store, { persistor } from './store';
 
 const NavigationApp = () => {
+  const colorScheme = useColorScheme();
   const { theme, locale } = useSettings();
   const navigationTheme = useMemo(
     () => ({
@@ -23,9 +25,10 @@ const NavigationApp = () => {
     }),
     [],
   );
+  const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
 
   return (
-    <Provider themeVariant={theme} locale={locale}>
+    <Provider themeVariant={themeVariant} locale={locale}>
       <NavigationContainer theme={navigationTheme}>
         <Navigator />
       </NavigationContainer>

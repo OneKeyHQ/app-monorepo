@@ -5,7 +5,7 @@ import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 
 type SettingsState = {
-  theme: ThemeVariant;
+  theme: ThemeVariant | 'system';
   locale: LocaleSymbol;
   version: string;
   instanceId: string;
@@ -22,7 +22,7 @@ export const settingsSlice = createSlice({
   name: 'settings',
   initialState,
   reducers: {
-    setTheme: (state, action: PayloadAction<ThemeVariant>) => {
+    setTheme: (state, action: PayloadAction<ThemeVariant | 'system'>) => {
       state.theme = action.payload;
     },
     setLocale: (state, action: PayloadAction<LocaleSymbol>) => {

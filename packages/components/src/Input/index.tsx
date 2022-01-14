@@ -166,6 +166,7 @@ const Input = React.forwardRef<
     return (
       <BaseInput
         ref={ref}
+        selectionColor="text-default"
         isDisabled={isDisabled}
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
