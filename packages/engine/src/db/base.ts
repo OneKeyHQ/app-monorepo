@@ -1,3 +1,7 @@
+import { Buffer } from 'buffer';
+
+import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
+
 import { DBAccount } from '../types/account';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
@@ -22,10 +26,31 @@ interface DBAPI {
 
   getWallets(): Promise<Array<DBWallet>>;
   getWallet(walletId: string): Promise<DBWallet | undefined>;
+  createHDWallet(
+    password: string,
+    rs: RevealableSeed,
+    name?: string,
+  ): Promise<DBWallet>;
+  removeWallet(walletId: string, password: string): Promise<void>;
+  setWalletName(walletId: string, name: string): Promise<DBWallet>;
+  revealHDWalletSeed(walletId: string, password: string): Promise<string>;
+  getSeed(walletId: string, password: string): Promise<Buffer>;
+  confirmHDWalletBackuped(walletId: string): Promise<DBWallet>;
 
   addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount>;
   getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>>;
   getAccount(accountId: string): Promise<DBAccount | undefined>;
+  removeAccount(
+    walletId: string,
+    accountId: string,
+    password: string,
+  ): Promise<void>;
+  setAccountName(accountId: string, name: string): Promise<DBAccount>;
+  addAccountAddress(
+    accountId: string,
+    networkId: string,
+    address: string,
+  ): Promise<DBAccount>;
 }
 
 export type { DBAPI };

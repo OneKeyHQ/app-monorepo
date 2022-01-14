@@ -1,12 +1,38 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
-import { AccountAlreadyExists, OneKeyInternalError } from '../errors';
+import { Buffer } from 'buffer';
+
+import {
+  RevealableSeed,
+  mnemonicFromEntropy,
+} from '@onekeyhq/blockchain-libs/dist/secret';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
+
+import {
+  AccountAlreadyExists,
+  NotImplemented,
+  OneKeyInternalError,
+  WrongPassword,
+} from '../errors';
 import { presetNetworks } from '../presets';
-import { DBAccount } from '../types/account';
+import {
+  ACCOUNT_TYPE_SIMPLE,
+  DBAccount,
+  DBSimpleAccount,
+} from '../types/account';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
-import { DBWallet, WALLET_TYPE_WATCHING } from '../types/wallet';
+import {
+  DBWallet,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '../types/wallet';
 
 import { DBAPI } from './base';
 
@@ -16,11 +42,26 @@ type TokenBinding = {
   tokenId: string;
 };
 
+type OneKeyContext = {
+  id: string;
+  nextHD: number;
+  verifyString: string;
+};
+
+type StoredCredential = {
+  entropy: string;
+  seed: string;
+};
+
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
 const DB_VERSION = 1;
+const MAIN_CONTEXT = 'mainContext';
+const DEFAULT_VERIFY_STRING = 'OneKey';
 
+const CONTEXT_STORE_NAME = 'context';
+const CREDENTIAL_STORE_NAME = 'credentials';
 const WALLET_STORE_NAME = 'wallets';
 const ACCOUNT_STORE_NAME = 'accounts';
 const NETWORK_STORE_NAME = 'networks';
@@ -30,10 +71,20 @@ const TOKEN_BINDING_STORE_NAME = 'token_bindings';
 function initDb(request: IDBOpenDBRequest) {
   const db: IDBDatabase = request.result;
 
+  db.createObjectStore(CONTEXT_STORE_NAME, { keyPath: 'id' });
+  db.createObjectStore(CREDENTIAL_STORE_NAME, { keyPath: 'id' });
+
   const walletStore = db.createObjectStore(WALLET_STORE_NAME, {
     keyPath: 'id',
   });
   walletStore.transaction.oncomplete = (_event) => {
+    db.transaction([CONTEXT_STORE_NAME], 'readwrite')
+      .objectStore(CONTEXT_STORE_NAME)
+      .add({
+        id: MAIN_CONTEXT,
+        nextHD: 1,
+        verifyString: DEFAULT_VERIFY_STRING,
+      });
     db.transaction([WALLET_STORE_NAME], 'readwrite')
       .objectStore(WALLET_STORE_NAME)
       .add({
@@ -42,7 +93,7 @@ function initDb(request: IDBOpenDBRequest) {
         type: WALLET_TYPE_WATCHING,
         backuped: true,
         accounts: [],
-        nextAccountId: { 'global': 1 },
+        nextAccountIds: { 'global': 1 },
       });
   };
 
@@ -61,6 +112,24 @@ function initDb(request: IDBOpenDBRequest) {
     { unique: false },
   );
   tokenBindingStore.createIndex('tokenId', 'tokenId', { unique: false });
+}
+
+function checkPassword(context: OneKeyContext, password: string): boolean {
+  if (typeof context === 'undefined') {
+    console.error('Unable to get main context.');
+    return false;
+  }
+  if (context.verifyString === DEFAULT_VERIFY_STRING) {
+    return true;
+  }
+  try {
+    return (
+      decrypt(password, Buffer.from(context.verifyString, 'hex')).toString() ===
+      DEFAULT_VERIFY_STRING
+    );
+  } catch {
+    return false;
+  }
 }
 
 class FakeDB implements DBAPI {
@@ -173,6 +242,7 @@ class FakeDB implements DBAPI {
                   `Network ${network.id} already exists.`,
                 ),
               );
+              return;
             }
             network.position = networkIds.size;
             networkStore.add(network);
@@ -542,6 +612,291 @@ class FakeDB implements DBAPI {
     );
   }
 
+  createHDWallet(
+    password: string,
+    rs: RevealableSeed,
+    name?: string,
+  ): Promise<DBWallet> {
+    let ret: DBWallet;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME, WALLET_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to create HD wallet.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const contextStore = transaction.objectStore(CONTEXT_STORE_NAME);
+          const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_cevent) => {
+            const context: OneKeyContext =
+              getMainContextRequest.result as OneKeyContext;
+            if (!checkPassword(context, password)) {
+              reject(new WrongPassword());
+              return;
+            }
+            const walletId = `hd-${context.nextHD}`;
+            ret = {
+              id: walletId,
+              name: name || `HD Wallet ${context.nextHD}`,
+              type: WALLET_TYPE_HD,
+              backuped: false,
+              accounts: [],
+              nextAccountIds: {},
+            };
+            transaction.objectStore(WALLET_STORE_NAME).add(ret);
+            transaction.objectStore(CREDENTIAL_STORE_NAME).add({
+              id: walletId,
+              credential: JSON.stringify({
+                entropy: rs.entropyWithLangPrefixed.toString('hex'),
+                seed: rs.seed.toString('hex'),
+              }),
+            });
+            if (context.verifyString === DEFAULT_VERIFY_STRING) {
+              context.verifyString = encrypt(
+                password,
+                Buffer.from(DEFAULT_VERIFY_STRING),
+              ).toString('hex');
+              context.nextHD += 1;
+              contextStore.put(context);
+            }
+          };
+        }),
+    );
+  }
+
+  removeWallet(walletId: string, password: string): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [
+              CONTEXT_STORE_NAME,
+              CREDENTIAL_STORE_NAME,
+              WALLET_STORE_NAME,
+              ACCOUNT_STORE_NAME,
+              TOKEN_BINDING_STORE_NAME,
+            ],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to remove wallet.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest = walletStore.get(walletId);
+          getWalletRequest.onsuccess = (_wevent) => {
+            const wallet = getWalletRequest.result as DBWallet;
+            if (typeof wallet === 'undefined') {
+              reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
+              return;
+            }
+            if (
+              (wallet.type as string) !== WALLET_TYPE_HD &&
+              (wallet.type as string) !== WALLET_TYPE_HW
+            ) {
+              reject(
+                new OneKeyInternalError('Only HD or HW wallet can be removed.'),
+              );
+              return;
+            }
+
+            const getMainContextRequest = transaction
+              .objectStore(CONTEXT_STORE_NAME)
+              .get(MAIN_CONTEXT);
+            getMainContextRequest.onsuccess = (_cevent) => {
+              const context: OneKeyContext =
+                getMainContextRequest.result as OneKeyContext;
+              if (!checkPassword(context, password)) {
+                reject(new WrongPassword());
+                return;
+              }
+              walletStore.delete(walletId);
+              transaction.objectStore(CREDENTIAL_STORE_NAME).delete(walletId);
+              wallet.accounts.forEach((accountId) => {
+                transaction.objectStore(ACCOUNT_STORE_NAME).delete(accountId);
+              });
+              const openCursorRequest = transaction
+                .objectStore(TOKEN_BINDING_STORE_NAME)
+                .openCursor();
+              openCursorRequest.onsuccess = (_cursorEvent) => {
+                const cursor: IDBCursorWithValue =
+                  openCursorRequest.result as IDBCursorWithValue;
+                if (cursor) {
+                  if (
+                    wallet.accounts.includes(
+                      (cursor.value as TokenBinding).accountId,
+                    )
+                  ) {
+                    cursor.delete();
+                  }
+                  cursor.continue();
+                }
+              };
+            };
+          };
+        }),
+    );
+  }
+
+  setWalletName(walletId: string, name: string): Promise<DBWallet> {
+    let ret: DBWallet;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [WALLET_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to set wallet name.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest = walletStore.get(walletId);
+          getWalletRequest.onsuccess = (_wevent) => {
+            const wallet = getWalletRequest.result as DBWallet;
+            if (typeof wallet === 'undefined') {
+              reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
+              return;
+            }
+            if (
+              (wallet.type as string) !== WALLET_TYPE_HD &&
+              (wallet.type as string) !== WALLET_TYPE_HW
+            ) {
+              reject(
+                new OneKeyInternalError(
+                  'Only HD or HW wallet name can be set.',
+                ),
+              );
+              return;
+            }
+            wallet.name = name;
+            ret = wallet;
+            walletStore.put(wallet);
+          };
+        }),
+    );
+  }
+
+  private getCredential(
+    walletId: string,
+    password: string,
+  ): Promise<StoredCredential> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([
+            CONTEXT_STORE_NAME,
+            CREDENTIAL_STORE_NAME,
+          ]);
+          const getMainContextRequest = transaction
+            .objectStore(CONTEXT_STORE_NAME)
+            .get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_cevent) => {
+            const context: OneKeyContext =
+              getMainContextRequest.result as OneKeyContext;
+            if (!checkPassword(context, password)) {
+              reject(new WrongPassword());
+              return;
+            }
+            const getCredentialRequest = transaction
+              .objectStore(CREDENTIAL_STORE_NAME)
+              .get(walletId);
+            getCredentialRequest.onsuccess = (_creevent) => {
+              if (typeof getCredentialRequest.result === 'undefined') {
+                reject(
+                  new OneKeyInternalError(
+                    `Cannot find seed of wallet ${walletId}.`,
+                  ),
+                );
+                return;
+              }
+              resolve(
+                JSON.parse(
+                  (
+                    getCredentialRequest.result as {
+                      id: string;
+                      credential: string;
+                    }
+                  ).credential,
+                ),
+              );
+            };
+          };
+        }),
+    );
+  }
+
+  revealHDWalletSeed(walletId: string, password: string): Promise<string> {
+    return this.getCredential(walletId, password).then(
+      (credential: StoredCredential) =>
+        mnemonicFromEntropy(Buffer.from(credential.entropy, 'hex'), password),
+    );
+  }
+
+  getSeed(walletId: string, password: string): Promise<Buffer> {
+    return this.getCredential(walletId, password).then(
+      (credential: StoredCredential) => Buffer.from(credential.seed, 'hex'),
+    );
+  }
+
+  confirmHDWalletBackuped(walletId: string): Promise<DBWallet> {
+    let ret: DBWallet;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [WALLET_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(
+              new OneKeyInternalError('Failed to confirm HD wallet backup.'),
+            );
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest = walletStore.get(walletId);
+          getWalletRequest.onsuccess = (_wevent) => {
+            const wallet = getWalletRequest.result as DBWallet;
+            if (typeof wallet === 'undefined') {
+              reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
+              return;
+            }
+            if (wallet.type !== WALLET_TYPE_HD) {
+              reject(
+                new OneKeyInternalError(
+                  `Wallet ${walletId} is not an HD wallet.`,
+                ),
+              );
+              return;
+            }
+            if (wallet.backuped !== true) {
+              wallet.backuped = true;
+              walletStore.put(wallet);
+            }
+            ret = wallet;
+          };
+        }),
+    );
+  }
+
   addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount> {
     let ret: DBAccount;
     return this.ready.then(
@@ -577,16 +932,32 @@ class FakeDB implements DBAPI {
               reject(new AccountAlreadyExists());
               return;
             }
-            if (wallet.type !== WALLET_TYPE_WATCHING) {
+
+            wallet.accounts.push(account.id);
+
+            if (wallet.type === WALLET_TYPE_WATCHING) {
+              wallet.nextAccountIds.global += 1;
+            } else if (wallet.type === WALLET_TYPE_HD) {
+              const pathComponents = account.path.split('/');
+              const category = `${pathComponents[1]}/${pathComponents[2]}`;
+              let nextId = wallet.nextAccountIds[category] || 0;
+              while (
+                wallet.accounts.includes(
+                  `${walletId}--${pathComponents
+                    .slice(0, -1)
+                    .concat([nextId.toString()])
+                    .join('/')}`,
+                )
+              ) {
+                nextId += 1;
+              }
+              wallet.nextAccountIds[category] = nextId;
+            } else {
               // TODO: other wallets.
-              reject(new OneKeyInternalError('Not implemented.'));
+              reject(new NotImplemented());
               return;
             }
 
-            account.name =
-              account.name || `Watching ${wallet.nextAccountId.global}`;
-            wallet.accounts.push(account.id);
-            wallet.nextAccountId.global += 1;
             walletStore.put(wallet);
             transaction.objectStore(ACCOUNT_STORE_NAME).add(account).onsuccess =
               (_aevent) => {
@@ -631,6 +1002,159 @@ class FakeDB implements DBAPI {
             } else {
               resolve(undefined);
             }
+          };
+        }),
+    );
+  }
+
+  private cleanupAccount(
+    transaction: IDBTransaction,
+    wallet: DBWallet,
+    accountId: string,
+  ): void {
+    wallet.accounts = wallet.accounts.filter(
+      (aId: string) => aId !== accountId,
+    );
+    transaction.objectStore(WALLET_STORE_NAME).put(wallet);
+    transaction.objectStore(ACCOUNT_STORE_NAME).delete(accountId);
+    const openCursorRequest = transaction
+      .objectStore(TOKEN_BINDING_STORE_NAME)
+      .index('accountId, networkId')
+      .openCursor(IDBKeyRange.bound([accountId, ''], [accountId, 'zzzzz']));
+
+    openCursorRequest.onsuccess = (_cevent) => {
+      const cursor = openCursorRequest.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+  }
+
+  removeAccount(
+    walletId: string,
+    accountId: string,
+    password: string,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [
+              CONTEXT_STORE_NAME,
+              WALLET_STORE_NAME,
+              ACCOUNT_STORE_NAME,
+              TOKEN_BINDING_STORE_NAME,
+            ],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to remove account.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          const getWalletRequest = transaction
+            .objectStore(WALLET_STORE_NAME)
+            .get(walletId);
+          getWalletRequest.onsuccess = (_wevent) => {
+            const wallet = getWalletRequest.result as DBWallet;
+            if (
+              typeof wallet === 'undefined' ||
+              !wallet.accounts.includes(accountId)
+            ) {
+              reject(
+                new OneKeyInternalError(
+                  'Failed to remove account, wallet or account not found.',
+                ),
+              );
+              return;
+            }
+
+            if (
+              [WALLET_TYPE_HD, WALLET_TYPE_IMPORTED].includes(
+                wallet.type as string,
+              )
+            ) {
+              const getMainContextRequest = transaction
+                .objectStore(CONTEXT_STORE_NAME)
+                .get(MAIN_CONTEXT);
+              getMainContextRequest.onsuccess = (_cevent) => {
+                const context: OneKeyContext =
+                  getMainContextRequest.result as OneKeyContext;
+                if (!checkPassword(context, password)) {
+                  reject(new WrongPassword());
+                  return;
+                }
+                this.cleanupAccount(transaction, wallet, accountId);
+              };
+            } else {
+              this.cleanupAccount(transaction, wallet, accountId);
+            }
+          };
+        }),
+    );
+  }
+
+  setAccountName(accountId: string, name: string): Promise<DBAccount> {
+    let ret: DBAccount;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([ACCOUNT_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to set account name.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const accountStore = transaction.objectStore(ACCOUNT_STORE_NAME);
+          const getAccountRequest = accountStore.get(accountId);
+          getAccountRequest.onsuccess = (_aevent) => {
+            const account = getAccountRequest.result as DBAccount;
+            if (typeof account === 'undefined') {
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
+              return;
+            }
+            account.name = name;
+            ret = account;
+            accountStore.put(account);
+          };
+        }),
+    );
+  }
+
+  addAccountAddress(
+    accountId: string,
+    _networkId: string,
+    address: string,
+  ): Promise<DBAccount> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const accountStore = db
+            .transaction([ACCOUNT_STORE_NAME], 'readwrite')
+            .objectStore(ACCOUNT_STORE_NAME);
+          const getAccountRequest = accountStore.get(accountId);
+          getAccountRequest.onsuccess = (_aevent) => {
+            const account = getAccountRequest.result as DBAccount;
+            if (typeof account === 'undefined') {
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
+              return;
+            }
+            if (account.type !== ACCOUNT_TYPE_SIMPLE) {
+              reject(new NotImplemented());
+              return;
+            }
+            (account as DBSimpleAccount).address = address;
+            accountStore.put(account);
+            resolve(account);
           };
         }),
     );
