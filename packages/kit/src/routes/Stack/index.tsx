@@ -48,6 +48,7 @@ import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
+import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
 import Settings from '@onekeyhq/kit/src/views/Settings';
@@ -116,6 +117,7 @@ export enum StackBasicRoutes {
   ChangePasswordScreen = 'ChangePassword',
   UnlockScreen = 'Unlock',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
+  ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
 }
 
 export type StackBasicRoutesParams = {
@@ -234,6 +236,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.SettingsWebviewScreen,
     component: SettingsWebview,
+  },
+  {
+    name: StackRoutes.ScreenOnekeyLiteDetail,
+    component: OnekeyLiteDetail,
   },
 ];
 

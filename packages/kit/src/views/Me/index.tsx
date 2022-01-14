@@ -46,6 +46,9 @@ const Me = () => {
           flexDirection="row"
           alignItems="center"
           justifyContent="space-between"
+          onPress={() =>
+            navigation.navigate(StackBasicRoutes.ScreenOnekeyLiteDetail)
+          }
         >
           <HStack space="4">
             <Icon name="CreditCardOutline" />
