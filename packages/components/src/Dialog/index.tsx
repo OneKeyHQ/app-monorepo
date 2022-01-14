@@ -82,9 +82,9 @@ const Dialog: FC<DialogProps> = ({
       >
         <Box p={6} w="100%" maxW="432px">
           <Box
-            shadow="depth.5"
-            p={{ base: '4', lg: '6' }}
             w="100%"
+            p={{ base: '4', lg: '6' }}
+            shadow="depth.5"
             alignSelf="center"
             borderRadius="24px"
             bg="surface-subdued"

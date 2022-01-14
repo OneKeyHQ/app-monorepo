@@ -1,3 +1,7 @@
+import BackupWalletModal, {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from './BackupWallet';
 import CollectibleModal, {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -10,6 +14,10 @@ import HardwareConnectModal, {
   HardwareConnectModalRoutes,
   HardwareConnectRoutesParams,
 } from './HardwareConnect';
+import HardwarePinCodeModal, {
+  HardwarePinCodeModalRoutes,
+  HardwarePinCodeRoutesParams,
+} from './HardwareLitePinCode';
 import HelpModal, { HelpModalRoutes, HelpModalRoutesParams } from './Help';
 import ImportAccountModal, {
   ImportAccountModalRoutes,
@@ -95,6 +103,14 @@ const modalStackScreenList = [
     name: HardwareConnectModalRoutes.HardwareConnectModal,
     component: HardwareConnectModal,
   },
+  {
+    name: HardwarePinCodeModalRoutes.HardwarePinCodeModal,
+    component: HardwarePinCodeModal,
+  },
+  {
+    name: BackupWalletModalRoutes.BackupSeedHintModal,
+    component: BackupWalletModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -109,6 +125,8 @@ export const ModalRoutes = {
   ...SettingsModalRoutes,
   ...HelpModalRoutes,
   ...HardwareConnectModalRoutes,
+  ...HardwarePinCodeModalRoutes,
+  ...BackupWalletModalRoutes,
 };
 
 export type ModalTypes = {
@@ -124,6 +142,8 @@ export type ModalTypes = {
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
   [HelpModalRoutes.SubmitRequestModal]: NavigatorScreenParams<HelpModalRoutesParams>;
   [HardwareConnectModalRoutes.HardwareConnectModal]: NavigatorScreenParams<HardwareConnectRoutesParams>;
+  [HardwarePinCodeModalRoutes.HardwarePinCodeModal]: NavigatorScreenParams<HardwarePinCodeRoutesParams>;
+  [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
 };
 
 export default modalStackScreenList;
