@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/order
+import './shared';
+
 import hotReload from '../ui/hotReload';
 import popupSizeFix from '../ui/popupSizeFix';
 import renderApp from '../ui/renderApp';

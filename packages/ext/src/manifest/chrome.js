@@ -2,7 +2,7 @@ module.exports = {
   'manifest_version': 3,
   // browser_action
   'action': {
-    'default_icon': 'icon-34.png',
+    'default_icon': 'icon-128.png',
     'default_title': 'OneKey',
     'default_popup': 'ui-popup.html',
   },

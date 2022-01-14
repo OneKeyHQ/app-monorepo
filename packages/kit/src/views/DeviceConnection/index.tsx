@@ -13,12 +13,9 @@ import OneKeyConnect, {
 import {
   Button,
   Center,
-  HStack,
   Stack,
-  Switch,
   Typography,
   VStack,
-  useTheme,
 } from '@onekeyhq/components';
 import * as buildUtils from '@onekeyhq/shared/src/platformEnv';
 // import ble from '../../utils/ble/handler';
@@ -86,7 +83,6 @@ export const connectDevice = async (): Promise<
 };
 
 const DeviceConnection: FC = () => {
-  const { setThemeVariant, themeVariant } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [features, setFeatures] = useState<Features | null>();
   const handlePress = useCallback(async () => {
@@ -108,23 +104,6 @@ const DeviceConnection: FC = () => {
       >
         Go to dapp
       </Button>
-      <HStack alignItems="center">
-        <Typography.Body2
-          bold
-          fontSize="xl"
-          textAlign="center"
-          mr="3"
-          color="text-subdued"
-        >
-          change theme
-        </Typography.Body2>
-        <Switch
-          isChecked={themeVariant === 'light'}
-          onToggle={() =>
-            setThemeVariant(themeVariant === 'light' ? 'dark' : 'light')
-          }
-        />
-      </HStack>
       <Button
         isLoading={isLoading}
         disabled={isLoading}

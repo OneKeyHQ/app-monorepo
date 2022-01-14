@@ -1,4 +1,5 @@
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { isDev } from '@onekeyhq/shared/src/platformEnv';
 
 import {
   EXT_PORT_CS_TO_BG,
@@ -12,17 +13,17 @@ import messagePort from './extMessagePort';
 
 // TODO one-time only
 function inject(filename: string) {
-  // Manifest V2
+  // Manifest V2 Only
   /*
   injectedFactory.injectCodeWithScriptTag({
     code: injectedExtension as string,
   });
   */
 
-  // Manifest V3 V2
+  // Manifest V3 & V2
   injectedFactory.injectCodeWithScriptTag({
     file: chrome.runtime.getURL(filename),
-    remove: true,
+    remove: !isDev(),
   });
 }
 

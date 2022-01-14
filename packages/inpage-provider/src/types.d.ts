@@ -14,20 +14,22 @@ export enum IInjectedProviderNames {
   conflux = 'conflux',
   solana = 'solana',
   sollet = 'sollet',
+  $private = '$private',
 }
 
 export type IInjectedProviderNamesStrings = keyof typeof IInjectedProviderNames;
 
 export type IJsonRpcRequest = {
   id?: number | string;
+  jsonrpc?: '2.0' | '1.0';
   method: string;
   params: Record<string, unknown> | Array<unknown> | unknown;
 };
 
-export type IJsonRpcResponse = {
+export type IJsonRpcResponse<T> = {
   id?: number | string;
   jsonrpc: string;
-  result: any | unknown;
+  result: any | unknown | T;
 };
 
 export type IJsBridgeCallback = {
@@ -65,6 +67,7 @@ export type IJsBridgeReceiveHandler = (
 
 export type IElectronWebView = {
   reload: () => void;
+  loadURL: (...args: any) => void;
   closeDevTools: () => void;
   openDevTools: () => void;
   getURL: () => string;
@@ -77,4 +80,11 @@ export type IPostMessageEventData = {
   channel: string;
   direction: string;
   payload: any;
+};
+
+export type InpageProviderWebViewProps = {
+  src: string;
+  onSrcChange?: (src: string) => void;
+  receiveHandler?: IJsBridgeReceiveHandler;
+  ref?: any;
 };

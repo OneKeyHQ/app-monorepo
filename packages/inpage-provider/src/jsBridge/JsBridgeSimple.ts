@@ -5,6 +5,8 @@ import JsBridgeBase from './JsBridgeBase';
 class JsBridgeSimple extends JsBridgeBase {
   sendAsString = true;
 
+  isInjected = true;
+
   private remote: JsBridgeBase | null = null;
 
   sendPayload(payload: IJsBridgeMessagePayload | string): void {

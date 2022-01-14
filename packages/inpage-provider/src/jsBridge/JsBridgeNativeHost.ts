@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 
 import injectedFactory from '../injected/factory/injectedFactory';
 import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
+import { IWebViewWrapperRef } from '../webview/useWebViewBridge';
 
 import JsBridgeBase from './JsBridgeBase';
 
@@ -16,6 +17,8 @@ class JsBridgeNativeHost extends JsBridgeBase {
   sendAsString = true;
 
   webviewRef?: React.RefObject<WebView>;
+
+  webviewWrapper?: IWebViewWrapperRef;
 
   sendPayload(payload: IJsBridgeMessagePayload | string) {
     if (this.webviewRef && this.webviewRef.current) {

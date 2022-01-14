@@ -1,8 +1,8 @@
 module.exports = {
   'manifest_version': 3,
-  'name': 'OneKey Wallet Ext 88365',
   'version': process.env.npm_package_version,
-  'description': process.env.npm_package_description,
+  'name': 'OneKey wallet',
+  'description': 'OneKey wallet', // process.env.npm_package_description,
   /*
   'options_page': 'ui-options.html',
   'chrome_url_overrides': {
@@ -21,7 +21,6 @@ module.exports = {
     },
   ],
   'icons': {
-    '34': 'icon-34.png',
     '128': 'icon-128.png',
   },
   // https://developer.chrome.com/docs/extensions/mv3/manifest/web_accessible_resources/
@@ -36,20 +35,20 @@ module.exports = {
       'matches': ['<all_urls>'],
     },
     {
-      'resources': ['icon-128.png', 'icon-34.png'],
+      'resources': ['icon-128.png'],
       'matches': [],
     },
   ],
   'permissions': [
-    'http://localhost:8545/',
-    'https://*.infura.io/',
-    '*://*.onekey.so/',
-    '*://*.eth/',
+    // 'http://localhost:8545/',
+    // 'https://*.infura.io/',
+    // '*://*.onekey.so/',
+    // '*://*.eth/',
     'storage',
-    'unlimitedStorage',
-    'clipboardWrite',
-    'activeTab',
-    'webRequest',
-    'notifications',
+    // 'unlimitedStorage',
+    // 'clipboardWrite',
+    // 'notifications',
+    // 'activeTab',
+    // 'webRequest',
   ],
 };

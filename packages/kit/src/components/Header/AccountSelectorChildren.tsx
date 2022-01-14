@@ -29,6 +29,11 @@ import {
   WatchedAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import walletApi from '../../background/instance/walletApi';
+import { useAppDispatch } from '../../hooks/redux';
+import { updateActiveAddress } from '../../store/reducers/account';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -47,12 +52,10 @@ type NavigationProps = NativeStackNavigationProp<
 // const WATCHED_ACCOUNTS = [];
 // const IMPORTED_ACCOUNTS = [];
 // const HD_ACCOUNTS = [];
-const NORMAL_ACCOUNTS = [
-  {
-    address: '0x76f3f64cb3cd19debee51436df630a342b736c24',
-    label: 'Wallet',
-  },
-];
+const NORMAL_ACCOUNTS = walletApi.accounts.map((address) => ({
+  address,
+  label: 'Wallet',
+}));
 
 type AccountType = 'normal' | 'hd' | 'imported' | 'watched';
 
@@ -91,6 +94,7 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
   const { size } = useUserDevice();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const dispatch = useAppDispatch();
 
   const [activeAccountType, setActiveAccountType] =
     useState<AccountType>('normal');
@@ -343,7 +347,13 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
             data={NORMAL_ACCOUNTS}
             keyExtractor={(_, index) => index.toString()}
             renderItem={({ item }) => (
-              <Pressable>
+              <Pressable
+                onPress={() => {
+                  handleToggleVisible();
+                  dispatch(updateActiveAddress(item.address));
+                  backgroundApiProxy.changeAccounts(item.address);
+                }}
+              >
                 {({ isHovered }) => (
                   <HStack
                     p="7px"

@@ -45,11 +45,13 @@ it('two bridge communication', async () => {
 
   // ----------------------------------------------
   const chainId = await inpage.request({
+    scope: 'ethereum',
     data: { method: 'eth_chainId' },
   });
   expect(chainId).toEqual(currentChainId);
 
   host.requestSync({
+    scope: 'ethereum',
     data: {
       method: 'metamask_chainChanged',
       params: { chainId: '0x2' },

@@ -2,6 +2,7 @@ import { Form as BaseForm } from './Form';
 import { FormCheckBox } from './FormCheckBox';
 import { FormInput } from './FormInput';
 import { FormItem } from './FormItem';
+import { FormPasswordInput } from './FormPasswordInput';
 import { FormRadio } from './FormRadio';
 import { FormRadioGroup } from './FormRadioGroup';
 import { FormSelect } from './FormSelect';
@@ -19,6 +20,7 @@ Base.Switch = FormSwitch;
 Base.Radio = FormRadio;
 Base.RadioGroup = FormRadioGroup;
 Base.Select = FormSelect;
+Base.PasswordInput = FormPasswordInput;
 
 type IFormComponentType = typeof BaseForm & {
   Item: typeof FormItem;
@@ -29,6 +31,7 @@ type IFormComponentType = typeof BaseForm & {
   Radio: typeof FormRadio;
   RadioGroup: typeof FormRadioGroup;
   Select: typeof FormSelect;
+  PasswordInput: typeof FormPasswordInput;
 };
 
 const Form = Base as IFormComponentType;

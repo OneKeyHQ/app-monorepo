@@ -175,9 +175,6 @@ const TransactionEditFee = ({ ...rest }) => {
                 setSegmentValue(value);
               }}
             />
-            {/* <Box height={isSmallScreen ? '100%' : '500px'}>
-            {segmentValue === '1' ? SelectFee() : CustomFee()}
-          </Box> */}
             <Box>{segmentValue === '1' ? SelectFee() : CustomFee()}</Box>
           </>
         ),

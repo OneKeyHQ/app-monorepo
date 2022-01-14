@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,7 +13,7 @@ import {
   Text,
   Token,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
   ManageTokenModalRoutes,
@@ -223,9 +223,9 @@ const TOKEN_DATA: AssetToken[] = [
 ];
 
 const AssetsList = () => {
-  const navigation = useNavigation<NavigationProps>();
-  const { size } = useUserDevice();
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+  const isSmallScreen = useIsVerticalLayout();
 
   const renderItem: ScrollableFlatListProps<AssetToken>['renderItem'] = ({
     item,
@@ -243,7 +243,6 @@ const AssetsList = () => {
             tokenId: '',
           },
         });
-        console.log('Click Token : ', item.address);
       }}
     >
       <Box w="100%" flexDirection="row" alignItems="center">
@@ -261,7 +260,7 @@ const AssetsList = () => {
             {item.fiatAmount}
           </Typography.Body2>
         </Box>
-        {['LARGE', 'XLARGE'].includes(size) && (
+        {!isSmallScreen && (
           <Box ml={3} mr={20} flexDirection="row" flex={1}>
             <Icon size={20} name="ActivityOutline" />
             <Typography.Body2Strong ml={3}>
@@ -274,35 +273,40 @@ const AssetsList = () => {
     </Pressable.Item>
   );
 
+  const header = useCallback(
+    () => (
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        pb={4}
+      >
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'asset__tokens' })}
+        </Typography.Heading>
+        <Pressable
+          p={1.5}
+          onPress={() =>
+            navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
+          }
+        >
+          <Icon size={20} name="AdjustmentsSolid" />
+        </Pressable>
+      </Box>
+    ),
+    [intl, navigation],
+  );
+
   return (
     <Tabs.FlatList
       contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
       data={TOKEN_DATA}
       renderItem={renderItem}
-      ListHeaderComponent={() => (
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          pb={4}
-        >
-          <Typography.Heading>
-            {intl.formatMessage({ id: 'asset__tokens' })}
-          </Typography.Heading>
-          <Pressable
-            p={1.5}
-            onPress={() =>
-              navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
-            }
-          >
-            <Icon size={20} name="AdjustmentsSolid" />
-          </Pressable>
-        </Box>
-      )}
+      ListHeaderComponent={header}
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h="20px" />}
-      keyExtractor={(_item: AssetToken, index: number) => index.toString()}
-      extraData={size}
+      keyExtractor={(_item: AssetToken) => _item.name}
+      extraData={isSmallScreen}
       showsVerticalScrollIndicator={false}
     />
   );

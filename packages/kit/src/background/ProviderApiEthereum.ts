@@ -1,10 +1,8 @@
 /* eslint-disable camelcase */
-import { Alert } from 'react-native';
 
 import { permissionRequired } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
-  IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyhq/inpage-provider/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -17,7 +15,25 @@ import ProviderApiBase, {
 } from './ProviderApiBase';
 
 class ProviderApiEthereum extends ProviderApiBase {
-  protected providerName = IInjectedProviderNames.ethereum;
+  public providerName = IInjectedProviderNames.ethereum;
+
+  _getCurrentAccounts() {
+    return this.walletApi.isConnected ? [this.walletApi.selectedAddress] : [];
+  }
+
+  _getCurrentChainId() {
+    return this.walletApi.chainId;
+  }
+
+  _getCurrentNetworkVersion() {
+    return `${parseInt(this._getCurrentChainId(), 16)}`;
+  }
+
+  _getCurrentUnlockState() {
+    return true;
+  }
+
+  // ----------------------------------------------
 
   // @ts-expect-error
   @permissionRequired()
@@ -33,58 +49,73 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this.rpcResult(result);
   }
 
-  async eth_requestAccounts(payload: IJsBridgeMessagePayload) {
+  eth_requestAccounts() {
+    // TODO show approval confirmation, skip in whitelist domain
     console.log('=============== confirm check');
     if (!this.walletApi.isConnected) {
-      const title = `Confirm connect site: ${payload.origin as string}`;
-      if (platformEnv.isNative) {
-        await new Promise((resolve) => {
-          Alert.alert('Confirm', title, [
-            {
-              text: 'NO',
-              onPress: () => {
-                console.log('Cancel Pressed');
-                this.walletApi.isConnected = false;
-                resolve(true);
-              },
-              style: 'cancel',
-            },
-            {
-              text: 'YES',
-              onPress: () => {
-                console.log('OK Pressed');
-                this.walletApi.isConnected = true;
-                resolve(false);
-              },
-            },
-          ]);
-        });
-      } else if (platformEnv.isExtension) {
-        this.walletApi.isConnected = true;
-      } else if (window.confirm(title)) {
-        this.walletApi.isConnected = true;
-      }
+      this.walletApi.isConnected = true;
     }
 
     return this.eth_accounts();
   }
 
+  eth_coinbase() {
+    // TODO some different with eth_accounts, check metamask code source
+    return this.eth_accounts();
+  }
+
   eth_accounts() {
-    return this.rpcResult(
-      this.walletApi.isConnected ? [this.walletApi.selectedAddress] : [],
-    );
+    return this.rpcResult(this._getCurrentAccounts());
   }
 
   eth_chainId() {
-    return this.rpcResult(this.walletApi.chainId);
+    return this.rpcResult(this._getCurrentChainId());
+  }
+
+  net_version() {
+    return this.rpcResult(this._getCurrentNetworkVersion());
   }
 
   eth_blockNumber() {
     return this.rpcResult('0xd29f1a');
   }
 
+  // TODO @publicMethod()
+  async metamask_getProviderState() {
+    // pass debugLoggerSettings to dapp injected provider
+    const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
+    return this.rpcResult({
+      accounts: this._getCurrentAccounts(),
+      chainId: this._getCurrentChainId(),
+      isUnlocked: this._getCurrentUnlockState(),
+      networkVersion: this._getCurrentNetworkVersion(),
+      debugLoggerSettings,
+    });
+  }
+
+  // get and save Dapp site icon & title
+  metamask_sendDomainMetadata() {
+    // TODO save to DB
+    return this.rpcResult({});
+  }
+
+  metamask_logWeb3ShimUsage() {
+    // TODO
+    return this.rpcResult({});
+  }
+
+  eth_subscription() {
+    // TODO
+    return this.rpcResult({});
+  }
+
+  // ----------------------------------------------
+
   protected rpcCall(request: IJsonRpcRequest): any {
-    console.log('RPC CALL:', request);
+    console.log('MOCK CHAIN RPC CALL:', request);
+    return this.rpcResult({});
+    // TODO use metamask error object
+    // throw new Error(`provider method=${request.method} NOT SUPPORTED yet!`);
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
@@ -98,10 +129,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = {
       method: 'metamask_chainChanged',
-      params: { chainId: info.chainId },
+      params: { chainId: info.chainId, networkVersion: info.networkVersion },
     };
     info.send(data);
   }
+
+  // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
 }

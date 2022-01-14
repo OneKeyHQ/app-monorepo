@@ -72,9 +72,7 @@ const MobileModal: FC<ModalProps> = ({
           type="plain"
           circle
           onPress={() => {
-            // @ts-expect-error
-            navigation?.popToTop?.();
-            navigation.goBack();
+            navigation.getParent()?.goBack();
           }}
         />
       </Box>

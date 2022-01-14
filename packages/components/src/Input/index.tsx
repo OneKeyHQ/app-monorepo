@@ -166,6 +166,7 @@ const Input = React.forwardRef<
     return (
       <BaseInput
         ref={ref}
+        selectionColor="text-default"
         isDisabled={isDisabled}
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
@@ -191,7 +192,9 @@ const Input = React.forwardRef<
         }}
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
-        {...textProps}
+        fontSize={textProps.fontSize}
+        fontWeight={textProps.fontWeight}
+        fontFamily={textProps.fontFamily}
         {...props}
       />
     );

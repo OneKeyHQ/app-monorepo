@@ -3,6 +3,7 @@ import JsBridgeExtBackground from '@onekeyhq/inpage-provider/src/jsBridge/JsBrid
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
   IJsonRpcRequest,
@@ -13,10 +14,33 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IBackgroundApiBridge } from './BackgroundApiProxy';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
+import ProviderApiPrivate from './ProviderApiPrivate';
 import WalletApi from './WalletApi';
 
 function throwMethodNotFound(method: string) {
   throw new Error(`dapp provider method not support (method=${method})`);
+}
+
+function isPrivateAllowedOrigin(origin?: string) {
+  return (
+    origin &&
+    (origin?.endsWith('.onekey.so') || ['https://onekey.so'].includes(origin))
+  );
+}
+
+function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
+  const { internal, origin } = payload;
+  const request = payload.data as IJsonRpcRequest;
+
+  const extensionUrl = chrome.runtime.getURL('');
+
+  return (
+    platformEnv.isExtension &&
+    origin &&
+    internal &&
+    request?.method?.startsWith(INTERNAL_METHOD_PREFIX) &&
+    extensionUrl.startsWith(origin)
+  );
 }
 
 class BackgroundApiBase implements IBackgroundApiBridge {
@@ -31,6 +55,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   bridgeExtBg: JsBridgeExtBackground | null = null;
 
   providers: Record<string, ProviderApiBase> = {
+    [IInjectedProviderNames.$private]: new ProviderApiPrivate({
+      backgroundApi: this,
+    }),
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi: this,
     }),
@@ -46,32 +73,54 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.bridge = bridge;
   }
 
+  handleProviderMethods(payload: IJsBridgeMessagePayload) {
+    const { scope, origin } = payload;
+    const provider: ProviderApiBase | null = this.providers[scope as string];
+    if (!provider) {
+      throw new Error(
+        `[${scope as string}] ProviderApi instance is not found.`,
+      );
+    }
+    if (
+      scope === IInjectedProviderNames.$private &&
+      !isPrivateAllowedOrigin(origin)
+    ) {
+      throw new Error(
+        `${origin as string} is not allowed to call $private methods.`,
+      );
+    }
+    return provider.handleMethods(payload);
+  }
+
   async _bridgeReceiveHandler(payload: IJsBridgeMessagePayload): Promise<any> {
-    const { scope, internal, origin } = payload;
+    const { scope, origin, internal } = payload;
     const request = (payload.data ?? {}) as IJsonRpcRequest;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { method, params } = request;
 
     debugLogger.backgroundApi('bridgeReceiveHandler', scope, request, payload);
 
-    const provider: ProviderApiBase | null = scope
-      ? this.providers[scope]
-      : null;
-    if (provider) {
-      return provider.handleMethods(payload);
+    if (!origin) {
+      throw new Error('BackgroundApi [payload.origin] is required.');
+    }
+
+    if (!internal && !scope) {
+      throw new Error(
+        'BackgroundApi [payload.scope] is required for non-internal method call.',
+      );
+    }
+
+    if (scope) {
+      return this.handleProviderMethods(payload);
     }
 
     // call background global methods (backgroundDappTest.ts)
-    // Only Extension and internal call allowed
-    if (
-      platformEnv.isExtension &&
-      internal &&
-      method.startsWith(INTERNAL_METHOD_PREFIX)
-    ) {
+    //    Only Extension and internal call allowed
+    if (isExtensionInternalCall(payload)) {
       return this.handleInternalMethods(payload);
     }
 
-    if (origin?.endsWith('.onekey.so')) {
+    if (isPrivateAllowedOrigin(origin)) {
       return this.handleSelfOriginMethods(payload);
     }
 
@@ -117,15 +166,33 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     throwMethodNotFound(method);
   }
 
-  sendMessagesToInjectedBridge = (data: unknown) => {
+  sendForProviderMaps: Record<string, any> = {};
+
+  sendForProvider(providerName: IInjectedProviderNamesStrings): any {
+    if (!providerName) {
+      throw new Error('sendForProvider: providerName is required.');
+    }
+    if (!this.sendForProviderMaps[providerName]) {
+      this.sendForProviderMaps[providerName] =
+        this.sendMessagesToInjectedBridge.bind(this, providerName);
+    }
+    return this.sendForProviderMaps[providerName];
+  }
+
+  sendMessagesToInjectedBridge = (
+    scope: IInjectedProviderNamesStrings,
+    data: unknown,
+  ) => {
     if (!this.bridge) {
-      throw new Error('bridge should be connected first.');
+      console.warn('bridge should be connected first.');
+      return;
     }
     if (platformEnv.isExtension) {
+      // TODO scope
       // send to all dapp sites content-script
-      this.bridgeExtBg?.requestToAllCS(data);
+      this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
-      this.bridge.requestSync({ data });
+      this.bridge.requestSync({ data, scope });
     }
   };
 }

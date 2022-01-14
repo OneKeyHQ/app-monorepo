@@ -8,8 +8,13 @@ import inpageProviderContentScript from '@onekeyhq/inpage-provider/src/extension
 
 import devToolsButton from '../content-script/devToolsButton';
 
+console.log('==== injected script tag start >>>>>>>', performance.now());
+
 console.log('[OneKey RN]: Content script works! 333');
 console.log('   Must reload extension for modifications to take effect.');
+
+inpageProviderContentScript.inject('injected.js');
+inpageProviderContentScript.setupMessagePort();
 
 if (
   process.env.NODE_ENV !== 'production' &&
@@ -20,7 +25,6 @@ if (
   }, 2000);
 }
 
-inpageProviderContentScript.inject('injected.js');
-inpageProviderContentScript.setupMessagePort();
+console.log('==== injected script tag done >>>>>>>', performance.now());
 
 export {};
