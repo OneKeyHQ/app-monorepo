@@ -15,12 +15,12 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { StackBasicRoutes } from '@onekeyhq/kit/src/routes';
 import {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManageToken';
 
-import { StackBasicRoutes } from '../../../routes';
 import { TokenDetailNavigation } from '../../TokenDetail/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

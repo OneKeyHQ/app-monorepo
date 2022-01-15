@@ -55,7 +55,7 @@ const CollectibleList: FC<CollectibleListProps> = ({
         </Box>
         <HStack space={3}>
           <Badge
-            type="Default"
+            type="default"
             title={item.assets.length.toString()}
             size="sm"
           />
@@ -148,7 +148,7 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
         </Typography.Subheading>
         {!!col.assets?.length && (
           <Badge
-            type="Default"
+            type="default"
             title={col.assets.length.toString()}
             size="sm"
           />

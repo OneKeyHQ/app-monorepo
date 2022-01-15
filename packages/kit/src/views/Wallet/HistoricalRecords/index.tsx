@@ -205,7 +205,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
           </Typography.Subheading>
           {data[0] != null && data[0].state === 'pending' && (
             <Box ml={3}>
-              <Badge title={data.length.toString()} type="Default" size="sm" />
+              <Badge title={data.length.toString()} type="default" size="sm" />
             </Box>
           )}
         </Box>

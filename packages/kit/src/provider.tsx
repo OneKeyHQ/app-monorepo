@@ -5,15 +5,28 @@ import { useColorScheme } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 
-import { Provider } from '@onekeyhq/components';
+import { Provider, useThemeValue } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import Navigator from './navigator';
 import store, { persistor } from './store';
 
-const NavigationApp = () => {
+const ThemeApp: FC = ({ children }) => {
   const colorScheme = useColorScheme();
   const { theme, locale } = useSettings();
+  const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
+  return (
+    <Provider themeVariant={themeVariant} locale={locale}>
+      {children}
+    </Provider>
+  );
+};
+
+const NavigationApp = () => {
+  const [bgColor, textColor] = useThemeValue([
+    'surface-subdued',
+    'text-default',
+  ]);
   const navigationTheme = useMemo(
     () => ({
       ...DefaultTheme,
@@ -21,25 +34,26 @@ const NavigationApp = () => {
         ...DefaultTheme.colors,
         // Fixed color
         background: 'rgba(0, 0, 0, 0.4)',
+        card: bgColor,
+        text: textColor,
       },
     }),
-    [],
+    [bgColor, textColor],
   );
-  const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
 
   return (
-    <Provider themeVariant={themeVariant} locale={locale}>
-      <NavigationContainer theme={navigationTheme}>
-        <Navigator />
-      </NavigationContainer>
-    </Provider>
+    <NavigationContainer theme={navigationTheme}>
+      <Navigator />
+    </NavigationContainer>
   );
 };
 
 const KitProvider: FC = () => (
   <ReduxProvider store={store}>
     <PersistGate loading={null} persistor={persistor}>
-      <NavigationApp />
+      <ThemeApp>
+        <NavigationApp />
+      </ThemeApp>
     </PersistGate>
   </ReduxProvider>
 );
