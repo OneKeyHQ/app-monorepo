@@ -5,7 +5,6 @@ import {
   Button,
   Icon,
   Pressable,
-  Toast,
   useLocale,
   useToast,
 } from '@onekeyhq/components';
@@ -25,7 +24,7 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
 
   const onClick = useCallback(() => {
     toast.show({
-      render: () => <Toast title="敬请期待" />,
+      title: '敬请期待',
     });
   }, [toast]);
 
