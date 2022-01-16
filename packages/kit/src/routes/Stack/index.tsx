@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { ComponentType, useEffect, useState } from 'react';
+import React, { ComponentType } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Button } from 'react-native';
 
 import { ICON_NAMES, Layout, useThemeValue } from '@onekeyhq/components';
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';

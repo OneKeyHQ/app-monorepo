@@ -8,6 +8,7 @@ import {
   Tabs,
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import AccountInfo from './AccountInfo';
 import AssetsList from './AssetsList';
@@ -43,7 +44,8 @@ const Home: FC = () => {
       renderHeader={AccountInfo}
       headerHeight={useIsVerticalLayout() ? 212 : 190}
       containerStyle={{
-        maxWidth: 768,
+        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+        width: '100%',
         marginHorizontal: 'auto',
       }}
       headerContainerStyle={{
@@ -65,7 +67,7 @@ const Home: FC = () => {
           style={{
             backgroundColor: tabbarBgColor,
           }}
-          contentContainerStyle={{ maxWidth: 768 }}
+          contentContainerStyle={{ maxWidth: MAX_PAGE_CONTAINER_WIDTH }}
           tabStyle={{ backgroundColor: tabbarBgColor }}
         />
       )}

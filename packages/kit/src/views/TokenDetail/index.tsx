@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Box, ScrollView, VStack } from '@onekeyhq/components';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import { StackBasicRoutes } from '../../routes';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
@@ -33,9 +34,14 @@ const TokenDetail: React.FC<TokenDetailViewProps> = ({ route }) => {
   console.log(route);
 
   return (
-    <ScrollView>
+    <ScrollView
+      contentContainerStyle={{
+        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+        marginHorizontal: 'auto',
+      }}
+    >
       <VStack>
-        <Box maxW="1024px">
+        <Box>
           <TokenInfo token={TOKEN} />
           <HistoricalRecords />
         </Box>
