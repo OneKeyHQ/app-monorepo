@@ -82,7 +82,7 @@ const Me = () => {
             <Icon name="DesktopComputerSolid" />
             <Typography.Body1>Developer</Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightOutline" />
+          <Icon name="ChevronRightOutline" size={12} />
         </Pressable>
       </VStack>
     </Box>
