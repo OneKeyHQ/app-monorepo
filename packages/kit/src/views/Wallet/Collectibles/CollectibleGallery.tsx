@@ -16,7 +16,7 @@ import {
   SegmentedControl,
   Token,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
@@ -102,7 +102,7 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
   collectibleSections,
   onPressItem,
 }) => {
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
+  const isSmallScreen = useIsVerticalLayout();
 
   const renderItem: ScrollableSectionListProps<Collectible>['renderItem'] = ({
     item: col,
@@ -197,7 +197,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   const intl = useIntl();
   const [view, setView] = React.useState(CollectibleView.Flat);
   // Set it to grid view when not in mobile
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
+  const isSmallScreen = useIsVerticalLayout();
   React.useEffect(() => {
     if (!isSmallScreen) {
       return setView(CollectibleView.Grid);
@@ -224,17 +224,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         <Typography.Heading>
           {intl.formatMessage({ id: 'asset__collectibles' })}
         </Typography.Heading>
-        {/* <Pressable
-          // no delay acts like debounce
-          delayLongPress={0}
-          onPress={() =>
-            setView((newView) =>
-              newView === CollectibleView.Flat
-                ? CollectibleView.Grid
-                : CollectibleView.Flat,
-            )
-          }
-        > */}
         <SegmentedControl
           containerProps={{
             width: 70,
@@ -250,9 +239,9 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
               value: CollectibleView.Grid,
             },
           ]}
+          onChange={(value) => setView(value as CollectibleView)}
           defaultValue={view}
         />
-        {/* </Pressable> */}
       </HStack>
     );
   }, [collectibles.length, intl, isSmallScreen, view]);

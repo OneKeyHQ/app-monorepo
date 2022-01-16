@@ -81,7 +81,8 @@ const Context = createContext<string>('');
 
 const Tab: FC<TabProps> = ({ children, name }) => {
   const activeTab = useContext(Context);
-  return <Box display={activeTab === name ? 'block' : 'none'}>{children}</Box>;
+  const isHidden = activeTab !== name;
+  return <Box display={isHidden ? 'none' : 'block'}>{children}</Box>;
 };
 
 const Container: FC<ComponentProps<typeof BaseContainer>> = ({
@@ -100,23 +101,21 @@ const Container: FC<ComponentProps<typeof BaseContainer>> = ({
   };
 
   return (
-    <Context.Provider value={value}>
-      <Box flex="1" overflow="scroll">
-        <Box flex="1" style={containerStyle} w="100%">
-          <Box
-            h={headerHeight ? headerHeight + 48 : 'auto'}
-            position="relative"
-            style={[headerContainerStyle as StyleProp<ViewStyle>]}
-          >
-            {renderHeader?.({} as any)}
-            <Box position="absolute" bottom={0} left={0} right={0}>
-              {renderTabBar?.({ value, handleChange, options, names } as any)}
-            </Box>
+    <Box flex="1" overflow="scroll">
+      <Box flex="1" style={containerStyle} w="100%">
+        <Box
+          h={headerHeight ? headerHeight + 48 : 'auto'}
+          position="relative"
+          style={[headerContainerStyle as StyleProp<ViewStyle>]}
+        >
+          {renderHeader?.({} as any)}
+          <Box position="absolute" bottom={0} left={0} right={0}>
+            {renderTabBar?.({ value, handleChange, options, names } as any)}
           </Box>
-          {children}
         </Box>
+        <Context.Provider value={value}>{children}</Context.Provider>
       </Box>
-    </Context.Provider>
+    </Box>
   );
 };
 

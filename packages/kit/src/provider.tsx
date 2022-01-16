@@ -1,7 +1,7 @@
 import React, { FC, useMemo } from 'react';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
-import * as Linking from 'expo-linking';
+import { createURL } from 'expo-linking';
 import { useColorScheme } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
@@ -16,6 +16,8 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import Navigator from './navigator';
 import store, { persistor } from './store';
 
+console.warn = () => {};
+
 const ThemeApp: FC = ({ children }) => {
   const colorScheme = useColorScheme();
   const { theme, locale } = useSettings();
@@ -26,7 +28,8 @@ const ThemeApp: FC = ({ children }) => {
     </Provider>
   );
 };
-const prefix = Linking.createURL('/');
+const prefix = createURL('/');
+
 const NavigationApp = () => {
   const linking = {
     prefixes: [prefix],
