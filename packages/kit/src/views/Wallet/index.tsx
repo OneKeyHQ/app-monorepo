@@ -1,9 +1,12 @@
 import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { MaterialTabBar, Tabs } from 'react-native-collapsible-tab-view';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import {
+  MaterialTabBar,
+  Tabs,
+} from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 
 import AccountInfo from './AccountInfo';
@@ -38,7 +41,7 @@ const Home: FC = () => {
   return (
     <Tabs.Container
       renderHeader={AccountInfo}
-      headerHeight={190}
+      headerHeight={useIsVerticalLayout() ? 212 : 190}
       containerStyle={{
         maxWidth: 768,
         marginHorizontal: 'auto',
@@ -57,7 +60,6 @@ const Home: FC = () => {
           inactiveColor={labelColor}
           labelStyle={{
             ...(Body2StrongProps as TextStyle),
-            textTransform: 'none',
           }}
           indicatorStyle={{ backgroundColor: indicatorColor }}
           style={{

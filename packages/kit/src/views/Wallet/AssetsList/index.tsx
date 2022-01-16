@@ -2,7 +2,6 @@ import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Tabs } from 'react-native-collapsible-tab-view';
 
 import {
   Box,
@@ -15,6 +14,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { StackBasicRoutes } from '@onekeyhq/kit/src/routes';
 import {
   ManageTokenModalRoutes,

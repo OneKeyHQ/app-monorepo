@@ -1,7 +1,6 @@
 import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { FlatList, SectionList } from 'react-native-collapsible-tab-view';
 
 import {
   Badge,
@@ -19,6 +18,7 @@ import {
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
 import { Asset, Collectible, CollectibleView, SelectedAsset } from './types';
 
@@ -66,7 +66,7 @@ const CollectibleList: FC<CollectibleListProps> = ({
   );
 
   return (
-    <FlatList
+    <Tabs.FlatList
       contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
       renderItem={renderItem}
       keyExtractor={(_, idx) => String(idx)}
@@ -157,7 +157,7 @@ const CollectibleGrid: FC<CollectibleGridProps> = ({
     );
 
   return (
-    <SectionList
+    <Tabs.SectionList
       contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
       sections={collectibleSections}
       extraData={collectibleSections}
@@ -224,7 +224,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         <Typography.Heading>
           {intl.formatMessage({ id: 'asset__collectibles' })}
         </Typography.Heading>
-        <Pressable
+        {/* <Pressable
           // no delay acts like debounce
           delayLongPress={0}
           onPress={() =>
@@ -234,25 +234,25 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
                 : CollectibleView.Flat,
             )
           }
-        >
-          <SegmentedControl
-            containerProps={{
-              width: 70,
-              height: 35,
-            }}
-            options={[
-              {
-                iconName: 'ViewListSolid',
-                value: CollectibleView.Flat,
-              },
-              {
-                iconName: 'ViewGridSolid',
-                value: CollectibleView.Grid,
-              },
-            ]}
-            defaultValue={view}
-          />
-        </Pressable>
+        > */}
+        <SegmentedControl
+          containerProps={{
+            width: 70,
+            height: 35,
+          }}
+          options={[
+            {
+              iconName: 'ViewListSolid',
+              value: CollectibleView.Flat,
+            },
+            {
+              iconName: 'ViewGridSolid',
+              value: CollectibleView.Grid,
+            },
+          ]}
+          defaultValue={view}
+        />
+        {/* </Pressable> */}
       </HStack>
     );
   }, [collectibles.length, intl, isSmallScreen, view]);
