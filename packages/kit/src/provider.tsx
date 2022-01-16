@@ -1,6 +1,7 @@
 import React, { FC, useMemo } from 'react';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { useColorScheme } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
@@ -25,8 +26,11 @@ const ThemeApp: FC = ({ children }) => {
     </Provider>
   );
 };
-
+const prefix = Linking.createURL('/');
 const NavigationApp = () => {
+  const linking = {
+    prefixes: [prefix],
+  };
   const [bgColor, textColor] = useThemeValue([
     'surface-subdued',
     'text-default',
@@ -49,7 +53,7 @@ const NavigationApp = () => {
   );
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer theme={navigationTheme} linking={linking}>
       <Navigator />
     </NavigationContainer>
   );
