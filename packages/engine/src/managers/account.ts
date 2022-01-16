@@ -1,7 +1,3 @@
-import BigNumber from 'bignumber.js';
-
-import { BaseClient } from '@onekeyhq/blockchain-libs/dist/provider/abc';
-
 import { IMPL_EVM, SEPERATOR } from '../constants';
 import { NotImplemented, OneKeyInternalError } from '../errors';
 import {
@@ -49,6 +45,27 @@ function fromDBAccountToAccount(dbAccount: DBAccount): Account {
   throw new OneKeyInternalError('Unsupported account type.');
 }
 
+function getHDAccountToAdd(
+  impl: string,
+  walletId: string,
+  path: string,
+  xpub: Buffer,
+  name?: string,
+): DBAccount {
+  if (impl !== IMPL_EVM) {
+    throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+  }
+  return {
+    id: `${walletId}--${path}`,
+    name: name || '',
+    type: 'simple',
+    path,
+    coinType: '60',
+    pub: xpub.slice(-33).toString('hex'),
+    address: '',
+  };
+}
+
 function getWatchingAccountToCreate(
   impl: string,
   target: string,
@@ -83,11 +100,19 @@ function getCoinTypeFromAccountId(accountId: string): string {
   ) {
     const [walletId, path] = accountId.split(SEPERATOR);
     if (walletId && path) {
-      const [master, purpose, coinType] = accountId.split(SEPERATOR);
+      const [master, purpose, coinType] = path.split('/');
       if (master === 'm' && purpose && coinType.endsWith("'")) {
         return coinType.slice(0, -1);
       }
     }
+  }
+  throw new OneKeyInternalError(`Invalid accountId ${accountId}.`);
+}
+
+function getWalletIdFromAccountId(accountId: string): string {
+  const walletId = accountId.split(SEPERATOR, 1)[0];
+  if (walletId !== accountId) {
+    return walletId;
   }
   throw new OneKeyInternalError(`Invalid accountId ${accountId}.`);
 }
@@ -99,32 +124,28 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   );
 }
 
-function getAccountBalance(
-  client: BaseClient,
+function buildGetBalanceRequestsRaw(
   address: string,
   tokenIds: Array<string>,
   withMain = true,
-): Promise<Array<BigNumber | undefined>> {
-  const requests = (withMain ? [{ address, coin: {} }] : []).concat(
+): Array<{ address: string; coin: { tokenAddress?: string } }> {
+  return (withMain ? [{ address, coin: {} }] : []).concat(
     tokenIds.map((tokenId) => ({ address, coin: { tokenAddress: tokenId } })),
   );
-  return client.getBalances(requests);
 }
 
-function getDBAccountBalance(
-  client: BaseClient,
+function buildGetBalanceRequest(
   dbAccount: DBAccount | undefined,
   tokenIds: Array<string>,
   withMain = true,
-): Promise<Array<BigNumber | undefined>> {
+): Array<{ address: string; coin: { tokenAddress?: string } }> {
   if (typeof dbAccount === 'undefined') {
-    throw new OneKeyInternalError(`Account not found.`);
+    throw new OneKeyInternalError('Account not found.');
   }
   if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
     throw new NotImplemented();
   }
-  return getAccountBalance(
-    client,
+  return buildGetBalanceRequestsRaw(
     (dbAccount as DBSimpleAccount).address,
     tokenIds,
     withMain,
@@ -133,8 +154,10 @@ function getDBAccountBalance(
 
 export {
   fromDBAccountToAccount,
+  getHDAccountToAdd,
   getWatchingAccountToCreate,
+  getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
-  getAccountBalance,
-  getDBAccountBalance,
+  buildGetBalanceRequestsRaw,
+  buildGetBalanceRequest,
 };
