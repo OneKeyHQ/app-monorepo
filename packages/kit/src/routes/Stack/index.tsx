@@ -35,6 +35,7 @@ import QRCodeGallery from '@onekeyhq/kit/src/views/Components/stories/QRCode';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import RadioBoxGallery from '@onekeyhq/kit/src/views/Components/stories/RadioBox';
 import ReduxMessageGallery from '@onekeyhq/kit/src/views/Components/stories/ReduxMessage';
+import RestfulRequest from '@onekeyhq/kit/src/views/Components/stories/RestfulRequest';
 import SearchbarGallery from '@onekeyhq/kit/src/views/Components/stories/Searchbar';
 import SegmentedControl from '@onekeyhq/kit/src/views/Components/stories/SegmentedControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
@@ -115,6 +116,7 @@ export enum StackBasicRoutes {
   ComponentLogger = 'component/logger',
   ComponentWebview = 'component/webview',
   ComponentPinCode = 'component/pincode',
+  ComponentRestfulRequest = 'component/restful-request',
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'Settings',
   ChangePasswordScreen = 'ChangePassword',
@@ -207,6 +209,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentShadow, component: ShadowsGallery },
   { name: StackRoutes.ComponentReduxMessage, component: ReduxMessageGallery },
   { name: StackRoutes.ComponentPinCode, component: PinCodeGallery },
+  { name: StackRoutes.ComponentRestfulRequest, component: RestfulRequest },
   {
     name: StackRoutes.ComponentHeaderTabViewContainerGallery,
     component: HeaderTabViewContainerGallery,
