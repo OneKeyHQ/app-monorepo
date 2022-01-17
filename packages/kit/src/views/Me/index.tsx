@@ -14,12 +14,6 @@ import {
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
 
-import { ModalRoutes } from '../../routes/Modal/index';
-import {
-  HardwareConnectModalRoutes,
-  HardwareConnectStackNavigationProp,
-} from '../Hardware/Connect/types';
-import { HardwarePinCodeStackNavigationProp } from '../Hardware/OnekeyLite/PinCode/types';
 import HelpSelector from '../Help/HelpSelector';
 import { TokenDetailNavigation } from '../TokenDetail/routes';
 
@@ -29,9 +23,7 @@ type NavigationProps = NativeStackNavigationProp<
   StackRoutesParams,
   StackBasicRoutes.Developer
 > &
-  TokenDetailNavigation &
-  HardwareConnectStackNavigationProp &
-  HardwarePinCodeStackNavigationProp;
+  TokenDetailNavigation;
 
 const Me = () => {
   const navigation = useNavigation<NavigationProps>();
@@ -114,47 +106,6 @@ const Me = () => {
               <Icon name="DesktopComputerSolid" />
               <Typography.Body1>Developer</Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
-          <Pressable
-            p="4"
-            bg="surface-default"
-            borderRadius="12px"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            onPress={() =>
-              navigation.navigate(
-                HardwareConnectModalRoutes.HardwareConnectModal,
-                {
-                  defaultValues: {
-                    title: 'sdf',
-                    connectType: 'ble',
-                  },
-                },
-              )
-            }
-          >
-            <Typography.Body1>Onekey Lite Connect</Typography.Body1>
-            <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
-          <Pressable
-            p="4"
-            bg="surface-default"
-            borderRadius="12px"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            onPress={() =>
-              navigation.navigate(ModalRoutes.HardwarePinCodeModal, {
-                defaultValues: {
-                  title: 'Setup New PIN',
-                  description: 'Set a PIN for OneKey Lite',
-                },
-              })
-            }
-          >
-            <Typography.Body1>Onekey Lite PinCode</Typography.Body1>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable>
         </VStack>

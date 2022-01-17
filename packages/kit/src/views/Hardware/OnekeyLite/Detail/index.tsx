@@ -7,34 +7,68 @@ import { Box, Button, Icon, Select, useLocale } from '@onekeyhq/components';
 
 import { useNavigation } from '../../../..';
 import WebView from '../../../../components/WebView';
+import { ModalRoutes } from '../../../../routes';
+import { HardwareConnectStackNavigationProp } from '../../Connect/types';
+import { HardwarePinCodeStackNavigationProp } from '../PinCode/types';
 
 export type OnekeyLiteDetailViewProps = {
   liteId: string;
 };
 
+type OptionType = 'restore' | 'change_pin' | 'reset';
+
+type NavigationProps = HardwareConnectStackNavigationProp &
+  HardwarePinCodeStackNavigationProp;
+
 const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { locale } = useLocale();
   const url = `https://lite.onekey.so/?language=${locale}`;
+
+  const [currentOptionType, setCurrentOptionType] = useState<OptionType | null>(
+    null,
+  );
+
+  useEffect(() => {
+    switch (currentOptionType) {
+      case 'restore':
+        navigation.navigate(ModalRoutes.HardwarePinCodeModal, {
+          defaultValues: {
+            title: 'Setup New PIN',
+            description: 'Set a PIN for OneKey Lite',
+          },
+        });
+        setCurrentOptionType(null);
+        break;
+      case 'change_pin':
+        navigation.navigate(ModalRoutes.HardwareConnectModal, {
+          defaultValues: {
+            title: 'sdf',
+            connectType: 'ble',
+          },
+        });
+        setCurrentOptionType(null);
+        break;
+      case 'reset':
+        break;
+      default:
+        break;
+    }
+  }, [currentOptionType, navigation]);
 
   useEffect(() => {
     console.log(liteId);
   }, [liteId]);
-
-  const [value, setValue] = useState('');
-
-  useEffect(() => {
-    console.log(value);
-    console.log(liteId);
-  }, [liteId, value]);
 
   navigation.setOptions({
     title: 'OneKey Lite',
     headerRight: () => (
       <Select
         title="Onekey lite"
-        onChange={(v) => setValue(v)}
+        onChange={(v) => {
+          if (currentOptionType !== v) setCurrentOptionType(v);
+        }}
         value=""
         footer={null}
         dropdownPosition="right"
@@ -47,21 +81,21 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
             label: intl.formatMessage({
               id: 'action__restore_with_onekey_lite',
             }),
-            value: '1',
+            value: 'restore',
             iconProps: { name: 'SaveAsOutline' },
           },
           {
             label: intl.formatMessage({
               id: 'action__change_pin',
             }),
-            value: '2',
+            value: 'change_pin',
             iconProps: { name: 'PencilAltOutline' },
           },
           {
             label: intl.formatMessage({
               id: 'action__reset_onekey_lite',
             }),
-            value: '3',
+            value: 'reset',
             iconProps: { name: 'TrashOutline', color: 'icon-critical' },
             color: 'icon-critical',
           },
@@ -80,7 +114,7 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
       <Box mb={Platform.OS === 'ios' ? 4 : 0}>
         <Select
           title="Select Wallet"
-          onChange={(v) => setValue(v)}
+          onChange={(v) => setCurrentOptionType(v)}
           value=""
           footer={null}
           dropdownPosition="right"

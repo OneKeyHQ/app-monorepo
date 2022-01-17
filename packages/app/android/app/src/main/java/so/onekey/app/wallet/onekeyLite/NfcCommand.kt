@@ -10,7 +10,6 @@ import so.onekey.app.wallet.onekeyLite.entitys.SecureChanelParam
 import so.onekey.app.wallet.utils.HexUtils
 import so.onekey.app.wallet.utils.Utils
 import java.io.IOException
-import java.nio.charset.StandardCharsets
 
 /**
  *
@@ -140,7 +139,7 @@ class NfcCommand {
                 Log.d(LITE_TAG, "---verify success")
                 VERIFY_SUCCESS
             } else {
-                retryNumCommand(isoDep)
+                retryNumCommandAndReset(isoDep)
             }
         }
 
@@ -204,8 +203,7 @@ class NfcCommand {
             }
         }
 
-
-        private fun retryNumCommand(isoDep: IsoDep): Int {
+        fun getRetryCount(isoDep: IsoDep): Int {
             if (!selectIssuerSd(isoDep)) {
                 return INTERRUPT_STATUS
             }
@@ -214,8 +212,14 @@ class NfcCommand {
             if (retryMaxNum.isNullOrEmpty() || !retryMaxNum.endsWith(STATUS_SUCCESS)) {
                 return INTERRUPT_STATUS
             }
-            val leftRetryNum = retryMaxNum.substring(1, retryMaxNum.length - 4).toInt()
+            Log.d(LITE_TAG, "getRetryNum String-->${retryMaxNum}")
+            val leftRetryNum = retryMaxNum[1].digitToInt(16)
             Log.d(LITE_TAG, "getRetryNum-->${leftRetryNum}")
+            return leftRetryNum
+        }
+
+        private fun retryNumCommandAndReset(isoDep: IsoDep): Int {
+            val leftRetryNum = getRetryCount(isoDep)
             return if (leftRetryNum == 0) {
                 resetCommand(isoDep)
             } else {
@@ -280,7 +284,7 @@ class NfcCommand {
         @JvmStatic
         fun initChannel(isoDep: IsoDep): Int {
             val groupId = verifyDeviceSN(isoDep)
-            val cardInfo = getCardInfo(isoDep)
+            val cardInfo = getCardName(isoDep)
 
             Log.d(LITE_TAG, " init_channel groupId-->$groupId")
             Log.d(LITE_TAG, " init_channel cardInfo-->$cardInfo")
@@ -303,7 +307,7 @@ class NfcCommand {
         }
 
         @JvmStatic
-        fun getCardInfo(isoDep: IsoDep): String {
+        fun getCardName(isoDep: IsoDep): String {
             val getSNCommand = getSNCommand()
             var res: String? = send(isoDep, getSNCommand)
             if (res.isNullOrEmpty()) {
@@ -324,27 +328,7 @@ class NfcCommand {
                     originResponse)
                     .response
             Log.d(LITE_TAG, "---origin-->$response")
-            return when {
-                response.substring(response.length - 8).startsWith(LITE_TAG) -> {
-                    // TODO: 解开压缩的助记词
-                    null
-//                    val subString = response.substring(0, response.length - 8)
-//                    val response = PyEnv.decodeMnemonic(subString)
-//                    when {
-//                        response.errors.isNullOrEmpty() -> {
-//                            response.result
-//                        }
-//                        else -> {
-//                            null
-//                        }
-//                    }
-                }
-                else -> {
-                    String(
-                            HexUtils.hexString2Bytes(response),
-                            StandardCharsets.UTF_8)
-                }
-            }
+            return response
         }
 
         @JvmStatic

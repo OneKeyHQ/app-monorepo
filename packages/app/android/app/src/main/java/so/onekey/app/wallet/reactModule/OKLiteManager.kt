@@ -10,6 +10,7 @@ import androidx.annotation.IntDef
 import androidx.fragment.app.FragmentActivity
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter
+import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import so.onekey.app.wallet.nfc.NFCExceptions
@@ -246,32 +247,38 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     ) {
         val topActivity = Utils.getTopActivity()
         if (topActivity == null) {
-            callback.invoke("", null)
+            callback.invoke(NFCExceptions.InitializedException().toJson(), null, null)
             return
         }
         val isNfcExists = NfcUtils.isNfcExits(topActivity)
         if (!isNfcExists) {
-            callback.invoke("没有 NFC 设备", null)
+            // 没有 NFC 设备
+            callback.invoke(NFCExceptions.NotExistsNFC().toJson(), null, null)
             return
         }
+
         val isNfcEnable = NfcUtils.isNfcEnable(topActivity)
         if (!isNfcEnable) {
-            callback.invoke("没有打开 NFC 开关", null)
+            // 没有打开 NFC 开关
+            callback.invoke(NFCExceptions.NotEnableNFC().toJson(), null, null)
             return
         }
 
         NfcPermissionUtils.checkMiuiPermission(topActivity) {
+            var cardState: String? = null
             try {
                 val isoDep = acquireDevice() ?: return
+                cardState = Gson().toJson(mCurrentCardState)
                 val executeResult = execute(isoDep)
-                callback.invoke(null, executeResult)
+                callback.invoke(null, executeResult, cardState)
             } catch (e: NFCExceptions) {
-                callback.invoke(e.toJson(), null)
+                callback.invoke(e.toJson(), null, cardState)
             }
             releaseDevice()
             return
         }
-        callback.invoke("没有权限", null)
+        // 没有 NFC 使用权限
+        callback.invoke(NFCExceptions.NotNFCPermission().toJson(), null, null)
     }
 
     @ReactMethod
@@ -282,16 +289,24 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     }
 
     @ReactMethod
-    fun getLiteInfo(cardId: String, callback: Callback) = launch {
-        Log.d(TAG, "getLiteInfo $cardId")
+    fun getCardName(callback: Callback) = launch {
+        Log.d(TAG, "getCardName")
+        handleOperation(callback) { isoDep ->
+            Log.e(TAG, "getCardName Obtain the device")
+            val cardName = OnekeyLiteCard.getCardName(isoDep)
+            Log.e(TAG, "getCardName result $cardName")
+            cardName
+        }
+    }
+
+    @ReactMethod
+    fun getLiteInfo(callback: Callback) = launch {
+        Log.d(TAG, "getLiteInfo")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getLiteInfo Obtain the device")
-            val cardInfo = OnekeyLiteCard.getCardName(isoDep)
-            if (!isTargetDevice(cardId)) {
-                throw NFCExceptions.DeviceMismatchException()
-            }
+            val cardInfo = OnekeyLiteCard.getCardInfo(isoDep)
             Log.e(TAG, "getLiteInfo result $cardInfo")
-            cardInfo
+            Gson().toJson(cardInfo)
         }
     }
 

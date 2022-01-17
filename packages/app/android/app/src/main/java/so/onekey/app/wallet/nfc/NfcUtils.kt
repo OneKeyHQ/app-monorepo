@@ -1,7 +1,6 @@
 package so.onekey.app.wallet.nfc
 
 import android.app.Activity
-import android.app.AppOpsManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -12,13 +11,7 @@ import android.nfc.tech.Ndef
 import android.nfc.tech.NfcF
 import android.nfc.tech.NfcV
 import android.os.Build
-import android.os.Process
 import android.provider.Settings
-import androidx.annotation.StringRes
-import so.onekey.app.wallet.R
-import so.onekey.app.wallet.dialog.BaseAlertBottomDialog
-import so.onekey.app.wallet.dialog.BaseAlertCenterDialog
-import so.onekey.app.wallet.extensions.string
 import so.onekey.app.wallet.utils.MiUtil
 
 object NfcUtils {

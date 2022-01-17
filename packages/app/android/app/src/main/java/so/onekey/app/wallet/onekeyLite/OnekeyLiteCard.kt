@@ -1,7 +1,6 @@
 package so.onekey.app.wallet.onekeyLite
 
 import android.app.Activity
-import android.content.Context
 import android.nfc.tech.IsoDep
 import android.util.Log
 import androidx.fragment.app.FragmentActivity
@@ -58,24 +57,8 @@ object OnekeyLiteCard {
         if (!selected) {
             throw NFCExceptions.ConnectionFailException()
         }
-        val hasBackup = hasBackup(isoDep)
-        val selectIssuerSd = NfcCommand.selectIssuerSd(isoDep)
-        if (!selectIssuerSd) {
-            throw NFCExceptions.ConnectionFailException()
-        }
-        val apdu = NfcCommand.isNewCardCommand()
-        val status = NfcCommand.send(isoDep, apdu)
-        if (status.isNullOrEmpty()) {
-            throw NFCExceptions.ConnectionFailException()
-        }
-        val needNewPIN = NfcCommand.NEW_PIN == status
-        val serialNum = getCardSerialNum(isoDep)
-        Log.d(TAG, "hasBack----${hasBackup}    needNewPIN-->${needNewPIN}")
-        if (serialNum.isNullOrEmpty()) {
-            throw NFCExceptions.ConnectionFailException()
-        }
 
-        return@withContext CardState(isoDep, hasBackup, needNewPIN, serialNum)
+        return@withContext getCardInfo(isoDep)
     }
 
     @Throws(NFCExceptions::class)
@@ -134,7 +117,7 @@ object OnekeyLiteCard {
 
     @Throws(NFCExceptions::class)
     fun getCardName(isoDep: IsoDep): String {
-        val cardInfo = NfcCommand.getCardInfo(isoDep)
+        val cardInfo = NfcCommand.getCardName(isoDep)
         if (cardInfo.isNullOrEmpty() || cardInfo == NfcCommand.NOT_MATCH_DEVICE) {
             throw NFCExceptions.InterruptException()
         }
@@ -148,11 +131,13 @@ object OnekeyLiteCard {
         if (!selectIssuerSd) {
             throw NFCExceptions.ConnectionFailException()
         }
+
         val apdu = NfcCommand.isNewCardCommand()
         val status = NfcCommand.send(isoDep, apdu)
         if (status.isNullOrEmpty()) {
             throw NFCExceptions.ConnectionFailException()
         }
+
         val needNewPIN = NfcCommand.NEW_PIN == status
         val serialNum = getCardSerialNum(isoDep)
         Log.d(TAG, "hasBack----${hasBackup}    needNewPIN-->${needNewPIN}")
@@ -160,7 +145,9 @@ object OnekeyLiteCard {
             throw NFCExceptions.ConnectionFailException()
         }
 
-        return CardState(isoDep, hasBackup, needNewPIN, serialNum)
+        val pinRetryCount = NfcCommand.getRetryCount(isoDep)
+
+        return CardState(hasBackup, needNewPIN, serialNum, pinRetryCount)
     }
 
     @Throws(NFCExceptions::class)
@@ -172,21 +159,12 @@ object OnekeyLiteCard {
             throw NFCExceptions.InitializedException()
         }
         if (!setPinBackupRequest(isoDep, pwd)) {
-            throw NFCExceptions.PasswordWrongException()
+            throw NFCExceptions.InitPasswordException()
         }
         if (!verifyPinBackupRequest(isoDep, pwd)) {
-            throw NFCExceptions.PasswordWrongException()
+            throw NFCExceptions.InitPasswordException()
         }
-        val response = HexUtils.byteArr2HexStr(mnemonic.toByteArray());
-        return NfcCommand.startBackupCommand(isoDep, isBackup, response)
-
-        // val response = PyEnv.encodeMnemonics(mnemonic)
-        //    if (response.isNullOrEmpty()) {
-        //        throw NFCExceptions.InterruptException()
-        //    }
-        //    val meta = "${NfcCommand.LITE_TAG}${NfcCommand.LITE_VERSION}${NfcCommand.LITE_LANGUAGE}"
-        //    Log.d(TAG, "--encode--->${response + meta}")
-        //    return NfcCommand.startBackupCommand(isoDep, isBackup, response + meta)
+        return NfcCommand.startBackupCommand(isoDep, isBackup, mnemonic)
     }
 
     @Throws(NFCExceptions::class)
@@ -196,7 +174,7 @@ object OnekeyLiteCard {
         }
 
         val result = NfcCommand.exportCommand(isoDep)
-        Log.d(TAG, "export--->$result")
+
         if (result.isNullOrEmpty()) {
             throw NFCExceptions.NotInitializedException()
         }
