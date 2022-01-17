@@ -73,7 +73,11 @@ const Token: FC<TokenProps> = ({
       {!!(name || description) && (
         <Box display="flex" ml="2">
           {!!name && <Typography.Body1>{name}</Typography.Body1>}
-          {!!description && <Typography.Body2>{description}</Typography.Body2>}
+          {!!description && (
+            <Typography.Body2 color="text-subdued">
+              {description}
+            </Typography.Body2>
+          )}
         </Box>
       )}
     </Box>
