@@ -55,6 +55,10 @@ const NativeWebView = forwardRef(
           // so we need src props change it
           if (onSrcChange) {
             onSrcChange(url);
+          } else {
+            console.warn(
+              'NativeWebView: Please pass onSrcChange props to enable loadURL() working.',
+            );
           }
         },
       };

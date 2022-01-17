@@ -74,6 +74,10 @@ const DesktopWebView = forwardRef(
         loadURL: (url: string, options?: LoadURLOptions) => {
           if (onSrcChange) {
             onSrcChange(url);
+          } else {
+            console.warn(
+              'DesktopWebView: Please pass onSrcChange props to enable loadURL() working.',
+            );
           }
           // use onSrcChange props change src
           //    do not need call ElectronWebView.loadURL() manually.
