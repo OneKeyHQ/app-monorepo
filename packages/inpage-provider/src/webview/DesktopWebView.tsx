@@ -107,12 +107,13 @@ const DesktopWebView = forwardRef(
           const data: string = event?.args?.[0];
           let origin = '';
           const url = event.target.getURL();
+          // url initial value is empty after webview mounted
           if (url) {
             const uri = new URL(url);
             origin = uri?.origin || '';
+            // - receive
+            jsBridge.receive(data, { origin });
           }
-          // - receive
-          jsBridge.receive(data, { origin });
         }
 
         // response back
