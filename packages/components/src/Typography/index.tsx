@@ -29,87 +29,87 @@ export type FontProps = ComponentProps<typeof NBText>;
 
 export const DisplayXLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
-  fontWeight: 'bold',
+  fontWeight: '700',
   fontSize: 28,
   lineHeight: 36,
 };
 export const DisplayLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
-  fontWeight: 'bold',
+  fontWeight: '600',
   fontSize: 24,
   lineHeight: 32,
 };
 export const DisplayMediumProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 20,
   lineHeight: 28,
 };
 export const DisplaySmallProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
 export const PageHeadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
-  fontWeight: 'bold',
+  fontWeight: '500',
   fontSize: 24,
   lineHeight: 32,
 };
 export const HeadingProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '700',
   fontSize: 18,
   lineHeight: 28,
 };
 export const SubheadingProps = {
   fontFamily: 'PlusJakartaSans-Bold',
-  fontWeight: 'bold',
+  fontWeight: '700',
   fontSize: 12,
   lineHeight: 16,
 };
 export const Button1Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
 export const Button2Props = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 14,
   lineHeight: 20,
 };
 export const Body1Props = {
   fontFamily: 'PlusJakartaSans-Medium',
-  fontWeight: 'medium',
+  fontWeight: '400',
   fontSize: 16,
   lineHeight: 24,
 };
 export const Body2Props = {
   fontFamily: 'PlusJakartaSans-Medium',
-  fontWeight: 'medium',
+  fontWeight: '400',
   fontSize: 14,
   lineHeight: 20,
 };
 export const CaptionProps = {
   fontFamily: 'PlusJakartaSans-Medium',
-  fontWeight: 'medium',
+  fontWeight: '400',
   fontSize: 12,
   lineHeight: 16,
 };
 
 export const Body1StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 16,
   lineHeight: 24,
 };
 
 export const Body1UnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
-  fontWeight: 'medium',
+  fontWeight: '400',
   fontSize: 16,
   lineHeight: 24,
   underline: true,
@@ -117,14 +117,14 @@ export const Body1UnderlineProps = {
 
 export const Body2StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 14,
   lineHeight: 20,
 };
 
 export const Body2UnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
-  fontWeight: 'medium',
+  fontWeight: '400',
   fontSize: 14,
   lineHeight: 20,
   underline: true,
@@ -132,14 +132,14 @@ export const Body2UnderlineProps = {
 
 export const CaptionStrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
-  fontWeight: 'semibold',
+  fontWeight: '600',
   fontSize: 12,
   lineHeight: 16,
 };
 
 export const CaptionUnderlineProps = {
   fontFamily: 'PlusJakartaSans-Medium',
-  fontWeight: 'medium',
+  fontWeight: '400',
   fontSize: 12,
   lineHeight: 16,
   underline: true,

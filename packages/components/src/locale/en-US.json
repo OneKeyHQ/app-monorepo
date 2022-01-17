@@ -346,6 +346,7 @@
   "msg__this_site_is_identified_as_a_scam": "This site is identified as a scam, do not access it in any case",
   "msg__token_added": "Token Added",
   "msg__token_already_existed": "Token already existed!",
+  "msg__wallet_deleted": "Wallet \"{0}\" deleted",
   "msg__wrong_email_format": "Wrong E-mail format.",
   "msg__wrong_password": "Wrong password.",
   "network__network": "Network",
