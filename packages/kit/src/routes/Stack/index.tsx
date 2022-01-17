@@ -1,7 +1,9 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { ComponentType } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Platform } from 'react-native';
 
 import { ICON_NAMES, Layout, useThemeValue } from '@onekeyhq/components';
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
@@ -57,6 +59,8 @@ import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
+
+import renderCustomSubStackHeader from './Header';
 
 export enum TabRoutes {
   Home = 'home',
@@ -250,9 +254,12 @@ const StackScreen = () => {
       <StackNavigator.Navigator
         screenOptions={{
           headerBackTitle: '',
+          headerTitleAlign: 'center',
           headerStyle: {
             backgroundColor: bgColor,
           },
+          header:
+            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
           headerTintColor: textColor,
         }}
       >
