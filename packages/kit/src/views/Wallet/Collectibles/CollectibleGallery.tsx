@@ -5,15 +5,16 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Box,
+  Center,
   Divider,
   Empty,
   HStack,
   Icon,
+  Image,
   NftCard,
   Pressable,
   ScrollableFlatListProps,
   SegmentedControl,
-  Token,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -21,6 +22,39 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
 import { Collectible, CollectibleView, SelectedAsset } from './types';
+
+const ItemImage: FC<{ src?: string | null; size?: number }> = ({
+  src,
+  size = 8,
+}) => {
+  const fallbackElement = React.useMemo(
+    () => (
+      <Center
+        borderRadius="full"
+        bg="surface-neutral-default"
+        width={size}
+        height={size}
+      >
+        <Icon size={20} name="QuestionMarkCircleSolid" color="icon-default" />
+      </Center>
+    ),
+    [size],
+  );
+
+  if (!src) return fallbackElement;
+
+  return (
+    <Image
+      src={src}
+      key={src}
+      alt={src}
+      width={size}
+      height={size}
+      fallbackElement={fallbackElement}
+      borderRadius="full"
+    />
+  );
+};
 
 const stringAppend = (...args: Array<string | null | undefined>) =>
   args.filter(Boolean).join('');
@@ -102,7 +136,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         onPress={() => onSelectCollectible(item)}
       >
         <HStack space={3} w="100%" flexDirection="row" alignItems="center">
-          <Token src={item.collection.imageUrl ?? undefined} />
+          <ItemImage src={item.collection.imageUrl} />
           <Box flex={1}>
             <Typography.Body1Strong color="text-default">
               {item.collection.name}
@@ -144,7 +178,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       );
 
       return (
-        <VStack space={1}>
+        <VStack space={1} mb={4}>
           {header}
           <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
             {item.assets.map((asset, itemIndex) => {

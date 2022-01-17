@@ -19,9 +19,8 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 
 import { ASSETS } from './data';
-import { SelectedAsset } from './types';
 
-const getAsset = (id: string | number): SelectedAsset | null => {
+const getAsset = (id: string | number) => {
   const collectible = ASSETS.find((col) =>
     col.assets.find((asset) => String(asset.id) === String(id)),
   );
@@ -41,8 +40,9 @@ const getAsset = (id: string | number): SelectedAsset | null => {
   return {
     ...asset,
     chain: collectible.chain,
+    collection: collectible.collection,
     contractAddress: collectible.contract.address,
-  };
+  } as const;
 };
 
 const CollectibleDetailModal: FC = () => {
@@ -62,7 +62,6 @@ const CollectibleDetailModal: FC = () => {
 
   return (
     <Modal
-      header={asset.name ?? ''}
       footer={null}
       scrollViewProps={{
         pt: 4,
@@ -89,21 +88,38 @@ const CollectibleDetailModal: FC = () => {
                   bgColor="surface-default"
                   borderRadius="20px"
                 >
-                  <Icon name="QuestionMarkOutline" size={233} />
+                  <Icon name="QuestionMarkCircleOutline" size={166} />
                 </Center>
               }
             />
 
             <VStack mt={6} space={6} w="100%">
+              {/* Asset name and collection name */}
               <VStack>
-                <Typography.DisplayLarge>{asset.name}</Typography.DisplayLarge>
+                <Typography.DisplayLarge fontWeight="700">
+                  {asset.name}
+                </Typography.DisplayLarge>
+                <Typography.Body2 color="text-subdued">
+                  {asset.collection.name}
+                </Typography.Body2>
+              </VStack>
+
+              {/* Description */}
+              <VStack space={3}>
+                <Typography.Heading fontWeight="600">
+                  {intl.formatMessage({ id: 'content__description' })}
+                </Typography.Heading>
                 <Typography.Body2 color="text-subdued">
                   {asset.description}
                 </Typography.Body2>
               </VStack>
+
+              {/* traits */}
               {!!asset.traits?.length && (
                 <VStack space={3}>
-                  <Typography.Heading>Attributes</Typography.Heading>
+                  <Typography.Heading>
+                    {intl.formatMessage({ id: 'content__attributes' })}
+                  </Typography.Heading>
                   <Box flexDirection="row" flexWrap="wrap">
                     {asset.traits.map((trait, index) => (
                       <Box
@@ -116,7 +132,10 @@ const CollectibleDetailModal: FC = () => {
                         bgColor="surface-default"
                         borderRadius="12px"
                       >
-                        <Typography.Caption>
+                        <Typography.Caption
+                          color="text-subdued"
+                          textTransform="uppercase"
+                        >
                           {trait.traitType}
                         </Typography.Caption>
                         <Typography.Body2>{trait.value}</Typography.Body2>
@@ -126,8 +145,11 @@ const CollectibleDetailModal: FC = () => {
                 </VStack>
               )}
 
+              {/* Details */}
               <VStack>
-                <Typography.Heading>Details</Typography.Heading>
+                <Typography.Heading>
+                  {intl.formatMessage({ id: 'content__details' })}
+                </Typography.Heading>
                 <Box
                   flexDirection="row"
                   alignItems="flex-start"
