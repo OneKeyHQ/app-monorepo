@@ -72,7 +72,7 @@ const MobileModal: FC<ModalProps> = ({
           type="plain"
           circle
           onPress={() => {
-            navigation.getParent()?.goBack();
+            navigation.getParent()?.goBack?.();
           }}
         />
       </Box>

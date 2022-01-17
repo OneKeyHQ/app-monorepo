@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { ComponentProps, FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { SectionListProps } from 'react-native';
-import { Tabs } from 'react-native-collapsible-tab-view';
 
 import {
   Badge,
@@ -16,6 +14,7 @@ import {
   SectionList,
   Typography,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { ModalTypes } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
@@ -205,7 +204,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
           </Typography.Subheading>
           {data[0] != null && data[0].state === 'pending' && (
             <Box ml={3}>
-              <Badge title={data.length.toString()} type="Default" size="sm" />
+              <Badge title={data.length.toString()} type="default" size="sm" />
             </Box>
           )}
         </Box>

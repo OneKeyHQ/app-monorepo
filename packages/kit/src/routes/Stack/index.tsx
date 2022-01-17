@@ -244,59 +244,65 @@ const StackScreen = () => {
     'surface-subdued',
     'text-default',
   ]);
-  return (
-    <StackNavigator.Navigator>
-      {tabRoutes.map((tab) => (
-        <StackNavigator.Screen
-          key={tab.name}
-          name={tab.name}
-          options={({ navigation }) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            const { routes } = navigation.getState();
-            const currentRoute = routes[routes.length - 1];
-            return {
-              header: () => (
-                <LayoutHeader
-                  headerLeft={() => <AccountSelector />}
-                  headerRight={() => <ChainSelector />}
-                />
-              ),
 
-              animation: tabRoutes
-                .map((tabRoute) => tabRoute.name)
-                .includes(currentRoute.name)
-                ? 'none'
-                : 'slide_from_right',
-            };
-          }}
-        >
-          {() => (
-            <Layout name={tab.name} content={tab.component} tabs={tabRoutes} />
-          )}
-        </StackNavigator.Screen>
-      ))}
-      {stackScreenList.map((stack) => (
-        <StackNavigator.Screen
-          key={stack.name}
-          name={stack.name}
-          options={{
-            headerBackTitle: '',
-            headerStyle: {
-              backgroundColor: bgColor,
-            },
-            headerTintColor: textColor,
-          }}
-        >
-          {() => (
-            <Layout
-              name={stack.name}
-              content={stack.component}
-              tabs={tabRoutes}
-            />
-          )}
-        </StackNavigator.Screen>
-      ))}
-    </StackNavigator.Navigator>
+  return (
+    <>
+      <StackNavigator.Navigator
+        screenOptions={{
+          headerBackTitle: '',
+          headerStyle: {
+            backgroundColor: bgColor,
+          },
+          headerTintColor: textColor,
+        }}
+      >
+        {tabRoutes.map((tab) => (
+          <StackNavigator.Screen
+            key={tab.name}
+            name={tab.name}
+            options={({ navigation }) => {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              const { routes } = navigation.getState();
+              const currentRoute = routes[routes.length - 1];
+              return {
+                header: () => (
+                  <LayoutHeader
+                    headerLeft={() => <AccountSelector />}
+                    headerRight={() => <ChainSelector />}
+                  />
+                ),
+
+                animation: tabRoutes
+                  .map((tabRoute) => tabRoute.name)
+                  .includes(currentRoute.name)
+                  ? 'none'
+                  : 'slide_from_right',
+              };
+            }}
+          >
+            {() => (
+              <Layout
+                name={tab.name}
+                content={tab.component}
+                tabs={tabRoutes}
+              />
+            )}
+          </StackNavigator.Screen>
+        ))}
+
+        {stackScreenList.map((stack) => (
+          <StackNavigator.Screen key={stack.name} name={stack.name}>
+            {() => (
+              <Layout
+                name={stack.name}
+                content={stack.component}
+                tabs={tabRoutes}
+              />
+            )}
+          </StackNavigator.Screen>
+        ))}
+      </StackNavigator.Navigator>
+    </>
   );
 };
 

@@ -1,0 +1,1 @@
+export const MAX_PAGE_CONTAINER_WIDTH = 768;

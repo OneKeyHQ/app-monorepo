@@ -21,7 +21,7 @@ const NftCardGallery = () => (
         <Typography.Subheading color="text-subdued">
           ENS: Ethereum Name Service
         </Typography.Subheading>
-        <Badge type="Default" title="2" size="sm" />
+        <Badge type="default" title="2" size="sm" />
       </HStack>
       <HStack
         flexWrap="wrap"

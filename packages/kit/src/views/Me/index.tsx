@@ -10,6 +10,7 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,7 +24,7 @@ const Me = () => {
   const navigation = useNavigation<NavigationProps>();
 
   return (
-    <Box flex="1" p="4" maxW="1024px" w="100%" marginX="auto">
+    <Box flex="1" p="4" maxW={MAX_PAGE_CONTAINER_WIDTH} w="100%" marginX="auto">
       <VStack space="3">
         <Pressable
           p="4"
@@ -81,7 +82,7 @@ const Me = () => {
             <Icon name="DesktopComputerSolid" />
             <Typography.Body1>Developer</Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightOutline" />
+          <Icon name="ChevronRightOutline" size={12} />
         </Pressable>
       </VStack>
     </Box>

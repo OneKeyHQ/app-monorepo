@@ -4,12 +4,12 @@ import { Badge as NBBadge } from 'native-base';
 
 import Typography from '../Typography';
 
-type BadgeType = 'Default' | 'Success' | 'Info' | 'Warning' | 'Critical';
+type BadgeType = 'default' | 'success' | 'info' | 'warning' | 'critical';
 type SizeType = 'sm' | 'lg';
 
 export type BadgeProps = {
+  type?: BadgeType;
   title: string;
-  type: BadgeType;
   size: SizeType;
 };
 
@@ -33,13 +33,13 @@ const smProps: BadgeTypeProps = {
 
 function colorWithType(badgeType: BadgeType) {
   switch (badgeType) {
-    case 'Default':
+    case 'default':
       return 'surface-neutral-default';
-    case 'Success':
+    case 'success':
       return 'surface-success-default';
-    case 'Info':
+    case 'info':
       return 'surface-highlight-default';
-    case 'Warning':
+    case 'warning':
       return 'surface-warning-default';
     default:
       return 'surface-critical-default';
@@ -55,7 +55,7 @@ function propsWithSize(sizeType: SizeType) {
   }
 }
 
-export const Badge: FC<BadgeProps> = ({ title, type, size }) => {
+export const Badge: FC<BadgeProps> = ({ title, type = 'default', size }) => {
   const bgColor: string = colorWithType(type);
   const badgeTypeProps = propsWithSize(size);
 
@@ -66,6 +66,7 @@ export const Badge: FC<BadgeProps> = ({ title, type, size }) => {
       alignSelf="center"
       borderRadius="6px"
       bgColor={bgColor}
+      minW={5}
     >
       <Typography.CaptionStrong
         marginX={badgeTypeProps.marginX}
