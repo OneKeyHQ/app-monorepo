@@ -60,7 +60,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
             zIndex={10}
             rounded={0}
             size="xs"
-            colorScheme="warning"
+            bg="surface-neutral-default"
+            _filledTrack={{
+              bg: 'interactive-default',
+            }}
           />
         )}
         <Box flex={1}>

@@ -82,7 +82,11 @@ const Me = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            onPress={() => navigation.navigate(StackBasicRoutes.Developer)}
+            onPress={() =>
+              navigation.navigate(StackBasicRoutes.Developer, {
+                ts: new Date().getTime(),
+              })
+            }
           >
             <HStack space="4">
               <Icon name="DesktopComputerSolid" />
