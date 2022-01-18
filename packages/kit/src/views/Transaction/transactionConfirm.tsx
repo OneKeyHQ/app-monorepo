@@ -1,5 +1,4 @@
-import React from 'react';
-
+import { useNavigation } from '@react-navigation/core';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -11,6 +10,7 @@ import {
   Token,
   Typography,
   useThemeValue,
+  utils,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 
@@ -52,12 +52,19 @@ const renderTitleDetailView = (title: string, detail: string) => (
 const TransactionConfirm = () => {
   const cardBgColor = useThemeValue('surface-default');
   const intl = useIntl();
+  const navigation = useNavigation();
 
   return (
     <Modal
-      primaryActionTranslationId="Confirm"
-      secondaryActionTranslationId="Reject"
+      primaryActionTranslationId={intl.formatMessage({ id: 'action__confirm' })}
+      secondaryActionTranslationId={intl.formatMessage({
+        id: 'action__reject',
+      })}
+      onClose={() => {
+        navigation.getParent()?.goBack();
+      }}
       header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
+      headerDescription={`To:${utils.shortenAddress(MockData.toAddress)}`}
       scrollViewProps={{
         children: (
           <Column flex="1">

@@ -1,10 +1,12 @@
 import React, { FC, useMemo } from 'react';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import axios from 'axios';
 import { createURL } from 'expo-linking';
 import { useColorScheme } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
+import { SWRConfig } from 'swr';
 
 import {
   Provider,
@@ -62,14 +64,25 @@ const NavigationApp = () => {
   );
 };
 
+// TODO: detect network change & APP in background mode
 const KitProvider: FC = () => (
-  <ReduxProvider store={store}>
-    <PersistGate loading={null} persistor={persistor}>
-      <ThemeApp>
-        <NavigationApp />
-      </ThemeApp>
-    </PersistGate>
-  </ReduxProvider>
+  <SWRConfig
+    value={{
+      fetcher: async (resource, init) => {
+        const result = await axios(resource, init);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return result.data;
+      },
+    }}
+  >
+    <ReduxProvider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <ThemeApp>
+          <NavigationApp />
+        </ThemeApp>
+      </PersistGate>
+    </ReduxProvider>
+  </SWRConfig>
 );
 
 export default KitProvider;
