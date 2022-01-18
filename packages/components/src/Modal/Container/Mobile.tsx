@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Button from '../../Button';
+import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import Typography from '../../Typography';
@@ -81,19 +82,19 @@ const MobileModal: FC<ModalProps> = ({
         footer
       ) : (
         <Box pb={bottom} borderTopWidth={1} borderTopColor="border-subdued">
-          <Box
+          <HStack
             p={4}
             display="flex"
             flexDirection="row-reverse"
             justifyContent="space-between"
             alignItems="center"
+            space="4"
           >
             {!hidePrimaryAction && (
               <Button
                 flex="1"
                 size="lg"
                 type="primary"
-                ml="4"
                 onPress={() => {
                   onPrimaryActionPress?.({ onClose });
                 }}
@@ -119,7 +120,7 @@ const MobileModal: FC<ModalProps> = ({
                 })}
               </Button>
             )}
-          </Box>
+          </HStack>
         </Box>
       )}
     </Box>

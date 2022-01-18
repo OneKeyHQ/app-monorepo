@@ -53,9 +53,27 @@ export const GenaralSection = () => {
                 defaultValue={theme}
                 onChange={(value) => dispatch(setTheme(value))}
                 options={[
-                  { label: 'System', value: 'system' },
-                  { label: 'Light', value: 'light' },
-                  { label: 'Dark', value: 'dark' },
+                  {
+                    label: intl.formatMessage({
+                      id: 'form__system',
+                      defaultMessage: 'System',
+                    }),
+                    value: 'system',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'form__light',
+                      defaultMessage: 'Light',
+                    }),
+                    value: 'light',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'form__dark',
+                      defaultMessage: 'Dark',
+                    }),
+                    value: 'dark',
+                  },
                 ]}
               />
             </Box>

@@ -22,6 +22,10 @@ import ReceiveQRCodeModal, {
   ReceiveQRCodeModalRoutes,
   ReceiveQRCodeRoutesParams,
 } from './ReceiveToken';
+import SettingsModal, {
+  SettingsModalRoutes,
+  SettingsRoutesParams,
+} from './Settings';
 import TransactionModal, {
   TransactionModalRoutes,
   TransactionModalRoutesParams,
@@ -74,6 +78,10 @@ const modalStackScreenList = [
     name: CollectiblesModalRoutes.CollectionModal,
     component: CollectibleModal,
   },
+  {
+    name: SettingsModalRoutes.SetPasswordModal,
+    component: SettingsModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -85,6 +93,7 @@ export const ModalRoutes = {
   ...ImportAccountModalRoutes,
   ...WatchedAccountModalRoutes,
   ...CollectiblesModalRoutes,
+  ...SettingsModalRoutes,
 };
 
 export type ModalTypes = {
@@ -97,6 +106,7 @@ export type ModalTypes = {
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
   [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
+  [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
 };
 
 export default modalStackScreenList;
