@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,18 +13,33 @@ import {
 
 import { getClipboard } from '../../utils/ClipboardUtils';
 
+import { ManageTokenModalRoutes, ManageTokenRoutesParams } from './types';
+
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackScreenProps<
+  ManageTokenRoutesParams,
+  ManageTokenModalRoutes.AddCustomTokenModal
+>;
+
 type AddCustomTokenValues = {
   address: string;
   symbol: string;
   decimal: string;
 };
 
-export const AddCustomToken: FC = () => {
+export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const intl = useIntl();
+  const address = route.params?.address;
   const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
     defaultValues: { address: '', symbol: '', decimal: '' },
   });
   const onSubmit = handleSubmit((data) => console.log(data));
+  useEffect(() => {
+    if (address) {
+      setValue('address', address);
+    }
+  }, [address, setValue]);
 
   return (
     <Modal
@@ -32,11 +47,12 @@ export const AddCustomToken: FC = () => {
         id: 'action__add_custom_tokens',
         defaultMessage: 'Add Custom Token',
       })}
-      hideSecondaryAction
-      primaryActionTranslationId="action__add"
-      onPrimaryActionPress={() => {
+      hidePrimaryAction
+      secondaryActionTranslationId="action__add"
+      onSecondaryActionPress={() => {
         onSubmit();
       }}
+      secondaryActionProps={{ type: 'primary' }}
     >
       <KeyboardDismissView>
         <Form>
@@ -53,7 +69,7 @@ export const AddCustomToken: FC = () => {
                   getClipboard().then((text) => setValue('address', text));
                 }}
               >
-                <Icon size={16} name="ClipboardOutline" />
+                <Icon size={16} name="ClipboardSolid" />
               </Pressable>
             }
           >
@@ -77,7 +93,7 @@ export const AddCustomToken: FC = () => {
           <Form.Item
             name="decimal"
             label={intl.formatMessage({
-              id: 'form_decimal',
+              id: 'form__decimal',
               defaultMessage: 'Decimal',
             })}
             control={control}

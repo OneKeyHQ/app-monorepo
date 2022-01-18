@@ -16,18 +16,21 @@ const TextArea = React.forwardRef<
     ? getTypographyStyleProps('Body1')
     : (getTypographyStyleProps('Body2') as Pick<
         ComponentProps<typeof Text>,
-        'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
+        'fontFamily' | 'fontWeight' | 'fontSize'
       >);
   return (
     <NativeBaseTextArea
       ref={ref}
+      selectionColor="text-default"
       isInvalid={isInvalid}
       borderColor="border-default"
       bg="action-secondary-default"
       borderRadius={12}
       px="3"
       color="text-default"
-      {...textProps}
+      fontFamily={textProps.fontFamily}
+      fontWeight={textProps.fontWeight}
+      fontSize={textProps.fontSize}
       _focus={{
         borderColor: isInvalid ? 'border-critical-default' : 'focused-default',
         bg: 'action-secondary-default',
