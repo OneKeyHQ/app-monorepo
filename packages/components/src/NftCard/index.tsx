@@ -31,8 +31,17 @@ const NftCard: FC<CardProps> = ({ children, image, title, ...props }) => {
   const width = isSmallScreen
     ? Math.floor((dimensions.width - MARGIN * 3) / 2)
     : 171;
+
+  const fallbackElement = useMemo(
+    () => (
+      <Center width={width} height={width} bgColor="surface-neutral-subdued">
+        <Icon name="QuestionMarkCircleOutline" size={36} />
+      </Center>
+    ),
+    [width],
+  );
   const cover = useMemo(() => {
-    if (!image || typeof image !== 'string') return null;
+    if (!image || typeof image !== 'string') return fallbackElement;
     if (isValidElement(image)) return image;
     return (
       <Image
@@ -41,14 +50,11 @@ const NftCard: FC<CardProps> = ({ children, image, title, ...props }) => {
         }}
         alt={`image of ${typeof title === 'string' ? title : 'nft'}`}
         size={width}
-        fallbackElement={
-          <Center>
-            <Icon name="QuestionMarkOutline" size={width} />
-          </Center>
-        }
+        bgColor="surface-neutral-subdued"
+        fallbackElement={fallbackElement}
       />
     );
-  }, [image, title, width]);
+  }, [fallbackElement, image, title, width]);
 
   return (
     <Pressable.Item
