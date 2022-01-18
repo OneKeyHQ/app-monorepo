@@ -10,7 +10,10 @@ import {
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
-import AccountInfo from './AccountInfo';
+import AccountInfo, {
+  FIXED_HORIZONTAL_HEDER_HEIGHT,
+  FIXED_VERTICAL_HEADER_HEIGHT,
+} from './AccountInfo';
 import AssetsList from './AssetsList';
 import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
@@ -42,7 +45,11 @@ const Home: FC = () => {
   return (
     <Tabs.Container
       renderHeader={AccountInfo}
-      headerHeight={useIsVerticalLayout() ? 212 : 190}
+      headerHeight={
+        useIsVerticalLayout()
+          ? FIXED_VERTICAL_HEADER_HEIGHT
+          : FIXED_HORIZONTAL_HEDER_HEIGHT
+      }
       containerStyle={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: '100%',

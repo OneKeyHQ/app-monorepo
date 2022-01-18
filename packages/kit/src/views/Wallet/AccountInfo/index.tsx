@@ -33,6 +33,9 @@ type NavigationProps = NativeStackNavigationProp<
     ReceiveQRCodeModalRoutes.ReceiveQRCodeModal
   >;
 
+export const FIXED_VERTICAL_HEADER_HEIGHT = 222;
+export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
+
 const AccountInfo = () => {
   const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const intl = useIntl();
@@ -104,6 +107,7 @@ const AccountInfo = () => {
           flexDirection="column"
           bgColor="background-default"
           py={8}
+          h={FIXED_VERTICAL_HEADER_HEIGHT}
         >
           {renderAccountAmountInfo(true)}
           <Box mt={8}>{accountOption}</Box>
@@ -112,6 +116,7 @@ const AccountInfo = () => {
     }
     return (
       <Box
+        h={FIXED_HORIZONTAL_HEDER_HEIGHT}
         py={12}
         flexDirection="row"
         justifyContent="space-between"
