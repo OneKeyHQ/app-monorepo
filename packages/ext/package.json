@@ -1,7 +1,7 @@
 {
   "name": "@onekeyhq/ext",
-  "version": "1.0.3",
-  "description": "OneKey Extension",
+  "version": "1.0.2",
+  "description": "CryptoKey wallet",
   "license": "MIT",
   "scripts": {
     "clean": "rm -rf ./build",

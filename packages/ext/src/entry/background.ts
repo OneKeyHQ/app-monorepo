@@ -37,7 +37,6 @@ if (platformEnv.isDev) {
           ========================================
           `);
           chrome.runtime.reload();
-          // chrome.tabs.create({url: 'ui-popup.html'});
         }
         if (method === 'ping') {
           sendResponse({ pong: 'pong', ts: Date.now() });

@@ -9,16 +9,12 @@ import { useSafeAreaInsets as useRNSafeAreaInsets } from 'react-native-safe-area
 
 import type { LocaleSymbol } from '../locale';
 import type { DeviceState } from './device';
-import type { ThemeValues, ThemeVariant } from './theme';
+import type { ThemeToken, ThemeVariant } from './theme';
 
 export type ContextValue = {
   themeVariant: ThemeVariant;
-  setThemeVariant: (k: ThemeVariant) => void;
   locale: LocaleSymbol;
-  setLocale: (l: LocaleSymbol) => void;
   device: DeviceState;
-  isRootRoute: boolean;
-  setIsRootRoute: (value: boolean) => void;
 };
 
 export const Context = createContext<ContextValue>({} as ContextValue);
@@ -29,14 +25,10 @@ export const useTheme = () => {
   return useMemo(
     () => ({
       themeVariant: context.themeVariant,
-      setThemeVariant: context.setThemeVariant,
     }),
-    [context.themeVariant, context.setThemeVariant],
+    [context.themeVariant],
   );
 };
-
-type ThemeToken = keyof ThemeValues;
-
 export const useThemeValue = <T extends ThemeToken[] | ThemeToken>(
   colorSymbol: T,
   fallback?: T,
@@ -49,12 +41,10 @@ export const useLocale = () => {
   return useMemo(
     () => ({
       locale: context.locale,
-      setLocale: context.setLocale,
     }),
-    [context.locale, context.setLocale],
+    [context.locale],
   );
 };
-
 export const useUserDevice = () => {
   const context = useContext(Context);
   return useMemo(() => context.device, [context.device]);
@@ -77,15 +67,4 @@ export function useLoadCustomFonts() {
 
 export function useSafeAreaInsets() {
   return useRNSafeAreaInsets();
-}
-
-export function useIsRootRoute() {
-  const context = useContext(Context);
-  return useMemo(
-    () => ({
-      isRootRoute: context.isRootRoute,
-      setIsRootRoute: context.setIsRootRoute,
-    }),
-    [context.isRootRoute, context.setIsRootRoute],
-  );
 }

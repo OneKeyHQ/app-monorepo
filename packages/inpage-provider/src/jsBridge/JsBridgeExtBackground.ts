@@ -1,5 +1,9 @@
 import { EXT_PORT_CS_TO_BG, EXT_PORT_UI_TO_BG } from '../consts';
-import { IJsBridgeConfig, IJsBridgeMessagePayload } from '../types';
+import {
+  IInjectedProviderNamesStrings,
+  IJsBridgeConfig,
+  IJsBridgeMessagePayload,
+} from '../types';
 
 import JsBridgeBase from './JsBridgeBase';
 
@@ -59,10 +63,14 @@ class JsBridgeExtBackground extends JsBridgeBase {
         ) => {
           const origin = port0.sender?.origin || '';
           payload.remoteId = portId;
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          const jsBridge = this;
           // TODO if EXT_PORT_CS_TO_BG ignore "internal_" prefix methods
           //    ignore scope=walletPrivate
-          this.receive(payload, {
+          // - receive
+          jsBridge.receive(payload, {
             origin,
+            // only trust message from UI, but NOT from content-script(dapp)
             internal: port.name === EXT_PORT_UI_TO_BG,
           });
         };
@@ -80,7 +88,7 @@ class JsBridgeExtBackground extends JsBridgeBase {
     });
   }
 
-  requestToAllCS(data: unknown) {
+  requestToAllCS(scope: IInjectedProviderNamesStrings, data: unknown) {
     // TODO optimize rename: broadcastRequest
     Object.entries(this.ports).forEach(([portId, port]) => {
       if (port.name === EXT_PORT_CS_TO_BG) {
@@ -88,6 +96,7 @@ class JsBridgeExtBackground extends JsBridgeBase {
         // TODO check ports disconnected
         this.requestSync({
           data,
+          scope,
           remoteId: portId,
         });
       }

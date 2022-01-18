@@ -47,6 +47,7 @@ const Layout: FC<Props> = ({ content: Component, name, tabs = [] }) => {
       bg="background-default"
     >
       <Component />
+
       {shouldShowTab ? (
         <NavigationBar
           tabs={tabs}

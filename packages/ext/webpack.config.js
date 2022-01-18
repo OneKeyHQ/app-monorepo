@@ -12,18 +12,14 @@ const devUtils = require('./development/devUtils');
 const nextWebpack = require('./development/nextWebpack');
 const packageJson = require('./package.json');
 const webpackTools = require('../../development/webpackTools');
+const sourcemapServer = require('./development/sourcemapServer');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
 const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 
-// Start stand-alone sourcemap file server: http://127.0.0.1:31317
-const SOURCE_MAP_SERVER_PORT = 31317;
-const server = httpServer.createServer({
-  root: `./build/${buildTargetBrowser}`,
-});
-server.listen(SOURCE_MAP_SERVER_PORT, null);
+sourcemapServer.start();
 
 // FIX error:
 //    Module parse failed: Unexpected token (7:11)
@@ -171,7 +167,7 @@ function createConfig() {
     webpackConfig.devtool = false;
     webpackConfig.plugins.push(
       new webpack.SourceMapDevToolPlugin({
-        append: `\n//# sourceMappingURL=http://127.0.0.1:${SOURCE_MAP_SERVER_PORT}/[url]`,
+        append: `\n//# sourceMappingURL=http://127.0.0.1:${sourcemapServer.port}/[url]`,
         filename: '[file].map',
         // TODO eval is NOT support in Ext.
         //      sourcemap building is very very very SLOW
@@ -191,7 +187,7 @@ function createConfig() {
     };
   }
 
-  console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
+  // console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
   console.log('------- webpackConfig', {
     devtool: webpackConfig.devtool,
   });

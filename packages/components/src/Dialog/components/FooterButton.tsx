@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Button, { ButtonSize } from '../../Button';
+import HStack from '../../HStack';
 
 export type OnCloseCallback = { onClose?: (() => void) | undefined };
 
@@ -32,35 +33,36 @@ const FooterButton: FC<FooterButtonProps> = ({
 }) => {
   const intl = useIntl();
   return (
-    <Box flexDirection="row" w="100%" mt={2}>
-      {!hideSecondaryAction && (
-        <Button
-          flex="1"
-          onPress={() => {
-            onSecondaryActionPress?.();
-          }}
-          size={secondaryActionProps?.size ?? buttonSize}
-          {...secondaryActionProps}
-        >
-          {intl.formatMessage({
-            id: secondaryActionTranslationId ?? 'action__cancel',
-          })}
-        </Button>
-      )}
-      {hidePrimaryAction === hideSecondaryAction && <Box w={4} />}
-      {!hidePrimaryAction && (
-        <Button
-          flex={1}
-          type="primary"
-          size={primaryActionProps?.size ?? buttonSize}
-          {...primaryActionProps}
-          onPress={() => onPrimaryActionPress?.({})}
-        >
-          {intl.formatMessage({
-            id: primaryActionTranslationId ?? 'action__ok',
-          })}
-        </Button>
-      )}
+    <Box flexDirection="row" w="full" mt={2}>
+      <HStack space="4" w="full">
+        {!hideSecondaryAction && (
+          <Button
+            flex="1"
+            onPress={() => {
+              onSecondaryActionPress?.();
+            }}
+            size={secondaryActionProps?.size ?? buttonSize}
+            {...secondaryActionProps}
+          >
+            {intl.formatMessage({
+              id: secondaryActionTranslationId ?? 'action__cancel',
+            })}
+          </Button>
+        )}
+        {!hidePrimaryAction && (
+          <Button
+            flex={1}
+            type="primary"
+            size={primaryActionProps?.size ?? buttonSize}
+            {...primaryActionProps}
+            onPress={() => onPrimaryActionPress?.({})}
+          >
+            {intl.formatMessage({
+              id: primaryActionTranslationId ?? 'action__ok',
+            })}
+          </Button>
+        )}
+      </HStack>
     </Box>
   );
 };

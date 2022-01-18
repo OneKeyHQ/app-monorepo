@@ -5,6 +5,8 @@ import JsBridgeBase from './JsBridgeBase';
 class JsBridgeNativeInjected extends JsBridgeBase {
   sendAsString = true;
 
+  isInjected = true;
+
   sendPayload(payload: IJsBridgeMessagePayload | string) {
     window.ReactNativeWebView.postMessage(payload as string);
   }

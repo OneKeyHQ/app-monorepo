@@ -8,6 +8,7 @@ import {
   IJsBridgeConfig,
   IJsBridgeMessagePayload,
 } from '../types';
+import { IWebViewWrapperRef } from '../webview/useWebViewBridge';
 
 import JsBridgeBase from './JsBridgeBase';
 
@@ -20,6 +21,8 @@ class JsBridgeDesktopHost extends JsBridgeBase {
   sendAsString = true;
 
   webviewRef?: React.RefObject<IElectronWebView>;
+
+  webviewWrapper?: IWebViewWrapperRef;
 
   sendPayload(payload: IJsBridgeMessagePayload | string) {
     if (this.webviewRef && this.webviewRef.current) {

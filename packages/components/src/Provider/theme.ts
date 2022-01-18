@@ -149,16 +149,6 @@ const theme = {
 
 export type ThemeVariant = keyof typeof theme;
 export type ThemeValues = typeof theme[ThemeVariant];
-
-const DEFAULT_THEME_VARIANT = 'dark';
-
-export const getDefaultTheme = (initial?: string): ThemeVariant => {
-  if (Object.keys(theme).includes(initial ?? '')) {
-    return initial as ThemeVariant;
-  }
-
-  // TODO: 系统主题判断 & 缓存判断
-  return DEFAULT_THEME_VARIANT;
-};
+export type ThemeToken = keyof ThemeValues;
 
 export default theme;

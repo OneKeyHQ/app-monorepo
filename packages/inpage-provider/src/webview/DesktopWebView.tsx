@@ -8,12 +8,14 @@ import React, {
   useState,
 } from 'react';
 
+import { LoadURLOptions } from 'electron';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { JS_BRIDGE_MESSAGE_IPC_CHANNEL } from '../consts';
 import JsBridgeDesktopHost from '../jsBridge/JsBridgeDesktopHost';
 import useIsIpcReady from '../jsBridge/useIsIpcReady';
-import { IElectronWebView, IJsBridgeReceiveHandler } from '../types';
+import { IElectronWebView, InpageProviderWebViewProps } from '../types';
 
 import { IWebViewWrapperRef } from './useWebViewBridge';
 
@@ -37,14 +39,7 @@ function usePreloadJsUrl() {
 
 const DesktopWebView = forwardRef(
   (
-    {
-      src,
-      receiveHandler,
-      ...props
-    }: {
-      src: string;
-      receiveHandler: IJsBridgeReceiveHandler;
-    },
+    { src, receiveHandler, onSrcChange, ...props }: InpageProviderWebViewProps,
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
@@ -70,17 +65,35 @@ const DesktopWebView = forwardRef(
       [receiveHandler],
     );
 
-    useImperativeHandle(
-      ref,
-      (): IWebViewWrapperRef => ({
+    useImperativeHandle(ref, (): IWebViewWrapperRef => {
+      const wrapper = {
         innerRef: webviewRef.current,
         jsBridge,
         reload: () => webviewRef.current?.reload(),
-      }),
-    );
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        loadURL: (url: string, options?: LoadURLOptions) => {
+          if (onSrcChange) {
+            onSrcChange(url);
+          } else {
+            console.warn(
+              'DesktopWebView: Please pass onSrcChange props to enable loadURL() working.',
+            );
+          }
+          // use onSrcChange props change src
+          //    do not need call ElectronWebView.loadURL() manually.
+          // webviewRef.current?.loadURL(url);
+        },
+      };
+
+      jsBridge.webviewWrapper = wrapper;
+
+      return wrapper;
+    });
 
     const initWebviewByRef = useCallback(($ref) => {
       webviewRef.current = $ref as IElectronWebView;
+      // desktop "ipc-message" listener must be added after webviewReady
+      //    so use ref to check it
       setIsWebviewReady(true);
     }, []);
 
@@ -98,12 +111,13 @@ const DesktopWebView = forwardRef(
           const data: string = event?.args?.[0];
           let origin = '';
           const url = event.target.getURL();
+          // url initial value is empty after webview mounted
           if (url) {
             const uri = new URL(url);
-            origin = uri.origin;
+            origin = uri?.origin || '';
+            // - receive
+            jsBridge.receive(data, { origin });
           }
-          // - receive
-          jsBridge.receive(data, { origin });
         }
 
         // response back

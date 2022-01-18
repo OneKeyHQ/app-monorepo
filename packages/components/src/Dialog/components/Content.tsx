@@ -28,6 +28,10 @@ export type ContentProps = {
    * 内容
    */
   content?: string;
+  /**
+   * Input
+   */
+  input?: JSX.Element;
 };
 
 const getIcon = (iconType: IconType) => {
@@ -41,7 +45,13 @@ const getIcon = (iconType: IconType) => {
   return !!icon && <Icon mb={4} as={icon} size={12} />;
 };
 
-const Content: FC<ContentProps> = ({ icon, iconType, title, content }) => (
+const Content: FC<ContentProps> = ({
+  icon,
+  iconType,
+  title,
+  content,
+  input,
+}) => (
   <Box flexDirection="column" w="100%" alignItems="center" mb={4}>
     {!!(icon || iconType) &&
       (iconType ? getIcon(iconType) : <Box mb={5}>{icon}</Box>)}
@@ -49,16 +59,23 @@ const Content: FC<ContentProps> = ({ icon, iconType, title, content }) => (
       <Text
         typography={{ sm: 'Heading', md: 'DisplayMedium' }}
         color="text-default"
+        textAlign="center"
       >
         {title}
       </Text>
     )}
 
     {!!content && (
-      <Text typography={{ sm: 'Body2', md: 'Body1' }} color="text-subdued">
+      <Text
+        mt="2"
+        typography={{ sm: 'Body2', md: 'Body1' }}
+        color="text-subdued"
+        textAlign="center"
+      >
         {content}
       </Text>
     )}
+    {input}
   </Box>
 );
 

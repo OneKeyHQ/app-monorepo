@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Action,
   Dispatch,
@@ -8,6 +9,7 @@ import {
 } from '@reduxjs/toolkit';
 import { cloneDeep, isFunction, isString } from 'lodash';
 import { Reducer } from 'redux';
+import { persistReducer, persistStore } from 'redux-persist';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -17,11 +19,13 @@ import accountReducer from './reducers/account';
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
+import settingsReducer from './reducers/settings';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
   chain: chainReducer,
   account: accountReducer,
+  settings: settingsReducer,
   counter,
 });
 
@@ -40,13 +44,27 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
   };
 }
 
+const persistConfig = {
+  key: 'ONEKEY_WALLET',
+  version: 1,
+  storage: AsyncStorage,
+  whitelist: ['settings'],
+};
+
 export function makeStore() {
-  return configureStore({
-    reducer: rootReducer(allReducers) as typeof allReducers,
+  const persistedReducer = persistReducer(
+    persistConfig,
+    rootReducer(allReducers) as typeof allReducers,
+  );
+  const store = configureStore({
+    reducer: persistedReducer,
   });
+  const persistor = persistStore(store);
+  return { store, persistor };
 }
 
-const store = makeStore();
+const { store, persistor: persistorStore } = makeStore();
+export const persistor = persistorStore;
 
 export type IAppState = ReturnType<typeof store.getState>;
 

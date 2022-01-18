@@ -59,6 +59,8 @@ const mylist: IToken[] = [
   },
 ];
 
+const isValidateAddr = (addr: string) => addr.length === 42;
+
 export const ListTokens: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
@@ -115,10 +117,10 @@ export const ListTokens: FC = () => {
         chain="eth"
         name={item.name}
         address={item.address}
-        description={utils.shortenAddress(item.address)}
+        description={`0 ${item.symbol}`}
       />
       <IconButton
-        name="TrashOutline"
+        name="TrashSolid"
         type="plain"
         onPress={() => {
           setToken(item);
@@ -155,19 +157,28 @@ export const ListTokens: FC = () => {
           id: 'action__add_custom_tokens',
           defaultMessage: 'Add Custom Token',
         })}
-        handleAction={() => {}}
+        handleAction={() => {
+          const params: { address?: string } = {};
+          if (isValidateAddr(keyword)) {
+            params.address = keyword;
+          }
+          navigation.navigate(
+            ManageTokenModalRoutes.AddCustomTokenModal,
+            params,
+          );
+        }}
       />
     );
   } else {
     contentView = (
       <Box>
         <Box>
-          <Typography.Heading>
+          <Typography.Subheading color="text-subdued">
             {intl.formatMessage({
               id: 'form__my_tokens',
               defaultMessage: 'MY TOKENS',
             })}
-          </Typography.Heading>
+          </Typography.Subheading>
           <FlatList
             bg="surface-default"
             borderRadius="12"
@@ -181,12 +192,12 @@ export const ListTokens: FC = () => {
           />
         </Box>
         <Box>
-          <Typography.Heading>
+          <Typography.Subheading color="text-subdued" mt="2">
             {intl.formatMessage({
               id: 'form__top_50_tokens',
               defaultMessage: 'TOP 50 TOKENS',
             })}
-          </Typography.Heading>
+          </Typography.Subheading>
           <FlatList
             bg="surface-default"
             borderRadius="12"
@@ -210,12 +221,13 @@ export const ListTokens: FC = () => {
           id: 'title__manage_tokens',
           defaultMessage: 'Manage Tokens',
         })}
-        hideSecondaryAction
-        onPrimaryActionPress={() => {
+        headerDescription="Ethereum Mainnet"
+        hidePrimaryAction
+        onSecondaryActionPress={() => {
           navigation.navigate(ManageTokenModalRoutes.AddCustomTokenModal);
         }}
-        primaryActionTranslationId="action__add_custom_tokens"
-        primaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
+        secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
+        secondaryActionTranslationId="action__add_custom_tokens"
       >
         <>
           <KeyboardDismissView>
@@ -234,31 +246,31 @@ export const ListTokens: FC = () => {
               {contentView}
             </Box>
           </KeyboardDismissView>
-          <Dialog
-            visible={!!token}
-            onClose={() => setToken(undefined)}
-            footerButtonProps={{
-              onPrimaryActionPress: () => setToken(undefined),
-              primaryActionTranslationId: 'action__delete',
-              primaryActionProps: { type: 'destructive' },
-            }}
-            contentProps={{
-              iconType: 'danger',
-              title: intl.formatMessage({
-                id: 'modal__delete_this_token',
-                defaultMessage: 'Delete this token?',
-              }),
-              content: intl.formatMessage(
-                {
-                  id: 'modal__delete_this_token_desc',
-                  defaultMessage: '{token} will be removed from my tokens',
-                },
-                { token: token?.name },
-              ),
-            }}
-          />
         </>
       </Modal>
+      <Dialog
+        visible={!!token}
+        onClose={() => setToken(undefined)}
+        footerButtonProps={{
+          onPrimaryActionPress: () => setToken(undefined),
+          primaryActionTranslationId: 'action__delete',
+          primaryActionProps: { type: 'destructive' },
+        }}
+        contentProps={{
+          iconType: 'danger',
+          title: intl.formatMessage({
+            id: 'modal__delete_this_token',
+            defaultMessage: 'Delete this token?',
+          }),
+          content: intl.formatMessage(
+            {
+              id: 'modal__delete_this_token_desc',
+              defaultMessage: '{token} will be removed from my tokens',
+            },
+            { token: token?.name },
+          ),
+        }}
+      />
     </>
   );
 };

@@ -21,9 +21,11 @@ function injectCodeWithScriptTag({
   file?: string;
   remove?: boolean;
 }): void {
+  console.log('injectCodeWithScriptTag: ', { remove, file });
   (function () {
     const s = document.createElement('script');
     s.setAttribute('async', 'false');
+    s.setAttribute('defer', 'false');
     s.setAttribute('data-onekey-injected', 'true');
     if (code) {
       s.textContent = JSON.stringify(code);
@@ -45,7 +47,10 @@ function injectCodeWithScriptTag({
 
 function createCodeJsBridgeReceive(payloadStr: string): string {
   return `
+  if(window.$onekey && window.$onekey.jsBridge){
     window.$onekey.jsBridge.receive(${JSON.stringify(payloadStr)});
+  }
+  void 0;
   `;
 }
 

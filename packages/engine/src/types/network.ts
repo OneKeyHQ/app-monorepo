@@ -22,6 +22,7 @@ type NetworkCommon = NetworkBase & {
 type DBNetwork = NetworkCommon & {
   rpcURL: string;
   position: number;
+  curve?: string;
 };
 
 type PresetNetwork = NetworkCommon & {

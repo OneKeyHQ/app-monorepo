@@ -9,8 +9,8 @@ const Swap = () => {
   const { locale } = useLocale();
   const url = `https://swap.test.onekey.so/#/swap?theme=${themeVariant}&locale=${locale}`;
   return (
-    <Box flex="1">
-      <WebView key={url} src={url} openUrlInExt />
+    <Box flex="1" bg="background-default">
+      <WebView src={url} openUrlInExt />
     </Box>
   );
 };

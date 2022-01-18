@@ -1,8 +1,16 @@
-import React, { FC, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, {
+  FC,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
+
+import { Box, Progress } from 'native-base';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IJsBridgeReceiveHandler } from '../types';
+import { InpageProviderWebViewProps } from '../types';
 
 import DesktopWebView from './DesktopWebView';
 import NativeWebView from './NativeWebView';
@@ -11,14 +19,12 @@ import useWebViewBridge, { IWebViewWrapperRef } from './useWebViewBridge';
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
 
-export type InpageProviderWebViewProps = {
-  src?: string;
-  receiveHandler: IJsBridgeReceiveHandler;
-  ref?: any;
-};
-
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
-  ({ src = '', receiveHandler }: InpageProviderWebViewProps, ref: any) => {
+  (
+    { src = '', onSrcChange, receiveHandler }: InpageProviderWebViewProps,
+    ref: any,
+  ) => {
+    const [progress, setProgress] = useState(5);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
     const isRenderAsIframe = isWeb || isExtension;
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -33,6 +39,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           }, 150);
         }
       },
+      loadURL: () => {
+        // noop
+      },
     });
 
     useImperativeHandle(ref, (): IWebViewWrapperRef | null =>
@@ -40,31 +49,52 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     );
 
     return (
-      <>
-        {isDesktop && (
-          <DesktopWebView
-            src={src}
-            ref={setWebViewRef}
-            receiveHandler={receiveHandler}
+      <Box flex={1}>
+        {isApp && progress < 100 && (
+          <Progress
+            value={progress}
+            position="absolute"
+            left={0}
+            top={0}
+            right={0}
+            zIndex={10}
+            rounded={0}
+            size="xs"
+            colorScheme="warning"
           />
         )}
-        {isApp && (
-          <NativeWebView
-            src={src}
-            ref={setWebViewRef}
-            receiveHandler={receiveHandler}
-          />
-        )}
-        {isRenderAsIframe && (
-          <iframe
-            ref={iframeRef}
-            title="iframe-web"
-            src={src}
-            frameBorder="0"
-            style={{ height: '100%', width: '100%' }}
-          />
-        )}
-      </>
+        <Box flex={1}>
+          {isDesktop && (
+            <DesktopWebView
+              ref={setWebViewRef}
+              src={src}
+              onSrcChange={onSrcChange}
+              receiveHandler={receiveHandler}
+            />
+          )}
+          {isApp && (
+            <NativeWebView
+              ref={setWebViewRef}
+              src={src}
+              onSrcChange={onSrcChange}
+              receiveHandler={receiveHandler}
+              onLoadProgress={({ nativeEvent }) => {
+                setProgress(Math.ceil(nativeEvent.progress * 100));
+              }}
+            />
+          )}
+          {isRenderAsIframe && (
+            // TODO define new IframeSimWebview class
+            <iframe
+              ref={iframeRef}
+              title="iframe-web"
+              src={src}
+              frameBorder="0"
+              style={{ height: '100%', width: '100%' }}
+            />
+          )}
+        </Box>
+      </Box>
     );
   },
 );

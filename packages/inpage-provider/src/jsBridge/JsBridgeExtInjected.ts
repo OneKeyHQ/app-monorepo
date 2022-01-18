@@ -22,6 +22,8 @@ class JsBridgeExtInjected extends JsBridgeBase {
 
   sendAsString = false;
 
+  isInjected = true;
+
   sendPayload(payloadObj: IJsBridgeMessagePayload | string) {
     window.postMessage({
       channel: JS_BRIDGE_MESSAGE_EXT_CHANNEL,
@@ -48,7 +50,12 @@ class JsBridgeExtInjected extends JsBridgeBase {
           eventData.direction === JS_BRIDGE_MESSAGE_DIRECTION.HOST_TO_INPAGE
         ) {
           debugLogger.extInjected('window on message', eventData);
-          window?.$onekey?.jsBridge?.receive(eventData.payload);
+
+          const { payload } = eventData;
+          const jsBridge = window?.$onekey?.jsBridge;
+          if (jsBridge) {
+            jsBridge.receive(payload);
+          }
         }
       },
       false,

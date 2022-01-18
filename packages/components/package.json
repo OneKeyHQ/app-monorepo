@@ -4,6 +4,11 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@emotion/react": "^11.7.1",
+    "@emotion/styled": "^11.6.0",
+    "@mui/lab": "^5.0.0-alpha.64",
+    "@mui/material": "^5.2.8",
+    "@mui/styled-engine-sc": "^5.1.0",
     "@react-navigation/native": "^6.0.6",
     "native-base": "^3.2.2",
     "react-content-loader": "^6.1.0",

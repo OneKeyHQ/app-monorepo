@@ -11,14 +11,14 @@ type Wallet = HasName & {
   type: WalletType;
   backuped: boolean;
   accounts: Set<string>;
-  nextAccountId: Map<string, number>; // purpose + cointype => index
+  nextAccountIds: Map<string, number>; // purpose + cointype => index
 };
 
 type DBWallet = HasName & {
   type: WalletType;
   backuped: boolean;
   accounts: Array<string>;
-  nextAccountId: Record<string, number>;
+  nextAccountIds: Record<string, number>;
 };
 
 export {

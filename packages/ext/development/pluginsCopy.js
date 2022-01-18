@@ -35,7 +35,6 @@ const copy1 = createCopyPlugin({
     }),
     createPattern('src/entry/injected.js'),
     createPattern('src/assets/img/icon-128.png'),
-    createPattern('src/assets/img/icon-34.png'),
     // createPattern('src/entry/content-script.css'),
   ],
 });
