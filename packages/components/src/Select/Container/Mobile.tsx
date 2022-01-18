@@ -55,6 +55,7 @@ function Mobile<T>({
         minW="full"
         bg="surface-subdued"
         borderTopRadius="24px"
+        pb={`${footer === null ? bottom : 0}px`}
         {...dropdownProps}
       >
         <Box

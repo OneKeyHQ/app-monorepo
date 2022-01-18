@@ -6,7 +6,7 @@
     "postinstall": "expo-yarn-workspaces postinstall",
     "dev": "expo start",
     "start": "WEB_PORT=3000 expo start --web",
-    "build": "rm -rf ./web-build && expo build:web",
+    "build": "rm -rf ./web-build && expo build:web && cp ./web-build/index.html ./web-build/404.html",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "dependencies": {

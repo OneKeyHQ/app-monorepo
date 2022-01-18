@@ -99,17 +99,9 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
   const [activeAccountType, setActiveAccountType] =
     useState<AccountType>('normal');
 
-  const handleChange = useCallback(
-    (type) => {
-      if (type === 'addAccount') {
-        handleToggleVisible();
-        setTimeout(() => {
-          navigation.navigate(ModalRoutes.CreateAccountForm);
-        }, 200);
-      }
-    },
-    [navigation, handleToggleVisible],
-  );
+  const handleChange = useCallback(() => {
+    // TODO:
+  }, []);
 
   function renderSideAction(type: AccountType, onChange: (v: string) => void) {
     if (type === 'normal') {
@@ -128,24 +120,15 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
                   : 'TagSolid',
               },
             },
-            {
-              label: intl.formatMessage({ id: 'action__add_account' }),
-              value: 'addAccount',
-              iconProps: {
-                name: ['SMALL', 'NORMAL'].includes(size)
-                  ? 'PlusCircleOutline'
-                  : 'PlusCircleSolid',
-              },
-            },
-            {
-              label: intl.formatMessage({ id: 'action__view_details' }),
-              value: 'detail',
-              iconProps: {
-                name: ['SMALL', 'NORMAL'].includes(size)
-                  ? 'DocumentTextOutline'
-                  : 'DocumentTextSolid',
-              },
-            },
+            // {
+            //   label: intl.formatMessage({ id: 'action__view_details' }),
+            //   value: 'detail',
+            //   iconProps: {
+            //     name: ['SMALL', 'NORMAL'].includes(size)
+            //       ? 'DocumentTextOutline'
+            //       : 'DocumentTextSolid',
+            //   },
+            // },
             {
               label: intl.formatMessage({ id: 'action__export_private_key' }),
               value: 'export',
@@ -371,7 +354,24 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               </Pressable>
             )}
           />
-          <Pressable mt={2}>
+          <Pressable
+            mt={2}
+            onPress={() => {
+              handleToggleVisible();
+              function getRoute() {
+                if (activeAccountType === 'imported') {
+                  return ModalRoutes.ImportAccountModal;
+                }
+                if (activeAccountType === 'watched') {
+                  return ModalRoutes.WatchedAccountModal;
+                }
+                return ModalRoutes.CreateAccountForm;
+              }
+              setTimeout(() => {
+                navigation.navigate(getRoute() as any);
+              }, 200);
+            }}
+          >
             {({ isHovered }) => (
               <HStack
                 p={2}

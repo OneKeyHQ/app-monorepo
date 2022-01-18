@@ -1,7 +1,9 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { ComponentType } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Platform } from 'react-native';
 
 import { ICON_NAMES, Layout, useThemeValue } from '@onekeyhq/components';
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
@@ -33,6 +35,7 @@ import QRCodeGallery from '@onekeyhq/kit/src/views/Components/stories/QRCode';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import RadioBoxGallery from '@onekeyhq/kit/src/views/Components/stories/RadioBox';
 import ReduxMessageGallery from '@onekeyhq/kit/src/views/Components/stories/ReduxMessage';
+import RestfulRequest from '@onekeyhq/kit/src/views/Components/stories/RestfulRequest';
 import SearchbarGallery from '@onekeyhq/kit/src/views/Components/stories/Searchbar';
 import SegmentedControl from '@onekeyhq/kit/src/views/Components/stories/SegmentedControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
@@ -57,6 +60,8 @@ import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
+
+import renderCustomSubStackHeader from './Header';
 
 export enum TabRoutes {
   Home = 'home',
@@ -111,6 +116,7 @@ export enum StackBasicRoutes {
   ComponentLogger = 'component/logger',
   ComponentWebview = 'component/webview',
   ComponentPinCode = 'component/pincode',
+  ComponentRestfulRequest = 'component/restful-request',
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'Settings',
   UnlockScreen = 'Unlock',
@@ -203,6 +209,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentShadow, component: ShadowsGallery },
   { name: StackRoutes.ComponentReduxMessage, component: ReduxMessageGallery },
   { name: StackRoutes.ComponentPinCode, component: PinCodeGallery },
+  { name: StackRoutes.ComponentRestfulRequest, component: RestfulRequest },
   {
     name: StackRoutes.ComponentHeaderTabViewContainerGallery,
     component: HeaderTabViewContainerGallery,
@@ -250,9 +257,12 @@ const StackScreen = () => {
       <StackNavigator.Navigator
         screenOptions={{
           headerBackTitle: '',
+          headerTitleAlign: 'center',
           headerStyle: {
             backgroundColor: bgColor,
           },
+          header:
+            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
           headerTintColor: textColor,
         }}
       >

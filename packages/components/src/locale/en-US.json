@@ -321,6 +321,7 @@
   "form__use_removed_api_desc": " When a website tries to use the removed window.web3 API",
   "form__user_agreement": "User Agreement",
   "form__version": "Version",
+  "form__wallet_name_invalid": "Name must be 24 characters or fewer.",
   "form__website": "Website",
   "form__your_email": "Your Email",
   "form__your_question_is": "Your question is...",
