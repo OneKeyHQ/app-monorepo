@@ -121,14 +121,16 @@ export function renderOptions<T>({
     if (isGroup<T>(option)) {
       const isLast = index === options.length - 1;
       return (
-        <Fragment key={option.title}>
-          <Typography.Subheading
-            px={{ base: '4', lg: '2' }}
-            py={{ base: '3', lg: '2' }}
-            color="text-subdued"
-          >
-            {option.title}
-          </Typography.Subheading>
+        <Fragment key={`${option.title}${index}`}>
+          {option.title.length > 0 ? (
+            <Typography.Subheading
+              px={{ base: '4', lg: '2' }}
+              py={{ base: '3', lg: '2' }}
+              color="text-subdued"
+            >
+              {option.title}
+            </Typography.Subheading>
+          ) : null}
           {option.options.map((subOption) =>
             RenderSingleOption<T>({
               activeOption,

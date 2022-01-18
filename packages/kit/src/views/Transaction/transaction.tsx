@@ -74,9 +74,9 @@ function selectOptionData() {
   for (let index = 0; index < AssetMockData.length; index += 1) {
     const asset = AssetMockData[index];
     options.push({
-      label: asset.token,
+      label: asset.name,
       value: asset,
-      description: asset.balance,
+      description: `Balance:${asset.balance}`,
       tokenProps: {
         chain: asset.token,
       },

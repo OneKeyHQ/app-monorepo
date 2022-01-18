@@ -6,6 +6,7 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import HelpModal, { HelpModalRoutes, HelpModalRoutesParams } from './Help';
 import ImportAccountModal, {
   ImportAccountModalRoutes,
   ImportAccountRoutesParams,
@@ -82,6 +83,10 @@ const modalStackScreenList = [
     name: SettingsModalRoutes.SetPasswordModal,
     component: SettingsModal,
   },
+  {
+    name: HelpModalRoutes.SubmitRequestModal,
+    component: HelpModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -94,6 +99,7 @@ export const ModalRoutes = {
   ...WatchedAccountModalRoutes,
   ...CollectiblesModalRoutes,
   ...SettingsModalRoutes,
+  ...HelpModalRoutes,
 };
 
 export type ModalTypes = {
@@ -107,6 +113,7 @@ export type ModalTypes = {
   [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
+  [HelpModalRoutes.SubmitRequestModal]: NavigatorScreenParams<HelpModalRoutesParams>;
 };
 
 export default modalStackScreenList;
