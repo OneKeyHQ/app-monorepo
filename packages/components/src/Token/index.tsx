@@ -65,6 +65,7 @@ const Token: FC<TokenProps> = ({
             key={imageUrl}
             fallbackElement={fallbackElement}
             alt={imageUrl}
+            borderRadius="full"
           />
         ) : (
           fallbackElement

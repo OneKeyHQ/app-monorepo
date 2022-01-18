@@ -98,7 +98,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         space={4}
         alignItems="center"
         justifyContent="space-between"
-        pb={4}
+        pb={3}
       >
         <Typography.Heading>
           {intl.formatMessage({ id: 'asset__collectibles' })}
@@ -160,7 +160,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     title?: string | null,
     length?: number | null,
   ) => (
-    <HStack space={3} py={2} pb={2} alignItems="center">
+    <HStack space={3} pb={2} alignItems="center">
       <Typography.Subheading color="text-subdued">
         {title}
       </Typography.Subheading>
@@ -219,7 +219,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
 
   const sharedProps = React.useMemo(
     () => ({
-      contentContainerStyle: { paddingHorizontal: 16, marginTop: 16 },
+      contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
       keyExtractor: ((_, idx) =>
         String(idx)) as ScrollableFlatListProps['keyExtractor'],
       ListEmptyComponent: renderEmpty,

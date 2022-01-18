@@ -123,10 +123,10 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
   const amountInfo = useCallback(
     () => (
       <Box alignItems="flex-end" minW="156px">
-        <Typography.Body1Strong>
+        <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
           {transaction.type === 'Send' ?? '-'}
           {transaction.amount}
-        </Typography.Body1Strong>
+        </Text>
         <Typography.Body2 color="text-subdued">
           {transaction.type === 'Send' ?? '-'}99.89 USD
         </Typography.Body2>

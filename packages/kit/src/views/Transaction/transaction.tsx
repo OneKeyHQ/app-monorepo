@@ -112,13 +112,14 @@ const Transaction = () => {
       height="576px"
       footer={
         <Column>
-          <Divider />
           <Row
             justifyContent="space-between"
             alignItems="center"
             px={{ base: 4, md: 6 }}
             pt={4}
             pb={4 + bottom}
+            borderTopWidth={1}
+            borderTopColor="border-subdued"
           >
             <Column>
               <Typography.Body2 color="text-subdued">

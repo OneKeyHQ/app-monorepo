@@ -280,18 +280,19 @@ const AssetsList = () => {
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
-        pb={4}
+        pb={3}
       >
         <Typography.Heading>
           {intl.formatMessage({ id: 'asset__tokens' })}
         </Typography.Heading>
         <IconButton
-          iconSize={20}
-          type="plain"
-          name="AdjustmentsSolid"
           onPress={() =>
             navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
           }
+          size="sm"
+          name="AdjustmentsSolid"
+          type="plain"
+          circle
         />
       </Box>
     ),
@@ -300,7 +301,10 @@ const AssetsList = () => {
 
   return (
     <Tabs.FlatList
-      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        marginTop: 24,
+      }}
       data={TOKEN_DATA}
       renderItem={renderItem}
       ListHeaderComponent={header}

@@ -64,7 +64,7 @@ const AccountInfo = () => {
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
           size={isSmallScreen ? 'lg' : 'base'}
-          leftIconName="ArrowSmUpSolid"
+          leftIconName="ArrowUpSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
@@ -76,7 +76,7 @@ const AccountInfo = () => {
         <Button
           size={isSmallScreen ? 'lg' : 'base'}
           ml={4}
-          leftIconName="ArrowSmDownSolid"
+          leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
@@ -103,10 +103,11 @@ const AccountInfo = () => {
     if (isSmallView) {
       return (
         <Box
+          py={8}
           w="100%"
+          px={4}
           flexDirection="column"
           bgColor="background-default"
-          py={8}
           h={FIXED_VERTICAL_HEADER_HEIGHT}
         >
           {renderAccountAmountInfo(true)}
@@ -118,6 +119,7 @@ const AccountInfo = () => {
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
         py={12}
+        px={4}
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"

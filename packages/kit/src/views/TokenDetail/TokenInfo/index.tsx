@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Icon,
   IconButton,
   Token,
   Typography,
@@ -71,8 +70,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
           size={isVertical ? 'lg' : 'base'}
-          leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
-          minW="126px"
+          leftIconName="ArrowUpSolid"
+          minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
             navigation.navigate(TransactionModalRoutes.TransactionModal);
@@ -83,8 +82,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
         <Button
           size={isVertical ? 'lg' : 'base'}
           ml={4}
-          leftIcon={<Icon name="ArrowSmDownSolid" />}
-          minW="126px"
+          leftIconName="ArrowDownSolid"
+          minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
             navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
