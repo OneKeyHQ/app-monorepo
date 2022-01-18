@@ -6,9 +6,10 @@ import { RouteProp, useNavigation } from '@react-navigation/native';
 import {
   Center,
   HStack,
+  Icon,
+  Image,
   Modal,
   NftCard,
-  Token,
   Typography,
   VStack,
   useUserDevice,
@@ -37,6 +38,39 @@ type CollectionModalProps = {
 const getCollection = (id: string | number) => {
   const data = ASSETS.find((col) => String(col.id) === String(id));
   return data;
+};
+
+const CollectionImage: FC<{ src?: string | null; size?: number | string }> = ({
+  src,
+  size = '56px',
+}) => {
+  const fallbackElement = React.useMemo(
+    () => (
+      <Center
+        borderRadius="full"
+        bg="surface-neutral-default"
+        width={size}
+        height={size}
+      >
+        <Icon size={32} name="QuestionMarkCircleSolid" color="icon-default" />
+      </Center>
+    ),
+    [size],
+  );
+
+  if (!src) return fallbackElement;
+
+  return (
+    <Image
+      src={src}
+      key={src}
+      alt={src}
+      width={size}
+      height={size}
+      fallbackElement={fallbackElement}
+      borderRadius="full"
+    />
+  );
 };
 
 const CollectionModal: FC<CollectionModalProps> = () => {
@@ -68,16 +102,12 @@ const CollectionModal: FC<CollectionModalProps> = () => {
 
   return (
     <Modal
-      header={collectible.collection.name ?? ''}
       footer={null}
       scrollViewProps={{
         pt: 4,
         children: (
           <Center>
-            <Token
-              size="56px"
-              src={collectible.collection.imageUrl ?? undefined}
-            />
+            <CollectionImage src={collectible.collection.imageUrl} />
             <Typography.Heading mt="3">
               {collectible.collection.name}
             </Typography.Heading>
