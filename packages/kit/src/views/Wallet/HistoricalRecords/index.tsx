@@ -10,6 +10,7 @@ import {
   Divider,
   Empty,
   Icon,
+  IconButton,
   Pressable,
   SectionList,
   Typography,
@@ -172,6 +173,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
     <Pressable.Item
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
+      mb={index === section.data.length - 1 ? 6 : undefined}
       onPress={() => {
         navigation.navigate(
           TransactionDetailModalRoutes.TransactionDetailModal,
@@ -191,14 +193,8 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
 
   const renderSectionHeader: SectionListProps<Transaction>['renderSectionHeader'] =
     ({ section: { title, data } }) => (
-      <Box pt={3} flexDirection="row">
-        <Box
-          bg="background-default"
-          borderRadius="8px"
-          flexDirection="row"
-          alignItems="center"
-          p={2}
-        >
+      <Box pb={2} flexDirection="row">
+        <Box flexDirection="row" alignItems="center">
           <Typography.Subheading color="text-subdued">
             {title}
           </Typography.Subheading>
@@ -212,18 +208,24 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
     );
 
   const renderHeader = () => (
-    <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      pb={3}
+    >
       <Typography.Heading>
         {intl.formatMessage({ id: 'transaction__history' })}
       </Typography.Heading>
-      <Pressable
-        p={1.5}
+      <IconButton
         onPress={() => {
           console.log('Click Jump block browser');
         }}
-      >
-        <Icon size={20} name="ExternalLinkSolid" />
-      </Pressable>
+        size="sm"
+        name="ExternalLinkSolid"
+        type="plain"
+        circle
+      />
     </Box>
   );
 
@@ -249,7 +251,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
   }
 
   return React.cloneElement(listElementType, {
-    contentContainerStyle: { paddingHorizontal: 16, marginTop: 16 },
+    contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
     sections: transactionRecords,
     renderItem,
     renderSectionHeader,

@@ -36,9 +36,10 @@ const MobileModal: FC<ModalProps> = ({
   return (
     <Box flex="1" bg="surface-subdued">
       <Box
-        py={1}
+        pt={1}
         pr={2}
         pl={index ? 2 : '56px'}
+        pb={header ? 1 : 0}
         display="flex"
         flexDirection="row"
         justifyContent="space-between"

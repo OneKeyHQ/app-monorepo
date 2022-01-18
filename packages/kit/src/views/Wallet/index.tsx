@@ -51,7 +51,7 @@ const Home: FC = () => {
           : FIXED_HORIZONTAL_HEDER_HEIGHT
       }
       containerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+        maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
         width: '100%',
         marginHorizontal: 'auto',
       }}

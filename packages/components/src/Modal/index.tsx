@@ -58,6 +58,7 @@ const Modal: FC<ModalProps> = ({
   flatListProps,
   scrollViewProps,
   staticChildrenProps,
+  header,
   ...rest
 }) => {
   const { size } = useUserDevice();
@@ -80,16 +81,35 @@ const Modal: FC<ModalProps> = ({
   const modalContent = useMemo(() => {
     if (sectionListProps) {
       return (
-        <SectionList py={6} px={{ base: 4, md: 6 }} {...sectionListProps} />
+        <SectionList
+          pt={header ? 6 : 0}
+          pb={6}
+          px={{ base: 4, md: 6 }}
+          {...sectionListProps}
+        />
       );
     }
 
     if (flatListProps) {
-      return <FlatList py={6} px={{ base: 4, md: 6 }} {...flatListProps} />;
+      return (
+        <FlatList
+          pt={header ? 6 : 0}
+          pb={6}
+          px={{ base: 4, md: 6 }}
+          {...flatListProps}
+        />
+      );
     }
 
     if (scrollViewProps) {
-      return <ScrollView py={6} px={{ base: 4, md: 6 }} {...scrollViewProps} />;
+      return (
+        <ScrollView
+          pt={header ? 6 : 0}
+          pb={6}
+          px={{ base: 4, md: 6 }}
+          {...scrollViewProps}
+        />
+      );
     }
 
     if (staticChildrenProps) {
@@ -97,7 +117,7 @@ const Modal: FC<ModalProps> = ({
     }
 
     return (
-      <Box py={6} px={{ base: 4, md: 6 }} flex="1">
+      <Box pt={header ? 6 : 0} pb={6} px={{ base: 4, md: 6 }} flex="1">
         {rest.children}
       </Box>
     );
@@ -107,19 +127,30 @@ const Modal: FC<ModalProps> = ({
     scrollViewProps,
     staticChildrenProps,
     rest.children,
+    header,
   ]);
 
   const modalContainer = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
       return (
-        <Mobile visible={visible} onClose={handleClose} {...rest}>
+        <Mobile
+          header={header}
+          visible={visible}
+          onClose={handleClose}
+          {...rest}
+        >
           {modalContent}
         </Mobile>
       );
     }
 
     return (
-      <Desktop visible={visible} onClose={handleClose} {...rest}>
+      <Desktop
+        header={header}
+        visible={visible}
+        onClose={handleClose}
+        {...rest}
+      >
         {modalContent}
       </Desktop>
     );

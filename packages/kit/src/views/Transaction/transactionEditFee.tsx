@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Divider,
   Form,
   Modal,
   RadioFee,
@@ -144,13 +143,14 @@ const TransactionEditFee = ({ ...rest }) => {
       header={intl.formatMessage({ id: 'action__edit_fee' })}
       footer={
         <Column>
-          <Divider />
           <Row
             justifyContent="flex-end"
             alignItems="center"
             px={{ base: 4, md: 6 }}
             pt={4}
             pb={4 + bottom}
+            borderTopWidth={1}
+            borderTopColor="border-subdued"
           >
             {saveButton()}
           </Row>
