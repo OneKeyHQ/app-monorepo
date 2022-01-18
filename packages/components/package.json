@@ -16,6 +16,7 @@
     "react-native-draggable-flatlist": "^3.0.3",
     "react-native-head-tab-view": "^4.0.0-rc.13",
     "react-native-jazzicon": "^0.1.2",
+    "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modal": "^13.0.0",
     "react-native-qrcode-svg": "^6.1.2",

@@ -12,11 +12,11 @@ import {
   IconButton,
   KeyboardDismissView,
   Modal,
+  ScrollView,
   Searchbar,
   Token,
   Typography,
   utils,
-  ScrollView
 } from '@onekeyhq/components';
 
 import { ManageTokenModalRoutes, ManageTokenRoutesParams } from './types';

@@ -8,9 +8,9 @@ import {
   FlatList,
   KeyboardDismissView,
   Modal,
+  ScrollView,
   Token,
   Typography,
-  ScrollView
 } from '@onekeyhq/components';
 
 type ListItem = { label: string; value: string };
