@@ -59,13 +59,19 @@ const Content: FC<ContentProps> = ({
       <Text
         typography={{ sm: 'Heading', md: 'DisplayMedium' }}
         color="text-default"
+        textAlign="center"
       >
         {title}
       </Text>
     )}
 
     {!!content && (
-      <Text typography={{ sm: 'Body2', md: 'Body1' }} color="text-subdued">
+      <Text
+        mt="2"
+        typography={{ sm: 'Body2', md: 'Body1' }}
+        color="text-subdued"
+        textAlign="center"
+      >
         {content}
       </Text>
     )}
