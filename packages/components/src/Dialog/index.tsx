@@ -93,7 +93,7 @@ const Dialog: FC<DialogProps> = ({
             {props.children ? (
               props.children
             ) : (
-              <Box>
+              <Box minW={{ md: '96', base: '80' }}>
                 {!!contentProps && <DialogCommon.Content {...contentProps} />}
                 {(!footerButtonProps?.hidePrimaryAction ||
                   !footerButtonProps?.hideSecondaryAction) && (

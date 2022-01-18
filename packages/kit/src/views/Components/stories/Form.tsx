@@ -19,6 +19,7 @@ type FormValues = {
   email: string;
   password: string;
   description: string;
+  address: string;
   url: string;
   agreement: boolean;
   isDev: boolean;
@@ -104,15 +105,6 @@ const FormGallery = () => {
             <Form.Input placeholder="placeholder" />
           </Form.Item>
           <Form.Item
-            label="Description"
-            control={control}
-            name="description"
-            rules={{ required: 'description cannot be empty' }}
-            defaultValue=""
-          >
-            <Form.Textarea placeholder="textarea" />
-          </Form.Item>
-          <Form.Item
             name="url"
             control={control}
             label="rpcUrl"
@@ -150,6 +142,24 @@ const FormGallery = () => {
                 </Pressable>
               )}
             />
+          </Form.Item>
+          <Form.Item
+            label="Description"
+            control={control}
+            name="description"
+            rules={{ required: 'description cannot be empty' }}
+            defaultValue=""
+          >
+            <Form.Textarea placeholder="textarea" />
+          </Form.Item>
+          <Form.Item
+            label="Address"
+            control={control}
+            name="address"
+            rules={{ required: 'address cannot be empty' }}
+            defaultValue=""
+          >
+            <Form.Textarea placeholder="textarea" />
           </Form.Item>
           <Form.Item
             label=""

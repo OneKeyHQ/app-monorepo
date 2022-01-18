@@ -13,13 +13,16 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+import {
+  SettingsModalRoutes,
+  SettingsRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/Settings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  StackRoutesParams,
-  StackBasicRoutes.SettingsScreen
+  SettingsRoutesParams,
+  SettingsModalRoutes.SetPasswordModal
 >;
 
 export const SecuritySection = () => {
@@ -27,6 +30,7 @@ export const SecuritySection = () => {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const intl = useIntl();
   const [lock, setLock] = useState(false);
+  const [faceID, setFaceID] = useState(false);
   const navigation = useNavigation<NavigationProps>();
 
   const onReset = useCallback(() => {
@@ -52,9 +56,9 @@ export const SecuritySection = () => {
             p="4"
             borderBottomWidth="1"
             borderBottomColor="divider"
-            onPress={() =>
-              navigation.navigate(StackBasicRoutes.ChangePasswordScreen)
-            }
+            onPress={() => {
+              navigation.navigate(SettingsModalRoutes.SetPasswordModal);
+            }}
           >
             <Typography.Body1>
               {intl.formatMessage({
@@ -82,7 +86,11 @@ export const SecuritySection = () => {
               })}
             </Typography.Body1>
             <Box>
-              <Icon name="ChevronRightOutline" size={14} />
+              <Switch
+                labelType="false"
+                isChecked={faceID}
+                onToggle={() => setFaceID((prev) => !prev)}
+              />
             </Box>
           </Box>
           <Box
@@ -160,12 +168,12 @@ export const SecuritySection = () => {
             p="4"
             onPress={onReset}
           >
-            <Typography.Body2 color="text-critical">
+            <Typography.Body1 color="text-critical">
               {intl.formatMessage({
                 id: 'form__reset_app',
                 defaultMessage: 'Reset App',
               })}
-            </Typography.Body2>
+            </Typography.Body1>
             <Box>
               <Icon name="ChevronRightOutline" size={14} />
             </Box>
@@ -192,8 +200,8 @@ export const SecuritySection = () => {
               'This will delete all the data you have created at OneKey, enter "RESET" to reset the App',
           }),
           input: (
-            <Box w="full" mt="2">
-              <Input />
+            <Box w="full" mt="4">
+              <Input w="full" />
             </Box>
           ),
         }}

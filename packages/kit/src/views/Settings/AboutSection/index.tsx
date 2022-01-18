@@ -70,12 +70,12 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
         >
-          <Typography.Body2>
+          <Typography.Body1>
             {intl.formatMessage({
               id: 'form__version',
               defaultMessage: 'Version',
             })}
-          </Typography.Body2>
+          </Typography.Body1>
           <Typography.Body2 color="text-subdued">1.0.0</Typography.Body2>
         </Box>
         <Pressable

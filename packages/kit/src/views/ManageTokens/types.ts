@@ -7,5 +7,7 @@ export enum ManageTokenModalRoutes {
 export type ManageTokenRoutesParams = {
   [ManageTokenModalRoutes.ListTokensModal]: undefined;
   [ManageTokenModalRoutes.AddTokenModal]: undefined;
-  [ManageTokenModalRoutes.AddCustomTokenModal]: undefined;
+  [ManageTokenModalRoutes.AddCustomTokenModal]:
+    | { address?: string }
+    | undefined;
 };
