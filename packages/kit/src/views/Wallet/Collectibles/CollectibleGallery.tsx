@@ -160,7 +160,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     title?: string | null,
     length?: number | null,
   ) => (
-    <HStack space={3} pb={2} alignItems="center">
+    <HStack space={3} alignItems="center">
       <Typography.Subheading color="text-subdued">
         {title}
       </Typography.Subheading>
@@ -178,7 +178,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       );
 
       return (
-        <VStack space={1} mb={4}>
+        <VStack space={2} mb={2}>
           {header}
           <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
             {item.assets.map((asset, itemIndex) => {
