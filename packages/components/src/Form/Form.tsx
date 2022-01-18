@@ -1,13 +1,14 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
-import { IBoxProps } from 'native-base';
-
+import KeyboardAwareScrollView from '../KeyboardAwareScrollView';
 import VStack from '../VStack';
 
-// type FormProps = {};
+type FormProps = ComponentProps<typeof VStack>;
 
-export const Form: FC<IBoxProps> = ({ children, ...props }) => (
-  <VStack space={6} w="full" {...props}>
-    {children}
-  </VStack>
+export const Form: FC<FormProps> = ({ children, ...props }) => (
+  <KeyboardAwareScrollView w="full">
+    <VStack space={6} w="full" {...props}>
+      {children}
+    </VStack>
+  </KeyboardAwareScrollView>
 );

@@ -12,6 +12,7 @@ import {
   IconButton,
   KeyboardDismissView,
   Modal,
+  ScrollView,
   Searchbar,
   Token,
   Typography,
@@ -229,7 +230,7 @@ export const ListTokens: FC = () => {
         secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
         secondaryActionTranslationId="action__add_custom_tokens"
       >
-        <>
+        <ScrollView>
           <KeyboardDismissView>
             <Box>
               <Searchbar
@@ -246,7 +247,7 @@ export const ListTokens: FC = () => {
               {contentView}
             </Box>
           </KeyboardDismissView>
-        </>
+        </ScrollView>
       </Modal>
       <Dialog
         visible={!!token}
