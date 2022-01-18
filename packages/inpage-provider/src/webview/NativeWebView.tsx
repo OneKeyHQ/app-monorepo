@@ -88,6 +88,7 @@ const NativeWebView = forwardRef(
     return (
       <WebView
         {...props}
+        cacheMode="LOAD_CACHE_ELSE_NETWORK" // TODO remove
         onLoadProgress={onLoadProgress}
         ref={webviewRef}
         // injectedJavaScript={injectedNative}
