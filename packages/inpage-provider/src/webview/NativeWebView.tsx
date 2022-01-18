@@ -88,6 +88,7 @@ const NativeWebView = forwardRef(
     return (
       <WebView
         {...props}
+        style={{ backgroundColor: 'transparent' }}
         cacheMode="LOAD_CACHE_ELSE_NETWORK" // TODO remove
         onLoadProgress={onLoadProgress}
         ref={webviewRef}

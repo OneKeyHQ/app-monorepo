@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { NavigationProp, RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 
 import {
@@ -11,17 +12,20 @@ import {
 } from '@onekeyhq/components';
 import { StackRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes/Stack';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
 type StackRoutesType = typeof StackRoutes;
 
-type NavigationProps = NativeStackNavigationProp<
+type NavigationProps = NavigationProp<
   StackRoutesParams,
   StackRoutesType[keyof StackRoutesType]
 >;
 
+type RouteProps = RouteProp<StackRoutesParams, StackRoutesType['Developer']>;
+
 const Index = () => {
   const navigation = useNavigation<NavigationProps>();
+  const route = useRoute<RouteProps>();
+
+  console.log('route: ', route.params.ts);
 
   const componentsRoute = Object.values(StackRoutes)
     .filter((item) => item.startsWith('component'))

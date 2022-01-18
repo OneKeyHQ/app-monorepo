@@ -125,7 +125,52 @@ export enum StackBasicRoutes {
 }
 
 export type StackBasicRoutesParams = {
-  [key in StackBasicRoutes]: undefined;
+  [StackBasicRoutes.Developer]: { ts: number };
+  [StackBasicRoutes.ComponentApproval]: undefined;
+  [StackBasicRoutes.ComponentSearchBar]: undefined;
+  [StackBasicRoutes.ComponentTextarea]: undefined;
+  [StackBasicRoutes.ComponentAddress]: undefined;
+  [StackBasicRoutes.ComponentInput]: undefined;
+  [StackBasicRoutes.ComponentCard]: undefined;
+  [StackBasicRoutes.ComponentAvatar]: undefined;
+  [StackBasicRoutes.ComponentTypography]: undefined;
+  [StackBasicRoutes.ComponentToken]: undefined;
+  [StackBasicRoutes.ComponentTheme]: undefined;
+  [StackBasicRoutes.ComponentIcon]: undefined;
+  [StackBasicRoutes.ComponentBadge]: undefined;
+  [StackBasicRoutes.ComponentAlert]: undefined;
+  [StackBasicRoutes.ComponentButton]: undefined;
+  [StackBasicRoutes.ComponentIconButton]: undefined;
+  [StackBasicRoutes.ComponentSelect]: undefined;
+  [StackBasicRoutes.ComponentShadow]: undefined;
+  [StackBasicRoutes.ComponentEmpty]: undefined;
+  [StackBasicRoutes.ComponentToast]: undefined;
+  [StackBasicRoutes.ComponentAccount]: undefined;
+  [StackBasicRoutes.ComponentCheckbox]: undefined;
+  [StackBasicRoutes.ComponentSpinner]: undefined;
+  [StackBasicRoutes.ComponentModal]: undefined;
+  [StackBasicRoutes.ComponentRadio]: undefined;
+  [StackBasicRoutes.ComponentRadioBox]: undefined;
+  [StackBasicRoutes.ComponentSwitch]: undefined;
+  [StackBasicRoutes.ComponentForm]: undefined;
+  [StackBasicRoutes.ComponentQRCode]: undefined;
+  [StackBasicRoutes.ComponentMarkdown]: undefined;
+  [StackBasicRoutes.ComponentDialog]: undefined;
+  [StackBasicRoutes.ComponentPageActions]: undefined;
+  [StackBasicRoutes.ComponentSortableList]: undefined;
+  [StackBasicRoutes.ComponentTabs]: undefined;
+  [StackBasicRoutes.ComponentSegmentedControl]: undefined;
+  [StackBasicRoutes.ComponentReduxMessage]: undefined;
+  [StackBasicRoutes.ComponentHeaderTabViewContainerGallery]: undefined;
+  [StackBasicRoutes.ComponentLogger]: undefined;
+  [StackBasicRoutes.ComponentWebview]: undefined;
+  [StackBasicRoutes.ComponentPinCode]: undefined;
+  [StackBasicRoutes.ComponentRestfulRequest]: undefined;
+  [StackBasicRoutes.ScreenTokenDetail]: undefined;
+  [StackBasicRoutes.SettingsScreen]: undefined;
+  [StackBasicRoutes.UnlockScreen]: undefined;
+  [StackBasicRoutes.SettingsWebviewScreen]: undefined;
+  [StackBasicRoutes.ScreenOnekeyLiteDetail]: undefined;
 };
 
 export const StackRoutes = { ...TabRoutes, ...StackBasicRoutes };

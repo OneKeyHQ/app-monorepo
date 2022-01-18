@@ -120,22 +120,13 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
                   : 'TagSolid',
               },
             },
-            // {
-            //   label: intl.formatMessage({ id: 'action__view_details' }),
-            //   value: 'detail',
-            //   iconProps: {
-            //     name: ['SMALL', 'NORMAL'].includes(size)
-            //       ? 'DocumentTextOutline'
-            //       : 'DocumentTextSolid',
-            //   },
-            // },
             {
-              label: intl.formatMessage({ id: 'action__export_private_key' }),
-              value: 'export',
+              label: intl.formatMessage({ id: 'action__view_details' }),
+              value: 'detail',
               iconProps: {
                 name: ['SMALL', 'NORMAL'].includes(size)
-                  ? 'UploadOutline'
-                  : 'UploadSolid',
+                  ? 'DocumentTextOutline'
+                  : 'DocumentTextSolid',
               },
             },
             {
@@ -323,14 +314,60 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               Network: Ethereum
             </Typography.Caption>
           </VStack>
-          {renderSideAction(activeAccountType, handleChange)}
+          <Select
+            dropdownPosition="left"
+            asAction
+            options={[
+              {
+                label: intl.formatMessage({ id: 'action__edit' }),
+                value: 'rename',
+                iconProps: {
+                  name: ['SMALL', 'NORMAL'].includes(size)
+                    ? 'PencilOutline'
+                    : 'PencilSolid',
+                },
+              },
+              {
+                label: intl.formatMessage({ id: 'action__backup' }),
+                value: 'detail',
+                iconProps: {
+                  name: ['SMALL', 'NORMAL'].includes(size)
+                    ? 'ShieldCheckOutline'
+                    : 'ShieldCheckSolid',
+                },
+              },
+              {
+                label: intl.formatMessage({ id: 'action__delete_wallet' }),
+                value: 'remove',
+                iconProps: {
+                  name: ['SMALL', 'NORMAL'].includes(size)
+                    ? 'TrashOutline'
+                    : 'TrashSolid',
+                },
+                destructive: true,
+              },
+            ]}
+            headerShown={false}
+            footer={null}
+            containerProps={{ width: 'auto' }}
+            dropdownProps={{
+              width: 248,
+            }}
+            renderTrigger={(activeOption, isHovered, visible) => (
+              <CustomSelectTrigger
+                isTriggerHovered={isHovered}
+                isSelectVisible={visible}
+              />
+            )}
+          />
         </HStack>
-        <ScrollView px={2}>
+        <ScrollView px={2} zIndex={2}>
           <FlatList
             data={NORMAL_ACCOUNTS}
             keyExtractor={(_, index) => index.toString()}
             renderItem={({ item }) => (
               <Pressable
+                zIndex={99}
                 onPress={() => {
                   handleToggleVisible();
                   dispatch(updateActiveAddress(item.address));
@@ -348,7 +385,7 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
                     <Box flex={1}>
                       <Account address={item.address} name={item.label} />
                     </Box>
-                    <CustomSelectTrigger />
+                    {renderSideAction(activeAccountType, handleChange)}
                   </HStack>
                 )}
               </Pressable>
