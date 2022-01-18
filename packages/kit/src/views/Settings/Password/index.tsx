@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,13 +7,32 @@ import {
   Button,
   Form,
   KeyboardDismissView,
+  Modal,
+  Toast,
   Typography,
   useForm,
+  useToast,
 } from '@onekeyhq/components';
 
-const EnterPassword = () => {
+import { useNavigation } from '../../..';
+
+import { SettingsModalRoutes, SettingsRoutesParams } from './types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  SettingsRoutesParams,
+  SettingsModalRoutes.SetPasswordModal
+>;
+
+type EnterPasswordProps = { onNext?: () => void };
+
+const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const { control } = useForm();
   const intl = useIntl();
+  const onSubmit = useCallback(() => {
+    onNext?.();
+  }, [onNext]);
   return (
     <KeyboardDismissView p="4">
       <Typography.DisplayLarge textAlign="center">
@@ -39,7 +58,7 @@ const EnterPassword = () => {
         >
           <Form.PasswordInput />
         </Form.Item>
-        <Button size="xl">
+        <Button size="xl" onPress={onSubmit}>
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
@@ -53,6 +72,25 @@ const EnterPassword = () => {
 const SetPassword = () => {
   const { control } = useForm();
   const intl = useIntl();
+  const toast = useToast();
+  const navigation = useNavigation<NavigationProps>();
+  const onSubmit = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation?.popToTop?.();
+    }
+    toast.show({
+      render: () => (
+        <Toast
+          title={intl.formatMessage({
+            id: 'msg__password_changed',
+            defaultMessage: 'Password changed',
+          })}
+        />
+      ),
+    });
+  }, [navigation, toast, intl]);
   return (
     <KeyboardDismissView p="4">
       <Typography.DisplayLarge textAlign="center">
@@ -88,7 +126,7 @@ const SetPassword = () => {
         >
           <Form.PasswordInput />
         </Form.Item>
-        <Button size="xl">
+        <Button size="xl" onPress={onSubmit}>
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
@@ -99,9 +137,19 @@ const SetPassword = () => {
   );
 };
 
-export const ChangePassword = () => {
-  const [next] = useState(false);
-  return <Box>{next ? <EnterPassword /> : <SetPassword />}</Box>;
+export const Password = () => {
+  const [next, setNext] = useState(false);
+  return (
+    <Modal footer={null}>
+      <Box>
+        {next ? (
+          <SetPassword />
+        ) : (
+          <EnterPassword onNext={() => setNext(true)} />
+        )}
+      </Box>
+    </Modal>
+  );
 };
 
-export default ChangePassword;
+export default Password;

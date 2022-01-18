@@ -7,6 +7,7 @@ import {
   Box,
   Divider,
   Icon,
+  IconButton,
   Pressable,
   ScrollableFlatListProps,
   Text,
@@ -284,14 +285,14 @@ const AssetsList = () => {
         <Typography.Heading>
           {intl.formatMessage({ id: 'asset__tokens' })}
         </Typography.Heading>
-        <Pressable
-          p={1.5}
+        <IconButton
+          iconSize={20}
+          type="plain"
+          name="AdjustmentsSolid"
           onPress={() =>
             navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
           }
-        >
-          <Icon size={20} name="AdjustmentsSolid" />
-        </Pressable>
+        />
       </Box>
     ),
     [intl, navigation],

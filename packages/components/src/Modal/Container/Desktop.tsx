@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Button from '../../Button';
+import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import Typography from '../../Typography';
 
@@ -119,17 +120,17 @@ const DesktopModal: FC<ModalProps> = ({
           footer
         ) : (
           <Box borderTopWidth={1} borderTopColor="border-subdued">
-            <Box
+            <HStack
               py="4"
               px="6"
               display="flex"
               flexDirection="row-reverse"
               alignItems="center"
+              space="3"
             >
               {!hidePrimaryAction && (
                 <Button
                   type="primary"
-                  ml="3"
                   minW="120px"
                   onPress={() => {
                     onPrimaryActionPress?.({ onClose });
@@ -155,7 +156,7 @@ const DesktopModal: FC<ModalProps> = ({
                   })}
                 </Button>
               )}
-            </Box>
+            </HStack>
           </Box>
         )}
       </Box>

@@ -25,19 +25,22 @@ export const AddToken: FC = () => {
       value: 'USD Coain',
     },
     {
-      label: intl.formatMessage({ id: 'form_name', defaultMessage: 'Symbol' }),
+      label: intl.formatMessage({
+        id: 'form__symbol',
+        defaultMessage: 'Symbol',
+      }),
       value: 'USDC',
     },
     {
       label: intl.formatMessage({
-        id: 'form_contract',
+        id: 'form__contract',
         defaultMessage: 'Contact',
       }),
       value: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     },
     {
       label: intl.formatMessage({
-        id: 'form_decimal',
+        id: 'form__decimal',
         defaultMessage: 'Decimal',
       }),
       value: '6',
@@ -70,8 +73,9 @@ export const AddToken: FC = () => {
         id: 'title__add_token',
         defaultMessage: 'Add Token',
       })}
-      primaryActionTranslationId="action__confirm"
-      hideSecondaryAction
+      secondaryActionTranslationId="action__confirm"
+      secondaryActionProps={{ type: 'primary' }}
+      hidePrimaryAction
     >
       <KeyboardDismissView>
         <Box>
@@ -85,7 +89,7 @@ export const AddToken: FC = () => {
               chain="eth"
               address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
             />
-            <Typography.Heading>USDC Coin(USDC)</Typography.Heading>
+            <Typography.Heading mt="2">USDC Coin(USDC)</Typography.Heading>
           </Box>
           <FlatList
             bg="surface-default"

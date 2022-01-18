@@ -31,7 +31,7 @@ const ReceiveQRcode = () => {
   const showToast = useCallback(
     (msg: string) => {
       toastIdRef.current = toast.show({
-        render: () => <Toast title={msg} status="success" dismiss />,
+        render: () => <Toast title={msg} />,
       }) as string;
     },
     [toast],
