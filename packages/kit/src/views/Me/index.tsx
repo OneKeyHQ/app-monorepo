@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -24,6 +25,7 @@ type NavigationProps = NativeStackNavigationProp<
 
 const Me = () => {
   const navigation = useNavigation<NavigationProps>();
+  const intl = useIntl();
 
   return (
     <Box flex="1" p="4" maxW={MAX_PAGE_CONTAINER_WIDTH} w="100%" marginX="auto">
@@ -39,7 +41,12 @@ const Me = () => {
           >
             <HStack space="4">
               <Icon name="BookOpenOutline" />
-              <Typography.Body1>Address Book</Typography.Body1>
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'title__address_book',
+                  defaultMessage: 'Address Book',
+                })}
+              </Typography.Body1>
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable>
@@ -71,7 +78,12 @@ const Me = () => {
           >
             <HStack space="4">
               <Icon name="CogOutline" />
-              <Typography.Body1>Settings</Typography.Body1>
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'title__settings',
+                  defaultMessage: 'Settings',
+                })}
+              </Typography.Body1>
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable>
