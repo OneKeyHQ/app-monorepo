@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Box,
@@ -51,7 +52,14 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
       </Box>
 
       <Box>
-        <Button onPress={onClick} size="lg" m={4} type="primary">
+        <Button
+          onPress={onClick}
+          size="lg"
+          mx={4}
+          mt={4}
+          mb={Platform.OS === 'ios' ? 8 : 4}
+          type="primary"
+        >
           {intl.formatMessage({ id: 'msg__coming_soon' })}
         </Button>
       </Box>
