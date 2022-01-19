@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Button,
@@ -17,6 +19,7 @@ export type OnekeyLiteDetailViewProps = {
 };
 
 const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
+  const intl = useIntl();
   const navigation = useNavigation();
   const { locale } = useLocale();
   const url = `https://lite.onekey.so/?language=${locale}`;
@@ -24,9 +27,9 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
 
   const onClick = useCallback(() => {
     toast.show({
-      title: '敬请期待',
+      title: intl.formatMessage({ id: 'msg__coming_soon' }),
     });
-  }, [toast]);
+  }, [intl, toast]);
 
   useEffect(() => {
     console.log(liteId);
@@ -49,7 +52,7 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
 
       <Box>
         <Button onPress={onClick} size="lg" m={4} type="primary">
-          敬请期待
+          {intl.formatMessage({ id: 'msg__coming_soon' })}
         </Button>
       </Box>
     </Box>
