@@ -80,12 +80,11 @@ const Dialog: FC<DialogProps> = ({
         }}
         {...props}
       >
-        <Box m={6}>
+        <Box p={6} w="100%" maxW="432px">
           <Box
             shadow="depth.5"
             p={{ base: '4', lg: '6' }}
             w="100%"
-            maxW="384px"
             alignSelf="center"
             borderRadius="24px"
             bg="surface-subdued"

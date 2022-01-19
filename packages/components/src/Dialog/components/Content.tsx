@@ -57,7 +57,7 @@ const Content: FC<ContentProps> = ({
       (iconType ? getIcon(iconType) : <Box mb={5}>{icon}</Box>)}
     {!!title && (
       <Text
-        typography={{ sm: 'Heading', md: 'DisplayMedium' }}
+        typography={{ sm: 'DisplayMedium', md: 'Heading' }}
         color="text-default"
         textAlign="center"
       >
@@ -68,7 +68,7 @@ const Content: FC<ContentProps> = ({
     {!!content && (
       <Text
         mt="2"
-        typography={{ sm: 'Body2', md: 'Body1' }}
+        typography={{ sm: 'Body1', md: 'Body2' }}
         color="text-subdued"
         textAlign="center"
       >

@@ -3,6 +3,7 @@ import React from 'react';
 import { Box, ScrollView, VStack } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
+import { useNavigation } from '../..';
 import { StackBasicRoutes } from '../../routes';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
@@ -30,6 +31,10 @@ const TOKEN = {
 
 const TokenDetail: React.FC<TokenDetailViewProps> = ({ route }) => {
   //   const { defaultValues } = route.params;
+  const navigation = useNavigation();
+  navigation.setOptions({
+    title: TOKEN.symbol,
+  });
 
   console.log(route);
 
