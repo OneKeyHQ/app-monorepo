@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { useNavigation } from '@react-navigation/core';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -7,12 +9,12 @@ import {
   Center,
   Divider,
   Modal,
+  Text,
   Token,
   Typography,
   useThemeValue,
   utils,
 } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
 
 const MockData = {
   token: {
