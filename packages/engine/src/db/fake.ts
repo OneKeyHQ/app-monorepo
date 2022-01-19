@@ -54,6 +54,8 @@ type StoredCredential = {
 };
 
 require('fake-indexeddb/auto');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const indexedDB = require('fake-indexeddb');
 
 const DB_NAME = 'OneKey';
 const DB_VERSION = 1;

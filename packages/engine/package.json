@@ -1,7 +1,7 @@
 {
   "name": "@onekeyhq/engine",
   "version": "0.0.1",
-  "main": "./dist/index.js",
+  "main": "./src/index.ts",
   "license": "Apache-2.0",
   "private": true,
   "scripts": {
@@ -20,7 +20,7 @@
     "npm-run-all": "^4.1.5"
   },
   "dependencies": {
-    "@onekeyhq/blockchain-libs": "^0.0.16",
+    "@onekeyhq/blockchain-libs": "^0.0.21",
     "@sushiswap/default-token-list": "^20.17.0",
     "bignumber.js": "^9.0.1",
     "bip39": "^3.0.4",

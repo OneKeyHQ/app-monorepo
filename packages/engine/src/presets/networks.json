@@ -10,7 +10,11 @@
     "feeDecimals": 9,
     "balance2FeeDecimals": 9,
     "enabled": true,
-    "presetRpcURLs": ["https://rpc.onekey.so/eth"]
+    "presetRpcURLs": [
+      "https://geth.mytokenpocket.vip",
+      "https://web3.mytokenpocket.vip",
+      "https://rpc.onekey.so/eth"
+    ]
   },
   {
     "id": "evm--56-56",

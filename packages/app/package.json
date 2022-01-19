@@ -22,6 +22,7 @@
     "@react-navigation/native": "^6.0.6",
     "@react-navigation/native-stack": "^6.2.5",
     "@react-navigation/stack": "^6.0.11",
+    "big-integer": "^1.6.51",
     "buffer": "^6.0.3",
     "expo": "^43.0.2",
     "expo-clipboard": "2.0.3",
@@ -40,14 +41,18 @@
     "react-native-collapsible-tab-view": "^4.4.0",
     "react-native-config": "^1.4.5",
     "react-native-confirmation-code-field": "^7.2.0",
+    "react-native-crypto": "^2.2.0",
     "react-native-gesture-handler": "~1.10.2",
     "react-native-pager-view": "^5.4.9",
+    "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "~2.2.0",
     "react-native-safe-area-context": "3.3.2",
     "react-native-screens": "~3.8.0",
     "react-native-svg": "9.13.6",
     "react-native-web": "0.17.1",
-    "react-native-webview": "^11.15.0"
+    "react-native-webview": "^11.15.0",
+    "readable-stream": "^3.6.0",
+    "text-encoding": "^0.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",

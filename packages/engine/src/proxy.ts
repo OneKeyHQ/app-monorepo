@@ -31,6 +31,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     feeCode: dbNetwork.id,
     impl: dbNetwork.impl,
     implOptions: {},
+    curve: 'secp256k1',
     clients: [{ name: 'Geth', args: [dbNetwork.rpcURL] }],
   };
 }
@@ -48,6 +49,7 @@ class ProviderController extends BaseProviderController {
       feeCode: '',
       impl: '',
       implOptions: {},
+      curve: 'secp256k1',
       clients: [],
     }));
   }
