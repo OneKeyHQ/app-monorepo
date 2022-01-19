@@ -1,7 +1,8 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Box,
@@ -11,13 +12,16 @@ import {
   Select,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+
+import { useHelpLink } from '../../hooks/useHelpLink';
 
 import { HelpModalRoutes, HelpModalRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  HelpModalRoutesParams,
+  HelpModalRoutesParams & StackRoutesParams,
   HelpModalRoutes.SubmitRequestModal
 >;
 
@@ -38,6 +42,24 @@ const HelpSelector: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const isSmallScreen = useIsVerticalLayout();
+  const userGuideUrl = useHelpLink({ path: 'categories/360000170236' });
+  const supportUrl = useHelpLink({ path: '' });
+  const walletManual = useHelpLink({ path: 'articles/360002123856' });
+
+  const openUrl = useCallback(
+    (url: string, title?: string) => {
+      console.log('url', url, 'title', title);
+      if (['android', 'ios'].includes(Platform.OS)) {
+        navigation.navigate(StackBasicRoutes.SettingsWebviewScreen, {
+          url,
+          title,
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+    },
+    [navigation],
+  );
 
   const options: GroupOption[] = [
     {
@@ -118,6 +140,21 @@ const HelpSelector: FC = () => {
       switch (value) {
         case 'submit_request':
           navigation.navigate(HelpModalRoutes.SubmitRequestModal);
+          break;
+        case 'guide':
+          openUrl(
+            userGuideUrl,
+            intl.formatMessage({ id: 'form__beginner_guide' }),
+          );
+          break;
+        case 'support':
+          openUrl(supportUrl, intl.formatMessage({ id: 'form__help_support' }));
+          break;
+        case 'hardware_wallet':
+          openUrl(
+            walletManual,
+            intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
+          );
           break;
         default:
           break;

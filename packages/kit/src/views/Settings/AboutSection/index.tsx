@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/components';
 import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
 
+import { useHelpLink } from '../../../hooks/useHelpLink';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -26,6 +28,8 @@ export const AboutSection = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
+  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
   const onCheckUpdate = useCallback(() => {
     toast.show({
@@ -111,7 +115,7 @@ export const AboutSection = () => {
           borderBottomColor="divider"
           onPress={() =>
             openUrl(
-              'https://help.onekey.so/hc/zh-cn/articles/360002014776',
+              userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
                 defaultMessage: 'User Agreement',
@@ -139,7 +143,7 @@ export const AboutSection = () => {
           borderBottomColor="divider"
           onPress={() =>
             openUrl(
-              'https://help.onekey.so/hc/zh-cn/articles/360002003315',
+              privacyPolicyUrl,
               intl.formatMessage({
                 id: 'form__privacy_policy',
                 defaultMessage: 'Privacy Policy',

@@ -1,6 +1,14 @@
-import React, { FC } from 'react';
+import React, { FC, useLayoutEffect } from 'react';
+
+import {
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/core';
 
 import { Box } from '@onekeyhq/components';
+import { StackRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes/Stack';
 
 import WebView from '../../../components/WebView';
 import {
@@ -8,19 +16,30 @@ import {
   StackBasicRoutesParams,
 } from '../../../routes/Stack';
 
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+type StackRoutesType = typeof StackRoutes;
 
-type NavigationProps = NativeStackScreenProps<
+type NavigationProps = NavigationProp<
   StackBasicRoutesParams,
   StackBasicRoutes.SettingsWebviewScreen
 >;
 
-export const SettingsWebViews: FC<NavigationProps> = ({ route }) => {
-  const params = route?.params;
-  console.log('params', params);
+type RouteProps = RouteProp<
+  StackRoutesParams,
+  StackRoutesType['SettingsWebviewScreen']
+>;
+
+export const SettingsWebViews: FC = () => {
+  const route = useRoute<RouteProps>();
+  const navigation = useNavigation<NavigationProps>();
+  const { url, title } = route?.params;
+  useLayoutEffect(() => {
+    if (title) {
+      navigation.setOptions({ title });
+    }
+  }, [navigation, title]);
   return (
     <Box flex="1">
-      <WebView src="https://www.baidu.com" />
+      <WebView src={url} />
     </Box>
   );
 };
