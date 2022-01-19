@@ -169,7 +169,7 @@ export type StackBasicRoutesParams = {
   [StackBasicRoutes.ScreenTokenDetail]: undefined;
   [StackBasicRoutes.SettingsScreen]: undefined;
   [StackBasicRoutes.UnlockScreen]: undefined;
-  [StackBasicRoutes.SettingsWebviewScreen]: undefined;
+  [StackBasicRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [StackBasicRoutes.ScreenOnekeyLiteDetail]: undefined;
 };
 
