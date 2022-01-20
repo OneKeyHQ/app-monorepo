@@ -1,18 +1,29 @@
-import { StackBasicRoutes } from '../../../routes';
+export enum OnekeyLiteModalRoutes {
+  OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
+  OnekeyLitePinCodeCurrentModal = 'OnekeyLitePinCodeCurrentModal',
+  OnekeyLitePinCodeSetModal = 'OnekeyLitePinCodeSetModal',
+  OnekeyLitePinCodeRepeatModal = 'OnekeyLitePinCodeRepeatModal',
+  OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
+  OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
+  OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
+  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
+}
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-export type OnekeyLiteDetailScreenValues = {
-  liteId: string;
-};
-
-export type OnekeyLiteDetailRoutesParams = {
-  [StackBasicRoutes.ScreenOnekeyLiteDetail]: {
-    defaultValues: OnekeyLiteDetailScreenValues;
+export type OnekeyLiteRoutesParams = {
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: {
+    callBack: (pwd: string) => boolean;
   };
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeSetModal]: {
+    callBack: (pwd: string) => boolean;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal]: {
+    callBack: (pwd: string) => boolean;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal]: {
+    callBack: (pwd: string) => boolean;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: undefined;
+  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: undefined;
+  [OnekeyLiteModalRoutes.OnekeyLiteChangePinModal]: undefined;
+  [OnekeyLiteModalRoutes.OnekeyLiteResetModal]: undefined;
 };
-
-export type TokenDetailNavigation = NativeStackNavigationProp<
-  OnekeyLiteDetailRoutesParams,
-  StackBasicRoutes
->;

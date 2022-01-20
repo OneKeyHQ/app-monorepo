@@ -1,7 +1,5 @@
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
-import { RouteProp } from '@react-navigation/core';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Animated } from 'react-native';
 
 import {
@@ -13,37 +11,16 @@ import {
   Typography,
   ZStack,
 } from '@onekeyhq/components';
+import iconHardwareConnecting from '@onekeyhq/kit/assets/ic_pair_hardware_connecting.png';
+import iconHardwareConnectComplete from '@onekeyhq/kit/assets/ic_pair_hardware_operation_complete.png';
+import iconNFCScanHint from '@onekeyhq/kit/assets/ic_pair_hint_scan_lite.png';
+import iconNFCConnecting from '@onekeyhq/kit/assets/ic_pair_nfc.png';
+import iconNFCConnectComplete from '@onekeyhq/kit/assets/ic_pair_nfc_operation_successful.png';
+import iconNFCTransferData from '@onekeyhq/kit/assets/ic_pair_nfc_transfer.png';
 
-import {
-  HardwareConnectModalRoutes,
-  HardwareConnectRoutesParams,
-  OperateType,
-} from './types';
+import { HardwareConnectViewProps, OperateType } from './types';
 
-export type HardwareConnectStackNavigationProp = NativeStackScreenProps<
-  HardwareConnectRoutesParams,
-  HardwareConnectModalRoutes.HardwareConnectModal
->;
-
-export type HardwareConnectRouteProp = RouteProp<
-  HardwareConnectRoutesParams,
-  HardwareConnectModalRoutes.HardwareConnectModal
->;
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const iconHardwareConnecting = require('@onekeyhq/kit/assets/ic_pair_hardware_connecting.png');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const iconHardwareConnectComplete = require('@onekeyhq/kit/assets/ic_pair_hardware_operation_complete.png');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const iconNFCScanHint = require('@onekeyhq/kit/assets/ic_pair_hint_scan_lite.png');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const iconNFCConnecting = require('@onekeyhq/kit/assets/ic_pair_nfc.png');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const iconNFCConnectComplete = require('@onekeyhq/kit/assets/ic_pair_nfc_operation_successful.png');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const iconNFCTransferData = require('@onekeyhq/kit/assets/ic_pair_nfc_transfer.png');
-
-const HardwareConnect: FC<HardwareConnectStackNavigationProp> = () => {
+const HardwareConnect: FC<HardwareConnectViewProps> = () => {
   // const { title, connectType } = route.params.defaultValue;
   // console.log('connectType', connectType);
 
@@ -140,12 +117,7 @@ const HardwareConnect: FC<HardwareConnectStackNavigationProp> = () => {
               </Typography.Body1>
 
               <ZStack w="100%" mt={9} h="460px" alignItems="center">
-                <ZStack
-                  w="300px"
-                  h="300px"
-                  alignItems="center"
-                  justifyContent="center"
-                >
+                <ZStack h="300px" alignItems="center" justifyContent="center">
                   <Animated.View
                     style={{ transform: [{ rotate: scanHardwareSpin }] }}
                   >

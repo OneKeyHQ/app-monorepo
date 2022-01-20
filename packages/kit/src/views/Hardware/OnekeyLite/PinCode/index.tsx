@@ -1,87 +1,77 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useIntl } from 'react-intl';
 
-import { Box, Modal, PinCode, Typography } from '@onekeyhq/components';
+import HardwarePinCode from '../../BasePinCode';
+import { OnekeyLiteStackNavigationProp } from '../navigation';
+import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
 
-import {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '../../../BackupWallet/types';
-
-import {
-  HardwarePinCodeModalRoutes,
-  HardwarePinCodeRoutesParams,
-} from './types';
-
-export type OnekeyLitePinCodeViewProp = {
-  title?: string;
-  description?: string;
-  securityReminder?: string;
-  onComplete?: (pinCode: string) => Promise<boolean | void>;
-};
-
-type NavigationProps = NativeStackNavigationProp<
-  BackupWalletRoutesParams,
-  BackupWalletModalRoutes
->;
-
-const defaultProps = {
-  title: 'Enter Current PIN',
-  description: 'Enter current  OneKey Lite PIN before resetting it',
-  securityReminder:
-    "We don't store any of your information, so if you forget your PIN, wecan't help you get it back.",
-} as const;
-
-const OnekeyLitePinCode: FC<OnekeyLitePinCodeViewProp> = ({
-  title,
-  description,
-  securityReminder,
-  onComplete,
-}) => {
+const OnekeyLitePinCode: FC = () => {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
-        HardwarePinCodeRoutesParams,
-        HardwarePinCodeModalRoutes.HardwarePinCodeModal
+        OnekeyLiteRoutesParams,
+        OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal
       >
     >();
+  console.log('route', route);
 
-  const navigation = useNavigation<NavigationProps>();
+  const { callBack } = route.params;
+
+  const navigation = useNavigation<OnekeyLiteStackNavigationProp>();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    switch (route.name) {
+      case OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal.toString():
+        setTitle(intl.formatMessage({ id: 'title__onekey_lite_pin' }));
+        setDescription(
+          intl.formatMessage({
+            id: 'content__enter_onekey_lite_pin_to_continue',
+          }),
+        );
+        break;
+      case OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal.toString():
+        setTitle(intl.formatMessage({ id: 'title__enter_current_pin' }));
+        setDescription(
+          intl.formatMessage({ id: 'title__enter_current_pin_desc' }),
+        );
+        break;
+      case OnekeyLiteModalRoutes.OnekeyLitePinCodeSetModal.toString():
+        setTitle(intl.formatMessage({ id: 'title__set_up_new_pin' }));
+        setDescription(
+          intl.formatMessage({ id: 'title__set_up_new_pin_desc' }),
+        );
+        break;
+      case OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal.toString():
+        setTitle(intl.formatMessage({ id: 'title__verify_new_pin' }));
+        setDescription(
+          intl.formatMessage({ id: 'title__verify_new_pin_desc' }),
+        );
+        break;
+      default:
+        break;
+    }
+  }, [intl, route.name]);
 
   console.log('route', route);
   return (
-    <Modal header="PIN" footer={null}>
-      <Box alignItems="center" flex={1}>
-        <Typography.DisplayXLarge
-          mt={8}
-          mx={9}
-          color="text-default"
-          textAlign="center"
-        >
-          {title}
-        </Typography.DisplayXLarge>
-        <Typography.Body1 mt={2} mx={9} color="text-subdued" textAlign="center">
-          {description}
-        </Typography.Body1>
-
-        <Box mt={8}>
-          <PinCode
-            onCodeCompleted={(pinCode) => {
-              console.log('pinCode:', pinCode);
-              navigation.navigate(BackupWalletModalRoutes.BackupSeedHintModal);
-              return onComplete?.(pinCode) ?? Promise.resolve(false);
-            }}
-          />
-        </Box>
-      </Box>
-      <Typography.Body2 mb={3} px={8} textAlign="center">
-        {securityReminder}
-      </Typography.Body2>
-    </Modal>
+    <HardwarePinCode
+      title={title}
+      description={description}
+      securityReminder={intl.formatMessage({
+        id: 'content__we_dont_store_any_of_your_information',
+      })}
+      onComplete={(pinCode) => {
+        callBack(pinCode);
+        navigation.goBack();
+        return Promise.resolve(true);
+      }}
+    />
   );
 };
 
-OnekeyLitePinCode.defaultProps = defaultProps;
 export default OnekeyLitePinCode;

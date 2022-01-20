@@ -32,6 +32,7 @@ export type DialogProps = {
   canceledOnTouchOutside?: boolean;
   contentProps?: ComponentProps<typeof DialogCommon.Content>;
   footerButtonProps?: ComponentProps<typeof DialogCommon.FooterButton>;
+  footerMoreView?: React.ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
 };
@@ -42,6 +43,7 @@ const Dialog: FC<DialogProps> = ({
   contentProps,
   footerButtonProps,
   canceledOnTouchOutside,
+  footerMoreView,
   onClose,
   ...props
 }) => {
@@ -94,6 +96,7 @@ const Dialog: FC<DialogProps> = ({
             ) : (
               <Box minW={{ md: '80', sm: '4/5' }}>
                 {!!contentProps && <DialogCommon.Content {...contentProps} />}
+                {footerMoreView ?? footerMoreView}
                 {(!footerButtonProps?.hidePrimaryAction ||
                   !footerButtonProps?.hideSecondaryAction) && (
                   <DialogCommon.FooterButton
@@ -121,6 +124,7 @@ const Dialog: FC<DialogProps> = ({
       footerButtonProps,
       buttonSize,
       canceledOnTouchOutside,
+      footerMoreView,
       handleClose,
       onClose,
     ],

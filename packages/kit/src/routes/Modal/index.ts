@@ -10,14 +10,11 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
-import HardwareConnectModal, {
-  HardwareConnectModalRoutes,
-  HardwareConnectRoutesParams,
-} from './HardwareConnect';
-import HardwarePinCodeModal, {
-  HardwarePinCodeModalRoutes,
-  HardwarePinCodeRoutesParams,
-} from './HardwareLitePinCode';
+import {
+  modalRoutes as OnekeyLiteModalComponents,
+  OnekeyLiteModalRoutes,
+  OnekeyLiteRoutesParams,
+} from './HardwareOnekeyLite';
 import HelpModal, { HelpModalRoutes, HelpModalRoutesParams } from './Help';
 import ImportAccountModal, {
   ImportAccountModalRoutes,
@@ -100,17 +97,10 @@ const modalStackScreenList = [
     component: HelpModal,
   },
   {
-    name: HardwareConnectModalRoutes.HardwareConnectModal,
-    component: HardwareConnectModal,
-  },
-  {
-    name: HardwarePinCodeModalRoutes.HardwarePinCodeModal,
-    component: HardwarePinCodeModal,
-  },
-  {
     name: BackupWalletModalRoutes.BackupSeedHintModal,
     component: BackupWalletModal,
   },
+  ...OnekeyLiteModalComponents,
 ];
 
 export const ModalRoutes = {
@@ -124,9 +114,8 @@ export const ModalRoutes = {
   ...CollectiblesModalRoutes,
   ...SettingsModalRoutes,
   ...HelpModalRoutes,
-  ...HardwareConnectModalRoutes,
-  ...HardwarePinCodeModalRoutes,
   ...BackupWalletModalRoutes,
+  ...OnekeyLiteModalRoutes,
 };
 
 export type ModalTypes = {
@@ -141,9 +130,8 @@ export type ModalTypes = {
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
   [HelpModalRoutes.SubmitRequestModal]: NavigatorScreenParams<HelpModalRoutesParams>;
-  [HardwareConnectModalRoutes.HardwareConnectModal]: NavigatorScreenParams<HardwareConnectRoutesParams>;
-  [HardwarePinCodeModalRoutes.HardwarePinCodeModal]: NavigatorScreenParams<HardwarePinCodeRoutesParams>;
   [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
 };
 
 export default modalStackScreenList;
