@@ -1,11 +1,15 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Box,
   Button,
   Form,
+  IconButton,
   KeyboardDismissView,
   Modal,
   Toast,
@@ -13,8 +17,6 @@ import {
   useForm,
   useToast,
 } from '@onekeyhq/components';
-
-import { useNavigation } from '../../..';
 
 import { SettingsModalRoutes, SettingsRoutesParams } from './types';
 
@@ -29,10 +31,29 @@ type EnterPasswordProps = { onNext?: () => void };
 
 const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const { control } = useForm();
+  const [hasHardware, setHasHardware] = useState<boolean>();
   const intl = useIntl();
   const onSubmit = useCallback(() => {
     onNext?.();
   }, [onNext]);
+  const onAuthenticate = useCallback(async () => {
+    const localAuthenticationResult =
+      await LocalAuthentication.authenticateAsync({
+        cancelLabel: 'Cancel',
+        promptMessage: 'Face ID',
+      });
+    if (localAuthenticationResult.success) {
+      onNext?.();
+    }
+    console.log('localAuthenticationResult', localAuthenticationResult);
+  }, [onNext]);
+  useEffect(() => {
+    if (['ios', 'android'].includes(Platform.OS)) {
+      LocalAuthentication.hasHardwareAsync().then((has) => {
+        setHasHardware(has);
+      });
+    }
+  }, []);
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
       <Typography.DisplayLarge textAlign="center" mb={2}>
@@ -64,6 +85,15 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             defaultMessage: 'Continue',
           })}
         </Button>
+        {hasHardware && ['ios', 'android'].includes(Platform.OS) ? (
+          <Box display="flex" justifyContent="center" alignItems="center">
+            <IconButton
+              iconSize={24}
+              name="FaceIdOutline"
+              onPress={onAuthenticate}
+            />
+          </Box>
+        ) : null}
       </Form>
     </KeyboardDismissView>
   );
