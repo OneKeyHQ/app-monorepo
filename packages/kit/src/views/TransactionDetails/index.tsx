@@ -145,7 +145,7 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
                 >
                   <Address text={txInfo.txId} short />
                   <Pressable ml={3} onPress={copyAddressToClipboard}>
-                    <Icon name="ClipboardCopySolid" />
+                    <Icon name="DuplicateSolid" />
                   </Pressable>
                 </Box>
               </Container.Item>
@@ -217,7 +217,8 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
               w="100%"
               mt={6}
               mb={6}
-              rightIcon={<Icon name="ArrowSmRightOutline" />}
+              size="lg"
+              rightIcon={<Icon name="ArrowNarrowRightSolid" />}
             >
               {intl.formatMessage({ id: 'action__view_in_explorer' })}
             </Button>
