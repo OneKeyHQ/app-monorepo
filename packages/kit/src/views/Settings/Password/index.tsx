@@ -1,9 +1,7 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import {
   Box,
@@ -18,6 +16,8 @@ import {
   useToast,
 } from '@onekeyhq/components';
 
+import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+
 import { SettingsModalRoutes, SettingsRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,29 +31,18 @@ type EnterPasswordProps = { onNext?: () => void };
 
 const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const { control } = useForm();
-  const [hasHardware, setHasHardware] = useState<boolean>();
+  const { isOk, localAuthenticate } = useLocalAuthentication();
+
   const intl = useIntl();
   const onSubmit = useCallback(() => {
     onNext?.();
   }, [onNext]);
   const onAuthenticate = useCallback(async () => {
-    const localAuthenticationResult =
-      await LocalAuthentication.authenticateAsync({
-        cancelLabel: 'Cancel',
-        promptMessage: 'Face ID',
-      });
-    if (localAuthenticationResult.success) {
+    const localAuthenticationResult = await localAuthenticate();
+    if (localAuthenticationResult?.success) {
       onNext?.();
     }
-    console.log('localAuthenticationResult', localAuthenticationResult);
-  }, [onNext]);
-  useEffect(() => {
-    if (['ios', 'android'].includes(Platform.OS)) {
-      LocalAuthentication.hasHardwareAsync().then((has) => {
-        setHasHardware(has);
-      });
-    }
-  }, []);
+  }, [onNext, localAuthenticate]);
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
       <Typography.DisplayLarge textAlign="center" mb={2}>
@@ -85,7 +74,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             defaultMessage: 'Continue',
           })}
         </Button>
-        {hasHardware && ['ios', 'android'].includes(Platform.OS) ? (
+        {isOk ? (
           <Box display="flex" justifyContent="center" alignItems="center">
             <IconButton
               iconSize={24}
@@ -131,7 +120,7 @@ const SetPassword = () => {
       </Typography.DisplayLarge>
       <Typography.Body1 textAlign="center" color="text-subdued">
         {intl.formatMessage({
-          id: 'content__only_you_can_unlock_your_wallet',
+          id: 'Only_you_can_unlock_your_wallet',
           defaultMessage: 'Only you can unlock your wallet',
         })}
       </Typography.Body1>

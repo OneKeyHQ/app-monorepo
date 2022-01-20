@@ -3,7 +3,6 @@ import React, { FC, useMemo } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import axios from 'axios';
 import { createURL } from 'expo-linking';
-import { useColorScheme } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { SWRConfig } from 'swr';
@@ -15,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
+import { useColorScheme } from './hooks/useColorScheme';
 import Navigator from './navigator';
 import store, { persistor } from './store';
 
