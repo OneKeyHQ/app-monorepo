@@ -9,7 +9,6 @@ import {
   FlatList,
   Icon,
   IconButton,
-  ScrollView,
   Token,
   Typography,
 } from '@onekeyhq/components';
@@ -57,15 +56,16 @@ export const DisplayView: FC = () => {
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
-        p="4"
+        py={4}
+        px={{ base: 4, md: 6 }}
       >
-        <Token chain={item.chain} name={item.name} size={8} />
-        <Icon name="ChevronRightOutline" />
+        <Token chain={item.chain} name={item.name} size={{ base: 8, md: 6 }} />
+        <Icon size={20} name="ChevronRightSolid" />
       </Box>
     </TouchableOpacity>
   );
   return (
-    <ScrollView>
+    <>
       <Box>
         <Box
           display="flex"
@@ -77,6 +77,7 @@ export const DisplayView: FC = () => {
           <IconButton
             type="plain"
             name="PlusSolid"
+            circle
             onPress={() => {
               navigation.navigate(ManageNetworkModalRoutes.NetworkAddViewModal);
             }}
@@ -115,6 +116,6 @@ export const DisplayView: FC = () => {
           showsVerticalScrollIndicator={false}
         />
       </Box>
-    </ScrollView>
+    </>
   );
 };
