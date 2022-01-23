@@ -43,6 +43,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
     <>
       <Modal
         header="Ethereum"
+        height="560px"
         onPrimaryActionPress={() => {
           onSubmit();
         }}
@@ -126,7 +127,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                 >
                   <Form.Input />
                 </Form.Item>
-                <Button w="full" onPress={onButtonPress} mt="2">
+                <Button w="full" size="lg" onPress={onButtonPress}>
                   {intl.formatMessage({
                     id: 'action__reset',
                     defaultMessage: 'Reset',
@@ -162,10 +163,10 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
           primaryActionTranslationId: 'action__reset',
           primaryActionProps: {
             type: 'primary',
-            size: 'xl',
+            size: 'lg',
           },
           secondaryActionProps: {
-            size: 'xl',
+            size: 'lg',
           },
         }}
         onClose={() => setResetOpened(false)}

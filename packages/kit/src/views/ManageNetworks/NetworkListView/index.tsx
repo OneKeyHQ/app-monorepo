@@ -53,6 +53,7 @@ export const NetworkListView: FC = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__customize_network' })}
+      height="560px"
       onClose={onPrepareClose}
       hidePrimaryAction
       secondaryActionProps={{
@@ -61,16 +62,19 @@ export const NetworkListView: FC = () => {
         w: size === 'SMALL' ? 'full' : undefined,
       }}
       secondaryActionTranslationId={secondaryActionTranslationId}
-    >
-      <>
-        {children}
-        <DiscardAlert
-          visible={alertOpened}
-          onConfirm={onCloseModal}
-          onClose={onCloseAlert}
-        />
-      </>
-    </Modal>
+      scrollViewProps={{
+        children: (
+          <>
+            {children}
+            <DiscardAlert
+              visible={alertOpened}
+              onConfirm={onCloseModal}
+              onClose={onCloseAlert}
+            />
+          </>
+        ),
+      }}
+    />
   );
 };
 

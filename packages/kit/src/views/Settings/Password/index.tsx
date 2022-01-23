@@ -34,8 +34,8 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
     onNext?.();
   }, [onNext]);
   return (
-    <KeyboardDismissView p="4">
-      <Typography.DisplayLarge textAlign="center">
+    <KeyboardDismissView px={{ base: 4, md: 0 }}>
+      <Typography.DisplayLarge textAlign="center" mb={2}>
         {intl.formatMessage({
           id: 'title__enter_password',
           defaultMessage: 'Enter Password',
@@ -47,7 +47,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
           defaultMessage: 'Enter the old password before resetting it',
         })}
       </Typography.Body1>
-      <Form mt="4">
+      <Form mt="8">
         <Form.Item
           name="password"
           label={intl.formatMessage({
@@ -92,8 +92,8 @@ const SetPassword = () => {
     });
   }, [navigation, toast, intl]);
   return (
-    <KeyboardDismissView p="4">
-      <Typography.DisplayLarge textAlign="center">
+    <KeyboardDismissView px={{ base: 4, md: 0 }}>
+      <Typography.DisplayLarge textAlign="center" mb={2}>
         {intl.formatMessage({
           id: 'title__set_password',
           defaultMessage: 'Set Password',
@@ -105,7 +105,7 @@ const SetPassword = () => {
           defaultMessage: 'Only you can unlock your wallet',
         })}
       </Typography.Body1>
-      <Form mt="4">
+      <Form mt="8">
         <Form.Item
           name="password"
           label={intl.formatMessage({

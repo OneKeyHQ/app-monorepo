@@ -13,6 +13,7 @@ const ImportedAccount: FC = () => {
   return (
     <Modal
       hideSecondaryAction
+      height="640px"
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={intl.formatMessage({
         id: 'wallet__imported_accounts',

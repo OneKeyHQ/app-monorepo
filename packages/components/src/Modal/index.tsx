@@ -47,7 +47,7 @@ export type ModalProps = {
 const defaultProps = {
   closeable: true,
   size: 'xs',
-  height: '576px',
+  height: 'auto',
 } as const;
 
 const Modal: FC<ModalProps> = ({
