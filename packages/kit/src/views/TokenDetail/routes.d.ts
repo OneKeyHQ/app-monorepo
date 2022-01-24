@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-cycle
 import { StackBasicRoutes } from '../../routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

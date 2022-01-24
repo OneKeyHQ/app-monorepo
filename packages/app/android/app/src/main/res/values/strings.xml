@@ -1,16 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <resources>
-  <string name="app_name">OneKey Wallet</string>
-  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
-  <string name="expo_splash_screen_status_bar_translucent" translatable="false">true</string>
-  <string name="action__cancel">Cancel</string>
-  <string name="action__confirm">Confirm</string>
-  <string name="action__ok">OK</string>
-  <string name="action__ok_i_got_it">OK, I Got It.</string>
-  <string name="tips_addspeed">Hint</string>
-  <string name="modal__unable_to_recover_data_from_the_device">Unable to connect to this device</string>
-  <string name="modal__unable_to_recover_data_from_the_device_desc">Your current device does not support NFC.\nReplace it with an NFC-enabled device and try again</string>
-
-  <string name="modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices">Turn on NFC and Let \"OneKey\" Connect Your Hardware Devices</string>
-  <string name="modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices_desc">Go to the Settings Page Now?</string>
+    <string name="app_name">OneKey Wallet</string>
+    <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
+    <string name="expo_splash_screen_status_bar_translucent" translatable="false">true</string>
 </resources>
