@@ -9699,6 +9699,14 @@ expo-linking@^3.0.0:
     qs "^6.9.1"
     url-parse "^1.4.4"
 
+expo-local-authentication@^12.1.0:
+  version "12.1.0"
+  resolved "https://registry.yarnpkg.com/expo-local-authentication/-/expo-local-authentication-12.1.0.tgz#d5da88df144b0fa33192600ef729cfbf03700af9"
+  integrity sha512-RR87mwop47GKHucgYwdwVKbF257i1XyByCDZRwgJswXebhpQ5Lk25Qg6MGqoexTimlV1d4jnKCWHCwSGEoFvKA==
+  dependencies:
+    "@expo/config-plugins" "^4.0.2"
+    invariant "^2.2.4"
+
 expo-location@~13.0.4:
   version "13.0.4"
   resolved "https://registry.yarnpkg.com/expo-location/-/expo-location-13.0.4.tgz#b95a1888eccfd1c7f3efb4f1c76332d928d6a7d7"

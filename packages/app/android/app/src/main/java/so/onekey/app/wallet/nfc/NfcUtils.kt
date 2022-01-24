@@ -1,7 +1,6 @@
 package so.onekey.app.wallet.nfc
 
 import android.app.Activity
-import android.app.AppOpsManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -11,13 +10,9 @@ import android.nfc.tech.IsoDep
 import android.nfc.tech.Ndef
 import android.nfc.tech.NfcF
 import android.nfc.tech.NfcV
-import android.os.Process
+import android.os.Build
 import android.provider.Settings
-import androidx.annotation.StringRes
-import so.onekey.app.wallet.R
-import so.onekey.app.wallet.dialog.BaseAlertBottomDialog
-import so.onekey.app.wallet.dialog.BaseAlertCenterDialog
-import so.onekey.app.wallet.extensions.string
+import so.onekey.app.wallet.utils.MiUtil
 
 object NfcUtils {
 
@@ -48,75 +43,93 @@ object NfcUtils {
         return mNfcAdapter
     }
 
-    fun checkPermission(activity: Activity): Boolean {
-        if (mNfcAdapter == null) {
-            showBottomDialog(activity, R.string.modal__unable_to_recover_data_from_the_device, R.string.modal__unable_to_recover_data_from_the_device_desc)
-            return false
-        }
-        if (mNfcAdapter?.isEnabled != true) {
-            isToSet(activity)
-            return false
-        }
-        // 先保障大部分设备不会明明有权限也不可用，后面在做更细致的检测
-        // if (!hasOpPermission(activity, 10016)) {
-        //   isToSet(activity)
-        //   return false
-        // }
-        return true
-    }
-
-    private fun isToSet(activity: Activity) {
-        BaseAlertCenterDialog.Builder(activity)
-                .modifyTitle(
-                        R.string.modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices.string())
-                .setContent(
-                        R.string.modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices_desc.string())
-                .setPositiveClick { goToSet(activity) }
-                .setNegativeClick { activity.finish() }
-                .build()
-                .show()
-    }
-
-    private fun showBottomDialog(activity: Activity, @StringRes titleResId: Int, @StringRes messageResId: Int) {
-        BaseAlertBottomDialog.build(activity) {
-            setIcon(R.drawable.vector_warning_yellow)
-                    .setTitle(titleResId)
-                    .setMessage(messageResId)
-                    .setPrimaryButtonText(R.string.action__ok_i_got_it)
-                    .setPrimaryButtonListener {
-                        it.dismiss()
-                        activity.finish()
-                    }.build().showDialog()
-        }
-    }
-
-    private fun goToSet(activity: Activity) {
-        // 进入设置系统应用权限界面
-        val intent = Intent(Settings.ACTION_SETTINGS)
-        activity.startActivity(intent)
+    /**
+     * 判断手机是否具备NFC功能.
+     *
+     * @param context [Context]
+     * @return `true`: 具备 `false`: 不具备
+     */
+    fun isNfcExits(context: Context): Boolean {
+        val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
+        return nfcAdapter != null
     }
 
     /**
-     * 检查类似小米那样独有的权限是否已经允许。
-     * 比如：NFC、后台弹出界面等非官方权限。
+     * 判断手机NFC是否开启.
      *
-     * @param op 取值如下：
-     * * op=10016 对应 NFC
-     * * op=10021 对应 后台弹出界面
-     * * 其它未知，根据博客的方法自己去找你需要的
+     * OPPO A37m 发现必须同时开启NFC以及Android Beam才可以使用
+     * 20180108 发现OPPO单独打开NFC即可读取标签，不清楚是否是系统更新
      *
-     * @return true为允许，false为询问或者拒绝。
+     * @param context [Context]
+     * @return `true`: 已开启 `false`: 未开启
      */
-    private fun hasOpPermission(context: Context, op: Int): Boolean {
-        return try {
-            val manager = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-            val method = manager.javaClass.getMethod("checkOpNoThrow", Int::class.java, Int::class.java, String::class.java)
-            val result = method.invoke(manager, op, Process.myUid(), context.packageName)
-            AppOpsManager.MODE_ALLOWED == result
-        } catch (e: Exception) {
-            e.printStackTrace()
-            true
+    fun isNfcEnable(context: Context): Boolean {
+        val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
+        return nfcAdapter != null && nfcAdapter.isEnabled
+    }
+
+    /**
+     * 判断手机是否具备Android Beam.
+     *
+     * @param context [Context]
+     * @return `true`:具备 `false`:不具备
+     */
+    fun isAndroidBeamExits(context: Context): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && isNfcExits(context)
+    }
+
+    /**
+     * 跳转至系统NFC设置界面.
+     *
+     * @param context [Context]
+     * @return `true` 跳转成功 <br></br> `false` 跳转失败
+     */
+    fun intentToNfcSetting(context: Context): Boolean {
+        if ("Smartisan".equals(Build.MANUFACTURER, true)) {
+            if (intentToNfcShare(context)) {
+                return true
+            }
         }
+        if ("xiaomi".equals(Build.MANUFACTURER, true)) {
+            MiUtil.intentToAppSetting(context)
+            return true
+        }
+        if (isNfcExits(context)) {
+            return toIntent(context, Settings.ACTION_NFC_SETTINGS)
+        }
+        return false
+
+    }
+
+    /**
+     * 跳转至系统NFC Android Beam设置界面，同页面基本都有NFC开关.
+     *
+     * @param context [Context]
+     * @return `true` 跳转成功 <br></br> `false` 跳转失败
+     */
+    fun intentToNfcShare(context: Context): Boolean {
+        return if (isAndroidBeamExits(context)) {
+            toIntent(context, Settings.ACTION_NFCSHARING_SETTINGS)
+        } else false
+    }
+
+    /**
+     * 跳转方法.
+     *
+     * @param context [Context]
+     * @param action  意图
+     * @return 是否跳转成功 `true ` 成功<br></br>`false`失败
+     */
+    private fun toIntent(context: Context, action: String): Boolean {
+        try {
+            val intent = Intent(action)
+            context.startActivity(intent)
+        } catch (ex: Exception) {
+            ex.printStackTrace()
+            return false
+        }
+
+        return true
     }
 
 }

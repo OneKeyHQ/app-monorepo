@@ -1,11 +1,13 @@
 import React, { FC, useCallback, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
   Form,
+  IconButton,
   KeyboardDismissView,
   Modal,
   Toast,
@@ -14,7 +16,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 
-import { useNavigation } from '../../..';
+import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
 
 import { SettingsModalRoutes, SettingsRoutesParams } from './types';
 
@@ -29,13 +31,21 @@ type EnterPasswordProps = { onNext?: () => void };
 
 const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const { control } = useForm();
+  const { isOk, localAuthenticate } = useLocalAuthentication();
+
   const intl = useIntl();
   const onSubmit = useCallback(() => {
     onNext?.();
   }, [onNext]);
+  const onAuthenticate = useCallback(async () => {
+    const localAuthenticationResult = await localAuthenticate();
+    if (localAuthenticationResult?.success) {
+      onNext?.();
+    }
+  }, [onNext, localAuthenticate]);
   return (
-    <KeyboardDismissView p="4">
-      <Typography.DisplayLarge textAlign="center">
+    <KeyboardDismissView px={{ base: 4, md: 0 }}>
+      <Typography.DisplayLarge textAlign="center" mb={2}>
         {intl.formatMessage({
           id: 'title__enter_password',
           defaultMessage: 'Enter Password',
@@ -47,7 +57,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
           defaultMessage: 'Enter the old password before resetting it',
         })}
       </Typography.Body1>
-      <Form mt="4">
+      <Form mt="8">
         <Form.Item
           name="password"
           label={intl.formatMessage({
@@ -64,6 +74,15 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             defaultMessage: 'Continue',
           })}
         </Button>
+        {isOk ? (
+          <Box display="flex" justifyContent="center" alignItems="center">
+            <IconButton
+              iconSize={24}
+              name="FaceIdOutline"
+              onPress={onAuthenticate}
+            />
+          </Box>
+        ) : null}
       </Form>
     </KeyboardDismissView>
   );
@@ -92,8 +111,8 @@ const SetPassword = () => {
     });
   }, [navigation, toast, intl]);
   return (
-    <KeyboardDismissView p="4">
-      <Typography.DisplayLarge textAlign="center">
+    <KeyboardDismissView px={{ base: 4, md: 0 }}>
+      <Typography.DisplayLarge textAlign="center" mb={2}>
         {intl.formatMessage({
           id: 'title__set_password',
           defaultMessage: 'Set Password',
@@ -101,11 +120,11 @@ const SetPassword = () => {
       </Typography.DisplayLarge>
       <Typography.Body1 textAlign="center" color="text-subdued">
         {intl.formatMessage({
-          id: 'content__only_you_can_unlock_your_wallet',
+          id: 'Only_you_can_unlock_your_wallet',
           defaultMessage: 'Only you can unlock your wallet',
         })}
       </Typography.Body1>
-      <Form mt="4">
+      <Form mt="8">
         <Form.Item
           name="password"
           label={intl.formatMessage({

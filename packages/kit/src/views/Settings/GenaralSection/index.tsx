@@ -13,7 +13,7 @@ export const GenaralSection = () => {
   const { theme, locale } = useSettings();
 
   return (
-    <Box w="full" mb="4" zIndex={10}>
+    <Box w="full" mb="4" zIndex={10} shadow="depth.2">
       <Box p="2">
         <Typography.Subheading>
           {intl.formatMessage({

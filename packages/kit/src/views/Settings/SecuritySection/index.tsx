@@ -38,7 +38,7 @@ export const SecuritySection = () => {
   }, []);
   return (
     <>
-      <Box w="full" mb="4" zIndex={9}>
+      <Box w="full" mb="4" zIndex={9} shadow="depth.2">
         <Box p="2">
           <Typography.Subheading>
             {intl.formatMessage({

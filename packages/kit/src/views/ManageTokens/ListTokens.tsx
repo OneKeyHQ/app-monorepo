@@ -12,7 +12,6 @@ import {
   IconButton,
   KeyboardDismissView,
   Modal,
-  ScrollView,
   Searchbar,
   Token,
   Typography,
@@ -222,6 +221,7 @@ export const ListTokens: FC = () => {
           id: 'title__manage_tokens',
           defaultMessage: 'Manage Tokens',
         })}
+        height="560px"
         headerDescription="Ethereum Mainnet"
         hidePrimaryAction
         onSecondaryActionPress={() => {
@@ -229,26 +229,27 @@ export const ListTokens: FC = () => {
         }}
         secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
         secondaryActionTranslationId="action__add_custom_tokens"
-      >
-        <ScrollView>
-          <KeyboardDismissView>
-            <Box>
-              <Searchbar
-                w="full"
-                placeholder={intl.formatMessage({
-                  id: 'form__search_tokens',
-                  defaultMessage: 'Search Tokens',
-                })}
-                mb="6"
-                value={keyword}
-                onClear={() => setKeyword('')}
-                onChangeText={(text) => setKeyword(text.trim())}
-              />
-              {contentView}
-            </Box>
-          </KeyboardDismissView>
-        </ScrollView>
-      </Modal>
+        scrollViewProps={{
+          children: (
+            <KeyboardDismissView>
+              <Box>
+                <Searchbar
+                  w="full"
+                  placeholder={intl.formatMessage({
+                    id: 'form__search_tokens',
+                    defaultMessage: 'Search Tokens',
+                  })}
+                  mb="6"
+                  value={keyword}
+                  onClear={() => setKeyword('')}
+                  onChangeText={(text) => setKeyword(text.trim())}
+                />
+                {contentView}
+              </Box>
+            </KeyboardDismissView>
+          ),
+        }}
+      />
       <Dialog
         visible={!!token}
         onClose={() => setToken(undefined)}

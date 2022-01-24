@@ -47,7 +47,7 @@ export type ModalProps = {
 const defaultProps = {
   closeable: true,
   size: 'xs',
-  height: '576px',
+  height: 'auto',
 } as const;
 
 const Modal: FC<ModalProps> = ({
@@ -154,7 +154,7 @@ const Modal: FC<ModalProps> = ({
         {modalContent}
       </Desktop>
     );
-  }, [size, visible, handleClose, rest, modalContent]);
+  }, [size, visible, handleClose, rest, modalContent, header]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;

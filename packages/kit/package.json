@@ -12,6 +12,7 @@
     "expo-barcode-scanner": "^11.2.0",
     "expo-clipboard": "2.0.3",
     "expo-linking": "^3.0.0",
+    "expo-local-authentication": "^12.1.0",
     "react-intl": "^5.21.2",
     "react-native-url-polyfill": "^1.3.0",
     "react-native-uuid": "^2.0.1",
