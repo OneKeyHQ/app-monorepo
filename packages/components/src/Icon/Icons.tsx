@@ -113,6 +113,7 @@ import ExclamationCircleOutline from "./react/outline/ExclamationCircle";
 import ExternalLinkOutline from "./react/outline/ExternalLink";
 import EyeOutline from "./react/outline/Eye";
 import EyeOffOutline from "./react/outline/EyeOff";
+import FaceIdOutline from "./react/outline/FaceId";
 import FastForwardOutline from "./react/outline/FastForward";
 import FilmOutline from "./react/outline/Film";
 import FilterOutline from "./react/outline/Filter";
@@ -596,6 +597,7 @@ export type ICON_NAMES =
   | "ExternalLinkOutline"
   | "EyeOutline"
   | "EyeOffOutline"
+  | "FaceIdOutline"
   | "FastForwardOutline"
   | "FilmOutline"
   | "FilterOutline"
@@ -1079,6 +1081,7 @@ export default {
   ExternalLinkOutline: ExternalLinkOutline,
   EyeOutline: EyeOutline,
   EyeOffOutline: EyeOffOutline,
+  FaceIdOutline: FaceIdOutline,
   FastForwardOutline: FastForwardOutline,
   FilmOutline: FilmOutline,
   FilterOutline: FilterOutline,

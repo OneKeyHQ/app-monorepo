@@ -9,6 +9,7 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  Typography,
   useForm,
 } from '@onekeyhq/components';
 
@@ -113,6 +114,14 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                     id: 'form__symbol',
                     defaultMessage: 'Symbol',
                   })}
+                  labelAddon={
+                    <Typography.Body2 color="text-subdued">
+                      {intl.formatMessage({
+                        id: 'form__hint_optional',
+                        defaultMessage: 'Optional',
+                      })}
+                    </Typography.Body2>
+                  }
                   control={control}
                 >
                   <Form.Input placeholder="ETH" />
@@ -123,6 +132,14 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                     id: 'form__blockchain_explorer_url',
                     defaultMessage: 'Blockchain Explore URL',
                   })}
+                  labelAddon={
+                    <Typography.Body2 color="text-subdued">
+                      {intl.formatMessage({
+                        id: 'form__hint_optional',
+                        defaultMessage: 'Optional',
+                      })}
+                    </Typography.Body2>
+                  }
                   control={control}
                 >
                   <Form.Input />
