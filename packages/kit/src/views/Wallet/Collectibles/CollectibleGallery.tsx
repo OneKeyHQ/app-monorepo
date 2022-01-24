@@ -56,6 +56,48 @@ const ItemImage: FC<{ src?: string | null; size?: number }> = ({
   );
 };
 
+type CollectiblesHeaderProps = {
+  show: boolean;
+  view: CollectibleView;
+  onViewChange: (view: CollectibleView) => void;
+};
+
+const CollectiblesHeader = ({
+  show,
+  view,
+  onViewChange,
+}: CollectiblesHeaderProps) => {
+  const intl = useIntl();
+
+  if (!show) return null;
+
+  return (
+    <HStack space={4} alignItems="center" justifyContent="space-between" pb={3}>
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'asset__collectibles' })}
+      </Typography.Heading>
+      <SegmentedControl
+        containerProps={{
+          width: 70,
+          height: 35,
+        }}
+        options={[
+          {
+            iconName: 'ViewListSolid',
+            value: CollectibleView.Flat,
+          },
+          {
+            iconName: 'ViewGridSolid',
+            value: CollectibleView.Grid,
+          },
+        ]}
+        onChange={(value) => onViewChange(value as CollectibleView)}
+        defaultValue={view}
+      />
+    </HStack>
+  );
+};
+
 const stringAppend = (...args: Array<string | null | undefined>) =>
   args.filter(Boolean).join('');
 
@@ -89,41 +131,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     ),
     [intl],
   );
-
-  const renderHeader = React.useCallback(() => {
-    if (!isSmallScreen || !collectibles.length) return null;
-
-    return (
-      <HStack
-        space={4}
-        alignItems="center"
-        justifyContent="space-between"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__collectibles' })}
-        </Typography.Heading>
-        <SegmentedControl
-          containerProps={{
-            width: 70,
-            height: 35,
-          }}
-          options={[
-            {
-              iconName: 'ViewListSolid',
-              value: CollectibleView.Flat,
-            },
-            {
-              iconName: 'ViewGridSolid',
-              value: CollectibleView.Grid,
-            },
-          ]}
-          onChange={(value) => setView(value as CollectibleView)}
-          defaultValue={view}
-        />
-      </HStack>
-    );
-  }, [collectibles.length, intl, isSmallScreen, view]);
 
   const renderListItem = React.useCallback<
     NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
@@ -223,12 +230,18 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       keyExtractor: ((_, idx) =>
         String(idx)) as ScrollableFlatListProps['keyExtractor'],
       ListEmptyComponent: renderEmpty,
-      ListHeaderComponent: renderHeader,
+      ListHeaderComponent: (
+        <CollectiblesHeader
+          view={view}
+          onViewChange={setView}
+          show={isSmallScreen && !!collectibles?.length}
+        />
+      ),
       ListFooterComponent: () => <Box h="20px" />,
       data: collectibles,
       extraData: collectibles,
     }),
-    [collectibles, renderEmpty, renderHeader],
+    [collectibles, isSmallScreen, renderEmpty, view],
   );
 
   const flatListProps = React.useMemo(
