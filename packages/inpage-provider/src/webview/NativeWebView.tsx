@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from 'react';
 
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewProps } from 'react-native-webview';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -17,10 +17,7 @@ import { InpageProviderWebViewProps } from '../types';
 
 import { IWebViewWrapperRef } from './useWebViewBridge';
 
-import type {
-  WebViewMessageEvent,
-  WebViewProgressEvent,
-} from 'react-native-webview/lib/WebViewTypes';
+import type { WebViewMessageEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const NativeWebView = forwardRef(
   (
@@ -30,9 +27,7 @@ const NativeWebView = forwardRef(
       onSrcChange,
       onLoadProgress,
       ...props
-    }: InpageProviderWebViewProps & {
-      onLoadProgress?: (event: WebViewProgressEvent) => void;
-    },
+    }: WebViewProps & InpageProviderWebViewProps,
     ref,
   ) => {
     const webviewRef = useRef<WebView | null>(null);
@@ -89,7 +84,6 @@ const NativeWebView = forwardRef(
       <WebView
         {...props}
         style={{ backgroundColor: 'transparent' }}
-        cacheMode="LOAD_CACHE_ELSE_NETWORK" // TODO remove
         onLoadProgress={onLoadProgress}
         ref={webviewRef}
         // injectedJavaScript={injectedNative}
