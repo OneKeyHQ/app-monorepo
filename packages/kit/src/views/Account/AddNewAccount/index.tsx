@@ -41,12 +41,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       scrollViewProps={{
         children: (
           <>
-            <Form
-              w="full"
-              zIndex={999}
-              h="full"
-              keyboardAwareScrollViewProps={{ extraScrollHeight: -60 }}
-            >
+            <Form w="full" zIndex={999} h="full">
               <Form.Item
                 name="network"
                 control={control}

@@ -49,61 +49,64 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       })}
       height="560px"
       hidePrimaryAction
+      secondaryActionProps={{ type: 'primary' }}
       secondaryActionTranslationId="action__add"
       onSecondaryActionPress={() => {
         onSubmit();
       }}
-      secondaryActionProps={{ type: 'primary' }}
-    >
-      <KeyboardDismissView>
-        <Form>
-          <Form.Item
-            name="address"
-            label={intl.formatMessage({
-              id: 'transaction__contract_address',
-              defaultMessage: 'Contract Address',
-            })}
-            control={control}
-            labelAddon={
-              <Pressable
-                onPress={() => {
-                  getClipboard().then((text) => setValue('address', text));
-                }}
+      scrollViewProps={{
+        children: (
+          <KeyboardDismissView>
+            <Form>
+              <Form.Item
+                name="address"
+                label={intl.formatMessage({
+                  id: 'transaction__contract_address',
+                  defaultMessage: 'Contract Address',
+                })}
+                control={control}
+                labelAddon={
+                  <Pressable
+                    onPress={() => {
+                      getClipboard().then((text) => setValue('address', text));
+                    }}
+                  >
+                    <Icon size={16} name="ClipboardSolid" />
+                  </Pressable>
+                }
               >
-                <Icon size={16} name="ClipboardSolid" />
-              </Pressable>
-            }
-          >
-            <Form.Textarea
-              placeholder={intl.formatMessage({
-                id: 'form__enter_or_paste_contract_address',
-                defaultMessage: 'Enter or paste contract address',
-              })}
-            />
-          </Form.Item>
-          <Form.Item
-            name="symbol"
-            label={intl.formatMessage({
-              id: 'form__token_symbol',
-              defaultMessage: 'Token Symbol',
-            })}
-            control={control}
-          >
-            <Form.Input />
-          </Form.Item>
-          <Form.Item
-            name="decimal"
-            label={intl.formatMessage({
-              id: 'form__decimal',
-              defaultMessage: 'Decimal',
-            })}
-            control={control}
-          >
-            <Form.Input />
-          </Form.Item>
-        </Form>
-      </KeyboardDismissView>
-    </Modal>
+                <Form.Textarea
+                  placeholder={intl.formatMessage({
+                    id: 'form__enter_or_paste_contract_address',
+                    defaultMessage: 'Enter or paste contract address',
+                  })}
+                />
+              </Form.Item>
+              <Form.Item
+                name="symbol"
+                label={intl.formatMessage({
+                  id: 'form__token_symbol',
+                  defaultMessage: 'Token Symbol',
+                })}
+                control={control}
+              >
+                <Form.Input />
+              </Form.Item>
+              <Form.Item
+                name="decimal"
+                label={intl.formatMessage({
+                  id: 'form__decimal',
+                  defaultMessage: 'Decimal',
+                })}
+                control={control}
+              >
+                <Form.Input />
+              </Form.Item>
+            </Form>
+          </KeyboardDismissView>
+        ),
+      }}
+    />
   );
 };
 

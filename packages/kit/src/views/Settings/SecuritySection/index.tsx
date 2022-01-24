@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -33,7 +33,7 @@ export const SecuritySection = () => {
   const [lock, setLock] = useState(false);
   const [faceID, setFaceID] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const lockTimerOptions= useMemo(
+  const lockTimerOptions = useMemo(
     () => [
       {
         label: intl.formatMessage({ id: 'form__always' }),
@@ -232,7 +232,10 @@ export const SecuritySection = () => {
         footerButtonProps={{
           onPrimaryActionPress: () => setShowResetModal(false),
           primaryActionTranslationId: 'action__delete',
-          primaryActionProps: { type: 'destructive', isDisabled: input.toUpperCase() !== 'RESET' },
+          primaryActionProps: {
+            type: 'destructive',
+            isDisabled: input.toUpperCase() !== 'RESET',
+          },
         }}
         contentProps={{
           iconType: 'danger',
@@ -247,7 +250,11 @@ export const SecuritySection = () => {
           }),
           input: (
             <Box w="full" mt="4">
-              <Input w="full" value={input} onChangeText={(text) => setInput(text.trim()) } />
+              <Input
+                w="full"
+                value={input}
+                onChangeText={(text) => setInput(text.trim())}
+              />
             </Box>
           ),
         }}
