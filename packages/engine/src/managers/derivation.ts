@@ -1,12 +1,8 @@
 import { Buffer } from 'buffer';
-import * as crypto from 'crypto';
 
 import {
-  CKDPriv,
   CurveName,
-  ExtendedKey,
-  N,
-  generateMasterKeyFromSeed,
+  batchGetPublicKeys,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 
 import { IMPL_EVM } from '../constants';
@@ -77,58 +73,43 @@ function getXpubs(
   }
 
   const childrenIndexes = [0, usedPurpose, Number.parseInt(coinType)];
-  let path = 'm';
-  let parentExtendedKey: ExtendedKey = generateMasterKeyFromSeed(
-    usedCurve,
-    seed,
-    password,
-  );
+  let prefix = 'm';
   for (let level = 1; level < setting.accountLevel; level += 1) {
     const isHardened = setting.hardenedLevels.includes(level);
     const index = childrenIndexes[level] || 0;
-    path += `/${index}${isHardened ? "'" : ''}`;
-    parentExtendedKey = CKDPriv(
-      usedCurve,
-      parentExtendedKey,
-      index + (isHardened ? 2 ** 31 : 0),
-      password,
-    );
+    prefix += `/${index}${isHardened ? "'" : ''}`;
+  }
+  const relPaths = [];
+  for (let index = start; index < start + limit; index += 1) {
+    const isHardened = index >= 2 ** 31;
+    const childIndex = index - (isHardened ? 2 ** 31 : 0);
+    relPaths.push(`${childIndex}${isHardened ? "'" : ''}`);
   }
 
-  const paths = [];
-  const xpubs = [];
   const verionBytes = versionBytesMap[impl] || Buffer.from('0488b21e', 'hex');
   const depth = Buffer.from([setting.accountLevel]);
-  const fingerprint = crypto
-    .createHash('ripemd160')
-    .update(
-      crypto
-        .createHash('sha256')
-        .update(N(usedCurve, parentExtendedKey, password).key)
-        .digest(),
-    )
-    .digest()
-    .slice(0, 4);
-  for (let index = start; index < start + limit; index += 1) {
-    const isHardened = setting.hardenedLevels.includes(setting.accountLevel);
-    const childIndex = index + (isHardened ? 2 ** 31 : 0);
-    const extPub = N(
-      usedCurve,
-      CKDPriv(usedCurve, parentExtendedKey, childIndex, password),
-      password,
-    );
-    paths.push(`${path}/${index}${isHardened ? "'" : ''}`);
-    xpubs.push(
-      Buffer.concat([
-        verionBytes,
-        depth,
-        fingerprint,
-        Buffer.from(childIndex.toString().padStart(8, '0'), 'hex'),
-        extPub.chainCode,
-        extPub.key,
-      ]),
-    );
-  }
+  const paths: Array<string> = [];
+  const xpubs: Array<Buffer> = [];
+
+  batchGetPublicKeys(usedCurve, seed, password, prefix, relPaths).forEach(
+    ({ path, parentFingerPrint, extendedKey }) => {
+      const lastIndexStr = path.split('/').slice(-1)[0];
+      const lastIndex = lastIndexStr.endsWith("'")
+        ? parseInt(lastIndexStr.slice(0, -1)) + 2 ** 31
+        : parseInt(lastIndexStr);
+      paths.push(path);
+      xpubs.push(
+        Buffer.concat([
+          verionBytes,
+          depth,
+          parentFingerPrint,
+          Buffer.from(lastIndex.toString(16).padStart(8, '0'), 'hex'),
+          extendedKey.chainCode,
+          extendedKey.key,
+        ]),
+      );
+    },
+  );
 
   return { paths, xpubs };
 }
