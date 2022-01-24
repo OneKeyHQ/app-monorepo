@@ -92,6 +92,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               ref={iframeRef}
               title="iframe-web"
               src={src}
+              key={src}
               frameBorder="0"
               style={{ height: '100%', width: '100%' }}
             />

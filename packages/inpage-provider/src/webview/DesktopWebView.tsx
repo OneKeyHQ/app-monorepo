@@ -37,9 +37,17 @@ function usePreloadJsUrl() {
   return preloadJsUrl as string;
 }
 
+// Used for webview type referencing
+const WEBVIEW_TAG = 'webview';
+
 const DesktopWebView = forwardRef(
   (
-    { src, receiveHandler, onSrcChange, ...props }: InpageProviderWebViewProps,
+    {
+      src,
+      receiveHandler,
+      onSrcChange,
+      ...props
+    }: React.ComponentProps<typeof WEBVIEW_TAG> & InpageProviderWebViewProps,
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
