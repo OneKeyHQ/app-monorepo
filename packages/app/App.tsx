@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/first, import/order
+import './shim';
+
 import React, { FC } from 'react';
 
 import 'expo-dev-client';

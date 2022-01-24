@@ -291,6 +291,8 @@ PODS:
     - React-Core
   - react-native-pager-view (5.4.9):
     - React-Core
+  - react-native-randombytes (3.6.1):
+    - React-Core
   - react-native-safe-area-context (3.3.2):
     - React-Core
   - react-native-webview (11.15.0):
@@ -449,6 +451,7 @@ DEPENDENCIES:
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
+  - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -558,6 +561,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-config"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
+  react-native-randombytes:
+    :path: "../../../node_modules/react-native-randombytes"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-webview:
@@ -627,7 +632,7 @@ SPEC CHECKSUMS:
   EXUpdates: 061b67c33f0e7f8fd335bbb48697c4a4fc8a5157
   EXUpdatesInterface: e1c01b4f5ec76bd1d6cc714938f9edf5ef6379b9
   FBLazyVector: c71c5917ec0ad2de41d5d06a5855f6d5eda06971
-  FBReactNativeSpec: ceda739cf7787b3b9bd26361a212fac5950a9bc2
+  FBReactNativeSpec: 14dc1158fe7e58a0c1282db03a76c87354d79a8e
   glog: 73c2498ac6884b13ede40eda8228cb1eee9d9d62
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   RCT-Folly: ec7a233ccc97cc556cf7237f0db1ff65b986f27c
@@ -644,6 +649,7 @@ SPEC CHECKSUMS:
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-pager-view: 3ee7d4c7697fb3ef788346e834a60cca97ed8540
+  react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 584dc04881deb49474363f3be89e4ca0e854c057
   react-native-webview: e89bf2dba26a04cda967814df3ed1be99f291233
   React-perflogger: cc76a4254d19640f1d8ad1c66fdee800414b805c
@@ -667,6 +673,6 @@ SPEC CHECKSUMS:
   Yoga: e6ecf3fa25af9d4c87e94ad7d5d292eedef49749
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: 39203f2b7c31cbcc64db32c70236daa76a911db0
+PODFILE CHECKSUM: 076e690321682f7adbe0dd2465cf1ffdd614ad58
 
 COCOAPODS: 1.11.2

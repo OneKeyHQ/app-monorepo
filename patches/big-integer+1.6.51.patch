@@ -1,0 +1,14 @@
+diff --git a/node_modules/big-integer/BigInteger.js b/node_modules/big-integer/BigInteger.js
+index c4263d5..6ab8528 100644
+--- a/node_modules/big-integer/BigInteger.js
++++ b/node_modules/big-integer/BigInteger.js
+@@ -1353,6 +1353,9 @@ var bigInt = (function (undefined) {
+     }
+ 
+     function parseStringValue(v) {
++        if (v.startsWith("0x") || v.startsWith("0X")) {
++            return bigInt(v.slice(2), 16);
++        }
+         if (isPrecise(+v)) {
+             var x = +v;
+             if (x === truncate(x))
