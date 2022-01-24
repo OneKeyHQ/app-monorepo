@@ -63,6 +63,7 @@ const CollectibleDetailModal: FC = () => {
   return (
     <Modal
       footer={null}
+      height="640px"
       scrollViewProps={{
         pt: 4,
         children: (

@@ -1,3 +1,7 @@
+import BackupWalletModal, {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from './BackupWallet';
 import CollectibleModal, {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
@@ -6,6 +10,11 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import {
+  modalRoutes as OnekeyLiteModalComponents,
+  OnekeyLiteModalRoutes,
+  OnekeyLiteRoutesParams,
+} from './HardwareOnekeyLite';
 import HelpModal, { HelpModalRoutes, HelpModalRoutesParams } from './Help';
 import ImportAccountModal, {
   ImportAccountModalRoutes,
@@ -87,6 +96,11 @@ const modalStackScreenList = [
     name: HelpModalRoutes.SubmitRequestModal,
     component: HelpModal,
   },
+  {
+    name: BackupWalletModalRoutes.BackupSeedHintModal,
+    component: BackupWalletModal,
+  },
+  ...OnekeyLiteModalComponents,
 ];
 
 export const ModalRoutes = {
@@ -100,6 +114,8 @@ export const ModalRoutes = {
   ...CollectiblesModalRoutes,
   ...SettingsModalRoutes,
   ...HelpModalRoutes,
+  ...BackupWalletModalRoutes,
+  ...OnekeyLiteModalRoutes,
 };
 
 export type ModalTypes = {
@@ -114,6 +130,8 @@ export type ModalTypes = {
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
   [HelpModalRoutes.SubmitRequestModal]: NavigatorScreenParams<HelpModalRoutesParams>;
+  [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
 };
 
 export default modalStackScreenList;

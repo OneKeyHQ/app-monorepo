@@ -4,16 +4,22 @@ import android.content.Intent
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
+import android.os.Build
 import android.util.Log
 import androidx.annotation.IntDef
 import androidx.fragment.app.FragmentActivity
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter
+import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import so.onekey.app.wallet.nfc.NFCExceptions
-import so.onekey.app.wallet.nfc.OnekeyLiteCard
-import so.onekey.app.wallet.nfc.entries.CardState
+import so.onekey.app.wallet.nfc.NfcUtils
+import so.onekey.app.wallet.nfc.broadcast.NfcStatusChangeBroadcastReceiver
+import so.onekey.app.wallet.onekeyLite.OnekeyLiteCard
+import so.onekey.app.wallet.onekeyLite.entitys.CardState
+import so.onekey.app.wallet.utils.MiUtil
+import so.onekey.app.wallet.utils.NfcPermissionUtils
 import so.onekey.app.wallet.utils.Utils
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -105,6 +111,14 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
 
     override fun getName() = "OKLiteManager"
 
+    override fun initialize() {
+        super.initialize()
+        Utils.getTopActivity()?.registerReceiver(
+                mNfcStateBroadcastReceiver,
+                NfcStatusChangeBroadcastReceiver.nfcBroadcastReceiverIntentFilter
+        )
+    }
+
     override fun onHostResume() {
         Utils.getTopActivity()?.let {
             launch(Dispatchers.Main) {
@@ -123,7 +137,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
                 try {
                     OnekeyLiteCard.stopNfc(it as FragmentActivity)
                     mNFCState.set(NFCState.Dead)
-                }catch (e:Exception){
+                } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
@@ -131,6 +145,36 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     }
 
     override fun onHostDestroy() {
+        Utils.getTopActivity()?.unregisterReceiver(mNfcStateBroadcastReceiver)
+    }
+
+    private val mNfcStateBroadcastReceiver by lazy {
+        object : NfcStatusChangeBroadcastReceiver() {
+            override fun onCardPayMode() {
+                super.onCardPayMode()
+            }
+
+            override fun onNfcOff() {
+                super.onNfcOff()
+            }
+
+            override fun onNfcOn() {
+                super.onNfcOn()
+                Utils.getTopActivity()?.let {
+                    launch(Dispatchers.IO) {
+                        OnekeyLiteCard.startNfc(it as FragmentActivity) {}
+                    }
+                }
+            }
+
+            override fun onNfcTurningOff() {
+                super.onNfcTurningOff()
+            }
+
+            override fun onNfcTurningOn() {
+                super.onNfcTurningOn()
+            }
+        }
     }
 
     private fun sendEvent(reactContext: ReactContext,
@@ -201,14 +245,40 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
             callback: Callback,
             execute: (isoDep: IsoDep) -> T
     ) {
-        try {
-            val isoDep = acquireDevice() ?: return
-            val executeResult = execute(isoDep)
-            callback.invoke(null, executeResult)
-        } catch (e: NFCExceptions) {
-            callback.invoke(e.toJson(), null)
+        val topActivity = Utils.getTopActivity()
+        if (topActivity == null) {
+            callback.invoke(NFCExceptions.InitializedException().toJson(), null, null)
+            return
         }
-        releaseDevice()
+        val isNfcExists = NfcUtils.isNfcExits(topActivity)
+        if (!isNfcExists) {
+            // 没有 NFC 设备
+            callback.invoke(NFCExceptions.NotExistsNFC().toJson(), null, null)
+            return
+        }
+
+        val isNfcEnable = NfcUtils.isNfcEnable(topActivity)
+        if (!isNfcEnable) {
+            // 没有打开 NFC 开关
+            callback.invoke(NFCExceptions.NotEnableNFC().toJson(), null, null)
+            return
+        }
+
+        NfcPermissionUtils.checkMiuiPermission(topActivity) {
+            var cardState: String? = null
+            try {
+                val isoDep = acquireDevice() ?: return
+                cardState = Gson().toJson(mCurrentCardState)
+                val executeResult = execute(isoDep)
+                callback.invoke(null, executeResult, cardState)
+            } catch (e: NFCExceptions) {
+                callback.invoke(e.toJson(), null, cardState)
+            }
+            releaseDevice()
+            return
+        }
+        // 没有 NFC 使用权限
+        callback.invoke(NFCExceptions.NotNFCPermission().toJson(), null, null)
     }
 
     @ReactMethod
@@ -219,22 +289,30 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     }
 
     @ReactMethod
-    fun getLiteInfo(cardId: String, callback: Callback) = launch {
-        Log.e(TAG, "getLiteInfo $cardId")
+    fun getCardName(callback: Callback) = launch {
+        Log.d(TAG, "getCardName")
+        handleOperation(callback) { isoDep ->
+            Log.e(TAG, "getCardName Obtain the device")
+            val cardName = OnekeyLiteCard.getCardName(isoDep)
+            Log.e(TAG, "getCardName result $cardName")
+            cardName
+        }
+    }
+
+    @ReactMethod
+    fun getLiteInfo(callback: Callback) = launch {
+        Log.d(TAG, "getLiteInfo")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getLiteInfo Obtain the device")
-            val cardInfo = OnekeyLiteCard.getCardName(isoDep)
-            if (!isTargetDevice(cardId)) {
-                throw NFCExceptions.DeviceMismatchException()
-            }
+            val cardInfo = OnekeyLiteCard.getCardInfo(isoDep)
             Log.e(TAG, "getLiteInfo result $cardInfo")
-            cardInfo
+            Gson().toJson(cardInfo)
         }
     }
 
     @ReactMethod
     fun setMnemonic(mnemonic: String, pwd: String, callback: Callback) = launch {
-        Log.e(TAG, "setMnemonic $mnemonic")
+        Log.d(TAG, "setMnemonic $mnemonic")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "setMnemonic Obtain the device")
             val isSuccess = OnekeyLiteCard.setMnemonic(isoDep, mnemonic, pwd)
@@ -246,7 +324,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
 
     @ReactMethod
     fun getMnemonicWithPin(pwd: String, callback: Callback) = launch {
-        Log.e(TAG, "getMnemonicWithPin")
+        Log.d(TAG, "getMnemonicWithPin")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getMnemonicWithPin Obtain the device")
             OnekeyLiteCard.getMnemonicWithPin(isoDep, pwd)
@@ -255,13 +333,21 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
 
     @ReactMethod
     fun reset(callback: Callback) = launch {
-        Log.e(TAG, "reset")
+        Log.d(TAG, "reset")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "reset Obtain the device")
             val isSuccess = OnekeyLiteCard.reset(isoDep)
             if (!isSuccess) throw NFCExceptions.ExecFailureException()
             Log.e(TAG, "reset result $isSuccess")
             isSuccess
+        }
+    }
+
+    @ReactMethod
+    fun intoSetting() = launch {
+        Log.d(TAG, "intoSetting")
+        Utils.getTopActivity()?.let {
+            NfcUtils.intentToNfcSetting(it)
         }
     }
 }

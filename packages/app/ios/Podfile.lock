@@ -22,6 +22,8 @@ PODS:
   - EXJSONUtils (0.2.0)
   - EXKeepAwake (10.0.0):
     - ExpoModulesCore
+  - EXLocalAuthentication (12.1.0):
+    - ExpoModulesCore
   - EXLocation (13.0.4):
     - ExpoModulesCore
     - UMTaskManagerInterface
@@ -415,6 +417,7 @@ DEPENDENCIES:
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXJSONUtils (from `../../../node_modules/expo-json-utils/ios`)
   - EXKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
+  - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXManifests (from `../../../node_modules/expo-manifests/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
@@ -495,6 +498,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-json-utils/ios"
   EXKeepAwake:
     :path: "../../../node_modules/expo-keep-awake/ios"
+  EXLocalAuthentication:
+    :path: "../../../node_modules/expo-local-authentication/ios"
   EXLocation:
     :path: "../../../node_modules/expo-location/ios"
   EXManifests:
@@ -608,6 +613,7 @@ SPEC CHECKSUMS:
   EXImageLoader: df83442d32bcfb57b7cfc5690096b6caf8203f8d
   EXJSONUtils: f515cf71710855d7ba5bfc6752af3b9a6f6aad01
   EXKeepAwake: 8aa32396a5972d26e75e538603aad0f032396503
+  EXLocalAuthentication: 4c7166ed3133d2c75586093833936652e7d2c7fc
   EXLocation: 192eaee761c159d1479111a0ced3bab7ad8475a3
   EXManifests: 50e42e01335df4e54109dee7be5a91bfd37347db
   Expo: 5316c3ecdc34eb0cad340d01dc8beec97c7e879e
@@ -621,7 +627,7 @@ SPEC CHECKSUMS:
   EXUpdates: 061b67c33f0e7f8fd335bbb48697c4a4fc8a5157
   EXUpdatesInterface: e1c01b4f5ec76bd1d6cc714938f9edf5ef6379b9
   FBLazyVector: c71c5917ec0ad2de41d5d06a5855f6d5eda06971
-  FBReactNativeSpec: 6c06096c28312c7b9252493cde2c07f5ca3e60cd
+  FBReactNativeSpec: ceda739cf7787b3b9bd26361a212fac5950a9bc2
   glog: 73c2498ac6884b13ede40eda8228cb1eee9d9d62
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   RCT-Folly: ec7a233ccc97cc556cf7237f0db1ff65b986f27c

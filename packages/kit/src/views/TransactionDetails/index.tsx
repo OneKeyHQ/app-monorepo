@@ -122,6 +122,7 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
       header={getTransactionTypeStr(intl, txInfo)}
       headerDescription={txInfo.to}
       footer={null}
+      height="560px"
       scrollViewProps={{
         pt: 4,
         children: (
@@ -143,9 +144,13 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
                   w="100%"
                   flexWrap="wrap"
                 >
-                  <Address text={txInfo.txId} short />
+                  <Address
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    text={txInfo.txId}
+                    short
+                  />
                   <Pressable ml={3} onPress={copyAddressToClipboard}>
-                    <Icon name="DuplicateSolid" />
+                    <Icon size={20} name="DuplicateSolid" />
                   </Pressable>
                 </Box>
               </Container.Item>

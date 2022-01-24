@@ -47,6 +47,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         id: 'action__add_custom_tokens',
         defaultMessage: 'Add Custom Token',
       })}
+      height="560px"
       hidePrimaryAction
       secondaryActionTranslationId="action__add"
       onSecondaryActionPress={() => {

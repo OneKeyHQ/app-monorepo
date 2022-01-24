@@ -171,6 +171,7 @@ const Input = React.forwardRef<
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
         w="80"
+        h={{ base: '42px', md: 'auto' }}
         borderColor="border-default"
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}
