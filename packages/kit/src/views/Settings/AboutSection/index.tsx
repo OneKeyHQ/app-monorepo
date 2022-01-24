@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -43,7 +44,7 @@ export const AboutSection = () => {
       ),
     });
   }, [intl, toast]);
-  const openUrl = useCallback(
+  const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       console.log('url', url, 'title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
@@ -57,8 +58,15 @@ export const AboutSection = () => {
     },
     [navigation],
   );
+  const openLinkUrl = useCallback((url: string) => {
+    if (['android', 'ios'].includes(Platform.OS)) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
   return (
-    <Box w="full" mb="4">
+    <Box w="full" mb="4" shadow="depth.2">
       <Box p="2">
         <Typography.Subheading>
           {intl.formatMessage({
@@ -114,7 +122,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrl(
+            openWebViewUrl(
               userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
@@ -142,7 +150,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrl(
+            openWebViewUrl(
               privacyPolicyUrl,
               intl.formatMessage({
                 id: 'form__privacy_policy',
@@ -170,7 +178,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrl(
+            openWebViewUrl(
               'https://www.onekey.so',
               intl.formatMessage({
                 id: 'form__website',
@@ -200,9 +208,7 @@ export const AboutSection = () => {
           p="4"
           borderBottomWidth="1"
           borderBottomColor="divider"
-          onPress={() =>
-            openUrl('https://www.discord.gg/nwUJaTzjzv', 'Discord')
-          }
+          onPress={() => openLinkUrl('https://www.discord.gg/nwUJaTzjzv')}
         >
           <Typography.Body1>Discord</Typography.Body1>
           <HStack space="2" alignItems="center">
@@ -218,7 +224,7 @@ export const AboutSection = () => {
           justifyContent="space-between"
           alignItems="center"
           p="4"
-          onPress={() => openUrl('https://www.twitter.com/onekeyhq', 'Twitter')}
+          onPress={() => openLinkUrl('https://www.twitter.com/onekeyhq')}
         >
           <Typography.Body1>Twitter</Typography.Body1>
           <HStack space="2" alignItems="center">

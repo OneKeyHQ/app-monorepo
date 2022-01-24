@@ -15,13 +15,15 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
 
 import HelpSelector from '../Help/HelpSelector';
+import { TokenDetailNavigation } from '../TokenDetail/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   StackRoutesParams,
   StackBasicRoutes.Developer
->;
+> &
+  TokenDetailNavigation;
 
 const Me = () => {
   const navigation = useNavigation<NavigationProps>();

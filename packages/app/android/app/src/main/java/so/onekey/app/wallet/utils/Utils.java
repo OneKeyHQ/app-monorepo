@@ -23,8 +23,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- *
- *
  * <pre>
  *     author:
  *                                      ___           ___           ___         ___
@@ -136,7 +134,9 @@ public final class Utils {
         return ACTIVITY_LIFECYCLE.getTopActivity();
     }
 
-    /** Finish all of activities. */
+    /**
+     * Finish all of activities.
+     */
     public static void finishAllActivities() {
         finishAllActivities(false);
     }
@@ -157,7 +157,9 @@ public final class Utils {
         }
     }
 
-    /** Finish all of activities except the newest activity. */
+    /**
+     * Finish all of activities except the newest activity.
+     */
     public static void finishAllActivitiesExceptNewest() {
         finishAllActivitiesExceptNewest(false);
     }
@@ -197,7 +199,7 @@ public final class Utils {
     /**
      * Finish the activity.
      *
-     * @param clz The activity class.
+     * @param clz        The activity class.
      * @param isLoadAnim True to use animation for the outgoing activity, false otherwise.
      */
     public static void finishActivity(
@@ -225,7 +227,7 @@ public final class Utils {
     /**
      * Finish the activities whose type not equals the activity class.
      *
-     * @param clz The activity class.
+     * @param clz        The activity class.
      * @param isLoadAnim True to use animation for the outgoing activity, false otherwise.
      */
     public static void finishOtherActivities(
@@ -340,9 +342,6 @@ public final class Utils {
         }
 
         private void setTopActivity(final Activity activity) {
-            if (activity.getClass() == PermissionUtils.PermissionActivity.class) {
-                return;
-            }
             if (mActivityList.contains(activity)) {
                 if (!mActivityList.getLast().equals(activity)) {
                     mActivityList.remove(activity);

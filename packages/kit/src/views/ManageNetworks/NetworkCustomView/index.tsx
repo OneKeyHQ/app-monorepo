@@ -9,6 +9,7 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  Typography,
   useForm,
 } from '@onekeyhq/components';
 
@@ -43,6 +44,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
     <>
       <Modal
         header="Ethereum"
+        height="560px"
         onPrimaryActionPress={() => {
           onSubmit();
         }}
@@ -112,6 +114,14 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                     id: 'form__symbol',
                     defaultMessage: 'Symbol',
                   })}
+                  labelAddon={
+                    <Typography.Body2 color="text-subdued">
+                      {intl.formatMessage({
+                        id: 'form__hint_optional',
+                        defaultMessage: 'Optional',
+                      })}
+                    </Typography.Body2>
+                  }
                   control={control}
                 >
                   <Form.Input placeholder="ETH" />
@@ -122,11 +132,19 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                     id: 'form__blockchain_explorer_url',
                     defaultMessage: 'Blockchain Explore URL',
                   })}
+                  labelAddon={
+                    <Typography.Body2 color="text-subdued">
+                      {intl.formatMessage({
+                        id: 'form__hint_optional',
+                        defaultMessage: 'Optional',
+                      })}
+                    </Typography.Body2>
+                  }
                   control={control}
                 >
                   <Form.Input />
                 </Form.Item>
-                <Button w="full" onPress={onButtonPress} mt="2">
+                <Button w="full" size="lg" onPress={onButtonPress}>
                   {intl.formatMessage({
                     id: 'action__reset',
                     defaultMessage: 'Reset',
@@ -162,10 +180,10 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
           primaryActionTranslationId: 'action__reset',
           primaryActionProps: {
             type: 'primary',
-            size: 'xl',
+            size: 'lg',
           },
           secondaryActionProps: {
-            size: 'xl',
+            size: 'lg',
           },
         }}
         onClose={() => setResetOpened(false)}

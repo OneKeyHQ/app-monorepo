@@ -44,13 +44,14 @@ const ContentItem: FC<ContentItemProps> = ({
       >
         {!!children && children}
         {!!value && (
-          <Typography.Body1Strong
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             w="100%"
             color="text-default"
             textAlign="right"
           >
             {value}
-          </Typography.Body1Strong>
+          </Text>
         )}
         {!!describe && (
           <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
