@@ -121,11 +121,14 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
 
     override fun onHostResume() {
         Utils.getTopActivity()?.let {
-            launch(Dispatchers.Main) {
+            launch(Dispatchers.IO) {
                 if (it !is FragmentActivity) return@launch
-
-                OnekeyLiteCard.startNfc(it) {
-                    mNFCState.set(NFCState.Started)
+                try {
+                    OnekeyLiteCard.startNfc(it) {
+                        mNFCState.set(NFCState.Started)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }

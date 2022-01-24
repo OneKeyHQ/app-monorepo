@@ -13,16 +13,24 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+} from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
+import {
+  SubmitRequestModalRoutesParams,
+  SubmitRequestRoutes,
+} from '@onekeyhq/kit/src/routes/Modal/SubmitRequest';
 
 import { useHelpLink } from '../../hooks/useHelpLink';
-
-import { HelpModalRoutes, HelpModalRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  HelpModalRoutesParams & StackRoutesParams,
-  HelpModalRoutes.SubmitRequestModal
+  SubmitRequestModalRoutesParams &
+    StackRoutesParams &
+    HistoryRequestModalRoutesParams,
+  SubmitRequestRoutes.SubmitRequestModal
 >;
 
 type Option = {
@@ -139,7 +147,7 @@ const HelpSelector: FC = () => {
     setTimeout(() => {
       switch (value) {
         case 'submit_request':
-          navigation.navigate(HelpModalRoutes.SubmitRequestModal);
+          navigation.navigate(SubmitRequestRoutes.SubmitRequestModal);
           break;
         case 'guide':
           openUrl(
@@ -154,6 +162,27 @@ const HelpSelector: FC = () => {
           openUrl(
             walletManual,
             intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
+          );
+          break;
+        case 'history':
+          navigation.navigate(HistoryRequestRoutes.HistoryRequestModal);
+          break;
+        case 'website':
+          openUrl(
+            'https://help.onekey.so/hc/',
+            intl.formatMessage({ id: 'title__official_website' }),
+          );
+          break;
+        case 'shop':
+          openUrl(
+            'https://shop.onekey.so/',
+            intl.formatMessage({ id: 'title__buy_onekey_hardware' }),
+          );
+          break;
+        case 'download':
+          openUrl(
+            'https://onekey.so/download',
+            intl.formatMessage({ id: 'title__client_download' }),
           );
           break;
         default:

@@ -53,13 +53,15 @@
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Use blutooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Use camera to scan QR codes.</string>
+	<string>Give $(PRODUCT_NAME) permission to access your camera</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to authenticate and unlcok your wallet.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Use photo library to to save QR images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Use photo library to to save QR images.</string>
+	<string>Give $(PRODUCT_NAME) permission to save photos</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Give $(PRODUCT_NAME) permission to use your microphone</string>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
