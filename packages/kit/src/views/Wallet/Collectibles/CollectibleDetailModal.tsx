@@ -2,6 +2,7 @@ import React, { FC } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -12,6 +13,7 @@ import {
   Modal,
   Typography,
   VStack,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
   CollectiblesModalRoutes,
@@ -45,9 +47,14 @@ const getAsset = (id: string | number) => {
   } as const;
 };
 
+const MODAL_PADDING = 8;
+
 const CollectibleDetailModal: FC = () => {
   const intl = useIntl();
-
+  const { width } = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  // use modal content width 352px on larger screens
+  const imageWidth = isSmallScreen ? width - MODAL_PADDING * 2 : 352;
   const route =
     useRoute<
       RouteProp<
@@ -73,8 +80,8 @@ const CollectibleDetailModal: FC = () => {
               alt={`image of ${
                 typeof asset.name === 'string' ? asset.name : 'nft'
               }`}
-              height={333}
-              width={333}
+              height={imageWidth}
+              width={imageWidth}
               borderRadius="20px"
               src={
                 asset.imageUrl ??
@@ -84,7 +91,7 @@ const CollectibleDetailModal: FC = () => {
               }
               fallbackElement={
                 <Center
-                  width="100%"
+                  width={imageWidth}
                   height="333px"
                   bgColor="surface-default"
                   borderRadius="20px"
@@ -100,20 +107,24 @@ const CollectibleDetailModal: FC = () => {
                 <Typography.DisplayLarge fontWeight="700">
                   {asset.name}
                 </Typography.DisplayLarge>
-                <Typography.Body2 color="text-subdued">
-                  {asset.collection.name}
-                </Typography.Body2>
+                {!!asset.collection.name && (
+                  <Typography.Body2 color="text-subdued">
+                    {asset.collection.name}
+                  </Typography.Body2>
+                )}
               </VStack>
 
               {/* Description */}
-              <VStack space={3}>
-                <Typography.Heading fontWeight="600">
-                  {intl.formatMessage({ id: 'content__description' })}
-                </Typography.Heading>
-                <Typography.Body2 color="text-subdued">
-                  {asset.description}
-                </Typography.Body2>
-              </VStack>
+              {!!asset.description && (
+                <VStack space={3}>
+                  <Typography.Heading fontWeight="600">
+                    {intl.formatMessage({ id: 'content__description' })}
+                  </Typography.Heading>
+                  <Typography.Body2 color="text-subdued">
+                    {asset.description}
+                  </Typography.Body2>
+                </VStack>
+              )}
 
               {/* traits */}
               {!!asset.traits?.length && (
