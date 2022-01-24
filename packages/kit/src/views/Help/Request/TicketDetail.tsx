@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { Column, Row, SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -12,29 +12,39 @@ import {
 
 import { commentList } from './MockData';
 
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 type RouteProps = RouteProp<
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes.TicketDetailModal
 >;
 
+type NavigationProps = NativeStackNavigationProp<
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes.ReplyTicketModel
+>;
+
 function isMe(submitterId: number, authorId: number) {
   return submitterId === authorId;
 }
-
 export const TicketDetail: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { submitterId } = route?.params.order;
   const imageSize = (260 - 16) / 3;
+  const navigation = useNavigation<NavigationProps>();
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'title__request_details' })}
+      header={intl.formatMessage({ id: 'action__reply' })}
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',
       }}
       primaryActionTranslationId="action__reply"
+      onPrimaryActionPress={() => {
+        navigation.navigate(HistoryRequestRoutes.ReplyTicketModel);
+      }}
       scrollViewProps={{
         children: [
           <Column space="24px" paddingBottom="40px">
@@ -67,12 +77,7 @@ export const TicketDetail: FC = () => {
                           mt="12px"
                         >
                           {item.attachments.map((attachment, _index) => (
-                            <Box
-                              key={`attachment${_index}`}
-                              size={imageSize}
-                              // marginRight="8px"
-                              // marginTop="12px"
-                            >
+                            <Box key={`attachment${_index}`} size={imageSize}>
                               <Image
                                 src={attachment.content_url}
                                 flex={1}

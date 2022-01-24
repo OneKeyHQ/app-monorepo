@@ -19,6 +19,8 @@ PODS:
   - EXImageLoader (3.1.0):
     - ExpoModulesCore
     - React-Core
+  - EXImagePicker (12.0.1):
+    - ExpoModulesCore
   - EXJSONUtils (0.2.0)
   - EXKeepAwake (10.0.0):
     - ExpoModulesCore
@@ -417,6 +419,7 @@ DEPENDENCIES:
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
+  - EXImagePicker (from `../../../node_modules/expo-image-picker/ios`)
   - EXJSONUtils (from `../../../node_modules/expo-json-utils/ios`)
   - EXKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
@@ -497,6 +500,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-font/ios"
   EXImageLoader:
     :path: "../../../node_modules/expo-image-loader/ios"
+  EXImagePicker:
+    :path: "../../../node_modules/expo-image-picker/ios"
   EXJSONUtils:
     :path: "../../../node_modules/expo-json-utils/ios"
   EXKeepAwake:
@@ -616,6 +621,7 @@ SPEC CHECKSUMS:
   EXFileSystem: 99aac7962c11c680681819dd9cbca24e20e5b1e7
   EXFont: 2e1c6fe726d008a039db80df95f48b4921b7fe59
   EXImageLoader: df83442d32bcfb57b7cfc5690096b6caf8203f8d
+  EXImagePicker: 91337b8d57a0a8f56800b9ac0f2b2f10aecf88ce
   EXJSONUtils: f515cf71710855d7ba5bfc6752af3b9a6f6aad01
   EXKeepAwake: 8aa32396a5972d26e75e538603aad0f032396503
   EXLocalAuthentication: 4c7166ed3133d2c75586093833936652e7d2c7fc

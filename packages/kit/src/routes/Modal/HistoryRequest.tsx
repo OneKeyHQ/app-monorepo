@@ -4,17 +4,20 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { HistoryRequest } from '@onekeyhq/kit/src/views/Help/Request/HistoryRequest';
+import { ReplyTicket } from '@onekeyhq/kit/src/views/Help/Request/ReplyTicket';
 import { TicketDetail } from '@onekeyhq/kit/src/views/Help/Request/TicketDetail';
 import { TicketType } from '@onekeyhq/kit/src/views/Help/Request/types';
 
 export enum HistoryRequestRoutes {
   HistoryRequestModal = 'HistoryRequestModal',
   TicketDetailModal = 'TicketDetailModal',
+  ReplyTicketModel = 'ReplyTicketModel',
 }
 
 export type HistoryRequestModalRoutesParams = {
   [HistoryRequestRoutes.HistoryRequestModal]: undefined;
   [HistoryRequestRoutes.TicketDetailModal]: { order: TicketType };
+  [HistoryRequestRoutes.ReplyTicketModel]: undefined;
 };
 
 const HistoryRequestNavigator =
@@ -28,6 +31,10 @@ const modalRoutes = [
   {
     name: HistoryRequestRoutes.TicketDetailModal,
     component: TicketDetail,
+  },
+  {
+    name: HistoryRequestRoutes.ReplyTicketModel,
+    component: ReplyTicket,
   },
 ];
 
