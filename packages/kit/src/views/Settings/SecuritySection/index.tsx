@@ -13,10 +13,18 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
+import { useAppDispatch, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   SettingsModalRoutes,
   SettingsRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Settings';
+import {
+  setEnableAppLock,
+  setEnableLocalAuthentication,
+} from '@onekeyhq/kit/src/store/reducers/settings';
+
+import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import { SelectTrigger } from '../SelectTrigger';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -26,13 +34,14 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export const SecuritySection = () => {
+  const intl = useIntl();
+  const dispatch = useAppDispatch();
+  const { enableAppLock, enableLocalAuthentication } = useSettings();
+  const { isOk } = useLocalAuthentication();
+  const navigation = useNavigation<NavigationProps>();
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [input, setInput] = useState('');
-  const intl = useIntl();
-  const [lock, setLock] = useState(false);
-  const [faceID, setFaceID] = useState(false);
-  const navigation = useNavigation<NavigationProps>();
   const lockTimerOptions = useMemo(
     () => [
       {
@@ -129,29 +138,36 @@ export const SecuritySection = () => {
               <Icon name="ChevronRightOutline" size={14} />
             </Box>
           </Pressable>
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            p="4"
-            borderBottomWidth="1"
-            borderBottomColor="divider"
-          >
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__face_id',
-                defaultMessage: 'Face ID',
-              })}
-            </Typography.Body1>
-            <Box>
-              <Switch
-                labelType="false"
-                isChecked={faceID}
-                onToggle={() => setFaceID((prev) => !prev)}
-              />
+          {isOk ? (
+            <Box
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              p="4"
+              borderBottomWidth="1"
+              borderBottomColor="divider"
+            >
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'form__face_id',
+                  defaultMessage: 'Face ID',
+                })}
+              </Typography.Body1>
+              <Box>
+                <Switch
+                  labelType="false"
+                  isChecked={enableLocalAuthentication}
+                  onToggle={() =>
+                    dispatch(
+                      setEnableLocalAuthentication(!enableLocalAuthentication),
+                    )
+                  }
+                />
+              </Box>
             </Box>
-          </Box>
+          ) : null}
+
           <Box
             display="flex"
             flexDirection="row"
@@ -170,41 +186,34 @@ export const SecuritySection = () => {
             <Box>
               <Switch
                 labelType="false"
-                isChecked={lock}
-                onToggle={() => setLock((i) => !i)}
+                isChecked={enableAppLock}
+                onToggle={() => dispatch(setEnableAppLock(!enableAppLock))}
               />
             </Box>
           </Box>
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            px="4"
-            py="2.5"
-            borderBottomWidth="1"
-            borderBottomColor="divider"
-            zIndex={10}
-          >
-            <Typography.Body1>
-              {intl.formatMessage({
+          <Box w="full" zIndex={95}>
+            <Select
+              title={intl.formatMessage({
                 id: 'form__app_lock_timer',
                 defaultMessage: 'Auto-Lock Timer',
               })}
-            </Typography.Body1>
-            <Box>
-              <Select
-                title={intl.formatMessage({
-                  id: 'form__app_lock_timer',
-                  defaultMessage: 'Auto-Lock Timer',
-                })}
-                isTriggerPlain
-                footer={null}
-                defaultValue="5"
-                headerShown={false}
-                options={lockTimerOptions}
-              />
-            </Box>
+              isTriggerPlain
+              footer={null}
+              defaultValue="5"
+              headerShown={false}
+              options={lockTimerOptions}
+              dropdownProps={{ width: '64' }}
+              dropdownPosition="right"
+              renderTrigger={(activeOption) => (
+                <SelectTrigger
+                  title={intl.formatMessage({
+                    id: 'form__app_lock_timer',
+                    defaultMessage: 'Auto-Lock Timer',
+                  })}
+                  activeOption={activeOption}
+                />
+              )}
+            />
           </Box>
           <Pressable
             display="flex"
