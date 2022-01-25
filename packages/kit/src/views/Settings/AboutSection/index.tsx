@@ -46,11 +46,10 @@ export const AboutSection = () => {
   }, [intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
-      console.log('url', url, 'title', title);
+      console.log('title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
         navigation.navigate(StackBasicRoutes.SettingsWebviewScreen, {
           url,
-          title,
         });
       } else {
         window.open(url, '_blank');

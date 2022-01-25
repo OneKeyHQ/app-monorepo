@@ -15,7 +15,10 @@ import {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
 } from './HardwareOnekeyLite';
-import HelpModal, { HelpModalRoutes, HelpModalRoutesParams } from './Help';
+import HistoryRequestModal, {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+} from './HistoryRequest';
 import ImportAccountModal, {
   ImportAccountModalRoutes,
   ImportAccountRoutesParams,
@@ -36,6 +39,10 @@ import SettingsModal, {
   SettingsModalRoutes,
   SettingsRoutesParams,
 } from './Settings';
+import SubmitRequestModal, {
+  SubmitRequestModalRoutesParams,
+  SubmitRequestRoutes,
+} from './SubmitRequest';
 import TransactionModal, {
   TransactionModalRoutes,
   TransactionModalRoutesParams,
@@ -93,8 +100,12 @@ const modalStackScreenList = [
     component: SettingsModal,
   },
   {
-    name: HelpModalRoutes.SubmitRequestModal,
-    component: HelpModal,
+    name: SubmitRequestRoutes.SubmitRequestModal,
+    component: SubmitRequestModal,
+  },
+  {
+    name: HistoryRequestRoutes.HistoryRequestModal,
+    component: HistoryRequestModal,
   },
   {
     name: BackupWalletModalRoutes.BackupSeedHintModal,
@@ -113,9 +124,10 @@ export const ModalRoutes = {
   ...WatchedAccountModalRoutes,
   ...CollectiblesModalRoutes,
   ...SettingsModalRoutes,
-  ...HelpModalRoutes,
   ...BackupWalletModalRoutes,
   ...OnekeyLiteModalRoutes,
+  ...SubmitRequestRoutes,
+  ...HistoryRequestRoutes,
 };
 
 export type ModalTypes = {
@@ -129,9 +141,10 @@ export type ModalTypes = {
   [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
-  [HelpModalRoutes.SubmitRequestModal]: NavigatorScreenParams<HelpModalRoutesParams>;
   [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
+  [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
+  [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
 };
 
 export default modalStackScreenList;
