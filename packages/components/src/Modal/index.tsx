@@ -12,8 +12,8 @@ import React, {
 import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
+import KeyboardAwareScrollView from '../KeyboardAwareScrollView';
 import { useUserDevice } from '../Provider/hooks';
-import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 
 import Desktop from './Container/Desktop';
@@ -36,7 +36,7 @@ export type ModalProps = {
   footer?: ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
-  scrollViewProps?: ComponentProps<typeof ScrollView>;
+  scrollViewProps?: ComponentProps<typeof KeyboardAwareScrollView>;
   flatListProps?: ComponentProps<typeof FlatList>;
   sectionListProps?: ComponentProps<typeof SectionList>;
   staticChildrenProps?: ComponentProps<typeof Box>;
@@ -82,8 +82,10 @@ const Modal: FC<ModalProps> = ({
     if (sectionListProps) {
       return (
         <SectionList
-          pt={header ? 6 : 0}
-          pb={6}
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: header ? 24 : 0,
+          }}
           px={{ base: 4, md: 6 }}
           {...sectionListProps}
         />
@@ -93,8 +95,10 @@ const Modal: FC<ModalProps> = ({
     if (flatListProps) {
       return (
         <FlatList
-          pt={header ? 6 : 0}
-          pb={6}
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: header ? 24 : 0,
+          }}
           px={{ base: 4, md: 6 }}
           {...flatListProps}
         />
@@ -103,9 +107,11 @@ const Modal: FC<ModalProps> = ({
 
     if (scrollViewProps) {
       return (
-        <ScrollView
-          pt={header ? 6 : 0}
-          pb={6}
+        <KeyboardAwareScrollView
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: header ? 24 : 0,
+          }}
           px={{ base: 4, md: 6 }}
           {...scrollViewProps}
         />

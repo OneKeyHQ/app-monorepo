@@ -19,7 +19,14 @@ import {
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type ChainInfo = { chain: string; name: string };
+type ChainInfo = {
+  chain: string;
+  name: string;
+  url: string;
+  symbol: string;
+  exploreUrl: string;
+  chainId: string;
+};
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
@@ -27,13 +34,50 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 const evmNetworks: ChainInfo[] = [
-  { chain: 'eth', name: 'ETH' },
-  { chain: 'bsc', name: 'BSC' },
-  { chain: 'heco', name: 'HECO' },
-  { chain: 'localhost', name: 'Localhost' },
+  {
+    chain: 'eth',
+    name: 'ETH',
+    chainId: '1',
+    url: 'https://rpc.onekey.so/eth',
+    symbol: 'ETH',
+    exploreUrl: 'https://etherscan.io/',
+  },
+  {
+    chain: 'bsc',
+    name: 'BSC',
+    chainId: '56',
+    url: 'https://rpc.onekey.so/eth',
+    symbol: 'BNB',
+    exploreUrl: 'https://bscscan.com/',
+  },
+  {
+    chain: 'heco',
+    name: 'HECO',
+    chainId: '96',
+    url: 'https://rpc.onekey.so/eth',
+    symbol: 'HT',
+    exploreUrl: 'https://scan.hecochain.com/',
+  },
+  {
+    chain: 'localhost',
+    name: 'Localhost',
+    chainId: '100',
+    url: 'https://rpc.onekey.so/eth',
+    symbol: 'ETH',
+    exploreUrl: 'https://etherscan.io/',
+  },
 ];
 
-const solanaNetwork: ChainInfo[] = [{ chain: 'sol', name: 'SOL' }];
+const solanaNetwork: ChainInfo[] = [
+  {
+    chain: 'sol',
+    name: 'SOL',
+    chainId: '1',
+    url: 'https://rpc.onekey.so/eth',
+    symbol: 'SOL',
+    exploreUrl: 'https://etherscan.io/',
+  },
+];
 
 export const DisplayView: FC = () => {
   const navigation = useNavigation<NavigationProps>();
@@ -42,13 +86,8 @@ export const DisplayView: FC = () => {
       activeOpacity={0.7}
       onPress={() => {
         navigation.navigate(ManageNetworkModalRoutes.NetworkCustomViewModal, {
-          defaultValues: {
-            name: 'EVM',
-            url: 'https://rpc.onekey.so/eth',
-            chainId: '1',
-            symbol: 'ETH',
-            exploreUrl: 'https://etherscan.io/',
-          },
+          defaultValues: item,
+          isReadOnly: ['ETH', 'BSC', 'HECO'].includes(item.name.toUpperCase()),
         });
       }}
     >

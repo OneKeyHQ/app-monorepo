@@ -96,7 +96,7 @@ export const ListTokens: FC = () => {
         description={utils.shortenAddress(item.address)}
       />
       <IconButton
-        name="PlusOutline"
+        name="PlusSolid"
         type="plain"
         onPress={() => {
           navigation.navigate(ManageTokenModalRoutes.AddTokenModal);

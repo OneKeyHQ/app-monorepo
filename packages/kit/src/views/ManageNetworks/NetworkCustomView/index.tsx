@@ -29,14 +29,18 @@ type NetworkCustomViewProps = NativeStackScreenProps<
 >;
 
 export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
-  const { defaultValues } = route.params;
+  const { defaultValues, isReadOnly } = route.params;
   const intl = useIntl();
   const { control, handleSubmit, reset } = useForm<NetworkValues>({
     defaultValues,
   });
   const [resetOpened, setResetOpened] = useState(false);
+  const [removeOpend, setRemoveOpened] = useState(false);
   const onButtonPress = useCallback(() => {
     setResetOpened(true);
+  }, []);
+  const onShowRemoveModal = useCallback(() => {
+    setRemoveOpened(true);
   }, []);
   const onSubmit = handleSubmit((data) => console.log(data));
 
@@ -48,6 +52,8 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
         onPrimaryActionPress={() => {
           onSubmit();
         }}
+        primaryActionTranslationId="action__save"
+        hideSecondaryAction
         scrollViewProps={{
           children: (
             <KeyboardDismissView flexDirection="row" justifyContent="center">
@@ -60,7 +66,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                   })}
                   control={control}
                 >
-                  <Form.Input />
+                  <Form.Input isDisabled={isReadOnly} />
                 </Form.Item>
                 <Form.Item
                   name="url"
@@ -106,7 +112,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                   })}
                   control={control}
                 >
-                  <Form.Input placeholder="chain id" />
+                  <Form.Input placeholder="chain id" isDisabled={isReadOnly} />
                 </Form.Item>
                 <Form.Item
                   name="symbol"
@@ -124,7 +130,7 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                   }
                   control={control}
                 >
-                  <Form.Input placeholder="ETH" />
+                  <Form.Input placeholder="ETH" isDisabled={isReadOnly} />
                 </Form.Item>
                 <Form.Item
                   name="exploreUrl"
@@ -142,52 +148,102 @@ export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
                   }
                   control={control}
                 >
-                  <Form.Input />
+                  <Form.Input isDisabled={isReadOnly} />
                 </Form.Item>
-                <Button w="full" size="lg" onPress={onButtonPress}>
-                  {intl.formatMessage({
-                    id: 'action__reset',
-                    defaultMessage: 'Reset',
-                  })}
-                </Button>
+                {isReadOnly ? (
+                  <Button w="full" size="lg" onPress={onButtonPress}>
+                    {intl.formatMessage({
+                      id: 'action__reset',
+                      defaultMessage: 'Reset',
+                    })}
+                  </Button>
+                ) : (
+                  <Button
+                    w="full"
+                    size="lg"
+                    type="outline"
+                    onPress={onShowRemoveModal}
+                  >
+                    {intl.formatMessage({
+                      id: 'action__remove',
+                      defaultMessage: 'Remove',
+                    })}
+                  </Button>
+                )}
               </Form>
             </KeyboardDismissView>
           ),
         }}
       />
-      <Dialog
-        visible={resetOpened}
-        contentProps={{
-          iconType: 'info',
-          title: intl.formatMessage({
-            id: 'dialog__reset_network_title',
-            defaultMessage: 'Reset Network',
-          }),
-          content: intl.formatMessage(
-            {
-              id: 'dialog__reset_network_desc',
-              defaultMessage:
-                'Ethereum Mainnet will be revert to the default config',
+      {isReadOnly ? (
+        <Dialog
+          visible={resetOpened}
+          contentProps={{
+            iconType: 'info',
+            title: intl.formatMessage({
+              id: 'dialog__reset_network_title',
+              defaultMessage: 'Reset Network',
+            }),
+            content: intl.formatMessage(
+              {
+                id: 'dialog__reset_network_desc',
+                defaultMessage:
+                  'Ethereum Mainnet will be revert to the default config',
+              },
+              { 0: 'Ethereum Mainnet' },
+            ),
+          }}
+          footerButtonProps={{
+            onPrimaryActionPress: ({ onClose }) => {
+              reset(defaultValues);
+              onClose?.();
             },
-            { 0: 'Ethereum Mainnet' },
-          ),
-        }}
-        footerButtonProps={{
-          onPrimaryActionPress: ({ onClose }) => {
-            reset(defaultValues);
-            onClose?.();
-          },
-          primaryActionTranslationId: 'action__reset',
-          primaryActionProps: {
-            type: 'primary',
-            size: 'lg',
-          },
-          secondaryActionProps: {
-            size: 'lg',
-          },
-        }}
-        onClose={() => setResetOpened(false)}
-      />
+            primaryActionTranslationId: 'action__reset',
+            primaryActionProps: {
+              type: 'primary',
+              size: 'lg',
+            },
+            secondaryActionProps: {
+              size: 'lg',
+            },
+          }}
+          onClose={() => setResetOpened(false)}
+        />
+      ) : (
+        <Dialog
+          visible={removeOpend}
+          contentProps={{
+            iconType: 'danger',
+            title: intl.formatMessage({
+              id: 'dialog__remove_network_title',
+              defaultMessage: 'Remove Network',
+            }),
+            content: intl.formatMessage(
+              {
+                id: 'dialog__remove_network_desc',
+                defaultMessage:
+                  '“{0}” will be removed from your networks list.',
+              },
+              { 0: 'Ethereum Mainnet' },
+            ),
+          }}
+          footerButtonProps={{
+            onPrimaryActionPress: ({ onClose }) => {
+              reset(defaultValues);
+              onClose?.();
+            },
+            primaryActionTranslationId: 'action__remove',
+            primaryActionProps: {
+              type: 'destructive',
+              size: 'lg',
+            },
+            secondaryActionProps: {
+              size: 'lg',
+            },
+          }}
+          onClose={() => setRemoveOpened(false)}
+        />
+      )}
     </>
   );
 };
