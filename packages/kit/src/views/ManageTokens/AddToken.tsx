@@ -19,7 +19,7 @@ export const AddToken: FC = () => {
   const items: ListItem[] = [
     {
       label: intl.formatMessage({
-        id: 'title__add_token',
+        id: 'form__name',
         defaultMessage: 'Name',
       }),
       value: 'USD Coain',

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -28,10 +28,69 @@ type NavigationProps = NativeStackNavigationProp<
 export const SecuritySection = () => {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [input, setInput] = useState('');
   const intl = useIntl();
   const [lock, setLock] = useState(false);
   const [faceID, setFaceID] = useState(false);
   const navigation = useNavigation<NavigationProps>();
+  const lockTimerOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({ id: 'form__always' }),
+        value: '-1',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_minute' },
+          { 'form__str_minute': 1 },
+        ),
+        value: '1',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_minute' },
+          { 'form__str_minute': 5 },
+        ),
+        value: '5',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_minute' },
+          { 'form__str_minute': 30 },
+        ),
+        value: '30',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_hour' },
+          { 'form__str_hour': 1 },
+        ),
+        value: '60',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_hour' },
+          { 'form__str_hour': 6 },
+        ),
+        value: '360',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_day' },
+          { 'form__str_day': 1 },
+        ),
+        value: '1440',
+      },
+      {
+        label: intl.formatMessage(
+          { id: 'form__str_day' },
+          { 'form__str_day': 7 },
+        ),
+        value: '10080',
+      },
+    ],
+    [intl],
+  );
 
   const onReset = useCallback(() => {
     setShowResetModal(true);
@@ -141,22 +200,9 @@ export const SecuritySection = () => {
                 })}
                 isTriggerPlain
                 footer={null}
-                defaultValue="5 mintus"
+                defaultValue="5"
                 headerShown={false}
-                options={[
-                  {
-                    label: '5 mintus',
-                    value: '5 mintus',
-                  },
-                  {
-                    label: '30 mintus',
-                    value: '30 mintus',
-                  },
-                  {
-                    label: '60 mintus',
-                    value: '60 mintus',
-                  },
-                ]}
+                options={lockTimerOptions}
               />
             </Box>
           </Box>
@@ -186,7 +232,10 @@ export const SecuritySection = () => {
         footerButtonProps={{
           onPrimaryActionPress: () => setShowResetModal(false),
           primaryActionTranslationId: 'action__delete',
-          primaryActionProps: { type: 'destructive' },
+          primaryActionProps: {
+            type: 'destructive',
+            isDisabled: input.toUpperCase() !== 'RESET',
+          },
         }}
         contentProps={{
           iconType: 'danger',
@@ -201,7 +250,11 @@ export const SecuritySection = () => {
           }),
           input: (
             <Box w="full" mt="4">
-              <Input w="full" />
+              <Input
+                w="full"
+                value={input}
+                onChangeText={(text) => setInput(text.trim())}
+              />
             </Box>
           ),
         }}
