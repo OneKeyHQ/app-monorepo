@@ -9,6 +9,8 @@ type SettingsState = {
   locale: LocaleSymbol;
   version: string;
   instanceId: string;
+  enableAppLock: boolean;
+  enableLocalAuthentication: boolean;
 };
 
 const initialState: SettingsState = {
@@ -16,6 +18,8 @@ const initialState: SettingsState = {
   locale: 'zh-CN',
   version: '1.0.0',
   instanceId: uuid.v4() as string,
+  enableAppLock: false,
+  enableLocalAuthentication: false,
 };
 
 export const settingsSlice = createSlice({
@@ -28,9 +32,20 @@ export const settingsSlice = createSlice({
     setLocale: (state, action: PayloadAction<LocaleSymbol>) => {
       state.locale = action.payload;
     },
+    setEnableAppLock: (state, action: PayloadAction<boolean>) => {
+      state.enableAppLock = action.payload;
+    },
+    setEnableLocalAuthentication: (state, action: PayloadAction<boolean>) => {
+      state.enableLocalAuthentication = action.payload;
+    },
   },
 });
 
-export const { setTheme, setLocale } = settingsSlice.actions;
+export const {
+  setTheme,
+  setLocale,
+  setEnableAppLock,
+  setEnableLocalAuthentication,
+} = settingsSlice.actions;
 
 export default settingsSlice.reducer;
