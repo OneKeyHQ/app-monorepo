@@ -3,7 +3,7 @@ import React, { FC, useMemo, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Row, ZStack } from 'native-base';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -33,6 +33,21 @@ type SubmitValues = {
   bleVersion: string;
   seVersion: string;
 };
+
+const defaultOption = (): string => {
+  switch (Platform.OS) {
+    case 'ios':
+      return 'App on iOS';
+    case 'android':
+      return 'App on Android';
+    case 'web':
+      return 'App on Browser';
+    default:
+      return 'Hardware';
+  }
+};
+
+let selectOption = defaultOption();
 
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
@@ -131,9 +146,10 @@ export const SubmitRequest: FC = () => {
       value: 'App on Android',
     },
   ];
-
-  const requestTypeChange = (value: string) =>
+  const requestTypeChange = (value: string) => {
+    selectOption = value;
     setIsHardware(value === 'Hardware');
+  };
   const { control, handleSubmit } = useForm<SubmitValues>();
   const onSubmit = handleSubmit((data) => console.log(data));
 
@@ -165,7 +181,7 @@ export const SubmitRequest: FC = () => {
                   w: 'full',
                 }}
                 headerShown={false}
-                defaultValue="App on iOS"
+                defaultValue={selectOption}
                 options={options}
                 footer={null}
                 onChange={requestTypeChange}
