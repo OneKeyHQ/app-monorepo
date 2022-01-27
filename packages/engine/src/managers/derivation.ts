@@ -5,7 +5,7 @@ import {
   batchGetPublicKeys,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 
-import { IMPL_EVM } from '../constants';
+import { IMPL_EVM, IMPL_SOL } from '../constants';
 import { OneKeyInternalError } from '../errors';
 
 import { implToCoinTypes } from './impl';
@@ -14,6 +14,7 @@ import { implToCoinTypes } from './impl';
 
 type DerivationSettings = {
   accountLevel: number;
+  targetLevel?: number;
   hardenedLevels: Array<number>;
 };
 
@@ -21,16 +22,23 @@ const versionBytesMap: Record<string, Buffer> = {};
 
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
+  [IMPL_SOL]: [44],
 };
 
 const curveMap: Record<string, Array<CurveName>> = {
   [IMPL_EVM]: ['secp256k1'],
+  [IMPL_SOL]: ['ed25519'],
 };
 
 const derivationSettings: Record<string, DerivationSettings> = {
   [IMPL_EVM]: {
     accountLevel: 5,
     hardenedLevels: [1, 2, 3],
+  },
+  [IMPL_SOL]: {
+    accountLevel: 3,
+    targetLevel: 4,
+    hardenedLevels: [1, 2, 3, 4],
   },
 };
 
@@ -79,15 +87,37 @@ function getXpubs(
     const index = childrenIndexes[level] || 0;
     prefix += `/${index}${isHardened ? "'" : ''}`;
   }
-  const relPaths = [];
+  let relPaths = [];
   for (let index = start; index < start + limit; index += 1) {
-    const isHardened = index >= 2 ** 31;
-    const childIndex = index - (isHardened ? 2 ** 31 : 0);
+    let childIndex = index;
+    let isHardened = false;
+    if (setting.hardenedLevels.includes(setting.accountLevel)) {
+      isHardened = true;
+    } else {
+      isHardened = index >= 2 ** 31;
+      childIndex -= isHardened ? 2 ** 31 : 0;
+    }
     relPaths.push(`${childIndex}${isHardened ? "'" : ''}`);
+  }
+  if (
+    typeof setting.targetLevel !== 'undefined' &&
+    setting.targetLevel > setting.accountLevel
+  ) {
+    let suffix = '';
+    for (
+      let level = setting.accountLevel + 1;
+      level <= setting.targetLevel;
+      level += 1
+    ) {
+      const isHardened = setting.hardenedLevels.includes(level);
+      const index = childrenIndexes[level] || 0;
+      suffix += `/${index}${isHardened ? "'" : ''}`;
+    }
+    relPaths = relPaths.map((relPath) => `${relPath}${suffix}`);
   }
 
   const verionBytes = versionBytesMap[impl] || Buffer.from('0488b21e', 'hex');
-  const depth = Buffer.from([setting.accountLevel]);
+  const depth = Buffer.from([setting.targetLevel || setting.accountLevel]);
   const paths: Array<string> = [];
   const xpubs: Array<Buffer> = [];
 

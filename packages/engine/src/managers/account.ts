@@ -15,7 +15,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 
-import { isCoinTypeCompatibleWithImpl } from './impl';
+import { implToCoinTypes, isCoinTypeCompatibleWithImpl } from './impl';
 import { getImplFromNetworkId } from './network';
 
 function fromDBAccountToAccount(dbAccount: DBAccount): Account {
@@ -52,7 +52,8 @@ function getHDAccountToAdd(
   xpub: Buffer,
   name?: string,
 ): DBAccount {
-  if (impl !== IMPL_EVM) {
+  const coinType = implToCoinTypes[impl];
+  if (typeof coinType === 'undefined') {
     throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
   }
   return {
@@ -60,7 +61,7 @@ function getHDAccountToAdd(
     name: name || '',
     type: 'simple',
     path,
-    coinType: '60',
+    coinType,
     pub: xpub.slice(-33).toString('hex'),
     address: '',
   };

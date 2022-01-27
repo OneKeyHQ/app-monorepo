@@ -5,7 +5,7 @@ import { AddEVMNetworkParams, DBNetwork, Network } from '../types/network';
 
 function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
   // TODO: chain interaction to check rpc url works correctly. Get network id and chain id.
-  const chainId = '0-0';
+  const chainId = '0';
   const id = `${IMPL_EVM}--${chainId}`;
   return {
     id,

@@ -21,7 +21,7 @@ presetNetworksList.forEach((network: PresetNetwork) => {
 
 evmTokenList.tokens.forEach((t) => {
   const chainId = t.chainId.toString();
-  const networkId = `evm--${chainId}-${chainId}`;
+  const networkId = `evm--${chainId}`;
   if (typeof presetTokens[networkId] === 'undefined') {
     presetTokens[networkId] = {};
   }
