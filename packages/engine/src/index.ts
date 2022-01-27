@@ -138,7 +138,8 @@ class Engine {
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    return (await this.dbApi.getCredential(walletId, password)).mnemonic;
+    const credential = await this.dbApi.getCredential(walletId, password);
+    return mnemonicFromEntropy(credential.entropy, password);
   }
 
   async confirmHDWalletBackuped(walletId: string): Promise<Wallet> {

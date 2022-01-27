@@ -23,7 +23,7 @@ type StoredCredential = {
 };
 
 type ExportedCredential = {
-  mnemonic: string;
+  entropy: Buffer;
   seed: Buffer;
 };
 

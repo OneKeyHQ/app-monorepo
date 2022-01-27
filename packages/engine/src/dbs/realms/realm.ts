@@ -3,10 +3,7 @@ import { Buffer } from 'buffer';
 
 import Realm from 'realm';
 
-import {
-  RevealableSeed,
-  mnemonicFromEntropy,
-} from '@onekeyhq/blockchain-libs/dist/secret';
+import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
 
 import {
   NotImplemented,
@@ -29,6 +26,7 @@ import {
   DEFAULT_VERIFY_STRING,
   ExportedCredential,
   MAIN_CONTEXT,
+  StoredCredential,
   checkPassword,
   encrypt,
 } from '../base';
@@ -844,14 +842,11 @@ class RealmDB implements DBAPI {
           new OneKeyInternalError(`Credential ${walletId} not found.`),
         );
       }
-      const credentialJSON = JSON.parse(credential.credential);
+      const credentialJSON: StoredCredential = JSON.parse(
+        credential.credential,
+      );
       return Promise.resolve({
-        mnemonic: mnemonicFromEntropy(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          Buffer.from(credentialJSON.entropy, 'hex'),
-          password,
-        ),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        entropy: Buffer.from(credentialJSON.entropy, 'hex'),
         seed: Buffer.from(credentialJSON.seed, 'hex'),
       });
     } catch (error: any) {
