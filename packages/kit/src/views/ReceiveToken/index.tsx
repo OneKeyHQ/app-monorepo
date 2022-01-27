@@ -35,7 +35,7 @@ const ReceiveToken = () => {
   const borderColor = useThemeValue('border-subdued');
   const route = useRoute<NavigationProps>();
 
-  const address = route.params.address;
+  const { address } = route.params;
 
   const showToast = useCallback(
     (msg: string) => {
