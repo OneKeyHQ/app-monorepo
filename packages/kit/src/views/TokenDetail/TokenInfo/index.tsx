@@ -12,13 +12,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
-  ReceiveQRCodeModalRoutes,
-  ReceiveQRCodeRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ReceiveToken';
-import {
-  TransactionModalRoutes,
-  TransactionModalRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Transaction';
+  ModalNavigatorRoutes,
+  ModalRoutes,
+  ModalTypes,
+} from '@onekeyhq/kit/src/routes/Modal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../../utils/extUtils';
@@ -27,13 +24,9 @@ import { AssetToken } from '../../Wallet/AssetsList';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  TransactionModalRoutesParams,
-  TransactionModalRoutes.TransactionModal
-> &
-  NativeStackNavigationProp<
-    ReceiveQRCodeRoutesParams,
-    ReceiveQRCodeModalRoutes.ReceiveQRCodeModal
-  >;
+  ModalTypes,
+  ModalNavigatorRoutes.ReceiveTokenNavigator
+>;
 
 export type TokenInfoProps = {
   token: AssetToken;
@@ -74,7 +67,9 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
-            navigation.navigate(TransactionModalRoutes.TransactionModal);
+            navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
+              screen: ModalRoutes.Send,
+            });
           }}
         >
           {intl.formatMessage({ id: 'action__send' })}
@@ -86,7 +81,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
-            navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
+            navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
+              screen: ModalRoutes.ReceiveToken,
+              params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
+            });
           }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
