@@ -21,6 +21,7 @@
 		A24B8A7A27422EF300E321A9 /* OKLiteManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A7227422EF300E321A9 /* OKLiteManager.m */; };
 		A24B8A7B27422F0B00E321A9 /* GPChannelSDKCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A24B8A6F27422EF200E321A9 /* GPChannelSDKCore.framework */; };
 		A24B8A7C27422F0B00E321A9 /* GPChannelSDKCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A24B8A6F27422EF200E321A9 /* GPChannelSDKCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 /* End PBXBuildFile section */
@@ -67,6 +68,8 @@
 		A24B8A7027422EF200E321A9 /* wallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = wallet.entitlements; path = OneKeyWallet/wallet.entitlements; sourceTree = "<group>"; };
 		A24B8A7227422EF300E321A9 /* OKLiteManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OKLiteManager.m; sourceTree = "<group>"; };
 		A24B8A7327422EF300E321A9 /* OKLiteManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OKLiteManager.h; sourceTree = "<group>"; };
+		A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RNLiteCallBackManager.h; sourceTree = "<group>"; };
+		A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RNLiteCallBackManager.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AB5A55C2A16742BCB8148B6E /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -206,6 +209,8 @@
 			children = (
 				A24B8A7327422EF300E321A9 /* OKLiteManager.h */,
 				A24B8A7227422EF300E321A9 /* OKLiteManager.m */,
+				A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */,
+				A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */,
 			);
 			name = RNBridge;
 			path = OneKeyWallet/RNBridge;
@@ -399,6 +404,7 @@
 			files = (
 				13B07FBC1A68108700A75B9A /* AppDelegate.m in Sources */,
 				A24B8A7727422EF300E321A9 /* NSString+OKAdd.m in Sources */,
+				A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
