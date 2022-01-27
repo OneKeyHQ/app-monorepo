@@ -7,50 +7,42 @@ import {
   RevealableSeed,
   mnemonicFromEntropy,
 } from '@onekeyhq/blockchain-libs/dist/secret';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
+import { encrypt } from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
 
 import {
   AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
   WrongPassword,
-} from '../errors';
-import { presetNetworks } from '../presets';
+} from '../../errors';
+import { presetNetworks } from '../../presets';
 import {
   ACCOUNT_TYPE_SIMPLE,
   DBAccount,
   DBSimpleAccount,
-} from '../types/account';
-import { DBNetwork, UpdateNetworkParams } from '../types/network';
-import { Token } from '../types/token';
+} from '../../types/account';
+import { DBNetwork, UpdateNetworkParams } from '../../types/network';
+import { Token } from '../../types/token';
 import {
   DBWallet,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from '../types/wallet';
-
-import { DBAPI } from './base';
+} from '../../types/wallet';
+import {
+  DBAPI,
+  DEFAULT_VERIFY_STRING,
+  ExportedCredential,
+  MAIN_CONTEXT,
+  OneKeyContext,
+  checkPassword,
+} from '../base';
 
 type TokenBinding = {
   accountId: string;
   networkId: string;
   tokenId: string;
-};
-
-type OneKeyContext = {
-  id: string;
-  nextHD: number;
-  verifyString: string;
-};
-
-type StoredCredential = {
-  entropy: string;
-  seed: string;
 };
 
 require('fake-indexeddb/auto');
@@ -59,8 +51,6 @@ const indexedDB = require('fake-indexeddb');
 
 const DB_NAME = 'OneKey';
 const DB_VERSION = 1;
-const MAIN_CONTEXT = 'mainContext';
-const DEFAULT_VERIFY_STRING = 'OneKey';
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -114,24 +104,6 @@ function initDb(request: IDBOpenDBRequest) {
     { unique: false },
   );
   tokenBindingStore.createIndex('tokenId', 'tokenId', { unique: false });
-}
-
-function checkPassword(context: OneKeyContext, password: string): boolean {
-  if (typeof context === 'undefined') {
-    console.error('Unable to get main context.');
-    return false;
-  }
-  if (context.verifyString === DEFAULT_VERIFY_STRING) {
-    return true;
-  }
-  try {
-    return (
-      decrypt(password, Buffer.from(context.verifyString, 'hex')).toString() ===
-      DEFAULT_VERIFY_STRING
-    );
-  } catch {
-    return false;
-  }
 }
 
 class FakeDB implements DBAPI {
@@ -195,6 +167,10 @@ class FakeDB implements DBAPI {
         };
       };
     });
+  }
+
+  reset(_password: string): Promise<void> {
+    throw new NotImplemented();
   }
 
   listNetworks(): Promise<Array<DBNetwork>> {
@@ -793,10 +769,10 @@ class FakeDB implements DBAPI {
     );
   }
 
-  private getCredential(
+  getCredential(
     walletId: string,
     password: string,
-  ): Promise<StoredCredential> {
+  ): Promise<ExportedCredential> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -826,32 +802,26 @@ class FakeDB implements DBAPI {
                 );
                 return;
               }
-              resolve(
-                JSON.parse(
-                  (
-                    getCredentialRequest.result as {
-                      id: string;
-                      credential: string;
-                    }
-                  ).credential,
-                ),
+              const credentialJSON = JSON.parse(
+                (
+                  getCredentialRequest.result as {
+                    id: string;
+                    credential: string;
+                  }
+                ).credential,
               );
+              return Promise.resolve({
+                mnemonic: mnemonicFromEntropy(
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  Buffer.from(credentialJSON.entropy, 'hex'),
+                  password,
+                ),
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                seed: Buffer.from(credentialJSON.seed, 'hex'),
+              });
             };
           };
         }),
-    );
-  }
-
-  revealHDWalletSeed(walletId: string, password: string): Promise<string> {
-    return this.getCredential(walletId, password).then(
-      (credential: StoredCredential) =>
-        mnemonicFromEntropy(Buffer.from(credential.entropy, 'hex'), password),
-    );
-  }
-
-  getSeed(walletId: string, password: string): Promise<Buffer> {
-    return this.getCredential(walletId, password).then(
-      (credential: StoredCredential) => Buffer.from(credential.seed, 'hex'),
     );
   }
 
