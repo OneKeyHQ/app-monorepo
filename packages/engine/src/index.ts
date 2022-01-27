@@ -8,7 +8,7 @@ import {
   revealableSeedFromMnemonic,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 
-import { IMPL_EVM } from './constants';
+import { IMPL_EVM, IMPL_SOL } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI } from './dbs/base';
 import { NotImplemented, OneKeyInternalError } from './errors';
@@ -51,7 +51,7 @@ import {
 } from './types/account';
 import {
   AddNetworkParams,
-  DBNetwork,
+  EIP1559Fee,
   Network,
   NetworkShort,
   UpdateNetworkParams,
@@ -138,7 +138,8 @@ class Engine {
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    return (await this.dbApi.getCredential(walletId, password)).mnemonic;
+    const credential = await this.dbApi.getCredential(walletId, password);
+    return mnemonicFromEntropy(credential.entropy, password);
   }
 
   async confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
@@ -461,8 +462,79 @@ class Engine {
     );
   }
 
-  // TODO: transfer, sign & broadcast.
-  // transfer
+  async prepareTransfer(
+    networkId: string,
+    accountId: string,
+    to: string,
+    value: BigNumber,
+    tokenIdOnNetwork?: string,
+    extra?: { [key: string]: any },
+  ): Promise<number> {
+    // For account model networks, return the estimated gas usage.
+    // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
+    // TODO: validate to parameter.
+    const [network, account] = await Promise.all([
+      this.getNetwork(networkId),
+      this.getAccount(accountId, networkId),
+    ]);
+    // Below properties are used to avoid redundant network requests.
+    const payload = extra || {};
+    payload.nonce = 1;
+    payload.feePricePerUnit = new BigNumber(1);
+    return this.providerManager.preSend(
+      network,
+      account,
+      to,
+      value,
+      tokenIdOnNetwork,
+      payload,
+    );
+  }
+
+  async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {
+    const ret = await this.providerManager.getGasPrice(networkId);
+    if (ret.length > 0 && ret[0] instanceof BigNumber) {
+      const { feeDecimals } = await this.dbApi.getNetwork(networkId);
+      return (ret as Array<BigNumber>).map((price: BigNumber) =>
+        price.shiftedBy(-feeDecimals),
+      );
+    }
+    return ret;
+  }
+
+  async transfer(
+    password: string,
+    networkId: string,
+    accountId: string,
+    to: string,
+    value: BigNumber,
+    gasPrice: BigNumber,
+    gasLimit: BigNumber,
+    tokenIdOnNetwork?: string,
+    extra?: { [key: string]: any },
+  ): Promise<{ txid: string; success: boolean }> {
+    const [credential, network, account] = await Promise.all([
+      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+      this.getNetwork(networkId),
+      this.getAccount(accountId, networkId),
+    ]);
+    return this.providerManager.simpleTransfer(
+      credential.seed,
+      password,
+      network,
+      account,
+      to,
+      value,
+      tokenIdOnNetwork,
+      {
+        ...extra,
+        feeLimit: gasLimit,
+        feePricePerUnit: gasPrice,
+      },
+    );
+  }
+
+  // TODO: sign & broadcast.
   // signTransaction
   // signMessage
   // broadcastRawTransaction
@@ -471,7 +543,11 @@ class Engine {
     enabledOnly = true,
   ): Promise<Map<string, Array<NetworkShort>>> {
     const networks = await this.dbApi.listNetworks();
-    const ret: Map<string, Array<NetworkShort>> = new Map([[IMPL_EVM, []]]);
+    const ret: Map<string, Array<NetworkShort>> = new Map([
+      [IMPL_EVM, []],
+      [IMPL_SOL, []],
+      // TODO: other implemetations
+    ]);
     networks.forEach((network) => {
       if (enabledOnly && !network.enabled) {
         return;
@@ -566,8 +642,6 @@ class Engine {
   }
 
   // TODO: RPC interactions.
-  // getGasPrice(networkId: string);
-  // estimateGasLimit();
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
   getPrices(networkId: string, tokens?: Array<string>): Map<string, BigNumber> {

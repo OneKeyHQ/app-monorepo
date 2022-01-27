@@ -3,10 +3,7 @@
 
 import { Buffer } from 'buffer';
 
-import {
-  RevealableSeed,
-  mnemonicFromEntropy,
-} from '@onekeyhq/blockchain-libs/dist/secret';
+import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
 import { encrypt } from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
 
 import {
@@ -36,6 +33,7 @@ import {
   ExportedCredential,
   MAIN_CONTEXT,
   OneKeyContext,
+  StoredCredential,
   checkPassword,
 } from '../base';
 
@@ -802,7 +800,7 @@ class FakeDB implements DBAPI {
                 );
                 return;
               }
-              const credentialJSON = JSON.parse(
+              const credentialJSON: StoredCredential = JSON.parse(
                 (
                   getCredentialRequest.result as {
                     id: string;
@@ -810,13 +808,8 @@ class FakeDB implements DBAPI {
                   }
                 ).credential,
               );
-              return Promise.resolve({
-                mnemonic: mnemonicFromEntropy(
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  Buffer.from(credentialJSON.entropy, 'hex'),
-                  password,
-                ),
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              resolve({
+                entropy: Buffer.from(credentialJSON.entropy, 'hex'),
                 seed: Buffer.from(credentialJSON.seed, 'hex'),
               });
             };

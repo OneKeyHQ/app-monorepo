@@ -1,15 +1,11 @@
 import { Buffer } from 'buffer';
-import * as crypto from 'crypto';
 
 import {
-  CKDPriv,
   CurveName,
-  ExtendedKey,
-  N,
-  generateMasterKeyFromSeed,
+  batchGetPublicKeys,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 
-import { IMPL_EVM } from '../constants';
+import { IMPL_EVM, IMPL_SOL } from '../constants';
 import { OneKeyInternalError } from '../errors';
 
 import { implToCoinTypes } from './impl';
@@ -18,6 +14,7 @@ import { implToCoinTypes } from './impl';
 
 type DerivationSettings = {
   accountLevel: number;
+  targetLevel?: number;
   hardenedLevels: Array<number>;
 };
 
@@ -25,16 +22,23 @@ const versionBytesMap: Record<string, Buffer> = {};
 
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
+  [IMPL_SOL]: [44],
 };
 
 const curveMap: Record<string, Array<CurveName>> = {
   [IMPL_EVM]: ['secp256k1'],
+  [IMPL_SOL]: ['ed25519'],
 };
 
 const derivationSettings: Record<string, DerivationSettings> = {
   [IMPL_EVM]: {
     accountLevel: 5,
     hardenedLevels: [1, 2, 3],
+  },
+  [IMPL_SOL]: {
+    accountLevel: 3,
+    targetLevel: 4,
+    hardenedLevels: [1, 2, 3, 4],
   },
 };
 
@@ -77,58 +81,65 @@ function getXpubs(
   }
 
   const childrenIndexes = [0, usedPurpose, Number.parseInt(coinType)];
-  let path = 'm';
-  let parentExtendedKey: ExtendedKey = generateMasterKeyFromSeed(
-    usedCurve,
-    seed,
-    password,
-  );
+  let prefix = 'm';
   for (let level = 1; level < setting.accountLevel; level += 1) {
     const isHardened = setting.hardenedLevels.includes(level);
     const index = childrenIndexes[level] || 0;
-    path += `/${index}${isHardened ? "'" : ''}`;
-    parentExtendedKey = CKDPriv(
-      usedCurve,
-      parentExtendedKey,
-      index + (isHardened ? 2 ** 31 : 0),
-      password,
-    );
+    prefix += `/${index}${isHardened ? "'" : ''}`;
+  }
+  let relPaths = [];
+  for (let index = start; index < start + limit; index += 1) {
+    let childIndex = index;
+    let isHardened = false;
+    if (setting.hardenedLevels.includes(setting.accountLevel)) {
+      isHardened = true;
+    } else {
+      isHardened = index >= 2 ** 31;
+      childIndex -= isHardened ? 2 ** 31 : 0;
+    }
+    relPaths.push(`${childIndex}${isHardened ? "'" : ''}`);
+  }
+  if (
+    typeof setting.targetLevel !== 'undefined' &&
+    setting.targetLevel > setting.accountLevel
+  ) {
+    let suffix = '';
+    for (
+      let level = setting.accountLevel + 1;
+      level <= setting.targetLevel;
+      level += 1
+    ) {
+      const isHardened = setting.hardenedLevels.includes(level);
+      const index = childrenIndexes[level] || 0;
+      suffix += `/${index}${isHardened ? "'" : ''}`;
+    }
+    relPaths = relPaths.map((relPath) => `${relPath}${suffix}`);
   }
 
-  const paths = [];
-  const xpubs = [];
   const verionBytes = versionBytesMap[impl] || Buffer.from('0488b21e', 'hex');
-  const depth = Buffer.from([setting.accountLevel]);
-  const fingerprint = crypto
-    .createHash('ripemd160')
-    .update(
-      crypto
-        .createHash('sha256')
-        .update(N(usedCurve, parentExtendedKey, password).key)
-        .digest(),
-    )
-    .digest()
-    .slice(0, 4);
-  for (let index = start; index < start + limit; index += 1) {
-    const isHardened = setting.hardenedLevels.includes(setting.accountLevel);
-    const childIndex = index + (isHardened ? 2 ** 31 : 0);
-    const extPub = N(
-      usedCurve,
-      CKDPriv(usedCurve, parentExtendedKey, childIndex, password),
-      password,
-    );
-    paths.push(`${path}/${index}${isHardened ? "'" : ''}`);
-    xpubs.push(
-      Buffer.concat([
-        verionBytes,
-        depth,
-        fingerprint,
-        Buffer.from(childIndex.toString().padStart(8, '0'), 'hex'),
-        extPub.chainCode,
-        extPub.key,
-      ]),
-    );
-  }
+  const depth = Buffer.from([setting.targetLevel || setting.accountLevel]);
+  const paths: Array<string> = [];
+  const xpubs: Array<Buffer> = [];
+
+  batchGetPublicKeys(usedCurve, seed, password, prefix, relPaths).forEach(
+    ({ path, parentFingerPrint, extendedKey }) => {
+      const lastIndexStr = path.split('/').slice(-1)[0];
+      const lastIndex = lastIndexStr.endsWith("'")
+        ? parseInt(lastIndexStr.slice(0, -1)) + 2 ** 31
+        : parseInt(lastIndexStr);
+      paths.push(path);
+      xpubs.push(
+        Buffer.concat([
+          verionBytes,
+          depth,
+          parentFingerPrint,
+          Buffer.from(lastIndex.toString(16).padStart(8, '0'), 'hex'),
+          extendedKey.chainCode,
+          extendedKey.key,
+        ]),
+      );
+    },
+  );
 
   return { paths, xpubs };
 }
