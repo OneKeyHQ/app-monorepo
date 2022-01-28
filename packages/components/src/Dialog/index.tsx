@@ -8,7 +8,8 @@ import React, {
   useState,
 } from 'react';
 
-import { Modal } from 'native-base';
+import { Modal, Pressable } from 'native-base';
+import { Keyboard } from 'react-native';
 
 import Box from '../Box';
 import { ButtonSize } from '../Button';
@@ -77,12 +78,18 @@ const Dialog: FC<DialogProps> = ({
         bg="#00000066"
         animationPreset="fade"
         isOpen={!!visible}
+        avoidKeyboard
         onClose={() => {
           if (canceledOnTouchOutside) handleClose();
         }}
         {...props}
       >
-        <Box p={6} w="100%" maxW="432px">
+        <Pressable
+          p={6}
+          w="100%"
+          maxW="432px"
+          onPress={() => Keyboard.dismiss()}
+        >
           <Box
             w="100%"
             p={{ base: '4', lg: '6' }}
@@ -114,7 +121,7 @@ const Dialog: FC<DialogProps> = ({
               </Box>
             )}
           </Box>
-        </Box>
+        </Pressable>
       </Modal>
     ),
     [

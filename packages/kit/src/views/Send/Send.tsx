@@ -21,21 +21,15 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import {
-  TransactionModalRoutes,
-  TransactionModalRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Transaction';
+
+import { SendRoutes, SendRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  TransactionModalRoutesParams,
-  TransactionModalRoutes.TransactionConfirmModal
-> &
-  NativeStackNavigationProp<
-    TransactionModalRoutesParams,
-    TransactionModalRoutes.TransactionEditFeeModal
-  >;
+  SendRoutesParams,
+  SendRoutes.Send
+>;
 
 type TransactionValues = {
   username: string;
@@ -136,9 +130,7 @@ const Transaction = () => {
               isDisabled={false}
               onPress={() => {
                 onSubmit();
-                navigation.navigate(
-                  TransactionModalRoutes.TransactionConfirmModal,
-                );
+                navigation.navigate(SendRoutes.SendConfirm);
               }}
             >
               {intl.formatMessage({ id: 'action__continue' })}
@@ -217,9 +209,7 @@ const Transaction = () => {
 
                 <Pressable
                   onPress={() => {
-                    navigation.navigate(
-                      TransactionModalRoutes.TransactionEditFeeModal,
-                    );
+                    navigation.navigate(SendRoutes.SendEditFee);
                   }}
                 >
                   {({ isHovered }) => (

@@ -5,6 +5,6 @@ export * from './Modal/CreateAccount';
 export * from './Modal/ImportAccount';
 export * from './Modal/ManageNetwork';
 export * from './Modal/ReceiveToken';
-export * from './Modal/Transaction';
+export * from './Modal/Send';
 export * from './Modal/TransactionDetail';
 export * from './Modal/WatchedAccount';
