@@ -5,3 +5,4 @@ export { WalletSchema } from './WalletSchema';
 export { NetworkSchema } from './NetworkSchema';
 export { ContextSchema } from './ContextSchema';
 export { CredentialSchema } from './CredentialSchema';
+export { HistoryEntrySchema } from './HistoryEntrySchema';
