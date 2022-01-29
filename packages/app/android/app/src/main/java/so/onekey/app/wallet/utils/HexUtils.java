@@ -24,6 +24,7 @@ public class HexUtils {
 
 
     public static String stringToHexString(String s) {
+        if (s == null) return "";
         String str = "";
         for (int i = 0; i < s.length(); i++) {
             int ch = s.charAt(i);
@@ -35,9 +36,10 @@ public class HexUtils {
 
     /**
      * 将字节数组转换成十六进制的字符串
-     * @param bt      字节数组
-     * @param start   起始下标
-     * @param end     终止下标
+     *
+     * @param bt    字节数组
+     * @param start 起始下标
+     * @param end   终止下标
      */
     public static String byteArr2HexStr(byte[] bt, int start, int end) {
         return byteArr2HexStr(bt, start, end, "");
@@ -45,7 +47,8 @@ public class HexUtils {
 
     /**
      * 将字节数组转换成十六进制的字符串
-     * @param bt      字节数组
+     *
+     * @param bt 字节数组
      */
     public static String byteArr2HexStr(byte[] bt) {
         return byteArr2HexStr(bt, 0, bt.length, "");
@@ -53,10 +56,11 @@ public class HexUtils {
 
     /**
      * 将字节数组转换成十六进制的字符串
-     * @param bt      字节数组
-     * @param start   起始下标
-     * @param end     终止下标
-     * @param sep     每个字节之间的分割字符串
+     *
+     * @param bt    字节数组
+     * @param start 起始下标
+     * @param end   终止下标
+     * @param sep   每个字节之间的分割字符串
      */
     public static String byteArr2HexStr(byte[] bt, int start, int end, String sep) {
         if (bt == null || bt.length < end || start < 0 || start >= end) {
@@ -71,14 +75,15 @@ public class HexUtils {
     }
 
     /**
-     *  将byte转换成对应的十六进制字符串（如：byte值0x3D转换成字符串"3D"）
-     *  @return  返回字符串长度一定为2
+     * 将byte转换成对应的十六进制字符串（如：byte值0x3D转换成字符串"3D"）
+     *
+     * @return 返回字符串长度一定为2
      */
     public static String byte2HexStr(byte b) {
         int i = (b & 0xF0) >> 4;
         int j = (b & 0x0F);
-        char c = (char)(i > 9 ? 'A' + i%10 : '0' + i);
-        char d = (char)(j > 9 ? 'A' + j%10 : '0' + j);
+        char c = (char) (i > 9 ? 'A' + i % 10 : '0' + i);
+        char d = (char) (j > 9 ? 'A' + j % 10 : '0' + j);
         return "" + c + d;
     }
 }

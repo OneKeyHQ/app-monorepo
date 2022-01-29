@@ -11,4 +11,6 @@ config.resolver.extraNodeModules = {
   crypto: require.resolve('react-native-crypto'),
 };
 
+config.watchFolders = [...config.watchFolders, '../'];
+
 module.exports = config;

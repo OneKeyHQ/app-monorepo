@@ -103,6 +103,19 @@ object OnekeyLiteCard {
     }
 
     @Throws(NFCExceptions::class)
+    fun changePinRequest(isoDep: IsoDep, oldPwd: String?, newPwd: String?): Boolean {
+        if (oldPwd.isNullOrEmpty()) {
+            throw NFCExceptions.InputPasswordEmptyException()
+        }
+        val verifyPinInitCommand = NfcCommand.verifyPinInitCommand(isoDep)
+        if (!verifyPinInitCommand) {
+            throw NFCExceptions.InterruptException()
+        }
+
+        return NfcCommand.changePinCommand(isoDep, oldPwd, newPwd)
+    }
+
+    @Throws(NFCExceptions::class)
     fun verifyPinBackupRequest(isoDep: IsoDep, verifyPin: String?): Boolean {
         if (verifyPin.isNullOrEmpty()) {
             throw NFCExceptions.InputPasswordEmptyException()
@@ -151,24 +164,43 @@ object OnekeyLiteCard {
     }
 
     @Throws(NFCExceptions::class)
-    fun setMnemonic(isoDep: IsoDep, mnemonic: String, pwd: String, isBackup: Boolean = true): Boolean {
-        if (hasBackup(isoDep)) {
-            throw NFCExceptions.InitializedException()
+    fun setMnemonic(cardState: CardState?, isoDep: IsoDep, mnemonic: String, pwd: String, overwrite: Boolean = false, isBackup: Boolean = true): Boolean {
+        if (cardState == null) throw  NFCExceptions.ConnectionFailException()
+
+        if (!overwrite) {
+            // 不是覆写要验证是否已经已经存有备份
+            if (cardState.hasBackup) {
+                throw NFCExceptions.InitializedException()
+            }
+
+            if (!cardState.isNewCard) {
+                throw NFCExceptions.InitializedException()
+            }
         }
-        if (!isNewCard(isoDep)) {
-            throw NFCExceptions.InitializedException()
-        }
-        if (!setPinBackupRequest(isoDep, pwd)) {
-            throw NFCExceptions.InitPasswordException()
+        if (cardState.isNewCard) {
+            // 如果是新卡设置密码
+            if (!setPinBackupRequest(isoDep, pwd)) {
+                throw NFCExceptions.InitPasswordException()
+            }
         }
         if (!verifyPinBackupRequest(isoDep, pwd)) {
-            throw NFCExceptions.InitPasswordException()
+            if (overwrite) {
+                throw NFCExceptions.PasswordWrongException()
+            } else {
+                throw NFCExceptions.InitPasswordException()
+            }
         }
         return NfcCommand.startBackupCommand(isoDep, isBackup, mnemonic)
     }
 
     @Throws(NFCExceptions::class)
-    fun getMnemonicWithPin(isoDep: IsoDep, pwd: String): String {
+    fun getMnemonicWithPin(cardState: CardState?, isoDep: IsoDep, pwd: String): String {
+        if (cardState == null) throw  NFCExceptions.ConnectionFailException()
+
+        if (!cardState.hasBackup) {
+            throw NFCExceptions.NotInitializedException()
+        }
+
         if (!verifyPinBackupRequest(isoDep, pwd)) {
             throw NFCExceptions.PasswordWrongException()
         }
@@ -179,6 +211,17 @@ object OnekeyLiteCard {
             throw NFCExceptions.NotInitializedException()
         }
         return result
+    }
+
+    @Throws(NFCExceptions::class)
+    fun changPin(cardState: CardState?, isoDep: IsoDep, oldPwd: String, newPwd: String): Boolean {
+        if (cardState == null) throw  NFCExceptions.ConnectionFailException()
+
+        if (!cardState.hasBackup) {
+            throw NFCExceptions.NotInitializedException()
+        }
+
+        return changePinRequest(isoDep, oldPwd, newPwd)
     }
 
     fun reset(isoDep: IsoDep): Boolean {

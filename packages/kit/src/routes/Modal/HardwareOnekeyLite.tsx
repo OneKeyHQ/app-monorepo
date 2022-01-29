@@ -6,6 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyLiteBackup from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Backup';
 import OnekeyLiteChangePin from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/ChangePin';
+import OnekeyLiteChangePinInputPin from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/ChangePinInputPin';
 import OnekeyLitePinCode from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/PinCode';
 import OnekeyLiteReset from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Reset';
 import OnekeyLiteRestore from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Restore';
@@ -37,6 +38,10 @@ const modalRoutes = [
   {
     name: OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal,
     component: OnekeyLitePinCode,
+  },
+  {
+    name: OnekeyLiteModalRoutes.OnekeyLitePinCodeChangePinModal,
+    component: OnekeyLiteChangePinInputPin,
   },
   {
     name: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,

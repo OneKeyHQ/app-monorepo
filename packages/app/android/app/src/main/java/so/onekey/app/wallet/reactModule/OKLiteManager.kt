@@ -314,11 +314,11 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     }
 
     @ReactMethod
-    fun setMnemonic(mnemonic: String, pwd: String, callback: Callback) = launch {
+    fun setMnemonic(mnemonic: String, pwd: String, overwrite: Boolean, callback: Callback) = launch {
         Log.d(TAG, "setMnemonic $mnemonic")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "setMnemonic Obtain the device")
-            val isSuccess = OnekeyLiteCard.setMnemonic(isoDep, mnemonic, pwd)
+            val isSuccess = OnekeyLiteCard.setMnemonic(mCurrentCardState, isoDep, mnemonic, pwd, overwrite)
             if (!isSuccess) throw NFCExceptions.ExecFailureException()
             Log.e(TAG, "setMnemonic result $isSuccess")
             isSuccess
@@ -330,7 +330,16 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         Log.d(TAG, "getMnemonicWithPin")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getMnemonicWithPin Obtain the device")
-            OnekeyLiteCard.getMnemonicWithPin(isoDep, pwd)
+            OnekeyLiteCard.getMnemonicWithPin(mCurrentCardState, isoDep, pwd)
+        }
+    }
+
+    @ReactMethod
+    fun changePin(oldPwd: String, newPwd: String, callback: Callback) = launch {
+        Log.d(TAG, "changePin")
+        handleOperation(callback) { isoDep ->
+            Log.e(TAG, "changePin Obtain the device")
+            OnekeyLiteCard.changPin(mCurrentCardState, isoDep, oldPwd, newPwd)
         }
     }
 

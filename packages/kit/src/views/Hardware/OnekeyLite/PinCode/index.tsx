@@ -16,11 +16,11 @@ const OnekeyLitePinCode: FC = () => {
         OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal
       >
     >();
-  console.log('route', route);
 
   const { callBack } = route.params;
 
   const navigation = useNavigation<OnekeyLiteStackNavigationProp>();
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
@@ -57,7 +57,6 @@ const OnekeyLitePinCode: FC = () => {
     }
   }, [intl, route.name]);
 
-  console.log('route', route);
   return (
     <HardwarePinCode
       title={title}
@@ -66,8 +65,8 @@ const OnekeyLitePinCode: FC = () => {
         id: 'content__we_dont_store_any_of_your_information',
       })}
       onComplete={(pinCode) => {
-        callBack(pinCode);
         navigation.goBack();
+        callBack(pinCode);
         return Promise.resolve(true);
       }}
     />

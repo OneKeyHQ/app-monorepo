@@ -1,6 +1,11 @@
 import { Buffer } from 'buffer';
 
-import { NativeModules, Platform } from 'react-native';
+import {
+  EmitterSubscription,
+  NativeEventEmitter,
+  NativeModules,
+  Platform,
+} from 'react-native';
 
 import { Callback, CallbackError, CardInfo } from './types';
 
@@ -12,7 +17,19 @@ export const LiteFlag = {
   TAG: 'ffff',
 };
 
+export type NfcConnectUiState = {
+  code: number;
+  message: string;
+};
+
 class OnekeyLite {
+  UiEventEmitter: NativeEventEmitter | null = null;
+
+  constructor() {
+    if (Platform.OS !== 'android') return;
+    this.UiEventEmitter = new NativeEventEmitter(OKLiteManager);
+  }
+
   encodeMnemonic(
     version: string,
     language: string,
@@ -37,18 +54,55 @@ class OnekeyLite {
     return Buffer.from(payload, 'hex').toString();
   }
 
+  addConnectListener(listener: (event: NfcConnectUiState) => void) {
+    return this.UiEventEmitter?.addListener('nfc_ui_event', listener);
+  }
+
+  removeConnectListener(listener: EmitterSubscription) {
+    return this.UiEventEmitter?.removeSubscription(listener);
+  }
+
+  addAccordListener() {
+    if (Platform.OS !== 'android') return;
+    const eventEmitter = new NativeEventEmitter(OKLiteManager);
+    return eventEmitter.addListener('nfc_active_connection', (event: any) => {
+      console.log(
+        'nfc_active_connection',
+        'A new NFC device is actively connected. ',
+        event,
+      );
+    });
+  }
+
   getCardName(result: Callback<string>) {
-    OKLiteManager.getCardName(result);
+    OKLiteManager.getCardName(
+      (error: string | null, data: string | null, state: string | null) => {
+        result(
+          error ? JSON.parse(error) : null,
+          data,
+          state ? JSON.parse(state) : null,
+        );
+      },
+    );
   }
 
   getLiteInfo(result: Callback<CardInfo>) {
-    OKLiteManager.getLiteInfo(result);
+    OKLiteManager.getLiteInfo(
+      (error: string | null, data: string | null, state: string | null) => {
+        result(
+          error ? JSON.parse(error) : null,
+          data ? JSON.parse(data) : null,
+          state ? JSON.parse(state) : null,
+        );
+      },
+    );
   }
 
   setMnemonic(
     mnemonic: string | string[],
     pwd: string,
     result: Callback<boolean>,
+    overwrite = false,
   ) {
     let mnemonicArray: string[];
     if (typeof mnemonic === 'string') {
@@ -63,28 +117,57 @@ class OnekeyLite {
       mnemonicArray,
     );
 
-    OKLiteManager.setMnemonic(payload, pwd, result);
+    OKLiteManager.setMnemonic(
+      payload,
+      pwd,
+      overwrite,
+      (error: string | null, data: boolean | null, state: string | null) => {
+        result(
+          error ? JSON.parse(error) : null,
+          data,
+          state ? JSON.parse(state) : null,
+        );
+      },
+    );
   }
 
   getMnemonicWithPin(pwd: string, result: Callback<string>) {
     OKLiteManager.getMnemonicWithPin(
       pwd,
-      (
-        error: CallbackError | null,
-        data: string | null,
-        state: CardInfo | null,
-      ) => {
-        if (data) {
-          result(error, this.decodeMnemonic(data), state);
-        } else {
-          result(error, data, state);
-        }
+      (error: string | null, data: string | null, state: string | null) => {
+        result(
+          error ? JSON.parse(error) : null,
+          data ? this.decodeMnemonic(data) : null,
+          state ? JSON.parse(state) : null,
+        );
+      },
+    );
+  }
+
+  changePin(oldPin: string, newPin: string, result: Callback<boolean>) {
+    OKLiteManager.changePin(
+      oldPin,
+      newPin,
+      (error: string | null, data: boolean | null, state: string | null) => {
+        result(
+          error ? JSON.parse(error) : null,
+          data,
+          state ? JSON.parse(state) : null,
+        );
       },
     );
   }
 
   reset(result: Callback<boolean>) {
-    OKLiteManager.reset(result);
+    OKLiteManager.reset(
+      (error: string | null, data: boolean | null, state: string | null) => {
+        result(
+          error ? JSON.parse(error) : null,
+          data,
+          state ? JSON.parse(state) : null,
+        );
+      },
+    );
   }
 
   cancel() {

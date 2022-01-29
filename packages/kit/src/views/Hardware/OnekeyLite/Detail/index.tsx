@@ -19,12 +19,13 @@ import { useNavigation } from '../../../..';
 import WebView from '../../../../components/WebView';
 import { ModalRoutes } from '../../../../routes';
 import { OnekeyLiteStackNavigationProp } from '../navigation';
+import { OnekeyLiteModalRoutes } from '../routes';
 
 export type OnekeyLiteDetailViewProps = {
   liteId: string;
 };
 
-type OptionType = 'restore' | 'change_pin' | 'reset';
+type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 
 type NavigationProps = OnekeyLiteStackNavigationProp;
 
@@ -41,14 +42,85 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
     null,
   );
 
+  const startRestoreModal = (inputPwd: string, callBack: () => void) => {
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLiteRestoreModal, {
+      pwd: inputPwd,
+      onRetry: () => {
+        callBack?.();
+      },
+    });
+  };
+
+  const startRestorePinVerifyModal = () => {
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
+      callBack: (inputPwd) => {
+        startRestoreModal(inputPwd, () => {
+          console.log('restartRestorePinVerifyModal');
+          startRestorePinVerifyModal();
+        });
+        return true;
+      },
+    });
+  };
+
+  const startBackupModal = (inputPwd: string, callBack: () => void) => {
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLiteBackupModal, {
+      pwd: inputPwd,
+      onRetry: () => {
+        callBack?.();
+      },
+    });
+  };
+
+  const startBackupPinVerifyModal = () => {
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
+      callBack: (inputPwd) => {
+        startBackupModal(inputPwd, () => {
+          startBackupPinVerifyModal();
+        });
+        return true;
+      },
+    });
+  };
+
+  const startChangePinModal = (
+    oldPin: string,
+    newPin: string,
+    callBack: () => void,
+  ) => {
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLiteChangePinModal, {
+      oldPin,
+      newPin,
+      onRetry: () => {
+        callBack?.();
+      },
+    });
+  };
+
+  const startChangePinInputPinModal = () => {
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeChangePinModal, {
+      callBack: (oldPin, newPin) => {
+        startChangePinModal(oldPin, newPin, () => {
+          startChangePinInputPinModal();
+        });
+        return true;
+      },
+    });
+  };
+
   useEffect(() => {
     switch (currentOptionType) {
       case 'restore':
-        navigation.navigate(ModalRoutes.OnekeyLiteBackupModal);
+        startRestorePinVerifyModal();
+        setCurrentOptionType(null);
+        break;
+      case 'backup':
+        startBackupPinVerifyModal();
+
         setCurrentOptionType(null);
         break;
       case 'change_pin':
-        navigation.navigate(ModalRoutes.OnekeyLiteChangePinModal);
+        startChangePinInputPinModal();
         setCurrentOptionType(null);
         break;
       case 'reset':
@@ -81,6 +153,13 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
         id: 'action__restore_with_onekey_lite',
       }),
       value: 'restore',
+      iconProps: { name: 'SaveAsOutline' },
+    },
+    {
+      label: intl.formatMessage({
+        id: 'action__back_up_to_onekey_lite',
+      }),
+      value: 'backup',
       iconProps: { name: 'SaveAsOutline' },
     },
     {
