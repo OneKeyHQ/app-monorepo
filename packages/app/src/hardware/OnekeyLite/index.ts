@@ -75,27 +75,11 @@ class OnekeyLite {
   }
 
   getCardName(result: Callback<string>) {
-    OKLiteManager.getCardName(
-      (error: string | null, data: string | null, state: string | null) => {
-        result(
-          error ? JSON.parse(error) : null,
-          data,
-          state ? JSON.parse(state) : null,
-        );
-      },
-    );
+    OKLiteManager.getCardName(result);
   }
 
   getLiteInfo(result: Callback<CardInfo>) {
-    OKLiteManager.getLiteInfo(
-      (error: string | null, data: string | null, state: string | null) => {
-        result(
-          error ? JSON.parse(error) : null,
-          data ? JSON.parse(data) : null,
-          state ? JSON.parse(state) : null,
-        );
-      },
-    );
+    OKLiteManager.getLiteInfo(result);
   }
 
   setMnemonic(
@@ -116,58 +100,28 @@ class OnekeyLite {
       LiteFlag.LANGUAGE,
       mnemonicArray,
     );
-
-    OKLiteManager.setMnemonic(
-      payload,
-      pwd,
-      overwrite,
-      (error: string | null, data: boolean | null, state: string | null) => {
-        result(
-          error ? JSON.parse(error) : null,
-          data,
-          state ? JSON.parse(state) : null,
-        );
-      },
-    );
+    OKLiteManager.setMnemonic(payload, pwd, overwrite, result);
   }
 
   getMnemonicWithPin(pwd: string, result: Callback<string>) {
     OKLiteManager.getMnemonicWithPin(
       pwd,
-      (error: string | null, data: string | null, state: string | null) => {
-        result(
-          error ? JSON.parse(error) : null,
-          data ? this.decodeMnemonic(data) : null,
-          state ? JSON.parse(state) : null,
-        );
+      (
+        error: CallbackError | null,
+        data: string | null,
+        state: CardInfo | null,
+      ) => {
+        result(error, data ? this.decodeMnemonic(data) : null, state);
       },
     );
   }
 
   changePin(oldPin: string, newPin: string, result: Callback<boolean>) {
-    OKLiteManager.changePin(
-      oldPin,
-      newPin,
-      (error: string | null, data: boolean | null, state: string | null) => {
-        result(
-          error ? JSON.parse(error) : null,
-          data,
-          state ? JSON.parse(state) : null,
-        );
-      },
-    );
+    OKLiteManager.changePin(oldPin, newPin, result);
   }
 
   reset(result: Callback<boolean>) {
-    OKLiteManager.reset(
-      (error: string | null, data: boolean | null, state: string | null) => {
-        result(
-          error ? JSON.parse(error) : null,
-          data,
-          state ? JSON.parse(state) : null,
-        );
-      },
-    );
+    OKLiteManager.reset(result);
   }
 
   cancel() {

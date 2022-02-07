@@ -38,6 +38,12 @@ sealed class NFCExceptions(val code: Int, override val message: String? = null) 
     // 设置初始化密码错误
     class InitPasswordException(message: String? = null) : NFCExceptions(3004, message)
 
+    // 密码重试次数太多已经锁死
+    class CardLockException(message: String? = null) : NFCExceptions(3005, message)
+
+    // 密码重试次数太多已经自动重制卡片
+    class UpperErrorAutoResetException(message: String? = null) : NFCExceptions(3006, message)
+
     // 未知的命令执行失败
     class ExecFailureException(message: String? = null) : NFCExceptions(4000, message)
 

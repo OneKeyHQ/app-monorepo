@@ -224,6 +224,52 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           onSecondaryActionPress: () => onExit?.(),
         }}
       />
+
+      {/* Card 已被锁定，需要手动 Reset */}
+      <Dialog
+        visible={code === 3005}
+        canceledOnTouchOutside={false}
+        onClose={() => onDialogClose?.()}
+        contentProps={{
+          iconType: 'danger',
+          title: '卡片已经锁定',
+          content: '卡片已经锁定，需要手动重置。',
+        }}
+        footerButtonProps={{
+          primaryActionProps: {
+            type: 'destructive',
+            children: intl.formatMessage({ id: 'action__i_got_it' }),
+          },
+          onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
+            onClose?.();
+            onExit?.();
+          },
+          onSecondaryActionPress: () => onExit?.(),
+        }}
+      />
+
+      {/* Card Pin 码输入失败次数太多已经重置 */}
+      <Dialog
+        visible={code === 3006}
+        canceledOnTouchOutside={false}
+        onClose={() => onDialogClose?.()}
+        contentProps={{
+          iconType: 'danger',
+          title: '卡片 Pin 输入错误次数太多',
+          content: '卡片输入 Pin 错误次数太多，已经自动重置。',
+        }}
+        footerButtonProps={{
+          primaryActionProps: {
+            type: 'destructive',
+            children: intl.formatMessage({ id: 'action__retry' }),
+          },
+          onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
+            onClose?.();
+            onExit?.();
+          },
+          onSecondaryActionPress: () => onExit?.(),
+        }}
+      />
     </>
   );
 };

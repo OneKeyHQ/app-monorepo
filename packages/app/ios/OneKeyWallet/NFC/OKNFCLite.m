@@ -116,13 +116,18 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     [self.delegate ok_lite:self getInfoComplete:status];
 }
 
-- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin {
+- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL *)overwrite {
     if (pin.length != OKNFC_PIN_LENGTH) {
         return;
     }
     self.pin = pin;
     self.exportMnemonic = mnemonic;
-    self.sessionType = OKNFCLiteSessionTypeSetMnemonic;
+    if(overwrite) {
+      // 写入强制覆盖
+      self.sessionType = OKNFCLiteSessionTypeSetMnemonicForce;
+    } else {
+      self.sessionType = OKNFCLiteSessionTypeSetMnemonic;
+    }
     [self beginNewNFCSession];
 }
 
@@ -139,7 +144,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     }
 
     NSString *liteSN = [OKNFCLite getSNWithTag:tag];
-    if (!liteSN.length || ![liteSN isEqualToString:self.SN]) {
+    if (!liteSN.length || (self.SN.length != 0 && ![liteSN isEqualToString:self.SN])) {
         [self endNFCSessionWithError:NO];
         [self.delegate ok_lite:self setMnemonicComplete:OKNFCLiteSetMncStatusSNNotMatch];
         return;

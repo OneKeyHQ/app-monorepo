@@ -1,10 +1,13 @@
 import { NativeModule } from 'react-native';
 
-import { NativeCallback as LiteCallback } from '../hardware/OnekeyLite/types';
+import {
+  CardInfo,
+  Callback as LiteCallback,
+} from '../hardware/OnekeyLite/types';
 
 export interface OKLiteManagerInterface extends NativeModule {
   getCardName: (call: LiteCallback<string>) => void;
-  getLiteInfo: (call: LiteCallback<string>) => void;
+  getLiteInfo: (call: LiteCallback<CardInfo>) => void;
   setMnemonic: (
     mnemonic: string,
     pwd: string,

@@ -4,12 +4,6 @@ export type Callback<T> = (
   state: CardInfo | null,
 ) => void;
 
-export type NativeCallback<T> = (
-  error: string | null,
-  data: T | null,
-  state: string | null,
-) => void;
-
 export type CallbackError = { code: number; message: string | null } | null;
 
 export type CardInfo = {

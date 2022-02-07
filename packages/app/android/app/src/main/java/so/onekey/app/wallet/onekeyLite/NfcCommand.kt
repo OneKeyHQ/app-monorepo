@@ -26,7 +26,7 @@ class NfcCommand {
         const val SELECT_CARD_ID = "select_card_id"
         const val VERIFY_SUCCESS = 100
         const val INTERRUPT_STATUS = 1000
-        const val RESET_PIN_SUCCESS = 0
+        const val RESET_PIN_SUCCESS = -1
         const val NEW_PIN = "029000"
         const val MAX_RETRY_NUM = 10
         const val NO_RETRY_NUM_RESET_CARD = 0

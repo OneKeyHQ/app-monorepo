@@ -4,7 +4,10 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import HardwarePinCode from '../../BasePinCode';
-import { OnekeyLiteStackNavigationProp } from '../navigation';
+import {
+  OnekeyLitePinStackNavigationProp,
+  OnekeyLiteStackNavigationProp,
+} from '../navigation';
 import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
 
 const OnekeyLitePinCode: FC = () => {
@@ -13,13 +16,15 @@ const OnekeyLitePinCode: FC = () => {
     useRoute<
       RouteProp<
         OnekeyLiteRoutesParams,
-        OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal
+        OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal
       >
     >();
 
   const { callBack } = route.params;
 
-  const navigation = useNavigation<OnekeyLiteStackNavigationProp>();
+  const navigation = useNavigation<
+    OnekeyLiteStackNavigationProp & OnekeyLitePinStackNavigationProp
+  >();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -32,24 +37,6 @@ const OnekeyLitePinCode: FC = () => {
           intl.formatMessage({
             id: 'content__enter_onekey_lite_pin_to_continue',
           }),
-        );
-        break;
-      case OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal.toString():
-        setTitle(intl.formatMessage({ id: 'title__enter_current_pin' }));
-        setDescription(
-          intl.formatMessage({ id: 'title__enter_current_pin_desc' }),
-        );
-        break;
-      case OnekeyLiteModalRoutes.OnekeyLitePinCodeSetModal.toString():
-        setTitle(intl.formatMessage({ id: 'title__set_up_new_pin' }));
-        setDescription(
-          intl.formatMessage({ id: 'title__set_up_new_pin_desc' }),
-        );
-        break;
-      case OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal.toString():
-        setTitle(intl.formatMessage({ id: 'title__verify_new_pin' }));
-        setDescription(
-          intl.formatMessage({ id: 'title__verify_new_pin_desc' }),
         );
         break;
       default:

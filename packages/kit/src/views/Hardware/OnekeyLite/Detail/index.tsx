@@ -18,8 +18,11 @@ import { SelectItem } from '@onekeyhq/components/src/Select';
 import { useNavigation } from '../../../..';
 import WebView from '../../../../components/WebView';
 import { ModalRoutes } from '../../../../routes';
-import { OnekeyLiteStackNavigationProp } from '../navigation';
-import { OnekeyLiteModalRoutes } from '../routes';
+import {
+  OnekeyLitePinStackNavigationProp,
+  OnekeyLiteStackNavigationProp,
+} from '../navigation';
+import { OnekeyLiteModalRoutes, OnekeyLitePinModalRoutes } from '../routes';
 
 export type OnekeyLiteDetailViewProps = {
   liteId: string;
@@ -27,7 +30,8 @@ export type OnekeyLiteDetailViewProps = {
 
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 
-type NavigationProps = OnekeyLiteStackNavigationProp;
+type NavigationProps = OnekeyLiteStackNavigationProp &
+  OnekeyLitePinStackNavigationProp;
 
 const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
   const intl = useIntl();
@@ -83,29 +87,10 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
     });
   };
 
-  const startChangePinModal = (
-    oldPin: string,
-    newPin: string,
-    callBack: () => void,
-  ) => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLiteChangePinModal, {
-      oldPin,
-      newPin,
-      onRetry: () => {
-        callBack?.();
-      },
-    });
-  };
-
   const startChangePinInputPinModal = () => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeChangePinModal, {
-      callBack: (oldPin, newPin) => {
-        startChangePinModal(oldPin, newPin, () => {
-          startChangePinInputPinModal();
-        });
-        return true;
-      },
-    });
+    navigation.navigate(
+      OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal,
+    );
   };
 
   useEffect(() => {
@@ -189,11 +174,16 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
         }}
         footer={null}
         asAction
-        dropdownPosition="right"
         containerProps={{
-          width: '20px',
-          zIndex: 5,
+          width:
+            Platform.OS === 'android' || Platform.OS === 'ios'
+              ? '40px'
+              : '200px',
         }}
+        triggerProps={{
+          width: '40px',
+        }}
+        dropdownPosition="right"
         options={liteOption}
         renderTrigger={() => (
           <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">

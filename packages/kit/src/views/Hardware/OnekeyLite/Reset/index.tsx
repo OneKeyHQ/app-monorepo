@@ -77,7 +77,7 @@ const Reset: FC = () => {
       (error: CallbackError, data: boolean | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
-          console.log('NFC read data', data);
+          console.log('NFC read data:', data);
           stateNfcComplete();
         } else if (error) {
           console.log('NFC read error', error);

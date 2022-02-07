@@ -42,7 +42,7 @@ typedef NS_ENUM(NSInteger, NFCLiteExceptions) {
 
 + (void)getLiteInfo:(RCTResponseSenderBlock)callBack;
 
-+ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin callBack:(RCTResponseSenderBlock)callBack;
++ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL *)overwrite callBack:(RCTResponseSenderBlock)callBack;
 
 + (void)getMnemonicWithPin:(NSString *)pin callBack:(RCTResponseSenderBlock)callBack;
 

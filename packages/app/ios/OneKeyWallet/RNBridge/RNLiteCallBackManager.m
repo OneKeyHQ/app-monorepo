@@ -62,8 +62,8 @@
 
 #pragma mark - setMnemonic
 
-+ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin callBack:(RCTResponseSenderBlock)callBack {
-  [[RNLiteCallBackManager sharedInstance].lite setMnemonic:mnemonic withPin:pin];
++ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL *)overwrite callBack:(RCTResponseSenderBlock)callBack {
+  [[RNLiteCallBackManager sharedInstance].lite setMnemonic:mnemonic withPin:pin overwrite:overwrite];
   [RNLiteCallBackManager sharedInstance].setMnemonicCallback = callBack;
 }
 

@@ -116,7 +116,7 @@ object OnekeyLiteCard {
     }
 
     @Throws(NFCExceptions::class)
-    fun verifyPinBackupRequest(isoDep: IsoDep, verifyPin: String?): Boolean {
+    fun verifyPinBackupRequest(isoDep: IsoDep, verifyPin: String?): Int {
         if (verifyPin.isNullOrEmpty()) {
             throw NFCExceptions.InputPasswordEmptyException()
         }
@@ -125,7 +125,7 @@ object OnekeyLiteCard {
             throw NFCExceptions.InterruptException()
         }
 
-        return NfcCommand.startVerifyPinCommand(isoDep, verifyPin) == NfcCommand.VERIFY_SUCCESS
+        return NfcCommand.startVerifyPinCommand(isoDep, verifyPin)
     }
 
     @Throws(NFCExceptions::class)
@@ -169,11 +169,7 @@ object OnekeyLiteCard {
 
         if (!overwrite) {
             // 不是覆写要验证是否已经已经存有备份
-            if (cardState.hasBackup) {
-                throw NFCExceptions.InitializedException()
-            }
-
-            if (!cardState.isNewCard) {
+            if (!cardState.isNewCard || (!cardState.isNewCard && cardState.hasBackup)) {
                 throw NFCExceptions.InitializedException()
             }
         }
@@ -183,9 +179,25 @@ object OnekeyLiteCard {
                 throw NFCExceptions.InitPasswordException()
             }
         }
-        if (!verifyPinBackupRequest(isoDep, pwd)) {
+        val verifyPin = verifyPinBackupRequest(isoDep, pwd)
+        Log.d("verifyPinBackupRequest","getMnemonicWithPin ${verifyPin}")
+        if (verifyPin != NfcCommand.VERIFY_SUCCESS) {
             if (overwrite) {
-                throw NFCExceptions.PasswordWrongException()
+                when (verifyPin) {
+                    NfcCommand.INTERRUPT_STATUS -> {
+                        // Reset 卡片错误,已经锁定
+                        throw NFCExceptions.CardLockException()
+                    }
+                    NfcCommand.RESET_PIN_SUCCESS -> {
+                        // Reset 卡片成功
+                        throw NFCExceptions.UpperErrorAutoResetException()
+                    }
+                    else -> {
+                        // 密码错误
+                        cardState.pinRetryCount = verifyPin
+                        throw NFCExceptions.PasswordWrongException()
+                    }
+                }
             } else {
                 throw NFCExceptions.InitPasswordException()
             }
@@ -197,12 +209,28 @@ object OnekeyLiteCard {
     fun getMnemonicWithPin(cardState: CardState?, isoDep: IsoDep, pwd: String): String {
         if (cardState == null) throw  NFCExceptions.ConnectionFailException()
 
-        if (!cardState.hasBackup) {
+        if (cardState.isNewCard || (!cardState.isNewCard && !cardState.hasBackup)) {
             throw NFCExceptions.NotInitializedException()
         }
 
-        if (!verifyPinBackupRequest(isoDep, pwd)) {
-            throw NFCExceptions.PasswordWrongException()
+        val verifyPin = verifyPinBackupRequest(isoDep, pwd)
+        Log.d("verifyPinBackupRequest","getMnemonicWithPin ${verifyPin}")
+        if (verifyPin != NfcCommand.VERIFY_SUCCESS) {
+            when (verifyPin) {
+                NfcCommand.INTERRUPT_STATUS -> {
+                    // Reset 卡片错误,已经锁定
+                    throw NFCExceptions.CardLockException()
+                }
+                NfcCommand.RESET_PIN_SUCCESS -> {
+                    // Reset 卡片成功
+                    throw NFCExceptions.UpperErrorAutoResetException()
+                }
+                else -> {
+                    // 密码错误
+                    cardState.pinRetryCount = verifyPin
+                    throw NFCExceptions.PasswordWrongException()
+                }
+            }
         }
 
         val result = NfcCommand.exportCommand(isoDep)
@@ -217,7 +245,7 @@ object OnekeyLiteCard {
     fun changPin(cardState: CardState?, isoDep: IsoDep, oldPwd: String, newPwd: String): Boolean {
         if (cardState == null) throw  NFCExceptions.ConnectionFailException()
 
-        if (!cardState.hasBackup) {
+        if (cardState.isNewCard || (!cardState.isNewCard && !cardState.hasBackup)) {
             throw NFCExceptions.NotInitializedException()
         }
 

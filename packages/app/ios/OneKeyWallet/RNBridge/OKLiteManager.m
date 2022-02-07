@@ -23,9 +23,9 @@ RCT_EXPORT_METHOD(getLiteInfo:(RCTResponseSenderBlock)callback)
   [RNLiteCallBackManager getLiteInfo:callback];
 }
 
-RCT_EXPORT_METHOD(setMnemonic:(NSString *)mnemonic pin:(NSString *)pin callback:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(setMnemonic:(NSString *)mnemonic pin:(NSString *)pin overwrite:(BOOL *)overwrite callback:(RCTResponseSenderBlock)callback)
 {
-  [RNLiteCallBackManager setMnemonic:mnemonic withPin:pin callBack:callback];
+  [RNLiteCallBackManager setMnemonic:mnemonic withPin:pin overwrite:overwrite callBack:callback];
 }
 
 RCT_EXPORT_METHOD(getMnemonicWithPin:(NSString *)pin callback:(RCTResponseSenderBlock)callback)

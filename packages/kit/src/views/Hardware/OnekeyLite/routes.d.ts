@@ -1,9 +1,5 @@
 export enum OnekeyLiteModalRoutes {
   OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
-  OnekeyLitePinCodeCurrentModal = 'OnekeyLitePinCodeCurrentModal',
-  OnekeyLitePinCodeSetModal = 'OnekeyLitePinCodeSetModal',
-  OnekeyLitePinCodeRepeatModal = 'OnekeyLitePinCodeRepeatModal',
-  OnekeyLitePinCodeChangePinModal = 'OnekeyLitePinCodeChangeModal',
   OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
   OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
   OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
@@ -13,18 +9,6 @@ export enum OnekeyLiteModalRoutes {
 export type OnekeyLiteRoutesParams = {
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: {
     callBack: (pwd: string) => boolean;
-  };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeSetModal]: {
-    callBack: (pwd: string) => boolean;
-  };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal]: {
-    callBack: (pwd: string) => boolean;
-  };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal]: {
-    callBack: (pwd: string) => boolean;
-  };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeChangePinModal]: {
-    callBack: (oldPwd: string, newPwd: string) => boolean;
   };
   [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: {
     pwd: string;
@@ -40,4 +24,21 @@ export type OnekeyLiteRoutesParams = {
     onRetry: () => void;
   };
   [OnekeyLiteModalRoutes.OnekeyLiteResetModal]: undefined;
+};
+
+export enum OnekeyLitePinModalRoutes {
+  OnekeyLitePinCodeChangePinModal = 'OnekeyLitePinCodeChangeModal',
+  OnekeyLitePinCodeSetModal = 'OnekeyLitePinCodeSetModal',
+  OnekeyLitePinCodeRepeatModal = 'OnekeyLitePinCodeRepeatModal',
+}
+
+export type OnekeyLitePinRoutesParams = {
+  [OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal]: undefined;
+  [OnekeyLitePinModalRoutes.OnekeyLitePinCodeSetModal]: {
+    currentPin: string;
+  };
+  [OnekeyLitePinModalRoutes.OnekeyLitePinCodeRepeatModal]: {
+    currentPin: string;
+    newPin: string;
+  };
 };
