@@ -55,11 +55,11 @@ import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
 import Settings from '@onekeyhq/kit/src/views/Settings';
-import SettingsWebview from '@onekeyhq/kit/src/views/Settings/Webview';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
+import Webview from '@onekeyhq/kit/src/views/Webview';
 
 import renderCustomSubStackHeader from './Header';
 
@@ -120,7 +120,7 @@ export enum StackBasicRoutes {
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'Settings',
   UnlockScreen = 'Unlock',
-  SettingsWebviewScreen = 'SettingsWebviewScreen',
+  WebviewScreen = 'WebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
 }
 
@@ -169,7 +169,7 @@ export type StackBasicRoutesParams = {
   [StackBasicRoutes.ScreenTokenDetail]: undefined;
   [StackBasicRoutes.SettingsScreen]: undefined;
   [StackBasicRoutes.UnlockScreen]: undefined;
-  [StackBasicRoutes.SettingsWebviewScreen]: { url: string; title?: string };
+  [StackBasicRoutes.WebviewScreen]: { url: string; title?: string };
   [StackBasicRoutes.ScreenOnekeyLiteDetail]: undefined;
 };
 
@@ -280,8 +280,8 @@ export const stackScreenList = [
     component: Unlock,
   },
   {
-    name: StackRoutes.SettingsWebviewScreen,
-    component: SettingsWebview,
+    name: StackRoutes.WebviewScreen,
+    component: Webview,
   },
   {
     name: StackRoutes.ScreenOnekeyLiteDetail,

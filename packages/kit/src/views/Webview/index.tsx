@@ -10,22 +10,19 @@ import {
 import { Box } from '@onekeyhq/components';
 import { StackRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes/Stack';
 
-import WebView from '../../../components/WebView';
-import {
-  StackBasicRoutes,
-  StackBasicRoutesParams,
-} from '../../../routes/Stack';
+import WebView from '../../components/WebView';
+import { StackBasicRoutes, StackBasicRoutesParams } from '../../routes/Stack';
 
 type StackRoutesType = typeof StackRoutes;
 
 type NavigationProps = NavigationProp<
   StackBasicRoutesParams,
-  StackBasicRoutes.SettingsWebviewScreen
+  StackBasicRoutes.WebviewScreen
 >;
 
 type RouteProps = RouteProp<
   StackRoutesParams,
-  StackRoutesType['SettingsWebviewScreen']
+  StackRoutesType['WebviewScreen']
 >;
 
 export const SettingsWebViews: FC = () => {

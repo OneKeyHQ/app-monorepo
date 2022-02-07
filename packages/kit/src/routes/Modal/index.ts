@@ -38,6 +38,7 @@ import ManageTokenModal, {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
 } from './ManageToken';
+import MiscModal, { MiscModalRoutes, MiscRoutesParams } from './Misc';
 import ReceiveToken, {
   ReceiveTokenRoutes,
   ReceiveTokenRoutesParams,
@@ -132,6 +133,10 @@ const modalStackScreenList = [
     name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
     component: HardwareOnekeyLitePinModal,
   },
+  {
+    name: MiscModalRoutes.TermsModal,
+    component: MiscModal,
+  },
 ];
 
 export const ModalRoutes = {
@@ -169,6 +174,7 @@ export type ModalTypes = {
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
   [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
+  [MiscModalRoutes.TermsModal]: NavigatorScreenParams<MiscRoutesParams>;
 };
 
 export default modalStackScreenList;
