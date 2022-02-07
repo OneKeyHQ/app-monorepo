@@ -1,5 +1,7 @@
 import Realm from 'realm';
 
+import { DBNetwork } from '../../../types/network';
+
 class NetworkSchema extends Realm.Object {
   public id!: string;
 
@@ -27,6 +29,8 @@ class NetworkSchema extends Realm.Object {
 
   public rpcURL!: string;
 
+  public curve?: string;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Network',
     primaryKey: 'id',
@@ -44,8 +48,30 @@ class NetworkSchema extends Realm.Object {
       balance2FeeDecimals: 'int',
       rpcURL: 'string',
       position: 'int',
+      curve: 'string?',
     },
   };
+
+  get internalObj(): DBNetwork {
+    const ret = {
+      id: this.id,
+      name: this.name,
+      impl: this.impl,
+      symbol: this.symbol,
+      logoURI: this.logoURI,
+      enabled: this.enabled,
+      feeSymbol: this.feeSymbol,
+      decimals: this.decimals,
+      feeDecimals: this.feeDecimals,
+      balance2FeeDecimals: this.balance2FeeDecimals,
+      rpcURL: this.rpcURL,
+      position: this.position,
+    };
+    if (this.curve !== null) {
+      Object.assign(ret, { curve: this.curve });
+    }
+    return ret;
+  }
 }
 
 export { NetworkSchema };

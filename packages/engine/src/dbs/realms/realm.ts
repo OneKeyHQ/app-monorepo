@@ -148,7 +148,7 @@ class RealmDB implements DBAPI {
     const networks: Realm.Results<NetworkSchema> =
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.realm!.objects<NetworkSchema>('Network').sorted('position', true);
-    return Promise.resolve(networks as unknown as DBNetwork[]);
+    return Promise.resolve(networks.map((network) => network.internalObj));
   }
 
   /**
@@ -174,6 +174,7 @@ class RealmDB implements DBAPI {
         this.realm!.objects<NetworkSchema>('Network').max(
           'position',
         ) as unknown as number;
+      network.position = position + 1;
       this.realm!.write(() => {
         this.realm!.create('Network', {
           id: network.id,
@@ -211,7 +212,7 @@ class RealmDB implements DBAPI {
         new OneKeyInternalError(`Network ${networkId} not found.`),
       );
     }
-    return Promise.resolve(network as unknown as DBNetwork);
+    return Promise.resolve(network.internalObj);
   }
 
   /**
@@ -287,7 +288,7 @@ class RealmDB implements DBAPI {
           network.rpcURL = params.rpcURL;
         }
       });
-      return Promise.resolve(network as unknown as DBNetwork);
+      return Promise.resolve(network.internalObj);
     } catch (error) {
       console.error(error);
       return Promise.reject(error);
@@ -379,7 +380,7 @@ class RealmDB implements DBAPI {
       if (typeof token === 'undefined') {
         return Promise.resolve(undefined);
       }
-      return Promise.resolve(token as unknown as Token);
+      return Promise.resolve(token.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -413,7 +414,7 @@ class RealmDB implements DBAPI {
         }
         tokens = account.tokens?.filtered('networkId == $0', networkId);
       }
-      return Promise.resolve(tokens as unknown as Token[]);
+      return Promise.resolve((tokens || []).map((token) => token.internalObj));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -451,7 +452,7 @@ class RealmDB implements DBAPI {
       this.realm!.write(() => {
         account.tokens?.add(token);
       });
-      return Promise.resolve(token as unknown as Token);
+      return Promise.resolve(token.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -504,8 +505,8 @@ class RealmDB implements DBAPI {
    */
   getWallets(): Promise<DBWallet[]> {
     try {
-      const wallets = this.realm!.objects<DBWallet>('Wallet');
-      return Promise.resolve(wallets as unknown as DBWallet[]);
+      const wallets = this.realm!.objects<WalletSchema>('Wallet');
+      return Promise.resolve(wallets.map((wallet) => wallet.internalObj));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -527,7 +528,7 @@ class RealmDB implements DBAPI {
       if (typeof wallet === 'undefined') {
         return Promise.resolve(undefined);
       }
-      return Promise.resolve(wallet as unknown as DBWallet);
+      return Promise.resolve(wallet.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -576,7 +577,7 @@ class RealmDB implements DBAPI {
             nextAccountIds: { 'global': 1 },
           });
         }
-        const accountNew = this.realm!.create<AccountSchema>('Account', {
+        const accountNew = this.realm!.create('Account', {
           id: account.id,
           name: account.name,
           type: account.type,
@@ -587,7 +588,7 @@ class RealmDB implements DBAPI {
           // @ts-ignore
           address: account.address,
         });
-        wallet.accounts!.add(accountNew);
+        wallet.accounts!.add(accountNew as AccountSchema);
         if (wallet.type === WALLET_TYPE_WATCHING) {
           wallet.nextAccountIds!.global += 1;
         } else if (wallet.type === WALLET_TYPE_HD) {
@@ -608,7 +609,7 @@ class RealmDB implements DBAPI {
           wallet.nextAccountIds![category] = nextId;
         }
       });
-      return Promise.resolve(account as unknown as DBAccount);
+      return Promise.resolve(account);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -628,7 +629,7 @@ class RealmDB implements DBAPI {
         accountIds.map((id, index) => `id == $${index}`).join(' OR '),
         ...accountIds,
       );
-      return Promise.resolve(accounts as unknown as DBAccount[]);
+      return Promise.resolve(accounts.map((account) => account.internalObj));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -652,7 +653,7 @@ class RealmDB implements DBAPI {
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
       }
-      return Promise.resolve(account as unknown as DBAccount);
+      return Promise.resolve(account.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -719,7 +720,7 @@ class RealmDB implements DBAPI {
         );
       }
       console.log('wallet created==', wallet);
-      return Promise.resolve(wallet as unknown as DBWallet);
+      return Promise.resolve(wallet.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -811,7 +812,7 @@ class RealmDB implements DBAPI {
       this.realm!.write(() => {
         wallet.name = name;
       });
-      return Promise.resolve(wallet as unknown as DBWallet);
+      return Promise.resolve(wallet.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -890,7 +891,7 @@ class RealmDB implements DBAPI {
           wallet.backuped = true;
         });
       }
-      return Promise.resolve(wallet as unknown as DBWallet);
+      return Promise.resolve(wallet.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -986,7 +987,7 @@ class RealmDB implements DBAPI {
       this.realm!.write(() => {
         account.name = name;
       });
-      return Promise.resolve(account as unknown as DBAccount);
+      return Promise.resolve(account.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1025,7 +1026,7 @@ class RealmDB implements DBAPI {
         }); */
         throw new NotImplemented();
       }
-      return Promise.resolve(account as unknown as DBAccount);
+      return Promise.resolve(account.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
