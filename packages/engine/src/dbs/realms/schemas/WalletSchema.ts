@@ -2,7 +2,7 @@ import { AccountSchema } from '.';
 
 import Realm from 'realm';
 
-import { DBWallet, WalletType } from '../../../types/wallet';
+import { Wallet, WalletType } from '../../../types/wallet';
 
 class WalletSchema extends Realm.Object {
   public id!: string;
@@ -34,14 +34,16 @@ class WalletSchema extends Realm.Object {
     },
   };
 
-  get internalObj(): DBWallet {
+  get internalObj(): Wallet {
     return {
       id: this.id,
       name: this.name,
       type: this.type,
       backuped: this.backuped || false,
       accounts: (this.accounts || []).map((account) => account.id),
-      nextAccountIds: Object(this.nextAccountIds),
+      nextAccountIds: Object.fromEntries(
+        Object.entries(Object(this.nextAccountIds)),
+      ),
     };
   }
 }

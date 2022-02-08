@@ -21,11 +21,11 @@ import {
 import { DBNetwork } from '../../types/network';
 import { Token } from '../../types/token';
 import {
-  DBWallet,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
+  Wallet,
 } from '../../types/wallet';
 import {
   DBAPI,
@@ -501,9 +501,9 @@ class RealmDB implements DBAPI {
 
   /**
    * retrieve all accounts
-   * @returns {Promise<DBWallet[]>}
+   * @returns {Promise<Wallet[]>}
    */
-  getWallets(): Promise<DBWallet[]> {
+  getWallets(): Promise<Wallet[]> {
     try {
       const wallets = this.realm!.objects<WalletSchema>('Wallet');
       return Promise.resolve(wallets.map((wallet) => wallet.internalObj));
@@ -516,10 +516,10 @@ class RealmDB implements DBAPI {
   /**
    * get a certain wallet by id
    * @param walletId
-   * @returns {Promise<DBWallet | undefined>}
+   * @returns {Promise<Wallet | undefined>}
    * @throws {OneKeyInternalError}
    */
-  getWallet(walletId: string): Promise<DBWallet | undefined> {
+  getWallet(walletId: string): Promise<Wallet | undefined> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -672,7 +672,7 @@ class RealmDB implements DBAPI {
     password: string,
     rs: RevealableSeed,
     name?: string,
-  ): Promise<DBWallet> {
+  ): Promise<Wallet> {
     let context: ContextSchema | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -787,10 +787,10 @@ class RealmDB implements DBAPI {
    * rename a already existing wallet
    * @param walletId
    * @param name
-   * @returns {Promise<DBWallet>}
+   * @returns {Promise<Wallet>}
    * @throws {OneKeyInternalError}
    */
-  setWalletName(walletId: string, name: string): Promise<DBWallet> {
+  setWalletName(walletId: string, name: string): Promise<Wallet> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -867,10 +867,10 @@ class RealmDB implements DBAPI {
   /**
    *  change the wallet backup status if necessary
    * @param walletId
-   * @returns {Promise<DBWallet>}
+   * @returns {Promise<Wallet>}
    * @throws {OneKeyInternalError}
    */
-  confirmHDWalletBackuped(walletId: string): Promise<DBWallet> {
+  confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',

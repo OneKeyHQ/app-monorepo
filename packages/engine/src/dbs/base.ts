@@ -15,7 +15,7 @@ import {
 } from '../types/history';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
-import { DBWallet } from '../types/wallet';
+import { Wallet } from '../types/wallet';
 
 type OneKeyContext = {
   id: string;
@@ -72,20 +72,20 @@ interface DBAPI {
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token>;
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void>;
 
-  getWallets(): Promise<Array<DBWallet>>;
-  getWallet(walletId: string): Promise<DBWallet | undefined>;
+  getWallets(): Promise<Array<Wallet>>;
+  getWallet(walletId: string): Promise<Wallet | undefined>;
   createHDWallet(
     password: string,
     rs: RevealableSeed,
     name?: string,
-  ): Promise<DBWallet>;
+  ): Promise<Wallet>;
   removeWallet(walletId: string, password: string): Promise<void>;
-  setWalletName(walletId: string, name: string): Promise<DBWallet>;
+  setWalletName(walletId: string, name: string): Promise<Wallet>;
   getCredential(
     walletId: string,
     password: string,
   ): Promise<ExportedCredential>;
-  confirmHDWalletBackuped(walletId: string): Promise<DBWallet>;
+  confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
 
   addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount>;
   getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>>;

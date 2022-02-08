@@ -34,7 +34,6 @@ import {
 } from './managers/network';
 import { getNetworkIdFromTokenId } from './managers/token';
 import {
-  fromDBWalletToWallet,
   walletCanBeRemoved,
   walletIsHD,
   walletNameCanBeUpdated,
@@ -66,7 +65,7 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { DBWallet, WALLET_TYPE_HD, Wallet } from './types/wallet';
+import { WALLET_TYPE_HD, Wallet } from './types/wallet';
 
 class Engine {
   private dbApi: DBAPI;
@@ -82,22 +81,21 @@ class Engine {
     );
   }
 
-  async getWallets(): Promise<Array<Wallet>> {
+  getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    const wallets = await this.dbApi.getWallets();
-    return wallets.map((w: DBWallet) => fromDBWalletToWallet(w));
+    return this.dbApi.getWallets();
   }
 
   async getWallet(walletId: string): Promise<Wallet> {
     // Return a single wallet.
-    const dbWallet = await this.dbApi.getWallet(walletId);
-    if (typeof dbWallet !== 'undefined') {
-      return fromDBWalletToWallet(dbWallet);
+    const wallet = await this.dbApi.getWallet(walletId);
+    if (typeof wallet !== 'undefined') {
+      return wallet;
     }
     throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
   }
 
-  async createHDWallet(
+  createHDWallet(
     password: string,
     mnemonic?: string,
     name?: string,
@@ -116,8 +114,7 @@ class Engine {
     ) {
       throw new OneKeyInternalError('Invalid mnemonic.');
     }
-    const dbWallet = await this.dbApi.createHDWallet(password, rs, name);
-    return fromDBWalletToWallet(dbWallet);
+    return this.dbApi.createHDWallet(password, rs, name);
   }
 
   removeWallet(walletId: string, password: string): Promise<void> {
@@ -128,15 +125,14 @@ class Engine {
     return this.dbApi.removeWallet(walletId, password);
   }
 
-  async setWalletName(walletId: string, name: string): Promise<Wallet> {
+  setWalletName(walletId: string, name: string): Promise<Wallet> {
     // Rename a wallet, raise an error if trying to rename the imported or watching wallet.
     if (!walletNameCanBeUpdated(walletId)) {
       throw new OneKeyInternalError(
         `Wallet ${walletId}'s name cannot be updated.`,
       );
     }
-    const dbWallet = await this.dbApi.setWalletName(walletId, name);
-    return fromDBWalletToWallet(dbWallet);
+    return this.dbApi.setWalletName(walletId, name);
   }
 
   async revealHDWalletMnemonic(
@@ -151,13 +147,12 @@ class Engine {
     return mnemonicFromEntropy(credential.entropy, password);
   }
 
-  async confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
+  confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
     // Confirm that the wallet seed is backed up. Raise an error if wallet isn't HD, doesn't exist. Nothing happens if the wallet is already backed up before this call.
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    const dbWallet = await this.dbApi.confirmHDWalletBackuped(walletId);
-    return fromDBWalletToWallet(dbWallet);
+    return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
   async getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
@@ -617,20 +612,19 @@ class Engine {
 
   async listNetworks(
     enabledOnly = true,
-  ): Promise<Map<string, Array<NetworkShort>>> {
+  ): Promise<Record<string, Array<NetworkShort>>> {
     const networks = await this.dbApi.listNetworks();
-    const ret: Map<string, Array<NetworkShort>> = new Map([
-      [IMPL_EVM, []],
-      [IMPL_SOL, []],
+    const ret: Record<string, Array<NetworkShort>> = {
+      [IMPL_EVM]: [],
+      [IMPL_SOL]: [],
       // TODO: other implemetations
-    ]);
+    };
     networks.forEach((network) => {
       if (enabledOnly && !network.enabled) {
         return;
       }
-      if (ret.has(network.impl)) {
-        const tmpL = ret.get(network.impl) || [];
-        tmpL.push({
+      if (typeof ret[network.impl] !== 'undefined') {
+        ret[network.impl].push({
           id: network.id,
           name: network.name,
           impl: network.impl,
@@ -670,7 +664,7 @@ class Engine {
 
   async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Map<string, Array<NetworkShort>>> {
+  ): Promise<Record<string, Array<NetworkShort>>> {
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
