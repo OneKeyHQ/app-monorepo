@@ -744,15 +744,29 @@ class Engine {
   // TODO: RPC interactions.
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
-  getPrices(networkId: string, tokens?: Array<string>): Map<string, BigNumber> {
-    // Get price info. Main token price (in fiat) is always included.
-    console.log(`getPrices ${networkId} ${JSON.stringify(tokens || [])}`);
-    throw new NotImplemented();
+  getPrices(
+    networkId: string,
+    tokenIdsOnNetwork: Array<string>,
+    withMain = true,
+  ): Promise<Record<string, BigNumber>> {
+    // Get price info.
+    const ret: Record<string, BigNumber> = {};
+    tokenIdsOnNetwork.forEach((tokenId) => {
+      ret[tokenId] = new BigNumber(100);
+    });
+    if (withMain) {
+      ret.main = new BigNumber(100);
+    }
+    return Promise.resolve(ret);
   }
 
-  listFiats(): Promise<Array<string>> {
-    return new Promise((resolve, _reject) => {
-      resolve(['usd', 'cny', 'jpn', 'hkd']);
+  listFiats(): Promise<Record<string, BigNumber>> {
+    // TODO: connect price module
+    return Promise.resolve({
+      'usd': new BigNumber('1'),
+      'cny': new BigNumber('6.3617384'),
+      'jpy': new BigNumber('115.36691'),
+      'hkd': new BigNumber('7.7933804'),
     });
   }
 
