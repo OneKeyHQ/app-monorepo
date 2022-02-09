@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback } from 'react';
 
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { Center, Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
@@ -19,33 +20,36 @@ import {
 
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 
-const Address = '0x41f28833Be34e6EDe3c58D1f5900x41f28833Be34e6EDe3c58D1f590';
+import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
+
 const AccountName = 'ETH #1';
 
-const ReceiveQRcode = () => {
-  const borderColor = useThemeValue('border-subdued');
+type NavigationProps = RouteProp<
+  ReceiveTokenRoutesParams,
+  ReceiveTokenRoutes.ReceiveToken
+>;
+
+const ReceiveToken = () => {
   const intl = useIntl();
   const toast = useToast();
-  const toastIdRef = useRef<string>();
+  const borderColor = useThemeValue('border-subdued');
+  const route = useRoute<NavigationProps>();
+
+  const { address } = route.params;
 
   const showToast = useCallback(
     (msg: string) => {
-      toastIdRef.current = toast.show({
+      toast.show({
         render: () => <Toast title={msg} />,
-      }) as string;
+      });
     },
     [toast],
   );
 
   const copyAddressToClipboard = () => {
-    copyToClipboard(Address);
+    copyToClipboard(address);
     showToast(intl.formatMessage({ id: 'msg__copied' }));
   };
-
-  const account = useMemo(
-    () => <Account avatarSize="sm" name={AccountName} address="" />,
-    [],
-  );
 
   return (
     <Modal
@@ -56,7 +60,7 @@ const ReceiveQRcode = () => {
         children: (
           <Column flex={1}>
             <Center>
-              {account}
+              <Account avatarSize="sm" name={AccountName} address="" />
               <Box
                 mt="16px"
                 padding="16px"
@@ -84,7 +88,7 @@ const ReceiveQRcode = () => {
                 flex={1}
                 noOfLines={3}
               >
-                {Address}
+                {address}
               </Text>
             </Row>
 
@@ -109,4 +113,4 @@ const ReceiveQRcode = () => {
     />
   );
 };
-export default ReceiveQRcode;
+export default ReceiveToken;

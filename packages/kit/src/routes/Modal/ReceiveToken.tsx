@@ -3,44 +3,41 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import ReceiveQRcode from '@onekeyhq/kit/src/views/Transaction/receiveQRcode';
+import ReceiveToken from '@onekeyhq/kit/src/views/ReceiveToken';
+import {
+  ReceiveTokenRoutes,
+  ReceiveTokenRoutesParams,
+} from '@onekeyhq/kit/src/views/ReceiveToken/types';
 
-export enum ReceiveQRCodeModalRoutes {
-  ReceiveQRCodeModal = 'ReceiveQRCodeModal',
-}
-
-export type ReceiveQRCodeRoutesParams = {
-  [ReceiveQRCodeModalRoutes.ReceiveQRCodeModal]: undefined;
-};
-
-const ReceiveQRCodeNavigator =
-  createStackNavigator<ReceiveQRCodeRoutesParams>();
+const ReceiveTokenNavigator = createStackNavigator<ReceiveTokenRoutesParams>();
 
 const modalRoutes = [
   {
-    name: ReceiveQRCodeModalRoutes.ReceiveQRCodeModal,
-    component: ReceiveQRcode,
+    name: ReceiveTokenRoutes.ReceiveToken,
+    component: ReceiveToken,
   },
 ];
 
-const ReceiveQRCodeModalStack = () => {
+const ReceiveTokenModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
-    <ReceiveQRCodeNavigator.Navigator
+    <ReceiveTokenNavigator.Navigator
       screenOptions={{
         headerShown: false,
         animationEnabled: !!isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (
-        <ReceiveQRCodeNavigator.Screen
+        <ReceiveTokenNavigator.Screen
           key={route.name}
           name={route.name}
           component={route.component}
         />
       ))}
-    </ReceiveQRCodeNavigator.Navigator>
+    </ReceiveTokenNavigator.Navigator>
   );
 };
 
-export default ReceiveQRCodeModalStack;
+export default ReceiveTokenModalStack;
+export { ReceiveTokenRoutes };
+export type { ReceiveTokenRoutesParams };

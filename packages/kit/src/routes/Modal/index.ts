@@ -31,10 +31,11 @@ import ManageTokenModal, {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
 } from './ManageToken';
-import ReceiveQRCodeModal, {
-  ReceiveQRCodeModalRoutes,
-  ReceiveQRCodeRoutesParams,
+import ReceiveToken, {
+  ReceiveTokenRoutes,
+  ReceiveTokenRoutesParams,
 } from './ReceiveToken';
+import Send, { SendRoutes, SendRoutesParams } from './Send';
 import SettingsModal, {
   SettingsModalRoutes,
   SettingsRoutesParams,
@@ -43,10 +44,6 @@ import SubmitRequestModal, {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
 } from './SubmitRequest';
-import TransactionModal, {
-  TransactionModalRoutes,
-  TransactionModalRoutesParams,
-} from './Transaction';
 import TransactionDetailModal, {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
@@ -58,18 +55,23 @@ import WatchedAccountModal, {
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
+export enum ModalNavigatorRoutes {
+  ReceiveTokenNavigator = 'ReceiveTokenNavigator',
+  SendNavigator = 'SendNavigator',
+}
+
 const modalStackScreenList = [
   {
     name: CreateAccountModalRoutes.CreateAccountForm,
     component: CreateAccountModal,
   },
   {
-    name: ReceiveQRCodeModalRoutes.ReceiveQRCodeModal,
-    component: ReceiveQRCodeModal,
+    name: ModalNavigatorRoutes.ReceiveTokenNavigator,
+    component: ReceiveToken,
   },
   {
-    name: TransactionModalRoutes.TransactionModal,
-    component: TransactionModal,
+    name: ModalNavigatorRoutes.SendNavigator,
+    component: Send,
   },
   {
     name: ManageNetworkModalRoutes.NetworkListViewModal,
@@ -116,8 +118,8 @@ const modalStackScreenList = [
 
 export const ModalRoutes = {
   ...CreateAccountModalRoutes,
-  ...ReceiveQRCodeModalRoutes,
-  ...TransactionModalRoutes,
+  ...ReceiveTokenRoutes,
+  ...SendRoutes,
   ...ManageNetworkModalRoutes,
   ...TransactionDetailModalRoutes,
   ...ImportAccountModalRoutes,
@@ -133,8 +135,8 @@ export const ModalRoutes = {
 export type ModalTypes = {
   [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
   [ManageNetworkModalRoutes.NetworkListViewModal]: NavigatorScreenParams<ManageNetworkRoutesParams>;
-  [ReceiveQRCodeModalRoutes.ReceiveQRCodeModal]: NavigatorScreenParams<ReceiveQRCodeRoutesParams>;
-  [TransactionModalRoutes.TransactionModal]: NavigatorScreenParams<TransactionModalRoutesParams>;
+  [ModalNavigatorRoutes.ReceiveTokenNavigator]: NavigatorScreenParams<ReceiveTokenRoutesParams>;
+  [ModalNavigatorRoutes.SendNavigator]: NavigatorScreenParams<SendRoutesParams>;
   [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
   [ImportAccountModalRoutes.ImportAccountModal]: NavigatorScreenParams<ImportAccountRoutesParams>;
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;

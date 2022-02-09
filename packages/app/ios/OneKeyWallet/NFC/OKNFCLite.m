@@ -84,6 +84,8 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     }
 
     NSString *liteSN = [OKNFCLite getSNWithTag:tag];
+//    NSString *backupStatus = [OKNFCLite getBackupStatusWithTag:tag];
+
     if (self.sessionType == OKNFCLiteSessionTypeUpdateInfo) {
         if (!liteSN.length || ![liteSN isEqualToString:self.SN]) {
             [self endNFCSessionWithError:NO];
@@ -363,6 +365,26 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
     dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
     return SN;
+}
+
+// 获取 SN
++ (NSString *)getBackupStatusWithTag:(id<NFCISO7816Tag>)tag {
+
+    __block NSString *backupStatus = nil;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [tag sendCommandAPDU:OKNFCBridge.getBackupStatus completionHandler:^(NSData *responseData, uint8_t sw1, uint8_t sw2, NSError *error) {
+        [OKNFCUtility logAPDU:@"获取 Backup Status" response:responseData sw1:sw1 sw2:sw2 error:error];
+        if (sw1 != OKNFC_SW1_OK) {
+            dispatch_semaphore_signal(sema);
+            return;
+        }
+        backupStatus = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
+        NSLog(@"OKNFC: 获取 BackupStatus 成功 BackupStatus = %@", backupStatus);
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+    return backupStatus;
 }
 
 // 获取证书 & 验证证书 & 初始化安全通道
