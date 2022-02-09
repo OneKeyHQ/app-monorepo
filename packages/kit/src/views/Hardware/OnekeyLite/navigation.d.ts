@@ -1,18 +1,26 @@
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { ModalTypes } from '../../../routes';
+
 import {
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
   OnekeyLiteModalRoutes,
-  OnekeyLitePinModalRoutes,
-  OnekeyLitePinRoutesParams,
-  OnekeyLiteRoutesParams,
+  OnekeyLiteResetModalRoutes,
+  OnekeyLiteResetRoutesParams,
 } from './routes';
 
 export type OnekeyLiteStackNavigationProp = NativeStackNavigationProp<
-  OnekeyLiteRoutesParams,
+  ModalTypes,
   OnekeyLiteModalRoutes
 >;
 
-export type OnekeyLitePinStackNavigationProp = NativeStackNavigationProp<
-  OnekeyLitePinRoutesParams,
-  OnekeyLitePinModalRoutes
+export type OnekeyLiteResetStackNavigationProp = NativeStackNavigationProp<
+  OnekeyLiteResetRoutesParams,
+  OnekeyLiteResetModalRoutes
+>;
+
+export type OnekeyLiteChangePinStackNavigationProp = NativeStackNavigationProp<
+  OnekeyLiteChangePinRoutesParams,
+  OnekeyLiteChangePinModalRoutes
 >;

@@ -4,13 +4,13 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import HardwarePinCode from '../../BasePinCode';
-import { OnekeyLitePinStackNavigationProp } from '../navigation';
-import { OnekeyLitePinModalRoutes } from '../routes';
+import { OnekeyLiteChangePinStackNavigationProp } from '../navigation';
+import { OnekeyLiteChangePinModalRoutes } from '../routes';
 
 const OnekeyLiteCurrentPinCode: FC = () => {
   const intl = useIntl();
 
-  const navigation = useNavigation<OnekeyLitePinStackNavigationProp>();
+  const navigation = useNavigation<OnekeyLiteChangePinStackNavigationProp>();
 
   return (
     <HardwarePinCode
@@ -21,7 +21,7 @@ const OnekeyLiteCurrentPinCode: FC = () => {
       })}
       onComplete={(pinCode) => {
         navigation.navigate(
-          OnekeyLitePinModalRoutes.OnekeyLitePinCodeSetModal,
+          OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal,
           { currentPin: pinCode },
         );
         return Promise.resolve(true);

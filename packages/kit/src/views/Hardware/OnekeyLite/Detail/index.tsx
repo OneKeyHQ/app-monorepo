@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -15,14 +16,17 @@ import {
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectItem } from '@onekeyhq/components/src/Select';
 
-import { useNavigation } from '../../../..';
 import WebView from '../../../../components/WebView';
-import { ModalRoutes } from '../../../../routes';
 import {
-  OnekeyLitePinStackNavigationProp,
+  OnekeyLiteChangePinStackNavigationProp,
+  OnekeyLiteResetStackNavigationProp,
   OnekeyLiteStackNavigationProp,
 } from '../navigation';
-import { OnekeyLiteModalRoutes, OnekeyLitePinModalRoutes } from '../routes';
+import {
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteModalRoutes,
+  OnekeyLiteResetModalRoutes,
+} from '../routes';
 
 export type OnekeyLiteDetailViewProps = {
   liteId: string;
@@ -31,7 +35,8 @@ export type OnekeyLiteDetailViewProps = {
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 
 type NavigationProps = OnekeyLiteStackNavigationProp &
-  OnekeyLitePinStackNavigationProp;
+  OnekeyLiteChangePinStackNavigationProp &
+  OnekeyLiteResetStackNavigationProp;
 
 const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
   const intl = useIntl();
@@ -47,49 +52,61 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
   );
 
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLiteRestoreModal, {
-      pwd: inputPwd,
-      onRetry: () => {
-        callBack?.();
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
+      screen: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,
+      params: {
+        pwd: inputPwd,
+        onRetry: () => {
+          callBack?.();
+        },
       },
     });
   };
 
   const startRestorePinVerifyModal = () => {
     navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      callBack: (inputPwd) => {
-        startRestoreModal(inputPwd, () => {
-          console.log('restartRestorePinVerifyModal');
-          startRestorePinVerifyModal();
-        });
-        return true;
+      screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+      params: {
+        callBack: (inputPwd) => {
+          startRestoreModal(inputPwd, () => {
+            console.log('restartRestorePinVerifyModal');
+            startRestorePinVerifyModal();
+          });
+          return true;
+        },
       },
     });
   };
 
   const startBackupModal = (inputPwd: string, callBack: () => void) => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLiteBackupModal, {
-      pwd: inputPwd,
-      onRetry: () => {
-        callBack?.();
+    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
+      screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
+      params: {
+        pwd: inputPwd,
+        onRetry: () => {
+          callBack?.();
+        },
       },
     });
   };
 
   const startBackupPinVerifyModal = () => {
     navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      callBack: (inputPwd) => {
-        startBackupModal(inputPwd, () => {
-          startBackupPinVerifyModal();
-        });
-        return true;
+      screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+      params: {
+        callBack: (inputPwd) => {
+          startBackupModal(inputPwd, () => {
+            startBackupPinVerifyModal();
+          });
+          return true;
+        },
       },
     });
   };
 
   const startChangePinInputPinModal = () => {
     navigation.navigate(
-      OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal,
+      OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
     );
   };
 
@@ -119,7 +136,7 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
   }, [currentOptionType]);
 
   useEffect(() => {
-    if (resetValidationInput === 'RESET') {
+    if (resetValidationInput.toLocaleUpperCase() === 'RESET') {
       setResetAllow(true);
     } else if (resetValidationInput.trim().length === 0) {
       setResetAllow(null);
@@ -253,7 +270,9 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
         footerButtonProps={{
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            navigation.navigate(ModalRoutes.OnekeyLiteResetModal);
+            navigation.navigate(
+              OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+            );
           },
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {

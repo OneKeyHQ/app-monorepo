@@ -1,10 +1,11 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 
-import { Animated } from 'react-native';
+import { intlFormat } from 'date-fns';
+import { useIntl } from 'react-intl';
+import { Animated, Platform } from 'react-native';
 
 import {
   Box,
-  Dialog,
   Icon,
   Image,
   Modal,
@@ -45,6 +46,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
   actionPressStyle,
   actionPressContent,
 }) => {
+  const intl = useIntl();
   const [visibleIosHint, setVisibleIosHint] = useState(false);
   const [operateIcon, setOperateIcon] = useState(iconNFCConnecting);
   const [connectingIcon, setConnectingIcon] = useState(iconHardwareConnecting);
@@ -79,115 +81,131 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
       setOperateIcon(iconNFCConnecting);
       setConnectingIcon(iconHardwareConnecting);
       setHardwareConnectAnimRunning(true);
+      if (Platform.OS === 'ios') {
+        setVisibleIosHint(false);
+      }
     }
     if (operateType === 'connect') {
       setOperateIcon(iconNFCConnecting);
       setConnectingIcon(iconHardwareConnecting);
       setHardwareConnectAnimRunning(true);
+      if (Platform.OS === 'ios') {
+        setVisibleIosHint(true);
+      }
     }
     if (operateType === 'transfer') {
       setOperateIcon(iconNFCTransferData);
       setConnectingIcon(iconHardwareConnecting);
       setHardwareConnectAnimRunning(true);
+      if (Platform.OS === 'ios') {
+        setVisibleIosHint(false);
+      }
     }
     if (operateType === 'complete') {
       setOperateIcon(iconNFCConnectComplete);
       setConnectingIcon(iconHardwareConnectComplete);
       setHardwareConnectAnimRunning(false);
+      if (Platform.OS === 'ios') {
+        setVisibleIosHint(false);
+      }
     }
   }, [operateType]);
 
   return (
-    <Modal
-      hideSecondaryAction
-      header={title}
-      onClose={() => {
-        console.log('HardwareConnect: onClose');
+    <>
+      <Modal
+        hideSecondaryAction
+        header={title}
+        onClose={() => {
+          console.log('HardwareConnect: onClose');
 
-        onCloseConnect?.();
-      }}
-      footer={
-        <Button
-          size="xl"
-          mx={4}
-          mb={4}
-          onPress={() => onActionPress?.()}
-          type={actionPressStyle}
-        >
-          {actionPressContent}
-        </Button>
-      }
-      scrollViewProps={{
-        pt: 4,
-        children: (
-          <Box alignItems="center">
-            <Typography.DisplayXLarge
-              textAlign="center"
-              mt={8}
-              mx={9}
-              color="text-default"
-            >
-              {actionState}
-            </Typography.DisplayXLarge>
-            <Typography.Body1
-              textAlign="center"
-              mt={2}
-              mx={9}
-              color="text-subdued"
-            >
-              {actionDescription}
-            </Typography.Body1>
+          onCloseConnect?.();
+        }}
+        footer={
+          <Button
+            size="xl"
+            mx={4}
+            mb={Platform.OS === 'ios' ? 12 : 4}
+            onPress={() => onActionPress?.()}
+            type={actionPressStyle}
+          >
+            {actionPressContent}
+          </Button>
+        }
+        scrollViewProps={{
+          pt: 4,
+          children: (
+            <Box alignItems="center">
+              <Typography.DisplayXLarge
+                textAlign="center"
+                mt={8}
+                mx={9}
+                color="text-default"
+              >
+                {actionState}
+              </Typography.DisplayXLarge>
+              <Typography.Body1
+                textAlign="center"
+                mt={2}
+                mx={9}
+                color="text-subdued"
+              >
+                {actionDescription}
+              </Typography.Body1>
 
-            <ZStack w="100%" mt={9} h="460px" alignItems="center">
-              <ZStack h="300px" alignItems="center" justifyContent="center">
-                <Animated.View
-                  style={{
-                    transform: [
-                      {
-                        rotate: hardwareConnectAnimValue.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ['0deg', '360deg'],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <Box>
-                    <Image source={connectingIcon} />
+              <ZStack w="100%" mt={9} h="460px" alignItems="center">
+                <ZStack h="300px" alignItems="center" justifyContent="center">
+                  <Animated.View
+                    style={{
+                      transform: [
+                        {
+                          rotate: hardwareConnectAnimValue.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '360deg'],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <Box>
+                      <Image source={connectingIcon} />
+                    </Box>
+                  </Animated.View>
+                  <Box pt="30px">
+                    <Image source={operateIcon} />
                   </Box>
-                </Animated.View>
-                <Box pt="30px">
-                  <Image source={operateIcon} />
+                </ZStack>
+                <Box mt="165px">
+                  <Image source={iconNFCScanHint} />
                 </Box>
               </ZStack>
-              <Box mt="165px">
-                <Image source={iconNFCScanHint} />
-              </Box>
-            </ZStack>
-            {!!visibleIosHint && (
-              <Box
-                w="100%"
-                h="212px"
-                bg="action-secondary-default"
-                display="none"
-                style={{ position: 'absolute' }}
-                borderColor="border-hovered"
-                borderWidth="1px"
-                borderRadius={36}
-                borderStyle="dashed"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Icon name="CursorClickOutline" size={48} />
-                <Typography.DisplayMedium px={12} mt={5}>
-                  Place Your Onekey Lite Close to the Back of Here
-                </Typography.DisplayMedium>
-              </Box>
-            )}
-          </Box>
-        ),
-      }}
-    />
+            </Box>
+          ),
+        }}
+      />
+      {!!visibleIosHint && (
+        <Box
+          w="100%"
+          h="212px"
+          bg="action-secondary-default"
+          display="none"
+          style={{ position: 'absolute' }}
+          borderColor="border-hovered"
+          borderWidth="1px"
+          borderRadius={36}
+          borderStyle="dashed"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name="CursorClickOutline" size={48} />
+          <Typography.DisplayMedium px={12} mt={5}>
+            {intl.formatMessage({
+              id: 'content__place_your_onekey_lite_close_to_the_back_of_here',
+            })}
+          </Typography.DisplayMedium>
+        </Box>
+      )}
+    </>
   );
 };
 export default HardwareConnect;

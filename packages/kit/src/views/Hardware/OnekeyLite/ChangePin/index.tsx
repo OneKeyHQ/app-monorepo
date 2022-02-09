@@ -17,13 +17,16 @@ import { useNavigation } from '../../../..';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 import { OnekeyLiteStackNavigationProp } from '../navigation';
-import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
+import {
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
+} from '../routes';
 
 type NavigationProps = OnekeyLiteStackNavigationProp;
 
 type RouteProps = RouteProp<
-  OnekeyLiteRoutesParams,
-  OnekeyLiteModalRoutes.OnekeyLiteChangePinModal
+  OnekeyLiteChangePinRoutesParams,
+  OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal
 >;
 
 const ChangePin: FC = () => {
@@ -78,7 +81,6 @@ const ChangePin: FC = () => {
   };
 
   const startNfcScan = () => {
-    console.log(`Change pin success:  oldPwd:${oldPin} currentPwd:${newPin}`);
     stateNfcSearch();
     OnekeyLite.cancel();
     OnekeyLite.changePin(

@@ -10,15 +10,18 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
-import {
-  modalRoutes as OnekeyLiteModalComponents,
+import HardwareOnekeyModal, {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
 } from './HardwareOnekeyLite';
 import HardwareOnekeyLitePinModal, {
-  OnekeyLitePinModalRoutes,
-  OnekeyLitePinRoutesParams,
-} from './HardwareOnekeyLitePin';
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
+} from './HardwareOnekeyLiteChangePin';
+import HardwareOnekeyResetModal, {
+  OnekeyLiteResetModalRoutes,
+  OnekeyLiteResetRoutesParams,
+} from './HardwareOnekeyLiteReset';
 import HistoryRequestModal, {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
@@ -117,9 +120,16 @@ const modalStackScreenList = [
     name: BackupWalletModalRoutes.BackupSeedHintModal,
     component: BackupWalletModal,
   },
-  ...OnekeyLiteModalComponents,
   {
-    name: OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal,
+    name: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+    component: HardwareOnekeyModal,
+  },
+  {
+    name: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+    component: HardwareOnekeyResetModal,
+  },
+  {
+    name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
     component: HardwareOnekeyLitePinModal,
   },
 ];
@@ -135,10 +145,11 @@ export const ModalRoutes = {
   ...CollectiblesModalRoutes,
   ...SettingsModalRoutes,
   ...BackupWalletModalRoutes,
-  ...OnekeyLiteModalRoutes,
   ...SubmitRequestRoutes,
   ...HistoryRequestRoutes,
-  ...OnekeyLitePinModalRoutes,
+  ...OnekeyLiteModalRoutes,
+  ...OnekeyLiteResetModalRoutes,
+  ...OnekeyLiteChangePinModalRoutes,
 };
 
 export type ModalTypes = {
@@ -153,10 +164,11 @@ export type ModalTypes = {
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
   [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
-  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
-  [OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal]: NavigatorScreenParams<OnekeyLitePinRoutesParams>;
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
+  [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
 };
 
 export default modalStackScreenList;

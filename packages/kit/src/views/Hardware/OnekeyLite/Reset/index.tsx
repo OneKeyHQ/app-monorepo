@@ -15,9 +15,9 @@ import { ButtonType } from '@onekeyhq/components/src/Button';
 import { useNavigation } from '../../../..';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
-import { OnekeyLiteStackNavigationProp } from '../navigation';
+import { OnekeyLiteResetStackNavigationProp } from '../navigation';
 
-type NavigationProps = OnekeyLiteStackNavigationProp;
+type NavigationProps = OnekeyLiteResetStackNavigationProp;
 
 const Reset: FC = () => {
   const intl = useIntl();

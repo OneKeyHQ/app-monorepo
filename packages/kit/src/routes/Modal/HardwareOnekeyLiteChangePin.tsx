@@ -1,39 +1,38 @@
 import React from 'react';
 
-import { RouteProp } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import OnekeyLiteChangePin from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/ChangePin';
 import {
   OnekeyLiteCurrentPinCode,
   OnekeyLiteNewRepeatPinCode,
   OnekeyLiteNewSetPinCode,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/ChangePinInputPin';
 import {
-  OnekeyLitePinModalRoutes,
-  OnekeyLitePinRoutesParams,
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
 
-export type OnekeyLiteRouteProp = RouteProp<
-  OnekeyLitePinRoutesParams,
-  OnekeyLitePinModalRoutes
->;
-
 const OnekeyLitePinNavigator =
-  createStackNavigator<OnekeyLitePinRoutesParams>();
+  createStackNavigator<OnekeyLiteChangePinRoutesParams>();
 
 const modalRoutes = [
   {
-    name: OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal,
+    name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
     component: OnekeyLiteCurrentPinCode,
   },
   {
-    name: OnekeyLitePinModalRoutes.OnekeyLitePinCodeSetModal,
+    name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal,
     component: OnekeyLiteNewSetPinCode,
   },
   {
-    name: OnekeyLitePinModalRoutes.OnekeyLitePinCodeRepeatModal,
+    name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal,
     component: OnekeyLiteNewRepeatPinCode,
+  },
+  {
+    name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal,
+    component: OnekeyLiteChangePin,
   },
 ];
 
@@ -58,5 +57,5 @@ const OnekeyLitePinModalStack = () => {
 };
 
 export default OnekeyLitePinModalStack;
-export { OnekeyLitePinModalRoutes, modalRoutes };
-export type { OnekeyLitePinRoutesParams };
+export { OnekeyLiteChangePinModalRoutes };
+export type { OnekeyLiteChangePinRoutesParams };

@@ -5,25 +5,28 @@ import { useIntl } from 'react-intl';
 
 import HardwarePinCode from '../../BasePinCode';
 import {
-  OnekeyLitePinStackNavigationProp,
+  OnekeyLiteChangePinStackNavigationProp,
   OnekeyLiteStackNavigationProp,
 } from '../navigation';
-import { OnekeyLitePinModalRoutes, OnekeyLitePinRoutesParams } from '../routes';
+import {
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
+} from '../routes';
 
 const OnekeyLiteNewSetPinCode: FC = () => {
   const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
-        OnekeyLitePinRoutesParams,
-        OnekeyLitePinModalRoutes.OnekeyLitePinCodeSetModal
+        OnekeyLiteChangePinRoutesParams,
+        OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal
       >
     >();
 
   const { currentPin } = route.params;
 
   const navigation = useNavigation<
-    OnekeyLiteStackNavigationProp & OnekeyLitePinStackNavigationProp
+    OnekeyLiteStackNavigationProp & OnekeyLiteChangePinStackNavigationProp
   >();
 
   return (
@@ -35,7 +38,7 @@ const OnekeyLiteNewSetPinCode: FC = () => {
       })}
       onComplete={(pinCode) => {
         navigation.navigate(
-          OnekeyLitePinModalRoutes.OnekeyLitePinCodeRepeatModal,
+          OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal,
           { currentPin, newPin: pinCode },
         );
         return Promise.resolve(true);

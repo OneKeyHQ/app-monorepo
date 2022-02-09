@@ -4,14 +4,10 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import HardwarePinCode from '../../BasePinCode';
+import { OnekeyLiteChangePinStackNavigationProp } from '../navigation';
 import {
-  OnekeyLitePinStackNavigationProp,
-  OnekeyLiteStackNavigationProp,
-} from '../navigation';
-import {
-  OnekeyLiteModalRoutes,
-  OnekeyLitePinModalRoutes,
-  OnekeyLitePinRoutesParams,
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
 } from '../routes';
 
 const OnekeyLiteNewRepeatPinCode: FC = () => {
@@ -19,16 +15,14 @@ const OnekeyLiteNewRepeatPinCode: FC = () => {
   const route =
     useRoute<
       RouteProp<
-        OnekeyLitePinRoutesParams,
-        OnekeyLitePinModalRoutes.OnekeyLitePinCodeRepeatModal
+        OnekeyLiteChangePinRoutesParams,
+        OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal
       >
     >();
 
   const { currentPin, newPin } = route.params;
 
-  const navigation = useNavigation<
-    OnekeyLitePinStackNavigationProp & OnekeyLiteStackNavigationProp
-  >();
+  const navigation = useNavigation<OnekeyLiteChangePinStackNavigationProp>();
 
   return (
     <HardwarePinCode
@@ -42,15 +36,19 @@ const OnekeyLiteNewRepeatPinCode: FC = () => {
         if (!inputSuccess) {
           return Promise.resolve(false);
         }
-        navigation.replace(OnekeyLiteModalRoutes.OnekeyLiteChangePinModal, {
-          oldPin: currentPin,
-          newPin,
-          onRetry: () => {
-            navigation.replace(
-              OnekeyLitePinModalRoutes.OnekeyLitePinCodeChangePinModal,
-            );
+
+        navigation.replace(
+          OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal,
+          {
+            oldPin: currentPin,
+            newPin,
+            onRetry: () => {
+              navigation.replace(
+                OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
+              );
+            },
           },
-        });
+        );
         return Promise.resolve(true);
       }}
     />
