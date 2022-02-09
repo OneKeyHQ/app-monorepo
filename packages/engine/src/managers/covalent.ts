@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { HistoryQuery, TxQuery, HistoryDetilList, TxDetail } from '../types/history';
 
-const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
+const COVALENT_API_KEY = 'YOUR_KEY_HERE';
 
 function getHistoris(query: HistoryQuery): Promise<HistoryDetilList> {
 
