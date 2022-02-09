@@ -84,7 +84,7 @@
     case OKNFCLiteSetMncStatusPinNotMatch:
       self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],[NSNull null]]);
     case OKNFCLiteSetMncStatusWiped:
-      self.setMnemonicCallback(@[[NSNull null],@(false),cardInfo]);
+      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsAutoReset),@"message":@""},[NSNull null],[NSNull null]]);
     default:
       break;
   }
@@ -101,20 +101,28 @@
   NSDictionary *cardInfo = [self cardInfo:lite status:status];
   switch (status) {
     case OKNFCLiteGetMncStatusSuccess:
-      self.getMnemonicCallback(@[[NSNull null],@(true),cardInfo]);
+      self.getMnemonicCallback(@[[NSNull null],mnemonic,cardInfo]);
       break;
     case OKNFCLiteGetMncStatusError:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+      if (lite.status == OKNFCLiteStatusNewCard) {
+        self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsNotInitialized),@"message":@""},[NSNull null],[NSNull null]]);
+      } else {
+        self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+      }
+      break;
     case OKNFCLiteGetMncStatusSNNotMatch:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
+      self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
+      break;
     case OKNFCLiteGetMncStatusPinNotMatch:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],[NSNull null]]);
+      self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],[NSNull null]]);
+      break;
     case OKNFCLiteGetMncStatusWiped:
-      self.setMnemonicCallback(@[[NSNull null],@(false),cardInfo]);
+      self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsAutoReset),@"message":@""},[NSNull null],[NSNull null]]);
+      break;
     default:
       break;
   }
-  self.setMnemonicCallback = nil;
+  self.getMnemonicCallback = nil;
   return;
 }
 

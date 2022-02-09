@@ -21,6 +21,8 @@ typedef NS_ENUM(NSInteger, NFCLiteExceptions) {
   NFCLiteExceptionsInputPasswordEmpty = 3002,// 输入密码为空
   NFCLiteExceptionsPasswordEmpty = 3003,// 未设置过密码
   NFCLiteExceptionsInitPassword = 3004,// 设置初始化密码错误
+  NFCLiteExceptionsCardLock = 3005,// 密码重试次数太多已经锁死
+  NFCLiteExceptionsAutoReset = 3006,// 密码重试次数太多已经自动重制卡片
   NFCLiteExceptionsExecFailure = 4000,// 未知的命令执行失败
   NFCLiteExceptionsInitialized = 4001,// 已经备份过内容
   NFCLiteExceptionsNotInitialized = 4002,// 没有备份过内容

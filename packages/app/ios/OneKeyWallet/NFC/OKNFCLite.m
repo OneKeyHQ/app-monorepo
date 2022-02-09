@@ -215,6 +215,32 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     if (!tag || ![self.delegate respondsToSelector:@selector(ok_lite:getMnemonic:complete:)]) { return; }
 
     OKNFCLiteGetMncStatus status = OKNFCLiteGetMncStatusError;
+    OKNFCLiteStatus liteStatus = OKNFCLiteStatusError;
+    self.pinRTL = 0;
+    NSUInteger PinStatus = OKNFC_PIN_ERROR;
+
+    if (![OKNFCLite selectNFCApp:OKNFCLiteAppSecure withTag:tag]) {
+        [self endNFCSessionWithError:NO];
+        [self.delegate ok_lite:self getMnemonic:nil complete:status];
+        return;
+    }
+
+    self.SN = [OKNFCLite getSNWithTag:tag];
+    PinStatus = [OKNFCLite getPINStatusWithTag:tag];
+    if (PinStatus == OKNFC_PIN_ERROR) {
+        [self endNFCSessionWithError:NO];
+        [self.delegate ok_lite:self getMnemonic:nil complete:status];
+        return;
+    }
+  
+    liteStatus = PinStatus == OKNFC_PIN_UNSET ? OKNFCLiteStatusNewCard : OKNFCLiteStatusActivated;
+    self.status = liteStatus;
+    self.pinRTL = PinStatus == OKNFC_PIN_UNSET ? 10 : PinStatus;
+    if (self.status == OKNFCLiteStatusNewCard) {
+        [self endNFCSessionWithError:YES];
+        [self.delegate ok_lite:self getMnemonic:nil complete:status];
+        return;
+    }
 
     [OKNFCLite selectNFCApp:OKNFCLiteAppBackup withTag:tag];
     [OKNFCLite openSecureChannelWithTag:tag];
