@@ -639,7 +639,7 @@ class RealmDB implements DBAPI {
   getAccounts(accountIds: string[]): Promise<DBAccount[]> {
     try {
       const accounts = this.realm!.objects<AccountSchema>('Account').filtered(
-        accountIds.map((id, index) => `id == $${index}`).join(' OR '),
+        accountIds.map((_, index) => `id == $${index}`).join(' OR '),
         ...accountIds,
       );
       return Promise.resolve(accounts.map((account) => account.internalObj));
@@ -1082,7 +1082,7 @@ class RealmDB implements DBAPI {
       const toUpdate = this.realm!.objects<HistoryEntrySchema>(
         'HistoryEntry',
       ).filtered(
-        entryIds.map((id, index) => `id == $${index}`).join(' OR '),
+        entryIds.map((_, index) => `id == $${index}`).join(' OR '),
         ...entryIds,
       );
       const updatedAt = Date.now();

@@ -60,7 +60,7 @@ function getHDAccountToAdd(
     type: 'simple',
     path,
     coinType,
-    pub: xpub.slice(-33).toString('hex'),
+    pub: xpub.slice(45).toString('hex'),
     address: '',
   };
 }
