@@ -13,6 +13,7 @@ import { DbApi } from './dbs';
 import { DBAPI } from './dbs/base';
 import {
   FailedToTransfer,
+  InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
 } from './errors';
@@ -343,16 +344,14 @@ class Engine {
   ): Promise<Account> {
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
-    const balance = await this.providerManager.getBalances(
-      networkId,
-      buildGetBalanceRequestsRaw(target, []),
-    );
-    if (typeof balance === 'undefined') {
-      throw new OneKeyInternalError('Invalid address.'); // TODO: better error report.
+    const { normalizedAddress, isValid } =
+      await this.providerManager.verifyAddress(networkId, target);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
     }
     const account = getWatchingAccountToCreate(
       getImplFromNetworkId(networkId),
-      target,
+      normalizedAddress,
       name,
     );
     const a = await this.dbApi.addAccountToWallet('watching', account);
