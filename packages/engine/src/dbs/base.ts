@@ -88,6 +88,7 @@ interface DBAPI {
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
 
   addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount>;
+  getAllAccounts(): Promise<Array<DBAccount>>;
   getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>>;
   getAccount(accountId: string): Promise<DBAccount | undefined>;
   removeAccount(

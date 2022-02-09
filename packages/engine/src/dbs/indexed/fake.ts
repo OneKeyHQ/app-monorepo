@@ -950,6 +950,21 @@ class FakeDB implements DBAPI {
     );
   }
 
+  getAllAccounts(): Promise<Array<DBAccount>> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request = db
+            .transaction([ACCOUNT_STORE_NAME])
+            .objectStore(ACCOUNT_STORE_NAME)
+            .getAll();
+          request.onsuccess = (_event) => {
+            resolve(request.result as Array<DBAccount>);
+          };
+        }),
+    );
+  }
+
   getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>> {
     const idsSet = new Set(accountIds);
     return this.ready.then(

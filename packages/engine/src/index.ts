@@ -8,7 +8,7 @@ import {
   revealableSeedFromMnemonic,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 
-import { IMPL_EVM, IMPL_SOL } from './constants';
+import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI } from './dbs/base';
 import {
@@ -160,6 +160,23 @@ class Engine {
     // List accounts by account ids. No token info are returned, only base account info are included.
     const accounts = await this.dbApi.getAccounts(accountIds);
     return accounts.map((a: DBAccount) => fromDBAccountToAccount(a));
+  }
+
+  async getAccountsByNetwork(
+    networkId: string,
+  ): Promise<Record<string, Array<Account>>> {
+    const ret: Record<string, Array<Account>> = {};
+    const accounts = await this.dbApi.getAllAccounts();
+    accounts
+      .filter((a) => isAccountCompatibleWithNetwork(a.id, networkId))
+      .forEach((a) => {
+        const [walletId] = a.id.split(SEPERATOR, 1);
+        if (typeof ret[walletId] === 'undefined') {
+          ret[walletId] = [];
+        }
+        ret[walletId].push(fromDBAccountToAccount(a));
+      });
+    return ret;
   }
 
   async getAccount(accountId: string, networkId: string): Promise<Account> {

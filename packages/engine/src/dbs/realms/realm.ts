@@ -614,6 +614,22 @@ class RealmDB implements DBAPI {
   }
 
   /**
+   * get a list of all accounts
+   * @returns {Promise<DBAccount[]>}
+   * @throws {OneKeyInternalError}
+   *
+   */
+  getAllAccounts(): Promise<Array<DBAccount>> {
+    try {
+      const accounts = this.realm!.objects<AccountSchema>('Account');
+      return Promise.resolve(accounts.map((account) => account.internalObj));
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  /**
    * get account list by given account id list
    * @param accountIds
    * @returns {Promise<DBAccount[]>}
