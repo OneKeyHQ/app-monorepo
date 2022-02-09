@@ -72,7 +72,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinStatus) {
 
 - (void)getLiteInfo;
 - (void)reset;
-- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL *)overwrite;
+- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL)overwrite;
 - (void)getMnemonicWithPin:(NSString *)pin;
 - (void)changePin:(NSString *)oldPin to:(NSString *)newPin;
 //- (instancetype)initWithSN:(NSString *)SN;

@@ -62,7 +62,7 @@
 
 #pragma mark - setMnemonic
 
-+ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL *)overwrite callBack:(RCTResponseSenderBlock)callBack {
++ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL)overwrite callBack:(RCTResponseSenderBlock)callBack {
   [[RNLiteCallBackManager sharedInstance].lite setMnemonic:mnemonic withPin:pin overwrite:overwrite];
   [RNLiteCallBackManager sharedInstance].setMnemonicCallback = callBack;
 }
@@ -74,7 +74,11 @@
       self.setMnemonicCallback(@[[NSNull null],@(true),cardInfo]);
       break;
     case OKNFCLiteSetMncStatusError:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+      if (lite.status == OKNFCLiteStatusActivated) {
+        self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsInitialized),@"message":@""},[NSNull null],[NSNull null]]);
+      } else {
+        self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+      }
     case OKNFCLiteSetMncStatusSNNotMatch:
       self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
     case OKNFCLiteSetMncStatusPinNotMatch:
@@ -126,6 +130,7 @@
     } else {
       callBack(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
     }
+    [RNLiteCallBackManager clearLiteInfo];
   };
 }
 

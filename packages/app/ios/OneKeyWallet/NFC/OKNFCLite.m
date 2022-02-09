@@ -84,8 +84,6 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     }
 
     NSString *liteSN = [OKNFCLite getSNWithTag:tag];
-//    NSString *backupStatus = [OKNFCLite getBackupStatusWithTag:tag];
-
     if (self.sessionType == OKNFCLiteSessionTypeUpdateInfo) {
         if (!liteSN.length || ![liteSN isEqualToString:self.SN]) {
             [self endNFCSessionWithError:NO];
@@ -116,7 +114,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     [self.delegate ok_lite:self getInfoComplete:status];
 }
 
-- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL *)overwrite {
+- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL)overwrite {
     if (pin.length != OKNFC_PIN_LENGTH) {
         return;
     }
@@ -131,26 +129,48 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     [self beginNewNFCSession];
 }
 
-- (void)_setMnemonic {
+- (void)_setMnemonic:(BOOL)force {
 
     id<NFCISO7816Tag> tag = [self.session.connectedTag asNFCISO7816Tag];
     if (!tag || ![self.delegate respondsToSelector:@selector(ok_lite:setMnemonicComplete:)]) { return; }
 
     OKNFCLiteSetMncStatus status = OKNFCLiteSetMncStatusError;
+    OKNFCLiteStatus liteStatus = OKNFCLiteStatusError;
+  
+    self.pinRTL = 0;
+    NSUInteger PinStatus = OKNFC_PIN_ERROR;
+  
     if (![OKNFCLite selectNFCApp:OKNFCLiteAppSecure withTag:tag]) {
         [self endNFCSessionWithError:NO];
         [self.delegate ok_lite:self setMnemonicComplete:status];
         return;
     }
 
-    NSString *liteSN = [OKNFCLite getSNWithTag:tag];
-    if (!liteSN.length || (self.SN.length != 0 && ![liteSN isEqualToString:self.SN])) {
-        [self endNFCSessionWithError:NO];
-        [self.delegate ok_lite:self setMnemonicComplete:OKNFCLiteSetMncStatusSNNotMatch];
+    self.SN = [OKNFCLite getSNWithTag:tag];
+    if (!self.SN.length || ![self verifyCert]) {
+        [self endNFCSessionWithError:YES];
+        [self.delegate ok_lite:self setMnemonicComplete:status];
         return;
     }
-
-    if (self.status != OKNFCLiteStatusActivated) {
+  
+    PinStatus = [OKNFCLite getPINStatusWithTag:tag];
+    if (PinStatus == OKNFC_PIN_ERROR) {
+        [self endNFCSessionWithError:NO];
+        [self.delegate ok_lite:self setMnemonicComplete:status];
+        return;
+    }
+    
+    liteStatus = PinStatus == OKNFC_PIN_UNSET ? OKNFCLiteStatusNewCard : OKNFCLiteStatusActivated;
+    self.status = liteStatus;
+    self.pinRTL = PinStatus == OKNFC_PIN_UNSET ? 10 : PinStatus;
+  
+    if (self.status == OKNFCLiteStatusActivated && !force) {
+        [self endNFCSessionWithError:YES];
+        [self.delegate ok_lite:self setMnemonicComplete:status];
+        return;
+    }
+  
+    if (self.status == OKNFCLiteStatusNewCard) {
         [OKNFCLite openSecureChannelWithTag:tag];
         [OKNFCLite setPin:self.pin withTag:tag];
     }
@@ -372,26 +392,6 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     return SN;
 }
 
-// 获取 SN
-+ (NSString *)getBackupStatusWithTag:(id<NFCISO7816Tag>)tag {
-
-    __block NSString *backupStatus = nil;
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [tag sendCommandAPDU:OKNFCBridge.getBackupStatus completionHandler:^(NSData *responseData, uint8_t sw1, uint8_t sw2, NSError *error) {
-        [OKNFCUtility logAPDU:@"获取 Backup Status" response:responseData sw1:sw1 sw2:sw2 error:error];
-        if (sw1 != OKNFC_SW1_OK) {
-            dispatch_semaphore_signal(sema);
-            return;
-        }
-        backupStatus = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
-        NSLog(@"OKNFC: 获取 BackupStatus 成功 BackupStatus = %@", backupStatus);
-        dispatch_semaphore_signal(sema);
-    }];
-
-    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-    return backupStatus;
-}
-
 // 获取证书 & 验证证书 & 初始化安全通道
 - (BOOL)verifyCert {
     id<NFCISO7816Tag> tag = [self.session.connectedTag asNFCISO7816Tag];
@@ -604,8 +604,6 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
 
 - (void)nfcSessionComplete:(NFCTagReaderSession *)session {
-//    [OKNFCHintViewController dismiss];
-//    self.session.alertMessage = Localizable.modalNfcCommunicating;
     switch (self.sessionType) {
         case OKNFCLiteSessionTypeGetInfo:
         case OKNFCLiteSessionTypeUpdateInfo:{
@@ -615,7 +613,10 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
             [self _reset];
         } break;
         case OKNFCLiteSessionTypeSetMnemonic: {
-            [self _setMnemonic];
+            [self _setMnemonic:NO];
+        } break;
+        case OKNFCLiteSessionTypeSetMnemonicForce: {
+          [self _setMnemonic:YES];
         } break;
         case OKNFCLiteSessionTypeGetMnemonic: {
             [self _getMnemonic];
