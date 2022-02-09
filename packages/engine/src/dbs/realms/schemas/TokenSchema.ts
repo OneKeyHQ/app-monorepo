@@ -1,5 +1,7 @@
 import Realm from 'realm';
 
+import { Token } from '../../../types/token';
+
 class TokenSchema extends Realm.Object {
   public id!: string;
 
@@ -28,5 +30,17 @@ class TokenSchema extends Realm.Object {
       logoURI: 'string?',
     },
   };
+
+  get internalObj(): Token {
+    return {
+      id: this.id,
+      name: this.name,
+      networkId: this.networkId,
+      tokenIdOnNetwork: this.tokenIdOnNetwork,
+      symbol: this.symbol,
+      decimals: this.decimals,
+      logoURI: this.logoURI || '',
+    };
+  }
 }
 export { TokenSchema };

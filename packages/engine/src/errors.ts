@@ -20,9 +20,14 @@ class AccountAlreadyExists extends OneKeyError {
   key = 'onekey_error_account_already_exists';
 }
 
+class FailedToTransfer extends OneKeyError {
+  key = 'onekey_error_failed_to_transfer';
+}
+
 export {
   NotImplemented,
   OneKeyInternalError,
   WrongPassword,
   AccountAlreadyExists,
+  FailedToTransfer,
 };

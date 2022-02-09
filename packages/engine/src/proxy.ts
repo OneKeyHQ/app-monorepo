@@ -18,12 +18,16 @@ import {
   uncompressPublicKey,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 import { ChainInfo } from '@onekeyhq/blockchain-libs/dist/types/chain';
-import { UnsignedTx } from '@onekeyhq/blockchain-libs/dist/types/provider';
+import {
+  TransactionStatus,
+  UnsignedTx,
+} from '@onekeyhq/blockchain-libs/dist/types/provider';
 import { Signer, Verifier } from '@onekeyhq/blockchain-libs/dist/types/secret';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { OneKeyInternalError } from './errors';
 import { Account, SimpleAccount } from './types/account';
+import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 
 // IMPL naming aren't necessarily the same.
@@ -281,7 +285,7 @@ class ProviderController extends BaseProviderController {
     value: BigNumber,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
-  ): Promise<number> {
+  ): Promise<BigNumber> {
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
       fillUnsignedTx(network, account, to, value, tokenIdOnNetwork, extra),
@@ -289,7 +293,7 @@ class ProviderController extends BaseProviderController {
     if (typeof unsignedTx.feeLimit === 'undefined') {
       throw new OneKeyInternalError('Failed to estimate gas limit.');
     }
-    return unsignedTx.feeLimit.integerValue().toNumber();
+    return unsignedTx.feeLimit;
   }
 
   async simpleTransfer(
@@ -301,7 +305,7 @@ class ProviderController extends BaseProviderController {
     value: BigNumber,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
-  ): Promise<{ txid: string; success: boolean }> {
+  ): Promise<{ txid: string; rawTx: string; success: boolean }> {
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
       fillUnsignedTx(network, account, to, value, tokenIdOnNetwork, extra),
@@ -313,6 +317,7 @@ class ProviderController extends BaseProviderController {
     );
     return {
       txid,
+      rawTx,
       success: await this.broadcastTransaction(network.id, rawTx),
     };
   }
@@ -393,6 +398,37 @@ class ProviderController extends BaseProviderController {
         .map((p) => p.price)
         .slice(0, 1);
     }
+  }
+
+  async refreshPendingTxs(
+    networkId: string,
+    pendingTxs: Array<string>,
+  ): Promise<Record<string, HistoryEntryStatus>> {
+    if (pendingTxs.length === 0) {
+      return {};
+    }
+
+    const ret: Record<string, HistoryEntryStatus> = {};
+    const regex = new RegExp(`^${networkId}${SEPERATOR}`);
+    const updatedStatuses = await this.getTransactionStatuses(
+      networkId,
+      pendingTxs.map((entryId) => entryId.replace(regex, '')),
+    );
+    updatedStatuses.forEach((status, index) => {
+      const entryId = pendingTxs[index];
+      if (
+        status === TransactionStatus.NOT_FOUND ||
+        status === TransactionStatus.INVALID
+      ) {
+        ret[entryId] = HistoryEntryStatus.DROPPED;
+      } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
+        ret[entryId] = HistoryEntryStatus.SUCCESS;
+      } else if (status === TransactionStatus.CONFIRM_BUT_FAILED) {
+        ret[entryId] = HistoryEntryStatus.FAILED;
+      }
+    });
+
+    return ret;
   }
 }
 
