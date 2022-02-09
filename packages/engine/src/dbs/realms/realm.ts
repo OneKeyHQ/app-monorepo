@@ -76,6 +76,16 @@ class RealmDB implements DBAPI {
       .then((realm) => {
         if (update || realm.empty) {
           realm.write(() => {
+            if (realm.empty) {
+              realm.create('Wallet', {
+                id: 'watching',
+                name: 'watching',
+                type: WALLET_TYPE_WATCHING,
+                backuped: true,
+                accounts: [],
+                nextAccountIds: { 'global': 1 },
+              });
+            }
             presetNetworksList.forEach((network, index) => {
               realm.create(
                 'Network',
@@ -545,16 +555,14 @@ class RealmDB implements DBAPI {
    */
   addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount> {
     try {
-      let wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+      const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
         walletId,
       );
       if (typeof wallet === 'undefined') {
-        if (walletId !== 'watching') {
-          return Promise.reject(
-            new OneKeyInternalError(`Wallet ${walletId} not found.`),
-          );
-        }
+        return Promise.reject(
+          new OneKeyInternalError(`Wallet ${walletId} not found.`),
+        );
       }
       const accountFind = this.realm!.objectForPrimaryKey<AccountSchema>(
         'Account',
@@ -566,17 +574,6 @@ class RealmDB implements DBAPI {
         );
       }
       this.realm!.write(() => {
-        // if wallet is not exist, create it, type must be watching
-        if (typeof wallet === 'undefined') {
-          wallet = this.realm!.create('Wallet', {
-            id: 'watching',
-            name: 'watching',
-            type: WALLET_TYPE_WATCHING,
-            backuped: true,
-            accounts: [],
-            nextAccountIds: { 'global': 1 },
-          });
-        }
         const accountNew = this.realm!.create('Account', {
           id: account.id,
           name: account.name,
