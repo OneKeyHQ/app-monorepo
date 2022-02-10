@@ -114,6 +114,28 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     [self.delegate ok_lite:self getInfoComplete:status];
 }
 
+- (BOOL)syncLiteInfo {
+  id<NFCISO7816Tag> tag = [self.session.connectedTag asNFCISO7816Tag];
+
+  OKNFCLiteStatus status = OKNFCLiteStatusError;
+  self.pinRTL = 0;
+  NSUInteger PinStatus = OKNFC_PIN_ERROR;
+
+  if (![OKNFCLite selectNFCApp:OKNFCLiteAppSecure withTag:tag]) {
+      return NO;
+  }
+  NSString *liteSN = [OKNFCLite getSNWithTag:tag];
+  self.SN = liteSN;
+  if (!self.SN.length || ![self verifyCert]) {
+      return NO;
+  }
+  PinStatus = [OKNFCLite getPINStatusWithTag:tag];
+  status = PinStatus == OKNFC_PIN_UNSET ? OKNFCLiteStatusNewCard : OKNFCLiteStatusActivated;
+  self.status = status;
+  self.pinRTL = PinStatus == OKNFC_PIN_UNSET ? 10 : PinStatus;
+  return YES;
+}
+
 - (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL)overwrite {
     if (pin.length != OKNFC_PIN_LENGTH) {
         return;
@@ -135,34 +157,12 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     if (!tag || ![self.delegate respondsToSelector:@selector(ok_lite:setMnemonicComplete:)]) { return; }
 
     OKNFCLiteSetMncStatus status = OKNFCLiteSetMncStatusError;
-    OKNFCLiteStatus liteStatus = OKNFCLiteStatusError;
   
-    self.pinRTL = 0;
-    NSUInteger PinStatus = OKNFC_PIN_ERROR;
-  
-    if (![OKNFCLite selectNFCApp:OKNFCLiteAppSecure withTag:tag]) {
+    if (![self syncLiteInfo]) {
         [self endNFCSessionWithError:NO];
         [self.delegate ok_lite:self setMnemonicComplete:status];
         return;
     }
-
-    self.SN = [OKNFCLite getSNWithTag:tag];
-    if (!self.SN.length || ![self verifyCert]) {
-        [self endNFCSessionWithError:YES];
-        [self.delegate ok_lite:self setMnemonicComplete:status];
-        return;
-    }
-  
-    PinStatus = [OKNFCLite getPINStatusWithTag:tag];
-    if (PinStatus == OKNFC_PIN_ERROR) {
-        [self endNFCSessionWithError:NO];
-        [self.delegate ok_lite:self setMnemonicComplete:status];
-        return;
-    }
-    
-    liteStatus = PinStatus == OKNFC_PIN_UNSET ? OKNFCLiteStatusNewCard : OKNFCLiteStatusActivated;
-    self.status = liteStatus;
-    self.pinRTL = PinStatus == OKNFC_PIN_UNSET ? 10 : PinStatus;
   
     if (self.status == OKNFCLiteStatusActivated && !force) {
         [self endNFCSessionWithError:YES];
@@ -215,27 +215,12 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     if (!tag || ![self.delegate respondsToSelector:@selector(ok_lite:getMnemonic:complete:)]) { return; }
 
     OKNFCLiteGetMncStatus status = OKNFCLiteGetMncStatusError;
-    OKNFCLiteStatus liteStatus = OKNFCLiteStatusError;
-    self.pinRTL = 0;
-    NSUInteger PinStatus = OKNFC_PIN_ERROR;
-
-    if (![OKNFCLite selectNFCApp:OKNFCLiteAppSecure withTag:tag]) {
-        [self endNFCSessionWithError:NO];
-        [self.delegate ok_lite:self getMnemonic:nil complete:status];
-        return;
-    }
-
-    self.SN = [OKNFCLite getSNWithTag:tag];
-    PinStatus = [OKNFCLite getPINStatusWithTag:tag];
-    if (PinStatus == OKNFC_PIN_ERROR) {
+    if (![self syncLiteInfo]) {
         [self endNFCSessionWithError:NO];
         [self.delegate ok_lite:self getMnemonic:nil complete:status];
         return;
     }
   
-    liteStatus = PinStatus == OKNFC_PIN_UNSET ? OKNFCLiteStatusNewCard : OKNFCLiteStatusActivated;
-    self.status = liteStatus;
-    self.pinRTL = PinStatus == OKNFC_PIN_UNSET ? 10 : PinStatus;
     if (self.status == OKNFCLiteStatusNewCard) {
         [self endNFCSessionWithError:YES];
         [self.delegate ok_lite:self getMnemonic:nil complete:status];
@@ -279,14 +264,17 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
         return;
     }
 
-    [OKNFCLite selectNFCApp:OKNFCLiteAppSecure withTag:tag];
-    self.SN = [OKNFCLite getSNWithTag:tag];
-
-    if (![self verifyCert]) {
+  if (![self syncLiteInfo]) {
+      [self endNFCSessionWithError:NO];
+      self.changePinCallback(OKNFCLiteChangePinStatusError);
+      return;
+  }
+  
+    if (self.status == OKNFCLiteStatusNewCard) {
         [self endNFCSessionWithError:YES];
         self.changePinCallback(OKNFCLiteChangePinStatusError);
         return;
-    };
+    }
 
     if (![OKNFCLite openSecureChannelWithTag:tag]) {
         [self endNFCSessionWithError:YES];
@@ -327,7 +315,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     [tag sendCommandAPDU:OKNFCBridge.wipeCard completionHandler:^(NSData *responseData_2, uint8_t sw1, uint8_t sw2, NSError *error) {
         [OKNFCUtility logAPDU:@"wipeCard" response:responseData_2 sw1:sw1 sw2:sw2 error:error];
         if (self.resetCallback) {
-            self.resetCallback(sw1 == OKNFC_SW1_OK);
+            self.resetCallback(sw1 == OKNFC_SW1_OK,nil);
         }
         [self endNFCSessionWithError:sw1 != OKNFC_SW1_OK];
     }];
@@ -677,36 +665,46 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 }
 
 - (void)tagReaderSession:(NFCTagReaderSession *)session didInvalidateWithError:(NSError *)error {
-//    [OKNFCHintViewController dismiss];
     NSLog(@"OKNFC tagReaderSession didInvalidateWithError %@", error);
+    if (error.code == 200) {
+      switch (self.sessionType) {
+          case OKNFCLiteSessionTypeGetInfo:
+          case OKNFCLiteSessionTypeUpdateInfo:{
+            if ([self.delegate respondsToSelector:@selector(ok_lite:getInfoComplete:)]) {
+              [self.delegate ok_lite:nil getInfoComplete:-1];
+            }
+          } break;
+          case OKNFCLiteSessionTypeReset: {
+            if (_resetCallback) {
+              _resetCallback(NO,error);
+            }
+          } break;
+          case OKNFCLiteSessionTypeSetMnemonic:
+          case OKNFCLiteSessionTypeSetMnemonicForce: {
+            if ([self.delegate respondsToSelector:@selector(ok_lite:setMnemonicComplete:)]) {
+              [self.delegate ok_lite:nil setMnemonicComplete:-1];
+            }
+          } break;
+          case OKNFCLiteSessionTypeGetMnemonic: {
+            if ([self.delegate respondsToSelector:@selector(ok_lite:getMnemonic:complete:)]) {
+              [self.delegate ok_lite:nil getMnemonic:nil complete:-1];
+            }
+          } break;
+          case OKNFCLiteSessionTypeChangePin: {
+            if (_changePinCallback) {
+              _changePinCallback(OKNFCLiteChangePinStatusCancel);
+            }
+            
+          } break;
+          default:
+              break;
+      }
+    }
     [session invalidateSession];
 }
 
 - (void)tagReaderSessionDidBecomeActive:(NFCTagReaderSession *)session {
     NSLog(@"OKNFC tagReaderSessionDidBecomeActive %@", session);
-//    [OKNFCHintViewController show];
-
 }
-
-
-
-//- (id)initWithCoder:(NSCoder *)aDecoder {
-//    self = [self init];
-//    if (!self) return self;
-//    _SN = [aDecoder decodeObjectForKey:@"SN"];
-//    _status = [[aDecoder decodeObjectForKey:@"status"] integerValue];
-//    return self;
-//}
-
-
-//- (instancetype)initWithSN:(NSString *)SN {
-//    OKNFCLite *lite;
-//    if (!lite) {
-//        lite = [[OKNFCLite alloc] init];
-//        lite.SN = SN;
-//    }
-//    return lite;
-//}
-
 
 @end
