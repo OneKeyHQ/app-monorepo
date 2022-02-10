@@ -27,11 +27,11 @@ import {
 import { DBNetwork, UpdateNetworkParams } from '../../types/network';
 import { Token } from '../../types/token';
 import {
-  DBWallet,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
+  Wallet,
 } from '../../types/wallet';
 import {
   DBAPI,
@@ -571,7 +571,7 @@ class FakeDB implements DBAPI {
     );
   }
 
-  getWallets(): Promise<Array<DBWallet>> {
+  getWallets(): Promise<Array<Wallet>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -580,13 +580,13 @@ class FakeDB implements DBAPI {
             .objectStore(WALLET_STORE_NAME)
             .getAll();
           request.onsuccess = (_event) => {
-            resolve(request.result as Array<DBWallet>);
+            resolve(request.result as Array<Wallet>);
           };
         }),
     );
   }
 
-  getWallet(walletId: string): Promise<DBWallet | undefined> {
+  getWallet(walletId: string): Promise<Wallet | undefined> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -609,8 +609,8 @@ class FakeDB implements DBAPI {
     password: string,
     rs: RevealableSeed,
     name?: string,
-  ): Promise<DBWallet> {
-    let ret: DBWallet;
+  ): Promise<Wallet> {
+    let ret: Wallet;
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -688,7 +688,7 @@ class FakeDB implements DBAPI {
           const walletStore = transaction.objectStore(WALLET_STORE_NAME);
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
-            const wallet = getWalletRequest.result as DBWallet;
+            const wallet = getWalletRequest.result as Wallet;
             if (typeof wallet === 'undefined') {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
@@ -741,8 +741,8 @@ class FakeDB implements DBAPI {
     );
   }
 
-  setWalletName(walletId: string, name: string): Promise<DBWallet> {
-    let ret: DBWallet;
+  setWalletName(walletId: string, name: string): Promise<Wallet> {
+    let ret: Wallet;
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -760,7 +760,7 @@ class FakeDB implements DBAPI {
           const walletStore = transaction.objectStore(WALLET_STORE_NAME);
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
-            const wallet = getWalletRequest.result as DBWallet;
+            const wallet = getWalletRequest.result as Wallet;
             if (typeof wallet === 'undefined') {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
@@ -835,8 +835,8 @@ class FakeDB implements DBAPI {
     );
   }
 
-  confirmHDWalletBackuped(walletId: string): Promise<DBWallet> {
-    let ret: DBWallet;
+  confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
+    let ret: Wallet;
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -856,7 +856,7 @@ class FakeDB implements DBAPI {
           const walletStore = transaction.objectStore(WALLET_STORE_NAME);
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
-            const wallet = getWalletRequest.result as DBWallet;
+            const wallet = getWalletRequest.result as Wallet;
             if (typeof wallet === 'undefined') {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
@@ -909,7 +909,7 @@ class FakeDB implements DBAPI {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
             }
-            const wallet = getWalletRequest.result as DBWallet;
+            const wallet = getWalletRequest.result as Wallet;
             if (wallet.accounts.includes(account.id)) {
               reject(new AccountAlreadyExists());
               return;
@@ -945,6 +945,21 @@ class FakeDB implements DBAPI {
               (_aevent) => {
                 ret = account;
               };
+          };
+        }),
+    );
+  }
+
+  getAllAccounts(): Promise<Array<DBAccount>> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request = db
+            .transaction([ACCOUNT_STORE_NAME])
+            .objectStore(ACCOUNT_STORE_NAME)
+            .getAll();
+          request.onsuccess = (_event) => {
+            resolve(request.result as Array<DBAccount>);
           };
         }),
     );
@@ -991,7 +1006,7 @@ class FakeDB implements DBAPI {
 
   private cleanupAccount(
     transaction: IDBTransaction,
-    wallet: DBWallet,
+    wallet: Wallet,
     accountId: string,
   ): void {
     wallet.accounts = wallet.accounts.filter(
@@ -1054,7 +1069,7 @@ class FakeDB implements DBAPI {
             .objectStore(WALLET_STORE_NAME)
             .get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
-            const wallet = getWalletRequest.result as DBWallet;
+            const wallet = getWalletRequest.result as Wallet;
             if (
               typeof wallet === 'undefined' ||
               !wallet.accounts.includes(accountId)
