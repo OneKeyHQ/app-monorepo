@@ -7,6 +7,12 @@ import {
 } from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
 
 import { DBAccount } from '../types/account';
+import {
+  HistoryEntry,
+  HistoryEntryMeta,
+  HistoryEntryStatus,
+  HistoryEntryType,
+} from '../types/history';
 import { DBNetwork, UpdateNetworkParams } from '../types/network';
 import { Token } from '../types/token';
 import { DBWallet } from '../types/wallet';
@@ -48,6 +54,8 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
   }
 }
 interface DBAPI {
+  reset(password: string): Promise<void>;
+
   listNetworks(): Promise<Array<DBNetwork>>;
   addNetwork(network: DBNetwork): Promise<DBNetwork>;
   getNetwork(networkId: string): Promise<DBNetwork>;
@@ -93,7 +101,26 @@ interface DBAPI {
     networkId: string,
     address: string,
   ): Promise<DBAccount>;
-  reset(password: string): Promise<void>;
+
+  addHistoryEntry(
+    id: string,
+    networkId: string,
+    accountId: string,
+    type: HistoryEntryType,
+    status: HistoryEntryStatus,
+    meta: HistoryEntryMeta,
+  ): Promise<void>;
+  updateHistoryEntryStatuses(
+    statusMap: Record<string, HistoryEntryStatus>,
+  ): Promise<void>;
+  removeHistoryEntry(entryId: string): Promise<void>;
+  getHistory(
+    limit: number,
+    networkId: string,
+    accountId: string,
+    contract?: string,
+    before?: number,
+  ): Promise<Array<HistoryEntry>>;
 }
 
 export type { DBAPI, OneKeyContext, StoredCredential, ExportedCredential };

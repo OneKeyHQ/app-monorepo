@@ -18,6 +18,12 @@ import {
   DBAccount,
   DBSimpleAccount,
 } from '../../types/account';
+import {
+  HistoryEntry,
+  HistoryEntryMeta,
+  HistoryEntryStatus,
+  HistoryEntryType,
+} from '../../types/history';
 import { DBNetwork, UpdateNetworkParams } from '../../types/network';
 import { Token } from '../../types/token';
 import {
@@ -57,6 +63,7 @@ const ACCOUNT_STORE_NAME = 'accounts';
 const NETWORK_STORE_NAME = 'networks';
 const TOKEN_STORE_NAME = 'tokens';
 const TOKEN_BINDING_STORE_NAME = 'token_bindings';
+const HISTORY_STORE_NAME = 'history';
 
 function initDb(request: IDBOpenDBRequest) {
   const db: IDBDatabase = request.result;
@@ -102,6 +109,16 @@ function initDb(request: IDBOpenDBRequest) {
     { unique: false },
   );
   tokenBindingStore.createIndex('tokenId', 'tokenId', { unique: false });
+
+  const HistoryStore = db.createObjectStore(HISTORY_STORE_NAME, {
+    keyPath: 'id',
+  });
+  HistoryStore.createIndex('accountId', 'accountId', { unique: false });
+  HistoryStore.createIndex(
+    'networkId, accountId, createdAt',
+    ['networkId', 'accountId', 'createdAt'],
+    { unique: false },
+  );
 }
 
 class FakeDB implements DBAPI {
@@ -981,14 +998,27 @@ class FakeDB implements DBAPI {
       (aId: string) => aId !== accountId,
     );
     transaction.objectStore(WALLET_STORE_NAME).put(wallet);
+
     transaction.objectStore(ACCOUNT_STORE_NAME).delete(accountId);
-    const openCursorRequest = transaction
+
+    const tokenBindingOpenCursorRequest = transaction
       .objectStore(TOKEN_BINDING_STORE_NAME)
       .index('accountId, networkId')
-      .openCursor(IDBKeyRange.bound([accountId, ''], [accountId, 'zzzzz']));
+      .openCursor(IDBKeyRange.bound([accountId], [accountId]));
+    tokenBindingOpenCursorRequest.onsuccess = (_cevent) => {
+      const cursor = tokenBindingOpenCursorRequest.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
 
-    openCursorRequest.onsuccess = (_cevent) => {
-      const cursor = openCursorRequest.result;
+    const historyOpenCursorRequest = transaction
+      .objectStore(HISTORY_STORE_NAME)
+      .index('accountId')
+      .openCursor(IDBKeyRange.only(accountId));
+    historyOpenCursorRequest.onsuccess = (_cevent) => {
+      const cursor = historyOpenCursorRequest.result;
       if (cursor) {
         cursor.delete();
         cursor.continue();
@@ -1120,6 +1150,141 @@ class FakeDB implements DBAPI {
             (account as DBSimpleAccount).address = address;
             accountStore.put(account);
             resolve(account);
+          };
+        }),
+    );
+  }
+
+  addHistoryEntry(
+    id: string,
+    networkId: string,
+    accountId: string,
+    type: HistoryEntryType,
+    status: HistoryEntryStatus,
+    meta: HistoryEntryMeta,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([HISTORY_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to add history entry.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          const now = Date.now();
+          transaction.objectStore(HISTORY_STORE_NAME).add({
+            id,
+            networkId,
+            accountId,
+            status,
+            type,
+            createdAt: now,
+            updatedAt: now,
+            ...meta,
+          });
+        }),
+    );
+  }
+
+  updateHistoryEntryStatuses(
+    statusMap: Record<string, HistoryEntryStatus>,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([HISTORY_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(
+              new OneKeyInternalError(
+                'Failed to update History Entry statuses.',
+              ),
+            );
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          const historyStore = transaction.objectStore(HISTORY_STORE_NAME);
+          const updatedAt = Date.now();
+
+          Object.entries(statusMap).forEach(([entryId, status]) => {
+            const getRequest = historyStore.get(entryId);
+            getRequest.onsuccess = (_event) => {
+              if (typeof getRequest.result !== 'undefined') {
+                historyStore.put(
+                  Object.assign(getRequest.result, { status, updatedAt }),
+                );
+              }
+            };
+          });
+        }),
+    );
+  }
+
+  removeHistoryEntry(entryId: string): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([HISTORY_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to add history entry.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          transaction.objectStore(HISTORY_STORE_NAME).delete(entryId);
+        }),
+    );
+  }
+
+  getHistory(
+    limit: number,
+    networkId: string,
+    accountId: string,
+    contract?: string,
+    before?: number,
+  ): Promise<Array<HistoryEntry>> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const ret: Array<HistoryEntry> = [];
+          const transaction = db.transaction([HISTORY_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to add history entry.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const openCursorRequest = transaction
+            .objectStore(HISTORY_STORE_NAME)
+            .index('networkId, accountId, createdAt')
+            .openCursor(
+              IDBKeyRange.bound(
+                [networkId, accountId],
+                [networkId, accountId, before || Date.now()],
+              ),
+              'prev',
+            );
+
+          openCursorRequest.onsuccess = (_cevent) => {
+            const cursor = openCursorRequest.result as IDBCursorWithValue;
+            if (cursor) {
+              const entry = cursor.value as HistoryEntry;
+              if (
+                typeof contract === 'undefined' ||
+                contract === entry.contract
+              ) {
+                ret.push(cursor.value as HistoryEntry);
+              }
+              if (ret.length < limit) {
+                cursor.continue();
+              }
+            }
           };
         }),
     );

@@ -2,7 +2,7 @@ import { TokenSchema, WalletSchema } from '.';
 
 import Realm from 'realm';
 
-import { AccountType } from '../../../types/account';
+import { AccountType, DBAccount } from '../../../types/account';
 
 class AccountSchema extends Realm.Object {
   public id!: string;
@@ -48,5 +48,18 @@ class AccountSchema extends Realm.Object {
       },
     },
   };
+
+  get internalObj(): DBAccount {
+    // TODO: return base on type
+    return {
+      id: this.id,
+      name: this.name,
+      type: this.type,
+      path: this.path || '',
+      coinType: this.coinType,
+      pub: this.pub || '',
+      address: this.address || '',
+    };
+  }
 }
 export { AccountSchema };

@@ -11,7 +11,11 @@ import {
 import { IMPL_EVM, IMPL_SOL } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI } from './dbs/base';
-import { NotImplemented, OneKeyInternalError } from './errors';
+import {
+  FailedToTransfer,
+  NotImplemented,
+  OneKeyInternalError,
+} from './errors';
 import {
   buildGetBalanceRequest,
   buildGetBalanceRequestsRaw,
@@ -49,6 +53,11 @@ import {
   DBSimpleAccount,
   ImportableHDAccount,
 } from './types/account';
+import {
+  HistoryEntry,
+  HistoryEntryStatus,
+  HistoryEntryType,
+} from './types/history';
 import {
   AddNetworkParams,
   EIP1559Fee,
@@ -469,7 +478,7 @@ class Engine {
     value: BigNumber,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
-  ): Promise<number> {
+  ): Promise<BigNumber> {
     // For account model networks, return the estimated gas usage.
     // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
     // TODO: validate to parameter.
@@ -518,26 +527,93 @@ class Engine {
       this.getNetwork(networkId),
       this.getAccount(accountId, networkId),
     ]);
-    return this.providerManager.simpleTransfer(
-      credential.seed,
-      password,
-      network,
-      account,
-      to,
-      value,
-      tokenIdOnNetwork,
-      {
-        ...extra,
-        feeLimit: gasLimit,
-        feePricePerUnit: gasPrice,
-      },
-    );
+    try {
+      const { txid, rawTx, success } =
+        await this.providerManager.simpleTransfer(
+          credential.seed,
+          password,
+          network,
+          account,
+          to,
+          value,
+          tokenIdOnNetwork,
+          {
+            ...extra,
+            feeLimit: gasLimit,
+            feePricePerUnit: gasPrice,
+          },
+        );
+      await this.dbApi.addHistoryEntry(
+        `${networkId}--${txid}`,
+        networkId,
+        accountId,
+        HistoryEntryType.TRANSFER,
+        HistoryEntryStatus.PENDING,
+        {
+          contract: tokenIdOnNetwork || '',
+          target: to,
+          value: value.toFixed(),
+          rawTx,
+        },
+      );
+      return { txid, success };
+    } catch (e) {
+      const { message } = e as { message: string };
+      throw new FailedToTransfer(message);
+    }
   }
 
   // TODO: sign & broadcast.
   // signTransaction
   // signMessage
   // broadcastRawTransaction
+
+  async getHistory(
+    networkId: string,
+    accountId: string,
+    contract?: string,
+    updatePending = true,
+    limit = 100,
+    before?: number,
+  ): Promise<Array<HistoryEntry>> {
+    const entries = await this.dbApi.getHistory(
+      limit,
+      networkId,
+      accountId,
+      contract,
+      before,
+    );
+    let updatedStatusMap: Record<string, HistoryEntryStatus> = {};
+
+    if (updatePending) {
+      const pendings: Array<string> = [];
+      entries.forEach((entry) => {
+        if (entry.status === HistoryEntryStatus.PENDING) {
+          pendings.push(entry.id);
+        }
+      });
+
+      updatedStatusMap = await this.providerManager.refreshPendingTxs(
+        networkId,
+        pendings,
+      );
+      if (Object.keys(updatedStatusMap).length > 0) {
+        await this.dbApi.updateHistoryEntryStatuses(updatedStatusMap);
+      }
+    }
+
+    return entries.map((entry) => {
+      const updatedStatus = updatedStatusMap[entry.id];
+      if (typeof updatedStatus !== 'undefined') {
+        return Object.assign(entry, { status: updatedStatus });
+      }
+      return entry;
+    });
+  }
+
+  removeHistoryEntry(entryId: string): Promise<void> {
+    return this.dbApi.removeHistoryEntry(entryId);
+  }
 
   async listNetworks(
     enabledOnly = true,
