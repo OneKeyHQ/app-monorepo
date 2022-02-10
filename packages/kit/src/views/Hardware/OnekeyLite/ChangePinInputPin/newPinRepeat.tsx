@@ -37,6 +37,7 @@ const OnekeyLiteNewRepeatPinCode: FC = () => {
           return Promise.resolve(false);
         }
 
+        navigation.popToTop();
         navigation.replace(
           OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal,
           {

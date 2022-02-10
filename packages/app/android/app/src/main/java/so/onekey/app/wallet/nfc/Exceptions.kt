@@ -26,6 +26,9 @@ sealed class NFCExceptions(val code: Int, override val message: String? = null) 
     // 连接设备不匹配
     class DeviceMismatchException(message: String? = null) : NFCExceptions(2003, message)
 
+    // 用户主动取消
+    class UserCancelExceptions(message: String? = null) : NFCExceptions(2004, message)
+
     // 密码错误
     class PasswordWrongException(message: String? = null) : NFCExceptions(3001, message)
 

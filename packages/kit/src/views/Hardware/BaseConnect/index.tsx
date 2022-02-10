@@ -1,6 +1,5 @@
 import React, { FC, useEffect, useRef, useState } from 'react';
 
-import { intlFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
 import { Animated, Platform } from 'react-native';
 

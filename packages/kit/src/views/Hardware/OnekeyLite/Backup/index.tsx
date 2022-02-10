@@ -90,7 +90,7 @@ const Backup: FC = () => {
           console.log('NFC read error', error);
 
           console.log('NFC read error code', error.code, error.message);
-          setPinRetryCount(state ? state.pinRetryCount.toString() : '0');
+          setPinRetryCount(state?.pinRetryCount?.toString() ?? '0');
           setErrorCode(error.code);
         }
       },

@@ -2,6 +2,7 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { CardErrors } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
@@ -46,7 +47,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
     <>
       {/* 设备没有 NFC */}
       <Dialog
-        visible={code === 1001}
+        visible={code === CardErrors.NotExistsNFC}
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -69,7 +70,10 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* 没有 NFC 权限 */}
       <Dialog
-        visible={code === 1002 || code === 1003}
+        visible={
+          code === CardErrors.NotEnableNFC ||
+          code === CardErrors.NotNFCPermission
+        }
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -77,7 +81,9 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           title: intl.formatMessage({
             id: 'modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices',
           }),
-          content: intl.formatMessage({ id: 'modal__unable_to_connect_desc' }),
+          content: intl.formatMessage({
+            id: 'modal__onekey_wants_to_use_nfc_desc',
+          }),
         }}
         footerButtonProps={{
           hideSecondaryAction: true,
@@ -94,7 +100,11 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* 连接失败（可能是连接问题） */}
       <Dialog
-        visible={code === 1000 || code === 2001 || code === 4000}
+        visible={
+          code === CardErrors.InitChannel ||
+          code === CardErrors.ConnectionFail ||
+          code === CardErrors.ExecFailure
+        }
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -117,7 +127,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* 操作中断（可能是连接问题） */}
       <Dialog
-        visible={code === 2002}
+        visible={code === CardErrors.InterruptError}
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -140,7 +150,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* 没有备份过内容 */}
       <Dialog
-        visible={code === 4002}
+        visible={code === CardErrors.NotInitializedError}
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -167,7 +177,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* 已经备份过内容 */}
       <Dialog
-        visible={code === 4001}
+        visible={code === CardErrors.InitializedError}
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -195,7 +205,10 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* 密码错误 */}
       <Dialog
         visible={
-          code === 3001 || code === 3002 || code === 3003 || code === 3004
+          code === CardErrors.PasswordWrong ||
+          code === CardErrors.InputPasswordEmpty ||
+          code === CardErrors.NotSetPassword ||
+          code === CardErrors.InitPasswordError
         }
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
@@ -227,7 +240,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* Card 已被锁定，需要手动 Reset */}
       <Dialog
-        visible={code === 3005}
+        visible={code === CardErrors.CardLock}
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -250,18 +263,23 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
 
       {/* Card Pin 码输入失败次数太多已经重置 */}
       <Dialog
-        visible={code === 3006}
+        visible={code === CardErrors.UpperErrorAutoReset}
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
           iconType: 'danger',
-          title: '卡片 Pin 输入错误次数太多',
-          content: '卡片输入 Pin 错误次数太多，已经自动重置。',
+          title: intl.formatMessage({
+            id: 'modal__onekey_lite_has_been_reset',
+          }),
+          content: intl.formatMessage({
+            id: 'modal__onekey_lite_has_been_reset_desc',
+          }),
         }}
         footerButtonProps={{
+          hideSecondaryAction: true,
           primaryActionProps: {
             type: 'destructive',
-            children: intl.formatMessage({ id: 'action__retry' }),
+            children: intl.formatMessage({ id: 'action__i_got_it' }),
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
@@ -270,6 +288,9 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           onSecondaryActionPress: () => onExit?.(),
         }}
       />
+
+      {/* 用户主动取消 */}
+      {code === CardErrors.UserCancel && onExit?.()}
     </>
   );
 };
