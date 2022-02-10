@@ -1,4 +1,4 @@
-name: Build Native iOS Release CI
+name: Build Native iOS AppStore CI
 
 on:
   workflow_dispatch:

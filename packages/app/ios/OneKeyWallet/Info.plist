@@ -31,6 +31,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
@@ -96,5 +98,15 @@
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
 	</array>
+	<key>RCTRootViewBackgroundColor</key>
+	<dict>
+		<key>dynamic</key>
+		<dict>
+			<key>light</key>
+			<integer>4294967295</integer>
+			<key>dark</key>
+			<real>4280690225</real>
+		</dict>
+	</dict>
 </dict>
 </plist>
