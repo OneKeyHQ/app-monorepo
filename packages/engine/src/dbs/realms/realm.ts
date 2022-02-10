@@ -21,11 +21,11 @@ import {
 import { DBNetwork } from '../../types/network';
 import { Token } from '../../types/token';
 import {
-  DBWallet,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
+  Wallet,
 } from '../../types/wallet';
 import {
   DBAPI,
@@ -76,6 +76,16 @@ class RealmDB implements DBAPI {
       .then((realm) => {
         if (update || realm.empty) {
           realm.write(() => {
+            if (realm.empty) {
+              realm.create('Wallet', {
+                id: 'watching',
+                name: 'watching',
+                type: WALLET_TYPE_WATCHING,
+                backuped: true,
+                accounts: [],
+                nextAccountIds: { 'global': 1 },
+              });
+            }
             presetNetworksList.forEach((network, index) => {
               realm.create(
                 'Network',
@@ -501,9 +511,9 @@ class RealmDB implements DBAPI {
 
   /**
    * retrieve all accounts
-   * @returns {Promise<DBWallet[]>}
+   * @returns {Promise<Wallet[]>}
    */
-  getWallets(): Promise<DBWallet[]> {
+  getWallets(): Promise<Wallet[]> {
     try {
       const wallets = this.realm!.objects<WalletSchema>('Wallet');
       return Promise.resolve(wallets.map((wallet) => wallet.internalObj));
@@ -516,10 +526,10 @@ class RealmDB implements DBAPI {
   /**
    * get a certain wallet by id
    * @param walletId
-   * @returns {Promise<DBWallet | undefined>}
+   * @returns {Promise<Wallet | undefined>}
    * @throws {OneKeyInternalError}
    */
-  getWallet(walletId: string): Promise<DBWallet | undefined> {
+  getWallet(walletId: string): Promise<Wallet | undefined> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -545,16 +555,14 @@ class RealmDB implements DBAPI {
    */
   addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount> {
     try {
-      let wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+      const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
         walletId,
       );
       if (typeof wallet === 'undefined') {
-        if (walletId !== 'watching') {
-          return Promise.reject(
-            new OneKeyInternalError(`Wallet ${walletId} not found.`),
-          );
-        }
+        return Promise.reject(
+          new OneKeyInternalError(`Wallet ${walletId} not found.`),
+        );
       }
       const accountFind = this.realm!.objectForPrimaryKey<AccountSchema>(
         'Account',
@@ -566,17 +574,6 @@ class RealmDB implements DBAPI {
         );
       }
       this.realm!.write(() => {
-        // if wallet is not exist, create it, type must be watching
-        if (typeof wallet === 'undefined') {
-          wallet = this.realm!.create('Wallet', {
-            id: 'watching',
-            name: 'watching',
-            type: WALLET_TYPE_WATCHING,
-            backuped: true,
-            accounts: [],
-            nextAccountIds: { 'global': 1 },
-          });
-        }
         const accountNew = this.realm!.create('Account', {
           id: account.id,
           name: account.name,
@@ -617,6 +614,22 @@ class RealmDB implements DBAPI {
   }
 
   /**
+   * get a list of all accounts
+   * @returns {Promise<DBAccount[]>}
+   * @throws {OneKeyInternalError}
+   *
+   */
+  getAllAccounts(): Promise<Array<DBAccount>> {
+    try {
+      const accounts = this.realm!.objects<AccountSchema>('Account');
+      return Promise.resolve(accounts.map((account) => account.internalObj));
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  /**
    * get account list by given account id list
    * @param accountIds
    * @returns {Promise<DBAccount[]>}
@@ -626,7 +639,7 @@ class RealmDB implements DBAPI {
   getAccounts(accountIds: string[]): Promise<DBAccount[]> {
     try {
       const accounts = this.realm!.objects<AccountSchema>('Account').filtered(
-        accountIds.map((id, index) => `id == $${index}`).join(' OR '),
+        accountIds.map((_, index) => `id == $${index}`).join(' OR '),
         ...accountIds,
       );
       return Promise.resolve(accounts.map((account) => account.internalObj));
@@ -672,7 +685,7 @@ class RealmDB implements DBAPI {
     password: string,
     rs: RevealableSeed,
     name?: string,
-  ): Promise<DBWallet> {
+  ): Promise<Wallet> {
     let context: ContextSchema | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -787,10 +800,10 @@ class RealmDB implements DBAPI {
    * rename a already existing wallet
    * @param walletId
    * @param name
-   * @returns {Promise<DBWallet>}
+   * @returns {Promise<Wallet>}
    * @throws {OneKeyInternalError}
    */
-  setWalletName(walletId: string, name: string): Promise<DBWallet> {
+  setWalletName(walletId: string, name: string): Promise<Wallet> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -867,10 +880,10 @@ class RealmDB implements DBAPI {
   /**
    *  change the wallet backup status if necessary
    * @param walletId
-   * @returns {Promise<DBWallet>}
+   * @returns {Promise<Wallet>}
    * @throws {OneKeyInternalError}
    */
-  confirmHDWalletBackuped(walletId: string): Promise<DBWallet> {
+  confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -1069,7 +1082,7 @@ class RealmDB implements DBAPI {
       const toUpdate = this.realm!.objects<HistoryEntrySchema>(
         'HistoryEntry',
       ).filtered(
-        entryIds.map((id, index) => `id == $${index}`).join(' OR '),
+        entryIds.map((_, index) => `id == $${index}`).join(' OR '),
         ...entryIds,
       );
       const updatedAt = Date.now();

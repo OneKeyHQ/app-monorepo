@@ -37,9 +37,7 @@ function fromDBAccountToAccount(dbAccount: DBAccount): Account {
   if (type === ACCOUNT_TYPE_MULADDR) {
     return Object.assign(base, {
       xpub: (dbAccount as DBMulAddrAccount).xpub,
-      addresses: new Map(
-        Object.entries((dbAccount as DBMulAddrAccount).addresses),
-      ),
+      addresses: (dbAccount as DBMulAddrAccount).addresses,
     });
   }
   throw new OneKeyInternalError('Unsupported account type.');
@@ -62,7 +60,7 @@ function getHDAccountToAdd(
     type: 'simple',
     path,
     coinType,
-    pub: xpub.slice(-33).toString('hex'),
+    pub: xpub.slice(45).toString('hex'),
     address: '',
   };
 }

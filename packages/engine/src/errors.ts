@@ -24,10 +24,15 @@ class FailedToTransfer extends OneKeyError {
   key = 'onekey_error_failed_to_transfer';
 }
 
+class InvalidAddress extends OneKeyError {
+  key = 'onekey_error_invalid_address';
+}
+
 export {
   NotImplemented,
   OneKeyInternalError,
   WrongPassword,
   AccountAlreadyExists,
   FailedToTransfer,
+  InvalidAddress,
 };

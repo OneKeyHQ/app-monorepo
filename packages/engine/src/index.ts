@@ -8,11 +8,12 @@ import {
   revealableSeedFromMnemonic,
 } from '@onekeyhq/blockchain-libs/dist/secret';
 
-import { IMPL_EVM, IMPL_SOL } from './constants';
+import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI } from './dbs/base';
 import {
   FailedToTransfer,
+  InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
 } from './errors';
@@ -34,7 +35,6 @@ import {
 } from './managers/network';
 import { getNetworkIdFromTokenId } from './managers/token';
 import {
-  fromDBWalletToWallet,
   walletCanBeRemoved,
   walletIsHD,
   walletNameCanBeUpdated,
@@ -66,7 +66,7 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { DBWallet, WALLET_TYPE_HD, Wallet } from './types/wallet';
+import { WALLET_TYPE_HD, Wallet } from './types/wallet';
 
 class Engine {
   private dbApi: DBAPI;
@@ -82,22 +82,21 @@ class Engine {
     );
   }
 
-  async getWallets(): Promise<Array<Wallet>> {
+  getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    const wallets = await this.dbApi.getWallets();
-    return wallets.map((w: DBWallet) => fromDBWalletToWallet(w));
+    return this.dbApi.getWallets();
   }
 
   async getWallet(walletId: string): Promise<Wallet> {
     // Return a single wallet.
-    const dbWallet = await this.dbApi.getWallet(walletId);
-    if (typeof dbWallet !== 'undefined') {
-      return fromDBWalletToWallet(dbWallet);
+    const wallet = await this.dbApi.getWallet(walletId);
+    if (typeof wallet !== 'undefined') {
+      return wallet;
     }
     throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
   }
 
-  async createHDWallet(
+  createHDWallet(
     password: string,
     mnemonic?: string,
     name?: string,
@@ -116,8 +115,7 @@ class Engine {
     ) {
       throw new OneKeyInternalError('Invalid mnemonic.');
     }
-    const dbWallet = await this.dbApi.createHDWallet(password, rs, name);
-    return fromDBWalletToWallet(dbWallet);
+    return this.dbApi.createHDWallet(password, rs, name);
   }
 
   removeWallet(walletId: string, password: string): Promise<void> {
@@ -128,15 +126,14 @@ class Engine {
     return this.dbApi.removeWallet(walletId, password);
   }
 
-  async setWalletName(walletId: string, name: string): Promise<Wallet> {
+  setWalletName(walletId: string, name: string): Promise<Wallet> {
     // Rename a wallet, raise an error if trying to rename the imported or watching wallet.
     if (!walletNameCanBeUpdated(walletId)) {
       throw new OneKeyInternalError(
         `Wallet ${walletId}'s name cannot be updated.`,
       );
     }
-    const dbWallet = await this.dbApi.setWalletName(walletId, name);
-    return fromDBWalletToWallet(dbWallet);
+    return this.dbApi.setWalletName(walletId, name);
   }
 
   async revealHDWalletMnemonic(
@@ -151,19 +148,35 @@ class Engine {
     return mnemonicFromEntropy(credential.entropy, password);
   }
 
-  async confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
+  confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
     // Confirm that the wallet seed is backed up. Raise an error if wallet isn't HD, doesn't exist. Nothing happens if the wallet is already backed up before this call.
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    const dbWallet = await this.dbApi.confirmHDWalletBackuped(walletId);
-    return fromDBWalletToWallet(dbWallet);
+    return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
   async getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
     // List accounts by account ids. No token info are returned, only base account info are included.
     const accounts = await this.dbApi.getAccounts(accountIds);
     return accounts.map((a: DBAccount) => fromDBAccountToAccount(a));
+  }
+
+  async getAccountsByNetwork(
+    networkId: string,
+  ): Promise<Record<string, Array<Account>>> {
+    const ret: Record<string, Array<Account>> = {};
+    const accounts = await this.dbApi.getAllAccounts();
+    accounts
+      .filter((a) => isAccountCompatibleWithNetwork(a.id, networkId))
+      .forEach((a) => {
+        const [walletId] = a.id.split(SEPERATOR, 1);
+        if (typeof ret[walletId] === 'undefined') {
+          ret[walletId] = [];
+        }
+        ret[walletId].push(fromDBAccountToAccount(a));
+      });
+    return ret;
   }
 
   async getAccount(accountId: string, networkId: string): Promise<Account> {
@@ -204,7 +217,7 @@ class Engine {
     const [dbAccount, network, tokens] = await Promise.all([
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
-      this.getTokens(networkId, accountId),
+      this.getTokens(networkId, accountId, false),
     ]);
     const decimalsMap: Record<string, number> = {};
     tokens.forEach((token) => {
@@ -348,16 +361,14 @@ class Engine {
   ): Promise<Account> {
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
-    const balance = await this.providerManager.getBalances(
-      networkId,
-      buildGetBalanceRequestsRaw(target, []),
-    );
-    if (typeof balance === 'undefined') {
-      throw new OneKeyInternalError('Invalid address.'); // TODO: better error report.
+    const { normalizedAddress, isValid } =
+      await this.providerManager.verifyAddress(networkId, target);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
     }
     const account = getWatchingAccountToCreate(
       getImplFromNetworkId(networkId),
-      target,
+      normalizedAddress,
       name,
     );
     const a = await this.dbApi.addAccountToWallet('watching', account);
@@ -455,10 +466,24 @@ class Engine {
   async getTokens(
     networkId: string,
     accountId?: string,
+    withMain = true,
   ): Promise<Array<Token>> {
     // Get token info by network and account.
     const tokens = await this.dbApi.getTokens(networkId, accountId);
     if (typeof accountId !== 'undefined') {
+      // TODO: add default tokens.
+      if (withMain) {
+        const dbNetwork = await this.dbApi.getNetwork(networkId);
+        tokens.unshift({
+          id: dbNetwork.id,
+          name: dbNetwork.name,
+          networkId,
+          tokenIdOnNetwork: '',
+          symbol: dbNetwork.symbol,
+          decimals: dbNetwork.decimals,
+          logoURI: dbNetwork.logoURI,
+        });
+      }
       return tokens;
     }
     const existingTokens = new Set(
@@ -617,20 +642,19 @@ class Engine {
 
   async listNetworks(
     enabledOnly = true,
-  ): Promise<Map<string, Array<NetworkShort>>> {
+  ): Promise<Record<string, Array<NetworkShort>>> {
     const networks = await this.dbApi.listNetworks();
-    const ret: Map<string, Array<NetworkShort>> = new Map([
-      [IMPL_EVM, []],
-      [IMPL_SOL, []],
+    const ret: Record<string, Array<NetworkShort>> = {
+      [IMPL_EVM]: [],
+      [IMPL_SOL]: [],
       // TODO: other implemetations
-    ]);
+    };
     networks.forEach((network) => {
       if (enabledOnly && !network.enabled) {
         return;
       }
-      if (ret.has(network.impl)) {
-        const tmpL = ret.get(network.impl) || [];
-        tmpL.push({
+      if (typeof ret[network.impl] !== 'undefined') {
+        ret[network.impl].push({
           id: network.id,
           name: network.name,
           impl: network.impl,
@@ -670,7 +694,7 @@ class Engine {
 
   async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Map<string, Array<NetworkShort>>> {
+  ): Promise<Record<string, Array<NetworkShort>>> {
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
@@ -720,15 +744,29 @@ class Engine {
   // TODO: RPC interactions.
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
-  getPrices(networkId: string, tokens?: Array<string>): Map<string, BigNumber> {
-    // Get price info. Main token price (in fiat) is always included.
-    console.log(`getPrices ${networkId} ${JSON.stringify(tokens || [])}`);
-    throw new NotImplemented();
+  getPrices(
+    networkId: string,
+    tokenIdsOnNetwork: Array<string>,
+    withMain = true,
+  ): Promise<Record<string, BigNumber>> {
+    // Get price info.
+    const ret: Record<string, BigNumber> = {};
+    tokenIdsOnNetwork.forEach((tokenId) => {
+      ret[tokenId] = new BigNumber(100);
+    });
+    if (withMain) {
+      ret.main = new BigNumber(100);
+    }
+    return Promise.resolve(ret);
   }
 
-  listFiats(): Promise<Array<string>> {
-    return new Promise((resolve, _reject) => {
-      resolve(['usd', 'cny', 'jpn', 'hkd']);
+  listFiats(): Promise<Record<string, BigNumber>> {
+    // TODO: connect price module
+    return Promise.resolve({
+      'usd': new BigNumber('1'),
+      'cny': new BigNumber('6.3617384'),
+      'jpy': new BigNumber('115.36691'),
+      'hkd': new BigNumber('7.7933804'),
     });
   }
 
