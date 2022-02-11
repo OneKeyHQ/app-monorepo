@@ -46,7 +46,11 @@ import {
   getPresetTokensOnNetwork,
   networkIsPreset,
 } from './presets';
-import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
+import {
+  PriceController,
+  ProviderController,
+  fromDBNetworkToChainInfo,
+} from './proxy';
 import {
   ACCOUNT_TYPE_SIMPLE,
   Account,
@@ -74,8 +78,11 @@ class Engine {
 
   private providerManager: ProviderController;
 
+  private priceManager: PriceController;
+
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
+    this.priceManager = new PriceController();
     this.providerManager = new ProviderController((networkId) =>
       this.dbApi
         .getNetwork(networkId)
@@ -805,36 +812,33 @@ class Engine {
   // TODO: RPC interactions.
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
-  getPrices(
+  async getPrices(
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, BigNumber>> {
+  ): Promise<Record<string, string>> {
     // Get price info.
-    const ret: Record<string, BigNumber> = {};
-    tokenIdsOnNetwork.forEach((tokenId) => {
-      ret[tokenId] = new BigNumber(100);
+    const ret: Record<string, string> = {};
+    const prices = await this.priceManager.getPrices(
+      networkId,
+      tokenIdsOnNetwork,
+      withMain,
+    );
+    Object.keys(prices).forEach((k) => {
+      ret[k] = prices[k].toFixed();
     });
-    if (withMain) {
-      ret.main = new BigNumber(100);
-    }
-    return Promise.resolve(ret);
+    return ret;
   }
 
-  listFiats(): Promise<Record<string, string>> {
-    // TODO: connect price module
-    // return Promise.resolve({
-    //   'usd': new BigNumber('1'),
-    //   'cny': new BigNumber('6.3617384'),
-    //   'jpy': new BigNumber('115.36691'),
-    //   'hkd': new BigNumber('7.7933804'),
-    // });
-    return Promise.resolve({
-      'usd': '1',
-      'cny': '6.3617384',
-      'jpy': '115.36691',
-      'hkd': '7.7933804',
+  async listFiats(): Promise<Record<string, string>> {
+    const ret: Record<string, string> = {};
+    const fiats = await this.priceManager.getFiats(
+      new Set(['usd', 'cny', 'jpy', 'hkd']),
+    );
+    Object.keys(fiats).forEach((f) => {
+      ret[f] = fiats[f].sd(6).toFixed();
     });
+    return ret;
   }
 
   setFiat(symbol: string): Promise<void> {
