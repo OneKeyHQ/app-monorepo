@@ -1,9 +1,12 @@
 import React, { ComponentProps, FC, ReactNode, useCallback } from 'react';
 
+import { Center } from 'native-base';
 import {
   SegmentedControl as BaseSegmentedControl,
   Segment,
 } from 'react-native-resegmented-control';
+
+import { isWeb } from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
@@ -41,24 +44,26 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
   >(({ label, iconProps = {}, iconName }, active) => {
     if (typeof label === 'string') {
       return (
-        <Typography.Body2Strong
-          ml="3px"
-          color={active ? 'text-default' : 'text-subdued'}
-        >
-          {label}
-        </Typography.Body2Strong>
+        <Center flex="1" padding="6px" ml="3px" w="full" h="full">
+          <Typography.Body2Strong
+            color={active ? 'text-default' : 'text-subdued'}
+            textAlign="center"
+          >
+            {label}
+          </Typography.Body2Strong>
+        </Center>
       );
     }
     if (iconName) {
       return (
-        <Box ml="3px">
+        <Center flex="1" padding="6px" ml="3px" w="full" h="full">
           <Icon
             size={20}
             {...iconProps}
             name={iconName}
             color={active ? 'icon-hovered' : 'icon-default'}
           />
-        </Box>
+        </Center>
       );
     }
     return label;
@@ -80,7 +85,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
           backgroundColor: activeBgColor,
           height: 32,
           borderRadius: 10,
-          /* 
+          /*
             note:
             do not define the shadow radius, otherwise the shadow will not work properly
           */
@@ -102,8 +107,10 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
             content={({ active }: { active: boolean }) =>
               renderContent(option, active)
             }
+            // @ts-expect-error Web should able to accept inline-block
             style={{
-              padding: 6,
+              display: isWeb() ? 'inline-block' : 'flex',
+              minWidth: `${100 / options.length}%`,
             }}
           />
         ))}
