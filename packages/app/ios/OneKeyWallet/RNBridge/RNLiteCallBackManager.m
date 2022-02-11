@@ -62,28 +62,37 @@
 
 #pragma mark - setMnemonic
 
-+ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin callBack:(RCTResponseSenderBlock)callBack {
-  [[RNLiteCallBackManager sharedInstance].lite setMnemonic:mnemonic withPin:pin];
++ (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL)overwrite callBack:(RCTResponseSenderBlock)callBack {
+  [[RNLiteCallBackManager sharedInstance].lite setMnemonic:mnemonic withPin:pin overwrite:overwrite];
   [RNLiteCallBackManager sharedInstance].setMnemonicCallback = callBack;
 }
 
 - (void)ok_lite:(OKNFCLite *)lite setMnemonicComplete:(OKNFCLiteSetMncStatus)status {
-  NSDictionary *cardInfo = [self cardInfo:lite status:status];
-  switch (status) {
-    case OKNFCLiteSetMncStatusSuccess:
-      self.setMnemonicCallback(@[[NSNull null],@(true),cardInfo]);
-      break;
-    case OKNFCLiteSetMncStatusError:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
-    case OKNFCLiteSetMncStatusSNNotMatch:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
-    case OKNFCLiteSetMncStatusPinNotMatch:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],[NSNull null]]);
-    case OKNFCLiteSetMncStatusWiped:
-      self.setMnemonicCallback(@[[NSNull null],@(false),cardInfo]);
-    default:
-      break;
+  if (lite && self.setMnemonicCallback) {
+    NSDictionary *cardInfo = [self cardInfo:lite status:status];
+    switch (status) {
+      case OKNFCLiteSetMncStatusSuccess:
+        self.setMnemonicCallback(@[[NSNull null],@(true),cardInfo]);
+        break;
+      case OKNFCLiteSetMncStatusError:
+        if (lite.status == OKNFCLiteStatusActivated) {
+          self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsInitialized),@"message":@""},[NSNull null],[NSNull null]]);
+        } else {
+          self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+        }
+      case OKNFCLiteSetMncStatusSNNotMatch:
+        self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
+      case OKNFCLiteSetMncStatusPinNotMatch:
+        self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],cardInfo]);
+      case OKNFCLiteSetMncStatusWiped:
+        self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsAutoReset),@"message":@""},[NSNull null],[NSNull null]]);
+      default:
+        break;
+    }
+  } else {
+    self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsUserCancel),@"message":@""},[NSNull null],[NSNull null]]);
   }
+
   self.setMnemonicCallback = nil;
   return;
 }
@@ -94,24 +103,71 @@
 }
 
 - (void)ok_lite:(OKNFCLite *)lite getMnemonic:(NSString *)mnemonic complete:(OKNFCLiteGetMncStatus)status {
-  NSDictionary *cardInfo = [self cardInfo:lite status:status];
-  switch (status) {
-    case OKNFCLiteGetMncStatusSuccess:
-      self.getMnemonicCallback(@[[NSNull null],@(true),cardInfo]);
-      break;
-    case OKNFCLiteGetMncStatusError:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
-    case OKNFCLiteGetMncStatusSNNotMatch:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
-    case OKNFCLiteGetMncStatusPinNotMatch:
-      self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],[NSNull null]]);
-    case OKNFCLiteGetMncStatusWiped:
-      self.setMnemonicCallback(@[[NSNull null],@(false),cardInfo]);
-    default:
-      break;
+  if (lite && self.getMnemonicCallback) {
+    NSDictionary *cardInfo = [self cardInfo:lite status:status];
+    switch (status) {
+      case OKNFCLiteGetMncStatusSuccess:
+        self.getMnemonicCallback(@[[NSNull null],mnemonic,cardInfo]);
+        break;
+      case OKNFCLiteGetMncStatusError:
+        if (lite.status == OKNFCLiteStatusNewCard) {
+          self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsNotInitialized),@"message":@""},[NSNull null],[NSNull null]]);
+        } else {
+          self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+        }
+        break;
+      case OKNFCLiteGetMncStatusSNNotMatch:
+        self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
+        break;
+      case OKNFCLiteGetMncStatusPinNotMatch:
+        self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],cardInfo]);
+        break;
+      case OKNFCLiteGetMncStatusWiped:
+        self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsAutoReset),@"message":@""},[NSNull null],[NSNull null]]);
+        break;
+      default:
+        break;
+    }
+  } else {
+    self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsUserCancel),@"message":@""},[NSNull null],[NSNull null]]);
   }
-  self.setMnemonicCallback = nil;
+  
+  self.getMnemonicCallback = nil;
   return;
+}
+
++ (void)changePin:(NSString *)oldPwd newPwd:(NSString *)newPwd callBack:(RCTResponseSenderBlock)callBack {
+  [RNLiteCallBackManager clearLiteInfo];
+  OKNFCLite *lite = [[OKNFCLite alloc] init];
+  [RNLiteCallBackManager sharedInstance].lite = lite;
+  [[RNLiteCallBackManager sharedInstance].lite changePin:oldPwd to:newPwd];
+  [RNLiteCallBackManager sharedInstance].lite.changePinCallback = ^(OKNFCLiteChangePinStatus status) {
+    NSDictionary *cardInfo = [[RNLiteCallBackManager sharedInstance] cardInfo:lite status:0];
+    switch (status) {
+        case OKNFCLiteChangePinStatusSuccess: {
+          callBack(@[[NSNull null],@(true),cardInfo]);
+        } break;
+        case OKNFCLiteChangePinStatusWiped: {
+          callBack(@[@{@"code":@(NFCLiteExceptionsAutoReset),@"message":@""},[NSNull null],[NSNull null]]);
+        } break;
+        case OKNFCLiteChangePinStatusPinNotMatch: {
+          callBack(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],cardInfo]);
+        } break;
+        case OKNFCLiteChangePinStatusError: {
+          if (lite.status == OKNFCLiteStatusNewCard) {
+              callBack(@[@{@"code":@(NFCLiteExceptionsPasswordEmpty),@"message":@""},[NSNull null],[NSNull null]]);
+          } else {
+            callBack(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+          }
+        } break;
+      case OKNFCLiteChangePinStatusCancel: {
+          callBack(@[@{@"code":@(NFCLiteExceptionsUserCancel),@"message":@""},[NSNull null],[NSNull null]]);
+      } break;
+        default: break;
+    }
+    [RNLiteCallBackManager clearLiteInfo];
+
+  };
 }
 
 + (void)reset:(RCTResponseSenderBlock)callBack {
@@ -119,18 +175,23 @@
   OKNFCLite *lite = [[OKNFCLite alloc] init];
   [RNLiteCallBackManager sharedInstance].lite = lite;
   [[RNLiteCallBackManager sharedInstance].lite reset];
-  [RNLiteCallBackManager sharedInstance].lite.resetCallback = ^(BOOL isSuccess) {
+  [RNLiteCallBackManager sharedInstance].lite.resetCallback = ^(BOOL isSuccess, NSError *error) {
     if (isSuccess) {
       NSDictionary *cardInfo = [[RNLiteCallBackManager sharedInstance] cardInfo:lite status:0];
       callBack(@[[NSNull null],@(true),cardInfo]);
     } else {
-      callBack(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+      if (error && error.code == 200) {
+        callBack(@[@{@"code":@(NFCLiteExceptionsUserCancel),@"message":@""},[NSNull null],[NSNull null]]);
+      } else {
+        callBack(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
+      }
     }
+    [RNLiteCallBackManager clearLiteInfo];
   };
 }
 
 - (id)cardInfo:(OKNFCLite *)lite status:(NSInteger)status {
-  if (status == OKNFCLiteStatusSNNotMatch || status == OKNFCLiteStatusActivated || status == OKNFCLiteGetMncStatusSuccess || status == OKNFCLiteSetMncStatusSuccess) {
+  if (lite) {
     return @{
       @"hasBackup":[NSNull null],
       @"pinRetryCount":@(lite.pinRTL),

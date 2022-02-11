@@ -15,7 +15,7 @@ const HardwarePinCode: FC<HardwarePinCodeViewProp> = ({
   securityReminder,
   onComplete,
 }) => {
-  console.log('title', title);
+  console.log('HardwarePinCode title:', title);
 
   return (
     <Modal header="PIN" footer={null}>

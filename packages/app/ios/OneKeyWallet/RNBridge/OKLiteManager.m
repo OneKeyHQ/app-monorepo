@@ -23,9 +23,9 @@ RCT_EXPORT_METHOD(getLiteInfo:(RCTResponseSenderBlock)callback)
   [RNLiteCallBackManager getLiteInfo:callback];
 }
 
-RCT_EXPORT_METHOD(setMnemonic:(NSString *)mnemonic pin:(NSString *)pin callback:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(setMnemonic:(NSString *)mnemonic pin:(NSString *)pin overwrite:(BOOL)overwrite callback:(RCTResponseSenderBlock)callback)
 {
-  [RNLiteCallBackManager setMnemonic:mnemonic withPin:pin callBack:callback];
+  [RNLiteCallBackManager setMnemonic:mnemonic withPin:pin overwrite:overwrite callBack:callback];
 }
 
 RCT_EXPORT_METHOD(getMnemonicWithPin:(NSString *)pin callback:(RCTResponseSenderBlock)callback)
@@ -33,6 +33,10 @@ RCT_EXPORT_METHOD(getMnemonicWithPin:(NSString *)pin callback:(RCTResponseSender
   [RNLiteCallBackManager getMnemonicWithPin:pin callBack:callback];
 }
 
+RCT_EXPORT_METHOD(changePin:(NSString *)oldPwd newPwd:(NSString *)newPwd callback:(RCTResponseSenderBlock)callback)
+{
+  [RNLiteCallBackManager changePin:oldPwd newPwd:newPwd callBack:callback];
+}
 RCT_EXPORT_METHOD(reset:(RCTResponseSenderBlock)callback)
 {
   [RNLiteCallBackManager reset:callback];

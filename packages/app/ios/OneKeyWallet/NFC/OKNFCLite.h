@@ -14,6 +14,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteSessionType) {
     OKNFCLiteSessionTypeNone = 0,
     OKNFCLiteSessionTypeGetInfo,
     OKNFCLiteSessionTypeSetMnemonic,
+    OKNFCLiteSessionTypeSetMnemonicForce,
     OKNFCLiteSessionTypeGetMnemonic,
     OKNFCLiteSessionTypeReset,
     OKNFCLiteSessionTypeUpdateInfo,
@@ -49,6 +50,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinStatus) {
     OKNFCLiteChangePinStatusSNNotMatch,
     OKNFCLiteChangePinStatusPinNotMatch,
     OKNFCLiteChangePinStatusWiped,
+    OKNFCLiteChangePinStatusCancel,
 };
 
 @class OKNFCLite;
@@ -66,16 +68,13 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinStatus) {
 @property (nonatomic, assign) OKNFCLiteStatus status;
 @property (nonatomic, copy) NSString *SN;
 
-@property (nonatomic, copy) void(^changePinCallback)(OKNFCLiteChangePinStatus status);;
-@property (nonatomic, copy) void(^resetCallback)(BOOL isSuccess);;
+@property (nonatomic, copy) void(^changePinCallback)(OKNFCLiteChangePinStatus status);
+@property (nonatomic, copy) void(^resetCallback)(BOOL isSuccess,NSError *error);
 
 - (void)getLiteInfo;
 - (void)reset;
-- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin;
+- (void)setMnemonic:(NSString *)mnemonic withPin:(NSString *)pin overwrite:(BOOL)overwrite;
 - (void)getMnemonicWithPin:(NSString *)pin;
 - (void)changePin:(NSString *)oldPin to:(NSString *)newPin;
-//- (instancetype)initWithSN:(NSString *)SN;
-//- (BOOL)save;
-//- (BOOL)remove;
 
 @end

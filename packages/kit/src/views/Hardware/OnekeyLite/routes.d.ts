@@ -1,29 +1,52 @@
 export enum OnekeyLiteModalRoutes {
   OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
-  OnekeyLitePinCodeCurrentModal = 'OnekeyLitePinCodeCurrentModal',
-  OnekeyLitePinCodeSetModal = 'OnekeyLitePinCodeSetModal',
-  OnekeyLitePinCodeRepeatModal = 'OnekeyLitePinCodeRepeatModal',
   OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
   OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
-  OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
-  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
 }
 
 export type OnekeyLiteRoutesParams = {
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: {
     callBack: (pwd: string) => boolean;
   };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeSetModal]: {
-    callBack: (pwd: string) => boolean;
+  [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: {
+    pwd: string;
+    onRetry: () => void;
   };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeRepeatModal]: {
-    callBack: (pwd: string) => boolean;
+  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: {
+    pwd: string;
+    onRetry: () => void;
   };
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeCurrentModal]: {
-    callBack: (pwd: string) => boolean;
+};
+
+// Reset 相关
+export enum OnekeyLiteResetModalRoutes {
+  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
+}
+
+export type OnekeyLiteResetRoutesParams = {
+  [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: undefined;
+};
+
+// Change Pin 相关
+export enum OnekeyLiteChangePinModalRoutes {
+  OnekeyLiteChangePinInputPinModal = 'OnekeyLiteChangePinInputPinModal',
+  OnekeyLiteChangePinSetModal = 'OnekeyLiteChangePinSetModal',
+  OnekeyLiteChangePinRepeatModal = 'OnekeyLiteChangePinRepeatModal',
+  OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
+}
+
+export type OnekeyLiteChangePinRoutesParams = {
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: undefined;
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal]: {
+    currentPin: string;
   };
-  [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: undefined;
-  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: undefined;
-  [OnekeyLiteModalRoutes.OnekeyLiteChangePinModal]: undefined;
-  [OnekeyLiteModalRoutes.OnekeyLiteResetModal]: undefined;
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal]: {
+    currentPin: string;
+    newPin: string;
+  };
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal]: {
+    oldPin: string;
+    newPin: string;
+    onRetry: () => void;
+  };
 };
