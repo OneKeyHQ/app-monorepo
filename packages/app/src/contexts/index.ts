@@ -1,9 +1,9 @@
 import { createContext } from 'react';
 
-import stores from '../stores';
+// import stores from '@onekeyhq/kit/src/';
 
 const StoresContext = createContext({
-  ...stores,
+  // ...stores,
 });
 
 export { StoresContext as default };

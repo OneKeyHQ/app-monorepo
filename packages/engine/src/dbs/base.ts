@@ -7,6 +7,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
 import { DBAccount } from '../types/account';
+import { Device } from '../types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -82,6 +83,7 @@ interface DBAPI {
     backuped: boolean,
     name?: string,
   ): Promise<Wallet>;
+  addHWWallet(id: string, name: string): Promise<Wallet>;
   removeWallet(walletId: string, password: string): Promise<void>;
   setWalletName(walletId: string, name: string): Promise<Wallet>;
   getCredential(
@@ -125,6 +127,13 @@ interface DBAPI {
     contract?: string,
     before?: number,
   ): Promise<Array<HistoryEntry>>;
+  upsertDevice(
+    id: string,
+    name: string,
+    mac: string,
+    features: string,
+  ): Promise<void>;
+  getDevices(): Promise<Array<Device>>;
 }
 
 export type { DBAPI, OneKeyContext, StoredCredential, ExportedCredential };

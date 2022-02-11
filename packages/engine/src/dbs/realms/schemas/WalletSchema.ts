@@ -1,4 +1,4 @@
-import { AccountSchema } from '.';
+import { AccountSchema, DeviceSchema } from '.';
 
 import Realm from 'realm';
 
@@ -17,6 +17,8 @@ class WalletSchema extends Realm.Object {
 
   public nextAccountIds?: Realm.Dictionary<number>;
 
+  public associatedDevice?: DeviceSchema;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Wallet',
     primaryKey: 'id',
@@ -31,6 +33,7 @@ class WalletSchema extends Realm.Object {
         default: {},
         objectType: 'int',
       },
+      associatedDevice: 'Device?',
     },
   };
 
@@ -44,6 +47,7 @@ class WalletSchema extends Realm.Object {
       nextAccountIds: Object.fromEntries(
         Object.entries(Object(this.nextAccountIds)),
       ),
+      associatedDevice: this.associatedDevice?.id,
     };
   }
 }

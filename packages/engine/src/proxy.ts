@@ -51,6 +51,7 @@ import {
   SEPERATOR,
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
+import * as OneKeyHardware from './hardware';
 import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import {
@@ -59,6 +60,7 @@ import {
   DBSimpleAccount,
   DBVariantAccount,
 } from './types/account';
+import { CredentialSelector, CredentialType } from './types/credential';
 import { HistoryEntryStatus } from './types/history';
 import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
@@ -198,7 +200,7 @@ function fillUnsignedTx(
     type,
     nonce,
     feeLimit,
-    feePricePerUnit: feePricePerUnit.shiftedBy(network.feeDecimals),
+    feePricePerUnit: feePricePerUnit?.shiftedBy(network.feeDecimals),
     payload,
   };
 }
@@ -475,10 +477,9 @@ class ProviderController extends BaseProviderController {
   }
 
   async simpleTransfer(
-    seed: Buffer,
-    password: string,
     network: Network,
     dbAccount: DBAccount,
+    credential: CredentialSelector,
     to: string,
     value: BigNumber,
     tokenIdOnNetwork?: string,
@@ -489,11 +490,31 @@ class ProviderController extends BaseProviderController {
       network.id,
       fillUnsignedTx(network, dbAccount, to, value, tokenIdOnNetwork, extra),
     );
-    const { txid, rawTx } = await this.signTransaction(
-      network.id,
-      unsignedTx,
-      this.getSigners(network.id, seed, password, dbAccount),
-    );
+    let txid: string;
+    let rawTx: string;
+    switch (credential.type) {
+      case CredentialType.SOFTWARE:
+        ({ txid, rawTx } = await this.signTransaction(
+          network.id,
+          unsignedTx,
+          this.getSigners(
+            network.id,
+            credential.seed,
+            credential.password,
+            dbAccount,
+          ),
+        ));
+        break;
+      case CredentialType.HARDWARE:
+        ({ txid, rawTx } = await OneKeyHardware.signTransaction(
+          network.id,
+          dbAccount.path,
+          unsignedTx,
+        ));
+        break;
+      default:
+        throw new OneKeyInternalError('Incorrect credential selector.');
+    }
     return {
       txid,
       rawTx,
