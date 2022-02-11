@@ -174,7 +174,7 @@ const PinCode: FC<PinCodeProps> = ({
       if (value.length === count) {
         if (onCodeCompleted && typeof onCodeCompleted === 'function') {
           const status = await onCodeCompleted?.(value);
-          if (status === false) return;
+          if (status === false) return setValue('');
         }
         onCodeNext?.(value);
       }

@@ -1,6 +1,11 @@
 import { Buffer } from 'buffer';
 
-import { NativeModules, Platform } from 'react-native';
+import {
+  EmitterSubscription,
+  NativeEventEmitter,
+  NativeModules,
+  Platform,
+} from 'react-native';
 
 import { Callback, CallbackError, CardInfo } from './types';
 
@@ -12,7 +17,19 @@ export const LiteFlag = {
   TAG: 'ffff',
 };
 
+export type NfcConnectUiState = {
+  code: number;
+  message: string;
+};
+
 class OnekeyLite {
+  UiEventEmitter: NativeEventEmitter | null = null;
+
+  constructor() {
+    if (Platform.OS !== 'android') return;
+    this.UiEventEmitter = new NativeEventEmitter(OKLiteManager);
+  }
+
   encodeMnemonic(
     version: string,
     language: string,
@@ -37,6 +54,26 @@ class OnekeyLite {
     return Buffer.from(payload, 'hex').toString();
   }
 
+  addConnectListener(listener: (event: NfcConnectUiState) => void) {
+    return this.UiEventEmitter?.addListener('nfc_ui_event', listener);
+  }
+
+  removeConnectListener(listener: EmitterSubscription) {
+    return this.UiEventEmitter?.removeSubscription(listener);
+  }
+
+  addAccordListener() {
+    if (Platform.OS !== 'android') return;
+    const eventEmitter = new NativeEventEmitter(OKLiteManager);
+    return eventEmitter.addListener('nfc_active_connection', (event: any) => {
+      console.log(
+        'nfc_active_connection',
+        'A new NFC device is actively connected. ',
+        event,
+      );
+    });
+  }
+
   getCardName(result: Callback<string>) {
     OKLiteManager.getCardName(result);
   }
@@ -49,6 +86,7 @@ class OnekeyLite {
     mnemonic: string | string[],
     pwd: string,
     result: Callback<boolean>,
+    overwrite = false,
   ) {
     let mnemonicArray: string[];
     if (typeof mnemonic === 'string') {
@@ -62,8 +100,7 @@ class OnekeyLite {
       LiteFlag.LANGUAGE,
       mnemonicArray,
     );
-
-    OKLiteManager.setMnemonic(payload, pwd, result);
+    OKLiteManager.setMnemonic(payload, pwd, overwrite, result);
   }
 
   getMnemonicWithPin(pwd: string, result: Callback<string>) {
@@ -74,13 +111,13 @@ class OnekeyLite {
         data: string | null,
         state: CardInfo | null,
       ) => {
-        if (data) {
-          result(error, this.decodeMnemonic(data), state);
-        } else {
-          result(error, data, state);
-        }
+        result(error, data ? this.decodeMnemonic(data) : null, state);
       },
     );
+  }
+
+  changePin(oldPin: string, newPin: string, result: Callback<boolean>) {
+    OKLiteManager.changePin(oldPin, newPin, result);
   }
 
   reset(result: Callback<boolean>) {

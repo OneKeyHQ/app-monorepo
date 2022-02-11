@@ -4,6 +4,7 @@ import android.nfc.tech.IsoDep
 import android.util.Log
 import org.haobtc.onekey.card.gpchannel.GPChannelNatives
 import so.onekey.app.wallet.keys.KeysNativeProvider
+import so.onekey.app.wallet.nfc.NFCExceptions
 import so.onekey.app.wallet.onekeyLite.entitys.CardResponse
 import so.onekey.app.wallet.onekeyLite.entitys.ParsedCertInfo
 import so.onekey.app.wallet.onekeyLite.entitys.SecureChanelParam
@@ -25,7 +26,7 @@ class NfcCommand {
         const val SELECT_CARD_ID = "select_card_id"
         const val VERIFY_SUCCESS = 100
         const val INTERRUPT_STATUS = 1000
-        const val RESET_PIN_SUCCESS = 0
+        const val RESET_PIN_SUCCESS = -1
         const val NEW_PIN = "029000"
         const val MAX_RETRY_NUM = 10
         const val NO_RETRY_NUM_RESET_CARD = 0
@@ -54,6 +55,42 @@ class NfcCommand {
                     "DFFE0B8204080006"
                             + HexUtils.stringToHexString(
                             string))
+        }
+
+        private fun combCommand(command: ByteArray? = null, vararg params: ByteArray?): ByteArray {
+            var combParam = byteArrayOf()
+            params.forEach { param ->
+                param?.let {
+                    combParam = combParam.plus(it.size.toByte())
+                    combParam = combParam.plus(it)
+                }
+            }
+
+            var combCommand = byteArrayOf()
+            command?.let {
+                combCommand = combCommand.plus(it)
+                if (params.size != 1) {
+                    // params 只有一个的时候就不再次拼接长度了
+                    combCommand = combCommand.plus(combParam.size.toByte())
+                }
+            }
+            combCommand = combCommand.plus(combParam)
+            return combCommand
+        }
+
+        private fun changePinCommand(oldPin: String?, newPin: String?): String? {
+            val changePinCommand = combCommand(HexUtils.hexString2Bytes("8204"),
+                    HexUtils.hexString2Bytes(HexUtils.stringToHexString(oldPin)),
+                    HexUtils.hexString2Bytes(HexUtils.stringToHexString(newPin)))
+
+            val execCommand = combCommand(HexUtils.hexString2Bytes("DFFE"), changePinCommand)
+
+            return GPChannelNatives.nativeGPCBuildSafeAPDU(
+                    0x80,
+                    0xCB,
+                    0x80,
+                    0x00,
+                    HexUtils.byteArr2HexStr(execCommand))
         }
 
         @JvmStatic
@@ -168,6 +205,31 @@ class NfcCommand {
         fun setupPinCommand(isoDep: IsoDep, setUpPin: String): Boolean {
             val initChannelResult = initChannel(isoDep)
             if (initChannelResult != INIT_CHANNEL_SUCCESS) {
+                throw NFCExceptions.InterruptException()
+            }
+            if (!selectIssuerSd(isoDep)) {
+                throw NFCExceptions.InterruptException()
+            }
+            if (openSecureChannelFailed(isoDep)) {
+                throw NFCExceptions.InterruptException()
+            }
+
+            val changePin: String? =
+                    setPinCommand(setUpPin)
+            val res = send(isoDep, changePin)
+            Log.d(LITE_TAG, " set Pin command result --->$res")
+            return if (res.isNullOrEmpty()) {
+                false
+            } else {
+                res.endsWith(STATUS_SUCCESS)
+            }
+        }
+
+        @JvmStatic
+        @Throws(NFCExceptions::class)
+        fun changePinCommand(isoDep: IsoDep, oldPin: String, newPin: String?): Boolean {
+            val initChannelResult = initChannel(isoDep)
+            if (initChannelResult != INIT_CHANNEL_SUCCESS) {
                 return false
             }
             if (!selectIssuerSd(isoDep)) {
@@ -177,9 +239,15 @@ class NfcCommand {
                 return false
             }
             val changePin: String? =
-                    setPinCommand(setUpPin)
+                    changePinCommand(oldPin, newPin)
+
             val res = send(isoDep, changePin)
             Log.d(LITE_TAG, " set Pin command result --->$res")
+
+            if (res?.endsWith("9B01") == true) {
+                // 原密码错误
+                throw NFCExceptions.PasswordWrongException()
+            }
             return if (res.isNullOrEmpty()) {
                 false
             } else {

@@ -8,19 +8,22 @@ import {
   OnekeyLiteChangePinStackNavigationProp,
   OnekeyLiteStackNavigationProp,
 } from '../navigation';
-import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
+import {
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
+} from '../routes';
 
-const OnekeyLitePinCode: FC = () => {
+const OnekeyLiteNewSetPinCode: FC = () => {
   const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
-        OnekeyLiteRoutesParams,
-        OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal
+        OnekeyLiteChangePinRoutesParams,
+        OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal
       >
     >();
 
-  const { callBack } = route.params;
+  const { currentPin } = route.params;
 
   const navigation = useNavigation<
     OnekeyLiteStackNavigationProp & OnekeyLiteChangePinStackNavigationProp
@@ -28,20 +31,20 @@ const OnekeyLitePinCode: FC = () => {
 
   return (
     <HardwarePinCode
-      title={intl.formatMessage({ id: 'title__onekey_lite_pin' })}
-      description={intl.formatMessage({
-        id: 'content__enter_onekey_lite_pin_to_continue',
-      })}
+      title={intl.formatMessage({ id: 'title__set_up_new_pin' })}
+      description={intl.formatMessage({ id: 'title__set_up_new_pin_desc' })}
       securityReminder={intl.formatMessage({
         id: 'content__we_dont_store_any_of_your_information',
       })}
       onComplete={(pinCode) => {
-        navigation.goBack();
-        callBack(pinCode);
+        navigation.navigate(
+          OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal,
+          { currentPin, newPin: pinCode },
+        );
         return Promise.resolve(true);
       }}
     />
   );
 };
 
-export default OnekeyLitePinCode;
+export default OnekeyLiteNewSetPinCode;
