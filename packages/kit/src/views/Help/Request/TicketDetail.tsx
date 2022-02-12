@@ -64,6 +64,7 @@ export const TicketDetail: FC = () => {
                       flex={1}
                     >
                       <Text
+                        selectable
                         maxWidth="260px"
                         typography={{ sm: 'Body1', md: 'Body2' }}
                       >

@@ -438,6 +438,8 @@
 					"*/NFC/OKNFCLite.m",
 					"*/RNBridge/OKLiteManager.h",
 					"*/RNBridge/OKLiteManager.m",
+					"*/RNBridge/RNLiteCallBackManager.h",
+					"*/RNBridge/RNLiteCallBackManager.m",
 				);
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
