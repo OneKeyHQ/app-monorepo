@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, FC, ReactNode } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -9,7 +9,17 @@ import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
-const AccountSelector = () => {
+type AccountSelectorProps = {
+  renderTrigger?: ({
+    visible,
+    handleToggleVisible,
+  }: {
+    visible: boolean;
+    handleToggleVisible: () => void;
+  }) => ReactNode;
+};
+
+const AccountSelector: FC<AccountSelectorProps> = ({renderTrigger}) => {
   const [visible, setVisible] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -33,11 +43,13 @@ const AccountSelector = () => {
   }, [visible, isVerticalLayout]);
 
   return (
-    <Box position="relative" w={{ md: 'full' }}>
-      <AccountSelectorTrigger
-        visible={visible}
-        handleToggleVisible={handleToggleVisible}
-      />
+    <Box position="relative" w={{ md: 'full' }} alignItems="center">
+      {renderTrigger?.({ visible, handleToggleVisible }) ?? (
+        <AccountSelectorTrigger
+          visible={visible}
+          handleToggleVisible={handleToggleVisible}
+        />
+      )}
       {child}
     </Box>
   );

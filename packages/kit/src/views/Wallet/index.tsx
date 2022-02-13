@@ -2,13 +2,21 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Empty,
+  useIsVerticalLayout,
+  useThemeValue,
+} from '@onekeyhq/components';
 import {
   MaterialTabBar,
   Tabs,
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
+import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
@@ -41,6 +49,31 @@ const Home: FC = () => {
     'action-primary-default',
     'border-subdued',
   ]);
+  const { activeAccount } = useAppSelector((s) => s.general);
+
+  if (!activeAccount) {
+    return (
+      <Box flex="1" justifyContent="center">
+        <Empty
+          icon="WalletOutline"
+          title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
+          subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
+        />
+        <AccountSelector
+          renderTrigger={({ handleToggleVisible }) => (
+            <Button
+              leftIconName="PlusOutline"
+              type="primary"
+              onPress={handleToggleVisible}
+              size="lg"
+            >
+              {intl.formatMessage({ id: 'action__create_wallet' })}
+            </Button>
+          )}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Tabs.Container

@@ -1,11 +1,14 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Account,
+  Button,
   HStack,
   Icon,
   Pressable,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
@@ -18,9 +21,27 @@ const AccountSelectorTrigger: FC<Props> = ({
   visible,
   handleToggleVisible,
 }) => {
-  const { address, label } = useAppSelector((s) => s.account);
-  const { size } = useUserDevice();
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+  const intl = useIntl();
+  const isVerticalLayout = useIsVerticalLayout();
+  const { activeAccount, activeWallet } = useAppSelector((s) => s.general);
+
+  if (!activeWallet) {
+    return (
+      <Button onPress={handleToggleVisible}>
+        {intl.formatMessage({ id: 'action__create_wallet' })}
+      </Button>
+    );
+  }
+
+  if (!activeAccount) {
+    return (
+      <Button onPress={handleToggleVisible}>
+        {intl.formatMessage({ id: 'action__create_account' })}
+      </Button>
+    );
+  }
+
+  const { address, name } = activeAccount;
   return (
     <Pressable onPress={handleToggleVisible}>
       {({ isHovered }) => (
@@ -32,14 +53,17 @@ const AccountSelectorTrigger: FC<Props> = ({
           space={1}
           bg={
             // eslint-disable-next-line no-nested-ternary
-            visible && !isSmallScreen
+            visible && !isVerticalLayout
               ? 'surface-selected'
               : isHovered
               ? 'surface-hovered'
               : 'transparent'
           }
         >
-          <Account address={address} name={isSmallScreen ? undefined : label} />
+          <Account
+            address={address}
+            name={isVerticalLayout ? undefined : name}
+          />
           <Icon size={20} name="SelectorSolid" />
         </HStack>
       )}

@@ -163,10 +163,13 @@ class Engine {
   }
 
   async getAccountsByNetwork(
+    walletId: string,
     networkId: string,
   ): Promise<Record<string, Array<Account>>> {
     const ret: Record<string, Array<Account>> = {};
-    const accounts = await this.dbApi.getAllAccounts();
+    const wallet = await this.dbApi.getWallet(walletId);
+    if (!wallet) throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
+    const { accounts } = wallet;
     accounts
       .filter((a) => isAccountCompatibleWithNetwork(a.id, networkId))
       .forEach((a) => {
@@ -760,13 +763,19 @@ class Engine {
     return Promise.resolve(ret);
   }
 
-  listFiats(): Promise<Record<string, BigNumber>> {
+  listFiats(): Promise<Record<string, string>> {
     // TODO: connect price module
+    // return Promise.resolve({
+    //   'usd': new BigNumber('1'),
+    //   'cny': new BigNumber('6.3617384'),
+    //   'jpy': new BigNumber('115.36691'),
+    //   'hkd': new BigNumber('7.7933804'),
+    // });
     return Promise.resolve({
-      'usd': new BigNumber('1'),
-      'cny': new BigNumber('6.3617384'),
-      'jpy': new BigNumber('115.36691'),
-      'hkd': new BigNumber('7.7933804'),
+      'usd': '1',
+      'cny': '6.3617384',
+      'jpy': '115.36691',
+      'hkd': '7.7933804',
     });
   }
 

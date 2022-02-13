@@ -7,6 +7,7 @@ import { SWRConfig } from 'swr';
 
 import store, { persistor } from '../store';
 
+import EngineApp from './EngineProvider';
 import NavigationApp from './NavigationProvider';
 import ThemeApp from './ThemeProvider';
 
@@ -24,7 +25,9 @@ const KitProvider: FC = () => (
     <ReduxProvider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <ThemeApp>
-          <NavigationApp />
+          <EngineApp>
+            <NavigationApp />
+          </EngineApp>
         </ThemeApp>
       </PersistGate>
     </ReduxProvider>

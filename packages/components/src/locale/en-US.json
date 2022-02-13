@@ -295,7 +295,7 @@
   "form__my_tokens": "My Tokens",
   "form__my_wallet": "My Wallet",
   "form__name": "Name",
-  "form__network_helperText": "Creating an {0} account will create other accounts of the EVM compatible network synchronously.",
+  "form__network_helperText": "Creating an {impl} account will create other accounts of the {impl} compatible network synchronously.",
   "form__network_name": "Network Name",
   "form__network_name_invalid": "Name must be 30 characters or fewer.",
   "form__overwrite_metamask": "Overwrite MetaMask",

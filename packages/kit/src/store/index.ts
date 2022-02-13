@@ -24,19 +24,25 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IBackgroundApi } from '../background/BackgroundApiProxy';
 
-import accountReducer from './reducers/account';
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
+import fiatMoneyReducer from './reducers/fiatMoney';
+import generalReducer from './reducers/general';
+import networkReducer from './reducers/network';
 import settingsReducer from './reducers/settings';
 import statusReducer from './reducers/status';
+import walletReducer from './reducers/wallet';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
   chain: chainReducer,
-  account: accountReducer,
+  wallet: walletReducer,
   settings: settingsReducer,
   status: statusReducer,
+  network: networkReducer,
+  general: generalReducer,
+  fiatMoney: fiatMoneyReducer,
   counter,
 });
 
