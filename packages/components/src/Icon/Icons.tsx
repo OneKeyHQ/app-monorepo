@@ -242,6 +242,7 @@ import ViewGridAddOutline from "./react/outline/ViewGridAdd";
 import ViewListOutline from "./react/outline/ViewList";
 import VolumeOffOutline from "./react/outline/VolumeOff";
 import VolumeUpOutline from "./react/outline/VolumeUp";
+import WalletOutline from "./react/outline/Wallet";
 import WifiOutline from "./react/outline/Wifi";
 import ZoomInOutline from "./react/outline/ZoomIn";
 import ZoomOutOutline from "./react/outline/ZoomOut";
@@ -726,6 +727,7 @@ export type ICON_NAMES =
   | "ViewListOutline"
   | "VolumeOffOutline"
   | "VolumeUpOutline"
+  | "WalletOutline"
   | "WifiOutline"
   | "ZoomInOutline"
   | "ZoomOutOutline"
@@ -1210,6 +1212,7 @@ export default {
   ViewListOutline: ViewListOutline,
   VolumeOffOutline: VolumeOffOutline,
   VolumeUpOutline: VolumeUpOutline,
+  WalletOutline: WalletOutline,
   WifiOutline: WifiOutline,
   ZoomInOutline: ZoomInOutline,
   ZoomOutOutline: ZoomOutOutline,
