@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
 
-import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import { useThemeValue } from '@onekeyhq/components';
 
 import Navigator from '../navigator';
 
@@ -13,25 +13,23 @@ const NavigationApp = () => {
   const linking = {
     prefixes: [prefix],
   };
-  const [bgColor, textColor] = useThemeValue([
+  const [bgColor, textColor, defaultColor] = useThemeValue([
     'surface-subdued',
     'text-default',
+    'background-default',
   ]);
-  const isVerticalLayout = useIsVerticalLayout();
+
   const navigationTheme = useMemo(
     () => ({
       ...DefaultTheme,
       colors: {
         ...DefaultTheme.colors,
-        // Fixed color
-        background: isVerticalLayout
-          ? 'rgba(0, 0, 0, 0.8)'
-          : 'rgba(0, 0, 0, 0.6)',
+        background: defaultColor,
         card: bgColor,
         text: textColor,
       },
     }),
-    [bgColor, textColor, isVerticalLayout],
+    [bgColor, textColor, defaultColor],
   );
 
   return (

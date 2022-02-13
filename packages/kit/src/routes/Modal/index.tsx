@@ -103,65 +103,6 @@ const modalStackScreenList = [
     name: ModalRoutes.WatchedAccount,
     component: WatchedAccountModal,
   },
-  {
-    name: ManageTokenModalRoutes.ListTokensModal,
-    component: ManageTokenModal,
-  },
-  {
-    name: CollectiblesModalRoutes.CollectionModal,
-    component: CollectibleModal,
-  },
-  {
-    name: SettingsModalRoutes.SetPasswordModal,
-    component: SettingsModal,
-  },
-  {
-    name: SubmitRequestRoutes.SubmitRequestModal,
-    component: SubmitRequestModal,
-  },
-  {
-    name: HistoryRequestRoutes.HistoryRequestModal,
-    component: HistoryRequestModal,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupSeedHintModal,
-    component: BackupWalletModal,
-  },
-  {
-    name: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
-    component: HardwareOnekeyModal,
-  },
-  {
-    name: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
-    component: HardwareOnekeyResetModal,
-  },
-  {
-    name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
-    component: HardwareOnekeyLitePinModal,
-  },
-  {
-    name: MiscModalRoutes.TermsModal,
-    component: MiscModal,
-  },
-];
-
-// export const ModalRoutes = {
-//   ...CreateAccountModalRoutes,
-//   ...ReceiveTokenRoutes,
-//   ...SendRoutes,
-//   ...ManageNetworkModalRoutes,
-//   ...TransactionDetailModalRoutes,
-//   ...ImportAccountModalRoutes,
-//   ...WatchedAccountModalRoutes,
-//   ...CollectiblesModalRoutes,
-//   ...SettingsModalRoutes,
-//   ...BackupWalletModalRoutes,
-//   ...SubmitRequestRoutes,
-//   ...HistoryRequestRoutes,
-//   ...OnekeyLiteModalRoutes,
-//   ...OnekeyLiteResetModalRoutes,
-//   ...OnekeyLiteChangePinModalRoutes,
-// };
   // {
   //   name: ManageTokenModalRoutes.ListTokensModal,
   //   component: ManageTokenModal,
@@ -186,8 +127,63 @@ const modalStackScreenList = [
   //   name: BackupWalletModalRoutes.BackupSeedHintModal,
   //   component: BackupWalletModal,
   // },
-  // ...OnekeyLiteModalComponents,
+  // {
+  //   name: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+  //   component: HardwareOnekeyModal,
+  // },
+  // {
+  //   name: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+  //   component: HardwareOnekeyResetModal,
+  // },
+  // {
+  //   name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
+  //   component: HardwareOnekeyLitePinModal,
+  // },
 ];
+
+// export const ModalRoutes = {
+//   ...CreateAccountModalRoutes,
+//   ...ReceiveTokenRoutes,
+//   ...SendRoutes,
+//   ...ManageNetworkModalRoutes,
+//   ...TransactionDetailModalRoutes,
+//   ...ImportAccountModalRoutes,
+//   ...WatchedAccountModalRoutes,
+//   ...CollectiblesModalRoutes,
+//   ...SettingsModalRoutes,
+//   ...BackupWalletModalRoutes,
+//   ...SubmitRequestRoutes,
+//   ...HistoryRequestRoutes,
+//   ...OnekeyLiteModalRoutes,
+//   ...OnekeyLiteResetModalRoutes,
+//   ...OnekeyLiteChangePinModalRoutes,
+// };
+// {
+//   name: ManageTokenModalRoutes.ListTokensModal,
+//   component: ManageTokenModal,
+// },
+// {
+//   name: CollectiblesModalRoutes.CollectionModal,
+//   component: CollectibleModal,
+// },
+// {
+//   name: SettingsModalRoutes.SetPasswordModal,
+//   component: SettingsModal,
+// },
+// {
+//   name: SubmitRequestRoutes.SubmitRequestModal,
+//   component: SubmitRequestModal,
+// },
+// {
+//   name: HistoryRequestRoutes.HistoryRequestModal,
+//   component: HistoryRequestModal,
+// },
+// {
+//   name: BackupWalletModalRoutes.BackupSeedHintModal,
+//   component: BackupWalletModal,
+// },
+// ...OnekeyLiteModalComponents,
+// ];
 
 // export const ModalRoutes = {
 //   ...CreateAccountModalRoutes,
@@ -220,9 +216,8 @@ export type ModalTypes = {
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
-  [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
-  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
-  [MiscModalRoutes.TermsModal]: NavigatorScreenParams<MiscRoutesParams>;
+  // [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
+  // [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
 };
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
