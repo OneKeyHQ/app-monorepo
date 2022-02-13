@@ -1,7 +1,6 @@
 import React, { FC } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Icon from '../../Icon';
@@ -11,10 +10,11 @@ import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 import VStack from '../../VStack';
 
-import type { ChildProps } from '..';
+import type { ICON_NAMES } from '../../Icon/Icons';
+import type { BottomTabBarProps } from '../BottomTabs/types';
 
-const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
-  const intl = useIntl();
+const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
+  const { routes } = state;
   const [activeFontColor, inactiveFontColor] = useThemeValue([
     'text-default',
     'text-subdued',
@@ -42,18 +42,27 @@ const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
           }}
         >
           <VStack space={1}>
-            {tabs.map((route) => {
-              const isActive = activeRouteName === route.name;
-              const onPress = () => {
-                if (isActive) return;
-                navigation.dispatch({
-                  ...CommonActions.navigate({
-                    name: route.name,
-                    merge: true,
-                  }),
-                });
-              };
+            {routes.map((route, index) => {
+              const isActive = index === state.index;
+              const { options } = descriptors[route.key];
 
+              const onPress = () => {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+
+                if (!isActive && !event.defaultPrevented) {
+                  navigation.dispatch({
+                    ...CommonActions.navigate({
+                      name: route.name,
+                      merge: true,
+                    }),
+                    target: state.key,
+                  });
+                }
+              };
               return (
                 <Pressable
                   key={route.name}
@@ -70,7 +79,8 @@ const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
                   >
                     <Box display="flex" flexDirection="row" alignItems="center">
                       <Icon
-                        name={route.icon}
+                        // @ts-expect-error
+                        name={options?.tabBarIcon?.() as ICON_NAMES}
                         color={isActive ? 'icon-pressed' : 'icon-default'}
                         size={24}
                       />
@@ -79,7 +89,7 @@ const Sidebar: FC<ChildProps> = ({ tabs, navigation, activeRouteName }) => {
                         ml="3"
                         color={isActive ? activeFontColor : inactiveFontColor}
                       >
-                        {intl.formatMessage({ id: route.translationId })}
+                        {options.tabBarLabel ?? route.name}
                       </Typography.Body2Strong>
                     </Box>
                   </Box>

@@ -6,13 +6,9 @@ import AccountSelectorChildren from './AccountSelectorChildren';
 
 type ChildDropdownProps = {
   visible: boolean;
-  handleToggleVisible: () => void;
 };
 
-const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
-  visible,
-  handleToggleVisible,
-}) => (
+const AccountSelectorDesktop: FC<ChildDropdownProps> = ({ visible }) => (
   <PresenceTransition
     visible={visible}
     initial={{ opacity: 0, translateY: 0 }}
@@ -36,7 +32,7 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
       flexDirection="row"
       shadow="depth.3"
     >
-      <AccountSelectorChildren handleToggleVisible={handleToggleVisible} />
+      <AccountSelectorChildren />
     </Box>
   </PresenceTransition>
 );

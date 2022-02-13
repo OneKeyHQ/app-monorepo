@@ -12,16 +12,21 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+import {
+  StackBasicRoutesParams,
+  StackRoutes,
+} from '@onekeyhq/kit/src/routes/Dev';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import HelpSelector from '../Help/HelpSelector';
 import { TokenDetailNavigation } from '../TokenDetail/routes';
 
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  StackRoutesParams,
-  StackBasicRoutes.Developer
+type NavigationProps = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Dev>,
+  NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
 > &
   TokenDetailNavigation;
 
@@ -60,7 +65,7 @@ const Me = () => {
             alignItems="center"
             justifyContent="space-between"
             onPress={() =>
-              navigation.navigate(StackBasicRoutes.ScreenOnekeyLiteDetail)
+              navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
             }
           >
             <HStack space="4">
@@ -76,7 +81,7 @@ const Me = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            onPress={() => navigation.navigate(StackBasicRoutes.SettingsScreen)}
+            onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
           >
             <HStack space="4">
               <Icon name="CogOutline" />
@@ -96,11 +101,14 @@ const Me = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            onPress={() =>
-              navigation.navigate(StackBasicRoutes.Developer, {
-                ts: new Date().getTime(),
-              })
-            }
+            onPress={() => {
+              navigation.navigate(HomeRoutes.Dev, {
+                screen: StackRoutes.Developer,
+                params: {
+                  ts: new Date().getTime(),
+                },
+              });
+            }}
           >
             <HStack space="4">
               <Icon name="DesktopComputerSolid" />

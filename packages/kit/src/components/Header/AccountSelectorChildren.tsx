@@ -19,49 +19,35 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
   ImportAccountModalRoutes,
   ImportAccountRoutesParams,
-  ModalRoutes,
   WatchedAccountModalRoutes,
   WatchedAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import { updateActiveAddress } from '@onekeyhq/kit/src/store/reducers/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import walletApi from '../../background/instance/walletApi';
-import { useAppDispatch } from '../../hooks/redux';
-import { updateActiveAddress } from '../../store/reducers/account';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+type NavigationProps = ModalScreenProps<CreateAccountRoutesParams> &
+  ModalScreenProps<ImportAccountRoutesParams> &
+  ModalScreenProps<WatchedAccountRoutesParams>;
 
-type NavigationProps = NativeStackNavigationProp<
-  CreateAccountRoutesParams,
-  CreateAccountModalRoutes.CreateAccountForm
-> &
-  NativeStackNavigationProp<
-    ImportAccountRoutesParams,
-    ImportAccountModalRoutes.ImportAccountModal
-  > &
-  NativeStackNavigationProp<
-    WatchedAccountRoutesParams,
-    WatchedAccountModalRoutes.WatchedAccountModal
-  >;
-
-// const WATCHED_ACCOUNTS = [];
-// const IMPORTED_ACCOUNTS = [];
-// const HD_ACCOUNTS = [];
 const NORMAL_ACCOUNTS = walletApi.accounts.map((address) => ({
   address,
   label: 'Wallet',
 }));
 
 type AccountType = 'normal' | 'hd' | 'imported' | 'watched';
-
-type ChildrenProps = {
-  handleToggleVisible: () => void;
-};
 
 type CustomSelectTriggerProps = {
   isSelectVisible?: boolean;
@@ -88,12 +74,11 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
-const AccountSelectorChildren: FC<ChildrenProps> = ({
-  handleToggleVisible,
-}) => {
+const AccountSelectorChildren: FC = () => {
   const { size } = useUserDevice();
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
   const dispatch = useAppDispatch();
 
   const [activeAccountType, setActiveAccountType] =
@@ -162,14 +147,12 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
           name="PlusSolid"
           type="plain"
           onPress={() => {
-            handleToggleVisible();
-            setTimeout(
-              () =>
-                navigation.navigate(
-                  WatchedAccountModalRoutes.WatchedAccountModal,
-                ),
-              150,
-            );
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.CreateAccount,
+              params: {
+                screen: CreateAccountModalRoutes.CreateAccountForm,
+              },
+            });
           }}
         />
       );
@@ -181,14 +164,12 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
           name="PlusSolid"
           type="plain"
           onPress={() => {
-            handleToggleVisible();
-            setTimeout(
-              () =>
-                navigation.navigate(
-                  ImportAccountModalRoutes.ImportAccountModal,
-                ),
-              150,
-            );
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ImportAccount,
+              params: {
+                screen: ImportAccountModalRoutes.ImportAccountModal,
+              },
+            });
           }}
         />
       );
@@ -369,7 +350,6 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
               <Pressable
                 zIndex={99}
                 onPress={() => {
-                  handleToggleVisible();
                   dispatch(updateActiveAddress(item.address));
                   backgroundApiProxy.changeAccounts(item.address);
                 }}
@@ -394,19 +374,29 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
           <Pressable
             mt={2}
             onPress={() => {
-              handleToggleVisible();
-              function getRoute() {
-                if (activeAccountType === 'imported') {
-                  return ModalRoutes.ImportAccountModal;
-                }
-                if (activeAccountType === 'watched') {
-                  return ModalRoutes.WatchedAccountModal;
-                }
-                return ModalRoutes.CreateAccountForm;
+              if (activeAccountType === 'imported') {
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ImportAccount,
+                  params: {
+                    screen: ImportAccountModalRoutes.ImportAccountModal,
+                  },
+                });
               }
-              setTimeout(() => {
-                navigation.navigate(getRoute() as any);
-              }, 200);
+              if (activeAccountType === 'watched') {
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.WatchedAccount,
+                  params: {
+                    screen: WatchedAccountModalRoutes.WatchedAccountModal,
+                  },
+                });
+              }
+
+              return navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateAccount,
+                params: {
+                  screen: CreateAccountModalRoutes.CreateAccountForm,
+                },
+              });
             }}
           >
             {({ isHovered }) => (

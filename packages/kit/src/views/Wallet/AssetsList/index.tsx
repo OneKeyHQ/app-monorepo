@@ -16,11 +16,11 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { StackBasicRoutes } from '@onekeyhq/kit/src/routes';
 import {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManageToken';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import { TokenDetailNavigation } from '../../TokenDetail/routes';
 
@@ -237,7 +237,7 @@ const AssetsList = () => {
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === TOKEN_DATA.length - 1 ? '12px' : '0px'}
       onPress={() => {
-        navigation.navigate(StackBasicRoutes.ScreenTokenDetail, {
+        navigation.navigate(HomeRoutes.ScreenTokenDetail, {
           defaultValues: {
             accountId: '',
             networkId: '',

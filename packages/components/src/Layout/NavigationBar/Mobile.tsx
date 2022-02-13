@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { CommonActions } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 import { Platform, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 
@@ -16,7 +15,8 @@ import {
 } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
-import type { ChildProps } from '..';
+import type { ICON_NAMES } from '../../Icon/Icons';
+import type { BottomTabBarProps } from '../BottomTabs/types';
 
 const DEFAULT_TABBAR_HEIGHT = 55;
 
@@ -37,13 +37,13 @@ export const getTabBarHeight = ({ insets }: { insets: EdgeInsets }) => {
 };
 
 export default function BottomTabBar({
-  tabs,
   navigation,
-  activeRouteName,
-}: ChildProps) {
+  state,
+  descriptors,
+}: BottomTabBarProps) {
   const { size } = useUserDevice();
   const insets = useSafeAreaInsets();
-  const intl = useIntl();
+  const { routes } = state;
 
   const paddingBottom = getPaddingBottom(insets);
   const tabBarHeight = getTabBarHeight({
@@ -72,13 +72,23 @@ export default function BottomTabBar({
       py={Math.max(insets.left ?? 0, insets.right ?? 0)}
     >
       <Box accessibilityRole="tablist" flex="1" flexDirection="row">
-        {tabs.map((route) => {
-          const isActive = activeRouteName === route.name;
+        {routes.map((route, index) => {
+          const isActive = index === state.index;
+          const { options } = descriptors[route.key];
+
           const onPress = () => {
-            if (isActive) return;
-            navigation.dispatch({
-              ...CommonActions.navigate({ name: route.name, merge: true }),
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
             });
+
+            if (!isActive && !event.defaultPrevented) {
+              navigation.dispatch({
+                ...CommonActions.navigate({ name: route.name, merge: true }),
+                target: state.key,
+              });
+            }
           };
 
           return (
@@ -103,7 +113,8 @@ export default function BottomTabBar({
                 }
               >
                 <Icon
-                  name={route.icon}
+                  // @ts-expect-error
+                  name={options?.tabBarIcon?.() as ICON_NAMES}
                   color={isActive ? 'icon-pressed' : 'icon-subdued'}
                   size={24}
                 />
@@ -124,7 +135,7 @@ export default function BottomTabBar({
                         },
                   ]}
                 >
-                  {intl.formatMessage({ id: route.translationId })}
+                  {options.tabBarLabel ?? route.name}
                 </Typography.Caption>
               </Pressable>
             </Box>

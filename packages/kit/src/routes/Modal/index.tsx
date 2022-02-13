@@ -1,3 +1,9 @@
+import React, { memo } from 'react';
+
+import { createStackNavigator } from '@react-navigation/stack';
+
+import { ModalRoutes, ModalRoutesParams } from '../types';
+
 import BackupWalletModal, {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
@@ -70,31 +76,31 @@ export enum ModalNavigatorRoutes {
 
 const modalStackScreenList = [
   {
-    name: CreateAccountModalRoutes.CreateAccountForm,
+    name: ModalRoutes.CreateAccount,
     component: CreateAccountModal,
   },
   {
-    name: ModalNavigatorRoutes.ReceiveTokenNavigator,
+    name: ModalRoutes.Receive,
     component: ReceiveToken,
   },
   {
-    name: ModalNavigatorRoutes.SendNavigator,
+    name: ModalRoutes.Send,
     component: Send,
   },
+  // {
+  //   name: ManageNetworkModalRoutes.NetworkListViewModal,
+  //   component: ManageNetworkModal,
+  // },
   {
-    name: ManageNetworkModalRoutes.NetworkListViewModal,
-    component: ManageNetworkModal,
-  },
-  {
-    name: TransactionDetailModalRoutes.TransactionDetailModal,
+    name: ModalRoutes.TransactionDetail,
     component: TransactionDetailModal,
   },
   {
-    name: ImportAccountModalRoutes.ImportAccountModal,
+    name: ModalRoutes.ImportAccount,
     component: ImportAccountModal,
   },
   {
-    name: WatchedAccountModalRoutes.WatchedAccountModal,
+    name: ModalRoutes.WatchedAccount,
     component: WatchedAccountModal,
   },
   {
@@ -139,23 +145,65 @@ const modalStackScreenList = [
   },
 ];
 
-export const ModalRoutes = {
-  ...CreateAccountModalRoutes,
-  ...ReceiveTokenRoutes,
-  ...SendRoutes,
-  ...ManageNetworkModalRoutes,
-  ...TransactionDetailModalRoutes,
-  ...ImportAccountModalRoutes,
-  ...WatchedAccountModalRoutes,
-  ...CollectiblesModalRoutes,
-  ...SettingsModalRoutes,
-  ...BackupWalletModalRoutes,
-  ...SubmitRequestRoutes,
-  ...HistoryRequestRoutes,
-  ...OnekeyLiteModalRoutes,
-  ...OnekeyLiteResetModalRoutes,
-  ...OnekeyLiteChangePinModalRoutes,
-};
+// export const ModalRoutes = {
+//   ...CreateAccountModalRoutes,
+//   ...ReceiveTokenRoutes,
+//   ...SendRoutes,
+//   ...ManageNetworkModalRoutes,
+//   ...TransactionDetailModalRoutes,
+//   ...ImportAccountModalRoutes,
+//   ...WatchedAccountModalRoutes,
+//   ...CollectiblesModalRoutes,
+//   ...SettingsModalRoutes,
+//   ...BackupWalletModalRoutes,
+//   ...SubmitRequestRoutes,
+//   ...HistoryRequestRoutes,
+//   ...OnekeyLiteModalRoutes,
+//   ...OnekeyLiteResetModalRoutes,
+//   ...OnekeyLiteChangePinModalRoutes,
+// };
+  // {
+  //   name: ManageTokenModalRoutes.ListTokensModal,
+  //   component: ManageTokenModal,
+  // },
+  // {
+  //   name: CollectiblesModalRoutes.CollectionModal,
+  //   component: CollectibleModal,
+  // },
+  // {
+  //   name: SettingsModalRoutes.SetPasswordModal,
+  //   component: SettingsModal,
+  // },
+  // {
+  //   name: SubmitRequestRoutes.SubmitRequestModal,
+  //   component: SubmitRequestModal,
+  // },
+  // {
+  //   name: HistoryRequestRoutes.HistoryRequestModal,
+  //   component: HistoryRequestModal,
+  // },
+  // {
+  //   name: BackupWalletModalRoutes.BackupSeedHintModal,
+  //   component: BackupWalletModal,
+  // },
+  // ...OnekeyLiteModalComponents,
+];
+
+// export const ModalRoutes = {
+//   ...CreateAccountModalRoutes,
+//   ...ReceiveTokenRoutes,
+//   ...SendRoutes,
+//   ...ManageNetworkModalRoutes,
+//   ...TransactionDetailModalRoutes,
+//   ...ImportAccountModalRoutes,
+//   ...WatchedAccountModalRoutes,
+//   ...CollectiblesModalRoutes,
+//   ...SettingsModalRoutes,
+//   ...BackupWalletModalRoutes,
+//   ...OnekeyLiteModalRoutes,
+//   ...SubmitRequestRoutes,
+//   ...HistoryRequestRoutes,
+// };
 
 export type ModalTypes = {
   [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
@@ -177,4 +225,34 @@ export type ModalTypes = {
   [MiscModalRoutes.TermsModal]: NavigatorScreenParams<MiscRoutesParams>;
 };
 
-export default modalStackScreenList;
+const ModalStack = createStackNavigator<ModalRoutesParams>();
+
+const ModalStackNavigator = () => (
+  <ModalStack.Navigator
+    // initialRouteName={OthersRoutes.Unlock}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    {/* <ModalStack.Group
+      screenOptions={{
+        headerShown: false,
+        presentation: 'transparentModal',
+        ...TransitionPresets.ModalFadeTransition,
+      }}
+    >
+      <ModalStack.Screen name={OthersRoutes.Unlock} component={Unlock} />
+      <ModalStack.Screen name={OthersRoutes.Splash} component={Splash} />
+    </ModalStack.Group> */}
+
+    {modalStackScreenList.map((modal) => (
+      <ModalStack.Screen
+        key={modal.name}
+        name={modal.name}
+        component={modal.component}
+      />
+    ))}
+  </ModalStack.Navigator>
+);
+
+export default memo(ModalStackNavigator);

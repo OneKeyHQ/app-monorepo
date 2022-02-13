@@ -10,16 +10,22 @@ import {
   Pressable,
   Typography,
 } from '@onekeyhq/components';
-import { StackRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes/Stack';
+import {
+  StackBasicRoutesParams,
+  StackRoutes,
+} from '@onekeyhq/kit/src/routes/Dev';
 
 type StackRoutesType = typeof StackRoutes;
 
 type NavigationProps = NavigationProp<
-  StackRoutesParams,
+  StackBasicRoutesParams,
   StackRoutesType[keyof StackRoutesType]
 >;
 
-type RouteProps = RouteProp<StackRoutesParams, StackRoutesType['Developer']>;
+type RouteProps = RouteProp<
+  StackBasicRoutesParams,
+  StackRoutesType['Developer']
+>;
 
 const Index = () => {
   const navigation = useNavigation<NavigationProps>();

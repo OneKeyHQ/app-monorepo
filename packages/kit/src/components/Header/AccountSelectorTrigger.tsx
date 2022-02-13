@@ -32,7 +32,7 @@ const AccountSelectorTrigger: FC<Props> = ({
           space={1}
           bg={
             // eslint-disable-next-line no-nested-ternary
-            visible
+            visible && !isSmallScreen
               ? 'surface-selected'
               : isHovered
               ? 'surface-hovered'

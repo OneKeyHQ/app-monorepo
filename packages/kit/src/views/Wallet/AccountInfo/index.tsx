@@ -8,33 +8,28 @@ import {
   Button,
   IconButton,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
+import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
-  ModalNavigatorRoutes,
   ModalRoutes,
-  ModalTypes,
-} from '@onekeyhq/kit/src/routes/Modal';
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../../utils/extUtils';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  ModalTypes,
-  ModalNavigatorRoutes.ReceiveTokenNavigator
->;
+type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 222;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
 
 const AccountInfo = () => {
-  const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
-  const { size } = useUserDevice();
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+  const isSmallView = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -56,28 +51,33 @@ const AccountInfo = () => {
     () => (
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
-          size={isSmallScreen ? 'lg' : 'base'}
+          size={isSmallView ? 'lg' : 'base'}
           leftIconName="ArrowUpSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
-            navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
-              screen: ModalRoutes.Send,
-            });
+            // navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
+            //   screen: ModalRoutes.Send,
+            // });
           }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
         <Button
-          size={isSmallScreen ? 'lg' : 'base'}
+          size={isSmallView ? 'lg' : 'base'}
           ml={4}
           leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
           onPress={() => {
-            navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
-              screen: ModalRoutes.ReceiveToken,
-              params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {
+                  address: 'xx',
+                },
+              },
             });
           }}
         >
@@ -94,7 +94,7 @@ const AccountInfo = () => {
         )}
       </Box>
     ),
-    [intl, isSmallScreen, navigation],
+    [intl, isSmallView, navigation],
   );
 
   return useMemo(() => {

@@ -9,7 +9,16 @@ import {
 } from '@reduxjs/toolkit';
 import { cloneDeep, isFunction, isString } from 'lodash';
 import { Reducer } from 'redux';
-import { persistReducer, persistStore } from 'redux-persist';
+import {
+  FLUSH,
+  PAUSE,
+  PERSIST,
+  PURGE,
+  REGISTER,
+  REHYDRATE,
+  persistReducer,
+  persistStore,
+} from 'redux-persist';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -60,6 +69,12 @@ export function makeStore() {
   );
   const store = configureStore({
     reducer: persistedReducer,
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: {
+          ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+        },
+      }),
   });
   const persistor = persistStore(store);
   return { store, persistor };
