@@ -56,7 +56,8 @@ const AssetsList = () => {
       );
       setTokens(tokensBE);
 
-      const balance = await engine.getPrices(
+      const balance = await engine.getAccountBalance(
+        account.id,
         activeNetwork.id,
         tokensBE.map((token) => token.id),
         true,
@@ -88,10 +89,11 @@ const AssetsList = () => {
         <Token size={8} src={item.logoURI} />
         <Box ml={3} mr={3} flexDirection="column" flex={1}>
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {
-              /** @ts-expect-error */
-              tokenBalance?.[item.id]?.toFixed?.(2) ?? '-'
-            }
+            {(index === 0
+              ? /** @ts-expect-error */
+                tokenBalance?.main?.toFixed?.(2)
+              : /** @ts-expect-error */
+                tokenBalance?.[item.id]?.toFixed?.(2)) ?? '-'}
             &nbsp;&nbsp;
             {item.symbol}
           </Text>

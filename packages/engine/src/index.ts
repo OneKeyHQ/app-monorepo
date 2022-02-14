@@ -163,13 +163,10 @@ class Engine {
   }
 
   async getAccountsByNetwork(
-    walletId: string,
     networkId: string,
   ): Promise<Record<string, Array<Account>>> {
     const ret: Record<string, Array<Account>> = {};
-    const wallet = await this.dbApi.getWallet(walletId);
-    if (!wallet) throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
-    const { accounts } = wallet;
+    const accounts = await this.dbApi.getAllAccounts();
     accounts
       .filter((a) => isAccountCompatibleWithNetwork(a.id, networkId))
       .forEach((a) => {

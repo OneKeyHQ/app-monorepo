@@ -40,16 +40,21 @@ const AccountInfo = () => {
   const [mainTokenBalance, setMainTokenBalance] = useState({});
 
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
-  const { wallet } = useActiveWalletAccount();
+  const { wallet, account } = useActiveWalletAccount();
 
   useEffect(() => {
     async function main() {
-      if (!activeNetwork?.id) return;
-      const balance = await engine.getPrices(activeNetwork?.id, [], true);
+      if (!activeNetwork?.id || !account?.id) return;
+      const balance = await engine.getAccountBalance(
+        account.id,
+        activeNetwork?.id,
+        [],
+        true,
+      );
       setMainTokenBalance(balance);
     }
     main();
-  }, [activeNetwork]);
+  }, [activeNetwork, account?.id]);
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
