@@ -12,6 +12,7 @@ import {
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
+import { useIsVerticalLayout } from '../../../Provider/hooks';
 import NavigationBar from '../../NavigationBar';
 import { getTabBarHeight } from '../../NavigationBar/Mobile';
 import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';
@@ -37,6 +38,7 @@ type Props = BottomTabNavigationConfig & {
 };
 
 export default function BottomTabView(props: Props) {
+  const isVerticalLayout = useIsVerticalLayout();
   const {
     state,
     navigation,
@@ -81,7 +83,9 @@ export default function BottomTabView(props: Props) {
   const { routes } = state;
 
   return (
-    <SafeAreaProviderCompat>
+    <SafeAreaProviderCompat
+      style={{ flexDirection: isVerticalLayout ? 'column' : 'row-reverse' }}
+    >
       <MaybeScreenContainer
         enabled={detachInactiveScreens}
         style={styles.container}
