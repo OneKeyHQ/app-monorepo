@@ -9,7 +9,6 @@ import {
   Box,
   Divider,
   Icon,
-  IconButton,
   Pressable,
   ScrollableFlatListProps,
   Text,
@@ -23,7 +22,6 @@ import {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManageToken';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import engine from '../../../engine/EngineProvider';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';

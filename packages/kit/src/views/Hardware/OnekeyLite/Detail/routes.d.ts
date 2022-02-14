@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable import/named */
 import { StackBasicRoutes } from '../../../../routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -13,30 +17,30 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+// import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
 import { MiscModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Misc';
 
 import termsImg from '../../../assets/terms.png';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  StackRoutesParams & { [MiscModalRoutes.CreateWhatWalletModal]: undefined },
-  StackBasicRoutes.SettingsScreen
->;
+// type NavigationProps = NativeStackNavigationProp<
+//   StackRoutesParams & { [MiscModalRoutes.CreateWhatWalletModal]: undefined },
+//   StackBasicRoutes.SettingsScreen
+// >;
 
 const Terms = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<any>();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(StackBasicRoutes.WebviewScreen, {
-          url,
-          title,
-        });
+        // navigation.navigate(StackBasicRoutes.WebviewScreen, {
+        //   url,
+        //   title,
+        // });
       } else {
         window.open(url, '_blank');
       }

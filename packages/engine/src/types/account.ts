@@ -41,7 +41,7 @@ type MulAddrAccount = BaseAccount & {
   addresses: Record<string, string>; // Address => relative path
 };
 
-type Account = SimpleAccount & MulAddrAccount;
+type Account = SimpleAccount | MulAddrAccount;
 
 type ImportableHDAccount = {
   index: number;

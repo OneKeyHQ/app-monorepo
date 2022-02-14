@@ -18,7 +18,7 @@ import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import {
   useActiveWalletAccount,
-  useAppSelector,
+  // useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 
 import AccountInfo, {
@@ -26,8 +26,8 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
-import CollectiblesList from './Collectibles';
-import HistoricalRecord from './HistoricalRecords';
+// import CollectiblesList from './Collectibles';
+// import HistoricalRecord from './HistoricalRecords';
 
 import type { TextStyle } from 'react-native';
 

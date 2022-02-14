@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { useCallback, useEffect, useMemo, useState, FC, ReactNode } from 'react';
+import React, {
+  FC,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -19,7 +26,7 @@ type AccountSelectorProps = {
   }) => ReactNode;
 };
 
-const AccountSelector: FC<AccountSelectorProps> = ({renderTrigger}) => {
+const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const [visible, setVisible] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation();

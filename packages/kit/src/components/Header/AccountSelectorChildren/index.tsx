@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -19,7 +20,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
-import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account as AccountEngineType,
+  SimpleAccount,
+} from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
@@ -238,7 +242,10 @@ const AccountSelectorChildren: FC = () => {
                     borderRadius="xl"
                   >
                     <Box flex={1}>
-                      <Account address={item?.address ?? ''} name={item.name} />
+                      <Account
+                        address={(item as SimpleAccount)?.address ?? ''}
+                        name={item.name}
+                      />
                     </Box>
                     {renderSideAction(activeAccountType, handleChange)}
                   </HStack>

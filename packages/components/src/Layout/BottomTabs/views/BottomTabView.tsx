@@ -68,6 +68,7 @@ export default function BottomTabView(props: Props) {
     <SafeAreaInsetsContext.Consumer>
       {(insets) => (
         <NavigationBar
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           insets={insets!}
           navigation={navigation}
           state={state}

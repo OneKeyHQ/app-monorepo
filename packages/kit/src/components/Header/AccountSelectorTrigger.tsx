@@ -10,6 +10,7 @@ import {
   Pressable,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 type Props = {
@@ -41,7 +42,7 @@ const AccountSelectorTrigger: FC<Props> = ({
     );
   }
 
-  const { address, name } = account;
+  const { address, name } = account as SimpleAccount;
   return (
     <Pressable onPress={handleToggleVisible}>
       {({ isHovered }) => (

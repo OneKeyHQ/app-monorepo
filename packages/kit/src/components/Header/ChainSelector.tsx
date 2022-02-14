@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
