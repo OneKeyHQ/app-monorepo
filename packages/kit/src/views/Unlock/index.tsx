@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,13 +9,13 @@ import {
   Center,
   Form,
   Icon,
-  IconButton,
   Typography,
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import { TabRoutes, TabRoutesParams } from '../../routes/Stack';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,14 +25,16 @@ type NavigationProps = NativeStackNavigationProp<
   TabRoutes.Home
 >;
 
-const UnlockButton = () => {
+type UnlockButtonProps = { onUnlock?: () => void; onForget?: () => void };
+
+const UnlockButton: FC<UnlockButtonProps> = ({ onUnlock, onForget }) => {
   const intl = useIntl();
   return platformEnv.isExtension ? (
-    <Button leftIconName="ArrowNarrowLeftSolid">
+    <Button leftIconName="ArrowNarrowLeftSolid" onPress={onForget}>
       {intl.formatMessage({ id: 'action__forget_password' })}
     </Button>
   ) : (
-    <IconButton name="FaceIdOutline" iconSize={24} />
+    <LocalAuthenticationButton onOk={onUnlock} />
   );
 };
 
@@ -88,7 +90,7 @@ const Unlock = () => {
             </Button>
           </Form>
         </Box>
-        {isSmall ? <UnlockButton /> : undefined}
+        {isSmall ? <UnlockButton onUnlock={onUnlock} /> : undefined}
       </Box>
     </Center>
   );
