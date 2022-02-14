@@ -9,13 +9,12 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
-  Toast,
   Typography,
   useForm,
-  useToast,
 } from '@onekeyhq/components';
 
 import LocalAuthenticationButton from '../../../components/LocalAuthenticationButton';
+import { useToast } from '../../../hooks/useToast';
 
 import { SettingsModalRoutes, SettingsRoutesParams } from './types';
 
@@ -84,16 +83,12 @@ const SetPassword = () => {
     } else {
       navigation?.popToTop?.();
     }
-    toast.show({
-      render: () => (
-        <Toast
-          title={intl.formatMessage({
-            id: 'msg__password_changed',
-            defaultMessage: 'Password changed',
-          })}
-        />
-      ),
-    });
+    toast.info(
+      intl.formatMessage({
+        id: 'msg__password_changed',
+        defaultMessage: 'Password changed',
+      }),
+    );
   }, [navigation, toast, intl]);
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
