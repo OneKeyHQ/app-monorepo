@@ -5,18 +5,11 @@ import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
-import {
-  Box,
-  HStack,
-  Icon,
-  Pressable,
-  Toast,
-  Typography,
-  useToast,
-} from '@onekeyhq/components';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
 
 import { useHelpLink } from '../../../hooks/useHelpLink';
+import { useToast } from '../../../hooks/useToast';
+import { StackBasicRoutes, StackRoutesParams } from '../../../routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -33,16 +26,12 @@ export const AboutSection = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
   const onCheckUpdate = useCallback(() => {
-    toast.show({
-      render: () => (
-        <Toast
-          title={intl.formatMessage({
-            id: 'msg__the_current_version_is_the_latest',
-            defaultMessage: '👏 The current version is the latest',
-          })}
-        />
-      ),
-    });
+    toast.info(
+      intl.formatMessage({
+        id: 'msg__the_current_version_is_the_latest',
+        defaultMessage: '👏 The current version is the latest',
+      }),
+    );
   }, [intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
