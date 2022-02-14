@@ -11,3 +11,8 @@ export const useSettings = () => {
   const settings = useAppSelector((s) => s.settings);
   return settings;
 };
+
+export const useStatus = () => {
+  const status = useAppSelector((s) => s.status);
+  return status;
+};

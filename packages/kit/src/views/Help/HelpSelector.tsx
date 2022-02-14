@@ -58,7 +58,7 @@ const HelpSelector: FC = () => {
     (url: string, title?: string) => {
       console.log('url', url, 'title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(StackBasicRoutes.SettingsWebviewScreen, {
+        navigation.navigate(StackBasicRoutes.WebviewScreen, {
           url,
           title,
         });

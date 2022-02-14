@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Form,
-  IconButton,
   KeyboardDismissView,
   Modal,
   Toast,
@@ -16,7 +15,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 
-import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import LocalAuthenticationButton from '../../../components/LocalAuthenticationButton';
 
 import { SettingsModalRoutes, SettingsRoutesParams } from './types';
 
@@ -31,18 +30,10 @@ type EnterPasswordProps = { onNext?: () => void };
 
 const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const { control } = useForm();
-  const { isOk, localAuthenticate } = useLocalAuthentication();
-
   const intl = useIntl();
   const onSubmit = useCallback(() => {
     onNext?.();
   }, [onNext]);
-  const onAuthenticate = useCallback(async () => {
-    const localAuthenticationResult = await localAuthenticate();
-    if (localAuthenticationResult?.success) {
-      onNext?.();
-    }
-  }, [onNext, localAuthenticate]);
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
       <Typography.DisplayLarge textAlign="center" mb={2}>
@@ -74,15 +65,9 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             defaultMessage: 'Continue',
           })}
         </Button>
-        {isOk ? (
-          <Box display="flex" justifyContent="center" alignItems="center">
-            <IconButton
-              iconSize={24}
-              name="FaceIdOutline"
-              onPress={onAuthenticate}
-            />
-          </Box>
-        ) : null}
+        <Box display="flex" justifyContent="center" alignItems="center">
+          <LocalAuthenticationButton onOk={onNext} />
+        </Box>
       </Form>
     </KeyboardDismissView>
   );

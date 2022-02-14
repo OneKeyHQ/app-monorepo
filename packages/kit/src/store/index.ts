@@ -20,12 +20,14 @@ import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
 import settingsReducer from './reducers/settings';
+import statusReducer from './reducers/status';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
   chain: chainReducer,
   account: accountReducer,
   settings: settingsReducer,
+  status: statusReducer,
   counter,
 });
 
