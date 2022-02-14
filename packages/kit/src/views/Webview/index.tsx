@@ -1,33 +1,17 @@
 import React, { FC, useLayoutEffect } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
 import { Box } from '@onekeyhq/components';
-import { StackRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes/Stack';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import WebView from '../../components/WebView';
-import { StackBasicRoutes, StackBasicRoutesParams } from '../../routes/Stack';
 
-type StackRoutesType = typeof StackRoutes;
-
-type NavigationProps = NavigationProp<
-  StackBasicRoutesParams,
-  StackBasicRoutes.WebviewScreen
->;
-
-type RouteProps = RouteProp<
-  StackRoutesParams,
-  StackRoutesType['WebviewScreen']
->;
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.SettingsWebviewScreen>;
 
 export const SettingsWebViews: FC = () => {
   const route = useRoute<RouteProps>();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
   const { url, title } = route?.params;
   useLayoutEffect(() => {
     if (title) {

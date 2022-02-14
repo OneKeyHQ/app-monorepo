@@ -6,16 +6,16 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
 import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useToast } from '../../../hooks/useToast';
-import { StackBasicRoutes, StackRoutesParams } from '../../../routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  StackRoutesParams,
-  StackBasicRoutes.SettingsScreen
+  HomeRoutesParams,
+  HomeRoutes.SettingsScreen
 >;
 
 export const AboutSection = () => {
@@ -36,7 +36,7 @@ export const AboutSection = () => {
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(StackBasicRoutes.WebviewScreen, {
+        navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
           url,
           title,
         });
@@ -170,7 +170,6 @@ export const AboutSection = () => {
               'https://www.onekey.so',
               intl.formatMessage({
                 id: 'form__website',
-                defaultMessage: 'Office Website',
               }),
             )
           }
@@ -178,7 +177,6 @@ export const AboutSection = () => {
           <Typography.Body1>
             {intl.formatMessage({
               id: 'form__website',
-              defaultMessage: 'Office Website',
             })}
           </Typography.Body1>
           <HStack space="2" alignItems="center">

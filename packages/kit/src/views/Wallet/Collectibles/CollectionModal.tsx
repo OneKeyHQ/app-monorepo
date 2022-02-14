@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -14,7 +15,7 @@ import {
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes';
+// import { ModalRoutes } from '@onekeyhq/kit/src/routes';
 
 import {
   CollectiblesModalRoutes,
@@ -88,15 +89,12 @@ const CollectionModal: FC<CollectionModalProps> = () => {
   const collectible = getCollection(id);
 
   // Open Asset detail modal
-  const handleSelectAsset = React.useCallback(
-    (asset: SelectedAsset) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      navigation.navigate(ModalRoutes.CollectibleDetailModal, {
-        assetId: asset.id,
-      });
-    },
-    [navigation],
-  );
+  const handleSelectAsset = React.useCallback((_: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    // navigation.navigate(ModalRoutes.CollectibleDetailModal, {
+    //   assetId: asset.id,
+    // });
+  }, []);
 
   if (!collectible) return null;
 

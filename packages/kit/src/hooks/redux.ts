@@ -16,3 +16,12 @@ export const useStatus = () => {
   const status = useAppSelector((s) => s.status);
   return status;
 };
+
+export const useActiveWalletAccount = () => {
+  const { activeAccount, activeWallet } = useAppSelector((s) => s.general);
+
+  return {
+    wallet: activeWallet,
+    account: activeAccount,
+  };
+};

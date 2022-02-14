@@ -3,6 +3,7 @@ import uuid from 'react-native-uuid';
 
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
+import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 
 type SettingsState = {
   theme: ThemeVariant | 'system';
@@ -11,6 +12,8 @@ type SettingsState = {
   instanceId: string;
   enableAppLock: boolean;
   enableLocalAuthentication: boolean;
+  selectedFiatMoneySymbol: string;
+  refreshTimeStamp: number;
 };
 
 const initialState: SettingsState = {
@@ -20,6 +23,8 @@ const initialState: SettingsState = {
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
+  selectedFiatMoneySymbol: 'usd',
+  refreshTimeStamp: getTimeStamp(),
 };
 
 export const settingsSlice = createSlice({
@@ -38,6 +43,15 @@ export const settingsSlice = createSlice({
     setEnableLocalAuthentication: (state, action: PayloadAction<boolean>) => {
       state.enableLocalAuthentication = action.payload;
     },
+    setSelectedFiatMoneySymbol: (
+      state,
+      action: PayloadAction<SettingsState['selectedFiatMoneySymbol']>,
+    ) => {
+      state.selectedFiatMoneySymbol = action.payload;
+    },
+    setRefreshTS: (state) => {
+      state.refreshTimeStamp = getTimeStamp();
+    },
   },
 });
 
@@ -46,6 +60,8 @@ export const {
   setLocale,
   setEnableAppLock,
   setEnableLocalAuthentication,
+  setSelectedFiatMoneySymbol,
+  setRefreshTS,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

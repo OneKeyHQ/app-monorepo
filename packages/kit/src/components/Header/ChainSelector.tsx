@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -11,8 +12,9 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
+import { NetworkShort } from '@onekeyhq/engine/src/types/network';
 import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import { updateActiveChainId } from '@onekeyhq/kit/src/store/reducers/chain';
+import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
 import {
   ManageNetworkModalRoutes,
   ManageNetworkRoutesParams,
@@ -31,93 +33,86 @@ const ChainSelector: FC = () => {
   const navigation = useNavigation<NavigationProps>();
 
   const dispatch = useAppDispatch();
-  const activeChainId = useAppSelector((s) => s.chain.chainId);
+  const networks = useAppSelector((s) => s.network.network);
+
+  const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
 
   const handleActiveChainChange = useCallback(
-    (chainId) => {
-      dispatch(updateActiveChainId(chainId));
-      const chainIdHex = {
-        ethereum: '0x1',
-        bsc: '0x38',
-        heco: '0x80',
-        polygon: '0x89',
-        fantom: '0xfa',
-      }[chainId as string];
-      if (!chainIdHex) {
-        throw new Error('chainId not available.');
+    (id) => {
+      if (!networks) return null;
+
+      let selectedNetwork: NetworkShort | null = null;
+      let selectedSharedChainName: string | null = null;
+      Object.entries(networks).forEach(([key, value]) => {
+        value.forEach((item) => {
+          if (item.id === id) {
+            selectedNetwork = item;
+            selectedSharedChainName = key;
+          }
+        });
+      });
+      if (selectedNetwork && selectedSharedChainName) {
+        dispatch(
+          changeActiveNetwork({
+            network: selectedNetwork,
+            sharedChainName: selectedSharedChainName,
+          }),
+        );
       }
-      if (chainIdHex) {
-        backgroundApiProxy.changeChain(chainIdHex);
-      }
+
+      // dispatch(updateActiveChainId(chainId));
+      // const chainIdHex = {
+      //   ethereum: '0x1',
+      //   bsc: '0x38',
+      //   heco: '0x80',
+      //   polygon: '0x89',
+      //   fantom: '0xfa',
+      // }[chainId as string];
+      // if (!chainIdHex) {
+      //   throw new Error('chainId not available.');
+      // }
+      // if (chainIdHex) {
+      //   backgroundApiProxy.changeChain(chainIdHex);
+      // }
     },
-    [dispatch],
+    [dispatch, networks],
   );
 
-  const options = useMemo(
-    () => [
-      {
-        title: 'EVM',
-        options: [
-          {
-            label: 'ETH',
-            value: 'ethereum',
-            tokenProps: {
-              chain: 'eth',
-            },
-          },
-          {
-            label: 'BSC',
-            value: 'bsc',
-            tokenProps: {
-              chain: 'bsc',
-            },
-          },
-          {
-            label: 'HECO',
-            value: 'heco',
-            tokenProps: {
-              chain: 'heco',
-            },
-          },
-          {
-            label: 'Polygon',
-            value: 'polygon',
-            tokenProps: {
-              chain: 'polygon',
-            },
-          },
-          {
-            label: 'Fantom',
-            value: 'fantom',
-            tokenProps: {
-              chain: 'fantom',
-            },
-          },
-        ],
-      },
-    ],
-    [],
-  );
+  const options = useMemo(() => {
+    if (!networks) return [];
+
+    return Object.entries(networks).map(([key, value]) => ({
+      title: key,
+      options: value.map((item) => ({
+        label: item.name,
+        value: item.id,
+        tokenProps: {
+          src: item.logoURI,
+        },
+      })),
+    }));
+  }, [networks]);
 
   return (
     <Box>
       <Select
         dropdownPosition="right"
         dropdownProps={{ w: '56' }}
-        value={activeChainId}
+        value={activeNetwork ? activeNetwork?.network?.id : undefined}
         onChange={handleActiveChainChange}
-        title="Networks"
+        title={intl.formatMessage({ id: 'network__networks' })}
         options={options}
-        footerText={intl.formatMessage({ id: 'action__customize_network' })}
-        footerIcon="PencilSolid"
         isTriggerPlain
-        onPressFooter={() =>
-          setTimeout(() => {
-            navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
-          }, 200)
-        }
+        // footerText={intl.formatMessage({ id: 'action__customize_network' })}
+        // footerIcon="PencilSolid"
+        // onPressFooter={() =>
+        //   setTimeout(() => {
+        //     navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
+        //   }, 200)
+        // }
         renderTrigger={(activeOption, isHovered, visible) => (
           <HStack
+            w="156px"
             p={2}
             space={1}
             bg={
@@ -131,9 +126,9 @@ const ChainSelector: FC = () => {
             borderRadius="xl"
             alignItems="center"
           >
-            <HStack space={{ base: 2, md: 3 }} alignItems="center">
+            <HStack space={{ base: 2, md: 3 }} alignItems="center" flex="1">
               <Token size={{ base: 5, md: 6 }} {...activeOption.tokenProps} />
-              <Typography.Body2Strong>
+              <Typography.Body2Strong flex="1" numberOfLines={1}>
                 {activeOption.label}
               </Typography.Body2Strong>
             </HStack>

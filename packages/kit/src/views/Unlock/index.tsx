@@ -16,14 +16,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { TabRoutes, TabRoutesParams } from '../../routes/Stack';
+// import { TabRoutes, TabRoutesParams } from '../../routes/Stack';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+// import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  TabRoutesParams,
-  TabRoutes.Home
->;
+// type NavigationProps = NativeStackNavigationProp<
+//   TabRoutesParams,
+//   TabRoutes.Home
+// >;
 
 type UnlockButtonProps = { onUnlock?: () => void; onForget?: () => void };
 
@@ -41,12 +41,12 @@ const UnlockButton: FC<UnlockButtonProps> = ({ onUnlock, onForget }) => {
 const Unlock = () => {
   const intl = useIntl();
   const { control } = useForm();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<any>();
   const isSmall = useIsVerticalLayout();
   const justifyContent = isSmall ? 'space-between' : 'center';
   const py = isSmall ? '16' : undefined;
   const onUnlock = useCallback(() => {
-    navigation.navigate(TabRoutes.Home);
+    // navigation.navigate(TabRoutes.Home);
   }, [navigation]);
   return (
     <Center w="full" h="full" bg="background-default">

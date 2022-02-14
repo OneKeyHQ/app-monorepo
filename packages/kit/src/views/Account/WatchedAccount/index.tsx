@@ -3,12 +3,15 @@ import React, { FC } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, useForm } from '@onekeyhq/components';
+import { Box, Form, Modal, useForm, useToast } from '@onekeyhq/components';
+import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
-  ModalRoutes,
 } from '@onekeyhq/kit/src/routes';
+import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -16,7 +19,7 @@ type NavigationProps = NativeStackNavigationProp<
   CreateAccountRoutesParams,
   CreateAccountModalRoutes.RecoveryAccountForm
 >;
-type PrivateKeyFormValues = {
+type WatchedAccountFormValues = {
   network: string;
   name: string;
   address: string;
@@ -24,16 +27,32 @@ type PrivateKeyFormValues = {
 
 const WatchedAccount: FC = () => {
   const intl = useIntl();
-  const { control } = useForm<PrivateKeyFormValues>();
+  const toast = useToast();
+  const { control, handleSubmit } = useForm<WatchedAccountFormValues>();
   const navigation = useNavigation<NavigationProps>();
+  const dispatch = useAppDispatch();
+  const onSubmit = handleSubmit(async (data) => {
+    try {
+      await engine.addWatchingAccount(data.network, data.address, data.name);
+
+      toast.show({
+        title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+      });
+      dispatch(setRefreshTS());
+      navigation.goBack();
+    } catch (e) {
+      toast.show({
+        title: (e as { key: string }).key,
+      });
+    }
+  });
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={intl.formatMessage({ id: 'wallet__watched_accounts' })}
       primaryActionTranslationId="action__import"
-      onPrimaryActionPress={() =>
-        navigation.navigate(ModalRoutes.RecoveryAccountForm)
-      }
+      onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
       scrollViewProps={{
         children: (
@@ -46,42 +65,8 @@ const WatchedAccount: FC = () => {
             justifyContent="center"
           >
             <Form w="full">
-              <Form.Item
-                name="network"
-                control={control}
-                label={intl.formatMessage({ id: 'network__network' })}
-                helpText={intl.formatMessage({
-                  id: 'form__network_helperText',
-                })}
-                defaultValue="https://rpc.onekey.so/eth"
-                formControlProps={{ zIndex: 10 }}
-              >
-                <Form.Select
-                  title={intl.formatMessage({ id: 'network__network' })}
-                  footer={null}
-                  containerProps={{
-                    zIndex: 999,
-                    padding: 0,
-                  }}
-                  triggerProps={{
-                    py: 2,
-                  }}
-                  options={[
-                    {
-                      label: 'https://google.com',
-                      value: 'https://google.com',
-                    },
-                    {
-                      label: 'https://rpc.onekey.so/eth',
-                      value: 'https://rpc.onekey.so/eth',
-                    },
-                    {
-                      label: 'https://baidu.com',
-                      value: 'https://baidu.com',
-                    },
-                  ]}
-                />
-              </Form.Item>
+              <FormChainSelector control={control} name="network" />
+
               <Form.Item
                 name="name"
                 label={intl.formatMessage({ id: 'form__account_name' })}

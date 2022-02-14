@@ -1,34 +1,30 @@
-import React, { useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import React from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+// import { useNavigation } from '@react-navigation/core';
 
-import { useStatus } from '../../hooks/redux';
-import { OthersRoutes } from '../../routes/Others/enum';
-import { TabRoutes, TabRoutesParams } from '../../routes/Stack';
+// import { OthersRoutes } from '../../routes/Others';
+// import { TabRoutes, TabRoutesParams } from '../../routes/Stack';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+// import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  TabRoutesParams & {
-    [OthersRoutes.Unlock]: undefined;
-    [OthersRoutes.Welcome]: undefined;
-  },
-  TabRoutes.Home
->;
+// type NavigationProps = NativeStackNavigationProp<
+//   TabRoutesParams & { [OthersRoutes.Unlock]: undefined },
+//   TabRoutes.Home
+// >;
 
-const Splash = () => {
+const Splash = () => (
   // this is loading component
-  const navigation = useNavigation<NavigationProps>();
-  const { welcomed } = useStatus();
-  useEffect(() => {
-    // TODO: Get the app's status and determine which page to jump to.
-    if (welcomed) {
-      navigation.navigate(OthersRoutes.Unlock);
-    } else {
-      navigation.navigate(OthersRoutes.Welcome);
-    }
-  }, [navigation, welcomed]);
-  return <></>;
-};
-
+  // const navigation = useNavigation<any>();
+  // useEffect(() => {
+  //   // TODO: Get the app's status and determine which page to jump to.
+  //   if (welcomed) {
+  //     navigation.navigate(OthersRoutes.Unlock);
+  //   } else {
+  //     navigation.navigate(OthersRoutes.Welcome);
+  //   }
+  // }, [navigation, welcomed]);
+  <></>
+);
 export default Splash;

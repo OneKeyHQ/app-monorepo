@@ -10,7 +10,7 @@ import Typography from '../Typography';
 type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement;
-  helpText?: string;
+  helpText?: string | ((v: any) => string);
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
 };
@@ -55,7 +55,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
           {helpText ? (
             <FormControl.HelperText>
               <Typography.Body2 color="text-subdued">
-                {helpText}
+                {typeof helpText === 'function' ? helpText(value) : helpText}
               </Typography.Body2>
             </FormControl.HelperText>
           ) : null}

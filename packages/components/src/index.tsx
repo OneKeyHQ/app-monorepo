@@ -20,7 +20,6 @@ export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
 export { default as HeaderTabViewContainer } from './HeaderTabViewContainer';
-export { default as Layout } from './Layout';
 export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
 export { default as PinCode } from './PinCode';
