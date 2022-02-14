@@ -9,10 +9,9 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
 import modalConfigList from './routes/Modal';
-import { OthersRoutes } from './routes/Others';
+import { OthersRoutesScreen } from './routes/Others';
+import { OthersRoutes } from './routes/Others/enum';
 import StackScreens, { StackRoutes } from './routes/Stack';
-import Splash from './views/Splash';
-import Unlock from './views/Unlock';
 
 const ModalStack = createStackNavigator();
 
@@ -20,7 +19,7 @@ const ModalStackNavigator = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <ModalStack.Navigator
-      initialRouteName={OthersRoutes.Splash}
+      initialRouteName={OthersRoutes.Unlock}
       screenOptions={{
         headerShown: false,
         gestureEnabled: true,
@@ -38,8 +37,13 @@ const ModalStackNavigator = () => {
           ...TransitionPresets.ModalFadeTransition,
         }}
       >
-        <ModalStack.Screen name={OthersRoutes.Unlock} component={Unlock} />
-        <ModalStack.Screen name={OthersRoutes.Splash} component={Splash} />
+        {OthersRoutesScreen.map((config) => (
+          <ModalStack.Screen
+            key={config.name}
+            name={config.name}
+            component={config.component}
+          />
+        ))}
       </ModalStack.Group>
       <ModalStack.Screen name={StackRoutes.Home} component={StackScreens} />
       {modalConfigList.map((modal) => (
