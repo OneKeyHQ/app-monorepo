@@ -101,14 +101,14 @@ const ChainSelector: FC = () => {
         onChange={handleActiveChainChange}
         title={intl.formatMessage({ id: 'network__networks' })}
         options={options}
-        footerText={intl.formatMessage({ id: 'action__customize_network' })}
-        footerIcon="PencilSolid"
         isTriggerPlain
-        onPressFooter={() =>
-          setTimeout(() => {
-            navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
-          }, 200)
-        }
+        // footerText={intl.formatMessage({ id: 'action__customize_network' })}
+        // footerIcon="PencilSolid"
+        // onPressFooter={() =>
+        //   setTimeout(() => {
+        //     navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
+        //   }, 200)
+        // }
         renderTrigger={(activeOption, isHovered, visible) => (
           <HStack
             w="156px"

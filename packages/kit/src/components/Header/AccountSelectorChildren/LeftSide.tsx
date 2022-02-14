@@ -109,11 +109,11 @@ const LeftSide: FC<LeftSideProps> = ({
         </VStack> */}
         {/* Imported or watched wallet */}
         <VStack space={2}>
-          <WalletItem
+          {/* <WalletItem
             onPress={() => setActiveAccountType('imported')}
             isSelected={activeAccountType === 'imported'}
             walletType="imported"
-          />
+          /> */}
           <WalletItem
             onPress={() => setActiveAccountType('watching')}
             isSelected={activeAccountType === 'watching'}
@@ -122,9 +122,9 @@ const LeftSide: FC<LeftSideProps> = ({
         </VStack>
       </VStack>
     </ScrollView>
-    <Box p={2}>
+    {/* <Box p={2}>
       <IconButton type="plain" name="PlusOutline" size="xl" />
-    </Box>
+    </Box> */}
   </VStack>
 );
 

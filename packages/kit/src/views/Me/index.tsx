@@ -38,7 +38,7 @@ const Me = () => {
     <Box flex="1" p="4" maxW={MAX_PAGE_CONTAINER_WIDTH} w="100%" marginX="auto">
       <VStack justifyContent="space-between" flex={1}>
         <VStack space="3">
-          <Pressable
+          {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
@@ -56,7 +56,7 @@ const Me = () => {
               </Typography.Body1>
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
+          </Pressable> */}
           <Pressable
             p="4"
             bg="surface-default"
@@ -94,7 +94,7 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable>
-          <Pressable
+          {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
@@ -115,7 +115,7 @@ const Me = () => {
               <Typography.Body1>Developer</Typography.Body1>
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
+          </Pressable> */}
         </VStack>
         <HStack justifyContent="flex-end">
           <HelpSelector />

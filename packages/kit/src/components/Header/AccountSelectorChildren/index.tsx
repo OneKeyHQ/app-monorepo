@@ -1,6 +1,8 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,8 +19,14 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import {
+  useActiveWalletAccount,
+  useAppDispatch,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -69,15 +77,21 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 );
 
 const AccountSelectorChildren: FC = () => {
-  const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const dispatch = useAppDispatch();
-  const wallets = useAppSelector((s) => []);
+  const isVerticalLayout = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const { activeNetwork } = useAppSelector((s) => s.general);
+
+  const { account: currentSelectedAccount, wallet: currentSelectedWallet } =
+    useActiveWalletAccount();
+
+  const wallets = useAppSelector((s) => s.wallet.wallets);
   const [activeAccountType, setActiveAccountType] =
     useState<AccountType>('watching');
   const [activeIndex, setActiveIndex] = useState(0);
 
+  const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
   const handleChange = useCallback(() => {
     // TODO:
   }, []);
@@ -131,22 +145,22 @@ const AccountSelectorChildren: FC = () => {
       );
     }
 
-    if (type === 'watching') {
-      return (
-        <IconButton
-          name="PlusSolid"
-          type="plain"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateAccount,
-              params: {
-                screen: CreateAccountModalRoutes.CreateAccountForm,
-              },
-            });
-          }}
-        />
-      );
-    }
+    // if (type === 'watching') {
+    //   return (
+    //     <IconButton
+    //       name="PlusSolid"
+    //       type="plain"
+    //       onPress={() => {
+    //         navigation.navigate(RootRoutes.Modal, {
+    //           screen: ModalRoutes.CreateAccount,
+    //           params: {
+    //             screen: CreateAccountModalRoutes.CreateAccountForm,
+    //           },
+    //         });
+    //       }}
+    //     />
+    //   );
+    // }
 
     if (type === 'imported') {
       return (
@@ -166,13 +180,21 @@ const AccountSelectorChildren: FC = () => {
     }
   }
 
-  const activeAccounts = useMemo(
-    () =>
-      wallets?.filter?.((wallet) => wallet.type === activeAccountType)?.[
-        activeIndex
-      ]?.accounts ?? [],
-    [activeAccountType, activeIndex, wallets],
-  );
+  const activeWallet = useMemo(() => {
+    const activeWalletTypeList = wallets?.filter?.(
+      (wallet) => wallet.type === activeAccountType,
+    );
+    return activeWalletTypeList[activeIndex];
+  }, [activeAccountType, activeIndex, wallets]);
+
+  useEffect(() => {
+    if (!activeWallet) return;
+    async function main() {
+      const accounts = await engine.getAccounts(activeWallet.accounts);
+      setActiveAccounts(accounts);
+    }
+    main();
+  }, [activeWallet, activeNetwork]);
 
   return (
     <>
@@ -190,7 +212,15 @@ const AccountSelectorChildren: FC = () => {
               <Pressable
                 zIndex={99}
                 onPress={() => {
-                  dispatch(changeActiveAccount(item));
+                  dispatch(
+                    changeActiveAccount({
+                      account: item,
+                      wallet: activeWallet,
+                    }),
+                  );
+                  setTimeout(() => {
+                    navigation.dispatch(DrawerActions.toggleDrawer());
+                  }, 250);
                   // backgroundApiProxy.changeAccounts(item.address);
                 }}
               >
@@ -199,11 +229,16 @@ const AccountSelectorChildren: FC = () => {
                     p="7px"
                     borderWidth={1}
                     borderColor={isHovered ? 'border-hovered' : 'transparent'}
+                    bg={
+                      currentSelectedAccount?.id === item.id
+                        ? 'background-selected'
+                        : 'background-hovered'
+                    }
                     space={4}
                     borderRadius="xl"
                   >
                     <Box flex={1}>
-                      <Account address={item.address} name={item.name} />
+                      <Account address={item?.address ?? ''} name={item.name} />
                     </Box>
                     {renderSideAction(activeAccountType, handleChange)}
                   </HStack>

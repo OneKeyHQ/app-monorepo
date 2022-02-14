@@ -24,8 +24,13 @@ export const generalSlice = createSlice({
   name: 'general',
   initialState,
   reducers: {
-    changeActiveAccount(state, action: PayloadAction<Account>) {
-      state.activeAccount = action.payload;
+    changeActiveAccount(
+      state,
+      action: PayloadAction<{ account: Account; wallet: BaseWallet }>,
+    ) {
+      const { account, wallet } = action.payload;
+      state.activeAccount = account;
+      state.activeWallet = wallet;
     },
     changeActiveNetwork(
       state,

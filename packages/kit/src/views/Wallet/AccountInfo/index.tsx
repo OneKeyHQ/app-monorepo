@@ -1,4 +1,6 @@
-import React, { useCallback, useMemo } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,6 +12,11 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -30,6 +37,19 @@ const AccountInfo = () => {
   const intl = useIntl();
   const isSmallView = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const [mainTokenBalance, setMainTokenBalance] = useState({});
+
+  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
+  const { wallet } = useActiveWalletAccount();
+
+  useEffect(() => {
+    async function main() {
+      if (!activeNetwork?.id) return;
+      const balance = await engine.getPrices(activeNetwork?.id, [], true);
+      setMainTokenBalance(balance);
+    }
+    main();
+  }, [activeNetwork]);
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -38,13 +58,20 @@ const AccountInfo = () => {
           {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
-          <Typography.DisplayXLarge>10.100</Typography.DisplayXLarge>
-          <Typography.DisplayXLarge pl={2}>ETH</Typography.DisplayXLarge>
+          <Typography.DisplayXLarge>
+            {
+              /* @ts-expect-error */
+              mainTokenBalance?.main?.toFixed?.(2) ?? '-'
+            }
+          </Typography.DisplayXLarge>
+          <Typography.DisplayXLarge pl={2}>
+            {activeNetwork?.symbol?.toUpperCase?.()}
+          </Typography.DisplayXLarge>
         </Box>
-        <Typography.Body2 mt={1}>43123.12 USD</Typography.Body2>
+        <Typography.Body2 mt={1}>0 USD</Typography.Body2>
       </Box>
     ),
-    [intl],
+    [intl, mainTokenBalance, activeNetwork?.symbol],
   );
 
   const accountOption = useMemo(
@@ -55,6 +82,7 @@ const AccountInfo = () => {
           leftIconName="ArrowUpSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
+          isDisabled={wallet?.type === 'watching'}
           onPress={() => {
             // navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
             //   screen: ModalRoutes.Send,
@@ -69,6 +97,7 @@ const AccountInfo = () => {
           leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
+          isDisabled={wallet?.type === 'watching'}
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Receive,
@@ -94,7 +123,7 @@ const AccountInfo = () => {
         )}
       </Box>
     ),
-    [intl, isSmallView, navigation],
+    [intl, isSmallView, navigation, wallet],
   );
 
   return useMemo(() => {

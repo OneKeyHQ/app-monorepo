@@ -10,7 +10,7 @@ import {
   Pressable,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 type Props = {
   visible: boolean;
@@ -23,9 +23,9 @@ const AccountSelectorTrigger: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { activeAccount, activeWallet } = useAppSelector((s) => s.general);
+  const { account, wallet } = useActiveWalletAccount();
 
-  if (!activeWallet) {
+  if (!wallet) {
     return (
       <Button onPress={handleToggleVisible}>
         {intl.formatMessage({ id: 'action__create_wallet' })}
@@ -33,7 +33,7 @@ const AccountSelectorTrigger: FC<Props> = ({
     );
   }
 
-  if (!activeAccount) {
+  if (!account) {
     return (
       <Button onPress={handleToggleVisible}>
         {intl.formatMessage({ id: 'action__create_account' })}
@@ -41,7 +41,7 @@ const AccountSelectorTrigger: FC<Props> = ({
     );
   }
 
-  const { address, name } = activeAccount;
+  const { address, name } = account;
   return (
     <Pressable onPress={handleToggleVisible}>
       {({ isHovered }) => (

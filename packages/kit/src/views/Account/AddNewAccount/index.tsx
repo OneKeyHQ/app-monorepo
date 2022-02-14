@@ -8,7 +8,6 @@ import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
-  ModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +29,7 @@ type NavigationProps = NativeStackNavigationProp<
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const { control } = useForm<PrivateKeyFormValues>();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
   return (
     <Modal
@@ -92,9 +92,9 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                   })}
                 </Typography.Body1>
                 <Typography.Body1
-                  onPress={() =>
-                    navigation.navigate(ModalRoutes.RecoveryAccountForm)
-                  }
+                // onPress={() =>
+                //   navigation.navigate(ModalRoutes.RecoveryAccountForm)
+                // }
                 >
                   {intl.formatMessage({
                     id: 'action__recover_accounts',

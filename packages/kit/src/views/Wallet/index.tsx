@@ -16,7 +16,10 @@ import {
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
@@ -49,9 +52,10 @@ const Home: FC = () => {
     'action-primary-default',
     'border-subdued',
   ]);
-  const { activeAccount } = useAppSelector((s) => s.general);
+  const isVerticalLayout = useIsVerticalLayout();
+  const { account } = useActiveWalletAccount();
 
-  if (!activeAccount) {
+  if (!account) {
     return (
       <Box flex="1" justifyContent="center">
         <Empty
@@ -79,7 +83,7 @@ const Home: FC = () => {
     <Tabs.Container
       renderHeader={AccountInfo}
       headerHeight={
-        useIsVerticalLayout()
+        isVerticalLayout
           ? FIXED_VERTICAL_HEADER_HEIGHT
           : FIXED_HORIZONTAL_HEDER_HEIGHT
       }
@@ -118,7 +122,7 @@ const Home: FC = () => {
       >
         <AssetsList />
       </Tabs.Tab>
-      <Tabs.Tab
+      {/* <Tabs.Tab
         name={TabEnum.Collectibles}
         label={intl.formatMessage({ id: 'asset__collectibles' })}
       >
@@ -129,7 +133,7 @@ const Home: FC = () => {
         label={intl.formatMessage({ id: 'transaction__history' })}
       >
         <HistoricalRecord isTab />
-      </Tabs.Tab>
+      </Tabs.Tab> */}
     </Tabs.Container>
   );
 };
