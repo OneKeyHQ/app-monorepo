@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useRef } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
@@ -12,9 +12,7 @@ import {
   Icon,
   Modal,
   Pressable,
-  Toast,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import {
@@ -22,6 +20,7 @@ import {
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
+import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
 import {
@@ -73,20 +72,9 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<TransactionDetailRouteProp>();
-
   const { txId } = route.params;
-  const toastIdRef = useRef<string>();
 
   const txInfo = getTxInfo(txId);
-
-  const showToast = useCallback(
-    (msg: string) => {
-      toastIdRef.current = toast.show({
-        render: () => <Toast title={msg} status="success" dismiss />,
-      }) as string;
-    },
-    [toast],
-  );
 
   const getTransactionStatusIcon = (
     state: TransactionState = 'pending',
@@ -112,10 +100,10 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
     return stringKeys[state];
   };
 
-  const copyAddressToClipboard = () => {
+  const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(txInfo.txId);
-    showToast(intl.formatMessage({ id: 'msg__copied' }));
-  };
+    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+  }, [toast, txInfo.txId]);
 
   return (
     <Modal

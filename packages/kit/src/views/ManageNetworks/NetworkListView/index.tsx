@@ -2,7 +2,9 @@ import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Modal, Toast, useToast, useUserDevice } from '@onekeyhq/components';
+import { Modal, useUserDevice } from '@onekeyhq/components';
+
+import { useToast } from '../../../hooks/useToast';
 
 import { DiscardAlert } from './DiscardAlert';
 import { DisplayView } from './DisplayView';
@@ -32,16 +34,12 @@ export const NetworkListView: FC = () => {
 
   const onToggle = useCallback(() => {
     if (editable) {
-      toast.show({
-        render: () => (
-          <Toast
-            title={intl.formatMessage({
-              id: 'msg__change_saved',
-              defaultMessage: 'Change saved!',
-            })}
-          />
-        ),
-      });
+      toast.info(
+        intl.formatMessage({
+          id: 'msg__change_saved',
+          defaultMessage: 'Change saved!',
+        }),
+      );
     }
     setEditable(!editable);
   }, [editable, intl, toast]);
