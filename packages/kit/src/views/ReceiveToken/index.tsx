@@ -12,12 +12,11 @@ import {
   Modal,
   QRCode,
   Text,
-  Toast,
   Typography,
   useThemeValue,
-  useToast,
 } from '@onekeyhq/components';
 
+import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -37,19 +36,10 @@ const ReceiveToken = () => {
 
   const { address } = route.params;
 
-  const showToast = useCallback(
-    (msg: string) => {
-      toast.show({
-        render: () => <Toast title={msg} />,
-      });
-    },
-    [toast],
-  );
-
-  const copyAddressToClipboard = () => {
+  const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(address);
-    showToast(intl.formatMessage({ id: 'msg__copied' }));
-  };
+    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+  }, [toast, address]);
 
   return (
     <Modal
