@@ -2,6 +2,7 @@ export * from './Stack';
 export * from './Others';
 export * from './Modal';
 export * from './Modal/CreateAccount';
+export * from './Modal/CreateWallet';
 export * from './Modal/ImportAccount';
 export * from './Modal/ManageNetwork';
 export * from './Modal/ReceiveToken';

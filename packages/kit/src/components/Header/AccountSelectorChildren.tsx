@@ -22,6 +22,8 @@ import {
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
   ImportAccountModalRoutes,
   ImportAccountRoutesParams,
   ModalRoutes,
@@ -47,6 +49,10 @@ type NavigationProps = NativeStackNavigationProp<
   NativeStackNavigationProp<
     WatchedAccountRoutesParams,
     WatchedAccountModalRoutes.WatchedAccountModal
+  > &
+  NativeStackNavigationProp<
+    CreateWalletRoutesParams,
+    CreateWalletModalRoutes.CreateWalletModal
   >;
 
 // const WATCHED_ACCOUNTS = [];
@@ -303,7 +309,14 @@ const AccountSelectorChildren: FC<ChildrenProps> = ({
           </VStack>
         </ScrollView>
         <Box p={2}>
-          <IconButton type="plain" name="PlusOutline" size="xl" />
+          <IconButton
+            type="plain"
+            name="PlusOutline"
+            size="xl"
+            onPress={() =>
+              navigation.navigate(CreateWalletModalRoutes.CreateWalletModal)
+            }
+          />
         </Box>
       </VStack>
       <VStack flex={1}>

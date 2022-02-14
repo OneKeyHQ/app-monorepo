@@ -10,6 +10,10 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import CreateWalletModal, {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from './CreateWallet';
 import HardwareOnekeyModal, {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
@@ -72,6 +76,10 @@ const modalStackScreenList = [
   {
     name: CreateAccountModalRoutes.CreateAccountForm,
     component: CreateAccountModal,
+  },
+  {
+    name: CreateWalletModalRoutes.CreateWalletModal,
+    component: CreateWalletModal,
   },
   {
     name: ModalNavigatorRoutes.ReceiveTokenNavigator,
@@ -141,6 +149,7 @@ const modalStackScreenList = [
 
 export const ModalRoutes = {
   ...CreateAccountModalRoutes,
+  ...CreateWalletModalRoutes,
   ...ReceiveTokenRoutes,
   ...SendRoutes,
   ...ManageNetworkModalRoutes,
@@ -159,6 +168,7 @@ export const ModalRoutes = {
 
 export type ModalTypes = {
   [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
+  [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
   [ManageNetworkModalRoutes.NetworkListViewModal]: NavigatorScreenParams<ManageNetworkRoutesParams>;
   [ModalNavigatorRoutes.ReceiveTokenNavigator]: NavigatorScreenParams<ReceiveTokenRoutesParams>;
   [ModalNavigatorRoutes.SendNavigator]: NavigatorScreenParams<SendRoutesParams>;
