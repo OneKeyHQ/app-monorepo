@@ -12,16 +12,21 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+import {
+  StackBasicRoutesParams,
+  StackRoutes,
+} from '@onekeyhq/kit/src/routes/Dev';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import HelpSelector from '../Help/HelpSelector';
 import { TokenDetailNavigation } from '../TokenDetail/routes';
 
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  StackRoutesParams,
-  StackBasicRoutes.Developer
+type NavigationProps = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Dev>,
+  NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
 > &
   TokenDetailNavigation;
 
@@ -33,7 +38,7 @@ const Me = () => {
     <Box flex="1" p="4" maxW={MAX_PAGE_CONTAINER_WIDTH} w="100%" marginX="auto">
       <VStack justifyContent="space-between" flex={1}>
         <VStack space="3">
-          <Pressable
+          {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
@@ -51,7 +56,7 @@ const Me = () => {
               </Typography.Body1>
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
+          </Pressable> */}
           <Pressable
             p="4"
             bg="surface-default"
@@ -60,7 +65,7 @@ const Me = () => {
             alignItems="center"
             justifyContent="space-between"
             onPress={() =>
-              navigation.navigate(StackBasicRoutes.ScreenOnekeyLiteDetail)
+              navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
             }
           >
             <HStack space="4">
@@ -76,7 +81,7 @@ const Me = () => {
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            onPress={() => navigation.navigate(StackBasicRoutes.SettingsScreen)}
+            onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
           >
             <HStack space="4">
               <Icon name="CogOutline" />
@@ -89,25 +94,28 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable>
-          <Pressable
+          {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            onPress={() =>
-              navigation.navigate(StackBasicRoutes.Developer, {
-                ts: new Date().getTime(),
-              })
-            }
+            onPress={() => {
+              navigation.navigate(HomeRoutes.Dev, {
+                screen: StackRoutes.Developer,
+                params: {
+                  ts: new Date().getTime(),
+                },
+              });
+            }}
           >
             <HStack space="4">
               <Icon name="DesktopComputerSolid" />
               <Typography.Body1>Developer</Typography.Body1>
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
+          </Pressable> */}
         </VStack>
         <HStack justifyContent="flex-end">
           <HelpSelector />

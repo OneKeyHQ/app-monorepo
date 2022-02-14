@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { FC, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -13,13 +14,11 @@ import {
 } from '@onekeyhq/components';
 import {
   ModalNavigatorRoutes,
-  ModalRoutes,
   ModalTypes,
 } from '@onekeyhq/kit/src/routes/Modal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../../utils/extUtils';
-import { AssetToken } from '../../Wallet/AssetsList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -29,7 +28,7 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export type TokenInfoProps = {
-  token: AssetToken;
+  token: any;
 };
 
 const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
@@ -66,11 +65,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           leftIconName="ArrowUpSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
-          onPress={() => {
-            navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
-              screen: ModalRoutes.Send,
-            });
-          }}
+          // onPress={() => {
+          //   navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
+          //     screen: ModalRoutes.Send,
+          //   });
+          // }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
@@ -80,12 +79,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
-          onPress={() => {
-            navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
-              screen: ModalRoutes.ReceiveToken,
-              params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
-            });
-          }}
+          // onPress={() => {
+          //   navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
+          //     screen: ModalRoutes.ReceiveToken,
+          //     params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
+          //   });
+          // }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>

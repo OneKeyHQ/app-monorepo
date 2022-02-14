@@ -12,7 +12,6 @@ import {
   Select,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
@@ -21,6 +20,7 @@ import {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
 } from '@onekeyhq/kit/src/routes/Modal/SubmitRequest';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import { useHelpLink } from '../../hooks/useHelpLink';
 
@@ -28,7 +28,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   SubmitRequestModalRoutesParams &
-    StackRoutesParams &
+    HomeRoutesParams &
     HistoryRequestModalRoutesParams,
   SubmitRequestRoutes.SubmitRequestModal
 >;
@@ -58,7 +58,7 @@ const HelpSelector: FC = () => {
     (url: string, title?: string) => {
       console.log('url', url, 'title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(StackBasicRoutes.WebviewScreen, {
+        navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
           url,
           title,
         });

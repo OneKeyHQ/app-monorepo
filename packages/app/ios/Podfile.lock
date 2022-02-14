@@ -97,6 +97,8 @@ PODS:
     - expo-dev-menu/Reanimated
   - ExpoModulesCore (0.4.8):
     - React-Core
+  - EXSecureStore (11.1.1):
+    - ExpoModulesCore
   - EXSplashScreen (0.13.5):
     - ExpoModulesCore
     - React-Core
@@ -468,6 +470,7 @@ DEPENDENCIES:
   - expo-dev-menu (from `../../../node_modules/expo-dev-menu`)
   - expo-dev-menu-interface (from `../../../node_modules/expo-dev-menu-interface`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core/ios`)
+  - EXSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - EXStructuredHeaders (from `../../../node_modules/expo-structured-headers/ios`)
   - EXUpdates (from `../../../node_modules/expo-updates/ios`)
@@ -565,6 +568,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-dev-menu-interface"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core/ios"
+  EXSecureStore:
+    :path: "../../../node_modules/expo-secure-store/ios"
   EXSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
   EXStructuredHeaders:
@@ -678,6 +683,7 @@ SPEC CHECKSUMS:
   expo-dev-menu: f33035c4183ae191f0e8b89497b5eb9c76db30f8
   expo-dev-menu-interface: 6ecfd64dc3eab1e7e772170f5e058468fdccaac9
   ExpoModulesCore: a9a9bf32b2da35cd9b7299c80790c03a91ac7d15
+  EXSecureStore: b80c74c5ee29d0160c2aace3fd9a24a5edc20015
   EXSplashScreen: 57f329dbf25c5c12800feed79068a056453dc772
   EXStructuredHeaders: 873e7f329c2f6279c1b1e0229df59c9861560b53
   EXUpdates: 061b67c33f0e7f8fd335bbb48697c4a4fc8a5157

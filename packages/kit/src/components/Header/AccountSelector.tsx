@@ -1,41 +1,62 @@
-import React, { useCallback, useMemo, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import React, {
+  FC,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import { useNavigation } from '@react-navigation/core';
+import { useDrawerStatus } from '@react-navigation/drawer';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
 import AccountSelectorDesktop from './AccountSelectorDesktop';
-import AccountSelectorMobile from './AccountSelectorMobile';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
-const AccountSelector = () => {
+type AccountSelectorProps = {
+  renderTrigger?: ({
+    visible,
+    handleToggleVisible,
+  }: {
+    visible: boolean;
+    handleToggleVisible: () => void;
+  }) => ReactNode;
+};
+
+const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const [visible, setVisible] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
+  const navigation = useNavigation();
+  const isDrawerOpen = useDrawerStatus() === 'open';
+
   const handleToggleVisible = useCallback(() => {
+    // @ts-expect-error
+    if (isVerticalLayout) navigation?.toggleDrawer?.();
     setVisible((v) => !v);
-  }, []);
+  }, [navigation, isVerticalLayout]);
+
+  useEffect(() => {
+    setVisible(!!isDrawerOpen);
+  }, [isDrawerOpen]);
 
   const child = useMemo(() => {
     if (isVerticalLayout) {
-      return (
-        <AccountSelectorMobile
+      return null;
+    }
+    return <AccountSelectorDesktop visible={visible} />;
+  }, [visible, isVerticalLayout]);
+
+  return (
+    <Box position="relative" w={{ md: 'full' }} alignItems="center">
+      {renderTrigger?.({ visible, handleToggleVisible }) ?? (
+        <AccountSelectorTrigger
           visible={visible}
           handleToggleVisible={handleToggleVisible}
         />
-      );
-    }
-    return (
-      <AccountSelectorDesktop
-        visible={visible}
-        handleToggleVisible={handleToggleVisible}
-      />
-    );
-  }, [visible, handleToggleVisible, isVerticalLayout]);
-
-  return (
-    <Box position="relative" w={{ md: 'full' }}>
-      <AccountSelectorTrigger
-        visible={visible}
-        handleToggleVisible={handleToggleVisible}
-      />
+      )}
       {child}
     </Box>
   );
