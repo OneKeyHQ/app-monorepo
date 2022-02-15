@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -15,35 +15,39 @@ import {
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectItem } from '@onekeyhq/components/src/Select';
-
-import WebView from '../../../../components/WebView';
+import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import WebView from '@onekeyhq/kit/src/components/WebView';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
-  OnekeyLiteChangePinStackNavigationProp,
-  OnekeyLiteResetStackNavigationProp,
-  OnekeyLiteStackNavigationProp,
-} from '../navigation';
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+
 import {
   OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
   OnekeyLiteModalRoutes,
   OnekeyLiteResetModalRoutes,
+  OnekeyLiteResetRoutesParams,
+  OnekeyLiteRoutesParams,
 } from '../routes';
-
-export type OnekeyLiteDetailViewProps = {
-  liteId: string;
-};
 
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 
-type NavigationProps = OnekeyLiteStackNavigationProp &
-  OnekeyLiteChangePinStackNavigationProp &
-  OnekeyLiteResetStackNavigationProp;
+type NavigationProps = ModalScreenProps<OnekeyLiteRoutesParams> &
+  ModalScreenProps<OnekeyLiteChangePinRoutesParams> &
+  ModalScreenProps<OnekeyLiteResetRoutesParams>;
 
-const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
+const OnekeyLiteDetail: React.FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const { locale } = useLocale();
   const url = `https://lite.onekey.so/?language=${locale}`;
+  const { wallet } = useActiveWalletAccount();
 
+  const [liteOption, setLiteOption] = useState<SelectItem<OptionType>[]>([]);
   const [resetDialogVisible, setResetDialogVisible] = useState<boolean>(false);
   const [resetAllow, setResetAllow] = useState<boolean | null>(null);
   const [resetValidationInput, setResetValidationInput] = useState('');
@@ -51,74 +55,130 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
     null,
   );
 
+  const [controlledWallets, setControlledWallets] = useState<Wallet[]>([]);
+
+  useEffect(() => {
+    async function main() {
+      const wallets = (await engine.getWallets()).filter(
+        (_wallet) => _wallet.type === 'hd' || _wallet.type === 'imported',
+      );
+      setControlledWallets(wallets);
+    }
+    main();
+  }, [wallet]);
+
+  useEffect(() => {
+    const menuOptions: SelectItem<OptionType>[] = [];
+    if (controlledWallets.length > 0) {
+      menuOptions.push({
+        label: intl.formatMessage({
+          id: 'action__restore_with_onekey_lite',
+        }),
+        value: 'restore',
+        iconProps: { name: 'SaveAsOutline' },
+      });
+    }
+    menuOptions.push({
+      label: intl.formatMessage({
+        id: 'action__change_pin',
+      }),
+      value: 'change_pin',
+      iconProps: { name: 'PencilAltOutline' },
+    });
+    menuOptions.push({
+      label: intl.formatMessage({
+        id: 'action__reset_onekey_lite',
+      }),
+      value: 'reset',
+      iconProps: { name: 'TrashOutline', color: 'icon-critical' },
+      color: 'icon-critical',
+    });
+    setLiteOption(menuOptions);
+  }, [controlledWallets, intl]);
+
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      screen: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
       params: {
-        pwd: inputPwd,
-        onRetry: () => {
-          callBack?.();
+        screen: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,
+        params: {
+          pwd: inputPwd,
+          onRetry: () => {
+            callBack?.();
+          },
         },
       },
     });
   };
 
   const startRestorePinVerifyModal = () => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
       params: {
-        callBack: (inputPwd) => {
-          startRestoreModal(inputPwd, () => {
-            console.log('restartRestorePinVerifyModal');
-            startRestorePinVerifyModal();
-          });
-          return true;
+        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+        params: {
+          callBack: (inputPwd) => {
+            startRestoreModal(inputPwd, () => {
+              console.log('restartRestorePinVerifyModal');
+              startRestorePinVerifyModal();
+            });
+            return true;
+          },
         },
       },
     });
   };
 
-  const startBackupModal = (inputPwd: string, callBack: () => void) => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
+  const startBackupModal = (
+    inputPwd: string,
+    backupData: string,
+    callBack: () => void,
+  ) => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
       params: {
-        pwd: inputPwd,
-        onRetry: () => {
-          callBack?.();
+        screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
+        params: {
+          pwd: inputPwd,
+          backupData,
+          onRetry: () => {
+            callBack?.();
+          },
         },
       },
     });
   };
 
-  const startBackupPinVerifyModal = () => {
-    navigation.navigate(OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+  const startBackupPinVerifyModal = (backupData: string) => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
       params: {
-        callBack: (inputPwd) => {
-          startBackupModal(inputPwd, () => {
-            startBackupPinVerifyModal();
-          });
-          return true;
+        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+        params: {
+          callBack: (inputPwd) => {
+            startBackupModal(inputPwd, backupData, () => {
+              startBackupPinVerifyModal(backupData);
+            });
+            return true;
+          },
         },
       },
     });
   };
 
   const startChangePinInputPinModal = () => {
-    navigation.navigate(
-      OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
-    );
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLiteChangePinInputPin,
+      params: {
+        screen: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
+      },
+    });
   };
 
   useEffect(() => {
     switch (currentOptionType) {
       case 'restore':
         startRestorePinVerifyModal();
-        setCurrentOptionType(null);
-        break;
-      case 'backup':
-        startBackupPinVerifyModal();
-
         setCurrentOptionType(null);
         break;
       case 'change_pin':
@@ -144,42 +204,6 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
       setResetAllow(false);
     }
   }, [resetValidationInput]);
-
-  useEffect(() => {
-    console.log(liteId);
-  }, [liteId]);
-
-  const liteOption: SelectItem<OptionType>[] = [
-    {
-      label: intl.formatMessage({
-        id: 'action__restore_with_onekey_lite',
-      }),
-      value: 'restore',
-      iconProps: { name: 'SaveAsOutline' },
-    },
-    {
-      label: intl.formatMessage({
-        id: 'action__back_up_to_onekey_lite',
-      }),
-      value: 'backup',
-      iconProps: { name: 'SaveAsOutline' },
-    },
-    {
-      label: intl.formatMessage({
-        id: 'action__change_pin',
-      }),
-      value: 'change_pin',
-      iconProps: { name: 'PencilAltOutline' },
-    },
-    {
-      label: intl.formatMessage({
-        id: 'action__reset_onekey_lite',
-      }),
-      value: 'reset',
-      iconProps: { name: 'TrashOutline', color: 'icon-critical' },
-      color: 'icon-critical',
-    },
-  ];
 
   navigation.setOptions({
     title: 'OneKey Lite',
@@ -218,38 +242,49 @@ const OnekeyLiteDetail: React.FC<OnekeyLiteDetailViewProps> = ({ liteId }) => {
       </Box>
 
       <Box mb={Platform.OS === 'ios' ? 4 : 0}>
-        <Select
-          title={intl.formatMessage({ id: 'title_select_wallet' })}
-          value=""
-          footer={null}
-          dropdownPosition="right"
-          containerProps={{
-            zIndex: 5,
-          }}
-          options={[
-            {
-              label: 'Wallet #2',
-              description: '5 accounts',
-              value: '1',
+        {controlledWallets.length > 0 ? (
+          <Select
+            onChange={() => {
+              startBackupPinVerifyModal(
+                'space raise engine dumb aware purse arrive three polar slam sell bottom',
+              );
+            }}
+            title={intl.formatMessage({ id: 'title_select_wallet' })}
+            value=""
+            footer={null}
+            dropdownPosition="right"
+            containerProps={{
+              zIndex: 5,
+            }}
+            options={controlledWallets.map((_wallet) => ({
+              label: _wallet.name,
+              description: intl.formatMessage(
+                { id: 'form__str_accounts' },
+                { count: _wallet.accounts.length.toString() },
+              ),
+              value: _wallet.id,
               tokenProps: {
-                address: '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
+                address: _wallet.id,
               },
-            },
-            {
-              label: 'Wallet #3',
-              description: '3 accounts',
-              value: '1',
-              tokenProps: {
-                address: '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-              },
-            },
-          ]}
-          renderTrigger={() => (
-            <Button pointerEvents="none" size="lg" m={4} type="primary">
-              {intl.formatMessage({ id: 'action__restore_with_onekey_lite' })}
-            </Button>
-          )}
-        />
+            }))}
+            renderTrigger={() => (
+              <Button pointerEvents="none" size="lg" m={4} type="primary">
+                {intl.formatMessage({ id: 'action__back_up_to_onekey_lite' })}
+              </Button>
+            )}
+          />
+        ) : (
+          <Button
+            size="lg"
+            m={4}
+            type="primary"
+            onPress={() => {
+              startRestorePinVerifyModal();
+            }}
+          >
+            {intl.formatMessage({ id: 'action__restore_with_onekey_lite' })}
+          </Button>
+        )}
       </Box>
       <Dialog
         visible={resetDialogVisible}

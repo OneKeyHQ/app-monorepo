@@ -325,6 +325,7 @@
   "form__searching_token": "Searching Token...",
   "form__security_uppercase": "SECURITY",
   "form__send_tokens": "Send Tokens",
+  "form__str_accounts": "{count} accounts",
   "form__str_day": "{form__str_day, plural, one {# Day} other {# Days}}",
   "form__str_hour": "{form__str_hour, plural, one {# Hour} other {# Hours}}",
   "form__str_minute": "{form__str_minute, plural, one {# Minute} other {# Minutes}}",

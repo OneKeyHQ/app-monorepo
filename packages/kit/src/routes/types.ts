@@ -19,6 +19,9 @@ export enum ModalRoutes {
   Send = 'Send',
   Receive = 'Receive',
   TransactionDetail = 'TransactionDetail',
+  OnekeyLite = 'OnekeyLite',
+  OnekeyLiteReset = 'OnekeyLiteReset',
+  OnekeyLiteChangePinInputPin = 'OnekeyLiteChangePinInputPin',
 }
 
 export type ModalRoutesParams = {
@@ -28,6 +31,9 @@ export type ModalRoutesParams = {
   [ModalRoutes.Receive]: NavigatorScreenParams<SubModalRoutesParams.ReceiveTokenRoutesParams>;
   [ModalRoutes.TransactionDetail]: NavigatorScreenParams<SubModalRoutesParams.TransactionDetailRoutesParams>;
   [ModalRoutes.Send]: undefined;
+  [ModalRoutes.OnekeyLite]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteRoutesParams>;
+  [ModalRoutes.OnekeyLiteReset]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteResetRoutesParams>;
+  [ModalRoutes.OnekeyLiteChangePinInputPin]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteChangePinRoutesParams>;
 };
 /** Modal */
 
