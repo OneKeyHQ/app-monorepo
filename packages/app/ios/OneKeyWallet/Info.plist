@@ -64,6 +64,16 @@
 	<string>Use photo library to to save QR images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Give $(PRODUCT_NAME) permission to save photos</string>
+	<key>RCTRootViewBackgroundColor</key>
+	<dict>
+		<key>dynamic</key>
+		<dict>
+			<key>dark</key>
+			<real>4280690225</real>
+			<key>light</key>
+			<integer>4294967295</integer>
+		</dict>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
@@ -81,7 +91,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
@@ -98,15 +107,5 @@
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
 	</array>
-	<key>RCTRootViewBackgroundColor</key>
-	<dict>
-		<key>dynamic</key>
-		<dict>
-			<key>light</key>
-			<integer>4294967295</integer>
-			<key>dark</key>
-			<real>4280690225</real>
-		</dict>
-	</dict>
 </dict>
 </plist>
