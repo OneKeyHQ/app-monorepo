@@ -1,6 +1,5 @@
 import React, { FC, useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,41 +12,49 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { useAppDispatch, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import { refreshLoginAt } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-// import { TabRoutes, TabRoutesParams } from '../../routes/Stack';
+import { useToast } from '../../hooks/useToast';
 
-// import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+type UnlockButtonProps = { onOk?: () => void; onForget?: () => void };
 
-// type NavigationProps = NativeStackNavigationProp<
-//   TabRoutesParams,
-//   TabRoutes.Home
-// >;
+type FieldValues = { password: string };
 
-type UnlockButtonProps = { onUnlock?: () => void; onForget?: () => void };
-
-const UnlockButton: FC<UnlockButtonProps> = ({ onUnlock, onForget }) => {
+const UnlockButton: FC<UnlockButtonProps> = ({ onOk, onForget }) => {
   const intl = useIntl();
   return platformEnv.isExtension ? (
     <Button leftIconName="ArrowNarrowLeftSolid" onPress={onForget}>
       {intl.formatMessage({ id: 'action__forget_password' })}
     </Button>
   ) : (
-    <LocalAuthenticationButton onOk={onUnlock} />
+    <LocalAuthenticationButton onOk={onOk} />
   );
 };
 
 const Unlock = () => {
   const intl = useIntl();
-  const { control } = useForm();
-  const navigation = useNavigation<any>();
+  const { info } = useToast();
+  const dispatch = useAppDispatch();
+  const { password } = useStatus();
+  const { control, handleSubmit } = useForm<FieldValues>({
+    defaultValues: { password: '' },
+  });
   const isSmall = useIsVerticalLayout();
   const justifyContent = isSmall ? 'space-between' : 'center';
   const py = isSmall ? '16' : undefined;
-  const onUnlock = useCallback(() => {
-    // navigation.navigate(TabRoutes.Home);
-  }, [navigation]);
+  const onUnlock = handleSubmit((values: FieldValues) => {
+    if (values.password === password) {
+      dispatch(refreshLoginAt());
+    } else {
+      info('Password is incorrect.');
+    }
+  });
+  const onOk = useCallback(() => {
+    dispatch(refreshLoginAt());
+  }, [dispatch]);
   return (
     <Center w="full" h="full" bg="background-default">
       <Box
@@ -74,7 +81,7 @@ const Unlock = () => {
           <Form mt="8">
             <Form.Item
               control={control}
-              name="Password"
+              name="password"
               label={intl.formatMessage({
                 id: 'form__password',
                 defaultMessage: 'Password',
@@ -90,7 +97,7 @@ const Unlock = () => {
             </Button>
           </Form>
         </Box>
-        {isSmall ? <UnlockButton onUnlock={onUnlock} /> : undefined}
+        {isSmall ? <UnlockButton onOk={onOk} /> : undefined}
       </Box>
     </Center>
   );

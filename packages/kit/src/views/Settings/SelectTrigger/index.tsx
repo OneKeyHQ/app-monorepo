@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React from 'react';
 
 import {
   Box,
@@ -8,17 +8,17 @@ import {
 } from '@onekeyhq/components';
 import { SelectItem } from '@onekeyhq/components/src/Select';
 
-type FieldProps = {
+type FieldProps<T> = {
   title: string;
-  activeOption: SelectItem;
+  activeOption: SelectItem<T>;
   hideDivider?: boolean;
 };
 
-export const SelectTrigger: FC<FieldProps> = ({
+export function SelectTrigger<T>({
   title,
   activeOption,
   hideDivider,
-}) => {
+}: FieldProps<T>) {
   const isSmallScreen = useIsVerticalLayout();
   const borderProps = !hideDivider
     ? { borderBottomWidth: '1', borderBottomColor: 'divider' }
@@ -56,6 +56,6 @@ export const SelectTrigger: FC<FieldProps> = ({
       </Box>
     </Box>
   );
-};
+}
 
 export default SelectTrigger;

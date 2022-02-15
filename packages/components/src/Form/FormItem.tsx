@@ -59,26 +59,20 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
               </Typography.Body2>
             </FormControl.HelperText>
           ) : null}
-          <FormControl.ErrorMessage
-            w="full"
-            leftIcon={
-              <Box>
+          {error ? (
+            <Box display="flex" flexDirection="row" mt="2">
+              <Box mr="2">
                 <Icon
                   size={20}
                   name="ExclamationCircleSolid"
                   color="icon-critical"
                 />
               </Box>
-            }
-            _stack={{
-              space: '2',
-              alignItems: 'flex-start',
-            }}
-          >
-            <Typography.Body2 color="text-critical">
-              {error?.message}
-            </Typography.Body2>
-          </FormControl.ErrorMessage>
+              <Typography.Body2 color="text-critical">
+                {error?.message}
+              </Typography.Body2>
+            </Box>
+          ) : null}
         </FormControl>
       )}
     />

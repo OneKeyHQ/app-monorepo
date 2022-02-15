@@ -39,7 +39,7 @@ const ReceiveToken = () => {
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(address);
     toast.info(intl.formatMessage({ id: 'msg__copied' }));
-  }, [toast, address]);
+  }, [toast, address, intl]);
 
   return (
     <Modal

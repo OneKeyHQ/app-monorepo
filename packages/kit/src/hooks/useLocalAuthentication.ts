@@ -39,7 +39,7 @@ export function useLocalAuthentication() {
       return SecureStore.getItemAsync('password');
     }
     return null;
-  }, []);
+  }, [isOk]);
 
   return { isOk, localAuthenticate, savePassword, getPassword };
 }

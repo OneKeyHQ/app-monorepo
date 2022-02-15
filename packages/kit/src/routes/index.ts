@@ -1,5 +1,5 @@
 export * from './Stack';
-export * from './Others';
+export * from './Onboarding';
 export * from './Modal';
 export * from './Modal/CreateAccount';
 export * from './Modal/ImportAccount';
