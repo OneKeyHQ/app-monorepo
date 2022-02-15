@@ -855,7 +855,6 @@ class Engine {
 
   resetApp(password: string): Promise<void> {
     // Reset app.
-    console.log(`resetApp ${password}`);
     return this.dbApi.reset(password);
   }
 }
