@@ -50,7 +50,13 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   }, [visible, isVerticalLayout]);
 
   return (
-    <Box position="relative" w={{ md: 'full' }} alignItems="center">
+    <Box
+      position="relative"
+      w={{ md: 'full' }}
+      alignItems="center"
+      h="56px"
+      justifyContent="center"
+    >
       {renderTrigger?.({ visible, handleToggleVisible }) ?? (
         <AccountSelectorTrigger
           visible={visible}

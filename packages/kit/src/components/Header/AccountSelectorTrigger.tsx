@@ -44,7 +44,7 @@ const AccountSelectorTrigger: FC<Props> = ({
 
   const { address, name } = account as SimpleAccount;
   return (
-    <Pressable onPress={handleToggleVisible}>
+    <Pressable onPress={handleToggleVisible} w="full">
       {({ isHovered }) => (
         <HStack
           p="2"
