@@ -97,7 +97,7 @@ const ChainSelector: FC = () => {
     <Box>
       <Select
         dropdownPosition="right"
-        dropdownProps={{ w: '56' }}
+        dropdownProps={{ w: '64' }}
         value={activeNetwork ? activeNetwork?.network?.id : undefined}
         onChange={handleActiveChainChange}
         title={intl.formatMessage({ id: 'network__networks' })}

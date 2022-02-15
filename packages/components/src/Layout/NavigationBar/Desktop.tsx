@@ -19,6 +19,9 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
     'text-default',
     'text-subdued',
   ]);
+
+  const firstOptions = descriptors[routes[0].key].options;
+
   return (
     <Box
       position="relative"
@@ -30,9 +33,9 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
     >
       <VStack flex={1}>
         {/* AccountSelector */}
-        {/* <Box py={1} px={4}>
-          <Typography.Body2Strong>AccountSelector here.</Typography.Body2Strong>
-        </Box> */}
+        <Box py={1} px={4} zIndex={999} w="full">
+          {firstOptions?.tabBarBackground?.()}
+        </Box>
         {/* Scrollable area */}
         <ScrollView
           _contentContainerStyle={{
