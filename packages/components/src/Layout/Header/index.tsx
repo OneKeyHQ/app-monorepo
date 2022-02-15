@@ -32,6 +32,8 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     'border-subdued',
   ]);
 
+  const headerLeftNode = headerLeft?.();
+
   return (
     <HStack
       height={`${headerHeight + insets.top}px`}
@@ -45,18 +47,21 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       borderBottomWidth={StyleSheet.hairlineWidth}
       zIndex={999}
     >
-      <HStack
-        alignItems="center"
-        h="full"
-        borderRightColor="border-subdued"
-        borderRightWidth={{ md: 1 }}
-        pl={{ md: 2 }}
-        pr={{ md: 4 }}
-        w={{ md: '248px' }}
-        flexShrink={0}
-      >
-        {headerLeft()}
-      </HStack>
+      {headerLeftNode ? (
+        <HStack
+          alignItems="center"
+          h="full"
+          borderRightColor="border-subdued"
+          borderRightWidth={{ md: 1 }}
+          pl={{ md: 2 }}
+          pr={{ md: 4 }}
+          w={{ md: '248px' }}
+          flexShrink={0}
+        >
+          {headerLeftNode}
+        </HStack>
+      ) : null}
+
       {isHorizontal && (
         <HStack alignItems="center" flex={1} pl={8}>
           <Typography.Heading>Home</Typography.Heading>
