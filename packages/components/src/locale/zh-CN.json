@@ -325,6 +325,7 @@
   "form__searching_token": "搜索代币中...",
   "form__security_uppercase": "安全",
   "form__send_tokens": "发送代币",
+  "form__str_accounts": "{count}个账户",
   "form__str_day": "{form__str_day, plural, other {#天}}",
   "form__str_hour": "{form__str_hour, plural, other {#小时}}",
   "form__str_minute": "{form__str_minute, plural, other {#分钟}}",

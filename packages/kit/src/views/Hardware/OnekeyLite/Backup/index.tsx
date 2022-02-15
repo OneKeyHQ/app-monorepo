@@ -27,7 +27,7 @@ type RouteProps = RouteProp<
 const Backup: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { pwd, onRetry } = useRoute<RouteProps>().params;
+  const { pwd, backupData, onRetry } = useRoute<RouteProps>().params;
 
   const [pinRetryCount, setPinRetryCount] = useState('');
   const [title] = useState('Onekey Lite');
@@ -79,7 +79,7 @@ const Backup: FC = () => {
     stateNfcSearch();
     OnekeyLite.cancel();
     OnekeyLite.setMnemonic(
-      'space raise engine dumb aware purse arrive three polar slam sell bottom',
+      backupData,
       pwd,
       (error: CallbackError, data: boolean | null, state: CardInfo) => {
         console.log('state', state);
