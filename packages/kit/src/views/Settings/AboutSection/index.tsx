@@ -194,12 +194,12 @@ export const AboutSection = () => {
           p="4"
           borderBottomWidth="1"
           borderBottomColor="divider"
-          onPress={() => openLinkUrl('https://www.discord.gg/nwUJaTzjzv')}
+          onPress={() => openLinkUrl('https://www.discord.gg/onekey')}
         >
           <Typography.Body1>Discord</Typography.Body1>
           <HStack space="2" alignItems="center">
             <Typography.Body2 color="text-success">
-              discord.gg/nwUJaTzjzv
+              discord.gg/onekey
             </Typography.Body2>
             <Icon name="ExternalLinkOutline" color="text-success" size={14} />
           </HStack>

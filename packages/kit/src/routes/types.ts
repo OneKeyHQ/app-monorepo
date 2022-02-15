@@ -51,11 +51,11 @@ export type TabRoutesParams = {
 
 /** HomeStack */
 export enum HomeRoutes {
-  InitialTab = 'InitialTab',
-  Dev = 'Dev',
+  InitialTab = 'home',
+  Dev = 'dev',
   ScreenTokenDetail = 'TokenDetailScreen',
-  SettingsScreen = 'Settings',
-  UnlockScreen = 'Unlock',
+  SettingsScreen = 'settings',
+  UnlockScreen = 'unlock',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
 }
@@ -73,9 +73,9 @@ export type HomeRoutesParams = {
 
 /** Root */
 export enum RootRoutes {
-  Root = 'Root',
-  Modal = 'Modal',
-  Tab = 'Tab',
+  Root = 'root',
+  Modal = 'modal',
+  Tab = 'tab',
 }
 
 /** Root */

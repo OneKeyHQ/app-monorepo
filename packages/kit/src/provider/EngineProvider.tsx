@@ -51,8 +51,6 @@ const EngineApp: FC = ({ children }) => {
           }),
         );
       });
-
-      console.log(accountId);
     }
     main();
   }, [dispatch, refreshTimeStamp, account]);
