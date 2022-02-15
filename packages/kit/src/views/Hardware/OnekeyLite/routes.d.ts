@@ -14,6 +14,7 @@ export type OnekeyLiteRoutesParams = {
   };
   [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: {
     pwd: string;
+    backupData: string;
     onRetry: () => void;
   };
 };
