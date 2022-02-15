@@ -128,18 +128,18 @@ const modalStackScreenList = [
   //   name: BackupWalletModalRoutes.BackupSeedHintModal,
   //   component: BackupWalletModal,
   // },
-  // {
-  //   name: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
-  //   component: HardwareOnekeyModal,
-  // },
-  // {
-  //   name: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
-  //   component: HardwareOnekeyResetModal,
-  // },
-  // {
-  //   name: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
-  //   component: HardwareOnekeyLitePinModal,
-  // },
+  {
+    name: ModalRoutes.OnekeyLite,
+    component: HardwareOnekeyModal,
+  },
+  {
+    name: ModalRoutes.OnekeyLiteReset,
+    component: HardwareOnekeyResetModal,
+  },
+  {
+    name: ModalRoutes.OnekeyLiteChangePinInputPin,
+    component: HardwareOnekeyLitePinModal,
+  },
 ];
 
 // export const ModalRoutes = {
