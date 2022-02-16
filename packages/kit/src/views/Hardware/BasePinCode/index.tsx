@@ -34,6 +34,7 @@ const HardwarePinCode: FC<HardwarePinCodeViewProp> = ({
 
         <Box mt={8}>
           <PinCode
+            autoFocus
             onCodeCompleted={(pinCode) =>
               onComplete?.(pinCode) ?? Promise.resolve(false)
             }
