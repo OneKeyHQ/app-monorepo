@@ -55,7 +55,7 @@ function propsWithSize(sizeType: SizeType) {
   }
 }
 
-export const Badge: FC<BadgeProps> = ({ title, type = 'default', size }) => {
+const Badge: FC<BadgeProps> = ({ title, type = 'default', size }) => {
   const bgColor: string = colorWithType(type);
   const badgeTypeProps = propsWithSize(size);
 
