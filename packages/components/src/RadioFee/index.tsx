@@ -29,6 +29,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
           flexDirection="row"
           justifyContent="space-between"
           mt={3}
+          key={item.value}
         >
           <Box alignItems="flex-start">
             <Text
