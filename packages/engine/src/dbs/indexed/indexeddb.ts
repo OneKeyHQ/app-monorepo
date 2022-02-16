@@ -155,9 +155,10 @@ class IndexedDBApi implements DBAPI {
         getNetworkIdsRequest.onsuccess = (_revent) => {
           const networkIds = new Set(getNetworkIdsRequest.result);
           let position = networkIds.size;
-          // TODO: also sync networks from remote.
-          const presetNetworks = getPresetNetworks();
-          Object.values(presetNetworks).forEach((network) => {
+          const presetNetworksList = Object.values(getPresetNetworks()).sort(
+            (a, b) => (a.name > b.name ? 1 : -1),
+          );
+          presetNetworksList.forEach((network) => {
             if (networkIds.has(network.id)) {
               return;
             }

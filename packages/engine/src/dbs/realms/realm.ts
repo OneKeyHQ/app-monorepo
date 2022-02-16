@@ -75,7 +75,9 @@ class RealmDB implements DBAPI {
     })
       .then((realm) => {
         if (update || realm.empty) {
-          const presetNetworksList = Object.values(getPresetNetworks());
+          const presetNetworksList = Object.values(getPresetNetworks()).sort(
+            (a, b) => (a.name > b.name ? 1 : -1),
+          );
           realm.write(() => {
             if (realm.empty) {
               realm.create('Wallet', {

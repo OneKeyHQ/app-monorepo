@@ -648,32 +648,24 @@ class Engine {
     return this.dbApi.removeHistoryEntry(entryId);
   }
 
-  async listNetworks(
-    enabledOnly = true,
-  ): Promise<Record<string, Array<NetworkShort>>> {
+  async listNetworks(enabledOnly = true): Promise<Array<NetworkShort>> {
     const networks = await this.dbApi.listNetworks();
-    const ret: Record<string, Array<NetworkShort>> = {
-      [IMPL_EVM]: [],
-      [IMPL_SOL]: [],
-      // TODO: other implemetations
-    };
-    networks.forEach((network) => {
-      if (enabledOnly && !network.enabled) {
-        return;
-      }
-      if (typeof ret[network.impl] !== 'undefined') {
-        ret[network.impl].push({
-          id: network.id,
-          name: network.name,
-          impl: network.impl,
-          symbol: network.symbol,
-          logoURI: network.logoURI,
-          enabled: network.enabled,
-          preset: networkIsPreset(network.id),
-        });
-      }
-    });
-    return ret;
+    const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
+    return networks
+      .filter(
+        (network) =>
+          (enabledOnly ? network.enabled : true) &&
+          supportedImpls.has(network.impl),
+      )
+      .map((network) => ({
+        id: network.id,
+        name: network.name,
+        impl: network.impl,
+        symbol: network.symbol,
+        logoURI: network.logoURI,
+        enabled: network.enabled,
+        preset: networkIsPreset(network.id),
+      }));
   }
 
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
@@ -698,7 +690,7 @@ class Engine {
 
   async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Record<string, Array<NetworkShort>>> {
+  ): Promise<Array<NetworkShort>> {
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
