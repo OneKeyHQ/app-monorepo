@@ -65,7 +65,7 @@ const persistConfig = {
   key: 'ONEKEY_WALLET',
   version: 1,
   storage: AsyncStorage,
-  whitelist: ['settings'],
+  whitelist: ['settings', 'status'],
 };
 
 export function makeStore() {

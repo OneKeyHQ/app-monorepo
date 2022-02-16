@@ -3,30 +3,22 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import Terms from '@onekeyhq/kit/src/views/Terms';
-
-import CreateWhatWallet from '../../views/CreateWhatWallet';
+import WalletGuideScreen from '@onekeyhq/kit/src/views/WalletGuide';
 
 export enum MiscModalRoutes {
-  TermsModal = 'TermsModal',
-  CreateWhatWalletModal = 'CreateWhatWalletModal',
+  WalletGuide = 'WalletGuide',
 }
 
 export type MiscRoutesParams = {
-  [MiscModalRoutes.TermsModal]: undefined;
-  [MiscModalRoutes.CreateWhatWalletModal]: undefined;
+  [MiscModalRoutes.WalletGuide]: undefined;
 };
 
 const MiscNavigator = createStackNavigator<MiscRoutesParams>();
 
 const modalRoutes = [
   {
-    name: MiscModalRoutes.TermsModal,
-    component: Terms,
-  },
-  {
-    name: MiscModalRoutes.CreateWhatWalletModal,
-    component: CreateWhatWallet,
+    name: MiscModalRoutes.WalletGuide,
+    component: WalletGuideScreen,
   },
 ];
 

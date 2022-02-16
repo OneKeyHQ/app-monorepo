@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-const CreateWhatWallet = () => {
+const WalletGuide = () => {
   const intl = useIntl();
   return (
     <Modal footer={null}>
@@ -116,4 +116,4 @@ const CreateWhatWallet = () => {
   );
 };
 
-export default CreateWhatWallet;
+export default WalletGuide;

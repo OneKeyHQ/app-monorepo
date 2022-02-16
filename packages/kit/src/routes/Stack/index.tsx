@@ -1,9 +1,9 @@
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
@@ -12,6 +12,7 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import { useSettings, useStatus } from '../../hooks/redux';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
@@ -26,10 +27,6 @@ export const stackScreenList = [
   {
     name: HomeRoutes.SettingsScreen,
     component: Settings,
-  },
-  {
-    name: HomeRoutes.UnlockScreen,
-    component: Unlock,
   },
   {
     name: HomeRoutes.SettingsWebviewScreen,
@@ -82,4 +79,20 @@ const StackScreen = () => {
   );
 };
 
-export default StackScreen;
+const MainScreen = () => {
+  const [, setCount] = useState(0);
+  const { appLockDuration, enableAppLock } = useSettings();
+  const onChange = useCallback(() => setCount((prev) => prev + 1), []);
+  useEffect(() => {
+    AppState.addEventListener('change', onChange);
+    return () => {
+      AppState.removeEventListener('change', onChange);
+    };
+  }, [onChange]);
+  const { lastLoginAt } = useStatus();
+  const duration = (Date.now() - lastLoginAt) / (1000 * 60);
+  const isUnlock = enableAppLock && duration > appLockDuration;
+  return isUnlock ? <Unlock /> : <StackScreen />;
+};
+
+export default MainScreen;

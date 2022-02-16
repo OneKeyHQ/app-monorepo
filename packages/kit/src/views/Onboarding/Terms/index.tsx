@@ -18,20 +18,24 @@ import {
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 // import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
-import { MiscModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Misc';
+import {
+  OnboardingModalRoutes,
+  OnboardingRoutes,
+  OnboardingRoutesParams,
+} from '@onekeyhq/kit/src/routes/Onboarding';
 
-import termsImg from '../../../assets/terms.png';
+import termsImg from '../../../../assets/terms.png';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-// type NavigationProps = NativeStackNavigationProp<
-//   StackRoutesParams & { [MiscModalRoutes.CreateWhatWalletModal]: undefined },
-//   StackBasicRoutes.SettingsScreen
-// >;
+type NavigationProps = NativeStackNavigationProp<
+  OnboardingRoutesParams,
+  OnboardingRoutes.Modal
+>;
 
 const Terms = () => {
   const intl = useIntl();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProps>();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const openWebViewUrl = useCallback(
@@ -48,7 +52,9 @@ const Terms = () => {
     [navigation],
   );
   const onPrimaryActionPress = useCallback(() => {
-    navigation.navigate(MiscModalRoutes.CreateWhatWalletModal);
+    navigation.navigate(OnboardingRoutes.Modal, {
+      screen: OnboardingModalRoutes.SetPassword,
+    });
   }, [navigation]);
   return (
     <Modal
