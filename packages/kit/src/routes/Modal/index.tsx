@@ -17,6 +17,26 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import DappApproveStack, {
+  DappApproveModalRoutes,
+  DappApproveRoutesParams,
+} from './DappApprove';
+import DappConnectionStack, {
+  DappConnectionModalRoutes,
+  DappConnectionRoutesParams,
+} from './DappConnection';
+import DappMulticallStack, {
+  DappMulticallModalRoutes,
+  DappMulticallRoutesParams,
+} from './DappMulticall';
+import DappSendStack, {
+  DappSendModalRoutes,
+  DappSendRoutesParams,
+} from './DappSend';
+import DappSignatureStack, {
+  DappSignatureModalRoutes,
+  DappSignatureRoutesParams,
+} from './DappSignature';
 import HardwareOnekeyModal, {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
@@ -140,6 +160,26 @@ const modalStackScreenList = [
     name: ModalRoutes.OnekeyLiteChangePinInputPin,
     component: HardwareOnekeyLitePinModal,
   },
+  {
+    name: ModalRoutes.DappApproveModal,
+    component: DappApproveStack,
+  },
+  {
+    name: ModalRoutes.DappConnectionModal,
+    component: DappConnectionStack,
+  },
+  {
+    name: ModalRoutes.DappMulticallModal,
+    component: DappMulticallStack,
+  },
+  {
+    name: ModalRoutes.DappSendConfirmModal,
+    component: DappSendStack,
+  },
+  {
+    name: ModalRoutes.DappSignatureModal,
+    component: DappSignatureStack,
+  },
 ];
 
 // export const ModalRoutes = {
@@ -219,6 +259,11 @@ export type ModalTypes = {
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   // [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
   // [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
+  [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
+  [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
+  [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;
+  [DappSendModalRoutes.SendConfirmModal]: NavigatorScreenParams<DappSendRoutesParams>;
+  [DappSignatureModalRoutes.SignatureModal]: NavigatorScreenParams<DappSignatureRoutesParams>;
 };
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

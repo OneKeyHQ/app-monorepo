@@ -12,6 +12,7 @@ import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
+import DappModalsGallery from '@onekeyhq/kit/src/views/Components/stories/DappModals';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
@@ -79,6 +80,7 @@ export enum StackRoutes {
   ComponentQRCode = 'component/qrcode',
   ComponentMarkdown = 'component/markdown',
   ComponentDialog = 'component/dialog',
+  ComponentDappModals = 'component/dappModals',
   ComponentPageActions = 'component/page-actions',
   ComponentSortableList = 'component/sortable-list',
   ComponentTabs = 'component/tabs',
@@ -99,6 +101,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentAddress]: undefined;
   [StackRoutes.ComponentInput]: undefined;
   [StackRoutes.ComponentCard]: undefined;
+  [StackRoutes.ComponentDappModals]: undefined;
   [StackRoutes.ComponentAvatar]: undefined;
   [StackRoutes.ComponentTypography]: undefined;
   [StackRoutes.ComponentToken]: undefined;
@@ -142,6 +145,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentAddress, component: AddressGallery },
   { name: StackRoutes.ComponentInput, component: InputGallery },
   { name: StackRoutes.ComponentCard, component: NftCardGallery },
+  { name: StackRoutes.ComponentDappModals, component: DappModalsGallery },
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
   { name: StackRoutes.ComponentToken, component: TokenGallery },

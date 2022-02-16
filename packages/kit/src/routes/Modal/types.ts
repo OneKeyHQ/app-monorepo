@@ -9,3 +9,8 @@ export type {
   OnekeyLiteChangePinRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
 // export type { Send } from './Send';
+export type { DappApproveRoutesParams } from './DappApprove';
+export type { DappSendRoutesParams } from './DappSend';
+export type { DappMulticallRoutesParams } from './DappMulticall';
+export type { DappSignatureRoutesParams } from './DappSignature';
+export type { DappConnectionRoutesParams } from './DappConnection';
