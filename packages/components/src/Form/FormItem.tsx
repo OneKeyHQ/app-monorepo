@@ -1,15 +1,25 @@
-import React, { ComponentProps, ReactElement, cloneElement } from 'react';
+import React, {
+  ComponentProps,
+  ReactElement,
+  cloneElement,
+  useCallback,
+} from 'react';
 
+import * as Clipboard from 'expo-clipboard';
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
 import Icon from '../Icon';
+import Pressable from '../Pressable';
+import Stack from '../Stack';
 import Typography from '../Typography';
+
+type InternalActionList = 'paste';
 
 type FormItemProps = {
   label?: string;
-  labelAddon?: ReactElement;
+  labelAddon?: ReactElement | InternalActionList[];
   helpText?: string | ((v: any) => string);
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
@@ -26,6 +36,10 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   labelAddon,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormItemProps) {
+  const handleCopied = useCallback(async (callback: (c: string) => void) => {
+    const str = await Clipboard.getStringAsync();
+    callback?.(str);
+  }, []);
   return (
     <Controller
       name={name}
@@ -47,7 +61,25 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             <FormControl.Label mb={0}>
               <Typography.Body2Strong>{label}</Typography.Body2Strong>
             </FormControl.Label>
-            {labelAddon}
+            {Array.isArray(labelAddon) ? (
+              <Stack direction="row" space="2">
+                {labelAddon.map((item) => {
+                  if (item === 'paste') {
+                    return (
+                      <Pressable
+                        key="item"
+                        onPress={() => handleCopied(onChange)}
+                      >
+                        <Icon size={16} name="ClipboardOutline" />
+                      </Pressable>
+                    );
+                  }
+                  return null;
+                })}
+              </Stack>
+            ) : (
+              labelAddon
+            )}
           </Box>
           {children
             ? cloneElement(children, { onChange, onBlur, value })

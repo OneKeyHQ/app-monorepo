@@ -9,7 +9,7 @@ import {
   useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 
-import { useThemeValue } from '../Provider/hooks';
+import { useTheme, useThemeValue } from '../Provider/hooks';
 
 const CELL_SIZE = 42;
 const CELL_BORDER_RADIUS = 12;
@@ -39,10 +39,12 @@ const PinCode: FC<PinCodeProps> = ({
     setValue,
   });
 
-  const [bgColor, activeBgColor, borderColor] = useThemeValue([
+  const { themeVariant } = useTheme();
+  const [bgColor, activeBgColor, borderColor, emptyBgColor] = useThemeValue([
     'action-primary-default',
     'focused-default',
     'border-default',
+    'action-secondary-default',
   ]);
 
   const { animationsColor, animationsScale } = useMemo(() => {
@@ -124,7 +126,7 @@ const PinCode: FC<PinCodeProps> = ({
           })
         : animationsColor[index].interpolate({
             inputRange: [0, 1],
-            outputRange: ['#262631', '#262631'],
+            outputRange: [emptyBgColor, emptyBgColor],
           }),
       borderRadius: animationsScale[index].interpolate({
         inputRange: [0, 1],
@@ -186,6 +188,7 @@ const PinCode: FC<PinCodeProps> = ({
     <CodeField
       ref={ref}
       {...props}
+      keyboardAppearance={themeVariant}
       value={value}
       onChangeText={setValue}
       cellCount={count}

@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
 import {
   ManageTokenModalRoutes,
   ManageTokenRoutesParams,
@@ -95,16 +96,22 @@ const AssetsList = () => {
             &nbsp;&nbsp;
             {item.symbol}
           </Text>
-          <Typography.Body2 color="text-subdued">
-            0&nbsp;&nbsp;USD
-          </Typography.Body2>
+          <FormatCurrency
+            numbers={[0]}
+            render={(ele) => (
+              <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+            )}
+          />
         </Box>
         {!isSmallScreen && (
           <Box ml={3} mr={20} flexDirection="row" flex={1}>
             <Icon size={20} name="ActivityOutline" />
-            <Typography.Body2Strong ml={3}>
-              0&nbsp;&nbsp;USD
-            </Typography.Body2Strong>
+            <FormatCurrency
+              numbers={[0]}
+              render={(ele) => (
+                <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
+              )}
+            />
           </Box>
         )}
         <Icon size={20} name="ChevronRightSolid" />

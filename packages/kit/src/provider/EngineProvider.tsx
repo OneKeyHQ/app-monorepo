@@ -1,5 +1,9 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useCallback, useEffect } from 'react';
 
+import * as SplashScreen from 'expo-splash-screen';
+import useSWR from 'swr';
+
+import { Box } from '@onekeyhq/components';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
@@ -22,6 +26,19 @@ const EngineApp: FC = ({ children }) => {
   const { account } = useActiveWalletAccount();
 
   const dispatch = useAppDispatch();
+
+  const handleFiatMoneyUpdate = useCallback(async () => {
+    const fiatMoney = await engine.listFiats();
+    dispatch(updateFiatMoneyMap(fiatMoney));
+  }, [dispatch]);
+
+  useSWR('fiat-money', () => handleFiatMoneyUpdate(), {
+    refreshInterval: 1 * 60 * 60 * 1000,
+  });
+
+  const hideSplashScreen = useCallback(async () => {
+    await SplashScreen.hideAsync();
+  }, []);
 
   useEffect(() => {
     async function main() {
@@ -56,14 +73,6 @@ const EngineApp: FC = ({ children }) => {
   }, [dispatch, refreshTimeStamp, account]);
 
   useEffect(() => {
-    async function main() {
-      const fiatMoney = await engine.listFiats();
-      dispatch(updateFiatMoneyMap(fiatMoney));
-    }
-    main();
-  }, [dispatch]);
-
-  useEffect(() => {
     if (!networks) return;
     if (activeNetwork?.network) return;
     const sharedChainName = Object.keys(networks)[0];
@@ -71,7 +80,11 @@ const EngineApp: FC = ({ children }) => {
     dispatch(changeActiveNetwork({ network: defaultNetwork, sharedChainName }));
   }, [dispatch, networks, activeNetwork]);
 
-  return <>{children}</>;
+  return (
+    <Box flex="1" onLayout={hideSplashScreen}>
+      {children}
+    </Box>
+  );
 };
 
 export default EngineApp;
