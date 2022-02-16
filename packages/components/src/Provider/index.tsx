@@ -24,7 +24,6 @@ export type UIProviderProps = {
   locale: LocaleSymbol;
 };
 
-// TODO: use AppLoading with splash screen
 const FontProvider: FC = ({ children }) => {
   const [loaded] = useLoadCustomFonts();
   if (loaded) return <>{children}</>;
