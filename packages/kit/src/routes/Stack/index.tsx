@@ -41,9 +41,10 @@ export const stackScreenList = [
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
 const StackScreen = () => {
-  const [bgColor, textColor] = useThemeValue([
+  const [bgColor, textColor, borderBottomColor] = useThemeValue([
     'surface-subdued',
     'text-default',
+    'border-subdued',
   ]);
 
   return (
@@ -61,6 +62,9 @@ const StackScreen = () => {
           headerTitleAlign: 'center',
           headerStyle: {
             backgroundColor: bgColor,
+            // @ts-expect-error
+            borderBottomColor,
+            shadowColor: borderBottomColor,
           },
           header:
             Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
