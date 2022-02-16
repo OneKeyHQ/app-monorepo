@@ -140,14 +140,14 @@ const modalStackScreenList = [
   //   name: SettingsModalRoutes.SetPasswordModal,
   //   component: SettingsModal,
   // },
-  // {
-  //   name: SubmitRequestRoutes.SubmitRequestModal,
-  //   component: SubmitRequestModal,
-  // },
-  // {
-  //   name: HistoryRequestRoutes.HistoryRequestModal,
-  //   component: HistoryRequestModal,
-  // },
+  {
+    name: ModalRoutes.SubmitRequest,
+    component: SubmitRequestModal,
+  },
+  {
+    name: ModalRoutes.HistoryRequest,
+    component: HistoryRequestModal,
+  },
   // {
   //   name: BackupWalletModalRoutes.BackupSeedHintModal,
   //   component: BackupWalletModal,
