@@ -67,6 +67,7 @@ export const Badge: FC<BadgeProps> = ({ title, type = 'default', size }) => {
       borderRadius="6px"
       bgColor={bgColor}
       minW={5}
+      borderWidth={0}
     >
       <Typography.CaptionStrong
         marginX={badgeTypeProps.marginX}

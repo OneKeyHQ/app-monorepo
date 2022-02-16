@@ -31,6 +31,8 @@ export type SelectItem<T = string> = {
   SolidIcon?: string;
   destructive?: boolean;
   color?: ColorType;
+  badge?: string;
+  trailing?: ReactNode;
 };
 
 export type SelectGroupItem<T = string> = {
@@ -67,7 +69,7 @@ export type SelectProps<T = string> = {
   onPressFooter?: () => void;
   onModalHide?: () => void;
   isTriggerPlain?: boolean;
-  asAction?: boolean;
+  activatable?: boolean;
 };
 
 export type ChildProps<T> = Pick<
@@ -84,7 +86,7 @@ export type ChildProps<T> = Pick<
   | 'headerShown'
   | 'onModalHide'
   | 'isTriggerPlain'
-  | 'asAction'
+  | 'activatable'
   | 'dropdownPosition'
 > & {
   toggleVisible: () => void;
@@ -96,7 +98,7 @@ const defaultProps = {
   headerShown: true,
   dropdownPosition: 'center',
   isTriggerPlain: false,
-  asAction: false,
+  activatable: true,
 } as const;
 
 function Select<T = string>({
@@ -116,7 +118,7 @@ function Select<T = string>({
   onPressFooter,
   headerShown,
   isTriggerPlain,
-  asAction,
+  activatable,
   dropdownPosition,
 }: SelectProps<T>) {
   const [visible, setVisible] = useState(false);
@@ -177,7 +179,7 @@ function Select<T = string>({
       renderItem,
       headerShown,
       onChange: handleChange,
-      asAction,
+      activatable,
       dropdownPosition,
       onPressFooter: handlePressFooter,
     };
@@ -201,7 +203,7 @@ function Select<T = string>({
     activeOption,
     renderItem,
     headerShown,
-    asAction,
+    activatable,
     dropdownPosition,
   ]);
 

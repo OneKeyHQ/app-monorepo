@@ -214,7 +214,7 @@ const OnekeyLiteDetail: React.FC = () => {
           if (currentOptionType !== v) setCurrentOptionType(v);
         }}
         footer={null}
-        asAction
+        activatable={false}
         containerProps={{
           width:
             Platform.OS === 'android' || Platform.OS === 'ios'

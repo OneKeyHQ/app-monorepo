@@ -71,7 +71,7 @@ const RightHeader: FC<RightHeaderProps> = ({ activeAccountType }) => {
       {['hd', 'normal'].includes(activeAccountType) ? (
         <Select
           dropdownPosition="left"
-          asAction
+          activatable={false}
           options={[
             {
               label: intl.formatMessage({ id: 'action__edit' }),
