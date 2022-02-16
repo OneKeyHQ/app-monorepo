@@ -13,6 +13,7 @@ type SettingsState = {
   enableAppLock: boolean;
   enableLocalAuthentication: boolean;
   selectedFiatMoneySymbol: string;
+  appLockDuration: number;
   refreshTimeStamp: number;
 };
 
@@ -23,6 +24,7 @@ const initialState: SettingsState = {
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
+  appLockDuration: 5,
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
 };
@@ -43,6 +45,9 @@ export const settingsSlice = createSlice({
     setEnableLocalAuthentication: (state, action: PayloadAction<boolean>) => {
       state.enableLocalAuthentication = action.payload;
     },
+    setAppLockDuration: (state, action: PayloadAction<number>) => {
+      state.appLockDuration = action.payload;
+    },
     setSelectedFiatMoneySymbol: (
       state,
       action: PayloadAction<SettingsState['selectedFiatMoneySymbol']>,
@@ -62,6 +67,7 @@ export const {
   setEnableLocalAuthentication,
   setSelectedFiatMoneySymbol,
   setRefreshTS,
+  setAppLockDuration,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

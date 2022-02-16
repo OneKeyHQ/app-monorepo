@@ -18,6 +18,8 @@ export enum ModalRoutes {
   WatchedAccount = 'WatchAccount',
   Send = 'Send',
   Receive = 'Receive',
+  SubmitRequest = 'SubmitRequest',
+  HistoryRequest = 'HistoryRequest',
   TransactionDetail = 'TransactionDetail',
   OnekeyLite = 'OnekeyLite',
   OnekeyLiteReset = 'OnekeyLiteReset',
@@ -27,6 +29,7 @@ export enum ModalRoutes {
   DappMulticallModal = 'DappMulticallModal',
   DappSignatureModal = 'DappSignatureModal',
   DappConnectionModal = 'DappConnectionModal',
+  Misc = 'Misc',
 }
 
 export type ModalRoutesParams = {
@@ -35,6 +38,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.WatchedAccount]: NavigatorScreenParams<SubModalRoutesParams.WatchedAccountRoutesParams>;
   [ModalRoutes.Receive]: NavigatorScreenParams<SubModalRoutesParams.ReceiveTokenRoutesParams>;
   [ModalRoutes.TransactionDetail]: NavigatorScreenParams<SubModalRoutesParams.TransactionDetailRoutesParams>;
+  [ModalRoutes.SubmitRequest]: NavigatorScreenParams<SubModalRoutesParams.SubmitRequestModalRoutesParams>;
+  [ModalRoutes.HistoryRequest]: NavigatorScreenParams<SubModalRoutesParams.HistoryRequestModalRoutesParams>;
   [ModalRoutes.Send]: undefined;
   [ModalRoutes.OnekeyLite]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteRoutesParams>;
   [ModalRoutes.OnekeyLiteReset]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteResetRoutesParams>;
@@ -44,6 +49,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.DappMulticallModal]: NavigatorScreenParams<SubModalRoutesParams.DappMulticallRoutesParams>;
   [ModalRoutes.DappSignatureModal]: NavigatorScreenParams<SubModalRoutesParams.DappSignatureRoutesParams>;
   [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
+  [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
 };
 /** Modal */
 
@@ -71,7 +77,6 @@ export enum HomeRoutes {
   Dev = 'dev',
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'settings',
-  UnlockScreen = 'unlock',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
 }
@@ -81,7 +86,6 @@ export type HomeRoutesParams = {
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
   [HomeRoutes.ScreenTokenDetail]: undefined;
   [HomeRoutes.SettingsScreen]: undefined;
-  [HomeRoutes.UnlockScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
 };

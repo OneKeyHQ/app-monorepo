@@ -15,23 +15,19 @@ import {
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
-} from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
-import {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
-} from '@onekeyhq/kit/src/routes/Modal/SubmitRequest';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+} from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import { useHelpLink } from '../../hooks/useHelpLink';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  SubmitRequestModalRoutesParams &
-    HomeRoutesParams &
-    HistoryRequestModalRoutesParams,
-  SubmitRequestRoutes.SubmitRequestModal
->;
+type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &
+  ModalScreenProps<HistoryRequestModalRoutesParams>;
 
 type Option = {
   label: string;
@@ -48,7 +44,7 @@ type GroupOption = {
 
 const HelpSelector: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const isSmallScreen = useIsVerticalLayout();
   const userGuideUrl = useHelpLink({ path: 'categories/360000170236' });
   const supportUrl = useHelpLink({ path: '' });
@@ -58,10 +54,10 @@ const HelpSelector: FC = () => {
     (url: string, title?: string) => {
       console.log('url', url, 'title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
-          url,
-          title,
-        });
+        // navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
+        //   url,
+        //   title,
+        // });
       } else {
         window.open(url, '_blank');
       }
@@ -147,7 +143,12 @@ const HelpSelector: FC = () => {
     setTimeout(() => {
       switch (value) {
         case 'submit_request':
-          navigation.navigate(SubmitRequestRoutes.SubmitRequestModal);
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.SubmitRequest,
+            params: {
+              screen: SubmitRequestRoutes.SubmitRequestModal,
+            },
+          });
           break;
         case 'guide':
           openUrl(
@@ -165,7 +166,12 @@ const HelpSelector: FC = () => {
           );
           break;
         case 'history':
-          navigation.navigate(HistoryRequestRoutes.HistoryRequestModal);
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.HistoryRequest,
+            params: {
+              screen: HistoryRequestRoutes.HistoryRequestModal,
+            },
+          });
           break;
         case 'website':
           openUrl(

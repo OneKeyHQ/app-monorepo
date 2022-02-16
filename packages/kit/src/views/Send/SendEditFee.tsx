@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import { Column, Row } from 'native-base';
+import { Control } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,8 +12,8 @@ import {
   RadioFee,
   SegmentedControl,
   useForm,
+  useIsVerticalLayout,
   useSafeAreaInsets,
-  useUserDevice,
 } from '@onekeyhq/components';
 
 type FeeValues = {
@@ -22,53 +23,15 @@ type FeeValues = {
   baseFee: string;
 };
 
-const TransactionEditFee = ({ ...rest }) => {
-  const { trigger } = rest;
-  const intl = useIntl();
-  const [segmentValue, setSegmentValue] = useState('1');
-  const [radioValue, setValue] = useState('1');
+enum FeeType {
+  standard = 'standard',
+  advanced = 'advanced',
+}
 
-  const SelectFee = () => (
-    <RadioFee
-      padding="0px"
-      mt={5}
-      items={[
-        {
-          value: '1',
-          title: 'Fast',
-          titleSecond: '30 sec',
-          describe: '64.61 GWEI',
-          describeSecond: 'Max Fee: 127 GWEI',
-        },
-        {
-          value: '2',
-          title: 'Normal',
-          titleSecond: '5 min',
-          describe: '64.61 GWEI',
-          describeSecond: 'Max Fee: 127 GWEI',
-        },
-        {
-          value: '3',
-          title: 'Slow',
-          titleSecond: '10 min',
-          describe: '64.61 GWEI',
-          describeSecond: 'Max Fee: 127 GWEI',
-        },
-      ]}
-      defaultValue="1"
-      name="group1"
-      value={radioValue}
-      onChange={(value) => {
-        setValue(value);
-      }}
-    />
-  );
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
-  const { control, handleSubmit } = useForm<FeeValues>();
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
-  });
-  const CustomFee = () => (
+const CustomFeeForm = ({ control }: { control: Control<FeeValues> }) => {
+  const intl = useIntl();
+
+  return (
     <Form mt={8}>
       <Form.Item
         label={`${intl.formatMessage({
@@ -121,19 +84,133 @@ const TransactionEditFee = ({ ...rest }) => {
       </Form.Item>
     </Form>
   );
+};
 
-  const saveButton = () => (
-    <Button
-      flexGrow={isSmallScreen ? 1 : 0}
-      type="primary"
-      size={isSmallScreen ? 'lg' : 'base'}
-      isDisabled={false}
-      onPress={onSubmit}
-    >
-      {intl.formatMessage({ id: 'action__save' })}
-    </Button>
+const StandardFee = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) => (
+  <RadioFee
+    padding="0px"
+    mt={5}
+    items={[
+      {
+        value: '1',
+        title: 'Fast',
+        titleSecond: '30 sec',
+        describe: '64.61 GWEI',
+        describeSecond: 'Max Fee: 127 GWEI',
+      },
+      {
+        value: '2',
+        title: 'Normal',
+        titleSecond: '5 min',
+        describe: '64.61 GWEI',
+        describeSecond: 'Max Fee: 127 GWEI',
+      },
+      {
+        value: '3',
+        title: 'Slow',
+        titleSecond: '10 min',
+        describe: '64.61 GWEI',
+        describeSecond: 'Max Fee: 127 GWEI',
+      },
+    ]}
+    defaultValue="1"
+    name="standard fee group"
+    value={value}
+    onChange={onChange}
+  />
+);
+
+const EditFeeTabs = ({
+  onChange,
+  type,
+}: {
+  type: FeeType;
+  onChange: (type: string) => void;
+}) => {
+  const intl = useIntl();
+  return (
+    <SegmentedControl
+      options={[
+        {
+          label: intl.formatMessage({ id: 'content__standard' }),
+          value: FeeType.standard,
+        },
+        {
+          label: intl.formatMessage({ id: 'content__advanced' }),
+          value: FeeType.advanced,
+        },
+      ]}
+      defaultValue={type}
+      onChange={onChange}
+    />
   );
+};
+
+const TransactionEditFee = ({ ...rest }) => {
+  const { trigger } = rest;
+  const intl = useIntl();
+  const [feeType, setFeeType] = useState<FeeType>(FeeType.standard);
+  const [radioValue, setValue] = useState('1');
+
+  const isSmallScreen = useIsVerticalLayout();
+  const { control, handleSubmit } = useForm<FeeValues>();
+  const onSubmit = handleSubmit((data) => {
+    console.log(data);
+  });
+
   const { bottom } = useSafeAreaInsets();
+  const footer = (
+    <Column>
+      <Row
+        justifyContent="flex-end"
+        alignItems="center"
+        px={{ base: 4, md: 6 }}
+        pt={4}
+        pb={4 + bottom}
+        borderTopWidth={1}
+        borderTopColor="border-subdued"
+      >
+        <Button
+          flexGrow={isSmallScreen ? 1 : 0}
+          type="primary"
+          size={isSmallScreen ? 'lg' : 'base'}
+          isDisabled={false}
+          onPress={onSubmit}
+        >
+          {intl.formatMessage({ id: 'action__save' })}
+        </Button>
+      </Row>
+    </Column>
+  );
+
+  const content = (
+    <>
+      <EditFeeTabs
+        type={feeType}
+        onChange={(value) => {
+          setFeeType(value as FeeType);
+        }}
+      />
+      <Box>
+        {feeType === FeeType.standard ? (
+          <StandardFee
+            value={radioValue}
+            onChange={(value) => {
+              setValue(value);
+            }}
+          />
+        ) : (
+          <CustomFeeForm control={control} />
+        )}
+      </Box>
+    </>
+  );
 
   return (
     <Modal
@@ -141,43 +218,9 @@ const TransactionEditFee = ({ ...rest }) => {
       primaryActionTranslationId="action__confirm"
       secondaryActionTranslationId="action__reject"
       header={intl.formatMessage({ id: 'action__edit_fee' })}
-      footer={
-        <Column>
-          <Row
-            justifyContent="flex-end"
-            alignItems="center"
-            px={{ base: 4, md: 6 }}
-            pt={4}
-            pb={4 + bottom}
-            borderTopWidth={1}
-            borderTopColor="border-subdued"
-          >
-            {saveButton()}
-          </Row>
-        </Column>
-      }
+      footer={footer}
       scrollViewProps={{
-        children: (
-          <>
-            <SegmentedControl
-              options={[
-                {
-                  label: intl.formatMessage({ id: 'content__standard' }),
-                  value: '1',
-                },
-                {
-                  label: intl.formatMessage({ id: 'content__advanced' }),
-                  value: '2',
-                },
-              ]}
-              defaultValue="1"
-              onChange={(value) => {
-                setSegmentValue(value);
-              }}
-            />
-            <Box>{segmentValue === '1' ? SelectFee() : CustomFee()}</Box>
-          </>
-        ),
+        children: content,
       }}
     />
   );
