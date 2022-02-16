@@ -37,7 +37,17 @@ type PresetNetwork = NetworkCommon & {
   extensions?: Record<string, any>;
 };
 
-type Network = NetworkShort & DBNetwork & PresetNetwork;
+type NetworkDisplayProperties = {
+  // UI specific properties.
+  // TODO: move this into remote config?
+  nativeDisplayDecimals: number;
+  tokenDisplayDecimals: number;
+};
+
+type Network = NetworkShort &
+  DBNetwork &
+  PresetNetwork &
+  NetworkDisplayProperties;
 
 type AddEVMNetworkParams = {
   name: string;

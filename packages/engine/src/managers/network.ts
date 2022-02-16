@@ -33,6 +33,10 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
     ...dbNetwork,
     preset: isPresetNetwork,
     ...preset,
+    // The two display decimals fields below are for UI, hard-coded for now.
+    // TODO: define display decimals in remote config and give defaults for different implementations.
+    nativeDisplayDecimals: 6,
+    tokenDisplayDecimals: 4,
   };
 }
 
