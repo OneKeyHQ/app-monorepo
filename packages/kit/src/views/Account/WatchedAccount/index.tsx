@@ -69,14 +69,25 @@ const WatchedAccount: FC = () => {
 
               <Form.Item
                 name="name"
+                rules={{
+                  required: intl.formatMessage({
+                    id: 'form__field_is_required',
+                  }),
+                }}
                 label={intl.formatMessage({ id: 'form__account_name' })}
                 control={control}
               >
                 <Form.Input />
               </Form.Item>
               <Form.Item
+                labelAddon={['paste']}
                 name="address"
                 label={intl.formatMessage({ id: 'form__address' })}
+                rules={{
+                  required: intl.formatMessage({
+                    id: 'form__field_is_required',
+                  }),
+                }}
                 control={control}
                 helpText={intl.formatMessage({
                   id: 'form__address_helperText',
