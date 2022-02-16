@@ -58,10 +58,8 @@ const TransactionConfirm = () => {
 
   return (
     <Modal
-      primaryActionTranslationId={intl.formatMessage({ id: 'action__confirm' })}
-      secondaryActionTranslationId={intl.formatMessage({
-        id: 'action__reject',
-      })}
+      primaryActionTranslationId="action__confirm"
+      secondaryActionTranslationId="action__reject"
       onClose={() => {
         navigation.getParent()?.goBack();
       }}

@@ -215,8 +215,8 @@ const TransactionEditFee = ({ ...rest }) => {
   return (
     <Modal
       trigger={trigger}
-      primaryActionTranslationId="Confirm"
-      secondaryActionTranslationId="Reject"
+      primaryActionTranslationId="action__confirm"
+      secondaryActionTranslationId="action__reject"
       header={intl.formatMessage({ id: 'action__edit_fee' })}
       footer={footer}
       scrollViewProps={{

@@ -4,15 +4,25 @@ import { useIntl } from 'react-intl';
 
 import { Box, Select, Typography } from '@onekeyhq/components';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
-import { useAppDispatch, useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import { setLocale, setTheme } from '@onekeyhq/kit/src/store/reducers/settings';
+import {
+  useAppDispatch,
+  useAppSelector,
+  useSettings,
+} from '@onekeyhq/kit/src/hooks/redux';
+import {
+  setLocale,
+  setSelectedFiatMoneySymbol,
+  setTheme,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 
 import { SelectTrigger } from '../SelectTrigger';
 
 export const GenaralSection = () => {
   const intl = useIntl();
   const dispatch = useAppDispatch();
-  const { theme, locale } = useSettings();
+  const { theme, locale, selectedFiatMoneySymbol } = useSettings();
+
+  const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
 
   return (
     <Box w="full" mb="4" zIndex={10} shadow="depth.2">
@@ -102,7 +112,7 @@ export const GenaralSection = () => {
             />
           </Box>
           <Box w="full" zIndex={97}>
-            <Select
+            <Select<string>
               title={intl.formatMessage({
                 id: 'form__fiat_currency',
                 defaultMessage: 'Fiat currency',
@@ -110,29 +120,14 @@ export const GenaralSection = () => {
               isTriggerPlain
               footer={null}
               headerShown={false}
-              defaultValue="USD"
-              options={[
-                {
-                  label: 'CNY',
-                  value: 'CNY',
-                },
-                {
-                  label: 'USD',
-                  value: 'USD',
-                },
-                {
-                  label: 'KRW',
-                  value: 'KRW',
-                },
-                {
-                  label: 'GBP',
-                  value: 'GBP',
-                },
-                {
-                  label: 'EUR',
-                  value: 'EUR',
-                },
-              ]}
+              value={selectedFiatMoneySymbol}
+              onChange={(value) => {
+                dispatch(setSelectedFiatMoneySymbol(value));
+              }}
+              options={fiatMoneySymbolList.map((symbol) => ({
+                label: symbol.toUpperCase(),
+                value: symbol,
+              }))}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
               renderTrigger={(activeOption) => (

@@ -4,7 +4,7 @@ import { Box, ScrollView, VStack } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import { useNavigation } from '../..';
-import { StackBasicRoutes } from '../../routes';
+import { HomeRoutes } from '../../routes/types';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
 import { TokenDetailRoutesParams } from './routes';
@@ -14,7 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type TokenDetailViewProps = NativeStackScreenProps<
   TokenDetailRoutesParams,
-  StackBasicRoutes.ScreenTokenDetail
+  HomeRoutes.ScreenTokenDetail
 >;
 
 const TOKEN = {

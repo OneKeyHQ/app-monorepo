@@ -10,7 +10,7 @@ import Typography from '../Typography';
 type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement;
-  helpText?: string;
+  helpText?: string | ((v: any) => string);
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
 };
@@ -55,30 +55,24 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
           {helpText ? (
             <FormControl.HelperText>
               <Typography.Body2 color="text-subdued">
-                {helpText}
+                {typeof helpText === 'function' ? helpText(value) : helpText}
               </Typography.Body2>
             </FormControl.HelperText>
           ) : null}
-          <FormControl.ErrorMessage
-            w="full"
-            leftIcon={
-              <Box>
+          {error ? (
+            <Box display="flex" flexDirection="row" mt="2">
+              <Box mr="2">
                 <Icon
                   size={20}
                   name="ExclamationCircleSolid"
                   color="icon-critical"
                 />
               </Box>
-            }
-            _stack={{
-              space: '2',
-              alignItems: 'flex-start',
-            }}
-          >
-            <Typography.Body2 color="text-critical">
-              {error?.message}
-            </Typography.Body2>
-          </FormControl.ErrorMessage>
+              <Typography.Body2 color="text-critical">
+                {error?.message}
+              </Typography.Body2>
+            </Box>
+          ) : null}
         </FormControl>
       )}
     />
