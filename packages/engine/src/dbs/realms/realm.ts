@@ -6,6 +6,7 @@ import Realm from 'realm';
 import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
 
 import {
+  AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
   WrongPassword,
@@ -572,9 +573,7 @@ class RealmDB implements DBAPI {
         account.id,
       );
       if (typeof accountFind !== 'undefined') {
-        return Promise.reject(
-          new OneKeyInternalError(`Account ${account.id} already exist.`),
-        );
+        return Promise.reject(new AccountAlreadyExists());
       }
       this.realm!.write(() => {
         const accountNew = this.realm!.create('Account', {
