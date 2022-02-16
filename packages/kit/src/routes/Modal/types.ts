@@ -2,6 +2,8 @@ export type { CreateAccountRoutesParams } from './CreateAccount';
 export type { ImportAccountRoutesParams } from './ImportAccount';
 export type { WatchedAccountRoutesParams } from './WatchedAccount';
 export type { ReceiveTokenRoutesParams } from './ReceiveToken';
+export type { SubmitRequestModalRoutesParams } from './SubmitRequest';
+export type { HistoryRequestModalRoutesParams } from './HistoryRequest';
 export type { TransactionDetailRoutesParams } from './TransactionDetail';
 export type {
   OnekeyLiteRoutesParams,

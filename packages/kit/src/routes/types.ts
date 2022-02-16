@@ -18,6 +18,8 @@ export enum ModalRoutes {
   WatchedAccount = 'WatchAccount',
   Send = 'Send',
   Receive = 'Receive',
+  SubmitRequest = 'SubmitRequest',
+  HistoryRequest = 'HistoryRequest',
   TransactionDetail = 'TransactionDetail',
   OnekeyLite = 'OnekeyLite',
   OnekeyLiteReset = 'OnekeyLiteReset',
@@ -36,6 +38,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.WatchedAccount]: NavigatorScreenParams<SubModalRoutesParams.WatchedAccountRoutesParams>;
   [ModalRoutes.Receive]: NavigatorScreenParams<SubModalRoutesParams.ReceiveTokenRoutesParams>;
   [ModalRoutes.TransactionDetail]: NavigatorScreenParams<SubModalRoutesParams.TransactionDetailRoutesParams>;
+  [ModalRoutes.SubmitRequest]: NavigatorScreenParams<SubModalRoutesParams.SubmitRequestModalRoutesParams>;
+  [ModalRoutes.HistoryRequest]: NavigatorScreenParams<SubModalRoutesParams.HistoryRequestModalRoutesParams>;
   [ModalRoutes.Send]: undefined;
   [ModalRoutes.OnekeyLite]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteRoutesParams>;
   [ModalRoutes.OnekeyLiteReset]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteResetRoutesParams>;
