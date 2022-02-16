@@ -223,7 +223,7 @@ const AccountSelectorChildren: FC = () => {
                     }),
                   );
                   setTimeout(() => {
-                    navigation.dispatch(DrawerActions.toggleDrawer());
+                    navigation.dispatch(DrawerActions.closeDrawer());
                   }, 250);
                   // backgroundApiProxy.changeAccounts(item.address);
                 }}

@@ -12,6 +12,8 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
+import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
@@ -73,7 +75,10 @@ const AccountInfo = () => {
             {activeNetwork?.symbol?.toUpperCase?.()}
           </Typography.DisplayXLarge>
         </Box>
-        <Typography.Body2 mt={1}>0 USD</Typography.Body2>
+        <FormatCurrency
+          numbers={[0]}
+          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+        />
       </Box>
     ),
     [intl, mainTokenBalance, activeNetwork?.symbol],
@@ -102,14 +107,15 @@ const AccountInfo = () => {
           leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
-          isDisabled={wallet?.type === 'watching'}
+          isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
+            if (!account) return;
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Receive,
               params: {
                 screen: ReceiveTokenRoutes.ReceiveToken,
                 params: {
-                  address: 'xx',
+                  address: (account as SimpleAccount).address,
                 },
               },
             });
@@ -128,7 +134,7 @@ const AccountInfo = () => {
         )}
       </Box>
     ),
-    [intl, isSmallView, navigation, wallet],
+    [intl, isSmallView, navigation, wallet, account],
   );
 
   return useMemo(() => {
