@@ -22,6 +22,11 @@ export enum ModalRoutes {
   OnekeyLite = 'OnekeyLite',
   OnekeyLiteReset = 'OnekeyLiteReset',
   OnekeyLiteChangePinInputPin = 'OnekeyLiteChangePinInputPin',
+  DappApproveModal = 'DappApproveModal',
+  DappSendConfirmModal = 'DappSendConfirmModal',
+  DappMulticallModal = 'DappMulticallModal',
+  DappSignatureModal = 'DappSignatureModal',
+  DappConnectionModal = 'DappConnectionModal',
 }
 
 export type ModalRoutesParams = {
@@ -34,6 +39,11 @@ export type ModalRoutesParams = {
   [ModalRoutes.OnekeyLite]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteRoutesParams>;
   [ModalRoutes.OnekeyLiteReset]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteResetRoutesParams>;
   [ModalRoutes.OnekeyLiteChangePinInputPin]: NavigatorScreenParams<SubModalRoutesParams.OnekeyLiteChangePinRoutesParams>;
+  [ModalRoutes.DappApproveModal]: NavigatorScreenParams<SubModalRoutesParams.DappApproveRoutesParams>;
+  [ModalRoutes.DappSendConfirmModal]: NavigatorScreenParams<SubModalRoutesParams.DappSendRoutesParams>;
+  [ModalRoutes.DappMulticallModal]: NavigatorScreenParams<SubModalRoutesParams.DappMulticallRoutesParams>;
+  [ModalRoutes.DappSignatureModal]: NavigatorScreenParams<SubModalRoutesParams.DappSignatureRoutesParams>;
+  [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
 };
 /** Modal */
 
