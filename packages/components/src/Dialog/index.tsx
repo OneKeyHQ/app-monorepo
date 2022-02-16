@@ -18,7 +18,7 @@ import { useUserDevice } from '../Provider/hooks';
 import DialogCommon from './components';
 
 const defaultProps = {
-  canceledOnTouchOutside: true,
+  canceledOnTouchOutside: false,
 } as const;
 
 export type DialogProps = {
