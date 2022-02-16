@@ -116,7 +116,7 @@ const Input = React.forwardRef<
       rightElements.push(
         <Text
           typography={{ sm: 'Button1', md: 'Button2' }}
-          key="rightText"
+          key="rightSecondaryText"
           onPress={onPressSecondaryRightText}
           color={isDisabled ? 'text-disabled' : 'text-default'}
         >
