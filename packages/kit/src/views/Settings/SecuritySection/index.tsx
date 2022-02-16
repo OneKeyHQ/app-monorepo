@@ -19,6 +19,7 @@ import {
   SettingsRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Settings';
 import {
+  setAppLockDuration,
   setEnableAppLock,
   setEnableLocalAuthentication,
 } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -36,7 +37,8 @@ type NavigationProps = NativeStackNavigationProp<
 export const SecuritySection = () => {
   const intl = useIntl();
   const dispatch = useAppDispatch();
-  const { enableAppLock, enableLocalAuthentication } = useSettings();
+  const { enableAppLock, enableLocalAuthentication, appLockDuration } =
+    useSettings();
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();
   const [showResetModal, setShowResetModal] = useState(false);
@@ -46,64 +48,69 @@ export const SecuritySection = () => {
     () => [
       {
         label: intl.formatMessage({ id: 'form__always' }),
-        value: '-1',
+        value: 54432000, // 100 year
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 1 },
         ),
-        value: '1',
+        value: 1,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 5 },
         ),
-        value: '5',
+        value: 5,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 30 },
         ),
-        value: '30',
+        value: 30,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_hour' },
           { 'form__str_hour': 1 },
         ),
-        value: '60',
+        value: 60,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_hour' },
           { 'form__str_hour': 6 },
         ),
-        value: '360',
+        value: 360,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_day' },
           { 'form__str_day': 1 },
         ),
-        value: '1440',
+        value: 1440,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_day' },
           { 'form__str_day': 7 },
         ),
-        value: '10080',
+        value: 10080,
       },
     ],
     [intl],
   );
-
   const onReset = useCallback(() => {
     setShowResetModal(true);
   }, []);
+  const onChange = useCallback(
+    (value: number) => {
+      dispatch(setAppLockDuration(value));
+    },
+    [dispatch],
+  );
   return (
     <>
       <Box w="full" mb="4" zIndex={9} shadow="depth.2">
@@ -192,20 +199,21 @@ export const SecuritySection = () => {
             </Box>
           </Box>
           <Box w="full" zIndex={95}>
-            <Select
+            <Select<number>
               title={intl.formatMessage({
                 id: 'form__app_lock_timer',
                 defaultMessage: 'Auto-Lock Timer',
               })}
               isTriggerPlain
               footer={null}
-              defaultValue="5"
+              value={appLockDuration}
+              defaultValue={appLockDuration}
               headerShown={false}
               options={lockTimerOptions}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
               renderTrigger={(activeOption) => (
-                <SelectTrigger
+                <SelectTrigger<number>
                   title={intl.formatMessage({
                     id: 'form__app_lock_timer',
                     defaultMessage: 'Auto-Lock Timer',
@@ -213,6 +221,7 @@ export const SecuritySection = () => {
                   activeOption={activeOption}
                 />
               )}
+              onChange={onChange}
             />
           </Box>
           <Pressable

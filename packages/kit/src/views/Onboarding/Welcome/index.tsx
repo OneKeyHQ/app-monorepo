@@ -13,25 +13,26 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import {
-  MiscModalRoutes,
-  MiscRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Misc';
+  OnboardingModalRoutes,
+  OnboardingRoutes,
+  OnboardingRoutesParams,
+} from '@onekeyhq/kit/src/routes/Onboarding';
 
-import sliderImg1 from '../../../assets/slider_img1.png';
-import sliderImg2 from '../../../assets/slider_img2.png';
-import sliderImg3 from '../../../assets/slider_img3.png';
-import AppIntroSlider from '../../components/AppIntroSlider';
+import sliderImg1 from '../../../../assets/slider_img1.png';
+import sliderImg2 from '../../../../assets/slider_img2.png';
+import sliderImg3 from '../../../../assets/slider_img3.png';
+import AppIntroSlider from '../../../components/AppIntroSlider';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  MiscRoutesParams,
-  MiscModalRoutes.TermsModal
+  OnboardingRoutesParams,
+  OnboardingRoutes.Stack
 >;
 
-type ItemInfo = { title: string; description: string; image: any };
+type SliderItem = { title: string; description: string; image: any };
 // eslint-disable-next-line react/no-unused-prop-types
-type ItemInfoParams = { item: ItemInfo };
+type ItemInfoParams = { item: SliderItem };
 
 const Welcome = () => {
   const intl = useIntl();
@@ -42,7 +43,9 @@ const Welcome = () => {
     'icon-hovered',
   ]);
   const onStart = useCallback(() => {
-    navigation.navigate(MiscModalRoutes.TermsModal);
+    navigation.navigate(OnboardingRoutes.Modal, {
+      screen: OnboardingModalRoutes.Terms,
+    });
   }, [navigation]);
   const renderItem = useCallback(
     ({ item }: ItemInfoParams) => (

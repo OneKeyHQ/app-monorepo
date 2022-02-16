@@ -124,6 +124,10 @@ const modalStackScreenList = [
     name: ModalRoutes.WatchedAccount,
     component: WatchedAccountModal,
   },
+  {
+    name: ModalRoutes.Misc,
+    component: MiscModal,
+  },
   // {
   //   name: ManageTokenModalRoutes.ListTokensModal,
   //   component: ManageTokenModal,

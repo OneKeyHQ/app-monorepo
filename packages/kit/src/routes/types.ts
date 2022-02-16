@@ -27,6 +27,7 @@ export enum ModalRoutes {
   DappMulticallModal = 'DappMulticallModal',
   DappSignatureModal = 'DappSignatureModal',
   DappConnectionModal = 'DappConnectionModal',
+  Misc = 'Misc',
 }
 
 export type ModalRoutesParams = {
@@ -44,6 +45,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.DappMulticallModal]: NavigatorScreenParams<SubModalRoutesParams.DappMulticallRoutesParams>;
   [ModalRoutes.DappSignatureModal]: NavigatorScreenParams<SubModalRoutesParams.DappSignatureRoutesParams>;
   [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
+  [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
 };
 /** Modal */
 
@@ -71,7 +73,6 @@ export enum HomeRoutes {
   Dev = 'dev',
   ScreenTokenDetail = 'TokenDetailScreen',
   SettingsScreen = 'settings',
-  UnlockScreen = 'unlock',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
 }
@@ -81,7 +82,6 @@ export type HomeRoutesParams = {
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
   [HomeRoutes.ScreenTokenDetail]: undefined;
   [HomeRoutes.SettingsScreen]: undefined;
-  [HomeRoutes.UnlockScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
 };
