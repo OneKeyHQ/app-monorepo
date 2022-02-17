@@ -30,6 +30,7 @@ export enum ModalRoutes {
   DappSignatureModal = 'DappSignatureModal',
   DappConnectionModal = 'DappConnectionModal',
   Misc = 'Misc',
+  Password = 'Password',
 }
 
 export type ModalRoutesParams = {
@@ -50,6 +51,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.DappSignatureModal]: NavigatorScreenParams<SubModalRoutesParams.DappSignatureRoutesParams>;
   [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
   [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
+  [ModalRoutes.Password]: NavigatorScreenParams<SubModalRoutesParams.PasswordRoutesParams>;
 };
 /** Modal */
 
