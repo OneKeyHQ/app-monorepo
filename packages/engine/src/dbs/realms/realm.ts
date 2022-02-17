@@ -502,7 +502,7 @@ class RealmDB implements DBAPI {
         );
       }
       this.realm!.write(() => {
-        if (account.tokens?.includes(token)) {
+        if (account.tokens?.has(token)) {
           account.tokens.delete(token);
         }
       });
