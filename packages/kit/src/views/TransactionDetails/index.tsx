@@ -1,7 +1,8 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
+import { BigNumber } from 'bignumber.js';
 import { IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -15,113 +16,242 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
+import {
+  TokenType,
+  Transaction,
+  TransactionType,
+  TxStatus,
+} from '@onekeyhq/engine/src/types/covalent';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
+import engine from '../../engine/EngineProvider';
 import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
+import { getTransactionStatusStr } from '../Components/transactionRecord';
 import {
-  Transaction,
-  TransactionState,
-  TransactionType,
-  getTransactionStatusStr,
-} from '../Components/transactionRecord';
-
-export type TransactionDetailsProps = {
-  txId: string;
-};
+  getFromAddress,
+  getToAddress,
+  getTransferAmount,
+} from '../Components/transactionRecord/utils';
 
 type TransactionDetailRouteProp = RouteProp<
   TransactionDetailRoutesParams,
   TransactionDetailModalRoutes.TransactionDetailModal
 >;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getTxInfo = (_txId: string): Transaction => ({
-  type: 'Send',
-  state: 'success',
-  chainId: 1,
-  txId: '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-  amount: 10000,
-  to: '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-  date: new Date(1637472397 * 1000),
-  confirmed: 123,
-});
-
 const getTransactionTypeStr = (
   intl: IntlShape,
-  transaction: Transaction,
+  transaction: Transaction | null,
 ): string => {
   const stringKeys: Record<TransactionType, string> = {
-    'Send': 'action__send',
+    'Transfer': 'action__send',
     'Receive': 'action__receive',
-    'Approve': 'action__send',
+    'ContractExecution': 'transaction__multicall',
+    // 'Approve': 'action__send',
   };
   return intl.formatMessage({
-    id: stringKeys[transaction.type ?? 'Send'],
+    id: stringKeys[transaction?.type ?? TransactionType.Transfer],
   });
 };
 
 /**
  * 交易详情
  */
-const TransactionDetails: FC<TransactionDetailsProps> = () => {
+const TransactionDetails: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<TransactionDetailRouteProp>();
-  const { txId } = route.params;
+  const { tx } = route.params;
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { account } = useActiveWalletAccount();
 
-  const txInfo = getTxInfo(txId);
+  console.log(`Account: ${JSON.stringify(account)}`);
+
+  useEffect(() => {
+    async function getAccounts() {
+      const accountIds: string[] = [];
+      (await engine.getWallets()).forEach((_wallet) => {
+        _wallet.accounts.forEach((_account) => {
+          accountIds.push(_account);
+        });
+      });
+      setAccounts(await engine.getAccounts(accountIds));
+    }
+    getAccounts();
+  }, []);
+  const txInfo = tx;
 
   const getTransactionStatusIcon = (
-    state: TransactionState = 'pending',
+    state: TxStatus = TxStatus.Pending,
   ): ICON_NAMES => {
-    const stringKeys: Record<TransactionState, ICON_NAMES> = {
-      'pending': 'TxStatusWarningCircleIllus',
-      'success': 'TxStatusSuccessCircleIllus',
-      'failed': 'TxStatusFailureCircleIllus',
-      'dropped': 'TxStatusFailureCircleIllus',
+    const stringKeys: Record<TxStatus, ICON_NAMES> = {
+      'Pending': 'TxStatusWarningCircleIllus',
+      'Confirmed': 'TxStatusSuccessCircleIllus',
+      'Failed': 'TxStatusFailureCircleIllus',
+      // 'dropped': 'TxStatusFailureCircleIllus',
     };
     return stringKeys[state];
   };
 
   const getTransactionStatusColor = (
-    state: TransactionState = 'pending',
+    state: TxStatus = TxStatus.Pending,
   ): string => {
-    const stringKeys: Record<TransactionState, string> = {
-      'pending': 'text-warning',
-      'success': 'text-success',
-      'failed': 'text-critical',
-      'dropped': 'text-critical',
+    const stringKeys: Record<TxStatus, string> = {
+      'Pending': 'text-warning',
+      'Confirmed': 'text-success',
+      'Failed': 'text-critical',
+      // 'dropped': 'text-critical',
     };
     return stringKeys[state];
   };
 
-  const copyAddressToClipboard = useCallback(() => {
-    copyToClipboard(txInfo.txId);
+  const copyHashToClipboard = useCallback(() => {
+    copyToClipboard(txInfo?.txHash ?? '');
     toast.info(intl.formatMessage({ id: 'msg__copied' }));
-  }, [toast, txInfo.txId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, txInfo?.txHash]);
+
+  // render Address
+  const renderAddress = useCallback(
+    (titleKey: string, address: string, networkLabel: string | null = null) => {
+      const filterAccounts = accounts.filter(
+        (_account) => (_account as SimpleAccount).address === address,
+      );
+
+      let accountName: string | null = null;
+      if (
+        filterAccounts.length > 0 &&
+        filterAccounts[0].name.trim().length > 0
+      ) {
+        accountName = filterAccounts[0].name;
+      } else if (networkLabel && networkLabel.trim().length > 0) {
+        accountName = networkLabel;
+      }
+
+      if (accountName) {
+        return (
+          <Container.Item
+            title={intl.formatMessage({ id: titleKey })}
+            value={accountName}
+            describe={address}
+          />
+        );
+      }
+
+      return (
+        <Container.Item
+          title={intl.formatMessage({ id: titleKey })}
+          value={address}
+        />
+      );
+    },
+    [accounts, intl],
+  );
+
+  // render From Address
+  const renderFromAddress = useCallback(() => {
+    const { fromAddress, fromAddressLabel } = getFromAddress(txInfo);
+    return renderAddress('content__from', fromAddress, fromAddressLabel);
+  }, [renderAddress, txInfo]);
+
+  // render To Address
+  const renderToAddress = useCallback(() => {
+    const { toAddress, toAddressLabel } = getToAddress(txInfo);
+    return renderAddress('content__to', toAddress, toAddressLabel);
+  }, [renderAddress, txInfo]);
+
+  // render Amount
+  const renderAmount = useCallback(
+    (titleKey: string) => {
+      console.log(txInfo);
+
+      return (
+        <Container.Item
+          title={intl.formatMessage({ id: titleKey })}
+          value={`${
+            txInfo?.type === TransactionType.Transfer ? '-' : ''
+          }${getTransferAmount(txInfo)}`}
+        />
+      );
+    },
+    [intl, txInfo],
+  );
+
+  // reader total amount
+  const renderTotalAmount = useCallback(() => {
+    if (
+      txInfo?.tokenType === TokenType.ERC20 &&
+      txInfo?.tokenEvent &&
+      txInfo.tokenEvent.length > 0
+    ) {
+      // token transfer
+      const tokenEvent = txInfo?.tokenEvent[0];
+      const feeAmount = `${new BigNumber(txInfo?.gasSpent ?? 0)
+        .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
+        .dividedBy(new BigNumber(1e18))
+        .decimalPlaces(6)
+        .toString()} ETH`;
+
+      const transferAmount = `${new BigNumber(tokenEvent?.tokenAmount ?? '')
+        .dividedBy(new BigNumber(10).pow(tokenEvent?.tokenDecimals ?? 0))
+        .decimalPlaces(4)
+        .toString()} ${tokenEvent?.tokenSymbol}`;
+
+      return (
+        <Container.Item
+          title={intl.formatMessage({ id: 'content__total' })}
+          value={`${transferAmount} + ${feeAmount}`}
+          describe={`${new BigNumber(txInfo?.gasQuote ?? 0)
+            .plus(new BigNumber(tokenEvent?.deltaQuote ?? 0))
+            .decimalPlaces(2)
+            .toString()} USD`}
+        />
+      );
+    }
+    return (
+      <Container.Item
+        title={intl.formatMessage({ id: 'content__total' })}
+        value={`${new BigNumber(txInfo?.gasSpent ?? 0)
+          .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
+          .plus(new BigNumber(txInfo?.value ?? 0))
+          .dividedBy(new BigNumber(1e18))
+          .decimalPlaces(6)
+          .toString()} ETH`}
+        describe={`${new BigNumber(txInfo?.gasQuote ?? 0)
+          .plus(new BigNumber(txInfo?.valueQuote ?? 0))
+          .decimalPlaces(2)
+          .toString()} USD`}
+      />
+    );
+  }, [intl, txInfo]);
 
   return (
     <Modal
       header={getTransactionTypeStr(intl, txInfo)}
-      headerDescription={txInfo.to}
+      headerDescription={txInfo?.toAddress}
       footer={null}
       height="560px"
       scrollViewProps={{
         pt: 4,
         children: (
           <Box flexDirection="column" alignItems="center" mb={6}>
-            <Icon name={getTransactionStatusIcon(txInfo.state)} size={56} />
+            <Icon
+              name={getTransactionStatusIcon(txInfo?.successful)}
+              size={56}
+            />
             <Typography.Heading
               mt={2}
-              color={getTransactionStatusColor(txInfo.state)}
+              color={getTransactionStatusColor(txInfo?.successful)}
             >
-              {getTransactionStatusStr(intl, txInfo.state)}
+              {getTransactionStatusStr(intl, txInfo?.successful)}
             </Typography.Heading>
+
             <Container.Box mt={6}>
               <Container.Item
                 title={intl.formatMessage({ id: 'content__hash' })}
@@ -134,36 +264,36 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
                 >
                   <Address
                     typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    text={txInfo.txId}
+                    text={txInfo?.txHash ?? ''}
                     short
                   />
-                  <Pressable ml={3} onPress={copyAddressToClipboard}>
+                  <Pressable ml={3} onPress={copyHashToClipboard}>
                     <Icon size={20} name="DuplicateSolid" />
                   </Pressable>
                 </Box>
               </Container.Item>
+
+              {renderFromAddress()}
+
+              {renderToAddress()}
+
+              {renderAmount('content__amount')}
+
               <Container.Item
-                title={intl.formatMessage({ id: 'content__from' })}
-                value="Account1"
-                describe="0x4d16878c27c3847f18bd6d51d67f5b83b52ffe75"
+                title={intl.formatMessage({ id: 'form__trading_time' })}
+                value={formatDate(new Date(txInfo?.blockSignedAt ?? 0))}
               />
-              <Container.Item
-                title={intl.formatMessage({ id: 'content__to' })}
-                value="0xd3f1530766492bf1be9a2ccda487c556d21f1ab8"
-              />
-              <Container.Item
-                title={intl.formatMessage({ id: 'content__amount' })}
-                value={txInfo.amount.toString()}
-              />
+
               <Container.Item
                 title={intl.formatMessage({ id: 'content__fee' })}
-                value={txInfo.amount.toString()}
+                value={`${new BigNumber(txInfo?.gasSpent ?? 0)
+                  .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
+                  .dividedBy(new BigNumber(1e18))
+                  .decimalPlaces(6)
+                  .toString()} ETH`}
               />
-              <Container.Item
-                title={intl.formatMessage({ id: 'content__total' })}
-                value={txInfo.amount.toString()}
-                describe={txInfo.amount.toString()}
-              />
+
+              {renderTotalAmount()}
             </Container.Box>
 
             <Typography.Subheading mt={6} w="100%" color="text-subdued">
@@ -172,23 +302,30 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
             <Container.Box mt={2}>
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_limit' })}
-                value={txInfo.amount.toString()}
+                value={txInfo?.gasOffered.toString()}
               />
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_used' })}
-                value={txInfo.amount.toString()}
+                value={`${txInfo?.gasSpent?.toString() ?? ''}(${new BigNumber(
+                  txInfo?.gasSpent ?? 0,
+                )
+                  .dividedBy(new BigNumber(txInfo?.gasOffered ?? 0))
+                  .decimalPlaces(2)
+                  .multipliedBy(100)
+                  .toString()} %)`}
               />
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_price' })}
-                value={txInfo.amount.toString()}
-              />
-              <Container.Item
-                title={intl.formatMessage({ id: 'content__nonce' })}
-                value={txInfo.amount.toString()}
+                value={`${new BigNumber(txInfo?.gasPrice ?? 0)
+                  .dividedBy(1e18)
+                  .toFixed()
+                  .toString()} ETH (${new BigNumber(txInfo?.gasPrice ?? 0)
+                  .dividedBy(1e9)
+                  .toString()} Gwei)`}
               />
             </Container.Box>
 
-            <Typography.Subheading mt={6} w="100%" color="text-subdued">
+            {/* <Typography.Subheading mt={6} w="100%" color="text-subdued">
               {intl.formatMessage({ id: 'content__activity_logs' })}
             </Typography.Subheading>
             <Container.Box mt={2}>
@@ -204,7 +341,7 @@ const TransactionDetails: FC<TransactionDetailsProps> = () => {
                 title={intl.formatMessage({ id: 'content__confirmed' })}
                 value={formatDate(txInfo.date)}
               />
-            </Container.Box>
+            </Container.Box> */}
 
             <Button
               w="100%"

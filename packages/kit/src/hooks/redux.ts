@@ -23,10 +23,13 @@ export const useGeneral = () => {
 };
 
 export const useActiveWalletAccount = () => {
-  const { activeAccount, activeWallet } = useAppSelector((s) => s.general);
+  const { activeAccount, activeWallet, activeNetwork } = useAppSelector(
+    (s) => s.general,
+  );
 
   return {
     wallet: activeWallet,
     account: activeAccount,
+    network: activeNetwork,
   };
 };

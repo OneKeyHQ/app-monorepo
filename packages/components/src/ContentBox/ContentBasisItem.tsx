@@ -9,7 +9,7 @@ import { ContentItemBaseProps } from './Container';
 export type ContentItemProps = {
   title: string;
   value?: string;
-  describe?: string;
+  describe?: string | string[] | null;
 } & ContentItemBaseProps;
 
 const ContentItem: FC<ContentItemProps> = ({
@@ -53,11 +53,25 @@ const ContentItem: FC<ContentItemProps> = ({
             {value}
           </Text>
         )}
-        {!!describe && (
-          <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
-            {describe}
-          </Typography.Body2>
-        )}
+        {!!describe &&
+          describe.length > 0 &&
+          (describe instanceof Array ? (
+            describe.map((describeItem) => (
+              <>
+                <Typography.Body2
+                  w="100%"
+                  color="text-subdued"
+                  textAlign="right"
+                >
+                  {describeItem}
+                </Typography.Body2>
+              </>
+            ))
+          ) : (
+            <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
+              {describe}
+            </Typography.Body2>
+          ))}
       </Box>
     </Box>
     {hasDivider && <Divider />}

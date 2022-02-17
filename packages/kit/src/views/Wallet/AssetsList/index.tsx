@@ -22,14 +22,15 @@ import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
 
 import engine from '../../../engine/EngineProvider';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import {
+  HomeRoutes,
+  HomeRoutesParams,
   ModalRoutes,
   RootRoutes,
   RootRoutesParams,
 } from '../../../routes/types';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
-import { TokenDetailNavigation } from '../../TokenDetail/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -37,7 +38,7 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Root
 > &
-  TokenDetailNavigation;
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
@@ -72,14 +73,14 @@ const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
   const [tokens, setTokens] = useState<TokenType[]>([]);
   const [tokenBalance, setTokenBalance] = useState({});
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps>();
 
   useEffect(() => {
     async function main() {
-      if (!activeNetwork?.id || !account?.id) return;
+      if (!network?.network?.id || !account?.id) return;
       const tokensBE = await engine.getTokens(
-        activeNetwork.id,
+        network.network.id,
         account.id,
         true,
       );
@@ -87,14 +88,14 @@ const AssetsList = () => {
 
       const balance = await engine.getAccountBalance(
         account.id,
-        activeNetwork.id,
+        network.network.id,
         tokensBE.map((token) => token.id),
         true,
       );
       setTokenBalance(balance);
     }
     main();
-  }, [activeNetwork, account?.id]);
+  }, [network, account?.id]);
 
   const renderItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
     item,
@@ -104,15 +105,15 @@ const AssetsList = () => {
       p={4}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === tokens?.length - 1 ? '12px' : '0px'}
-      // onPress={() => {
-      //   navigation.navigate(HomeRoutes.ScreenTokenDetail, {
-      //     defaultValues: {
-      //       accountId: '',
-      //       networkId: '',
-      //       tokenId: '',
-      //     },
-      //   });
-      // }}
+      onPress={() => {
+        if (!item.tokenIdOnNetwork) return;
+
+        navigation.navigate(HomeRoutes.ScreenTokenDetail, {
+          accountId: account?.id ?? '',
+          networkId: item.networkId ?? '',
+          tokenId: item.id ?? '',
+        });
+      }}
     >
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token size={8} src={item.logoURI} />
