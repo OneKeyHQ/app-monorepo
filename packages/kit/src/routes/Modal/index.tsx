@@ -62,7 +62,7 @@ import ManageNetworkModal, {
   ManageNetworkRoutesParams,
 } from './ManageNetwork';
 import ManageTokenModal, {
-  ManageTokenModalRoutes,
+  ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from './ManageToken';
 import MiscModal, { MiscModalRoutes, MiscRoutesParams } from './Misc';
@@ -108,10 +108,6 @@ const modalStackScreenList = [
     name: ModalRoutes.Send,
     component: Send,
   },
-  // {
-  //   name: ManageNetworkModalRoutes.NetworkListViewModal,
-  //   component: ManageNetworkModal,
-  // },
   {
     name: ModalRoutes.TransactionDetail,
     component: TransactionDetailModal,
@@ -128,18 +124,10 @@ const modalStackScreenList = [
     name: ModalRoutes.Misc,
     component: MiscModal,
   },
-  // {
-  //   name: ManageTokenModalRoutes.ListTokensModal,
-  //   component: ManageTokenModal,
-  // },
-  // {
-  //   name: CollectiblesModalRoutes.CollectionModal,
-  //   component: CollectibleModal,
-  // },
-  // {
-  //   name: SettingsModalRoutes.SetPasswordModal,
-  //   component: SettingsModal,
-  // },
+  {
+    name: ModalRoutes.ManageToken,
+    component: ManageTokenModal,
+  },
   {
     name: ModalRoutes.SubmitRequest,
     component: SubmitRequestModal,
@@ -152,18 +140,6 @@ const modalStackScreenList = [
     name: ModalRoutes.Password,
     component: PasswordModal,
   },
-  // {
-  //   name: SubmitRequestRoutes.SubmitRequestModal,
-  //   component: SubmitRequestModal,
-  // },
-  // {
-  //   name: HistoryRequestRoutes.HistoryRequestModal,
-  //   component: HistoryRequestModal,
-  // },
-  // {
-  //   name: BackupWalletModalRoutes.BackupSeedHintModal,
-  //   component: BackupWalletModal,
-  // },
   {
     name: ModalRoutes.OnekeyLite,
     component: HardwareOnekeyModal,
@@ -198,66 +174,7 @@ const modalStackScreenList = [
   },
 ];
 
-// export const ModalRoutes = {
-//   ...CreateAccountModalRoutes,
-//   ...ReceiveTokenRoutes,
-//   ...SendRoutes,
-//   ...ManageNetworkModalRoutes,
-//   ...TransactionDetailModalRoutes,
-//   ...ImportAccountModalRoutes,
-//   ...WatchedAccountModalRoutes,
-//   ...CollectiblesModalRoutes,
-//   ...SettingsModalRoutes,
-//   ...BackupWalletModalRoutes,
-//   ...SubmitRequestRoutes,
-//   ...HistoryRequestRoutes,
-//   ...OnekeyLiteModalRoutes,
-//   ...OnekeyLiteResetModalRoutes,
-//   ...OnekeyLiteChangePinModalRoutes,
-// };
-// {
-//   name: ManageTokenModalRoutes.ListTokensModal,
-//   component: ManageTokenModal,
-// },
-// {
-//   name: CollectiblesModalRoutes.CollectionModal,
-//   component: CollectibleModal,
-// },
-// {
-//   name: SettingsModalRoutes.SetPasswordModal,
-//   component: SettingsModal,
-// },
-// {
-//   name: SubmitRequestRoutes.SubmitRequestModal,
-//   component: SubmitRequestModal,
-// },
-// {
-//   name: HistoryRequestRoutes.HistoryRequestModal,
-//   component: HistoryRequestModal,
-// },
-// {
-//   name: BackupWalletModalRoutes.BackupSeedHintModal,
-//   component: BackupWalletModal,
-// },
-// ...OnekeyLiteModalComponents,
-// ];
-
-// export const ModalRoutes = {
-//   ...CreateAccountModalRoutes,
-//   ...ReceiveTokenRoutes,
-//   ...SendRoutes,
-//   ...ManageNetworkModalRoutes,
-//   ...TransactionDetailModalRoutes,
-//   ...ImportAccountModalRoutes,
-//   ...WatchedAccountModalRoutes,
-//   ...CollectiblesModalRoutes,
-//   ...SettingsModalRoutes,
-//   ...BackupWalletModalRoutes,
-//   ...OnekeyLiteModalRoutes,
-//   ...SubmitRequestRoutes,
-//   ...HistoryRequestRoutes,
-// };
-
+// ModalTypes will be delete later, don't update it
 export type ModalTypes = {
   [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
   [ManageNetworkModalRoutes.NetworkListViewModal]: NavigatorScreenParams<ManageNetworkRoutesParams>;
@@ -266,7 +183,6 @@ export type ModalTypes = {
   [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
   [ImportAccountModalRoutes.ImportAccountModal]: NavigatorScreenParams<ImportAccountRoutesParams>;
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
-  [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [PasswordRoutes.PasswordRoutes]: NavigatorScreenParams<PasswordRoutesParams>;
   [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
@@ -286,22 +202,10 @@ const ModalStack = createStackNavigator<ModalRoutesParams>();
 
 const ModalStackNavigator = () => (
   <ModalStack.Navigator
-    // initialRouteName={OthersRoutes.Unlock}
     screenOptions={{
       headerShown: false,
     }}
   >
-    {/* <ModalStack.Group
-      screenOptions={{
-        headerShown: false,
-        presentation: 'transparentModal',
-        ...TransitionPresets.ModalFadeTransition,
-      }}
-    >
-      <ModalStack.Screen name={OthersRoutes.Unlock} component={Unlock} />
-      <ModalStack.Screen name={OthersRoutes.Splash} component={Splash} />
-    </ModalStack.Group> */}
-
     {modalStackScreenList.map((modal) => (
       <ModalStack.Screen
         key={modal.name}

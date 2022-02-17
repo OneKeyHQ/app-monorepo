@@ -3,28 +3,27 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { AddCustomToken } from '@onekeyhq/kit/src/views/ManageTokens/AddCustomToken';
-import { AddToken } from '@onekeyhq/kit/src/views/ManageTokens/AddToken';
-import { ListTokens } from '@onekeyhq/kit/src/views/ManageTokens/ListTokens';
+
+import { AddToken, CustomToken, Listing } from '../../views/ManageTokens';
 import {
-  ManageTokenModalRoutes,
+  ManageTokenRoutes,
   ManageTokenRoutesParams,
-} from '@onekeyhq/kit/src/views/ManageTokens/types';
+} from '../../views/ManageTokens/types';
 
 const ManageTokenNavigator = createStackNavigator<ManageTokenRoutesParams>();
 
 const modalRoutes = [
   {
-    name: ManageTokenModalRoutes.ListTokensModal,
-    component: ListTokens,
+    name: ManageTokenRoutes.Listing,
+    component: Listing,
   },
   {
-    name: ManageTokenModalRoutes.AddTokenModal,
+    name: ManageTokenRoutes.AddToken,
     component: AddToken,
   },
   {
-    name: ManageTokenModalRoutes.AddCustomTokenModal,
-    component: AddCustomToken,
+    name: ManageTokenRoutes.CustomToken,
+    component: CustomToken,
   },
 ];
 
@@ -49,5 +48,5 @@ const ManageTokenModalStack = () => {
 };
 
 export default ManageTokenModalStack;
-export { ManageTokenModalRoutes };
+export { ManageTokenRoutes };
 export type { ManageTokenRoutesParams };
