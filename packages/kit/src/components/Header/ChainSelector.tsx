@@ -112,23 +112,18 @@ const ChainSelector: FC = () => {
         // }
         renderTrigger={(activeOption, isHovered, visible) => (
           <HStack
-            w="156px"
             p={2}
             space={1}
             bg={
               // eslint-disable-next-line no-nested-ternary
-              visible
-                ? 'surface-selected'
-                : isHovered
-                ? 'surface-hovered'
-                : 'surface-default'
+              visible ? 'surface-selected' : isHovered ? 'surface-hovered' : ''
             }
             borderRadius="xl"
             alignItems="center"
           >
-            <HStack space={{ base: 2, md: 3 }} alignItems="center" flex="1">
-              <Token size={{ base: 5, md: 6 }} {...activeOption.tokenProps} />
-              <Typography.Body2Strong flex="1" numberOfLines={1}>
+            <HStack maxW="104" space={3} alignItems="center">
+              <Token size={6} {...activeOption.tokenProps} />
+              <Typography.Body2Strong flex={1} isTruncated>
                 {activeOption.label}
               </Typography.Body2Strong>
             </HStack>
