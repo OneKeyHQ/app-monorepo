@@ -89,8 +89,10 @@ const MainScreen = () => {
   const onChange = useCallback(() => setCount((prev) => prev + 1), []);
   useEffect(() => {
     AppState.addEventListener('change', onChange);
+    const timer = setInterval(onChange, 10 * 1000);
     return () => {
       AppState.removeEventListener('change', onChange);
+      clearInterval(timer);
     };
   }, [onChange]);
   const { lastLoginAt } = useStatus();

@@ -15,23 +15,26 @@ import {
 } from '@onekeyhq/components';
 import { useAppDispatch, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
-  SettingsModalRoutes,
-  SettingsRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Settings';
-import {
   setAppLockDuration,
   setEnableAppLock,
   setEnableLocalAuthentication,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import { PasswordRoutes } from '../../../routes/Modal/Password';
+import {
+  ModalRoutes,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../../routes/types';
+import { persistor } from '../../../store';
 import { SelectTrigger } from '../SelectTrigger';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  SettingsRoutesParams,
-  SettingsModalRoutes.SetPasswordModal
+  RootRoutesParams,
+  RootRoutes.Root
 >;
 
 export const SecuritySection = () => {
@@ -102,10 +105,15 @@ export const SecuritySection = () => {
     ],
     [intl],
   );
-  const onReset = useCallback(() => {
+  const onOpenResetModal = useCallback(() => {
     setShowResetModal(true);
   }, []);
-  const onChange = useCallback(
+  const onReset = useCallback(() => {
+    persistor.purge();
+    dispatch({ type: 'LOGOUT', payload: undefined });
+    setShowResetModal(false);
+  }, [dispatch]);
+  const onSetAppLockDuration = useCallback(
     (value: number) => {
       dispatch(setAppLockDuration(value));
     },
@@ -113,7 +121,7 @@ export const SecuritySection = () => {
   );
   return (
     <>
-      <Box w="full" mb="4" zIndex={9} shadow="depth.2">
+      <Box w="full" mb="4" zIndex={9}>
         <Box p="2">
           <Typography.Subheading>
             {intl.formatMessage({
@@ -132,7 +140,10 @@ export const SecuritySection = () => {
             borderBottomWidth="1"
             borderBottomColor="divider"
             onPress={() => {
-              navigation.navigate(SettingsModalRoutes.SetPasswordModal);
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Password,
+                params: { screen: PasswordRoutes.PasswordRoutes },
+              });
             }}
           >
             <Typography.Body1>
@@ -221,7 +232,7 @@ export const SecuritySection = () => {
                   activeOption={activeOption}
                 />
               )}
-              onChange={onChange}
+              onChange={onSetAppLockDuration}
             />
           </Box>
           <Pressable
@@ -230,7 +241,7 @@ export const SecuritySection = () => {
             justifyContent="space-between"
             alignItems="center"
             p="4"
-            onPress={onReset}
+            onPress={onOpenResetModal}
           >
             <Typography.Body1 color="text-critical">
               {intl.formatMessage({
@@ -248,11 +259,11 @@ export const SecuritySection = () => {
         visible={showResetModal}
         onClose={() => setShowResetModal(false)}
         footerButtonProps={{
-          onPrimaryActionPress: () => setShowResetModal(false),
+          onPrimaryActionPress: onReset,
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {
             type: 'destructive',
-            isDisabled: input.toUpperCase() !== 'RESET',
+            isDisabled: input !== 'RESET',
           },
         }}
         contentProps={{

@@ -3,41 +3,41 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { Password } from '@onekeyhq/kit/src/views/Settings/Password';
+import { Password } from '@onekeyhq/kit/src/views/Password';
 import {
-  SettingsModalRoutes,
-  SettingsRoutesParams,
-} from '@onekeyhq/kit/src/views/Settings/Password/types';
+  PasswordRoutes,
+  PasswordRoutesParams,
+} from '@onekeyhq/kit/src/views/Password/types';
 
-const ManageTokenNavigator = createStackNavigator<SettingsRoutesParams>();
+const PasswordNavigator = createStackNavigator<PasswordRoutesParams>();
 
 const modalRoutes = [
   {
-    name: SettingsModalRoutes.SetPasswordModal,
+    name: PasswordRoutes.PasswordRoutes,
     component: Password,
   },
 ];
 
-const SettingsModalStack = () => {
+const PasswordModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
-    <ManageTokenNavigator.Navigator
+    <PasswordNavigator.Navigator
       screenOptions={{
         headerShown: false,
         animationEnabled: !!isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (
-        <ManageTokenNavigator.Screen
+        <PasswordNavigator.Screen
           key={route.name}
           name={route.name}
           component={route.component}
         />
       ))}
-    </ManageTokenNavigator.Navigator>
+    </PasswordNavigator.Navigator>
   );
 };
 
-export type { SettingsRoutesParams };
-export { SettingsModalRoutes };
-export default SettingsModalStack;
+export type { PasswordRoutesParams };
+export { PasswordRoutes };
+export default PasswordModalStack;

@@ -25,7 +25,7 @@ export const GenaralSection = () => {
   const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
 
   return (
-    <Box w="full" mb="4" zIndex={10} shadow="depth.2">
+    <Box w="full" mb="4" zIndex={10}>
       <Box p="2">
         <Typography.Subheading>
           {intl.formatMessage({

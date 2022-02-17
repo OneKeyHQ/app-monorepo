@@ -66,15 +66,15 @@ import ManageTokenModal, {
   ManageTokenRoutesParams,
 } from './ManageToken';
 import MiscModal, { MiscModalRoutes, MiscRoutesParams } from './Misc';
+import PasswordModal, {
+  PasswordRoutes,
+  PasswordRoutesParams,
+} from './Password';
 import ReceiveToken, {
   ReceiveTokenRoutes,
   ReceiveTokenRoutesParams,
 } from './ReceiveToken';
 import Send, { SendRoutes, SendRoutesParams } from './Send';
-import SettingsModal, {
-  SettingsModalRoutes,
-  SettingsRoutesParams,
-} from './Settings';
 import SubmitRequestModal, {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
@@ -148,6 +148,18 @@ const modalStackScreenList = [
     name: ModalRoutes.HistoryRequest,
     component: HistoryRequestModal,
   },
+  {
+    name: ModalRoutes.Password,
+    component: PasswordModal,
+  },
+  // {
+  //   name: SubmitRequestRoutes.SubmitRequestModal,
+  //   component: SubmitRequestModal,
+  // },
+  // {
+  //   name: HistoryRequestRoutes.HistoryRequestModal,
+  //   component: HistoryRequestModal,
+  // },
   // {
   //   name: BackupWalletModalRoutes.BackupSeedHintModal,
   //   component: BackupWalletModal,
@@ -256,7 +268,7 @@ export type ModalTypes = {
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
   [ManageTokenModalRoutes.ListTokensModal]: NavigatorScreenParams<ManageTokenRoutesParams>;
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
-  [SettingsModalRoutes.SetPasswordModal]: NavigatorScreenParams<SettingsRoutesParams>;
+  [PasswordRoutes.PasswordRoutes]: NavigatorScreenParams<PasswordRoutesParams>;
   [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
