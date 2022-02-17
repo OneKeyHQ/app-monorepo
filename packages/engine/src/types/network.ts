@@ -28,8 +28,13 @@ type DBNetwork = NetworkCommon & {
 };
 
 type PresetNetwork = NetworkCommon & {
+  chainId?: number;
+  isTestnet?: boolean;
   presetRpcURLs: Array<string>;
-  // TODO explorerURL
+  rpcURLs?: Array<Record<string, string>>;
+  prices?: Array<Record<string, any>>;
+  explorers?: Array<Record<string, any>>;
+  extensions?: Record<string, any>;
 };
 
 type Network = NetworkShort & DBNetwork & PresetNetwork;
