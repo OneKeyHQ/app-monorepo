@@ -26,7 +26,7 @@ import {
   getWatchingAccountToCreate,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import { getTxHistories } from './managers/covalent';
+import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -744,13 +744,31 @@ class Engine {
 
   async getTxHistories(
     networkId: string,
-    accountId: string,
+    address: string,
     pageNumber: number,
     pageSize: number,
   ) {
     const network = await this.dbApi.getNetwork(networkId);
     const chainId = network.id.split(SEPERATOR)[1];
-    return getTxHistories(chainId, accountId, pageNumber, pageSize);
+    return getTxHistories(chainId, address, pageNumber, pageSize);
+  }
+
+  async getErc20TxHistories(
+    networkId: string,
+    address: string,
+    contract: string,
+    pageNumber: number,
+    pageSize: number,
+  ) {
+    const network = await this.dbApi.getNetwork(networkId);
+    const chainId = network.id.split(SEPERATOR)[1];
+    return getErc20TransferHistories(
+      chainId,
+      address,
+      contract,
+      pageNumber,
+      pageSize,
+    );
   }
 
   // TODO: RPC interactions.
