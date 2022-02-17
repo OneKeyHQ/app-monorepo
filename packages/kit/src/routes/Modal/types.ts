@@ -17,3 +17,4 @@ export type { DappSendRoutesParams } from './DappSend';
 export type { DappMulticallRoutesParams } from './DappMulticall';
 export type { DappSignatureRoutesParams } from './DappSignature';
 export type { DappConnectionRoutesParams } from './DappConnection';
+export type { PasswordRoutesParams } from './Password';

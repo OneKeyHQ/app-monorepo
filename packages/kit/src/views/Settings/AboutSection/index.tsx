@@ -6,10 +6,10 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
 import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useToast } from '../../../hooks/useToast';
+import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -54,7 +54,7 @@ export const AboutSection = () => {
     }
   }, []);
   return (
-    <Box w="full" mb="4" shadow="depth.2">
+    <Box w="full" mb="4">
       <Box p="2">
         <Typography.Subheading>
           {intl.formatMessage({
