@@ -3,6 +3,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { Transaction } from '@onekeyhq/engine/src/types/covalent';
 import TransactionDetails from '@onekeyhq/kit/src/views/TransactionDetails';
 
 export enum TransactionDetailModalRoutes {
@@ -10,7 +11,10 @@ export enum TransactionDetailModalRoutes {
 }
 
 export type TransactionDetailRoutesParams = {
-  [TransactionDetailModalRoutes.TransactionDetailModal]: { txId: string };
+  [TransactionDetailModalRoutes.TransactionDetailModal]: {
+    txHash: string | null;
+    tx: Transaction | null;
+  };
 };
 
 const TransactionDetailNavigator =

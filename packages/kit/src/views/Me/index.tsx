@@ -19,7 +19,6 @@ import {
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import HelpSelector from '../Help/HelpSelector';
-import { TokenDetailNavigation } from '../TokenDetail/routes';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,8 +26,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Dev>,
   NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
-> &
-  TokenDetailNavigation;
+>;
 
 const Me = () => {
   const navigation = useNavigation<NavigationProps>();

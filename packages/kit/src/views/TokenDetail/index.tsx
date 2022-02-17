@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+
+import { RouteProp, useRoute } from '@react-navigation/core';
 
 import { Box, ScrollView, VStack } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import { useNavigation } from '../..';
-import { HomeRoutes } from '../../routes/types';
+import engine from '../../engine/EngineProvider';
+import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
 import { TokenDetailRoutesParams } from './routes';
@@ -17,26 +21,28 @@ export type TokenDetailViewProps = NativeStackScreenProps<
   HomeRoutes.ScreenTokenDetail
 >;
 
-const TOKEN = {
-  'chainId': 1,
-  'address': '0xfF20817765cB7f73d4bde2e66e067E58D11095C2',
-  'name': 'Amp',
-  'symbol': 'AMP',
-  'decimals': 18,
-  'logoURI':
-    'https://assets.coingecko.com/coins/images/12409/thumb/amp-200x200.png?1599625397',
-  'amount': '9999999999.0000123',
-  fiatAmount: '99.11 USD',
-};
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-const TokenDetail: React.FC<TokenDetailViewProps> = ({ route }) => {
-  //   const { defaultValues } = route.params;
+const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
-  navigation.setOptions({
-    title: TOKEN.symbol,
-  });
+  const route = useRoute<RouteProps>();
+  const { accountId, networkId, tokenId } = route.params;
+  const [token, setToken] = useState<Token>();
 
-  console.log(route);
+  useEffect(() => {
+    async function main() {
+      const account = await engine.getAccount(accountId, networkId);
+      const filterToken = account.tokens.find((t) => t.id === tokenId);
+      setToken(filterToken);
+
+      if (filterToken) {
+        navigation.setOptions({
+          title: filterToken.name,
+        });
+      }
+    }
+    main();
+  }, [accountId, navigation, networkId, tokenId]);
 
   return (
     <ScrollView
@@ -47,8 +53,14 @@ const TokenDetail: React.FC<TokenDetailViewProps> = ({ route }) => {
     >
       <VStack>
         <Box>
-          <TokenInfo token={TOKEN} />
-          <HistoricalRecords />
+          <TokenInfo accountId={accountId} token={token} />
+          <HistoricalRecords
+            accountId={accountId}
+            networkId={networkId}
+            tokenId={token?.tokenIdOnNetwork}
+            // 接口修改为 tokenId 时需要更新
+            // tokenId={token?.id}
+          />
         </Box>
       </VStack>
     </ScrollView>

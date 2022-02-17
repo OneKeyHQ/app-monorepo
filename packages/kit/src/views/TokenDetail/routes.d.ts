@@ -9,12 +9,10 @@ export type TokenDetailScreenValues = {
 };
 
 export type TokenDetailRoutesParams = {
-  [HomeRoutes.ScreenTokenDetail]: {
-    defaultValues: TokenDetailScreenValues;
-  };
+  [HomeRoutes.ScreenTokenDetail]: TokenDetailScreenValues;
 };
 
 export type TokenDetailNavigation = NativeStackNavigationProp<
   TokenDetailRoutesParams,
-  HomeRoutes
+  HomeRoutes.ScreenTokenDetail
 >;

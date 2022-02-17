@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,8 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   ModalNavigatorRoutes,
   ModalTypes,
@@ -28,33 +30,50 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export type TokenInfoProps = {
-  token: any;
+  accountId: string | null | undefined;
+  token: TokenDO | null | undefined;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const [amount, setAmount] = useState('0');
+  const [amountFiat, setAmountFiat] = useState('0');
+
+  useEffect(() => {
+    async function main() {
+      if (!accountId || !token?.id) return;
+      const result = await engine.getAccountBalance(
+        accountId,
+        token.networkId,
+        [token.tokenIdOnNetwork],
+      );
+      setAmount(result[token.tokenIdOnNetwork]?.toString() ?? '0');
+      setAmountFiat(result[token.tokenIdOnNetwork]?.toString() ?? '0');
+    }
+    main();
+  }, [accountId, token]);
 
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
-        <Token size={12} src={token.logoURI} />
+        <Token size={12} src={token?.logoURI} />
         <Box
           ml={isVertical ? 0 : 4}
           alignItems={isVertical ? 'center' : 'flex-start'}
         >
           <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
-            <Typography.DisplayXLarge>{token.amount}</Typography.DisplayXLarge>
+            <Typography.DisplayXLarge>{amount}</Typography.DisplayXLarge>
             <Typography.DisplayXLarge pl={2}>
-              {token.symbol}
+              {token?.symbol}
             </Typography.DisplayXLarge>
           </Box>
-          <Typography.Body2 mt={1}>{token.fiatAmount}</Typography.Body2>
+          <Typography.Body2 mt={1}>{amountFiat}</Typography.Body2>
         </Box>
       </Box>
     ),
-    [token, isVertical],
+    [isVertical, token, amount, amountFiat],
   );
 
   const accountOption = useMemo(

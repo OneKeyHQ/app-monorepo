@@ -88,7 +88,11 @@ export enum HomeRoutes {
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
-  [HomeRoutes.ScreenTokenDetail]: undefined;
+  [HomeRoutes.ScreenTokenDetail]: {
+    accountId: string;
+    networkId: string;
+    tokenId: string;
+  };
   [HomeRoutes.SettingsScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
