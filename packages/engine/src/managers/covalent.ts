@@ -102,6 +102,7 @@ function eventAdapter(
           case TransferEventTopic:
             event = erc20TransferEventAdapter(user, log);
             transferEvent.push(event);
+            tokenType = TokenType.ERC20;
             if (event.fromAddress === user) {
               type = TransactionType.Transfer;
             } else {
@@ -114,7 +115,6 @@ function eventAdapter(
       }
     }
   } else {
-    tokenType = TokenType.ERC20;
     for (let index = 0; index < transfers.length; index += 1) {
       transferEvent.push(transferLogToTransferEvent(transfers[index]));
     }
