@@ -10,7 +10,7 @@ import {
   OneKeyInternalError,
   WrongPassword,
 } from '../../errors';
-import { presetNetworksList } from '../../presets';
+import { getPresetNetworks } from '../../presets';
 import { ACCOUNT_TYPE_SIMPLE, DBAccount } from '../../types/account';
 import {
   HistoryEntry,
@@ -75,6 +75,7 @@ class RealmDB implements DBAPI {
     })
       .then((realm) => {
         if (update || realm.empty) {
+          const presetNetworksList = Object.values(getPresetNetworks());
           realm.write(() => {
             if (realm.empty) {
               realm.create('Wallet', {

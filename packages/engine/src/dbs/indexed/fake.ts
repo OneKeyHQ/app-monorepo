@@ -12,7 +12,7 @@ import {
   OneKeyInternalError,
   WrongPassword,
 } from '../../errors';
-import { presetNetworks } from '../../presets';
+import { getPresetNetworks } from '../../presets';
 import {
   ACCOUNT_TYPE_SIMPLE,
   DBAccount,
@@ -158,6 +158,7 @@ class FakeDB implements DBAPI {
           const networkIds = new Set(getNetworkIdsRequest.result);
           let position = networkIds.size;
           // TODO: also sync networks from remote.
+          const presetNetworks = getPresetNetworks();
           Object.values(presetNetworks).forEach((network) => {
             if (networkIds.has(network.id)) {
               return;
