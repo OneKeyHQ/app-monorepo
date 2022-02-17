@@ -1,5 +1,5 @@
-import { FakeDB } from './fake';
+import { IndexedDBApi } from './indexeddb';
 
-const DbApi = FakeDB;
+const DbApi = IndexedDBApi;
 
 export { DbApi };

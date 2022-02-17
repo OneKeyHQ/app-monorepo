@@ -3,7 +3,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import type { NetworkShort } from '@onekeyhq/engine/src/types/network';
 
 type InitialState = {
-  network: Record<string, NetworkShort[]> | null;
+  network: NetworkShort[] | null;
 };
 
 const initialState: InitialState = {

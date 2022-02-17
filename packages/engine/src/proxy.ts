@@ -1,10 +1,13 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+/* eslint max-classes-per-file: "off" */
+
 import { Buffer } from 'buffer';
 
 import BigNumber from 'bignumber.js';
 
 import { RestfulRequest } from '@onekeyhq/blockchain-libs/dist/basic/request/restful';
+import { Coingecko } from '@onekeyhq/blockchain-libs/dist/price/channels/coingecko';
 import { ProviderController as BaseProviderController } from '@onekeyhq/blockchain-libs/dist/provider';
 import {
   BaseClient,
@@ -26,9 +29,12 @@ import { Signer, Verifier } from '@onekeyhq/blockchain-libs/dist/types/secret';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { OneKeyInternalError } from './errors';
+import { getPresetNetworks } from './presets';
 import { Account, SimpleAccount } from './types/account';
 import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
+
+const CGK_BATCH_SIZE = 100;
 
 // IMPL naming aren't necessarily the same.
 const IMPL_MAPPINGS: Record<string, string> = {
@@ -432,4 +438,119 @@ class ProviderController extends BaseProviderController {
   }
 }
 
-export { fromDBNetworkToChainInfo, ProviderController };
+class PriceController {
+  private cgk: Coingecko;
+
+  constructor() {
+    this.cgk = new Coingecko();
+  }
+
+  async getFiats(fiats: Set<string>): Promise<Record<string, BigNumber>> {
+    const ret: Record<string, BigNumber> = { 'usd': new BigNumber('1') };
+    let rates: Record<string, { value: number }>;
+    try {
+      const response = await this.cgk.fetchApi('/api/v3/exchange_rates');
+      rates = (
+        (await response.json()) as { rates: Record<string, { value: number }> }
+      ).rates;
+    } catch (e) {
+      console.error(e);
+      return Promise.reject(new Error('Failed to get fiat rates.'));
+    }
+
+    if (typeof rates.usd === 'undefined') {
+      return Promise.reject(new Error('Failed to get fiat rates.'));
+    }
+
+    const btcToUsd = new BigNumber(rates.usd.value);
+    ret.btc = new BigNumber(1).div(btcToUsd);
+    fiats.forEach((fiat) => {
+      if (fiat !== 'usd' && typeof rates[fiat] !== 'undefined') {
+        ret[fiat] = new BigNumber(rates[fiat].value).div(btcToUsd);
+      }
+    });
+    return ret;
+  }
+
+  private async getCgkTokensPrice(
+    platform: string,
+    addresses: Array<string>,
+  ): Promise<Record<string, BigNumber>> {
+    if (addresses.length > CGK_BATCH_SIZE) {
+      return {};
+    }
+    const ret: Record<string, BigNumber> = {};
+    try {
+      const response = await this.cgk.fetchApi(
+        `/api/v3/simple/token_price/${platform}`,
+        {
+          contract_addresses: addresses.join(','),
+          vs_currencies: 'usd',
+        },
+      );
+      const prices = (await response.json()) as Record<string, { usd: number }>;
+      for (const [address, value] of Object.entries(prices)) {
+        if (typeof value.usd === 'number') {
+          ret[address] = new BigNumber(value.usd);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return ret;
+  }
+
+  async getPrices(
+    networkId: string,
+    tokenIdOnNetwork: Array<string>,
+    withMain = true,
+  ): Promise<Record<string, BigNumber>> {
+    const ret: Record<string, BigNumber> = {};
+
+    const channels = (getPresetNetworks()[networkId].prices || []).reduce(
+      (obj, item) => ({ ...obj, [item.channel]: item }),
+      {},
+    );
+    const cgkChannel = channels.coingecko as {
+      channel: string;
+      native: string;
+      platform: string;
+    };
+    if (typeof cgkChannel === 'undefined') {
+      return ret;
+    }
+
+    if (withMain && typeof cgkChannel.native !== 'undefined') {
+      try {
+        const response = await this.cgk.fetchApi('/api/v3/simple/price', {
+          ids: cgkChannel.native,
+          vs_currencies: 'usd',
+        });
+        ret.main = new BigNumber(
+          ((await response.json()) as Record<string, { usd: number }>)[
+            cgkChannel.native
+          ].usd,
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (typeof cgkChannel.platform !== 'undefined') {
+      const batchSize = CGK_BATCH_SIZE;
+      for (let i = 0; i < tokenIdOnNetwork.length; i += batchSize) {
+        Object.assign(
+          ret,
+          await this.getCgkTokensPrice(
+            cgkChannel.platform,
+            tokenIdOnNetwork.slice(i, i + batchSize),
+          ),
+        );
+      }
+    }
+
+    return ret;
+  }
+}
+
+export { fromDBNetworkToChainInfo, ProviderController, PriceController };

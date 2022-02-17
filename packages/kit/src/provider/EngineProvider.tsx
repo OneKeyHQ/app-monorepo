@@ -75,8 +75,8 @@ const EngineApp: FC = ({ children }) => {
   useEffect(() => {
     if (!networks) return;
     if (activeNetwork?.network) return;
-    const sharedChainName = Object.keys(networks)[0];
-    const defaultNetwork = networks[sharedChainName][0];
+    const sharedChainName = networks[0].impl;
+    const defaultNetwork = networks[0];
     dispatch(changeActiveNetwork({ network: defaultNetwork, sharedChainName }));
   }, [dispatch, networks, activeNetwork]);
 

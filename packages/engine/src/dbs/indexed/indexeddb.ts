@@ -50,8 +50,6 @@ type TokenBinding = {
 };
 
 require('fake-indexeddb/auto');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const indexedDB = require('fake-indexeddb');
 
 const DB_NAME = 'OneKey';
 const DB_VERSION = 1;
@@ -121,7 +119,7 @@ function initDb(request: IDBOpenDBRequest) {
   );
 }
 
-class FakeDB implements DBAPI {
+class IndexedDBApi implements DBAPI {
   private readonly ready: Promise<IDBDatabase>;
 
   constructor() {
@@ -157,9 +155,10 @@ class FakeDB implements DBAPI {
         getNetworkIdsRequest.onsuccess = (_revent) => {
           const networkIds = new Set(getNetworkIdsRequest.result);
           let position = networkIds.size;
-          // TODO: also sync networks from remote.
-          const presetNetworks = getPresetNetworks();
-          Object.values(presetNetworks).forEach((network) => {
+          const presetNetworksList = Object.values(getPresetNetworks()).sort(
+            (a, b) => (a.name > b.name ? 1 : -1),
+          );
+          presetNetworksList.forEach((network) => {
             if (networkIds.has(network.id)) {
               return;
             }
@@ -185,8 +184,33 @@ class FakeDB implements DBAPI {
     });
   }
 
-  reset(_password: string): Promise<void> {
-    throw new NotImplemented();
+  reset(password: string): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([CONTEXT_STORE_NAME]);
+          transaction.oncomplete = (_tevent) => {
+            const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+            deleteRequest.onerror = (_devent) => {
+              reject(new OneKeyInternalError('Failed to delete db.'));
+            };
+            deleteRequest.onsuccess = (_devent) => {
+              resolve();
+            };
+          };
+
+          const getMainContextRequest = transaction
+            .objectStore(CONTEXT_STORE_NAME)
+            .get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_cevent) => {
+            const context: OneKeyContext =
+              getMainContextRequest.result as OneKeyContext;
+            if (!checkPassword(context, password)) {
+              reject(new WrongPassword());
+            }
+          };
+        }),
+    );
   }
 
   listNetworks(): Promise<Array<DBNetwork>> {
@@ -1307,4 +1331,4 @@ class FakeDB implements DBAPI {
   }
 }
 
-export { FakeDB };
+export { IndexedDBApi };
