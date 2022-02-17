@@ -26,7 +26,7 @@ import {
   getWatchingAccountToCreate,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import { getTxHistories } from './managers/covalent';
+import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -745,9 +745,61 @@ class Engine {
     pageNumber: number,
     pageSize: number,
   ) {
-    const network = await this.dbApi.getNetwork(networkId);
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    if (network.impl !== IMPL_EVM) {
+      throw new OneKeyInternalError('Network not support.');
+    }
+
+    if (typeof dbAccount === 'undefined') {
+      throw new OneKeyInternalError('Account not found.');
+    }
+    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+      throw new NotImplemented();
+    }
     const chainId = network.id.split(SEPERATOR)[1];
-    return getTxHistories(chainId, accountId, pageNumber, pageSize);
+
+    return getTxHistories(
+      chainId,
+      (dbAccount as DBSimpleAccount).address,
+      pageNumber,
+      pageSize,
+    );
+  }
+
+  async getErc20TxHistories(
+    networkId: string,
+    accountId: string,
+    contract: string,
+    pageNumber: number,
+    pageSize: number,
+  ) {
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    if (network.impl !== IMPL_EVM) {
+      throw new OneKeyInternalError('Network not support.');
+    }
+
+    if (typeof dbAccount === 'undefined') {
+      throw new OneKeyInternalError('Account not found.');
+    }
+    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+      throw new NotImplemented();
+    }
+    const chainId = network.id.split(SEPERATOR)[1];
+    return getErc20TransferHistories(
+      chainId,
+      (dbAccount as DBSimpleAccount).address,
+      contract,
+      pageNumber,
+      pageSize,
+    );
   }
 
   // TODO: RPC interactions.
