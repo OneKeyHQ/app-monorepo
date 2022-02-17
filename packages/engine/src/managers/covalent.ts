@@ -37,7 +37,7 @@ function transferLogToTransferEvent(transfer: Transfer): TransferEvent {
       transfer.transferType === 'IN'
         ? TransactionType.Receive
         : TransactionType.Transfer,
-    tokenType: TokenType.native,
+    tokenType: TokenType.ERC20,
     balance: 0,
     balanceQuote: 0,
     quoteRate: transfer.quoteRate,
@@ -59,11 +59,11 @@ function erc20TransferEventAdapter(user: string, log: LogEvent): TransferEvent {
     tokenName: log.senderName,
     tokenSymbol: log.senderContractTickerSymbol,
     tokenDecimals: log.senderContractDecimals,
-    tokenType: TokenType.native,
     transferType:
       log.senderAddress === user
         ? TransactionType.Transfer
         : TransactionType.Receive,
+    tokenType: TokenType.ERC20,
     balance: 0,
     balanceQuote: 0,
     quoteRate: 0,
@@ -114,6 +114,7 @@ function eventAdapter(
       }
     }
   } else {
+    tokenType = TokenType.ERC20;
     for (let index = 0; index < transfers.length; index += 1) {
       transferEvent.push(transferLogToTransferEvent(transfers[index]));
     }
