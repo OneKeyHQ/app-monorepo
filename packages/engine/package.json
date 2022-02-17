@@ -39,6 +39,7 @@
     "realm": "realm"
   },
   "browser": {
-    "realm": false
+    "realm": false,
+    "fake-indexeddb/auto": false
   }
 }

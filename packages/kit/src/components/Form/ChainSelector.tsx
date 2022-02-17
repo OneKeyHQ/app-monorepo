@@ -18,15 +18,17 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
   const options = useMemo(() => {
     if (!networks) return [];
 
-    return Object.entries(networks).map(([key, value]) => ({
-      title: key,
-      options: value.map((item) => ({
-        label: item.name,
-        value: item.id,
-        tokenProps: {
-          src: item.logoURI,
+    return networks.map((network) => ({
+      title: network.impl,
+      options: [
+        {
+          label: network.name,
+          value: network.id,
+          tokenProps: {
+            src: network.logoURI,
+          },
         },
-      })),
+      ],
     }));
   }, [networks]);
 
@@ -36,12 +38,10 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
 
       let selectedNetwork: NetworkShort | null = null;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      Object.entries(networks).forEach(([_, value]) => {
-        value.forEach((item) => {
-          if (item.id === id) {
-            selectedNetwork = item;
-          }
-        });
+      networks.forEach((network) => {
+        if (network.id === id) {
+          selectedNetwork = network;
+        }
       });
 
       return selectedNetwork;
