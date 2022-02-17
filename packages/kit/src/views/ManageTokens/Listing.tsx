@@ -1,4 +1,11 @@
-import React, { FC, ReactElement, useMemo, useState } from 'react';
+import React, {
+  FC,
+  ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,70 +24,76 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
+import { Token as TypeOfToken } from '@onekeyhq/engine/src/types/token';
 
-import { ManageTokenModalRoutes, ManageTokenRoutesParams } from './types';
+import engine from '../../engine/EngineProvider';
+import { useGeneral, useSettings } from '../../hooks/redux';
+
+import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
-  ManageTokenModalRoutes.ListTokensModal
+  ManageTokenRoutes.Listing
 >;
-
-type IToken = {
-  name: string;
-  symbol: string;
-  address: string;
-};
-
-const top50list: IToken[] = [
-  {
-    name: 'Tether USD',
-    symbol: 'USDT',
-    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
-  },
-  {
-    name: 'USD Coin',
-    symbol: 'USDC',
-    address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-  },
-];
-
-const mylist: IToken[] = [
-  {
-    name: 'HEX',
-    symbol: 'HEX',
-    address: '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
-  },
-  {
-    name: 'Uniswap',
-    symbol: 'UNI',
-    address: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984',
-  },
-];
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
-export const ListTokens: FC = () => {
+export const Listing: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const [keyword, setKeyword] = useState<string>('');
-  const [token, setToken] = useState<IToken>();
+  const [top50list, setTop50List] = useState<TypeOfToken[]>([]);
+  const [mylist, setMyList] = useState<TypeOfToken[]>([]);
+  const [selectedToken, setSelectedToken] = useState<TypeOfToken>();
+  const { activeNetwork, activeAccount } = useGeneral();
+  const { refreshTimeStamp } = useSettings();
+
+  const onDelete = useCallback(async () => {
+    if (activeAccount && selectedToken) {
+      await engine.removeTokenFromAccount(activeAccount.id, selectedToken?.id);
+    }
+    setSelectedToken(undefined);
+  }, [activeAccount, selectedToken]);
+
+  useEffect(() => {
+    async function fetchTokens() {
+      if (activeNetwork?.network) {
+        const resFortop50list = await engine.getTokens(
+          activeNetwork.network.id,
+        );
+        setTop50List(resFortop50list);
+      }
+      if (activeNetwork?.network && activeAccount) {
+        const resFormylist = await engine.getTokens(
+          activeNetwork.network.id,
+          activeAccount.id,
+        );
+        console.log('resFormylist', resFormylist);
+        setMyList(resFormylist);
+      }
+    }
+    fetchTokens();
+  }, [activeNetwork, activeAccount, refreshTimeStamp]);
 
   const searched = useMemo(() => {
     if (!keyword) {
       return [];
     }
-    const allTokens: IToken[] = ([] as IToken[]).concat(mylist, top50list);
+    const allTokens: TypeOfToken[] = ([] as TypeOfToken[]).concat(
+      mylist,
+      top50list,
+    );
     const result = allTokens.filter(
       (item) =>
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
         item.symbol.toLowerCase().includes(keyword.toLowerCase()),
     );
     return result;
-  }, [keyword]);
+  }, [keyword, mylist, top50list]);
 
-  const renderItem = ({ item }: { item: IToken }) => (
+  const renderItem = ({ item }: { item: TypeOfToken }) => (
     <Box
       display="flex"
       flexDirection="row"
@@ -92,19 +105,24 @@ export const ListTokens: FC = () => {
         size="8"
         chain="eth"
         name={item.name}
-        address={item.address}
-        description={utils.shortenAddress(item.address)}
+        address={item.tokenIdOnNetwork}
+        description={utils.shortenAddress(item.tokenIdOnNetwork)}
       />
       <IconButton
         name="PlusSolid"
         type="plain"
         onPress={() => {
-          navigation.navigate(ManageTokenModalRoutes.AddTokenModal);
+          navigation.navigate(ManageTokenRoutes.AddToken, {
+            name: item.name,
+            symbol: item.symbol,
+            address: item.tokenIdOnNetwork,
+            decimal: item.decimals,
+          });
         }}
       />
     </Box>
   );
-  const renderOwnedItem = ({ item }: { item: IToken }) => (
+  const renderOwnedItem = ({ item }: { item: TypeOfToken }) => (
     <Box
       display="flex"
       flexDirection="row"
@@ -116,14 +134,14 @@ export const ListTokens: FC = () => {
         size="8"
         chain="eth"
         name={item.name}
-        address={item.address}
+        address={item.tokenIdOnNetwork}
         description={`0 ${item.symbol}`}
       />
       <IconButton
         name="TrashSolid"
         type="plain"
         onPress={() => {
-          setToken(item);
+          setSelectedToken(item);
         }}
       />
     </Box>
@@ -162,10 +180,7 @@ export const ListTokens: FC = () => {
           if (isValidateAddr(keyword)) {
             params.address = keyword;
           }
-          navigation.navigate(
-            ManageTokenModalRoutes.AddCustomTokenModal,
-            params,
-          );
+          navigation.navigate(ManageTokenRoutes.CustomToken, params);
         }}
       />
     );
@@ -225,7 +240,7 @@ export const ListTokens: FC = () => {
         headerDescription="Ethereum Mainnet"
         hidePrimaryAction
         onSecondaryActionPress={() => {
-          navigation.navigate(ManageTokenModalRoutes.AddCustomTokenModal);
+          navigation.navigate(ManageTokenRoutes.CustomToken);
         }}
         secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
         secondaryActionTranslationId="action__add_custom_tokens"
@@ -251,10 +266,10 @@ export const ListTokens: FC = () => {
         }}
       />
       <Dialog
-        visible={!!token}
-        onClose={() => setToken(undefined)}
+        visible={!!selectedToken}
+        onClose={() => setSelectedToken(undefined)}
         footerButtonProps={{
-          onPrimaryActionPress: () => setToken(undefined),
+          onPrimaryActionPress: onDelete,
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: { type: 'destructive' },
         }}
@@ -269,7 +284,7 @@ export const ListTokens: FC = () => {
               id: 'modal__delete_this_token_desc',
               defaultMessage: '{token} will be removed from my tokens',
             },
-            { token: token?.name },
+            { token: selectedToken?.name },
           ),
         }}
       />
@@ -277,4 +292,4 @@ export const ListTokens: FC = () => {
   );
 };
 
-export default ListTokens;
+export default Listing;

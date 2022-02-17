@@ -31,6 +31,7 @@ export enum ModalRoutes {
   DappConnectionModal = 'DappConnectionModal',
   Misc = 'Misc',
   Password = 'Password',
+  ManageToken = 'ManageToken',
 }
 
 export type ModalRoutesParams = {
@@ -52,6 +53,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
   [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
   [ModalRoutes.Password]: NavigatorScreenParams<SubModalRoutesParams.PasswordRoutesParams>;
+  [ModalRoutes.ManageToken]: NavigatorScreenParams<SubModalRoutesParams.ManageTokenRoutesParams>;
 };
 /** Modal */
 

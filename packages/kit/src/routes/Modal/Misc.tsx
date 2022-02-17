@@ -3,7 +3,8 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import WalletGuideScreen from '@onekeyhq/kit/src/views/WalletGuide';
+
+import WalletGuideScreen from '../../views/WalletGuide';
 
 export enum MiscModalRoutes {
   WalletGuide = 'WalletGuide',
