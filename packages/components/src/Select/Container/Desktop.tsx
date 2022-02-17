@@ -26,7 +26,7 @@ function Desktop<T>({
   renderItem,
   headerShown,
   dropdownPosition,
-  asAction,
+  activatable,
 }: ChildProps<T>) {
   return (
     <PresenceTransition
@@ -83,7 +83,7 @@ function Desktop<T>({
             activeOption,
             renderItem,
             onChange,
-            asAction,
+            activatable,
           })}
         </ScrollView>
         {isValidElement(footer) || footer === null ? (

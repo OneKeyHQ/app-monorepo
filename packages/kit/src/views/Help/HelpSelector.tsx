@@ -209,7 +209,7 @@ const HelpSelector: FC = () => {
         options={options}
         isTriggerPlain
         footer={isSmallScreen ? {} : null}
-        asAction
+        activatable={false}
         onChange={onChange}
         renderTrigger={() => (
           <Center
