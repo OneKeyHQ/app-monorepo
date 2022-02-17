@@ -1,5 +1,6 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useCallback, useEffect } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,15 +12,18 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
+import engine from '../../engine/EngineProvider';
+import { useGeneral } from '../../hooks/redux';
+import { useToast } from '../../hooks/useToast';
 import { getClipboard } from '../../utils/ClipboardUtils';
 
-import { ManageTokenModalRoutes, ManageTokenRoutesParams } from './types';
+import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackScreenProps<
   ManageTokenRoutesParams,
-  ManageTokenModalRoutes.AddCustomTokenModal
+  ManageTokenRoutes.CustomToken
 >;
 
 type AddCustomTokenValues = {
@@ -30,16 +34,43 @@ type AddCustomTokenValues = {
 
 export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
+  const { activeAccount, activeNetwork } = useGeneral();
+  const { info } = useToast();
   const address = route.params?.address;
   const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
     defaultValues: { address: '', symbol: '', decimal: '' },
   });
-  const onSubmit = handleSubmit((data) => console.log(data));
   useEffect(() => {
     if (address) {
       setValue('address', address);
     }
   }, [address, setValue]);
+  const onSubmit = useCallback(
+    async (data: AddCustomTokenValues) => {
+      console.log(data);
+      if (activeNetwork && activeAccount) {
+        const preResult = await engine.preAddToken(
+          activeAccount.id,
+          activeNetwork.network.id,
+          data.address,
+        );
+        if (preResult) {
+          engine.addTokenToAccount(activeAccount.id, preResult[1].id);
+          info(
+            intl.formatMessage({
+              id: 'msg__token_added',
+              defaultMessage: 'Token Added',
+            }),
+          );
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          }
+        }
+      }
+    },
+    [navigation, activeNetwork, activeAccount, intl, info],
+  );
 
   return (
     <Modal
@@ -48,12 +79,10 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         defaultMessage: 'Add Custom Token',
       })}
       height="560px"
-      hidePrimaryAction
-      secondaryActionProps={{ type: 'primary' }}
-      secondaryActionTranslationId="action__add"
-      onSecondaryActionPress={() => {
-        onSubmit();
-      }}
+      hideSecondaryAction
+      primaryActionTranslationId="action__add"
+      primaryActionProps={{ type: 'primary' }}
+      onPrimaryActionPress={() => handleSubmit(onSubmit)()}
       scrollViewProps={{
         children: (
           <KeyboardDismissView>

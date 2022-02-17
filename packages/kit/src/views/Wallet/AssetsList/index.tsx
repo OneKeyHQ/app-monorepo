@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import {
   Box,
   Divider,
   Icon,
+  IconButton,
   Pressable,
   ScrollableFlatListProps,
   Text,
@@ -19,26 +20,55 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
-import {
-  ManageTokenModalRoutes,
-  ManageTokenRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManageToken';
 
 import engine from '../../../engine/EngineProvider';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
+import {
+  ModalRoutes,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../../routes/types';
+import { ManageTokenRoutes } from '../../ManageTokens/types';
 import { TokenDetailNavigation } from '../../TokenDetail/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  ManageTokenRoutesParams,
-  ManageTokenModalRoutes.ListTokensModal
+  RootRoutesParams,
+  RootRoutes.Root
 > &
   TokenDetailNavigation;
 
-const AssetsList = () => {
+const ListHeaderComponent = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  return (
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      pb={3}
+    >
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'asset__tokens' })}
+      </Typography.Heading>
+      <IconButton
+        onPress={() =>
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageToken,
+            params: { screen: ManageTokenRoutes.Listing },
+          })
+        }
+        size="sm"
+        name="AdjustmentsSolid"
+        type="plain"
+        circle
+      />
+    </Box>
+  );
+};
+
+const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
   const [tokens, setTokens] = useState<TokenType[]>([]);
   const [tokenBalance, setTokenBalance] = useState({});
@@ -119,32 +149,6 @@ const AssetsList = () => {
     </Pressable.Item>
   );
 
-  const header = useCallback(
-    () => (
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__tokens' })}
-        </Typography.Heading>
-        {/* <IconButton
-          onPress={() =>
-            navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
-          }
-          size="sm"
-          name="AdjustmentsSolid"
-          type="plain"
-          circle
-        /> */}
-      </Box>
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, navigation],
-  );
-
   return (
     <Tabs.FlatList
       contentContainerStyle={{
@@ -153,7 +157,7 @@ const AssetsList = () => {
       }}
       data={tokens}
       renderItem={renderItem}
-      ListHeaderComponent={header}
+      ListHeaderComponent={<ListHeaderComponent />}
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h="20px" />}
       keyExtractor={(_item: TokenType) => _item.id}

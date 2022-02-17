@@ -1,5 +1,6 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,45 +13,71 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import engine from '../../engine/EngineProvider';
+import { useAppDispatch, useGeneral } from '../../hooks/redux';
+import { useToast } from '../../hooks/useToast';
+import { setRefreshTS } from '../../store/reducers/settings';
+
+import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RouteProps = RouteProp<
+  ManageTokenRoutesParams,
+  ManageTokenRoutes.AddToken
+>;
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageTokenRoutesParams,
+  ManageTokenRoutes.AddToken
+>;
+
 type ListItem = { label: string; value: string };
 
 export const AddToken: FC = () => {
   const intl = useIntl();
+  const dispatch = useAppDispatch();
+  const { activeAccount, activeNetwork } = useGeneral();
+  const { info } = useToast();
+  const {
+    params: { name, symbol, decimal, address },
+  } = useRoute<RouteProps>();
+  const navigation = useNavigation<NavigationProps>();
   const items: ListItem[] = [
     {
       label: intl.formatMessage({
         id: 'form__name',
         defaultMessage: 'Name',
       }),
-      value: 'USD Coain',
+      value: name,
     },
     {
       label: intl.formatMessage({
         id: 'form__symbol',
         defaultMessage: 'Symbol',
       }),
-      value: 'USDC',
+      value: symbol,
     },
     {
       label: intl.formatMessage({
         id: 'form__contract',
         defaultMessage: 'Contact',
       }),
-      value: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      value: address,
     },
     {
       label: intl.formatMessage({
         id: 'form__decimal',
         defaultMessage: 'Decimal',
       }),
-      value: '6',
+      value: String(decimal),
     },
     {
       label: intl.formatMessage({
         id: 'content__balance',
         defaultMessage: 'Balance',
       }),
-      value: '11USDC',
+      value: '11',
     },
   ];
   const renderItem = ({ item }: { item: ListItem }) => (
@@ -67,6 +94,28 @@ export const AddToken: FC = () => {
       </Typography.Body1>
     </Box>
   );
+  const onPrimaryActionPress = useCallback(async () => {
+    if (activeAccount && activeNetwork) {
+      const res = await engine.preAddToken(
+        activeAccount?.id,
+        activeNetwork.network.id,
+        address,
+      );
+      if (res?.[1]) {
+        await engine.addTokenToAccount(activeAccount?.id, res?.[1].id);
+        dispatch(setRefreshTS());
+        info(
+          intl.formatMessage({
+            id: 'msg__token_added',
+            defaultMessage: 'Token Added',
+          }),
+        );
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        }
+      }
+    }
+  }, [intl, activeAccount, navigation, activeNetwork, info, address, dispatch]);
   return (
     <Modal
       header={intl.formatMessage({
@@ -74,9 +123,9 @@ export const AddToken: FC = () => {
         defaultMessage: 'Add Token',
       })}
       height="560px"
-      secondaryActionTranslationId="action__confirm"
-      secondaryActionProps={{ type: 'primary' }}
-      hidePrimaryAction
+      onPrimaryActionPress={onPrimaryActionPress}
+      primaryActionTranslationId="action__confirm"
+      hideSecondaryAction
       scrollViewProps={{
         children: (
           <KeyboardDismissView>
@@ -91,7 +140,9 @@ export const AddToken: FC = () => {
                   chain="eth"
                   address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
                 />
-                <Typography.Heading mt="2">USDC Coin(USDC)</Typography.Heading>
+                <Typography.Heading mt="2">
+                  {name}({symbol})
+                </Typography.Heading>
               </Box>
               <FlatList
                 bg="surface-default"
