@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,7 +27,7 @@ import {
 import { Token as TypeOfToken } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
-import { useGeneral, useSettings } from '../../hooks/redux';
+import { useGeneral } from '../../hooks/redux';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -46,52 +46,73 @@ export const Listing: FC = () => {
   const [keyword, setKeyword] = useState<string>('');
   const [top50list, setTop50List] = useState<TypeOfToken[]>([]);
   const [mylist, setMyList] = useState<TypeOfToken[]>([]);
+  const [list, setList] = useState<TypeOfToken[]>([]);
+
   const [selectedToken, setSelectedToken] = useState<TypeOfToken>();
   const { activeNetwork, activeAccount } = useGeneral();
-  const { refreshTimeStamp } = useSettings();
+
+  useEffect(() => {
+    const set = new Set(mylist.map((item) => item.tokenIdOnNetwork));
+    const filtered = top50list.filter(
+      (item) => !set.has(item.tokenIdOnNetwork),
+    );
+    setList(filtered);
+  }, [top50list, mylist]);
+
+  const fetchTokens = useCallback(async () => {
+    if (activeNetwork?.network) {
+      const start1 = Date.now();
+      const resFortop50list = await engine.getTokens(activeNetwork.network.id);
+      setTop50List(resFortop50list);
+      const end1 = Date.now();
+      console.log(
+        'get all tokens spent time is',
+        `${(end1 - start1) / 1000} s`,
+      );
+    }
+    if (activeNetwork?.network && activeAccount) {
+      const start2 = Date.now();
+      const resFormylist = await engine.getTokens(
+        activeNetwork.network.id,
+        activeAccount.id,
+      );
+      const end2 = Date.now();
+      console.log(
+        'get user tokens spent time is',
+        `${(end2 - start2) / 1000} s`,
+      );
+      console.log('resFormylist', resFormylist);
+      setMyList(resFormylist);
+    }
+  }, [activeNetwork, activeAccount]);
 
   const onDelete = useCallback(async () => {
     if (activeAccount && selectedToken) {
       await engine.removeTokenFromAccount(activeAccount.id, selectedToken?.id);
     }
     setSelectedToken(undefined);
-  }, [activeAccount, selectedToken]);
+    await fetchTokens();
+  }, [activeAccount, selectedToken, fetchTokens]);
 
-  useEffect(() => {
-    async function fetchTokens() {
-      if (activeNetwork?.network) {
-        const resFortop50list = await engine.getTokens(
-          activeNetwork.network.id,
-        );
-        setTop50List(resFortop50list);
-      }
-      if (activeNetwork?.network && activeAccount) {
-        const resFormylist = await engine.getTokens(
-          activeNetwork.network.id,
-          activeAccount.id,
-        );
-        console.log('resFormylist', resFormylist);
-        setMyList(resFormylist);
-      }
-    }
-    fetchTokens();
-  }, [activeNetwork, activeAccount, refreshTimeStamp]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTokens();
+    }, [fetchTokens]),
+  );
 
   const searched = useMemo(() => {
     if (!keyword) {
       return [];
     }
-    const allTokens: TypeOfToken[] = ([] as TypeOfToken[]).concat(
-      mylist,
-      top50list,
-    );
+    const allTokens: TypeOfToken[] = ([] as TypeOfToken[]).concat(mylist, list);
     const result = allTokens.filter(
       (item) =>
         item.name.toLowerCase().includes(keyword.toLowerCase()) ||
-        item.symbol.toLowerCase().includes(keyword.toLowerCase()),
+        item.symbol.toLowerCase().includes(keyword.toLowerCase()) ||
+        item.tokenIdOnNetwork.toLowerCase().includes(keyword.toLowerCase()),
     );
     return result;
-  }, [keyword, mylist, top50list]);
+  }, [keyword, mylist, list]);
 
   const renderItem = ({ item }: { item: TypeOfToken }) => (
     <Box
@@ -102,6 +123,7 @@ export const Listing: FC = () => {
       alignItems="center"
     >
       <Token
+        src={item.logoURI}
         size="8"
         chain="eth"
         name={item.name}
@@ -117,6 +139,7 @@ export const Listing: FC = () => {
             symbol: item.symbol,
             address: item.tokenIdOnNetwork,
             decimal: item.decimals,
+            logoURI: item.logoURI,
           });
         }}
       />
@@ -131,6 +154,7 @@ export const Listing: FC = () => {
       alignItems="center"
     >
       <Token
+        src={item.logoURI}
         size="8"
         chain="eth"
         name={item.name}
@@ -187,25 +211,27 @@ export const Listing: FC = () => {
   } else {
     contentView = (
       <Box>
-        <Box>
-          <Typography.Subheading color="text-subdued">
-            {intl.formatMessage({
-              id: 'form__my_tokens',
-              defaultMessage: 'MY TOKENS',
-            })}
-          </Typography.Subheading>
-          <FlatList
-            bg="surface-default"
-            borderRadius="12"
-            mt="3"
-            mb="3"
-            data={mylist}
-            renderItem={renderOwnedItem}
-            ItemSeparatorComponent={() => <Divider />}
-            keyExtractor={(_, index: number) => index.toString()}
-            showsVerticalScrollIndicator={false}
-          />
-        </Box>
+        {mylist.length ? (
+          <Box>
+            <Typography.Subheading color="text-subdued">
+              {intl.formatMessage({
+                id: 'form__my_tokens',
+                defaultMessage: 'MY TOKENS',
+              })}
+            </Typography.Subheading>
+            <FlatList
+              bg="surface-default"
+              borderRadius="12"
+              mt="3"
+              mb="3"
+              data={mylist}
+              renderItem={renderOwnedItem}
+              ItemSeparatorComponent={() => <Divider />}
+              keyExtractor={(_, index: number) => index.toString()}
+              showsVerticalScrollIndicator={false}
+            />
+          </Box>
+        ) : null}
         <Box>
           <Typography.Subheading color="text-subdued" mt="2">
             {intl.formatMessage({
@@ -218,7 +244,7 @@ export const Listing: FC = () => {
             borderRadius="12"
             mt="3"
             mb="3"
-            data={top50list}
+            data={list}
             renderItem={renderItem}
             ItemSeparatorComponent={() => <Divider />}
             keyExtractor={(_, index: number) => index.toString()}
@@ -269,9 +295,8 @@ export const Listing: FC = () => {
         visible={!!selectedToken}
         onClose={() => setSelectedToken(undefined)}
         footerButtonProps={{
-          onPrimaryActionPress: onDelete,
           primaryActionTranslationId: 'action__delete',
-          primaryActionProps: { type: 'destructive' },
+          primaryActionProps: { type: 'destructive', onPromise: onDelete },
         }}
         contentProps={{
           iconType: 'danger',
