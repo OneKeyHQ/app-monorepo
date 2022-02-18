@@ -1,4 +1,4 @@
-import { IMPL_EVM, SEPERATOR } from '../constants';
+import { SEPERATOR } from '../constants';
 import { NotImplemented, OneKeyInternalError } from '../errors';
 import {
   ACCOUNT_TYPE_MULADDR,
@@ -70,15 +70,16 @@ function getWatchingAccountToCreate(
   target: string,
   name?: string,
 ): DBAccount {
-  if (impl !== IMPL_EVM) {
+  const coinType = implToCoinTypes[impl];
+  if (typeof coinType === 'undefined') {
     throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
   }
   return {
-    id: `watching--60--${target}`,
+    id: `watching--${coinType}--${target}`,
     name: name || '',
     type: 'simple', // TODO: other implementations.
     path: '',
-    coinType: '60',
+    coinType,
     pub: '', // TODO: only address is supported for now.
     address: target,
   };

@@ -370,6 +370,7 @@ class RealmDB implements DBAPI {
           symbol: token.symbol,
           decimals: token.decimals,
           networkId: token.networkId,
+          logoURI: token.logoURI,
         });
       });
     } catch (error: any) {

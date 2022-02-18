@@ -403,22 +403,33 @@ class Engine {
     networkId: string,
     tokenIdOnNetwork: string,
   ): Promise<Token | undefined> {
-    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    const token = await this.dbApi.getToken(tokenId);
-    if (typeof token === 'undefined') {
-      const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
-      return this.providerManager
-        .getTokenInfos(networkId, [tokenIdOnNetwork])
-        .then(([info]) => {
-          toAdd.id = tokenId;
-          Object.assign(toAdd, info);
-          if (toAdd.decimals === -1) {
-            throw new NotImplemented();
-          }
-          return this.dbApi.addToken(toAdd);
-        });
+    let noThisToken: undefined;
+    const { normalizedAddress, isValid } =
+      await this.providerManager.verifyTokenAddress(
+        networkId,
+        tokenIdOnNetwork,
+      );
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      return noThisToken;
     }
-    return token;
+
+    const tokenId = `${networkId}--${normalizedAddress}`;
+    const token = await this.dbApi.getToken(tokenId);
+    if (typeof token !== 'undefined') {
+      // Already exists in db.
+      return token;
+    }
+
+    const toAdd = getPresetToken(networkId, normalizedAddress);
+    const [tokenInfo] = await this.providerManager.getTokenInfos(networkId, [
+      normalizedAddress,
+    ]);
+    if (typeof tokenInfo === 'undefined') {
+      return noThisToken;
+    }
+    return this.dbApi.addToken(
+      Object.assign(toAdd, tokenInfo, { id: tokenId }),
+    );
   }
 
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
