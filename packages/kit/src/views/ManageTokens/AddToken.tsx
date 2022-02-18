@@ -14,9 +14,8 @@ import {
 } from '@onekeyhq/components';
 
 import engine from '../../engine/EngineProvider';
-import { useAppDispatch, useGeneral } from '../../hooks/redux';
+import { useGeneral } from '../../hooks/redux';
 import { useToast } from '../../hooks/useToast';
-import { setRefreshTS } from '../../store/reducers/settings';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -36,11 +35,10 @@ type ListItem = { label: string; value: string };
 
 export const AddToken: FC = () => {
   const intl = useIntl();
-  const dispatch = useAppDispatch();
   const { activeAccount, activeNetwork } = useGeneral();
   const { info } = useToast();
   const {
-    params: { name, symbol, decimal, address },
+    params: { name, symbol, decimal, address, logoURI },
   } = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const items: ListItem[] = [
@@ -103,7 +101,6 @@ export const AddToken: FC = () => {
       );
       if (res?.[1]) {
         await engine.addTokenToAccount(activeAccount?.id, res?.[1].id);
-        dispatch(setRefreshTS());
         info(
           intl.formatMessage({
             id: 'msg__token_added',
@@ -115,7 +112,7 @@ export const AddToken: FC = () => {
         }
       }
     }
-  }, [intl, activeAccount, navigation, activeNetwork, info, address, dispatch]);
+  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
   return (
     <Modal
       header={intl.formatMessage({
@@ -123,7 +120,7 @@ export const AddToken: FC = () => {
         defaultMessage: 'Add Token',
       })}
       height="560px"
-      onPrimaryActionPress={onPrimaryActionPress}
+      primaryActionProps={{ onPromise: onPrimaryActionPress }}
       primaryActionTranslationId="action__confirm"
       hideSecondaryAction
       scrollViewProps={{
@@ -137,6 +134,7 @@ export const AddToken: FC = () => {
                 my="4"
               >
                 <Token
+                  src={logoURI}
                   chain="eth"
                   address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
                 />
