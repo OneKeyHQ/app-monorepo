@@ -689,6 +689,10 @@ class Engine {
         logoURI: network.logoURI,
         enabled: network.enabled,
         preset: networkIsPreset(network.id),
+        // The two display decimals fields below are for UI, hard-coded for now.
+        // TODO: define display decimals in remote config and give defaults for different implementations.
+        nativeDisplayDecimals: 6,
+        tokenDisplayDecimals: 4,
       }));
   }
 
