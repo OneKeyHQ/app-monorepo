@@ -102,6 +102,9 @@ function eventAdapter(
       if (log.rawLogTopics.length !== 0) {
         switch (log.rawLogTopics[0]) {
           case TransferEventTopic:
+            if (log.rawLogTopics[2] !== user && log.rawLogTopics[3] !== user) {
+              break;
+            }
             event = erc20TransferEventAdapter(user, log);
             transferEvent.push(event);
             tokenType = TokenType.ERC20;
