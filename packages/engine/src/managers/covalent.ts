@@ -18,6 +18,8 @@ const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
 
 const TransferEventTopic =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const SwapEventTopic =
+  '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822';
 
 function transferLogToTransferEvent(transfer: Transfer): TransferEvent {
   return {
@@ -92,7 +94,7 @@ function eventAdapter(
   const transferEvent: TransferEvent[] = [];
   let type = TransactionType.ContractExecution;
   let tokenType = TokenType.native;
-
+  let isSwap = false;
   if (logs !== undefined) {
     for (let i = 0; i < logs.length; i += 1) {
       const log = logs[i];
@@ -108,6 +110,14 @@ function eventAdapter(
             } else {
               type = TransactionType.Receive;
             }
+            if (event.topics.length === 4) {
+              tokenType = TokenType.ERC721;
+              event.tokenType = TokenType.ERC721;
+            }
+            break;
+          case SwapEventTopic:
+            console.log('swap');
+            isSwap = true;
             break;
           default:
             break;
@@ -123,7 +133,9 @@ function eventAdapter(
     tokenType = TokenType.ERC20;
     type = transferEvent[0].transferType;
   } else if (logs !== undefined) {
-    if (value !== '0' || type === TransactionType.ContractExecution) {
+    if (isSwap) {
+      type = TransactionType.Swap;
+    } else if (value !== '0' || type === TransactionType.ContractExecution) {
       if (logs.length === 0 && value !== '0') {
         if (from === user) {
           type = TransactionType.Transfer;
