@@ -291,6 +291,7 @@ const OnekeyLiteDetail: React.FC = () => {
         footerMoreView={
           <Box mb={3}>
             <Input
+              w="full"
               value={resetValidationInput}
               isInvalid={resetAllow != null ? !resetAllow : false}
               onChangeText={setResetValidationInput}

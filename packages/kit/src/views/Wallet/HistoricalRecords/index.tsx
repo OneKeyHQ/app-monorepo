@@ -13,6 +13,7 @@ import {
   IconButton,
   Pressable,
   SectionList,
+  Spinner,
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -83,9 +84,15 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const [transactionRecords, setTransactionRecords] = useState<
     TransactionGroup[]
   >([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const refreshHistory = useCallback(async () => {
-    if (accountId && networkId) {
+    try {
+      setTransactionRecords([]);
+      if (!accountId || !networkId) return;
+
+      setIsLoading(true);
+
       let history;
       if (tokenId) {
         history = await engine.getErc20TxHistories(
@@ -106,9 +113,15 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             history.data.txList,
           ),
         );
+      } else {
+        // 加载失败
+        setTransactionRecords([]);
       }
-    } else {
+    } catch (error) {
+      // 异常失败
       setTransactionRecords([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [accountId, intl, networkId, tokenId]);
 
@@ -195,6 +208,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Box>
   );
 
+  const renderLoading = () => (
+    <Box pb={2} pt={2} flexDirection="column" alignItems="center">
+      <Spinner size="lg" />
+    </Box>
+  );
+
   let listElementType: JSX.Element;
   if (isTab) {
     listElementType = <Tabs.SectionList sections={[]} />;
@@ -205,10 +224,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   return React.cloneElement(listElementType, {
     contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
     sections: transactionRecords,
+    refreshing: isLoading,
     renderItem,
     renderSectionHeader,
     ListHeaderComponent: renderHeader(),
-    ListEmptyComponent: renderEmpty(),
+    ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box h="20px" />,
     ItemSeparatorComponent: () => <Divider />,
     keyExtractor: (_: Transaction, index: number) => index.toString(),
