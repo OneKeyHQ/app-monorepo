@@ -246,7 +246,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     if (status == OKNFCLiteGetMncStatusWiped) {
         self.status = OKNFCLiteStatusNewCard;
     }
-    [self endNFCSessionWithError:status == OKNFCLiteGetMncStatusError];
+    [self endNFCSessionWithError:status == OKNFCLiteGetMncStatusError || status == OKNFCLiteGetMncStatusPinNotMatch];
     [self.delegate ok_lite:self getMnemonic:mnc complete:status];
 }
 
@@ -542,6 +542,11 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     [tag sendCommandAPDU:[OKNFCBridge verifyPIN:pin] completionHandler:^(NSData *responseData, uint8_t sw1, uint8_t sw2, NSError *error) {
 
         [OKNFCUtility logAPDU:@"验证 PIN" response:responseData sw1:sw1 sw2:sw2 error:error];
+        if (error) {
+          result = OKNFCLitePINVerifyResultError;
+          dispatch_semaphore_signal(sema);
+          return;
+        }
         if (sw1 != OKNFC_SW1_OK) {
             if (sw1 == FailedVerificationCode) {
                 self.pinRTL = sw2 & PinRTLBitMask;
