@@ -81,8 +81,8 @@ const Home: FC = () => {
       <Box flex="1" justifyContent="center">
         <Empty
           icon="WalletOutline"
-          title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
-          subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
+          title={intl.formatMessage({ id: 'empty__no_account_title' })}
+          subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
         />
         <AccountSelector
           renderTrigger={({ handleToggleVisible }) => (
