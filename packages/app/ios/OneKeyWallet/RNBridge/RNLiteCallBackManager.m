@@ -68,6 +68,9 @@
 }
 
 - (void)ok_lite:(OKNFCLite *)lite setMnemonicComplete:(OKNFCLiteSetMncStatus)status {
+  if (!self.setMnemonicCallback) {
+    return;
+  }
   if (lite && self.setMnemonicCallback) {
     NSDictionary *cardInfo = [self cardInfo:lite status:status];
     switch (status) {
@@ -103,11 +106,16 @@
 }
 
 - (void)ok_lite:(OKNFCLite *)lite getMnemonic:(NSString *)mnemonic complete:(OKNFCLiteGetMncStatus)status {
-  if (lite && self.getMnemonicCallback) {
+  if (!self.getMnemonicCallback) {
+    return;
+  }
+  if (lite) {
     NSDictionary *cardInfo = [self cardInfo:lite status:status];
     switch (status) {
       case OKNFCLiteGetMncStatusSuccess:
-        self.getMnemonicCallback(@[[NSNull null],mnemonic,cardInfo]);
+        if (mnemonic.length > 0) {
+          self.getMnemonicCallback(@[[NSNull null],mnemonic,cardInfo]);
+        }
         break;
       case OKNFCLiteGetMncStatusError:
         if (lite.status == OKNFCLiteStatusNewCard) {
@@ -155,7 +163,7 @@
         } break;
         case OKNFCLiteChangePinStatusError: {
           if (lite.status == OKNFCLiteStatusNewCard) {
-              callBack(@[@{@"code":@(NFCLiteExceptionsPasswordEmpty),@"message":@""},[NSNull null],[NSNull null]]);
+              callBack(@[@{@"code":@(NFCLiteExceptionsNotInitialized),@"message":@""},[NSNull null],[NSNull null]]);
           } else {
             callBack(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
           }
