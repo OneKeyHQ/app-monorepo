@@ -306,9 +306,12 @@ const OnekeyLiteDetail: React.FC = () => {
         footerButtonProps={{
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            navigation.navigate(
-              OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
-            );
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.OnekeyLiteReset,
+              params: {
+                screen: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+              },
+            });
           },
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {
