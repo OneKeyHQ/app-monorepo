@@ -13,7 +13,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
-import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
+import {
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
@@ -72,12 +75,14 @@ const AccountInfo = () => {
           {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
-          <Typography.DisplayXLarge>
-            {mainTokenBalance?.main?.toFixed?.(2) ?? '-'}
-          </Typography.DisplayXLarge>
-          <Typography.DisplayXLarge pl={2}>
-            {activeNetwork?.symbol?.toUpperCase?.()}
-          </Typography.DisplayXLarge>
+          <FormatBalance
+            balance={mainTokenBalance?.main}
+            suffix={activeNetwork?.symbol?.toUpperCase?.()}
+            as={Typography.DisplayXLarge}
+            formatOptions={{
+              fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
+            }}
+          />
         </Box>
         <FormatCurrency
           numbers={[mainTokenPrice?.main, mainTokenBalance?.main]}
@@ -85,7 +90,13 @@ const AccountInfo = () => {
         />
       </Box>
     ),
-    [intl, mainTokenBalance, activeNetwork?.symbol, mainTokenPrice?.main],
+    [
+      intl,
+      mainTokenBalance,
+      activeNetwork?.symbol,
+      mainTokenPrice?.main,
+      activeNetwork?.nativeDisplayDecimals,
+    ],
   );
 
   const accountOption = useMemo(

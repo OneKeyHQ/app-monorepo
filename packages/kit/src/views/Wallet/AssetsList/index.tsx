@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
+import {
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
@@ -115,6 +118,10 @@ const AssetsList = () => {
     index,
   }) => {
     const mapKey = index === 0 ? 'main' : item.tokenIdOnNetwork;
+    const decimal =
+      index === 0
+        ? network?.network.nativeDisplayDecimals
+        : network?.network.tokenDisplayDecimals;
     return (
       <Pressable.Item
         p={4}
@@ -133,11 +140,18 @@ const AssetsList = () => {
         <Box w="100%" flexDirection="row" alignItems="center">
           <Token size={8} src={item.logoURI} />
           <Box ml={3} mr={3} flexDirection="column" flex={1}>
-            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-              {tokenBalance?.[mapKey]?.toFixed?.(2) ?? '-'}
-              &nbsp;&nbsp;
-              {item.symbol}
-            </Text>
+            <FormatBalance
+              balance={tokenBalance?.[mapKey]}
+              suffix={item.symbol}
+              formatOptions={{
+                fixed: decimal ?? 4,
+              }}
+              render={(ele) => (
+                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                  {ele}
+                </Text>
+              )}
+            />
             <FormatCurrency
               numbers={[tokenBalance?.[mapKey], mainTokenPrice?.[mapKey]]}
               render={(ele) => (

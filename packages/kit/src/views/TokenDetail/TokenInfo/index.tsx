@@ -13,7 +13,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
-import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
+import {
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
@@ -43,6 +46,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const isFocused = useIsFocused();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
   const { wallet } = useActiveWalletAccount();
@@ -78,10 +82,14 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
           alignItems={isVertical ? 'center' : 'flex-start'}
         >
           <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
-            <Typography.DisplayXLarge>{amount}</Typography.DisplayXLarge>
-            <Typography.DisplayXLarge pl={2}>
-              {token?.symbol}
-            </Typography.DisplayXLarge>
+            <FormatBalance
+              balance={amount}
+              suffix={token?.symbol}
+              formatOptions={{
+                fixed: activeNetwork?.tokenDisplayDecimals ?? 4,
+              }}
+              as={Typography.DisplayXLarge}
+            />
           </Box>
           <FormatCurrency
             numbers={[
@@ -95,7 +103,13 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
         </Box>
       </Box>
     ),
-    [isVertical, token, amount, tokenPrice],
+    [
+      isVertical,
+      token,
+      amount,
+      tokenPrice,
+      activeNetwork?.tokenDisplayDecimals,
+    ],
   );
 
   const accountOption = useMemo(
