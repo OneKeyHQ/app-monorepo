@@ -16,10 +16,7 @@ import {
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
-import {
-  useActiveWalletAccount,
-  // useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
@@ -27,7 +24,7 @@ import AccountInfo, {
 } from './AccountInfo';
 import AssetsList from './AssetsList';
 // import CollectiblesList from './Collectibles';
-// import HistoricalRecord from './HistoricalRecords';
+import HistoricalRecord from './HistoricalRecords';
 
 import type { TextStyle } from 'react-native';
 
@@ -53,7 +50,7 @@ const Home: FC = () => {
     'border-subdued',
   ]);
   const isVerticalLayout = useIsVerticalLayout();
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
 
   if (!account) {
     return (
@@ -127,13 +124,17 @@ const Home: FC = () => {
         label={intl.formatMessage({ id: 'asset__collectibles' })}
       >
         <CollectiblesList />
-      </Tabs.Tab>
+      </Tabs.Tab> */}
       <Tabs.Tab
         name={TabEnum.History}
         label={intl.formatMessage({ id: 'transaction__history' })}
       >
-        <HistoricalRecord isTab />
-      </Tabs.Tab> */}
+        <HistoricalRecord
+          accountId={account?.id}
+          networkId={network?.network?.id}
+          isTab
+        />
+      </Tabs.Tab>
     </Tabs.Container>
   );
 };

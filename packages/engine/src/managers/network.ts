@@ -1,6 +1,6 @@
 import { IMPL_EVM, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
-import { networkIsPreset, presetNetworks } from '../presets';
+import { getPresetNetworks, networkIsPreset } from '../presets';
 import { AddEVMNetworkParams, DBNetwork, Network } from '../types/network';
 
 function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
@@ -25,13 +25,18 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
 
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   const isPresetNetwork = networkIsPreset(dbNetwork.id);
-  const presetRpcURLs = isPresetNetwork
-    ? (presetNetworks[dbNetwork.id] || { presetRpcURLs: [] }).presetRpcURLs
-    : [];
+  const presetNetworks = getPresetNetworks();
+  const preset = isPresetNetwork
+    ? presetNetworks[dbNetwork.id] || { presetRpcURLs: [], isTestnet: false }
+    : { presetRpcURLs: [], isTestnet: false };
   return {
     ...dbNetwork,
     preset: isPresetNetwork,
-    presetRpcURLs,
+    ...preset,
+    // The two display decimals fields below are for UI, hard-coded for now.
+    // TODO: define display decimals in remote config and give defaults for different implementations.
+    nativeDisplayDecimals: 6,
+    tokenDisplayDecimals: 4,
   };
 }
 

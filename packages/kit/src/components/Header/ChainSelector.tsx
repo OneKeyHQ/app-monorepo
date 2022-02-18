@@ -43,13 +43,11 @@ const ChainSelector: FC = () => {
 
       let selectedNetwork: NetworkShort | null = null;
       let selectedSharedChainName: string | null = null;
-      Object.entries(networks).forEach(([key, value]) => {
-        value.forEach((item) => {
-          if (item.id === id) {
-            selectedNetwork = item;
-            selectedSharedChainName = key;
-          }
-        });
+      networks.forEach((network) => {
+        if (network.id === id) {
+          selectedNetwork = network;
+          selectedSharedChainName = network.impl;
+        }
       });
       if (selectedNetwork && selectedSharedChainName) {
         dispatch(
@@ -81,15 +79,17 @@ const ChainSelector: FC = () => {
   const options = useMemo(() => {
     if (!networks) return [];
 
-    return Object.entries(networks).map(([key, value]) => ({
-      title: key,
-      options: value.map((item) => ({
-        label: item.name,
-        value: item.id,
-        tokenProps: {
-          src: item.logoURI,
+    return networks.map((network) => ({
+      title: network.impl,
+      options: [
+        {
+          label: network.name,
+          value: network.id,
+          tokenProps: {
+            src: network.logoURI,
+          },
         },
-      })),
+      ],
     }));
   }, [networks]);
 

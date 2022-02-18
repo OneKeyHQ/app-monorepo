@@ -30,6 +30,8 @@ export enum ModalRoutes {
   DappSignatureModal = 'DappSignatureModal',
   DappConnectionModal = 'DappConnectionModal',
   Misc = 'Misc',
+  Password = 'Password',
+  ManageToken = 'ManageToken',
 }
 
 export type ModalRoutesParams = {
@@ -50,6 +52,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.DappSignatureModal]: NavigatorScreenParams<SubModalRoutesParams.DappSignatureRoutesParams>;
   [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
   [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
+  [ModalRoutes.Password]: NavigatorScreenParams<SubModalRoutesParams.PasswordRoutesParams>;
+  [ModalRoutes.ManageToken]: NavigatorScreenParams<SubModalRoutesParams.ManageTokenRoutesParams>;
 };
 /** Modal */
 
@@ -84,7 +88,11 @@ export enum HomeRoutes {
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
-  [HomeRoutes.ScreenTokenDetail]: undefined;
+  [HomeRoutes.ScreenTokenDetail]: {
+    accountId: string;
+    networkId: string;
+    tokenId: string;
+  };
   [HomeRoutes.SettingsScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;

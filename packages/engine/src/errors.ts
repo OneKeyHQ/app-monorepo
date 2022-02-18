@@ -5,27 +5,27 @@ class OneKeyError extends Error {
 }
 
 class NotImplemented extends OneKeyError {
-  key = 'onekey_error_not_implemented';
+  key = 'msg__engine__not_implemented';
 }
 
 class OneKeyInternalError extends OneKeyError {
-  key = 'onekey_error_internal';
+  key = 'msg__engine__internal_error';
 }
 
 class WrongPassword extends OneKeyError {
-  key = 'onekey_error_wrong_password';
+  key = 'msg__engine__incorrect_password';
 }
 
 class AccountAlreadyExists extends OneKeyError {
-  key = 'onekey_error_account_already_exists';
+  key = 'msg__engine__account_already_exists';
 }
 
 class FailedToTransfer extends OneKeyError {
-  key = 'onekey_error_failed_to_transfer';
+  key = 'msg__engine__failed_to_transfer';
 }
 
 class InvalidAddress extends OneKeyError {
-  key = 'onekey_error_invalid_address';
+  key = 'msg__engine__incorrect_address';
 }
 
 export {

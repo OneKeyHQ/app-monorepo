@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import {
   Box,
   Divider,
   Icon,
+  IconButton,
   Pressable,
   ScrollableFlatListProps,
   Text,
@@ -19,37 +20,67 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
-import {
-  ManageTokenModalRoutes,
-  ManageTokenRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManageToken';
 
 import engine from '../../../engine/EngineProvider';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
-import { TokenDetailNavigation } from '../../TokenDetail/routes';
+import { useActiveWalletAccount } from '../../../hooks/redux';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../../routes/types';
+import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  ManageTokenRoutesParams,
-  ManageTokenModalRoutes.ListTokensModal
+  RootRoutesParams,
+  RootRoutes.Root
 > &
-  TokenDetailNavigation;
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-const AssetsList = () => {
+const ListHeaderComponent = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  return (
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      pb={3}
+    >
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'asset__tokens' })}
+      </Typography.Heading>
+      <IconButton
+        onPress={() =>
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageToken,
+            params: { screen: ManageTokenRoutes.Listing },
+          })
+        }
+        size="sm"
+        name="AdjustmentsSolid"
+        type="plain"
+        circle
+      />
+    </Box>
+  );
+};
+
+const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
   const [tokens, setTokens] = useState<TokenType[]>([]);
   const [tokenBalance, setTokenBalance] = useState({});
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps>();
 
   useEffect(() => {
     async function main() {
-      if (!activeNetwork?.id || !account?.id) return;
+      if (!network?.network?.id || !account?.id) return;
       const tokensBE = await engine.getTokens(
-        activeNetwork.id,
+        network.network.id,
         account.id,
         true,
       );
@@ -57,14 +88,14 @@ const AssetsList = () => {
 
       const balance = await engine.getAccountBalance(
         account.id,
-        activeNetwork.id,
+        network.network.id,
         tokensBE.map((token) => token.id),
         true,
       );
       setTokenBalance(balance);
     }
     main();
-  }, [activeNetwork, account?.id]);
+  }, [network, account?.id]);
 
   const renderItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
     item,
@@ -74,15 +105,15 @@ const AssetsList = () => {
       p={4}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === tokens?.length - 1 ? '12px' : '0px'}
-      // onPress={() => {
-      //   navigation.navigate(HomeRoutes.ScreenTokenDetail, {
-      //     defaultValues: {
-      //       accountId: '',
-      //       networkId: '',
-      //       tokenId: '',
-      //     },
-      //   });
-      // }}
+      onPress={() => {
+        if (!item.tokenIdOnNetwork) return;
+
+        navigation.navigate(HomeRoutes.ScreenTokenDetail, {
+          accountId: account?.id ?? '',
+          networkId: item.networkId ?? '',
+          tokenId: item.id ?? '',
+        });
+      }}
     >
       <Box w="100%" flexDirection="row" alignItems="center">
         <Token size={8} src={item.logoURI} />
@@ -119,32 +150,6 @@ const AssetsList = () => {
     </Pressable.Item>
   );
 
-  const header = useCallback(
-    () => (
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__tokens' })}
-        </Typography.Heading>
-        {/* <IconButton
-          onPress={() =>
-            navigation.navigate(ManageTokenModalRoutes.ListTokensModal)
-          }
-          size="sm"
-          name="AdjustmentsSolid"
-          type="plain"
-          circle
-        /> */}
-      </Box>
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, navigation],
-  );
-
   return (
     <Tabs.FlatList
       contentContainerStyle={{
@@ -153,7 +158,7 @@ const AssetsList = () => {
       }}
       data={tokens}
       renderItem={renderItem}
-      ListHeaderComponent={header}
+      ListHeaderComponent={<ListHeaderComponent />}
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h="20px" />}
       keyExtractor={(_item: TokenType) => _item.id}

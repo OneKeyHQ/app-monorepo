@@ -55,6 +55,8 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
       case 'REPLACE_WHOLE_STATE':
         higherState.state = action.payload as any;
         return higherState.state;
+      case 'LOGOUT':
+        return reducers(undefined, action);
       default:
         return reducers(state, action);
     }

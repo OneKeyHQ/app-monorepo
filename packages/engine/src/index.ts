@@ -26,7 +26,7 @@ import {
   getWatchingAccountToCreate,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import { getTxHistories } from './managers/covalent';
+import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -41,12 +41,16 @@ import {
   walletNameCanBeUpdated,
 } from './managers/wallet';
 import {
+  getPresetNetworks,
   getPresetToken,
   getPresetTokensOnNetwork,
   networkIsPreset,
-  presetNetworks,
 } from './presets';
-import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
+import {
+  PriceController,
+  ProviderController,
+  fromDBNetworkToChainInfo,
+} from './proxy';
 import {
   ACCOUNT_TYPE_SIMPLE,
   Account,
@@ -74,8 +78,11 @@ class Engine {
 
   private providerManager: ProviderController;
 
+  private priceManager: PriceController;
+
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
+    this.priceManager = new PriceController();
     this.providerManager = new ProviderController((networkId) =>
       this.dbApi
         .getNetwork(networkId)
@@ -641,36 +648,24 @@ class Engine {
     return this.dbApi.removeHistoryEntry(entryId);
   }
 
-  async listNetworks(
-    enabledOnly = true,
-  ): Promise<Record<string, Array<NetworkShort>>> {
+  async listNetworks(enabledOnly = true): Promise<Array<NetworkShort>> {
     const networks = await this.dbApi.listNetworks();
-    const ret: Record<string, Array<NetworkShort>> = {
-      [IMPL_EVM]: [],
-      [IMPL_SOL]: [],
-      // TODO: other implemetations
-    };
-    networks.forEach((network) => {
-      if (enabledOnly && !network.enabled) {
-        return;
-      }
-      if (typeof ret[network.impl] !== 'undefined') {
-        ret[network.impl].push({
-          id: network.id,
-          name: network.name,
-          impl: network.impl,
-          symbol: network.symbol,
-          logoURI: network.logoURI,
-          enabled: network.enabled,
-          preset: networkIsPreset(network.id),
-        });
-      } else {
-        throw new OneKeyInternalError(
-          `listNetworks: unknown network implementation ${network.impl}.`,
-        );
-      }
-    });
-    return ret;
+    const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
+    return networks
+      .filter(
+        (network) =>
+          (enabledOnly ? network.enabled : true) &&
+          supportedImpls.has(network.impl),
+      )
+      .map((network) => ({
+        id: network.id,
+        name: network.name,
+        impl: network.impl,
+        symbol: network.symbol,
+        logoURI: network.logoURI,
+        enabled: network.enabled,
+        preset: networkIsPreset(network.id),
+      }));
   }
 
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
@@ -695,7 +690,7 @@ class Engine {
 
   async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Record<string, Array<NetworkShort>>> {
+  ): Promise<Array<NetworkShort>> {
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
@@ -734,6 +729,7 @@ class Engine {
   async getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
     const network = await this.dbApi.getNetwork(networkId);
+    const presetNetworks = getPresetNetworks();
     const { presetRpcURLs } = presetNetworks[networkId] || {
       presetRpcURLs: [],
     };
@@ -748,44 +744,93 @@ class Engine {
     pageNumber: number,
     pageSize: number,
   ) {
-    const network = await this.dbApi.getNetwork(networkId);
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    if (network.impl !== IMPL_EVM) {
+      throw new OneKeyInternalError('Network not support.');
+    }
+
+    if (typeof dbAccount === 'undefined') {
+      throw new OneKeyInternalError('Account not found.');
+    }
+    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+      throw new NotImplemented();
+    }
     const chainId = network.id.split(SEPERATOR)[1];
-    return getTxHistories(chainId, accountId, pageNumber, pageSize);
+
+    return getTxHistories(
+      chainId,
+      (dbAccount as DBSimpleAccount).address,
+      pageNumber,
+      pageSize,
+    );
+  }
+
+  async getErc20TxHistories(
+    networkId: string,
+    accountId: string,
+    contract: string,
+    pageNumber: number,
+    pageSize: number,
+  ) {
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    if (network.impl !== IMPL_EVM) {
+      throw new OneKeyInternalError('Network not support.');
+    }
+
+    if (typeof dbAccount === 'undefined') {
+      throw new OneKeyInternalError('Account not found.');
+    }
+    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+      throw new NotImplemented();
+    }
+    const chainId = network.id.split(SEPERATOR)[1];
+    return getErc20TransferHistories(
+      chainId,
+      (dbAccount as DBSimpleAccount).address,
+      contract,
+      pageNumber,
+      pageSize,
+    );
   }
 
   // TODO: RPC interactions.
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
-  getPrices(
+  async getPrices(
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, BigNumber>> {
+  ): Promise<Record<string, string>> {
     // Get price info.
-    const ret: Record<string, BigNumber> = {};
-    tokenIdsOnNetwork.forEach((tokenId) => {
-      ret[tokenId] = new BigNumber(100);
+    const ret: Record<string, string> = {};
+    const prices = await this.priceManager.getPrices(
+      networkId,
+      tokenIdsOnNetwork,
+      withMain,
+    );
+    Object.keys(prices).forEach((k) => {
+      ret[k] = prices[k].toFixed();
     });
-    if (withMain) {
-      ret.main = new BigNumber(100);
-    }
-    return Promise.resolve(ret);
+    return ret;
   }
 
-  listFiats(): Promise<Record<string, string>> {
-    // TODO: connect price module
-    // return Promise.resolve({
-    //   'usd': new BigNumber('1'),
-    //   'cny': new BigNumber('6.3617384'),
-    //   'jpy': new BigNumber('115.36691'),
-    //   'hkd': new BigNumber('7.7933804'),
-    // });
-    return Promise.resolve({
-      'usd': '1',
-      'cny': '6.3617384',
-      'jpy': '115.36691',
-      'hkd': '7.7933804',
+  async listFiats(): Promise<Record<string, string>> {
+    const ret: Record<string, string> = {};
+    const fiats = await this.priceManager.getFiats(
+      new Set(['usd', 'cny', 'jpy', 'hkd']),
+    );
+    Object.keys(fiats).forEach((f) => {
+      ret[f] = fiats[f].sd(6).toFixed();
     });
+    return ret;
   }
 
   setFiat(symbol: string): Promise<void> {
@@ -802,7 +847,6 @@ class Engine {
 
   resetApp(password: string): Promise<void> {
     // Reset app.
-    console.log(`resetApp ${password}`);
     return this.dbApi.reset(password);
   }
 }

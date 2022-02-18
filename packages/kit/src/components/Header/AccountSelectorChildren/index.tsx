@@ -107,7 +107,7 @@ const AccountSelectorChildren: FC = () => {
         <Select
           dropdownPosition="left"
           onChange={onChange}
-          asAction
+          activatable={false}
           options={[
             {
               label: intl.formatMessage({ id: 'action__rename' }),

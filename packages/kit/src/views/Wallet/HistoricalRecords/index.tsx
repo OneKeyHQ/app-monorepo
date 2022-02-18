@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -16,122 +16,45 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { ModalTypes } from '@onekeyhq/kit/src/routes';
+import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
+import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
+import engine from '../../../engine/EngineProvider';
 import { formatMonth } from '../../../utils/DateUtils';
-import TransactionRecord, {
-  Transaction,
-} from '../../Components/transactionRecord';
+import TransactionRecord from '../../Components/transactionRecord';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type ModalTransactionDetailScreenNavigationProp = NativeStackNavigationProp<
-  ModalTypes,
-  TransactionDetailModalRoutes.TransactionDetailModal
->;
-
-const TRANSACTION_RECORDS_DATA: Transaction[] = [
-  {
-    type: 'Send',
-    state: 'success',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10000,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1637472397 * 1000),
-    confirmed: 123,
-  },
-  {
-    type: 'Send',
-    state: 'pending',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001.0000000001,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1640064397 * 1000),
-    confirmed: 0,
-  },
-  {
-    type: 'Receive',
-    state: 'failed',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1637472397 * 1000),
-    confirmed: 123,
-  },
-  {
-    type: 'Receive',
-    state: 'success',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 9999910001.000000099991,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1634793997 * 1000),
-    confirmed: 123,
-  },
-  {
-    type: 'Approve',
-    state: 'success',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1634793997 * 1000),
-    confirmed: 1,
-    approveInfo: {
-      url: 'swap.onekey.so',
-      token: 'USDT',
-    },
-  },
-  {
-    type: 'Approve',
-    state: 'pending',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1634793997 * 1000),
-    confirmed: 1,
-    approveInfo: {
-      url: 'swap.onekey.so',
-      token: 'WBTC',
-    },
-  },
-  {
-    type: 'Send',
-    state: 'dropped',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1634793997 * 1000),
-    confirmed: 123,
-  },
-  {
-    type: 'Send',
-    state: 'success',
-    'chainId': 1,
-    'txId': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'amount': 10001,
-    'to': '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f',
-    'date': new Date(1634793997 * 1000),
-    confirmed: 123,
-  },
-];
+type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
 
 type TransactionGroup = { title: string; data: Transaction[] };
 
-const toTransactionSection = (_data: Transaction[]): TransactionGroup[] => {
-  const sortData = _data.sort((a, b) => b.date.getTime() - a.date.getTime());
+export type HistoricalRecordProps = {
+  accountId: string | null | undefined;
+  networkId: string | null | undefined;
+  tokenId?: string | null | undefined;
+  isTab?: boolean;
+};
+
+const toTransactionSection = (
+  queueStr: string,
+  _data: Transaction[],
+): TransactionGroup[] => {
+  const sortData = _data.sort(
+    (a, b) =>
+      new Date(b.blockSignedAt).getTime() - new Date(a.blockSignedAt).getTime(),
+  );
+
   return sortData.reduce((_pre: TransactionGroup[], _current: Transaction) => {
-    let key = 'QUEUE';
-    if (_current.state === 'pending') {
-      key = 'QUEUE';
+    let key = queueStr;
+    if (_current.successful === TxStatus.Pending) {
+      key = queueStr;
     } else {
-      key = formatMonth(_current.date);
+      key = formatMonth(new Date(_current.blockSignedAt));
     }
 
     let dateGroup = _pre.find((x) => x.title === key);
@@ -144,26 +67,54 @@ const toTransactionSection = (_data: Transaction[]): TransactionGroup[] => {
   }, []);
 };
 
-export type HistoricalRecordProps = {
-  isTab?: boolean;
-};
-
 const defaultProps = {
+  tokenId: null,
   isTab: false,
 } as const;
 
-const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
+const HistoricalRecords: FC<HistoricalRecordProps> = ({
+  accountId,
+  networkId,
+  tokenId,
+  isTab,
+}) => {
   const intl = useIntl();
-  const navigation =
-    useNavigation<ModalTransactionDetailScreenNavigationProp>();
+  const navigation = useNavigation<NavigationProp['navigation']>();
   const [transactionRecords, setTransactionRecords] = useState<
     TransactionGroup[]
   >([]);
 
+  const refreshHistory = useCallback(async () => {
+    if (accountId && networkId) {
+      let history;
+      if (tokenId) {
+        history = await engine.getErc20TxHistories(
+          networkId,
+          accountId,
+          tokenId,
+          0,
+          50,
+        );
+      } else {
+        history = await engine.getTxHistories(networkId, accountId, 0, 20);
+      }
+
+      if (!history?.error && history?.data?.txList) {
+        setTransactionRecords(
+          toTransactionSection(
+            intl.formatMessage({ id: 'history__queue' }),
+            history.data.txList,
+          ),
+        );
+      }
+    } else {
+      setTransactionRecords([]);
+    }
+  }, [accountId, intl, networkId, tokenId]);
+
   useEffect(() => {
-    setTransactionRecords(toTransactionSection(TRANSACTION_RECORDS_DATA));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    refreshHistory();
+  }, [refreshHistory]);
 
   const renderItem: SectionListProps<Transaction>['renderItem'] = ({
     item,
@@ -175,16 +126,17 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       mb={index === section.data.length - 1 ? 6 : undefined}
       onPress={() => {
-        navigation.navigate(
-          TransactionDetailModalRoutes.TransactionDetailModal,
-          {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.TransactionDetail,
+          params: {
             screen: TransactionDetailModalRoutes.TransactionDetailModal,
             params: {
-              txId: item.txId,
+              txHash: null,
+              tx: item,
             },
           },
-        );
-        console.log('Click Transaction : ', item.txId);
+        });
+        console.log('Click Transaction : ', item.txHash);
       }}
     >
       <TransactionRecord transaction={item} />
@@ -198,7 +150,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
           <Typography.Subheading color="text-subdued">
             {title}
           </Typography.Subheading>
-          {data[0] != null && data[0].state === 'pending' && (
+          {data[0] != null && data[0].successful === TxStatus.Pending && (
             <Box ml={3}>
               <Badge title={data.length.toString()} type="default" size="sm" />
             </Box>
@@ -235,9 +187,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({ isTab }) => {
         icon={<Icon name="DatabaseOutline" size={48} />}
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({ id: 'transaction__history_empty_desc' })}
-        actionTitle={intl.formatMessage({ id: 'action__reset' })}
+        actionTitle={intl.formatMessage({ id: 'action__refresh' })}
         handleAction={() => {
-          setTransactionRecords(toTransactionSection(TRANSACTION_RECORDS_DATA));
+          refreshHistory();
         }}
       />
     </Box>

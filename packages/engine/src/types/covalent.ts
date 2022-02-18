@@ -3,6 +3,17 @@ enum TransactionType {
   Receive = 'Receive',
   ContractExecution = 'ContractExecution',
 }
+enum TokenType {
+  ERC20 = 'ERC20',
+  ERC721 = 'ERC721',
+  native = 'native',
+}
+
+enum TxStatus {
+  Pending = 'Pending',
+  Confirmed = 'Confirmed',
+  Failed = 'Failed',
+}
 
 type HistoryDetailList = {
   data: TransactionsRawData;
@@ -40,6 +51,30 @@ type TransactionsRawData = {
   txList: Array<Transaction> | null;
 };
 
+type Transfer = {
+  blockSignedAt: string;
+  txHash: string;
+  fromAddress: string;
+  fromAddressLabel: string;
+  toAddress: string;
+  toAddressLabel: string;
+  contractDecimals: number;
+  contractName: string;
+  contractTickerSymbol: string;
+  contractAddress: string;
+  logoUrl: string;
+  /** IN/OUT */
+  transferType: string;
+  balance: number;
+  /** The current balance converted to fiat in quote-currency. */
+  balanceQuote: number;
+  quoteRate: number;
+  /** The delta attached to this transfer. */
+  delta: string;
+  /** The current delta converted to fiat in quote-currency. */
+  deltaQuote: number;
+};
+
 type BlockTransactionWithLogEvents = {
   blockSignedAt: string;
   blockHeight: number;
@@ -49,7 +84,7 @@ type BlockTransactionWithLogEvents = {
   fromAddress: string;
   toAddress: string;
   toAddressLabel: string;
-  value: number;
+  value: string;
   valueQuote: number;
   gasOffered: number;
   gasSpent: number;
@@ -57,6 +92,7 @@ type BlockTransactionWithLogEvents = {
   gasQuote: number;
   gasQuoteRate: number;
   logEvents: Array<LogEvent>;
+  transfers: Array<Transfer>;
 };
 
 type LogEvent = {
@@ -88,15 +124,17 @@ type LogEvent = {
 
 type Transaction = {
   blockHeight: number;
+  blockSignedAt: string;
   txHash: string;
   /** Transaction execution result, [true, false] */
-  successful: boolean;
+  successful: TxStatus;
   fromAddress: string;
+  fromAddressLabel: string;
   toAddress: string;
   /** Transaction to address label if exist, such as 'Uniswap Router' */
   toAddressLabel: string;
   /** amount of native currency transfer */
-  value: number;
+  value: string;
   /** amount of native currency transfer with USD value */
   valueQuote: number;
   /** gas total limit by the transaction */
@@ -111,30 +149,45 @@ type Transaction = {
   gasQuoteRate: number;
   /**  Transaction type, enum [ Transfer, Receive, ContractExecution] */
   type: TransactionType;
-  TokenEvent: Array<DecodedEvent> | null;
+  tokenType: TokenType;
+  tokenEvent: Array<Erc20TransferEvent> | null;
 };
 
-type DecodedEvent = {
+type Erc20TransferEvent = {
   topics: string[];
   description: string;
   fromAddress: string;
+  fromAddressLabel: string;
   toAddress: string;
+  toAddressLabel: string;
   tokenAddress: string;
   tokenLogoUrl: string;
   tokenName: string;
   tokenSymbol: string;
   tokenDecimals: number;
   tokenAmount: string;
+  transferType: TransactionType;
+  tokenType: TokenType;
+  balance: number;
+  /** The current balance converted to fiat in quote-currency. */
+  balanceQuote: number;
+  quoteRate: number;
+  /** The delta attached to this transfer. */
+  delta: string;
+  /** The current delta converted to fiat in quote-currency. */
+  deltaQuote: number;
+  eventLength: number;
 };
 
 export type {
   HistoryDetailList,
   TxDetail,
   Pagination,
-  DecodedEvent,
+  Erc20TransferEvent as TransferEvent,
   LogEvent,
+  Transfer,
   Transaction,
   TransactionsRawData,
   BlockTransactionWithLogEvents,
 };
-export { TransactionType };
+export { TxStatus, TokenType, TransactionType };

@@ -60,7 +60,7 @@ const SetPassword = () => {
         });
       }, 100);
     },
-    [navigation, intl, dispatch],
+    [navigation, dispatch],
   );
   const onSubmit = handleSubmit(onValid);
 
@@ -91,7 +91,7 @@ const SetPassword = () => {
             rules={{
               required: intl.formatMessage({ id: 'form__field_is_required' }),
               pattern: {
-                value: /^[a-zA-Z0-9]{10,24}$/g,
+                value: /^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{10,24}$/g,
                 message: intl.formatMessage({
                   id: 'msg__password_should_be_between_10_and_24',
                 }),
@@ -111,7 +111,7 @@ const SetPassword = () => {
             rules={{
               required: intl.formatMessage({ id: 'form__field_is_required' }),
               pattern: {
-                value: /^[a-zA-Z0-9]{10,24}$/g,
+                value: /^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{10,24}$/g,
                 message: intl.formatMessage({
                   id: 'msg__password_should_be_between_10_and_24',
                 }),

@@ -6,11 +6,12 @@ import Realm from 'realm';
 import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
 
 import {
+  AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
   WrongPassword,
 } from '../../errors';
-import { presetNetworksList } from '../../presets';
+import { getPresetNetworks } from '../../presets';
 import { ACCOUNT_TYPE_SIMPLE, DBAccount } from '../../types/account';
 import {
   HistoryEntry,
@@ -75,6 +76,9 @@ class RealmDB implements DBAPI {
     })
       .then((realm) => {
         if (update || realm.empty) {
+          const presetNetworksList = Object.values(getPresetNetworks()).sort(
+            (a, b) => (a.name > b.name ? 1 : -1),
+          );
           realm.write(() => {
             if (realm.empty) {
               realm.create('Wallet', {
@@ -498,7 +502,7 @@ class RealmDB implements DBAPI {
         );
       }
       this.realm!.write(() => {
-        if (account.tokens?.includes(token)) {
+        if (account.tokens?.has(token)) {
           account.tokens.delete(token);
         }
       });
@@ -569,9 +573,7 @@ class RealmDB implements DBAPI {
         account.id,
       );
       if (typeof accountFind !== 'undefined') {
-        return Promise.reject(
-          new OneKeyInternalError(`Account ${account.id} already exist.`),
-        );
+        return Promise.reject(new AccountAlreadyExists());
       }
       this.realm!.write(() => {
         const accountNew = this.realm!.create('Account', {
