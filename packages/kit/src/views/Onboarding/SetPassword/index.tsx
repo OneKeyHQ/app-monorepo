@@ -12,17 +12,16 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  refreshLoginAt,
-  setPassword,
-} from '@onekeyhq/kit/src/store/reducers/status';
-
-import { MiscModalRoutes } from '../../../routes/Modal/Misc';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import {
   ModalRoutes,
   RootRoutes,
   RootRoutesParams,
-} from '../../../routes/types';
+} from '@onekeyhq/kit/src/routes/types';
+import {
+  refreshLoginAt,
+  setPassword,
+} from '@onekeyhq/kit/src/store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -55,8 +54,8 @@ const SetPassword = () => {
       dispatch(setPassword(values.password));
       setTimeout(() => {
         navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Misc,
-          params: { screen: MiscModalRoutes.WalletGuide },
+          screen: ModalRoutes.CreateWallet,
+          params: { screen: CreateWalletModalRoutes.CreateWalletModal },
         });
       }, 100);
     },
