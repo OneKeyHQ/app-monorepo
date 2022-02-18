@@ -10,10 +10,8 @@ import { REMOTE_URL, Version, checkVersion } from './base';
 
 // TODO: desc order is expected in network list
 
-const getPresetNetworkList = (): NetworkList => networkList;
-
-let synced = false;
-let preset = getPresetNetworkList();
+let synced = true; // Change to false to enable remote updating
+let preset = networkList;
 //  network.id => PresetNetwork
 let presetNetworks: Record<string, PresetNetwork> = {};
 

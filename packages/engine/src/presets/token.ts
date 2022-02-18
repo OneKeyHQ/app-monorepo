@@ -1,19 +1,19 @@
-import { TokenList, evmAllTokenList } from '@onekeyfe/default-token-list';
+import {
+  TokenList,
+  evmAllTokenList,
+  solAllTokenList,
+} from '@onekeyfe/default-token-list';
 import axios from 'axios';
 
 import { Token } from '../types/token';
 
 import { REMOTE_URL, Version, checkVersion, parseVersion } from './base';
 
-const getPresetTokenList = (): Record<string, TokenList> => {
-  const tokenList = evmAllTokenList;
-  const ret: Record<string, TokenList> = {};
-  ret.evm = tokenList;
-  return ret;
+let preset: Record<string, TokenList> = {
+  evm: evmAllTokenList,
+  sol: solAllTokenList,
 };
-
-let preset = getPresetTokenList();
-let synced = false;
+let synced = true; // Change to false to enable remote updating
 //  network.id => token_address => Token
 let presetTokens: Record<string, Record<string, Token>> = {};
 
@@ -87,6 +87,7 @@ async function syncLatestTokenList() {
   }
   const newTokenList = await syncTokenList(getTokenkListVersion(preset), [
     'evm',
+    'sol',
   ]);
   if (newTokenList) {
     preset = newTokenList;
