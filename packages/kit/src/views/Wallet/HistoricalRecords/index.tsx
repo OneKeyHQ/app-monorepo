@@ -1,8 +1,9 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
-import { SectionListProps } from 'react-native';
+import { Platform, SectionListProps } from 'react-native';
 
 import {
   Badge,
@@ -17,6 +18,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
@@ -85,6 +87,27 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     TransactionGroup[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [account, setAccount] = useState<Account>();
+
+  const openLinkUrl = useCallback((url: string) => {
+    if (['android', 'ios'].includes(Platform.OS)) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
+
+  useEffect(() => {
+    async function main() {
+      if (!accountId) return;
+
+      const accounts = await engine.getAccounts([accountId]);
+      if (accounts && accounts.length > 0) {
+        setAccount(accounts[0]);
+      }
+    }
+    main();
+  }, [accountId]);
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -106,7 +129,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         history = await engine.getTxHistories(networkId, accountId, 0, 20);
       }
 
-      if (!history?.error && history?.data?.txList) {
+      if (!history?.error && history?.data && history?.data?.txList) {
         setTransactionRecords(
           toTransactionSection(
             intl.formatMessage({ id: 'history__queue' }),
@@ -184,6 +207,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       </Typography.Heading>
       <IconButton
         onPress={() => {
+          openLinkUrl(
+            `https://etherscan.io/address/${
+              (account as SimpleAccount).address
+            }`,
+          );
           console.log('Click Jump block browser');
         }}
         size="sm"
@@ -234,6 +262,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     keyExtractor: (_: Transaction, index: number) => index.toString(),
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
+    onRefresh: () => refreshHistory(),
   });
 };
 

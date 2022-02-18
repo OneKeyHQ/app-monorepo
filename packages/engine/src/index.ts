@@ -763,15 +763,15 @@ class Engine {
     ]);
 
     if (network.impl !== IMPL_EVM) {
-      return [];
+      return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
     if (typeof dbAccount === 'undefined') {
-      return [];
+      return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
     if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
-      return [];
+      return { data: null, error: false, errorMessage: null, errorCode: null };
     }
     const chainId = network.id.split(SEPERATOR)[1];
 
@@ -796,15 +796,15 @@ class Engine {
     ]);
 
     if (network.impl !== IMPL_EVM) {
-      return [];
+      return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
     if (typeof dbAccount === 'undefined') {
-      return [];
+      return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
     if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
-      return [];
+      return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
     const chainId = network.id.split(SEPERATOR)[1];
