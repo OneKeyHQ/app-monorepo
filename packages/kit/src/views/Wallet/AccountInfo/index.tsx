@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -38,8 +38,12 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
 const AccountInfo = () => {
   const intl = useIntl();
   const isSmallView = useIsVerticalLayout();
+  const isFocused = useIsFocused();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [mainTokenBalance, setMainTokenBalance] = useState({});
+  const [mainTokenBalance, setMainTokenBalance] =
+    useState<Record<string, any>>();
+  const [mainTokenPrice, setMainTokenPrice] =
+    useState<Record<string, string>>();
 
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
   const { wallet, account } = useActiveWalletAccount();
@@ -54,9 +58,12 @@ const AccountInfo = () => {
         true,
       );
       setMainTokenBalance(balance);
+
+      const prices = await engine.getPrices(activeNetwork?.id, [], true);
+      setMainTokenPrice(prices);
     }
-    main();
-  }, [activeNetwork, account?.id]);
+    if (isFocused) main();
+  }, [activeNetwork, account?.id, isFocused]);
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -66,22 +73,19 @@ const AccountInfo = () => {
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
           <Typography.DisplayXLarge>
-            {
-              /* @ts-expect-error */
-              mainTokenBalance?.main?.toFixed?.(2) ?? '-'
-            }
+            {mainTokenBalance?.main?.toFixed?.(2) ?? '-'}
           </Typography.DisplayXLarge>
           <Typography.DisplayXLarge pl={2}>
             {activeNetwork?.symbol?.toUpperCase?.()}
           </Typography.DisplayXLarge>
         </Box>
         <FormatCurrency
-          numbers={[0]}
+          numbers={[mainTokenPrice?.main, mainTokenBalance?.main]}
           render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
         />
       </Box>
     ),
-    [intl, mainTokenBalance, activeNetwork?.symbol],
+    [intl, mainTokenBalance, activeNetwork?.symbol, mainTokenPrice?.main],
   );
 
   const accountOption = useMemo(

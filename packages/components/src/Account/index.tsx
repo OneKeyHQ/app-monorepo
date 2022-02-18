@@ -94,7 +94,12 @@ const Account: FC<AccountProps> = ({
     <HStack alignItems="center">
       {!hiddenAvatar && (
         <Box justifyContent={avatarAlign} mr={avatarMarginRight}>
-          <Avatar address={address ?? ''} size={avatarSizeNumber * 4} />
+          <Avatar
+            address={address ?? ''}
+            // @ts-expect-error
+            seed={address}
+            size={avatarSizeNumber * 4}
+          />
         </Box>
       )}
       {!!(

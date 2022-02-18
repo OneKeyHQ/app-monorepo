@@ -76,7 +76,7 @@ const WatchedAccount: FC = () => {
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={intl.formatMessage({ id: 'wallet__watched_accounts' })}
       primaryActionTranslationId="action__import"
-      onPrimaryActionPress={() => onSubmit()}
+      primaryActionProps={{ onPromise: onSubmit }}
       hideSecondaryAction
       scrollViewProps={{
         children: (

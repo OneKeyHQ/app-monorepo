@@ -25,7 +25,7 @@ export const generalSlice = createSlice({
   reducers: {
     changeActiveAccount(
       state,
-      action: PayloadAction<{ account: Account; wallet: Wallet }>,
+      action: PayloadAction<{ account: Account | null; wallet: Wallet }>,
     ) {
       const { account, wallet } = action.payload;
       state.activeAccount = account;

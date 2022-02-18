@@ -81,7 +81,7 @@ export function formatNumber(val: BigNumber.Value, opts: FormatOptions) {
 }
 
 export const FormatCurrency: FC<{
-  numbers: (BigNumber.Value | string)[];
+  numbers: (BigNumber.Value | string | undefined)[];
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;
   as?: FC;
@@ -96,6 +96,7 @@ export const FormatCurrency: FC<{
     if (fiatBN.isNaN()) return null;
 
     return numbers.reduce((memo, curr) => {
+      if (curr === undefined || memo === undefined) return memo;
       const memoBN = new BigNumber(memo);
       const currBN = new BigNumber(curr);
       return memoBN.multipliedBy(currBN);
@@ -105,7 +106,7 @@ export const FormatCurrency: FC<{
   const child = useMemo(
     () => (
       <>
-        {isNil(amount)
+        {isNil(amount) || numbers.some((number) => isNil(number))
           ? '-'
           : formatNumber(amount, {
               ...formatOptions,
@@ -115,7 +116,7 @@ export const FormatCurrency: FC<{
         &nbsp;{selectedFiatMoneySymbol.toUpperCase()}
       </>
     ),
-    [amount, formatOptions, selectedFiatMoneySymbol],
+    [amount, formatOptions, selectedFiatMoneySymbol, numbers],
   );
 
   if (render) {

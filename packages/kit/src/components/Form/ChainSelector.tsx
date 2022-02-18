@@ -19,16 +19,12 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
     if (!networks) return [];
 
     return networks.map((network) => ({
-      title: network.impl,
-      options: [
-        {
-          label: network.name,
-          value: network.id,
-          tokenProps: {
-            src: network.logoURI,
-          },
-        },
-      ],
+      label: network.name,
+      value: network.id,
+      tokenProps: {
+        src: network.logoURI,
+      },
+      badge: network.impl === 'evm' ? 'EVM' : undefined,
     }));
   }, [networks]);
 
