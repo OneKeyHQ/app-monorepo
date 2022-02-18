@@ -437,15 +437,15 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
 }) => {
   const [loading, setLoading] = useState(isLoading);
   const handlePress = useCallback(() => {
-    if (onPress) {
-      onPress?.();
-    } else if (onPromise && typeof isLoading === 'undefined') {
+    if (onPromise && typeof isLoading === 'undefined') {
       setLoading(true);
       try {
         onPromise?.().finally(() => setLoading(false));
       } catch {
         setLoading(false);
       }
+    } else if (onPress) {
+      onPress?.();
     }
   }, [onPress, onPromise, setLoading, isLoading]);
   useEffect(() => {

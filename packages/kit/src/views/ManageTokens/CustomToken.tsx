@@ -1,21 +1,18 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Form,
-  Icon,
   KeyboardDismissView,
   Modal,
-  Pressable,
   useForm,
 } from '@onekeyhq/components';
 
 import engine from '../../engine/EngineProvider';
 import { useGeneral } from '../../hooks/redux';
 import { useToast } from '../../hooks/useToast';
-import { getClipboard } from '../../utils/ClipboardUtils';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -34,13 +31,20 @@ type AddCustomTokenValues = {
 
 export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const intl = useIntl();
+  const helpTip = intl.formatMessage({
+    id: 'form__searching_token',
+    defaultMessage: 'Searching Token...',
+  });
   const navigation = useNavigation();
+  const [isDisabled, setIsDisabled] = useState(false);
+  const [isSearching, setSearching] = useState(false);
   const { activeAccount, activeNetwork } = useGeneral();
   const { info } = useToast();
   const address = route.params?.address;
-  const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
-    defaultValues: { address: '', symbol: '', decimal: '' },
-  });
+  const { control, handleSubmit, setValue, watch } =
+    useForm<AddCustomTokenValues>({
+      defaultValues: { address: '', symbol: '', decimal: '' },
+    });
   useEffect(() => {
     if (address) {
       setValue('address', address);
@@ -48,7 +52,6 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   }, [address, setValue]);
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
-      console.log(data);
       if (activeNetwork && activeAccount) {
         const preResult = await engine.preAddToken(
           activeAccount.id,
@@ -71,6 +74,34 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     },
     [navigation, activeNetwork, activeAccount, intl, info],
   );
+  const watchAddress = watch('address');
+  useEffect(() => {
+    async function doQuery() {
+      const trimedAddress = watchAddress.trim();
+      // now support evm chain
+      if (trimedAddress.length === 42 && activeAccount && activeNetwork) {
+        let preResult;
+        setSearching(true);
+        try {
+          preResult = await engine.preAddToken(
+            activeAccount.id,
+            activeNetwork.network.id,
+            trimedAddress,
+          );
+        } finally {
+          setSearching(false);
+        }
+        if (preResult) {
+          setValue('decimal', String(preResult[1].decimals));
+          setValue('symbol', preResult[1].symbol);
+          setIsDisabled(true);
+        }
+      } else {
+        setIsDisabled(false);
+      }
+    }
+    doQuery();
+  }, [watchAddress, activeAccount, activeNetwork, setValue]);
 
   return (
     <Modal
@@ -81,8 +112,10 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       height="560px"
       hideSecondaryAction
       primaryActionTranslationId="action__add"
-      primaryActionProps={{ type: 'primary' }}
-      onPrimaryActionPress={() => handleSubmit(onSubmit)()}
+      primaryActionProps={{
+        type: 'primary',
+        onPromise: () => handleSubmit(onSubmit)(),
+      }}
       scrollViewProps={{
         children: (
           <KeyboardDismissView>
@@ -94,15 +127,8 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                   defaultMessage: 'Contract Address',
                 })}
                 control={control}
-                labelAddon={
-                  <Pressable
-                    onPress={() => {
-                      getClipboard().then((text) => setValue('address', text));
-                    }}
-                  >
-                    <Icon size={16} name="ClipboardSolid" />
-                  </Pressable>
-                }
+                labelAddon={['paste']}
+                helpText={isSearching ? helpTip : undefined}
               >
                 <Form.Textarea
                   placeholder={intl.formatMessage({
@@ -119,7 +145,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                 })}
                 control={control}
               >
-                <Form.Input />
+                <Form.Input isDisabled={isDisabled} />
               </Form.Item>
               <Form.Item
                 name="decimal"
@@ -129,7 +155,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                 })}
                 control={control}
               >
-                <Form.Input />
+                <Form.Input isDisabled={isDisabled} />
               </Form.Item>
             </Form>
           </KeyboardDismissView>
