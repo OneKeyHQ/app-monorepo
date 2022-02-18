@@ -3,6 +3,7 @@ import React, { FC } from 'react';
 import Address from '../Address';
 import Avatar from '../Avatar';
 import Box from '../Box';
+import HStack from '../HStack';
 import Typography from '../Typography';
 
 export type AvatarSizeVariant = 'sm' | 'md' | 'lg' | 'xl';
@@ -90,9 +91,9 @@ const Account: FC<AccountProps> = ({
   }
 
   return (
-    <Box display="flex" flexDirection="row">
+    <HStack alignItems="center">
       {!hiddenAvatar && (
-        <Box display="flex" justifyContent={avatarAlign} mr={avatarMarginRight}>
+        <Box justifyContent={avatarAlign} mr={avatarMarginRight}>
           <Avatar address={address ?? ''} size={avatarSizeNumber * 4} />
         </Box>
       )}
@@ -102,12 +103,14 @@ const Account: FC<AccountProps> = ({
         hasPrimaryAddress ||
         hasSecondAddress
       ) && (
-        <Box display="flex" justifyContent="center">
+        <Box flex={1}>
           {!!(primaryContent || hasPrimaryAddress) &&
             (hasPrimaryAddress ? (
               <Address typography="Body2Strong" text={address} short />
             ) : (
-              <Typography.Body2Strong>{primaryContent}</Typography.Body2Strong>
+              <Typography.Body2Strong isTruncated>
+                {primaryContent}
+              </Typography.Body2Strong>
             ))}
 
           {!!(secondContent || hasSecondAddress) &&
@@ -125,7 +128,7 @@ const Account: FC<AccountProps> = ({
             ))}
         </Box>
       )}
-    </Box>
+    </HStack>
   );
 };
 

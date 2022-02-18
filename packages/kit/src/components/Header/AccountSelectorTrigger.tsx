@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Account,
+  Box,
   Button,
   HStack,
   Icon,
@@ -49,9 +50,7 @@ const AccountSelectorTrigger: FC<Props> = ({
         <HStack
           p="2"
           alignItems="center"
-          justifyContent="space-between"
           borderRadius="12px"
-          space={1}
           bg={
             // eslint-disable-next-line no-nested-ternary
             visible && !isVerticalLayout
@@ -61,10 +60,12 @@ const AccountSelectorTrigger: FC<Props> = ({
               : 'transparent'
           }
         >
-          <Account
-            address={address}
-            name={isVerticalLayout ? undefined : name}
-          />
+          <Box flex={1} minW="144px">
+            <Account
+              address={address}
+              name={isVerticalLayout ? undefined : name}
+            />
+          </Box>
           <Icon size={20} name="SelectorSolid" />
         </HStack>
       )}
