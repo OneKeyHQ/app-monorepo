@@ -164,10 +164,23 @@ class Engine {
     return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
-  async getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
+  async getAccounts(
+    accountIds: Array<string>,
+    networkId?: string,
+  ): Promise<Array<Account>> {
     // List accounts by account ids. No token info are returned, only base account info are included.
+    if (accountIds.length === 0) {
+      return [];
+    }
+
     const accounts = await this.dbApi.getAccounts(accountIds);
-    return accounts.map((a: DBAccount) => fromDBAccountToAccount(a));
+    return accounts
+      .filter(
+        (a) =>
+          typeof networkId === 'undefined' ||
+          isAccountCompatibleWithNetwork(a.id, networkId),
+      )
+      .map((a: DBAccount) => fromDBAccountToAccount(a));
   }
 
   async getAccountsByNetwork(
