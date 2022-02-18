@@ -12,6 +12,10 @@ type NetworkBase = HasName & {
 type NetworkShort = NetworkBase & {
   // Simple version, used in basic listing.
   preset: boolean;
+  // UI specific properties.
+  // TODO: move this into remote config?
+  nativeDisplayDecimals: number;
+  tokenDisplayDecimals: number;
 };
 
 type NetworkCommon = NetworkBase & {
@@ -37,17 +41,7 @@ type PresetNetwork = NetworkCommon & {
   extensions?: Record<string, any>;
 };
 
-type NetworkDisplayProperties = {
-  // UI specific properties.
-  // TODO: move this into remote config?
-  nativeDisplayDecimals: number;
-  tokenDisplayDecimals: number;
-};
-
-type Network = NetworkShort &
-  DBNetwork &
-  PresetNetwork &
-  NetworkDisplayProperties;
+type Network = NetworkShort & DBNetwork & PresetNetwork;
 
 type AddEVMNetworkParams = {
   name: string;
