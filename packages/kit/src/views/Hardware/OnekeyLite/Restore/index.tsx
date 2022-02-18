@@ -137,18 +137,14 @@ const Restore: FC = () => {
   };
 
   useEffect(() => {
-    const uiConnectListener = OnekeyLite.addConnectListener(
-      handlerNfcConnectState,
-    );
+    OnekeyLite.addConnectListener(handlerNfcConnectState);
 
     if (Platform.OS !== 'ios') {
       startNfcScan();
     }
 
     return () => {
-      if (uiConnectListener) {
-        OnekeyLite.removeConnectListener(uiConnectListener);
-      }
+      OnekeyLite.removeConnectListeners();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

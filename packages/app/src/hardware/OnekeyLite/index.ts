@@ -1,11 +1,6 @@
 import { Buffer } from 'buffer';
 
-import {
-  EmitterSubscription,
-  NativeEventEmitter,
-  NativeModules,
-  Platform,
-} from 'react-native';
+import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 
 import { Callback, CallbackError, CardInfo } from './types';
 
@@ -55,11 +50,12 @@ class OnekeyLite {
   }
 
   addConnectListener(listener: (event: NfcConnectUiState) => void) {
+    this.removeConnectListeners();
     return this.UiEventEmitter?.addListener('nfc_ui_event', listener);
   }
 
-  removeConnectListener(listener: EmitterSubscription) {
-    return this.UiEventEmitter?.removeSubscription(listener);
+  removeConnectListeners() {
+    return this.UiEventEmitter?.removeAllListeners('nfc_ui_event');
   }
 
   addAccordListener() {
