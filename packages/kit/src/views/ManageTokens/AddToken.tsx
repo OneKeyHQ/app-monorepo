@@ -1,12 +1,10 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Divider,
-  FlatList,
   KeyboardDismissView,
   Modal,
   Token,
@@ -37,60 +35,65 @@ export const AddToken: FC = () => {
   const intl = useIntl();
   const { activeAccount, activeNetwork } = useGeneral();
   const { info } = useToast();
+  const [balance, setBalance] = useState<string>('0');
   const {
     params: { name, symbol, decimal, address, logoURI },
   } = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
-  const items: ListItem[] = [
-    {
-      label: intl.formatMessage({
-        id: 'form__name',
-        defaultMessage: 'Name',
-      }),
-      value: name,
-    },
-    {
-      label: intl.formatMessage({
-        id: 'form__symbol',
-        defaultMessage: 'Symbol',
-      }),
-      value: symbol,
-    },
-    {
-      label: intl.formatMessage({
-        id: 'form__contract',
-        defaultMessage: 'Contact',
-      }),
-      value: address,
-    },
-    {
-      label: intl.formatMessage({
-        id: 'form__decimal',
-        defaultMessage: 'Decimal',
-      }),
-      value: String(decimal),
-    },
-    {
-      label: intl.formatMessage({
-        id: 'content__balance',
-        defaultMessage: 'Balance',
-      }),
-      value: '11',
-    },
-  ];
-  const renderItem = ({ item }: { item: ListItem }) => (
-    <Box
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      p="4"
-      alignItems="center"
-    >
-      <Typography.Body1 color="text-subdued">{item.label}</Typography.Body1>
-      <Typography.Body1 maxW="56" textAlign="right">
-        {item.value}
-      </Typography.Body1>
-    </Box>
+  useEffect(() => {
+    async function fetchBalance() {
+      if (activeAccount && activeNetwork) {
+        const res = await engine.preAddToken(
+          activeAccount?.id,
+          activeNetwork.network.id,
+          address,
+        );
+        if (res?.[0]) {
+          setBalance(res?.[0].toString());
+        }
+      }
+    }
+    fetchBalance();
+  }, [activeAccount, activeNetwork, address]);
+  const items: ListItem[] = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: 'form__name',
+          defaultMessage: 'Name',
+        }),
+        value: name,
+      },
+      {
+        label: intl.formatMessage({
+          id: 'form__symbol',
+          defaultMessage: 'Symbol',
+        }),
+        value: symbol,
+      },
+      {
+        label: intl.formatMessage({
+          id: 'form__contract',
+          defaultMessage: 'Contact',
+        }),
+        value: address,
+      },
+      {
+        label: intl.formatMessage({
+          id: 'form__decimal',
+          defaultMessage: 'Decimal',
+        }),
+        value: String(decimal),
+      },
+      {
+        label: intl.formatMessage({
+          id: 'content__balance',
+          defaultMessage: 'Balance',
+        }),
+        value: balance,
+      },
+    ],
+    [name, symbol, address, decimal, balance, intl],
   );
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
@@ -142,17 +145,31 @@ export const AddToken: FC = () => {
                   {name}({symbol})
                 </Typography.Heading>
               </Box>
-              <FlatList
-                bg="surface-default"
-                borderRadius="12"
-                mt="3"
-                mb="3"
-                data={items}
-                renderItem={renderItem}
-                ItemSeparatorComponent={() => <Divider />}
-                keyExtractor={(_, index: number) => index.toString()}
-                showsVerticalScrollIndicator={false}
-              />
+              <Box bg="surface-default" borderRadius="12" mt="3" mb="3">
+                {items.map((item, index) => (
+                  <Box
+                    display="flex"
+                    flexDirection="row"
+                    justifyContent="space-between"
+                    p="4"
+                    alignItems="center"
+                    key={index}
+                    borderTopRadius={index === 0 ? '12' : undefined}
+                    borderBottomRadius={
+                      index === items.length - 1 ? '12' : undefined
+                    }
+                    borderTopColor="divider"
+                    borderTopWidth={index !== 0 ? '1' : undefined}
+                  >
+                    <Typography.Body1 color="text-subdued">
+                      {item.label}
+                    </Typography.Body1>
+                    <Typography.Body1 maxW="56" textAlign="right">
+                      {item.value}
+                    </Typography.Body1>
+                  </Box>
+                ))}
+              </Box>
             </Box>
           </KeyboardDismissView>
         ),
