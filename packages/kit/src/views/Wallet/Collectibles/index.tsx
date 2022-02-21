@@ -1,49 +1,73 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { ModalTypes } from '@onekeyhq/kit/src/routes';
-import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
+import {
+  CollectiblesModalRoutes,
+  CollectiblesRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import CollectibleGallery from './CollectibleGallery';
-import { ASSETS } from './data';
-import { Collectible, SelectedAsset } from './types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { Collectible, SelectedAsset } from './types';
 
-type ModalCollectibleNavigationProp = NativeStackNavigationProp<
-  ModalTypes,
-  CollectiblesModalRoutes.CollectionModal
->;
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
-const Collectibles = () => {
-  const [collectibles] = useState<Collectible[]>(ASSETS);
-  const navigation = useNavigation<ModalCollectibleNavigationProp>();
+export type CollectiblesProps = {
+  accountId: string | null | undefined;
+  networkId: string | null | undefined;
+};
+
+const Collectibles = ({ accountId, networkId }: CollectiblesProps) => {
+  const [collectibles, setCollectibles] = useState<Collectible[]>([]);
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
+  useEffect(() => {
+    if (!accountId || !networkId) {
+      return;
+    }
+
+    (async () => {
+      const cols = await getUserAssets({ account: accountId, chainId: 1 });
+      setCollectibles(cols);
+    })();
+  }, [accountId, networkId]);
 
   // Open Asset detail modal
   const handleSelectAsset = useCallback(
     (asset: SelectedAsset) => {
-      navigation.navigate(CollectiblesModalRoutes.CollectionModal, {
-        screen: CollectiblesModalRoutes.CollectibleDetailModal,
+      if (!accountId) return;
+
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
         params: {
-          assetId: asset.id,
+          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          params: { assetId: asset.id, userAddress: accountId },
         },
       });
     },
-    [navigation],
+    [accountId, navigation],
   );
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collectible) => {
-      navigation.navigate(CollectiblesModalRoutes.CollectionModal, {
-        screen: CollectiblesModalRoutes.CollectionModal,
+      if (!accountId) return;
+
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
         params: {
-          id: collectible.id,
+          screen: CollectiblesModalRoutes.CollectionModal,
+          params: { id: collectible.id, userAddress: accountId },
         },
       });
     },
-    [navigation],
+    [accountId, navigation],
   );
 
   return (

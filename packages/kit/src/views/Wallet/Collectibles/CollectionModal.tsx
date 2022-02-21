@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp, useNavigation } from '@react-navigation/native';
@@ -15,30 +14,31 @@ import {
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
-// import { ModalRoutes } from '@onekeyhq/kit/src/routes';
+import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
+import { Asset, Collectible } from '@onekeyhq/engine/src/types/opensea';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '../../../routes/Modal/Collectibles';
 
-import { ASSETS } from './data';
 import { SelectedAsset } from './types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  CollectiblesRoutesParams,
-  CollectiblesModalRoutes.CollectionModal
->;
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 type CollectionModalProps = {
   onSelectAsset: (asset: SelectedAsset) => void;
 };
 
-const getCollection = (id: string | number) => {
-  const data = ASSETS.find((col) => String(col.id) === String(id));
-  return data;
+const getCollectible = async (address: string, id: string | number) => {
+  const collectibles = await getUserAssets({ account: address });
+  const collectible = collectibles.find((col) => col.id === String(id));
+  return collectible;
 };
 
 const CollectionImage: FC<{ src?: string | null; size?: number | string }> = ({
@@ -76,7 +76,7 @@ const CollectionImage: FC<{ src?: string | null; size?: number | string }> = ({
 
 const CollectionModal: FC<CollectionModalProps> = () => {
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const route =
     useRoute<
@@ -85,16 +85,33 @@ const CollectionModal: FC<CollectionModalProps> = () => {
         CollectiblesModalRoutes.CollectionModal
       >
     >();
-  const { id } = route.params;
-  const collectible = getCollection(id);
+  const { id, userAddress } = route.params;
+  const [collectible, setCollectible] = useState<Collectible | null>();
+
+  useEffect(() => {
+    if (!userAddress || !id) {
+      return;
+    }
+
+    (async () => {
+      const collectibleFromBe = await getCollectible(userAddress, id);
+      setCollectible(collectibleFromBe);
+    })();
+  }, [id, userAddress]);
 
   // Open Asset detail modal
-  const handleSelectAsset = React.useCallback((_: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    // navigation.navigate(ModalRoutes.CollectibleDetailModal, {
-    //   assetId: asset.id,
-    // });
-  }, []);
+  const handleSelectAsset = React.useCallback(
+    (asset: Asset) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
+        params: {
+          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          params: { assetId: asset.id, userAddress },
+        },
+      });
+    },
+    [navigation, userAddress],
+  );
 
   if (!collectible) return null;
 
@@ -131,13 +148,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
                       title={asset.name}
                       mr={marginRight}
                       mb={4}
-                      onPress={() =>
-                        handleSelectAsset({
-                          ...asset,
-                          chain: collectible.chain,
-                          contractAddress: collectible.contract.address,
-                        })
-                      }
+                      onPress={() => handleSelectAsset(asset)}
                     />
                   );
                 })}

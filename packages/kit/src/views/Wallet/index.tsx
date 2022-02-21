@@ -23,7 +23,7 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
-// import CollectiblesList from './Collectibles';
+import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
 import type { TextStyle } from 'react-native';
@@ -167,12 +167,15 @@ const Home: FC = () => {
       >
         <AssetsList />
       </Tabs.Tab>
-      {/* <Tabs.Tab
+      <Tabs.Tab
         name={TabEnum.Collectibles}
         label={intl.formatMessage({ id: 'asset__collectibles' })}
       >
-        <CollectiblesList />
-      </Tabs.Tab> */}
+        <CollectiblesList
+          accountId={account?.address}
+          networkId={network?.network?.id}
+        />
+      </Tabs.Tab>
       <Tabs.Tab
         name={TabEnum.History}
         label={intl.formatMessage({ id: 'transaction__history' })}

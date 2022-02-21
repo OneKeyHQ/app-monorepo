@@ -12,9 +12,13 @@ export enum CollectiblesModalRoutes {
 }
 
 export type CollectiblesRoutesParams = {
-  [CollectiblesModalRoutes.CollectionModal]: { id: string | number };
+  [CollectiblesModalRoutes.CollectionModal]: {
+    id: string | number;
+    userAddress: string;
+  };
   [CollectiblesModalRoutes.CollectibleDetailModal]: {
     assetId: string | number;
+    userAddress: string;
   };
 };
 

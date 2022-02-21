@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,15 +15,17 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
+import { Asset } from '@onekeyhq/engine/src/types/opensea';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 
-import { ASSETS } from './data';
+const getAsset = async (address: string, id: string | number) => {
+  const collectibles = await getUserAssets({ account: address });
 
-const getAsset = (id: string | number) => {
-  const collectible = ASSETS.find((col) =>
+  const collectible = collectibles.find((col) =>
     col.assets.find((asset) => String(asset.id) === String(id)),
   );
 
@@ -62,8 +64,19 @@ const CollectibleDetailModal: FC = () => {
         CollectiblesModalRoutes.CollectibleDetailModal
       >
     >();
-  const { assetId } = route.params;
-  const asset = getAsset(assetId);
+  const { assetId, userAddress } = route.params;
+  const [asset, setAsset] = useState<Asset | null>(null);
+
+  useEffect(() => {
+    if (!userAddress || !assetId) {
+      return;
+    }
+
+    (async () => {
+      const assetFromBe = await getAsset(userAddress, assetId);
+      setAsset(assetFromBe);
+    })();
+  }, [assetId, userAddress]);
 
   if (!asset) return null;
 
