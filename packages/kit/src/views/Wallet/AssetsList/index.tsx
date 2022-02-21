@@ -2,7 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { useEffect, useState } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -24,7 +28,10 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useManageTokens,
+} from '@onekeyhq/kit/src/hooks/redux';
 
 import {
   HomeRoutes,
@@ -35,6 +42,7 @@ import {
 } from '../../../routes/types';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
+import type { MyToken } from '../../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -74,10 +82,9 @@ const ListHeaderComponent = () => {
 
 const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
-  const [tokens, setTokens] = useState<TokenType[]>([]);
+  const { accountTokens, updateAccountTokens } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const [tokenBalance, setTokenBalance] = useState<Record<string, any>>();
   const [mainTokenPrice, setMainTokenPrice] =
     useState<Record<string, string>>();
   const isFocused = useIsFocused();
@@ -85,25 +92,9 @@ const AssetsList = () => {
   useEffect(() => {
     async function main() {
       if (!network?.network?.id || !account?.id) return;
-      const tokensBE = await engine.getTokens(
-        network.network.id,
-        account.id,
-        true,
-      );
-      setTokens(tokensBE);
-
-      const balance = await engine.getAccountBalance(
-        account.id,
-        network.network.id,
-        tokensBE.map((token) => token.tokenIdOnNetwork),
-        true,
-      );
-
-      setTokenBalance(balance);
-
       const prices = await engine.getPrices(
         network.network.id,
-        tokensBE.map((token) => token.tokenIdOnNetwork),
+        accountTokens.map((token) => token.tokenIdOnNetwork),
         true,
       );
       setMainTokenPrice(prices);
@@ -111,9 +102,11 @@ const AssetsList = () => {
     if (isFocused) {
       main();
     }
-  }, [network, account?.id, isFocused]);
+  }, [network, account?.id, isFocused, accountTokens]);
 
-  const renderItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
+  useFocusEffect(updateAccountTokens);
+
+  const renderItem: ScrollableFlatListProps<MyToken>['renderItem'] = ({
     item,
     index,
   }) => {
@@ -126,7 +119,7 @@ const AssetsList = () => {
       <Pressable.Item
         p={4}
         borderTopRadius={index === 0 ? '12px' : '0px'}
-        borderRadius={index === tokens?.length - 1 ? '12px' : '0px'}
+        borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
         onPress={() => {
           if (!item.tokenIdOnNetwork) return;
 
@@ -141,7 +134,7 @@ const AssetsList = () => {
           <Token size={8} src={item.logoURI} />
           <Box ml={3} mr={3} flexDirection="column" flex={1}>
             <FormatBalance
-              balance={tokenBalance?.[mapKey]}
+              balance={item.balance}
               suffix={item.symbol}
               formatOptions={{
                 fixed: decimal ?? 4,
@@ -153,7 +146,7 @@ const AssetsList = () => {
               )}
             />
             <FormatCurrency
-              numbers={[tokenBalance?.[mapKey], mainTokenPrice?.[mapKey]]}
+              numbers={[item.balance, mainTokenPrice?.[mapKey]]}
               render={(ele) => (
                 <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
               )}
@@ -163,7 +156,7 @@ const AssetsList = () => {
             <Box ml={3} mr={20} flexDirection="row" flex={1}>
               <Icon size={20} name="ActivityOutline" />
               <FormatCurrency
-                numbers={[tokenBalance?.[mapKey], mainTokenPrice?.[mapKey]]}
+                numbers={[item.balance, mainTokenPrice?.[mapKey]]}
                 render={(ele) => (
                   <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
                 )}
@@ -182,7 +175,7 @@ const AssetsList = () => {
         paddingHorizontal: 16,
         marginTop: 24,
       }}
-      data={tokens}
+      data={accountTokens}
       renderItem={renderItem}
       ListHeaderComponent={<ListHeaderComponent />}
       ItemSeparatorComponent={Divider}

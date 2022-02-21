@@ -24,19 +24,32 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
 }
 
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
-  const isPresetNetwork = networkIsPreset(dbNetwork.id);
-  const presetNetworks = getPresetNetworks();
-  const preset = isPresetNetwork
-    ? presetNetworks[dbNetwork.id] || { presetRpcURLs: [], isTestnet: false }
-    : { presetRpcURLs: [], isTestnet: false };
+  const { position, curve, ...forNetwork } = dbNetwork;
+  const preset = networkIsPreset(dbNetwork.id);
+  let isTestnet = false;
+  if (preset) {
+    const presetNetwork = getPresetNetworks()[dbNetwork.id];
+    isTestnet = presetNetwork.isTestnet || false;
+  }
+
+  let extraInfo = {};
+  if (dbNetwork.impl === IMPL_EVM) {
+    const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
+    extraInfo = {
+      chainId: `0x${chainId.toString(16)}`,
+      networkVersion: chainId.toString(),
+    };
+  }
   return {
-    ...dbNetwork,
-    preset: isPresetNetwork,
-    ...preset,
+    ...forNetwork,
+    preset,
+    isTestnet,
     // The two display decimals fields below are for UI, hard-coded for now.
     // TODO: define display decimals in remote config and give defaults for different implementations.
     nativeDisplayDecimals: 6,
     tokenDisplayDecimals: 4,
+    // extra info for dapp interactions
+    extraInfo,
   };
 }
 
