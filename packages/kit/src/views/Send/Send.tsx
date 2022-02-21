@@ -126,7 +126,7 @@ const Transaction = () => {
             </Column>
             <Button
               type="primary"
-              size={isSmallScreen ? 'lg' : 'base'}
+              size={isSmallScreen ? 'xl' : 'base'}
               isDisabled={false}
               onPress={() => {
                 onSubmit();
