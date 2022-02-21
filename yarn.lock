@@ -3130,10 +3130,10 @@
     url-join "^4.0.1"
     whatwg-fetch "^3.5.0"
 
-"@onekeyfe/default-token-list@^1.0.4":
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.0.4.tgz#792aa01609ede89dfbbcfeecf1401ad5a45ab8b1"
-  integrity sha512-QM866flWhvFgLfRSjZWl7b4WtYcBqDWe5/tI3ZwcEIjyfjE57nzA38fEm2WhPsDzWp16zbGJIcAfNy1tQKnqzw==
+"@onekeyfe/default-token-list@^1.0.5":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.0.5.tgz#4a5972cb887560c584ce3f58a7ee688758d71541"
+  integrity sha512-ONwgBCEmWJqe2ks9cYmdZyiU+pvqmLnEnhf87K7dpseV7ytRPb/X14+9BNulbR4Q3CMRlDHd0/KzN2uXnpJlgw==
 
 "@onekeyfe/link@1.7.5":
   version "1.7.5"
@@ -3149,10 +3149,10 @@
     semver-compare "^1.0.0"
     whatwg-fetch "^3.5.0"
 
-"@onekeyfe/network-list@^1.0.4":
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.0.4.tgz#b331d33ee0555f263a519129e2fa4fc3ca67ceef"
-  integrity sha512-+n5kWYLad8ZFm2mPsdCa3unf964XNmq57k/Fe2onXRsx5JkGktdggSTXPbeL3shHdE5gxiOG2ezMLqLLR85myg==
+"@onekeyfe/network-list@^1.0.5":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.0.5.tgz#fa4d3b12547de7165aabc23696613b9919f18417"
+  integrity sha512-0jqn12scUuLPolskOG5QV1UHW/kVVpjDew3KkpMuvD/Mo79VSLjIA670DmfRum99vSlrznFIcpDrAKp/XYE5Pw==
 
 "@onekeyfe/rollout@1.0.6":
   version "1.0.6"
