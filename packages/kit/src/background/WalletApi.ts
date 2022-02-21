@@ -2,8 +2,6 @@
 import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
 import { getActiveWalletAccount } from '../hooks/redux';
-import { appSelector } from '../store';
-import { GeneralInitialState } from '../store/reducers/general';
 
 class WalletApi {
   // TODO remove
