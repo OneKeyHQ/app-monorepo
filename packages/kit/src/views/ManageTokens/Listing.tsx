@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,11 +19,12 @@ import {
 import { Token as TokenOf } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
-import { useGeneral } from '../../hooks/redux';
+import { useGeneral, useManageTokens } from '../../hooks/redux';
 import useDebounce from '../../hooks/useDebounce';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
+import type { MyToken } from '../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -34,46 +35,12 @@ type NavigationProps = NativeStackNavigationProp<
 const isValidateAddr = (addr: string) => addr.length === 42;
 
 type HeaderTokensProps = {
-  tokens: TokenOf[];
+  tokens: MyToken[];
   onDelToken?: (token: TokenOf) => void;
 };
 
 const HeaderTokens: FC<HeaderTokensProps> = ({ tokens, onDelToken }) => {
   const intl = useIntl();
-  const { activeNetwork, activeAccount } = useGeneral();
-  const [balances, setBalances] = useState<Record<string, string>>({});
-
-  const fetchBalances = useCallback(async () => {
-    if (activeNetwork && activeAccount) {
-      const res = await engine.getAccountBalance(
-        activeAccount.id,
-        activeNetwork?.network.id,
-        tokens.map((token) => token.tokenIdOnNetwork),
-        true,
-      );
-      const result: Record<string, string> = {};
-      Object.entries(res).forEach(([key, value]) => {
-        result[key] = value?.toString() ?? '0';
-      });
-      setBalances(result);
-    }
-  }, [tokens, activeNetwork, activeAccount]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchBalances();
-    }, [fetchBalances]),
-  );
-
-  const getBalance = useCallback(
-    (address: string) => {
-      if (!address) {
-        return balances.main ?? '0';
-      }
-      return balances[address] ?? '0';
-    },
-    [balances],
-  );
   return (
     <Box>
       {tokens.length ? (
@@ -107,9 +74,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({ tokens, onDelToken }) => {
                   chain="eth"
                   name={item.name}
                   address={item.tokenIdOnNetwork}
-                  description={`${getBalance(item.tokenIdOnNetwork)} ${
-                    item.symbol
-                  }`}
+                  description={`${item.balance ?? '0'} ${item.symbol}`}
                 />
                 <IconButton
                   name="TrashSolid"
@@ -132,7 +97,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({ tokens, onDelToken }) => {
 };
 
 type HeaderProps = {
-  tokens: TokenOf[];
+  tokens: MyToken[];
   keyword: string;
   onChange: (keyword: string) => void;
   onDelToken?: (token: TokenOf) => void;
@@ -203,73 +168,83 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 export const Listing: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const {
+    accountTokens,
+    accountTokensSet,
+    allTokens,
+    updateTokens,
+    updateAccountTokens,
+  } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
   const debouncedKeyword = useDebounce(keyword, 1000);
-  const [mylist, setMylist] = useState<TokenOf[]>([]);
-  const [top50list, setTop50List] = useState<TokenOf[]>([]);
-  const [tokensWithoutOwned, setTokensWithoutOwned] = useState<TokenOf[]>([]);
+  const [topTokens, setTopTokens] = useState<TokenOf[]>([]);
 
-  const [toDeletedToken, setToDeletedToken] = useState<TokenOf>();
   const [searchedTokens, setSearchedTokens] = useState<TokenOf[]>([]);
   const { activeNetwork, activeAccount } = useGeneral();
 
-  useEffect(() => {
-    const myset = new Set(mylist.map((item) => item.tokenIdOnNetwork));
-    const filtered = top50list.filter(
-      (item) => !myset.has(item.tokenIdOnNetwork),
-    );
-    setTokensWithoutOwned(filtered);
-  }, [top50list, mylist]);
+  const [visible, setVisible] = useState(false);
+  const [toDeletedToken, setToDeletedToken] = useState<TokenOf>();
+
+  const onToggle = useCallback((token?: TokenOf) => {
+    if (token) {
+      setToDeletedToken(token);
+      setVisible(true);
+    } else {
+      setVisible(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const allTokens: TokenOf[] = ([] as TokenOf[]).concat(
-      mylist,
-      tokensWithoutOwned,
+    const filtered = allTokens.filter(
+      (item) => !accountTokensSet.has(item.tokenIdOnNetwork),
     );
-    const result = allTokens.filter(
+    setTopTokens(filtered);
+  }, [allTokens, accountTokens, accountTokensSet]);
+
+  useEffect(() => {
+    const allUniqTokens: TokenOf[] = ([] as TokenOf[]).concat(
+      accountTokens,
+      topTokens,
+    );
+    const result = allUniqTokens.filter(
       (item) =>
         item.name.toLowerCase().includes(debouncedKeyword.toLowerCase()) ||
         item.symbol.toLowerCase().includes(debouncedKeyword.toLowerCase()) ||
-        item.tokenIdOnNetwork
-          .toLowerCase()
-          .includes(debouncedKeyword.toLowerCase()),
+        item.tokenIdOnNetwork.toLowerCase() === debouncedKeyword.toLowerCase(),
     );
     setSearchedTokens(result);
-  }, [mylist, tokensWithoutOwned, debouncedKeyword]);
-
-  const fetchTokens = useCallback(async () => {
-    if (activeNetwork?.network) {
-      const resFortop50list = await engine.getTokens(activeNetwork.network.id);
-      setTop50List(resFortop50list);
-    }
-    if (activeNetwork?.network && activeAccount) {
-      const resFormylist = await engine.getTokens(
-        activeNetwork.network.id,
-        activeAccount.id,
-      );
-      setMylist(resFormylist);
-    }
-  }, [activeNetwork, activeAccount]);
+  }, [accountTokens, topTokens, debouncedKeyword]);
 
   const onDelete = useCallback(async () => {
     if (activeAccount && toDeletedToken) {
       await engine.removeTokenFromAccount(activeAccount.id, toDeletedToken?.id);
     }
-    setToDeletedToken(undefined);
-    await fetchTokens();
-  }, [activeAccount, toDeletedToken, fetchTokens]);
+    onToggle(undefined);
+    updateTokens();
+    updateAccountTokens();
+  }, [
+    activeAccount,
+    toDeletedToken,
+    updateTokens,
+    updateAccountTokens,
+    onToggle,
+  ]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchTokens();
-    }, [fetchTokens]),
+  useFocusEffect(updateTokens);
+  useFocusEffect(updateAccountTokens);
+
+  const flatListData = useMemo(
+    () => (keyword ? searchedTokens : topTokens),
+    [keyword, searchedTokens, topTokens],
   );
 
   const renderItem: ListRenderItem<TokenOf> = useCallback(
     ({ item, index }) => (
       <Box
         borderTopRadius={index === 0 ? '12' : undefined}
-        borderBottomRadius={index === top50list.length - 1 ? '12' : undefined}
+        borderBottomRadius={
+          index === flatListData.length - 1 ? '12' : undefined
+        }
         display="flex"
         flexDirection="row"
         justifyContent="space-between"
@@ -285,22 +260,34 @@ export const Listing: FC = () => {
           address={item.tokenIdOnNetwork}
           description={utils.shortenAddress(item.tokenIdOnNetwork)}
         />
-        <IconButton
-          name="PlusSolid"
-          type="plain"
-          onPress={() => {
-            navigation.navigate(ManageTokenRoutes.AddToken, {
-              name: item.name,
-              symbol: item.symbol,
-              address: item.tokenIdOnNetwork,
-              decimal: item.decimals,
-              logoURI: item.logoURI,
-            });
-          }}
-        />
+        {accountTokensSet.has(item.tokenIdOnNetwork) ? (
+          <IconButton
+            name="TrashSolid"
+            type="plain"
+            p="4"
+            onPress={() => {
+              onToggle(item);
+            }}
+          />
+        ) : (
+          <IconButton
+            name="PlusSolid"
+            type="plain"
+            p="4"
+            onPress={() => {
+              navigation.navigate(ManageTokenRoutes.AddToken, {
+                name: item.name,
+                symbol: item.symbol,
+                address: item.tokenIdOnNetwork,
+                decimal: item.decimals,
+                logoURI: item.logoURI,
+              });
+            }}
+          />
+        )}
       </Box>
     ),
-    [navigation, top50list.length],
+    [navigation, flatListData.length, accountTokensSet, onToggle],
   );
 
   return (
@@ -319,7 +306,7 @@ export const Listing: FC = () => {
         secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
         secondaryActionTranslationId="action__add_custom_tokens"
         flatListProps={{
-          data: keyword ? searchedTokens : tokensWithoutOwned,
+          data: flatListData,
           // @ts-ignore
           renderItem,
           ItemSeparatorComponent: () => <Divider />,
@@ -333,17 +320,17 @@ export const Listing: FC = () => {
           ),
           ListHeaderComponent: (
             <Header
-              tokens={mylist}
+              tokens={accountTokens}
               keyword={keyword}
               onChange={(text) => setKeyword(text)}
-              onDelToken={(token) => setToDeletedToken(token)}
+              onDelToken={(token) => onToggle(token)}
             />
           ),
         }}
       />
       <Dialog
-        visible={!!toDeletedToken}
-        onClose={() => setToDeletedToken(undefined)}
+        visible={visible}
+        onClose={() => onToggle(undefined)}
         footerButtonProps={{
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: { type: 'destructive', onPromise: onDelete },

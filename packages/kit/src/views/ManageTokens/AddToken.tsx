@@ -35,7 +35,7 @@ export const AddToken: FC = () => {
   const intl = useIntl();
   const { activeAccount, activeNetwork } = useGeneral();
   const { info } = useToast();
-  const [balance, setBalance] = useState<string>('0');
+  const [balance, setBalance] = useState<string | undefined>();
   const {
     params: { name, symbol, decimal, address, logoURI },
   } = useRoute<RouteProps>();
@@ -55,8 +55,8 @@ export const AddToken: FC = () => {
     }
     fetchBalance();
   }, [activeAccount, activeNetwork, address]);
-  const items: ListItem[] = useMemo(
-    () => [
+  const items: ListItem[] = useMemo(() => {
+    const data = [
       {
         label: intl.formatMessage({
           id: 'form__name',
@@ -85,16 +85,18 @@ export const AddToken: FC = () => {
         }),
         value: String(decimal),
       },
-      {
+    ];
+    if (balance) {
+      data.push({
         label: intl.formatMessage({
           id: 'content__balance',
           defaultMessage: 'Balance',
         }),
         value: balance,
-      },
-    ],
-    [name, symbol, address, decimal, balance, intl],
-  );
+      });
+    }
+    return data;
+  }, [name, symbol, address, decimal, balance, intl]);
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
       const res = await engine.preAddToken(

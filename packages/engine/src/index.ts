@@ -440,9 +440,7 @@ class Engine {
     if (typeof tokenInfo === 'undefined') {
       return noThisToken;
     }
-    return this.dbApi.addToken(
-      Object.assign(toAdd, tokenInfo, { id: tokenId }),
-    );
+    return this.dbApi.addToken({ ...toAdd, ...tokenInfo, ...{ id: tokenId } });
   }
 
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
