@@ -763,14 +763,15 @@ class Engine {
     ]);
 
     if (network.impl !== IMPL_EVM) {
-      throw new OneKeyInternalError('Network not support.');
+      return [];
     }
 
     if (typeof dbAccount === 'undefined') {
-      throw new OneKeyInternalError('Account not found.');
+      return [];
     }
+
     if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
-      throw new NotImplemented();
+      return [];
     }
     const chainId = network.id.split(SEPERATOR)[1];
 
@@ -795,15 +796,17 @@ class Engine {
     ]);
 
     if (network.impl !== IMPL_EVM) {
-      throw new OneKeyInternalError('Network not support.');
+      return [];
     }
 
     if (typeof dbAccount === 'undefined') {
-      throw new OneKeyInternalError('Account not found.');
+      return [];
     }
+
     if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
-      throw new NotImplemented();
+      return [];
     }
+
     const chainId = network.id.split(SEPERATOR)[1];
     return getErc20TransferHistories(
       chainId,
