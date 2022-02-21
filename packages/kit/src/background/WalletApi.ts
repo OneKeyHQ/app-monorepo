@@ -1,6 +1,7 @@
 // TODO rename to BackgroundService, WalletService, ProviderService?
 import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
+import { getActiveWalletAccount } from '../hooks/redux';
 import { appSelector } from '../store';
 import { GeneralInitialState } from '../store/reducers/general';
 
@@ -26,25 +27,24 @@ class WalletApi {
     if (!this.isConnected) {
       return [];
     }
-    const { activeAccount } = appSelector(
-      (s) => s.general,
-    ) as GeneralInitialState;
-    const account = activeAccount as SimpleAccount;
-    if (account && account.address) {
-      return [account.address];
+    const { account } = getActiveWalletAccount();
+    // console.log('walletApi.getCurrentAccounts -------->', account);
+    const account1 = account as SimpleAccount;
+    if (account1 && account1.address) {
+      return [account1.address];
     }
     return [];
   }
 
   getCurrentNetwork() {
-    const { activeNetwork } = appSelector(
-      (s) => s.general,
-    ) as GeneralInitialState;
+    const { network } = getActiveWalletAccount();
+    // console.log('walletApi.getCurrentNetwork -------->', network);
+
     // TODO chainId, networkVersion needs in activeNetwork
     return {
       chainId: '0x1',
       networkVersion: '1',
-      activeNetwork,
+      network,
     };
   }
 }
