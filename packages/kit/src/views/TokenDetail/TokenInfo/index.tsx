@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,7 +13,15 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
+import {
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   ModalNavigatorRoutes,
   ModalTypes,
@@ -37,23 +45,33 @@ export type TokenInfoProps = {
 const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
+  const isFocused = useIsFocused();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
+  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
+  const { wallet } = useActiveWalletAccount();
   const [amount, setAmount] = useState('0');
-  const [amountFiat, setAmountFiat] = useState('0');
+  const [tokenPrice, setTokenPrice] = useState<Record<string, string>>();
 
   useEffect(() => {
     async function main() {
-      if (!accountId || !token?.id) return;
+      if (!accountId || !token?.id || !activeNetwork?.id) return;
       const result = await engine.getAccountBalance(
         accountId,
         token.networkId,
         [token.tokenIdOnNetwork],
       );
       setAmount(result[token.tokenIdOnNetwork]?.toString() ?? '0');
-      setAmountFiat(result[token.tokenIdOnNetwork]?.toString() ?? '0');
+
+      const prices = await engine.getPrices(
+        activeNetwork.id,
+        [token.tokenIdOnNetwork],
+        false,
+      );
+      setTokenPrice(prices);
     }
-    main();
-  }, [accountId, token]);
+    if (isFocused) main();
+  }, [accountId, token, isFocused, activeNetwork]);
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -64,16 +82,34 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
           alignItems={isVertical ? 'center' : 'flex-start'}
         >
           <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
-            <Typography.DisplayXLarge>{amount}</Typography.DisplayXLarge>
-            <Typography.DisplayXLarge pl={2}>
-              {token?.symbol}
-            </Typography.DisplayXLarge>
+            <FormatBalance
+              balance={amount}
+              suffix={token?.symbol}
+              formatOptions={{
+                fixed: activeNetwork?.tokenDisplayDecimals ?? 4,
+              }}
+              as={Typography.DisplayXLarge}
+            />
           </Box>
-          <Typography.Body2 mt={1}>{amountFiat}</Typography.Body2>
+          <FormatCurrency
+            numbers={[
+              amount,
+              token?.tokenIdOnNetwork
+                ? tokenPrice?.[token.tokenIdOnNetwork]
+                : undefined,
+            ]}
+            render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+          />
         </Box>
       </Box>
     ),
-    [isVertical, token, amount, amountFiat],
+    [
+      isVertical,
+      token,
+      amount,
+      tokenPrice,
+      activeNetwork?.tokenDisplayDecimals,
+    ],
   );
 
   const accountOption = useMemo(
@@ -83,6 +119,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
           size={isVertical ? 'lg' : 'base'}
           leftIconName="ArrowUpSolid"
           minW={{ base: '126px', md: 'auto' }}
+          isDisabled={wallet?.type === 'watching'}
           type="basic"
           // onPress={() => {
           //   navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
@@ -93,6 +130,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
         <Button
+          isDisabled={wallet?.type === 'watching'}
           size={isVertical ? 'lg' : 'base'}
           ml={4}
           leftIconName="ArrowDownSolid"
@@ -118,7 +156,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
         )}
       </Box>
     ),
-    [intl, isVertical, navigation],
+    [intl, isVertical, wallet?.type],
   );
 
   return useMemo(

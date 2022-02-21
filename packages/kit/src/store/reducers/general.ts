@@ -1,14 +1,15 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { NetworkShort } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+
+import type { Network } from './network';
 
 type InitialState = {
   activeAccount: Account | null;
   activeWallet: Wallet | null;
   activeNetwork: {
-    network: NetworkShort;
+    network: Network;
     sharedChainName: string;
   } | null;
 };
@@ -25,7 +26,7 @@ export const generalSlice = createSlice({
   reducers: {
     changeActiveAccount(
       state,
-      action: PayloadAction<{ account: Account; wallet: Wallet }>,
+      action: PayloadAction<{ account: Account | null; wallet: Wallet }>,
     ) {
       const { account, wallet } = action.payload;
       state.activeAccount = account;

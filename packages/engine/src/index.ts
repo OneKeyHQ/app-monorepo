@@ -672,7 +672,14 @@ class Engine {
     return this.dbApi.removeHistoryEntry(entryId);
   }
 
-  async listNetworks(enabledOnly = true): Promise<Array<NetworkShort>> {
+  async listNetworks(enabledOnly = true): Promise<
+    Array<
+      NetworkShort & {
+        nativeDisplayDecimals: number;
+        tokenDisplayDecimals: number;
+      }
+    >
+  > {
     const networks = await this.dbApi.listNetworks();
     const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
     return networks

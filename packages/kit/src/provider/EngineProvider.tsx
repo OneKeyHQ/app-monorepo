@@ -60,17 +60,19 @@ const EngineApp: FC = ({ children }) => {
       if (!hasAccountsWallet) return;
       const accountId = hasAccountsWallet.accounts[0];
 
-      engine.getAccounts([accountId]).then(([activeAccount]) => {
-        dispatch(
-          changeActiveAccount({
-            account: activeAccount,
-            wallet: hasAccountsWallet,
-          }),
-        );
-      });
+      engine
+        .getAccounts([accountId], activeNetwork?.network.id)
+        .then(([activeAccount]) => {
+          dispatch(
+            changeActiveAccount({
+              account: activeAccount,
+              wallet: hasAccountsWallet,
+            }),
+          );
+        });
     }
     main();
-  }, [dispatch, refreshTimeStamp, account]);
+  }, [dispatch, refreshTimeStamp, account, activeNetwork]);
 
   useEffect(() => {
     if (!networks) return;

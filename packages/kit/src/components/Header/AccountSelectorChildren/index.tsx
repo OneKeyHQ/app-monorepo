@@ -195,7 +195,10 @@ const AccountSelectorChildren: FC = () => {
   useEffect(() => {
     if (!activeWallet) return;
     async function main() {
-      const accounts = await engine.getAccounts(activeWallet.accounts);
+      const accounts = await engine.getAccounts(
+        activeWallet.accounts,
+        activeNetwork?.network?.id,
+      );
       setActiveAccounts(accounts);
     }
     main();

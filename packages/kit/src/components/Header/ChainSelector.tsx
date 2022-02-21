@@ -13,14 +13,22 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { NetworkShort } from '@onekeyhq/engine/src/types/network';
-import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
+import {
+  useActiveWalletAccount,
+  useAppDispatch,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
+import {
+  changeActiveAccount,
+  changeActiveNetwork,
+} from '@onekeyhq/kit/src/store/reducers/general';
 import {
   ManageNetworkModalRoutes,
   ManageNetworkRoutesParams,
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import engine from '../../engine/EngineProvider';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -34,11 +42,11 @@ const ChainSelector: FC = () => {
 
   const dispatch = useAppDispatch();
   const networks = useAppSelector((s) => s.network.network);
-
+  const { wallet } = useActiveWalletAccount();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
 
   const handleActiveChainChange = useCallback(
-    (id) => {
+    async (id) => {
       if (!networks) return null;
 
       let selectedNetwork: NetworkShort | null = null;
@@ -54,6 +62,28 @@ const ChainSelector: FC = () => {
           changeActiveNetwork({
             network: selectedNetwork,
             sharedChainName: selectedSharedChainName,
+          }),
+        );
+
+        // @ts-expect-error
+        if (activeNetwork?.network.impl === selectedNetwork?.impl) return;
+        if (!wallet) return;
+        const currentWalletAccounts = wallet.accounts;
+        if (!currentWalletAccounts || !currentWalletAccounts?.length) {
+          dispatch(
+            changeActiveAccount({
+              account: null,
+              wallet,
+            }),
+          );
+          return;
+        }
+        const accounts = await engine.getAccounts(currentWalletAccounts, id);
+        const targetAccount = accounts[0];
+        dispatch(
+          changeActiveAccount({
+            account: targetAccount,
+            wallet,
           }),
         );
       }
@@ -73,23 +103,19 @@ const ChainSelector: FC = () => {
       //   backgroundApiProxy.changeChain(chainIdHex);
       // }
     },
-    [dispatch, networks],
+    [dispatch, networks, wallet, activeNetwork?.network.impl],
   );
 
   const options = useMemo(() => {
     if (!networks) return [];
 
     return networks.map((network) => ({
-      title: network.impl,
-      options: [
-        {
-          label: network.name,
-          value: network.id,
-          tokenProps: {
-            src: network.logoURI,
-          },
-        },
-      ],
+      label: network.name,
+      value: network.id,
+      tokenProps: {
+        src: network.logoURI,
+      },
+      badge: network.impl === 'evm' ? 'EVM' : undefined,
     }));
   }, [networks]);
 
@@ -103,6 +129,7 @@ const ChainSelector: FC = () => {
         title={intl.formatMessage({ id: 'network__networks' })}
         options={options}
         isTriggerPlain
+        footer={null}
         // footerText={intl.formatMessage({ id: 'action__customize_network' })}
         // footerIcon="PencilSolid"
         // onPressFooter={() =>

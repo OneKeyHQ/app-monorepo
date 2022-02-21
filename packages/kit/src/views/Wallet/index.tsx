@@ -50,9 +50,57 @@ const Home: FC = () => {
     'border-subdued',
   ]);
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network } = useActiveWalletAccount();
+  const { wallet, account, network } = useActiveWalletAccount();
+
+  if (!wallet) {
+    return (
+      <Box flex="1" justifyContent="center">
+        <Empty
+          icon="WalletOutline"
+          title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
+          subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
+        />
+        <AccountSelector
+          renderTrigger={({ handleToggleVisible }) => (
+            <Button
+              leftIconName="PlusOutline"
+              type="primary"
+              onPress={handleToggleVisible}
+              size="lg"
+            >
+              {intl.formatMessage({ id: 'action__create_account' })}
+            </Button>
+          )}
+        />
+      </Box>
+    );
+  }
 
   if (!account) {
+    return (
+      <Box flex="1" justifyContent="center">
+        <Empty
+          icon="WalletOutline"
+          title={intl.formatMessage({ id: 'empty__no_account_title' })}
+          subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
+        />
+        <AccountSelector
+          renderTrigger={({ handleToggleVisible }) => (
+            <Button
+              leftIconName="PlusOutline"
+              type="primary"
+              onPress={handleToggleVisible}
+              size="lg"
+            >
+              {intl.formatMessage({ id: 'action__create_account' })}
+            </Button>
+          )}
+        />
+      </Box>
+    );
+  }
+
+  if (!wallet) {
     return (
       <Box flex="1" justifyContent="center">
         <Empty

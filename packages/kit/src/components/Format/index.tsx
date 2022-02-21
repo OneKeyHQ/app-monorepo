@@ -11,7 +11,7 @@ export type FormatOptions = {
   unit?: number;
   /** 保留小数位数 */
   fixed?: number;
-  /** 是否完整显示 */
+  /** 是否完整显示，为 false 时抹零 */
   fullPrecision?: boolean;
 };
 
@@ -20,6 +20,9 @@ export type FormatAmountResult = {
   dec?: string;
   sep: string;
 };
+
+/** 默认使用 25 位小数防止格式化为科学计数法 */
+BigNumber.config({ DECIMAL_PLACES: 25 });
 
 function decimalSeparator() {
   return (
@@ -63,7 +66,7 @@ function formatAmount(
     const [int, dec] = (
       typeof opts.fixed === 'number'
         ? // 向下取整
-          bn.toFormat(opts.fixed, BigNumber.ROUND_FLOOR)
+          bn.decimalPlaces(opts.fixed, BigNumber.ROUND_FLOOR).toFormat()
         : bn.toFormat()
     ).split(sep);
     return { int, dec, sep };
@@ -81,7 +84,7 @@ export function formatNumber(val: BigNumber.Value, opts: FormatOptions) {
 }
 
 export const FormatCurrency: FC<{
-  numbers: (BigNumber.Value | string)[];
+  numbers: (BigNumber.Value | string | undefined)[];
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;
   as?: FC;
@@ -96,6 +99,7 @@ export const FormatCurrency: FC<{
     if (fiatBN.isNaN()) return null;
 
     return numbers.reduce((memo, curr) => {
+      if (curr === undefined || memo === undefined) return memo;
       const memoBN = new BigNumber(memo);
       const currBN = new BigNumber(curr);
       return memoBN.multipliedBy(currBN);
@@ -105,7 +109,7 @@ export const FormatCurrency: FC<{
   const child = useMemo(
     () => (
       <>
-        {isNil(amount)
+        {isNil(amount) || numbers.some((number) => isNil(number))
           ? '-'
           : formatNumber(amount, {
               ...formatOptions,
@@ -115,7 +119,44 @@ export const FormatCurrency: FC<{
         &nbsp;{selectedFiatMoneySymbol.toUpperCase()}
       </>
     ),
-    [amount, formatOptions, selectedFiatMoneySymbol],
+    [amount, formatOptions, selectedFiatMoneySymbol, numbers],
+  );
+
+  if (render) {
+    return render?.(child);
+  }
+
+  const Component = as;
+
+  return <Component>{child}</Component>;
+};
+
+export const FormatBalance: FC<{
+  balance: BigNumber.Value | string | undefined;
+  suffix?: string;
+  formatOptions?: FormatOptions;
+  render?: (c: JSX.Element) => JSX.Element;
+  as?: FC;
+}> = ({ balance, formatOptions = {}, as = Text, render, suffix }) => {
+  const balanceBN = useMemo(
+    () => (isNil(balance) ? undefined : new BigNumber(balance)),
+    [balance],
+  );
+
+  const child = useMemo(
+    () => (
+      <>
+        {isNil(balanceBN) || balanceBN.isNaN()
+          ? '-'
+          : formatNumber(balanceBN, {
+              ...formatOptions,
+              // balance 需要抹零，同时展示当前 formatOptions 下所有的位数
+              fullPrecision: false,
+            })}
+        {suffix ? `  ${suffix}` : null}
+      </>
+    ),
+    [balanceBN, formatOptions, suffix],
   );
 
   if (render) {

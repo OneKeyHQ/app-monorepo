@@ -2,8 +2,13 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { NetworkShort } from '@onekeyhq/engine/src/types/network';
 
+export type Network = {
+  nativeDisplayDecimals: number;
+  tokenDisplayDecimals: number;
+} & NetworkShort;
+
 type InitialState = {
-  network: NetworkShort[] | null;
+  network: Network[] | null;
 };
 
 const initialState: InitialState = {

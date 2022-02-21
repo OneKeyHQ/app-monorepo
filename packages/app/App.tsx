@@ -20,6 +20,7 @@ LogBox.ignoreLogs([
 ]);
 
 console.warn = () => {};
+console.disableYellowBox = true;
 
 const App: FC = function () {
   return <Provider />;
