@@ -1,11 +1,8 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import type { NetworkShort } from '@onekeyhq/engine/src/types/network';
+import type { Network as EngineNetwork } from '@onekeyhq/engine/src/types/network';
 
-export type Network = {
-  nativeDisplayDecimals: number;
-  tokenDisplayDecimals: number;
-} & NetworkShort;
+export type Network = EngineNetwork;
 
 type InitialState = {
   network: Network[] | null;
