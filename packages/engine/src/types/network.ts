@@ -7,31 +7,13 @@ type NetworkBase = HasName & {
   symbol: string;
   logoURI: string;
   enabled: boolean;
-};
-
-type NetworkShort = NetworkBase & {
-  // Simple version, used in basic listing.
-  preset: boolean;
-  // UI specific properties.
-  // TODO: move this into remote config?
-  nativeDisplayDecimals: number;
-  tokenDisplayDecimals: number;
-};
-
-type NetworkCommon = NetworkBase & {
   feeSymbol: string;
   decimals: number;
   feeDecimals: number;
   balance2FeeDecimals: number;
 };
 
-type DBNetwork = NetworkCommon & {
-  rpcURL: string;
-  position: number;
-  curve?: string;
-};
-
-type PresetNetwork = NetworkCommon & {
+type PresetNetwork = NetworkBase & {
   chainId?: number;
   isTestnet?: boolean;
   presetRpcURLs: Array<string>;
@@ -41,7 +23,29 @@ type PresetNetwork = NetworkCommon & {
   extensions?: Record<string, any>;
 };
 
-type Network = NetworkShort & DBNetwork & PresetNetwork;
+type DBNetwork = NetworkBase & {
+  rpcURL: string;
+  position: number;
+  curve?: string;
+};
+
+type EvmExtraInfo = {
+  chainId: string;
+  networkVersion: string;
+};
+
+type Network = NetworkBase & {
+  rpcURL: string;
+  preset: boolean;
+  isTestnet: boolean;
+  // UI specific properties.
+  // TODO: move this into remote config?
+  nativeDisplayDecimals: number;
+  tokenDisplayDecimals: number;
+  // extra info for dapp interactions
+  extraInfo: EvmExtraInfo | Record<string, any>;
+  // TODO: rpcURLs, explorers
+};
 
 type AddEVMNetworkParams = {
   name: string;
@@ -66,8 +70,6 @@ type EIP1559Fee = {
 };
 
 export type {
-  NetworkBase,
-  NetworkShort,
   DBNetwork,
   PresetNetwork,
   Network,
