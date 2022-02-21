@@ -67,7 +67,6 @@ import {
   AddNetworkParams,
   EIP1559Fee,
   Network,
-  NetworkShort,
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
@@ -672,35 +671,16 @@ class Engine {
     return this.dbApi.removeHistoryEntry(entryId);
   }
 
-  async listNetworks(enabledOnly = true): Promise<
-    Array<
-      NetworkShort & {
-        nativeDisplayDecimals: number;
-        tokenDisplayDecimals: number;
-      }
-    >
-  > {
+  async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
     const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
     return networks
       .filter(
-        (network) =>
-          (enabledOnly ? network.enabled : true) &&
-          supportedImpls.has(network.impl),
+        (dbNetwork) =>
+          (enabledOnly ? dbNetwork.enabled : true) &&
+          supportedImpls.has(dbNetwork.impl),
       )
-      .map((network) => ({
-        id: network.id,
-        name: network.name,
-        impl: network.impl,
-        symbol: network.symbol,
-        logoURI: network.logoURI,
-        enabled: network.enabled,
-        preset: networkIsPreset(network.id),
-        // The two display decimals fields below are for UI, hard-coded for now.
-        // TODO: define display decimals in remote config and give defaults for different implementations.
-        nativeDisplayDecimals: 6,
-        tokenDisplayDecimals: 4,
-      }));
+      .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }
 
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
@@ -725,7 +705,7 @@ class Engine {
 
   async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Array<NetworkShort>> {
+  ): Promise<Array<Network>> {
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
