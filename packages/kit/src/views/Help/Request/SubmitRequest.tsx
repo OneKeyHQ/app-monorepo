@@ -1,9 +1,12 @@
 import React, { FC, useMemo, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Row, ZStack } from 'native-base';
 import { useIntl } from 'react-intl';
 import { Platform, useWindowDimensions } from 'react-native';
+import uuid from 'react-native-uuid';
 
 import {
   Box,
@@ -15,15 +18,23 @@ import {
   Modal,
   Pressable,
   Select,
+  Spinner,
   Typography,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
+import {
+  SubmitRequestModalRoutesParams,
+  SubmitRequestRoutes,
+} from '@onekeyhq/kit/src/routes';
 
-type ImageModel = {
-  loading: boolean;
-  localPath: string;
-};
+import { useSettings } from '../../../hooks/redux';
+
+import { submitUri, uploadImage } from './TicketService';
+import { ImageModel } from './types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type SubmitValues = {
   email: string;
@@ -49,11 +60,36 @@ const defaultOption = (): string => {
 
 let selectOption = defaultOption();
 
+const valueWithOption = (option: string): string => {
+  switch (option) {
+    case 'App on iOS':
+      return 'app_on_ios';
+    case 'App on Android':
+      return 'app_on_android';
+    case 'App on Browser':
+      return 'app_on_browser';
+    case 'App on Desktop':
+      return 'app_on_desktop';
+    case 'Hardware':
+      return 'hardware';
+    default:
+      return '';
+  }
+};
+
+type NavigationProps = NativeStackNavigationProp<
+  SubmitRequestModalRoutesParams,
+  SubmitRequestRoutes.SubmitRequestModal
+>;
+
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
   const [isHardware, setIsHardware] = useState(false);
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
+  const toast = useToast();
+  const navigation = useNavigation<NavigationProps>();
+  const { instanceId } = useSettings();
 
   const modalWidth = isSmallScreen ? width : 400;
   const padding = isSmallScreen ? 16 : 32;
@@ -65,25 +101,64 @@ export const SubmitRequest: FC = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
+      base64: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.5,
     });
 
     if (!result.cancelled) {
+      const tempName = uuid.v4() as string;
+      const imagename = `${tempName}.png`;
       const image: ImageModel = {
-        loading: false,
+        loading: true,
         localPath: result.uri,
+        filename: imagename,
       };
+
+      let base64Image = result.uri;
+      if (Platform.OS === 'ios') {
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        base64Image = `data:image/jpg;base64,${result.base64}`;
+      }
       updateImageArr([...imageArr, image]);
+      uploadImage(
+        { filename: imagename, image: base64Image },
+        instanceId,
+        (error, responseJson) => {
+          if (!error) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            image.token = responseJson.data.upload.token;
+            image.loading = false;
+            updateImageArr([...imageArr, image]);
+          }
+        },
+      );
     }
   };
 
   const ImageView = (image: ImageModel, index: number) => {
-    const { localPath } = image;
+    const { localPath, loading } = image;
     return (
       <ZStack width={imageWidth} height={imageWidth}>
         <Box mt="8px" ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-          <Image borderRadius="12px" source={{ uri: localPath }} flex={1} />
+          <ZStack>
+            <Image
+              mt={0}
+              ml={0}
+              width={imageWidth - 8}
+              height={imageWidth - 8}
+              borderRadius="12px"
+              source={{ uri: localPath }}
+              flex={1}
+            />
+            {loading ? (
+              <Box mt={0} ml={0} width={imageWidth - 8} height={imageWidth - 8}>
+                <Center flex={1}>
+                  <Spinner size="sm" />
+                </Center>
+              </Box>
+            ) : null}
+          </ZStack>
         </Box>
         <Pressable
           onPress={() => {
@@ -99,30 +174,28 @@ export const SubmitRequest: FC = () => {
     );
   };
 
-  const imagesList = useMemo(() => {
-    if (imageArr.length > 0) {
-      return (
-        <Row>
-          {imageArr.map((image, index) => ImageView(image, index))}
-          {imageArr.length < 5 ? (
-            <Pressable onPress={pickImage}>
-              <Center
-                mt="8px"
-                width={imageWidth - 8}
-                height={imageWidth - 8}
-                borderRadius="12px"
-                borderWidth={1}
-                borderColor="border-default"
-              >
-                <Icon size={20} name="PlusSolid" />
-              </Center>
-            </Pressable>
-          ) : null}
-        </Row>
-      );
-    }
-    return null;
-  }, [imageArr]);
+  const imagesList = useMemo(
+    () => (
+      <Row>
+        {imageArr.map((image, index) => ImageView(image, index))}
+        {imageArr.length < 5 ? (
+          <Pressable onPress={pickImage}>
+            <Center
+              mt="8px"
+              width={imageWidth - 8}
+              height={imageWidth - 8}
+              borderRadius="12px"
+              borderWidth={1}
+              borderColor="border-default"
+            >
+              <Icon size={20} name="PlusSolid" />
+            </Center>
+          </Pressable>
+        ) : null}
+      </Row>
+    ),
+    [imageArr],
+  );
 
   const options = [
     {
@@ -150,8 +223,78 @@ export const SubmitRequest: FC = () => {
     selectOption = value;
     setIsHardware(value === 'Hardware');
   };
+
+  const uploads = () => {
+    const array: Array<string> = [];
+    imageArr.forEach((image) => {
+      if (image.token) {
+        array.push(image.token);
+      }
+    });
+    return array;
+  };
+
   const { control, handleSubmit } = useForm<SubmitValues>();
-  const onSubmit = handleSubmit((data) => console.log(data));
+  const onSubmit = handleSubmit((formData) => {
+    const customFields = [
+      {
+        'id': 360013393195,
+        'value': valueWithOption(selectOption),
+      },
+    ];
+    if (!isHardware) {
+      if (formData.appVersion.length > 0) {
+        customFields.push({
+          'id': 360013430096,
+          'value': formData.appVersion,
+        });
+      }
+    } else {
+      if (formData.seVersion.length > 0) {
+        customFields.push({
+          'id': 360017727195,
+          'value': formData.seVersion,
+        });
+      }
+      if (formData.bleVersion.length > 0) {
+        customFields.push({
+          'id': 360017731836,
+          'value': formData.bleVersion,
+        });
+      }
+      if (formData.firmwareVersion.length > 0) {
+        customFields.push({
+          'id': 360017731816,
+          'value': formData.firmwareVersion,
+        });
+      }
+    }
+
+    axios
+      .post(submitUri(instanceId), {
+        email: formData.email,
+        ticket: {
+          'subject': formData.comment,
+          'custom_fields': customFields,
+          'comment': {
+            'body': formData.comment,
+            'uploads': uploads(),
+          },
+        },
+      })
+      .then((response) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (response.data.success) {
+          toast.show({
+            title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+          });
+          navigation.goBack();
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  });
 
   const optionLab = (
     <Typography.Body2Strong mb="4px" color="text-subdued">
@@ -192,7 +335,7 @@ export const SubmitRequest: FC = () => {
               control={control}
               name="email"
               rules={{
-                required: 'Email cannot be empty',
+                required: intl.formatMessage({ id: 'form__field_is_required' }),
                 pattern: {
                   value: /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/,
                   message: intl.formatMessage({
@@ -215,6 +358,10 @@ export const SubmitRequest: FC = () => {
                 />
               }
               control={control}
+              rules={{
+                required: intl.formatMessage({ id: 'form__field_is_required' }),
+                maxLength: 1000,
+              }}
               name="comment"
               formControlProps={{ width: 'full' }}
               defaultValue=""
