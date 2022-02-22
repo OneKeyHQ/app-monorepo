@@ -45,6 +45,7 @@ import {
   getPresetTokensOnNetwork,
   networkIsPreset,
 } from './presets';
+import { syncLatestNetworkList } from './presets/network';
 import {
   PriceController,
   ProviderController,
@@ -86,6 +87,45 @@ class Engine {
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
+
+    this.syncPresetNetworks();
+  }
+
+  private async syncPresetNetworks(): Promise<void> {
+    await syncLatestNetworkList();
+
+    try {
+      const dbNetworks = await this.dbApi.listNetworks();
+      const dbNetworkSet = new Set(dbNetworks.map((dbNetwork) => dbNetwork.id));
+
+      const presetNetworksList = Object.values(getPresetNetworks()).sort(
+        (a, b) => (a.name > b.name ? 1 : -1),
+      );
+
+      let position = dbNetworks.length ?? 0;
+      for (const network of presetNetworksList) {
+        if (!dbNetworkSet.has(network.id)) {
+          await this.dbApi.addNetwork({
+            id: network.id,
+            name: network.name,
+            impl: network.impl,
+            symbol: network.symbol,
+            logoURI: network.logoURI,
+            enabled: network.enabled,
+            feeSymbol: network.feeSymbol,
+            decimals: network.decimals,
+            feeDecimals: network.feeDecimals,
+            balance2FeeDecimals: network.balance2FeeDecimals,
+            rpcURL: network.presetRpcURLs[0],
+            position,
+          });
+          position += 1;
+          dbNetworkSet.add(network.id);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   getWallets(): Promise<Array<Wallet>> {

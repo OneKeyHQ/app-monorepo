@@ -83,11 +83,6 @@ async function syncLatestNetworkList() {
   synced = true;
 }
 
-// sync from remote
-(async () => {
-  await syncLatestNetworkList();
-})();
-
 function getPresetNetworks(): Record<string, PresetNetwork> {
   return presetNetworks;
 }
@@ -96,4 +91,4 @@ function networkIsPreset(networkId: string): boolean {
   return typeof presetNetworks[networkId] !== 'undefined';
 }
 
-export { networkIsPreset, getPresetNetworks };
+export { networkIsPreset, getPresetNetworks, syncLatestNetworkList };
