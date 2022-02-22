@@ -44,7 +44,6 @@ export const generalSlice = createSlice({
       state,
       action: PayloadAction<NonNullable<GeneralInitialState['activeNetwork']>>,
     ) {
-      // TODO chainId, networkVersion required in activeNetwork
       state.activeNetwork = action.payload;
     },
     changeActiveTokens(state, action: PayloadAction<Token[]>) {

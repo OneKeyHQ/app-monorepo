@@ -42,9 +42,6 @@ const EngineApp: FC = ({ children }) => {
 
   useEffect(() => {
     async function main() {
-      // TODO  required fields
-      //    chainId: '0x1',
-      //    networkVersion: '1',
       const networksFromBE = await engine.listNetworks();
       dispatch(updateNetworkMap(networksFromBE));
     }

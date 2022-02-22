@@ -1,5 +1,7 @@
 // TODO rename to BackgroundService, WalletService, ProviderService?
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 
 import { getActiveWalletAccount } from '../hooks/redux';
 
@@ -34,16 +36,18 @@ class WalletApi {
     return [];
   }
 
-  getCurrentNetwork() {
+  getCurrentNetwork(): EvmExtraInfo {
     const { network } = getActiveWalletAccount();
-    // console.log('walletApi.getCurrentNetwork -------->', network);
-
-    // TODO chainId, networkVersion needs in activeNetwork
-    return {
-      chainId: '0x1',
-      networkVersion: '1',
-      network,
+    // return a random chainId in non-evm, as empty string may cause dapp error
+    let networkInfo: EvmExtraInfo = {
+      chainId: '0x736d17dc',
+      networkVersion: '1936529372',
     };
+    if (network && network.network.impl === IMPL_EVM) {
+      networkInfo = network.network.extraInfo as EvmExtraInfo;
+    }
+    // console.log('walletApi.getCurrentNetwork -------->', networkInfo);
+    return networkInfo;
   }
 }
 
