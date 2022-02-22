@@ -12,7 +12,7 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
-import { NetworkShort } from '@onekeyhq/engine/src/types/network';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import {
   useActiveWalletAccount,
   useAppDispatch,
@@ -49,7 +49,7 @@ const ChainSelector: FC = () => {
     async (id) => {
       if (!networks) return null;
 
-      let selectedNetwork: NetworkShort | null = null;
+      let selectedNetwork: Network | null = null;
       let selectedSharedChainName: string | null = null;
       networks.forEach((network) => {
         if (network.id === id) {

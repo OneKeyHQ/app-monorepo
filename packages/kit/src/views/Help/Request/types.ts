@@ -1,32 +1,45 @@
-export type UserType = {
-  id: number;
-  email: string;
-  name: string;
+export type RequestPayload<T> = {
+  success: boolean;
+  status: number;
+  data: T;
 };
 
-export type TicketType = {
-  id: number;
-  createdAt?: string;
-  updatedAt?: string;
-  description?: string;
-  requesterId?: number;
-  submitterId: number;
+export type UploadAttachmentsPayload = {
+  upload: {
+    token: string;
+    attachment: AttachmentsType;
+  };
+};
+
+export type ImageModel = {
+  'loading': boolean;
+  'localPath': string;
+  'token'?: string;
+  'filename': string;
 };
 
 export type AttachmentsType = {
-  id: number;
-  url?: number;
-  fileName?: string;
-  contentType?: string;
-  size?: number;
-  submitterId?: number;
-  thumbnails: string;
+  'id': number;
+  'url': string;
+  'file_name': string;
+  'content_url': string;
+  'size': number;
+  'submitter_id': number;
+  'thumbnails': AttachmentsType;
+};
+
+export type TicketType = {
+  'id': number;
+  'description': string;
+  'submitter_id': number;
+  'created_at': string;
+  'custom_fields': { 'id': number; 'value': string }[];
 };
 
 export type CommentType = {
-  id: number;
-  authorId?: number;
-  updatedAt?: string;
-  body?: string;
-  attachments?: AttachmentsType[];
+  'id': number;
+  'author_id': number;
+  'created_at': string;
+  'body': string;
+  'attachments': AttachmentsType[];
 };
