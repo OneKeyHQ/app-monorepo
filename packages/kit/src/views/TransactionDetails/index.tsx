@@ -3,7 +3,9 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
+import * as Linking from 'expo-linking';
 import { IntlShape, useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Address,
@@ -33,11 +35,15 @@ import engine from '../../engine/EngineProvider';
 import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
+import NFTView from '../Components/nftView';
 import { getTransactionStatusStr } from '../Components/transactionRecord';
 import {
   getFromAddress,
+  getSwapReceive,
+  getSwapTransfer,
   getToAddress,
   getTransferAmount,
+  getTransferNFTList,
 } from '../Components/transactionRecord/utils';
 
 type TransactionDetailRouteProp = RouteProp<
@@ -52,6 +58,7 @@ const getTransactionTypeStr = (
   const stringKeys: Record<TransactionType, string> = {
     'Transfer': 'action__send',
     'Receive': 'action__receive',
+    'Swap': 'transaction__exchange',
     'ContractExecution': 'transaction__multicall',
     // 'Approve': 'action__send',
   };
@@ -73,6 +80,14 @@ const TransactionDetails: FC = () => {
 
   console.log(`Account: ${JSON.stringify(account)}`);
 
+  const openLinkUrl = useCallback((url: string) => {
+    if (['android', 'ios'].includes(Platform.OS)) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
+
   useEffect(() => {
     async function getAccounts() {
       const accountIds: string[] = [];
@@ -86,6 +101,7 @@ const TransactionDetails: FC = () => {
     getAccounts();
   }, []);
   const txInfo = tx;
+  console.log(txInfo);
 
   const getTransactionStatusIcon = (
     state: TxStatus = TxStatus.Pending,
@@ -169,14 +185,16 @@ const TransactionDetails: FC = () => {
   // render Amount
   const renderAmount = useCallback(
     (titleKey: string) => {
-      console.log(txInfo);
-
+      const list = getTransferNFTList(txInfo);
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
           value={`${
             txInfo?.type === TransactionType.Transfer ? '-' : ''
           }${getTransferAmount(txInfo)}`}
+          custom={list.map((item) => (
+            <NFTView src={item} key={item} size={24} />
+          ))}
         />
       );
     },
@@ -240,7 +258,7 @@ const TransactionDetails: FC = () => {
       scrollViewProps={{
         pt: 4,
         children: (
-          <Box flexDirection="column" alignItems="center" mb={6}>
+          <Box flexDirection="column" p={0.5} alignItems="center" mb={6}>
             <Icon
               name={getTransactionStatusIcon(txInfo?.successful)}
               size={56}
@@ -277,7 +295,22 @@ const TransactionDetails: FC = () => {
 
               {renderToAddress()}
 
-              {renderAmount('content__amount')}
+              {txInfo?.type !== TransactionType.Swap &&
+                renderAmount('content__amount')}
+
+              {txInfo?.type === TransactionType.Swap && (
+                <Container.Item
+                  title={intl.formatMessage({ id: 'action__send' })}
+                  value={`-${getSwapTransfer(txInfo)}`}
+                />
+              )}
+
+              {txInfo?.type === TransactionType.Swap && (
+                <Container.Item
+                  title={intl.formatMessage({ id: 'action__receive' })}
+                  value={`${getSwapReceive(txInfo)}`}
+                />
+              )}
 
               <Container.Item
                 title={intl.formatMessage({ id: 'form__trading_time' })}
@@ -348,6 +381,9 @@ const TransactionDetails: FC = () => {
               mt={6}
               mb={6}
               size="lg"
+              onPress={() => {
+                openLinkUrl(`https://etherscan.io/tx/${txInfo?.txHash ?? ''}`);
+              }}
               rightIcon={<Icon name="ArrowNarrowRightSolid" />}
             >
               {intl.formatMessage({ id: 'action__view_in_explorer' })}

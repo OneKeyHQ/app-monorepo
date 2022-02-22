@@ -5,6 +5,8 @@ import { IntlShape, useIntl } from 'react-intl';
 import {
   Address,
   Box,
+  Center,
+  HStack,
   Icon,
   Text,
   Typography,
@@ -12,14 +14,22 @@ import {
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import {
+  TokenType,
   Transaction,
   TransactionType,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
 
 import { formatDate } from '../../../utils/DateUtils';
+import NFTView from '../nftView';
 
-import { getTransferAmount, getTransferAmountFiat } from './utils';
+import {
+  getSwapReceive,
+  getSwapTransfer,
+  getTransferAmount,
+  getTransferAmountFiat,
+  getTransferNFTList,
+} from './utils';
 
 export type TransactionState = 'pending' | 'dropped' | 'failed' | 'success';
 
@@ -68,6 +78,7 @@ const getTransactionTypeStr = (
   const stringKeys: Record<TransactionType, string> = {
     'Transfer': 'action__send',
     'Receive': 'action__receive',
+    'Swap': 'transaction__exchange',
     'ContractExecution': 'transaction__multicall',
     // 'Approve': 'action__send',
   };
@@ -82,6 +93,7 @@ const getTransactionTypeIcon = (
   const stringKeys: Record<TransactionType, ICON_NAMES> = {
     'Transfer': 'ArrowUpSolid',
     'Receive': 'ArrowDownSolid',
+    'Swap': 'SwitchHorizontalSolid',
     'ContractExecution': 'ArrowUpSolid',
     // 'Approve': 'BadgeCheckSolid',
   };
@@ -92,11 +104,33 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
   const { size } = useUserDevice();
   const intl = useIntl();
 
+  const renderNFTImages = useCallback(
+    () => (
+      <HStack space={2} mt={2}>
+        {getTransferNFTList(transaction).map((nft, index) => {
+          if (index < 2) {
+            return <NFTView src={nft} key={nft} size={24} />;
+          }
+          if (index === 2) {
+            return (
+              <Center width={24} height={24}>
+                <Icon size={5} name="DotsHorizontalSolid" />
+              </Center>
+            );
+          }
+          return null;
+        })}
+      </HStack>
+    ),
+    [transaction],
+  );
+
   // 转账、收款、合约执行 展示余额
   const displayAmount = useCallback(() => {
     if (
       transaction.type === 'Receive' ||
       transaction.type === 'Transfer' ||
+      transaction.type === 'Swap' ||
       transaction.type === 'ContractExecution'
     ) {
       return true;
@@ -122,21 +156,34 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
     [intl, transaction],
   );
 
-  const amountInfo = useCallback(
-    () => (
+  const amountInfo = useCallback(() => {
+    if (transaction?.type === TransactionType.Swap) {
+      return (
+        <Box alignItems="flex-end" minW="156px">
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            -{getSwapTransfer(transaction)}
+          </Text>
+          <Typography.Body2 color="text-subdued">
+            →{getSwapReceive(transaction)}
+          </Typography.Body2>
+        </Box>
+      );
+    }
+    return (
       <Box alignItems="flex-end" minW="156px">
         <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
           {transaction.type === TransactionType.Transfer && '-'}
           {getTransferAmount(transaction)}
         </Text>
         <Typography.Body2 color="text-subdued">
-          {transaction.type === TransactionType.Transfer && '-'}
+          {transaction.type === TransactionType.Transfer &&
+            transaction.tokenType !== TokenType.ERC721 &&
+            '-'}
           {getTransferAmountFiat(transaction)}
         </Typography.Body2>
       </Box>
-    ),
-    [transaction],
-  );
+    );
+  }, [transaction]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -199,9 +246,8 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
 
       <Box flexDirection="column" flex={1} ml={3}>
         {ItemInfo}
-        {/* <Box>
-          <Image w="96px" h="96px" />
-        </Box> */}
+
+        {renderNFTImages()}
 
         {/* {transaction.state === 'pending' && (
           <Box flexDirection="row" mt={4} alignItems="center">

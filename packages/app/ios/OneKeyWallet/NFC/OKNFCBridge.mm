@@ -8,9 +8,9 @@
 
 #import "OKNFCBridge.h"
 #import "GPChannelSDKCore.h"
-#import "ReactNativeConfig.h"
+#import "NFCConfig.h"
 
-static NSString *LITE_CERT = [ReactNativeConfig envFor:@"LITE_CERT"];
+static NSString *LITE_CERT = [NFCConfig envFor:@"LITE_CERT"];
 
 @implementation NSString(OKNFCHexStr)
 - (NSData *)dataFromHexString {
@@ -166,7 +166,7 @@ static NSString *LITE_CERT = [ReactNativeConfig envFor:@"LITE_CERT"];
     shareInfo.cardGroupID = subjectID;
 
     // initParams.json -> sk
-    char *sk = (char *)[[ReactNativeConfig envFor:@"NFCSK"] UTF8String];
+    char *sk = (char *)[[NFCConfig envFor:@"NFCSK"] UTF8String];
     rv = JUB_GPC_Initialize(shareInfo, LITE_CERT.UTF8String, sk);
 
     if (JUBR_OK != rv) {

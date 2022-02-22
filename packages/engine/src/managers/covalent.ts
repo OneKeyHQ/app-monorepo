@@ -18,6 +18,53 @@ const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
 
 const TransferEventTopic =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const SwapEventTopic =
+  '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822';
+const DepositTopic =
+  '0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c';
+const WithdrawalTopic =
+  '0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65';
+
+const WethAddressSet = new Set<string>([
+  '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // chainID: 1 (Mainnet-WETH)
+  '0xd0a1e359811322d97991e03f863a0c30c2cf029c', // chainID: 42 (kovan-WETH)
+  '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270', // chainID: 137 (Matic-WMATIC)
+  '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7', // chainID: 43114 (Avalache C-chain-WAVAX)
+  '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // chainID: 56 (BSC-WBNB)
+  '0x82af49447d8a07e3bd95bd0d56f35241523fbab1', // chainID: 42161 (Arbitrum-WETH)
+  '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83', // chainID: 250 (Fantom-WFTM)
+  '0x5545153ccfca01fbd7dd11c0b23ba694d9509a6f', // chainID: 128 (HECO-WHT)
+]);
+
+function nativeTransferEvent(
+  from: string,
+  to: string,
+  value: string,
+  transferType: TransactionType,
+): TransferEvent {
+  return {
+    topics: [],
+    description: '',
+    fromAddress: from,
+    fromAddressLabel: '',
+    toAddress: to,
+    toAddressLabel: '',
+    tokenAmount: value,
+    tokenAddress: '',
+    tokenLogoUrl: '',
+    tokenName: '',
+    tokenSymbol: '',
+    tokenDecimals: 0,
+    transferType,
+    tokenType: TokenType.native,
+    balance: 0,
+    balanceQuote: 0,
+    quoteRate: 0,
+    delta: '',
+    deltaQuote: 0,
+    eventLength: 0,
+  };
+}
 
 function transferLogToTransferEvent(transfer: Transfer): TransferEvent {
   return {
@@ -60,7 +107,7 @@ function erc20TransferEventAdapter(user: string, log: LogEvent): TransferEvent {
     tokenSymbol: log.senderContractTickerSymbol,
     tokenDecimals: log.senderContractDecimals,
     transferType:
-      log.senderAddress === user
+      log.decoded.params[0].value === user
         ? TransactionType.Transfer
         : TransactionType.Receive,
     tokenType: TokenType.ERC20,
@@ -92,7 +139,7 @@ function eventAdapter(
   const transferEvent: TransferEvent[] = [];
   let type = TransactionType.ContractExecution;
   let tokenType = TokenType.native;
-
+  let isSwap = false;
   if (logs !== undefined) {
     for (let i = 0; i < logs.length; i += 1) {
       const log = logs[i];
@@ -100,6 +147,15 @@ function eventAdapter(
       if (log.rawLogTopics.length !== 0) {
         switch (log.rawLogTopics[0]) {
           case TransferEventTopic:
+            if (
+              log.rawLogTopics[1].replace('000000000000000000000000', '') !==
+                user &&
+              log.rawLogTopics[2].replace('000000000000000000000000', '') !==
+                user
+            ) {
+              break;
+            }
+
             event = erc20TransferEventAdapter(user, log);
             transferEvent.push(event);
             tokenType = TokenType.ERC20;
@@ -108,6 +164,41 @@ function eventAdapter(
             } else {
               type = TransactionType.Receive;
             }
+            if (event.topics.length === 4) {
+              tokenType = TokenType.ERC721;
+              event.tokenType = TokenType.ERC721;
+            }
+            break;
+          case SwapEventTopic:
+            isSwap = true;
+            break;
+          case DepositTopic:
+            if (!WethAddressSet.has(log.senderAddress)) {
+              break;
+            }
+            transferEvent.push(
+              nativeTransferEvent(
+                user === from ? user : from,
+                log.rawLogTopics[1].replace('000000000000000000000000', ''),
+                value,
+                user === from
+                  ? TransactionType.Transfer
+                  : TransactionType.Receive,
+              ),
+            );
+            break;
+          case WithdrawalTopic:
+            if (!WethAddressSet.has(log.senderAddress)) {
+              break;
+            }
+            transferEvent.push(
+              nativeTransferEvent(
+                log.rawLogTopics[1].replace('000000000000000000000000', ''),
+                user,
+                value,
+                TransactionType.Receive,
+              ),
+            );
             break;
           default:
             break;
@@ -123,7 +214,9 @@ function eventAdapter(
     tokenType = TokenType.ERC20;
     type = transferEvent[0].transferType;
   } else if (logs !== undefined) {
-    if (value !== '0' || type === TransactionType.ContractExecution) {
+    if (isSwap) {
+      type = TransactionType.Swap;
+    } else if (value !== '0' || type === TransactionType.ContractExecution) {
       if (logs.length === 0 && value !== '0') {
         if (from === user) {
           type = TransactionType.Transfer;
@@ -163,6 +256,7 @@ function txAdapter(
     tokenType: TokenType.native,
     fromAddressLabel: '',
   };
+
   const adapter = eventAdapter(
     user,
     txDetail.fromAddress,
@@ -309,7 +403,7 @@ function getTxDetail(
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const data = camelcase(rawData.items[0], { deep: true });
-        return txAdapter('', data);
+        return txAdapter(data.fromAddress, data);
       }
 
       return null;
