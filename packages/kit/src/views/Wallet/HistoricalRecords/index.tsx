@@ -20,6 +20,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 import {
@@ -88,6 +89,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [account, setAccount] = useState<Account>();
+  const [network, setNetwork] = useState<Network>();
 
   const openLinkUrl = useCallback((url: string) => {
     if (['android', 'ios'].includes(Platform.OS)) {
@@ -96,18 +98,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       window.open(url, '_blank');
     }
   }, []);
-
-  useEffect(() => {
-    async function main() {
-      if (!accountId) return;
-
-      const accounts = await engine.getAccounts([accountId]);
-      if (accounts && accounts.length > 0) {
-        setAccount(accounts[0]);
-      }
-    }
-    main();
-  }, [accountId]);
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -149,6 +139,27 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   }, [accountId, intl, networkId, tokenId]);
 
   useEffect(() => {
+    async function loadAccount() {
+      if (!accountId) return;
+
+      const accounts = await engine.getAccounts([accountId]);
+      if (accounts && accounts.length > 0) {
+        setAccount(accounts[0]);
+      }
+    }
+    async function loadNetwork() {
+      if (!networkId) return;
+
+      const localNetwork = await engine.getNetwork(networkId);
+      if (localNetwork) {
+        setNetwork(localNetwork);
+      }
+    }
+    loadNetwork();
+    loadAccount();
+  }, [accountId, networkId]);
+
+  useEffect(() => {
     refreshHistory();
   }, [refreshHistory]);
 
@@ -175,7 +186,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         console.log('Click Transaction : ', item.txHash);
       }}
     >
-      <TransactionRecord transaction={item} />
+      <TransactionRecord transaction={item} network={network} />
     </Pressable.Item>
   );
 

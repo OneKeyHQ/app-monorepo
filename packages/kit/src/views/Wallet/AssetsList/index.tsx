@@ -121,7 +121,7 @@ const AssetsList = () => {
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
         onPress={() => {
-          if (!item.tokenIdOnNetwork) return;
+          // if (!item.tokenIdOnNetwork) return;
 
           navigation.navigate(HomeRoutes.ScreenTokenDetail, {
             accountId: account?.id ?? '',

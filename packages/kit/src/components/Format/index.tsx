@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -69,6 +69,69 @@ export function formatNumber(val: BigNumber.Value, opts: FormatOptions) {
   if (!formattedNumber) return null;
   if (formattedNumber.dec === undefined) return `${formattedNumber.int}`;
   return `${formattedNumber.int}${formattedNumber.sep}${formattedNumber.dec}`;
+}
+
+export function formatBalanceDisplay(
+  balance?: BigNumber.Value,
+  suffix?: string | null,
+  formatOptions?: FormatOptions,
+): string {
+  const { unit, fixed, fullPrecision } = formatOptions || {};
+  if (isNil(balance)) {
+    return 'A/N';
+  }
+  const amount = formatNumber(balance, {
+    unit,
+    fixed,
+    fullPrecision,
+  });
+
+  return `${amount || '0'}${suffix ? ` ${suffix.toUpperCase().trim()}` : ''}`;
+}
+
+export function useFormatCurrencyDisplay(
+  numbers: (BigNumber.Value | string | undefined)[],
+  formatOptions?: FormatOptions,
+) {
+  const [amountFiat, setAmountFiat] = useState('N/A');
+  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+  const map = useAppSelector((s) => s.fiatMoney.map);
+  const fiat = map[selectedFiatMoneySymbol];
+
+  const balance = useCallback(() => {
+    const fiatBN = new BigNumber(fiat);
+
+    if (fiatBN.isNaN()) {
+      return '0';
+    }
+
+    return numbers.reduce((memo, curr) => {
+      if (curr === undefined || memo === undefined) return memo;
+      const memoBN = new BigNumber(memo);
+      const currBN = new BigNumber(curr);
+      return memoBN.multipliedBy(currBN);
+    }, fiatBN);
+  }, [fiat, numbers]);
+
+  useEffect(() => {
+    const totalAmount = balance();
+    if (totalAmount === undefined || totalAmount === '0') {
+      setAmountFiat('N/A');
+      return;
+    }
+
+    const amount = formatNumber(totalAmount, {
+      ...formatOptions,
+      fixed: 2,
+      fullPrecision: true,
+    });
+
+    setAmountFiat(
+      `${amount || '0'}${` ${selectedFiatMoneySymbol.toUpperCase().trim()}`}`,
+    );
+  }, [balance, formatOptions, selectedFiatMoneySymbol]);
+
+  return amountFiat;
 }
 
 export const FormatCurrency: FC<{
