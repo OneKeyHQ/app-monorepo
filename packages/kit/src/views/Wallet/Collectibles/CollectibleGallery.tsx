@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
+import { FlatListProps } from 'react-native';
 
 import {
   Badge,
@@ -15,13 +16,15 @@ import {
   Pressable,
   ScrollableFlatListProps,
   SegmentedControl,
+  Spinner,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
 
-import { Collectible, CollectibleView, SelectedAsset } from './types';
+import { CollectibleView, SelectedAsset } from './types';
 
 const ItemImage: FC<{ src?: string | null; size?: number }> = ({
   src,
@@ -102,13 +105,19 @@ const stringAppend = (...args: Array<string | null | undefined>) =>
   args.filter(Boolean).join('');
 
 type CollectibleGalleryProps = {
+  isLoading: boolean;
+  isSupported: boolean;
   collectibles: Collectible[];
+  onReachEnd: FlatListProps<unknown>['onEndReached'];
   onSelectCollectible: (cols: Collectible) => void;
   onSelectAsset: (asset: SelectedAsset) => void;
 };
 
 const CollectibleGallery: FC<CollectibleGalleryProps> = ({
+  isLoading,
+  isSupported,
   collectibles,
+  onReachEnd,
   onSelectAsset,
   onSelectCollectible,
 }) => {
@@ -122,15 +131,29 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     }
   }, [isSmallScreen]);
 
-  const renderEmpty = React.useCallback(
-    () => (
+  const renderEmpty = React.useCallback(() => {
+    if (!isSupported) {
+      return (
+        <Empty
+          // TODO: Replace with real i18n string
+          title="此网络暂未支持 NFT"
+        />
+      );
+    }
+
+    return isLoading ? (
+      <Center pb={2} pt={2}>
+        <Spinner size="lg" />
+      </Center>
+    ) : (
       <Empty
         title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
-        subTitle={intl.formatMessage({ id: 'asset__collectibles_empty_desc' })}
+        subTitle={intl.formatMessage({
+          id: 'asset__collectibles_empty_desc',
+        })}
       />
-    ),
-    [intl],
-  );
+    );
+  }, [intl, isLoading, isSupported]);
 
   const renderListItem = React.useCallback<
     NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
@@ -240,8 +263,11 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       ListFooterComponent: () => <Box h="20px" />,
       data: collectibles,
       extraData: collectibles,
+      onEndReached: onReachEnd,
+      // Golden Ratio - 1
+      onEndReachedThreshold: 1.618033988749894 - 1,
     }),
-    [collectibles, isSmallScreen, renderEmpty, view],
+    [collectibles, onReachEnd, isSmallScreen, renderEmpty, view],
   );
 
   const flatListProps = React.useMemo(
