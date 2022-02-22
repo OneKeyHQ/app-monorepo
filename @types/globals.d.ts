@@ -4,6 +4,7 @@ import WebView from 'react-native-webview';
 
 import { WindowOneKeyHub } from '@onekeyhq/inpage-provider/src/injected/factory/injectWeb3Provider';
 import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
+import { IBackgroundApi } from '@onekeyhq/kit/src/background/BackgroundApiProxy';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -12,7 +13,7 @@ declare global {
   // var onekey: WindowOneKey;
 
   var $onekey: WindowOneKeyHub;
-  var $backgroundApiProxy: any;
+  var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: any;
   var $$appStore: EnhancedStore;
   var $$appDispatch: any;
