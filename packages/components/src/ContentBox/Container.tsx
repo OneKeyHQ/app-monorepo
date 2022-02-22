@@ -11,7 +11,7 @@ interface IContentItemProps {
 export type ContentItemBaseProps = IContentItemProps;
 
 interface IContainerProps extends IBoxProps<IContainerProps> {
-  children: React.ReactElement<ContentItemBaseProps>[] | null;
+  children: (React.ReactElement<ContentItemBaseProps> | boolean)[] | null;
 }
 export type ContainerProps = IContainerProps;
 
@@ -26,8 +26,8 @@ const Container: FC<ContainerProps> = ({ children, ...props }) => (
   >
     {children &&
       children.map((child, index) => {
+        if (child === true || child === false || child === null) return;
         const { children: childChildren } = child.props;
-
         return React.cloneElement(child, {
           ...child.props,
           key: index.toString(),

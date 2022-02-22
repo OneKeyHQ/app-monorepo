@@ -10,6 +10,7 @@ export type ContentItemProps = {
   title: string;
   value?: string;
   describe?: string | string[] | null;
+  custom?: React.ReactNode | null;
 } & ContentItemBaseProps;
 
 const ContentItem: FC<ContentItemProps> = ({
@@ -18,6 +19,7 @@ const ContentItem: FC<ContentItemProps> = ({
   describe,
   hasDivider,
   children,
+  custom,
 }) => (
   <Box w="100%" flexDirection="column">
     <Box
@@ -72,6 +74,11 @@ const ContentItem: FC<ContentItemProps> = ({
               {describe}
             </Typography.Body2>
           ))}
+        {!!custom && (
+          <Box w="100%" mt={2} flexDirection="row" justifyContent="flex-end">
+            {custom}
+          </Box>
+        )}
       </Box>
     </Box>
     {hasDivider && <Divider />}
