@@ -3,8 +3,8 @@
 
 import { Buffer } from 'buffer';
 
-import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
-import { encrypt } from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
+import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
+import { encrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
 import {
   AccountAlreadyExists,

@@ -1,12 +1,11 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-import BigNumber from 'bignumber.js';
-import * as bip39 from 'bip39';
-
 import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
-} from '@onekeyhq/blockchain-libs/dist/secret';
+} from '@onekeyfe/blockchain-libs/dist/secret';
+import BigNumber from 'bignumber.js';
+import * as bip39 from 'bip39';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
