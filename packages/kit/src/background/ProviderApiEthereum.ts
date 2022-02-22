@@ -18,11 +18,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
   _getCurrentAccounts() {
-    return this.walletApi.isConnected ? [this.walletApi.selectedAddress] : [];
+    // return this.walletApi.isConnected ? [this.walletApi.selectedAddress] : [];
+    return this.walletApi.getCurrentAccounts();
   }
 
   _getCurrentChainId() {
-    return this.walletApi.chainId;
+    return this.walletApi.getCurrentNetwork().chainId;
   }
 
   _getCurrentNetworkVersion() {
@@ -121,7 +122,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = {
       method: 'metamask_accountsChanged',
-      params: [info.address],
+      params: info.accounts || [],
     };
     info.send(data);
   }
