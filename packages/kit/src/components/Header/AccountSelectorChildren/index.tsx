@@ -221,6 +221,7 @@ const AccountSelectorChildren: FC = () => {
                 zIndex={99}
                 onPress={() => {
                   dispatch(
+                    // backgroundApiProxy.changeAccounts(item.address);
                     changeActiveAccount({
                       account: item,
                       wallet: activeWallet,
@@ -229,7 +230,6 @@ const AccountSelectorChildren: FC = () => {
                   setTimeout(() => {
                     navigation.dispatch(DrawerActions.closeDrawer());
                   }, 250);
-                  // backgroundApiProxy.changeAccounts(item.address);
                 }}
               >
                 {({ isHovered }) => (

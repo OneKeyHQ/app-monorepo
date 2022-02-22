@@ -29,7 +29,7 @@ type DBNetwork = NetworkBase & {
   curve?: string;
 };
 
-type EvmExtraInfo = {
+export type EvmExtraInfo = {
   chainId: string;
   networkVersion: string;
 };
