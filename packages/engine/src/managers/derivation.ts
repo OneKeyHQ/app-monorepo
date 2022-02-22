@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import {
   CurveName,
   batchGetPublicKeys,
-} from '@onekeyhq/blockchain-libs/dist/secret';
+} from '@onekeyfe/blockchain-libs/dist/secret';
 
 import { IMPL_EVM, IMPL_SOL } from '../constants';
 import { OneKeyInternalError } from '../errors';

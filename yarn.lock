@@ -3089,6 +3089,34 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
+"@onekeyfe/blockchain-libs@^0.0.23":
+  version "0.0.23"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.23.tgz#6175c456eb2ad076a05060acde8f6ebba1dd51ed"
+  integrity sha512-QrbzkuJnzBUVlHx17olPMWSkDNY5JC3Cn14hDsQItyPooTlouKkwAA0RCWZjemi93xj7X8XBNMvT7r2/ECeZ9A==
+  dependencies:
+    "@conflux-dev/conflux-address-js" "^1.3.11"
+    "@ethersproject/abi" "^5.4.1"
+    "@ethersproject/transactions" "^5.4.0"
+    "@metamask/eth-sig-util" "^4.0.0"
+    "@solana/spl-token" "^0.1.8"
+    "@solana/web3.js" "^1.29.2"
+    "@starcoin/starcoin" "^1.6.2"
+    algo-msgpack-with-bigint "^2.1.1"
+    asmcrypto.js "^2.3.2"
+    bech32 "^1.1.4"
+    bignumber.js "^9.0.1"
+    bip39 "^3.0.4"
+    bs58 "^4.0.1"
+    cosmjs-types "^0.4.0"
+    cross-fetch "^3.1.4"
+    elliptic "^6.5.4"
+    ethereumjs-util "^7.1.4"
+    hi-base32 "^0.5.1"
+    js-conflux-sdk "^1.7.1"
+    timeout-signal "^1.1.0"
+    tweetnacl "^1.0.3"
+    whatwg-url "^11.0.0"
+
 "@onekeyfe/blockchain-link@1.0.19":
   version "1.0.19"
   resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-link/-/blockchain-link-1.0.19.tgz#6732e11e17b3ff7083d627a25b352278bec59049"
@@ -3130,10 +3158,10 @@
     url-join "^4.0.1"
     whatwg-fetch "^3.5.0"
 
-"@onekeyfe/default-token-list@^1.0.4":
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.0.4.tgz#792aa01609ede89dfbbcfeecf1401ad5a45ab8b1"
-  integrity sha512-QM866flWhvFgLfRSjZWl7b4WtYcBqDWe5/tI3ZwcEIjyfjE57nzA38fEm2WhPsDzWp16zbGJIcAfNy1tQKnqzw==
+"@onekeyfe/default-token-list@^1.0.5":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.0.5.tgz#4a5972cb887560c584ce3f58a7ee688758d71541"
+  integrity sha512-ONwgBCEmWJqe2ks9cYmdZyiU+pvqmLnEnhf87K7dpseV7ytRPb/X14+9BNulbR4Q3CMRlDHd0/KzN2uXnpJlgw==
 
 "@onekeyfe/link@1.7.5":
   version "1.7.5"
@@ -3149,10 +3177,10 @@
     semver-compare "^1.0.0"
     whatwg-fetch "^3.5.0"
 
-"@onekeyfe/network-list@^1.0.4":
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.0.4.tgz#b331d33ee0555f263a519129e2fa4fc3ca67ceef"
-  integrity sha512-+n5kWYLad8ZFm2mPsdCa3unf964XNmq57k/Fe2onXRsx5JkGktdggSTXPbeL3shHdE5gxiOG2ezMLqLLR85myg==
+"@onekeyfe/network-list@^1.0.5":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.0.5.tgz#fa4d3b12547de7165aabc23696613b9919f18417"
+  integrity sha512-0jqn12scUuLPolskOG5QV1UHW/kVVpjDew3KkpMuvD/Mo79VSLjIA670DmfRum99vSlrznFIcpDrAKp/XYE5Pw==
 
 "@onekeyfe/rollout@1.0.6":
   version "1.0.6"
@@ -3161,34 +3189,6 @@
   dependencies:
     cross-fetch "^3.0.6"
     runtypes "^5.0.1"
-
-"@onekeyhq/blockchain-libs@^0.0.23":
-  version "0.0.23"
-  resolved "https://npm.pkg.github.com/download/@onekeyhq/blockchain-libs/0.0.23/380d3c0ce33ea970544cc6f1e60c2097d495cfdaf16583ddc31a3291e3423ea3#fda8ec0dab81bc7ece76463aa3b5e7c48c9c9c17"
-  integrity sha512-Uybm3535Reu+z58tqFZTkyGqPfBzJPUJIkQSBZB91A/8Hr9QYsJyHwQtXIy77gPy6ekn7q9l61bVgd8XKl5Zug==
-  dependencies:
-    "@conflux-dev/conflux-address-js" "^1.3.11"
-    "@ethersproject/abi" "^5.4.1"
-    "@ethersproject/transactions" "^5.4.0"
-    "@metamask/eth-sig-util" "^4.0.0"
-    "@solana/spl-token" "^0.1.8"
-    "@solana/web3.js" "^1.29.2"
-    "@starcoin/starcoin" "^1.6.2"
-    algo-msgpack-with-bigint "^2.1.1"
-    asmcrypto.js "^2.3.2"
-    bech32 "^1.1.4"
-    bignumber.js "^9.0.1"
-    bip39 "^3.0.4"
-    bs58 "^4.0.1"
-    cosmjs-types "^0.4.0"
-    cross-fetch "^3.1.4"
-    elliptic "^6.5.4"
-    ethereumjs-util "^7.1.4"
-    hi-base32 "^0.5.1"
-    js-conflux-sdk "^1.7.1"
-    timeout-signal "^1.1.0"
-    tweetnacl "^1.0.3"
-    whatwg-url "^11.0.0"
 
 "@popperjs/core@^2.4.4":
   version "2.11.2"

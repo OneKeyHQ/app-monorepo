@@ -1,10 +1,10 @@
 import { Buffer } from 'buffer';
 
-import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
+import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
   decrypt,
   encrypt,
-} from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
+} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
 import { DBAccount } from '../types/account';
 import {
