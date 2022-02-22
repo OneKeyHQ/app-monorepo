@@ -93,6 +93,14 @@ const WatchedAccount: FC = () => {
 
               <Form.Item
                 name="name"
+                rules={{
+                  maxLength: {
+                    value: 24,
+                    message: intl.formatMessage({
+                      id: 'msg__exceeding_the_maximum_word_limit',
+                    }),
+                  },
+                }}
                 label={intl.formatMessage({ id: 'form__account_name' })}
                 control={control}
               >

@@ -439,11 +439,13 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
   const handlePress = useCallback(() => {
     if (onPromise && typeof isLoading === 'undefined') {
       setLoading(true);
-      try {
-        onPromise?.().finally(() => setLoading(false));
-      } catch {
-        setLoading(false);
-      }
+      setTimeout(() => {
+        try {
+          onPromise?.().finally(() => setLoading(false));
+        } catch {
+          setLoading(false);
+        }
+      });
     } else if (onPress) {
       onPress?.();
     }
