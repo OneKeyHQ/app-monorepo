@@ -17,6 +17,7 @@ type Props = {
   rightIconName?: ICON_NAMES;
   rightCustomElement?: ReactNode;
   rightSecondaryIconName?: ICON_NAMES;
+  size?: string;
   onPressLeftText?: () => void;
   onPressRightText?: () => void;
   onPressLeftIcon?: () => void;
@@ -35,16 +36,17 @@ const Input = React.forwardRef<
       leftText,
       rightText,
       leftIconName,
+      rightCustomElement,
       rightIconName,
       rightSecondaryText,
       rightSecondaryIconName,
+      size,
       onPressLeftText,
       onPressRightText,
       onPressLeftIcon,
       onPressRightIcon,
       onPressSecondaryRightText,
       onPressSecondaryRightIcon,
-      rightCustomElement,
       ...props
     },
     ref,
@@ -171,7 +173,7 @@ const Input = React.forwardRef<
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
         w="80"
-        h={{ base: '42px', md: 'auto' }}
+        h={size === 'xl' ? '50px' : { base: '42px', md: 'auto' }}
         borderColor="border-default"
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}
