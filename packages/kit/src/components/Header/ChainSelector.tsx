@@ -59,6 +59,7 @@ const ChainSelector: FC = () => {
       });
       if (selectedNetwork && selectedSharedChainName) {
         dispatch(
+          // backgroundApiProxy.changeChain(chainIdHex);
           changeActiveNetwork({
             network: selectedNetwork,
             sharedChainName: selectedSharedChainName,
@@ -87,21 +88,6 @@ const ChainSelector: FC = () => {
           }),
         );
       }
-
-      // dispatch(updateActiveChainId(chainId));
-      // const chainIdHex = {
-      //   ethereum: '0x1',
-      //   bsc: '0x38',
-      //   heco: '0x80',
-      //   polygon: '0x89',
-      //   fantom: '0xfa',
-      // }[chainId as string];
-      // if (!chainIdHex) {
-      //   throw new Error('chainId not available.');
-      // }
-      // if (chainIdHex) {
-      //   backgroundApiProxy.changeChain(chainIdHex);
-      // }
     },
     [dispatch, networks, wallet, activeNetwork?.network.impl],
   );
