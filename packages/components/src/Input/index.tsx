@@ -184,9 +184,10 @@ const Input = React.forwardRef<
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',
+          cursor: 'not-allowed',
         }}
         _hover={{
-          bg: 'action-secondary-default',
+          bg: 'action-secondary-default', // remove this will use the background color from default theme of NativeBase
           borderColor: 'border-hovered',
         }}
         _focus={{
