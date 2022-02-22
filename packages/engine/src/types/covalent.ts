@@ -2,6 +2,7 @@ enum TransactionType {
   Transfer = 'Transfer',
   Receive = 'Receive',
   ContractExecution = 'ContractExecution',
+  Swap = 'Swap',
 }
 enum TokenType {
   ERC20 = 'ERC20',
