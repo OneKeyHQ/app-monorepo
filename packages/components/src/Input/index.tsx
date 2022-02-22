@@ -56,17 +56,18 @@ const Input = React.forwardRef<
     let pl = '3';
     let pr = '3';
     const small = useIsVerticalLayout();
-    const textProps = small
-      ? getTypographyStyleProps('Body1')
-      : (getTypographyStyleProps('Body2') as Pick<
-          ComponentProps<typeof Text>,
-          'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
-        >);
+    const textProps =
+      small || size === 'xl'
+        ? getTypographyStyleProps('Body1')
+        : (getTypographyStyleProps('Body2') as Pick<
+            ComponentProps<typeof Text>,
+            'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
+          >);
 
     if (leftText) {
       leftElements.push(
         <Text
-          typography={{ sm: 'Body1', md: 'Body2' }}
+          typography={size === 'xl' ? 'Body1' : { sm: 'Body1', md: 'Body2' }}
           key="leftText"
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
           onPress={onPressLeftText}
@@ -89,7 +90,7 @@ const Input = React.forwardRef<
     if (rightText) {
       rightElements.push(
         <Text
-          typography={{ sm: 'Body1', md: 'Body2' }}
+          typography={size === 'xl' ? 'Body1' : { sm: 'Body1', md: 'Body2' }}
           key="rightText"
           onPress={onPressRightText}
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
