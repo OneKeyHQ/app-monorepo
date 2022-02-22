@@ -7,7 +7,7 @@
 
 #import "OKLiteManager.h"
 #import "RNLiteCallBackManager.h"
-#import "ReactNativeConfig.h"
+#import "NFCConfig.h"
 
 @implementation OKLiteManager
 
@@ -56,7 +56,7 @@ RCT_EXPORT_METHOD(reset:(RCTResponseSenderBlock)callback)
 }
 
 + (BOOL)checkSDKVaild:(RCTResponseSenderBlock)callback {
-  if ([ReactNativeConfig envFor:@"LITE_CERT"].length > 0 && [ReactNativeConfig envFor:@"NFCSK"].length > 0) {
+  if ([NFCConfig envFor:@"LITE_CERT"].length > 0 && [NFCConfig envFor:@"NFCSK"].length > 0) {
     return YES;
   }
   callback(@[@{@"code":@(NFCLiteExceptionsInitChannel),@"message":@""},[NSNull null],[NSNull null]]);
