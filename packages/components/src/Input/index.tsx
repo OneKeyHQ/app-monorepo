@@ -17,6 +17,7 @@ type Props = {
   rightIconName?: ICON_NAMES;
   rightCustomElement?: ReactNode;
   rightSecondaryIconName?: ICON_NAMES;
+  size?: string;
   onPressLeftText?: () => void;
   onPressRightText?: () => void;
   onPressLeftIcon?: () => void;
@@ -35,16 +36,17 @@ const Input = React.forwardRef<
       leftText,
       rightText,
       leftIconName,
+      rightCustomElement,
       rightIconName,
       rightSecondaryText,
       rightSecondaryIconName,
+      size,
       onPressLeftText,
       onPressRightText,
       onPressLeftIcon,
       onPressRightIcon,
       onPressSecondaryRightText,
       onPressSecondaryRightIcon,
-      rightCustomElement,
       ...props
     },
     ref,
@@ -54,17 +56,18 @@ const Input = React.forwardRef<
     let pl = '3';
     let pr = '3';
     const small = useIsVerticalLayout();
-    const textProps = small
-      ? getTypographyStyleProps('Body1')
-      : (getTypographyStyleProps('Body2') as Pick<
-          ComponentProps<typeof Text>,
-          'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
-        >);
+    const textProps =
+      small || size === 'xl'
+        ? getTypographyStyleProps('Body1')
+        : (getTypographyStyleProps('Body2') as Pick<
+            ComponentProps<typeof Text>,
+            'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
+          >);
 
     if (leftText) {
       leftElements.push(
         <Text
-          typography={{ sm: 'Body1', md: 'Body2' }}
+          typography={size === 'xl' ? 'Body1' : { sm: 'Body1', md: 'Body2' }}
           key="leftText"
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
           onPress={onPressLeftText}
@@ -87,7 +90,7 @@ const Input = React.forwardRef<
     if (rightText) {
       rightElements.push(
         <Text
-          typography={{ sm: 'Body1', md: 'Body2' }}
+          typography={size === 'xl' ? 'Body1' : { sm: 'Body1', md: 'Body2' }}
           key="rightText"
           onPress={onPressRightText}
           color={isDisabled ? 'text-disabled' : 'text-subdued'}
@@ -171,7 +174,7 @@ const Input = React.forwardRef<
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
         w="80"
-        h={{ base: '42px', md: 'auto' }}
+        h={size === 'xl' ? '50px' : { base: '42px', md: 'auto' }}
         borderColor="border-default"
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}
@@ -182,9 +185,10 @@ const Input = React.forwardRef<
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',
+          cursor: 'not-allowed',
         }}
         _hover={{
-          bg: 'action-secondary-default',
+          bg: 'action-secondary-default', // remove this will use the background color from default theme of NativeBase
           borderColor: 'border-hovered',
         }}
         _focus={{
