@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import React, { FC, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -48,25 +49,12 @@ function formatAmount(
 
     const sep = decimalSeparator();
 
-    if (opts.fullPrecision) {
-      const [int, dec] = bn.toFormat().split(sep);
-      if (typeof opts.fixed !== 'number' || opts.fixed <= 0) {
-        return { int, dec, sep };
-      }
-      if (dec) {
-        if (dec.length < opts.fixed) {
-          return { int, dec: dec + '0'.repeat(opts.fixed - dec.length), sep };
-        }
-        return { int, dec, sep };
-      }
-
-      return { int, dec: '0'.repeat(opts.fixed), sep };
-    }
-
     const [int, dec] = (
       typeof opts.fixed === 'number'
         ? // 向下取整
-          bn.decimalPlaces(opts.fixed, BigNumber.ROUND_FLOOR).toFormat()
+          opts.fullPrecision
+          ? bn.toFormat(opts.fixed, BigNumber.ROUND_FLOOR)
+          : bn.decimalPlaces(opts.fixed, BigNumber.ROUND_FLOOR).toFormat()
         : bn.toFormat()
     ).split(sep);
     return { int, dec, sep };
@@ -115,6 +103,7 @@ export const FormatCurrency: FC<{
               ...formatOptions,
               // currency 固定保留两位，不抹零
               fixed: 2,
+              fullPrecision: true,
             })}
         &nbsp;{selectedFiatMoneySymbol.toUpperCase()}
       </>
