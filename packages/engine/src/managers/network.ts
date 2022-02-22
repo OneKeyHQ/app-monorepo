@@ -1,7 +1,12 @@
 import { IMPL_EVM, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getPresetNetworks, networkIsPreset } from '../presets';
-import { AddEVMNetworkParams, DBNetwork, Network } from '../types/network';
+import {
+  AddEVMNetworkParams,
+  BlockExplorer,
+  DBNetwork,
+  Network,
+} from '../types/network';
 
 function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
   // TODO: chain interaction to check rpc url works correctly. Get network id and chain id.
@@ -27,10 +32,19 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   const { position, curve, ...forNetwork } = dbNetwork;
   const preset = networkIsPreset(dbNetwork.id);
   let isTestnet = false;
+  let explorer;
   if (preset) {
     const presetNetwork = getPresetNetworks()[dbNetwork.id];
+    [explorer] = presetNetwork.explorers || [];
     isTestnet = presetNetwork.isTestnet || false;
   }
+
+  const { name, ...blockExplorerURL } = explorer || {
+    name: '',
+    address: '',
+    block: '',
+    transaction: '',
+  };
 
   let extraInfo = {};
   if (dbNetwork.impl === IMPL_EVM) {
@@ -50,6 +64,7 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
     tokenDisplayDecimals: 4,
     // extra info for dapp interactions
     extraInfo,
+    blockExplorerURL: blockExplorerURL as BlockExplorer,
   };
 }
 
