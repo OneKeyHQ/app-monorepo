@@ -4,28 +4,27 @@
 
 import { Buffer } from 'buffer';
 
-import BigNumber from 'bignumber.js';
-
-import { RestfulRequest } from '@onekeyhq/blockchain-libs/dist/basic/request/restful';
-import { Coingecko } from '@onekeyhq/blockchain-libs/dist/price/channels/coingecko';
-import { ProviderController as BaseProviderController } from '@onekeyhq/blockchain-libs/dist/provider';
+import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
+import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
+import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
 import {
   BaseClient,
   BaseProvider,
   ClientFilter,
-} from '@onekeyhq/blockchain-libs/dist/provider/abc';
-import { Geth } from '@onekeyhq/blockchain-libs/dist/provider/chains/eth/geth';
+} from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import {
   batchGetPrivateKeys,
   sign,
   uncompressPublicKey,
-} from '@onekeyhq/blockchain-libs/dist/secret';
-import { ChainInfo } from '@onekeyhq/blockchain-libs/dist/types/chain';
+} from '@onekeyfe/blockchain-libs/dist/secret';
+import { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
 import {
   TransactionStatus,
   UnsignedTx,
-} from '@onekeyhq/blockchain-libs/dist/types/provider';
-import { Signer, Verifier } from '@onekeyhq/blockchain-libs/dist/types/secret';
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { Signer, Verifier } from '@onekeyfe/blockchain-libs/dist/types/secret';
+import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { OneKeyInternalError } from './errors';

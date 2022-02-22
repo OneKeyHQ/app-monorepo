@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Buffer } from 'buffer';
 
+import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import Realm from 'realm';
-
-import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
 
 import {
   AccountAlreadyExists,
