@@ -70,9 +70,7 @@ const getDeviceIcon = (
   }
 };
 
-/* TODO: use i18n keys when available */
 const ConnectHardwareModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [isSearching, setIsSearching] = useState(false);
@@ -129,17 +127,16 @@ const ConnectHardwareModal: FC = () => {
     if (!isSearching) {
       return (
         <VStack space={8} w="full" alignItems="center">
-          {/* FIXME: Web no `url-loader` error */}
           <Box size="358px">
             <Image size="358px" source={KeepDeviceAroundSource} />
           </Box>
-          {/* <Box size="358px" /> */}
 
           <VStack space={2} alignItems="center">
-            <Typography.DisplayLarge>Keep Device Close</Typography.DisplayLarge>
+            <Typography.DisplayLarge>
+              {intl.formatMessage({ id: 'modal__keep_device_close' })}
+            </Typography.DisplayLarge>
             <Typography.Body1 color="text-subdued" textAlign="center">
-              Ensure device is powered on and in range, hold it still and click
-              the button below to start the connection.
+              {intl.formatMessage({ id: 'model__keep_device_close_desc' })}
             </Typography.Body1>
           </VStack>
         </VStack>
@@ -156,16 +153,18 @@ const ConnectHardwareModal: FC = () => {
         </Box>
 
         <VStack space={2} alignItems="center">
-          <Typography.DisplayLarge>Looking for Devices</Typography.DisplayLarge>
+          <Typography.DisplayLarge>
+            {intl.formatMessage({ id: 'modal__looking_for_devices' })}
+          </Typography.DisplayLarge>
           <Typography.Body1 color="text-subdued" textAlign="center">
-            Please make sure your Bluetooth is enabled.
+            {intl.formatMessage({ id: 'modal__looking_for_devices_desc' })}
           </Typography.Body1>
         </VStack>
 
         {!!device && (
           <VStack space={4} w="full">
             <Typography.Body2 color="text-subdued" textAlign="center">
-              We found these devices
+              {intl.formatMessage({ id: 'modal__looking_for_devices_result' })}
             </Typography.Body2>
 
             {/* Fake devices */}
@@ -227,12 +226,11 @@ const ConnectHardwareModal: FC = () => {
       </Box>
 
       <Typography.DisplayMedium>
-        Connect and unlock your device
+        {intl.formatMessage({ id: 'modal__connect_and_unlock_device' })}
       </Typography.DisplayMedium>
     </VStack>
   );
 
-  // const footer = <Center pt={4} pb={8}></Center>;
   return (
     <Modal
       scrollViewProps={{
@@ -241,7 +239,7 @@ const ConnectHardwareModal: FC = () => {
       }}
       hidePrimaryAction={!Platform.isNative}
       footer={!Platform.isNative || isSearching ? null : undefined}
-      primaryActionTranslationId="Connect Device"
+      primaryActionTranslationId="action__connect_device"
       onPrimaryActionPress={handleConnectDevice}
       hideSecondaryAction
     />

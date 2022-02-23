@@ -25,9 +25,7 @@ import {
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-/* TODO: use i18n keys when available */
 const RestoreHardwareWalletDescriptionModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -38,10 +36,11 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
           <Image source={RestoreWalletPng} w="358px" h="160px" />
         </Box>
         <VStack space={2} mt={4}>
-          <Typography.DisplayMedium>Select "Restore"</Typography.DisplayMedium>
+          <Typography.DisplayMedium>
+            {intl.formatMessage({ id: 'content__select_restore_wallet' })}
+          </Typography.DisplayMedium>
           <Typography.Body2 color="text-subdued">
-            Follow the on-screen prompts to start restore your private keys on a
-            new device.
+            {intl.formatMessage({ id: 'content__select_restore_wallet_desc' })}
           </Typography.Body2>
         </VStack>
 
@@ -53,11 +52,12 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
           </Center>
           <VStack flex="1" pt="4px">
             <Typography.Body1Strong>
-              Enter your recovery seed
+              {intl.formatMessage({ id: 'content__enter_your_recovery_seed' })}
             </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" mt="6px">
-              Follow the prompts enter the recovery seed that you wrote down
-              before and complete the check.
+              {intl.formatMessage({
+                id: 'content__enter_your_recovery_seed_desc',
+              })}
             </Typography.Body2>
           </VStack>
         </HStack>
@@ -69,10 +69,11 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
             </Typography.Body2Strong>
           </Center>
           <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>Set a PIN Code</Typography.Body1Strong>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'content__set_a_pin_code' })}
+            </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" mt="6px">
-              Set a PIN code yourself, which is similar to the withdrawal code
-              of a bank card.
+              {intl.formatMessage({ id: 'content__set_a_pin_code_desc' })}
             </Typography.Body2>
           </VStack>
         </HStack>
@@ -84,10 +85,13 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
             </Typography.Body2Strong>
           </Center>
           <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>Follow instructions</Typography.Body1Strong>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'content__follow_instructions' })}
+            </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" mt="6px">
-              Come back here to follow instructions after the wallet is restored
-              successfully.
+              {intl.formatMessage({
+                id: 'content__follow_instructions_restore_desc',
+              })}
             </Typography.Body2>
           </VStack>
         </HStack>
@@ -99,9 +103,8 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
     <Modal
       header="Restore Wallet"
       height="640px"
-      // TODO: Replace i18n keys when available
-      primaryActionProps={{ children: 'OK, I’m done!' }}
-      secondaryActionProps={{ children: 'Learn more' }}
+      primaryActionTranslationId="action__ok_im_done"
+      secondaryActionTranslationId="action__learn_more"
       onPrimaryActionPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,

@@ -25,9 +25,7 @@ import {
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-/* TODO: use i18n keys when available */
 const SetupNewDeviceModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -38,9 +36,13 @@ const SetupNewDeviceModal: FC = () => {
           <Image source={SetupNewDevicePng} w="358px" h="160px" />
         </Box>
         <VStack space={2} mt={4}>
-          <Typography.DisplayMedium>Select "Create"</Typography.DisplayMedium>
+          <Typography.DisplayMedium>
+            {intl.formatMessage({ id: 'content__select_create_new_wallet' })}
+          </Typography.DisplayMedium>
           <Typography.Body2 color="text-subdued">
-            Follow the on-screen prompts to start creating a new wallet.
+            {intl.formatMessage({
+              id: 'content__select_create_new_wallet_desc',
+            })}
           </Typography.Body2>
         </VStack>
 
@@ -52,10 +54,14 @@ const SetupNewDeviceModal: FC = () => {
           </Center>
           <VStack flex="1" pt="4px">
             <Typography.Body1Strong>
-              Write down all recovery seed
+              {intl.formatMessage({
+                id: 'content__write_down_all_recovery_seed',
+              })}
             </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" mt="6px">
-              Follow the on-screen prompts to start creating a new wallet.
+              {intl.formatMessage({
+                id: 'content__write_down_all_recovery_seed_desc',
+              })}
             </Typography.Body2>
           </VStack>
         </HStack>
@@ -67,10 +73,11 @@ const SetupNewDeviceModal: FC = () => {
             </Typography.Body2Strong>
           </Center>
           <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>Set a PIN Code</Typography.Body1Strong>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'content__set_a_pin_code' })}
+            </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" mt="6px">
-              Set a PIN code yourself, which is similar to the withdrawal code
-              of a bank card.
+              {intl.formatMessage({ id: 'content__set_a_pin_code_desc' })}
             </Typography.Body2>
           </VStack>
         </HStack>
@@ -82,10 +89,11 @@ const SetupNewDeviceModal: FC = () => {
             </Typography.Body2Strong>
           </Center>
           <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>Follow instructions</Typography.Body1Strong>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'content__follow_instructions' })}
+            </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" mt="6px">
-              Come back here to follow instructions after the wallet is created
-              successfully.
+              {intl.formatMessage({ id: 'content__follow_instructions_desc' })}
             </Typography.Body2>
           </VStack>
         </HStack>
@@ -97,9 +105,9 @@ const SetupNewDeviceModal: FC = () => {
     <Modal
       header="Setup New Device"
       height="640px"
-      // TODO: Replace i18n keys when available
-      primaryActionProps={{ children: 'OK, I’m done!' }}
-      secondaryActionProps={{ children: 'Learn more' }}
+      primaryActionTranslationId="action__ok_im_done"
+      // TODO: Where do `learn more` redirect to?
+      secondaryActionTranslationId="action__learn_more"
       onPrimaryActionPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,

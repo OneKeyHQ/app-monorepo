@@ -24,9 +24,7 @@ import {
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-/* TODO: use i18n keys when available */
 const RestoreHardwareWalletModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -43,17 +41,18 @@ const RestoreHardwareWalletModal: FC = () => {
         </Center>
         <VStack space={2} mt={4}>
           <Typography.DisplayMedium>
-            Check the Box Contents
+            {intl.formatMessage({ id: 'modal__check_the_box_contents' })}
           </Typography.DisplayMedium>
           <Typography.Body2 color="text-subdued">
-            If your OneKey device came with a PIN code or recovery seed, it’s
-            not safe to use and you should contact OneKey Support.
+            {intl.formatMessage({ id: 'modal__check_the_box_contents_desc' })}
           </Typography.Body2>
         </VStack>
 
         <Alert
           alertType="error"
-          title="Only use a recovery seed that your device displayed when it was set up"
+          title={intl.formatMessage({
+            id: 'alert_only_use_a_recovery_seed_from_device',
+          })}
           expand={false}
           dismiss={false}
         />
@@ -63,11 +62,10 @@ const RestoreHardwareWalletModal: FC = () => {
 
   return (
     <Modal
-      header="Setup New Device"
+      header={intl.formatMessage({ id: 'modal__setup_new_device' })}
       height="640px"
-      // TODO: Replace i18n keys when available
-      primaryActionProps={{ children: 'OK, I’m done!' }}
-      secondaryActionProps={{ children: 'Learn more' }}
+      primaryActionTranslationId="action__continue"
+      secondaryActionTranslationId="action__contact"
       onPrimaryActionPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,

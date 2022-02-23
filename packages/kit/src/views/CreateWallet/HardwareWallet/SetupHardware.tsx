@@ -30,9 +30,7 @@ type RouteProps = RouteProp<
   CreateWalletModalRoutes.SetupHardwareModal
 >;
 
-/* TODO: use i18n keys when available */
 const SetupHardwareModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
@@ -60,10 +58,12 @@ const SetupHardwareModal: FC = () => {
             <Icon name="ChevronRightOutline" size={24} />
           </HStack>
           <VStack space={1} mt={3}>
-            <Typography.Body1Strong>Setup New Device</Typography.Body1Strong>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'modal__setup_new_device' })}
+            </Typography.Body1Strong>
 
             <Typography.Body2 color="text-subdued">
-              Let’s start and set up your device!
+              {intl.formatMessage({ id: 'modal__setup_new_device_desc' })}
             </Typography.Body2>
           </VStack>
         </PressableItem>
@@ -88,11 +88,12 @@ const SetupHardwareModal: FC = () => {
             <Icon name="ChevronRightOutline" size={24} />
           </HStack>
           <VStack space={1} mt={3}>
-            <Typography.Body1Strong>Restore Wallet</Typography.Body1Strong>
+            <Typography.Body1Strong>
+              {intl.formatMessage({ id: 'modal__restore_wallet' })}
+            </Typography.Body1Strong>
 
             <Typography.Body2 color="text-subdued">
-              Using an existing recovery seed to restore your private keys on a
-              new device!
+              {intl.formatMessage({ id: 'modal__restore_wallet_desc' })}
             </Typography.Body2>
           </VStack>
         </PressableItem>
@@ -103,7 +104,7 @@ const SetupHardwareModal: FC = () => {
   const footer = (
     <Center pt={4} pb={8}>
       <Button type="plain" size="lg" rightIconName="ChevronRightSolid">
-        Device Details
+        {intl.formatMessage({ id: 'action__view_device_details' })}
       </Button>
     </Center>
   );
@@ -111,7 +112,7 @@ const SetupHardwareModal: FC = () => {
   return (
     <Modal
       header={deviceName}
-      headerDescription="Not actived"
+      headerDescription={intl.formatMessage({ id: 'content__not_actived' })}
       footer={footer}
       scrollViewProps={{
         pt: 4,

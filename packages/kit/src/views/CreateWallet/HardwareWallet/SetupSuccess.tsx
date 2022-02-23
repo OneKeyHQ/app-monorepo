@@ -21,9 +21,7 @@ type RouteProps = RouteProp<
   CreateWalletModalRoutes.SetupSuccessModal
 >;
 
-/* TODO: use i18n keys when available */
 const SetupSuccessModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
@@ -36,14 +34,14 @@ const SetupSuccessModal: FC = () => {
         <Icon name="CheckOutline" color="icon-success" />
       </Center>
       <Typography.DisplayMedium mt={6}>
-        Setup Complete!
+        {intl.formatMessage({ id: 'modal__setup_complete' })}
       </Typography.DisplayMedium>
       <Typography.Body1 color="text-subdued" textAlign="center" mt={2}>
-        Your device is set up and ready to use in OneKey!
+        {intl.formatMessage({ id: 'modal__setup_complete_desc' })}
       </Typography.Body1>
 
       <Button type="plain" size="base" mt={8}>
-        View Device Details
+        {intl.formatMessage({ id: 'action__view_device_details' })}
       </Button>
     </Center>
   );
@@ -56,7 +54,7 @@ const SetupSuccessModal: FC = () => {
   return (
     <Modal
       header={deviceName}
-      headerDescription="Activated"
+      headerDescription={intl.formatMessage({ id: 'content__activated' })}
       secondaryActionTranslationId="action__close"
       onSecondaryActionPress={handleCloseSetup}
       staticChildrenProps={{

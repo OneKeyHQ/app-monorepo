@@ -14,9 +14,7 @@ import {
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
-/* TODO: use i18n keys when available */
 const DeviceStatusCheckModal: FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -38,7 +36,7 @@ const DeviceStatusCheckModal: FC = () => {
     <Center h="152px">
       <Spinner size="lg" />
       <Typography.DisplayMedium mt={6}>
-        Device Status Check
+        {intl.formatMessage({ id: 'modal__device_status_check' })}
       </Typography.DisplayMedium>
     </Center>
   );
