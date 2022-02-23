@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,6 +19,15 @@ import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
@@ -28,6 +38,8 @@ import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
 import type { TextStyle } from 'react-native';
+
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 enum TabEnum {
   Tokens = 'Tokens',
@@ -52,6 +64,7 @@ const Home: FC = () => {
   ]);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   if (!wallet) {
     return (
@@ -61,18 +74,29 @@ const Home: FC = () => {
           title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
         />
-        <AccountSelector
-          renderTrigger={({ handleToggleVisible }) => (
-            <Button
-              leftIconName="PlusOutline"
-              type="primary"
-              onPress={handleToggleVisible}
-              size="lg"
-            >
-              {intl.formatMessage({ id: 'action__create_account' })}
-            </Button>
-          )}
-        />
+        <Box
+          position="relative"
+          w={{ md: 'full' }}
+          alignItems="center"
+          h="56px"
+          justifyContent="center"
+        >
+          <Button
+            leftIconName="PlusOutline"
+            type="primary"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateWallet,
+                params: {
+                  screen: CreateWalletModalRoutes.CreateWalletModal,
+                },
+              });
+            }}
+            size="lg"
+          >
+            {intl.formatMessage({ id: 'action__create_wallet' })}
+          </Button>
+        </Box>
       </Box>
     );
   }

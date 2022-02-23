@@ -16,6 +16,7 @@ export enum ModalRoutes {
   CreateAccount = 'CreateAccount',
   ImportAccount = 'ImportAccount',
   WatchedAccount = 'WatchAccount',
+  CreateWallet = 'CreateWallet',
   Send = 'Send',
   Receive = 'Receive',
   SubmitRequest = 'SubmitRequest',
@@ -39,6 +40,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.CreateAccount]: NavigatorScreenParams<SubModalRoutesParams.CreateAccountRoutesParams>;
   [ModalRoutes.ImportAccount]: NavigatorScreenParams<SubModalRoutesParams.ImportAccountRoutesParams>;
   [ModalRoutes.WatchedAccount]: NavigatorScreenParams<SubModalRoutesParams.WatchedAccountRoutesParams>;
+  [ModalRoutes.CreateWallet]: NavigatorScreenParams<SubModalRoutesParams.CreateWalletRoutesParams>;
   [ModalRoutes.Receive]: NavigatorScreenParams<SubModalRoutesParams.ReceiveTokenRoutesParams>;
   [ModalRoutes.TransactionDetail]: NavigatorScreenParams<SubModalRoutesParams.TransactionDetailRoutesParams>;
   [ModalRoutes.SubmitRequest]: NavigatorScreenParams<SubModalRoutesParams.SubmitRequestModalRoutesParams>;
