@@ -868,7 +868,9 @@ class Engine {
     const ret: Record<string, string> = {};
     const prices = await this.priceManager.getPrices(
       networkId,
-      tokenIdsOnNetwork,
+      tokenIdsOnNetwork.filter(
+        (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
+      ),
       withMain,
     );
     Object.keys(prices).forEach((k) => {
