@@ -83,7 +83,7 @@ const TransactionDetails: FC = () => {
   const { account, network } = useActiveWalletAccount();
   const openBlockBrowser = useOpenBlockBrowser(network?.network);
 
-  console.log(`Account: ${JSON.stringify(account)}`);
+  const txInfo = tx;
 
   useEffect(() => {
     async function getAccounts() {
@@ -96,9 +96,9 @@ const TransactionDetails: FC = () => {
       setAccounts(await engine.getAccounts(accountIds));
     }
     getAccounts();
+    console.log(`Account: ${JSON.stringify(account)}`);
+    console.log(txInfo);
   }, []);
-  const txInfo = tx;
-  console.log(txInfo);
 
   const getTransactionStatusIcon = (
     state: TxStatus = TxStatus.Pending,
