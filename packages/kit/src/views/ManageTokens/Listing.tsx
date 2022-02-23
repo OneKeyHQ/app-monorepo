@@ -232,21 +232,19 @@ export const Listing: FC = () => {
   }, [allTokens, accountTokens, accountTokensSet]);
 
   useEffect(() => {
-    if (searchTerm.length === 0) {
+    async function searchAndSetTokens(
+      networkId: string,
+      tokenToSearch: string,
+    ) {
+      const result = await engine.searchTokens(networkId, tokenToSearch);
+      setSearchedTokens(result);
+    }
+
+    if (searchTerm.length === 0 || activeNetwork === null) {
       return;
     }
-    const allUniqTokens: Token[] = ([] as Token[]).concat(
-      top50Tokens,
-      accountTokens,
-    );
-    const result = allUniqTokens.filter(
-      (item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.tokenIdOnNetwork.toLowerCase() === searchTerm.toLowerCase(),
-    );
-    setSearchedTokens(result);
-  }, [accountTokens, top50Tokens, searchTerm]);
+    searchAndSetTokens(activeNetwork.network.id, searchTerm);
+  }, [activeNetwork, searchTerm]);
 
   const onDelete = useCallback(async () => {
     if (activeAccount && toDeletedToken) {
