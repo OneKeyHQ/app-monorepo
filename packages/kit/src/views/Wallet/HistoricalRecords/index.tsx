@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import * as Linking from 'expo-linking';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 import { Platform, SectionListProps } from 'react-native';
 
@@ -24,6 +24,8 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 import {
+  HomeRoutes,
+  HomeRoutesParams,
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
@@ -33,7 +35,11 @@ import engine from '../../../engine/EngineProvider';
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord from '../../Components/transactionRecord';
 
-type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
+type NavigationProp = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.SettingsWebviewScreen
+> &
+  ModalScreenProps<TransactionDetailRoutesParams>;
 
 type TransactionGroup = { title: string; data: Transaction[] };
 
@@ -84,6 +90,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProp['navigation']>();
+  const navigationRoot = useNavigation<NavigationProp>();
   const [transactionRecords, setTransactionRecords] = useState<
     TransactionGroup[]
   >([]);
@@ -91,9 +98,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
 
-  const openLinkUrl = useCallback((url: string) => {
+  const openLinkUrl = useCallback((url: string, title?: string) => {
     if (['android', 'ios'].includes(Platform.OS)) {
-      Linking.openURL(url);
+      navigationRoot.navigate(HomeRoutes.SettingsWebviewScreen, {
+        url,
+        title,
+      });
     } else {
       window.open(url, '_blank');
     }
@@ -222,6 +232,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             `https://etherscan.io/address/${
               (account as SimpleAccount).address
             }`,
+            account?.name,
           );
           console.log('Click Jump block browser');
         }}

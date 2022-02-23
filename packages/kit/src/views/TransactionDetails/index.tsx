@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BigNumber } from 'bignumber.js';
-import * as Linking from 'expo-linking';
 import { IntlShape, useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -37,6 +37,7 @@ import {
 } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
 import { useToast } from '../../hooks/useToast';
+import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
 import NFTView from '../Components/nftView';
@@ -71,6 +72,11 @@ const getTransactionTypeStr = (
   });
 };
 
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.SettingsWebviewScreen
+>;
+
 /**
  * 交易详情
  */
@@ -82,11 +88,16 @@ const TransactionDetails: FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { account, network } = useActiveWalletAccount();
 
+  const navigation = useNavigation<NavigationProps>();
+
   console.log(`Account: ${JSON.stringify(account)}`);
 
-  const openLinkUrl = useCallback((url: string) => {
+  const openLinkUrl = useCallback((url: string, title?: string) => {
     if (['android', 'ios'].includes(Platform.OS)) {
-      Linking.openURL(url);
+      navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
+        url,
+        title,
+      });
     } else {
       window.open(url, '_blank');
     }
@@ -475,7 +486,10 @@ const TransactionDetails: FC = () => {
               mb={6}
               size="lg"
               onPress={() => {
-                openLinkUrl(`https://etherscan.io/tx/${txInfo?.txHash ?? ''}`);
+                openLinkUrl(
+                  `https://etherscan.io/tx/${txInfo?.txHash ?? ''}`,
+                  txInfo?.txHash,
+                );
               }}
               rightIcon={<Icon name="ArrowNarrowRightSolid" />}
             >
