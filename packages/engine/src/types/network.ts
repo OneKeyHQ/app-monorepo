@@ -29,9 +29,15 @@ type DBNetwork = NetworkBase & {
   curve?: string;
 };
 
-export type EvmExtraInfo = {
+type EvmExtraInfo = {
   chainId: string;
   networkVersion: string;
+};
+
+type BlockExplorer = {
+  address: string;
+  block: string;
+  transaction: string;
 };
 
 type Network = NetworkBase & {
@@ -44,7 +50,8 @@ type Network = NetworkBase & {
   tokenDisplayDecimals: number;
   // extra info for dapp interactions
   extraInfo: EvmExtraInfo | Record<string, any>;
-  // TODO: rpcURLs, explorers
+  // TODO: rpcURLs
+  blockExplorerURL: BlockExplorer;
 };
 
 type AddEVMNetworkParams = {
@@ -73,6 +80,8 @@ export type {
   DBNetwork,
   PresetNetwork,
   Network,
+  EvmExtraInfo,
+  BlockExplorer,
   AddEVMNetworkParams,
   AddNetworkParams,
   UpdateNetworkParams,

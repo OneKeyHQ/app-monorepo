@@ -7,7 +7,7 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import type { Network } from './network';
 
-export type MyToken = Token & { balance?: string };
+export type ValuedToken = Token & { balance?: string };
 
 export type GeneralInitialState = {
   activeAccount: Account | null;
@@ -17,7 +17,7 @@ export type GeneralInitialState = {
     sharedChainName: string;
   } | null;
   tokens: Record<string, Record<string, Token[]>>;
-  ownedTokens: Record<string, Record<string, MyToken[]>>;
+  ownedTokens: Record<string, Record<string, ValuedToken[]>>;
 };
 
 const initialState: GeneralInitialState = {
@@ -56,7 +56,7 @@ export const generalSlice = createSlice({
           action.payload;
       }
     },
-    changeActiveOwnedToken(state, action: PayloadAction<MyToken[]>) {
+    changeActiveOwnedToken(state, action: PayloadAction<ValuedToken[]>) {
       const { activeAccount, activeNetwork } = state;
       if (activeAccount && activeNetwork) {
         if (!state.ownedTokens[activeAccount.id]) {
