@@ -42,9 +42,12 @@ const AppWalletModal: FC = () => {
           alignItems="center"
           justifyContent="space-between"
           onPress={() => {
-            // Create new wallet and redirect to the root page
-            // TODO: Create wallet
-            navigation.navigate(RootRoutes.Root);
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.CreateWallet,
+              params: {
+                screen: CreateWalletModalRoutes.AppWalletDoneModal,
+              },
+            });
           }}
         >
           <HStack space={4} alignItems="center">

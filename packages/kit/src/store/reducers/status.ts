@@ -1,25 +1,36 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 export const slice = createSlice({
   name: 'status',
   initialState: {
-    password: '',
-    lastLoginAt: 0,
+    loginAt: 0,
+    isLogin: false,
+    welcomed: false,
+    initialized: false,
   },
   reducers: {
-    setPassword: (state, action: PayloadAction<string>) => {
-      state.password = action.payload;
+    setWelcomed: (state) => {
+      // finish onboarding flow
+      state.welcomed = true;
+    },
+    setInitialized: (state) => {
+      // finish password setup
+      state.initialized = true;
     },
     reset: (state) => {
-      state.password = '';
-      state.lastLoginAt = 0;
+      state.loginAt = 0;
     },
-    refreshLoginAt: (state) => {
-      state.lastLoginAt = Date.now();
+    login: (state) => {
+      state.loginAt = Date.now();
+      state.isLogin = true;
+    },
+    logout: (state) => {
+      state.isLogin = false;
     },
   },
 });
 
-export const { setPassword, reset, refreshLoginAt } = slice.actions;
+export const { reset, setWelcomed, setInitialized, login, logout } =
+  slice.actions;
 
 export default slice.reducer;

@@ -10,7 +10,6 @@ export type {
   OnekeyLiteResetRoutesParams,
   OnekeyLiteChangePinRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
-export type { MiscRoutesParams } from './Misc';
 export type { DappApproveRoutesParams } from './DappApprove';
 export type { DappSendRoutesParams } from './DappSend';
 export type { DappMulticallRoutesParams } from './DappMulticall';

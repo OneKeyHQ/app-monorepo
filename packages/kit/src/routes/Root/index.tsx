@@ -8,14 +8,14 @@ import {
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useStatus } from '../../hooks/redux';
+import Welcome from '../../views/Welcome';
 import ModalStackNavigator from '../Modal';
-import OnboardingScreen from '../Onboarding';
 import StackScreen from '../Stack';
 import { RootRoutes } from '../types';
 
 const RootStack = createStackNavigator();
 
-const MainScreen = () => {
+const App = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <RootStack.Navigator
@@ -37,8 +37,8 @@ const MainScreen = () => {
 };
 
 const RootStackNavigator = () => {
-  const { password } = useStatus();
-  return password ? <MainScreen /> : <OnboardingScreen />;
+  const { welcomed } = useStatus();
+  return welcomed ? <App /> : <Welcome />;
 };
 
 export default memo(RootStackNavigator);
