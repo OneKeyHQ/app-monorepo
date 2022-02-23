@@ -4,12 +4,10 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
-  Control,
   Form,
   KeyboardDismissView,
   Modal,
   useForm,
-  useWatch,
 } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -33,19 +31,14 @@ type AddCustomTokenValues = {
   decimal: string;
 };
 
-type AddressInputProps = {
-  // eslint-disable-next-line
-  control: Control<AddCustomTokenValues, object>;
-  onSearch: (token?: Token) => void;
-};
-
-const AddressInput: FC<AddressInputProps> = ({ control, onSearch }) => {
+export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
+  const address = route.params?.address;
   const intl = useIntl();
-  const { activeAccount, activeNetwork } = useGeneral();
+  const { info } = useToast();
+  const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
-
-  const watchedAddress = useWatch({ control, name: 'address' });
-  const address = useDebounce(watchedAddress, 1000);
+  const [inputDisabled, setInputDisabled] = useState(false);
+  const { activeAccount, activeNetwork } = useGeneral();
   const { accountTokensSet } = useManageTokens();
 
   const helpTip = intl.formatMessage({
@@ -53,71 +46,15 @@ const AddressInput: FC<AddressInputProps> = ({ control, onSearch }) => {
     defaultMessage: 'Searching Token...',
   });
 
-  useEffect(() => {
-    async function doQuery() {
-      const trimedAddress = address.trim();
-      if (trimedAddress.length === 42 && activeAccount && activeNetwork) {
-        let preResult;
-        setSearching(true);
-        try {
-          preResult = await engine.preAddToken(
-            activeAccount.id,
-            activeNetwork.network.id,
-            trimedAddress,
-          );
-          if (preResult?.[1]) {
-            onSearch(preResult?.[1]);
-          } else {
-            onSearch(undefined);
-          }
-        } finally {
-          setSearching(false);
-        }
-      }
-    }
-    doQuery();
-  }, [address, activeAccount, activeNetwork, onSearch]);
-
-  return (
-    <Form.Item
-      name="address"
-      label={intl.formatMessage({
-        id: 'transaction__contract_address',
-        defaultMessage: 'Contract Address',
-      })}
-      control={control}
-      defaultValue=""
-      labelAddon={['paste']}
-      helpText={isSearching ? helpTip : undefined}
-      rules={{
-        required: intl.formatMessage({
-          id: 'form__field_is_required',
-        }),
-        validate: (value) => {
-          if (accountTokensSet.has(value)) {
-            return intl.formatMessage({ id: 'msg__token_already_existed' });
-          }
-        },
-      }}
-    >
-      <Form.Textarea
-        placeholder={intl.formatMessage({
-          id: 'form__enter_or_paste_contract_address',
-          defaultMessage: 'Enter or paste contract address',
-        })}
-      />
-    </Form.Item>
-  );
-};
-
-export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
-  const intl = useIntl();
-  const navigation = useNavigation();
-  const [inputDisabled, setInputDisabled] = useState(false);
-  const { activeAccount, activeNetwork } = useGeneral();
-  const { info } = useToast();
-  const address = route.params?.address;
-  const { control, handleSubmit, setValue } = useForm<AddCustomTokenValues>({
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    formState: { isValid },
+    trigger,
+    setError,
+    watch,
+  } = useForm<AddCustomTokenValues>({
     defaultValues: { address: '', symbol: '', decimal: '' },
     mode: 'onChange',
   });
@@ -127,6 +64,9 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       setValue('address', address);
     }
   }, [address, setValue]);
+
+  const watchedAddress = watch('address');
+  const debouncedAddress = useDebounce(watchedAddress, 1000);
 
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
@@ -159,14 +99,43 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         setValue('decimal', String(token.decimals));
         setValue('symbol', token.symbol);
         setInputDisabled(true);
+        trigger('address');
       } else {
+        setError('address', {
+          message: intl.formatMessage({ id: 'msg__wrong_address_format' }),
+        });
         setInputDisabled(false);
         setValue('decimal', '');
         setValue('symbol', '');
       }
     },
-    [setValue],
+    [setValue, trigger, setError, intl],
   );
+
+  useEffect(() => {
+    async function doQuery() {
+      const trimedAddress = debouncedAddress.trim();
+      if (trimedAddress.length === 42 && activeAccount && activeNetwork) {
+        let preResult;
+        setSearching(true);
+        try {
+          preResult = await engine.preAddToken(
+            activeAccount.id,
+            activeNetwork.network.id,
+            trimedAddress,
+          );
+          if (preResult?.[1]) {
+            onSearch(preResult?.[1]);
+          } else {
+            onSearch(undefined);
+          }
+        } finally {
+          setSearching(false);
+        }
+      }
+    }
+    doQuery();
+  }, [address, activeAccount, activeNetwork, onSearch, debouncedAddress]);
 
   return (
     <Modal
@@ -179,50 +148,82 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       primaryActionTranslationId="action__add"
       primaryActionProps={{
         type: 'primary',
+        isDisabled: !isValid && !isSearching,
         onPromise: () => handleSubmit(onSubmit)(),
       }}
-      scrollViewProps={{
-        children: (
-          <KeyboardDismissView>
-            <Form>
-              <AddressInput control={control} onSearch={onSearch} />
-              <Form.Item
-                name="symbol"
-                label={intl.formatMessage({
-                  id: 'form__token_symbol',
-                  defaultMessage: 'Token Symbol',
-                })}
-                rules={{
-                  required: intl.formatMessage({
-                    id: 'form__field_is_required',
-                  }),
-                }}
-                defaultValue=""
-                control={control}
-              >
-                <Form.Input isDisabled={inputDisabled} />
-              </Form.Item>
-              <Form.Item
-                name="decimal"
-                label={intl.formatMessage({
-                  id: 'form__decimal',
-                  defaultMessage: 'Decimal',
-                })}
-                control={control}
-                defaultValue=""
-                rules={{
-                  required: intl.formatMessage({
-                    id: 'form__field_is_required',
-                  }),
-                }}
-              >
-                <Form.Input isDisabled={inputDisabled} />
-              </Form.Item>
-            </Form>
-          </KeyboardDismissView>
-        ),
-      }}
-    />
+    >
+      <KeyboardDismissView>
+        <Form>
+          <Form.Item
+            name="address"
+            label={intl.formatMessage({
+              id: 'transaction__contract_address',
+              defaultMessage: 'Contract Address',
+            })}
+            control={control}
+            defaultValue=""
+            labelAddon={['paste']}
+            helpText={isSearching ? helpTip : undefined}
+            rules={{
+              required: intl.formatMessage({
+                id: 'form__field_is_required',
+              }),
+              validate: (value) => {
+                if (value.length !== 42) {
+                  return intl.formatMessage({
+                    id: 'msg__wrong_address_format',
+                  });
+                }
+                if (accountTokensSet.has(value)) {
+                  return intl.formatMessage({
+                    id: 'msg__token_already_existed',
+                  });
+                }
+              },
+            }}
+          >
+            <Form.Textarea
+              placeholder={intl.formatMessage({
+                id: 'form__enter_or_paste_contract_address',
+                defaultMessage: 'Enter or paste contract address',
+              })}
+            />
+          </Form.Item>
+          <Form.Item
+            name="symbol"
+            label={intl.formatMessage({
+              id: 'form__token_symbol',
+              defaultMessage: 'Token Symbol',
+            })}
+            rules={{
+              required: intl.formatMessage({
+                id: 'form__field_is_required',
+              }),
+            }}
+            defaultValue=""
+            control={control}
+          >
+            <Form.Input isDisabled={inputDisabled} />
+          </Form.Item>
+          <Form.Item
+            name="decimal"
+            label={intl.formatMessage({
+              id: 'form__decimal',
+              defaultMessage: 'Decimal',
+            })}
+            control={control}
+            defaultValue=""
+            rules={{
+              required: intl.formatMessage({
+                id: 'form__field_is_required',
+              }),
+            }}
+          >
+            <Form.Input isDisabled={inputDisabled} />
+          </Form.Item>
+        </Form>
+      </KeyboardDismissView>
+    </Modal>
   );
 };
 
