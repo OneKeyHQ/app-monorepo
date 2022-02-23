@@ -54,6 +54,8 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
   }
 }
 interface DBAPI {
+  getContext(): Promise<OneKeyContext | undefined>;
+  updatePassword(oldPassword: string, newPassword: string): Promise<void>;
   reset(password: string): Promise<void>;
 
   listNetworks(): Promise<Array<DBNetwork>>;
@@ -125,4 +127,4 @@ interface DBAPI {
 }
 
 export type { DBAPI, OneKeyContext, StoredCredential, ExportedCredential };
-export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, MAIN_CONTEXT };
+export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, decrypt, MAIN_CONTEXT };

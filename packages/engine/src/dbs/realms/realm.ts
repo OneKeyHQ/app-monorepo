@@ -32,8 +32,10 @@ import {
   DEFAULT_VERIFY_STRING,
   ExportedCredential,
   MAIN_CONTEXT,
+  OneKeyContext,
   StoredCredential,
   checkPassword,
+  decrypt,
   encrypt,
 } from '../base';
 
@@ -127,6 +129,73 @@ class RealmDB implements DBAPI {
   close(): void {
     if (this.realm && !this.realm.isClosed) {
       this.realm.close();
+    }
+  }
+
+  getContext(): Promise<OneKeyContext | undefined> {
+    try {
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      return Promise.resolve(
+        typeof context !== 'undefined' ? context.internalObj : context,
+      );
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+    let context: ContextSchema | undefined;
+    try {
+      context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context === 'undefined') {
+        this.realm!.write(() => {
+          context = this.realm!.create('Context', {
+            id: MAIN_CONTEXT,
+            verifyString: DEFAULT_VERIFY_STRING,
+            nextHD: 1,
+          });
+        });
+      } else if (!checkPassword(context, oldPassword)) {
+        return Promise.reject(new WrongPassword());
+      }
+
+      if (oldPassword === newPassword) {
+        return Promise.resolve();
+      }
+
+      this.realm!.write(() => {
+        context!.verifyString = encrypt(
+          newPassword,
+          Buffer.from(DEFAULT_VERIFY_STRING),
+        ).toString('hex');
+        const credentials = this.realm!.objects<CredentialSchema>('Credential');
+        credentials.forEach((credentialItem) => {
+          const credentialJSON: StoredCredential = JSON.parse(
+            credentialItem.credential,
+          );
+          credentialItem.credential = JSON.stringify({
+            entropy: encrypt(
+              newPassword,
+              decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
+            ).toString('hex'),
+            seed: encrypt(
+              newPassword,
+              decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
+            ).toString('hex'),
+          });
+        });
+      });
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
     }
   }
 
