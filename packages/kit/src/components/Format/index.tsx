@@ -78,7 +78,7 @@ export function formatBalanceDisplay(
 ): string {
   const { unit, fixed, fullPrecision } = formatOptions || {};
   if (isNil(balance)) {
-    return 'A/N';
+    return '-';
   }
   const amount = formatNumber(balance, {
     unit,

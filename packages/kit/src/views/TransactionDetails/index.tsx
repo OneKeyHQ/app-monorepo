@@ -83,6 +83,7 @@ type NavigationProps = NativeStackNavigationProp<
 const TransactionDetails: FC = () => {
   const intl = useIntl();
   const toast = useToast();
+  const navigation = useNavigation<NavigationProps>();
   const route = useRoute<TransactionDetailRouteProp>();
   const { tx } = route.params;
   const [accounts, setAccounts] = useState<Account[]>([]);

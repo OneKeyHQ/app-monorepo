@@ -53,8 +53,10 @@ export type HistoricalRecordProps = {
 
 const toTransactionSection = (
   queueStr: string,
-  _data: Transaction[],
+  _data: Transaction[] | null | undefined,
 ): TransactionGroup[] => {
+  if (!_data) return [];
+
   const sortData = _data.sort(
     (a, b) =>
       new Date(b.blockSignedAt).getTime() - new Date(a.blockSignedAt).getTime(),
@@ -116,11 +118,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   );
 
   const refreshHistory = useCallback(async () => {
+    setTransactionRecords([]);
     if (!accountId || !networkId) return;
 
     try {
       setIsLoading(true);
-      setTransactionRecords([]);
 
       let history;
       if (tokenId) {
@@ -149,6 +151,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     } catch (error) {
       // 异常失败
       setTransactionRecords([]);
+      console.error(error);
     } finally {
       setTimeout(() => {
         setIsLoading(false);

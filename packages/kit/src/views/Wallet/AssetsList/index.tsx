@@ -99,8 +99,11 @@ const AssetsList = () => {
       );
       setMainTokenPrice(prices);
     }
-    if (isFocused) {
-      main();
+
+    try {
+      if (isFocused) main();
+    } catch (error) {
+      console.warn('AssetsList', error);
     }
   }, [network, account?.id, isFocused, accountTokens]);
 
