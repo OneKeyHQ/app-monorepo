@@ -122,9 +122,11 @@ export const useManageTokens = () => {
 
   const updateTokens = useCallback(() => {
     if (activeAccount && activeNetwork) {
-      engine.getTokens(activeNetwork.network.id).then((res) => {
-        dispatch(changeActiveTokens(res.slice(0, 50)));
-      });
+      dispatch(
+        changeActiveTokens(
+          engine.getTopTokensOnNetwork(activeNetwork.network.id, 50),
+        ),
+      );
     }
   }, [activeAccount, activeNetwork, dispatch]);
 

@@ -564,6 +564,10 @@ class Engine {
     );
   }
 
+  getTopTokensOnNetwork(networkId: string, limit = 50): Array<Token> {
+    return getPresetTokensOnNetwork(networkId).slice(0, limit);
+  }
+
   async prepareTransfer(
     networkId: string,
     accountId: string,
