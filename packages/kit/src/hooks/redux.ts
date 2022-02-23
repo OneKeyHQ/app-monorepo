@@ -9,7 +9,7 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import engine from '../engine/EngineProvider';
 import { appDispatch, appSelector } from '../store';
 import {
-  MyToken,
+  ValuedToken,
   changeActiveOwnedToken,
   changeActiveTokens,
 } from '../store/reducers/general';
@@ -71,7 +71,7 @@ export const useManageTokens = () => {
   }, [tokens, activeAccount, activeNetwork]);
 
   const { accountTokens, accountTokensSet } = useMemo(() => {
-    let myListData: MyToken[] = [];
+    let myListData: ValuedToken[] = [];
     const mySetData = new Set<string>();
     if (activeAccount && activeNetwork) {
       myListData =

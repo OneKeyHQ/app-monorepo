@@ -42,7 +42,7 @@ import {
 } from '../../../routes/types';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
-import type { MyToken } from '../../../store/reducers/general';
+import type { ValuedToken } from '../../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -106,7 +106,7 @@ const AssetsList = () => {
 
   useFocusEffect(updateAccountTokens);
 
-  const renderItem: ScrollableFlatListProps<MyToken>['renderItem'] = ({
+  const renderItem: ScrollableFlatListProps<ValuedToken>['renderItem'] = ({
     item,
     index,
   }) => {

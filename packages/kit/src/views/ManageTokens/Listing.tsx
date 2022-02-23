@@ -9,22 +9,24 @@ import {
   Dialog,
   Divider,
   Empty,
+  Icon,
   IconButton,
+  Image,
   Modal,
   Searchbar,
-  Token,
   Typography,
   utils,
 } from '@onekeyhq/components';
-import { Token as TokenOf } from '@onekeyhq/engine/src/types/token';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
+import { FormatBalance } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
 import { useGeneral, useManageTokens } from '../../hooks/redux';
 import useDebounce from '../../hooks/useDebounce';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
-import type { MyToken } from '../../store/reducers/general';
+import type { ValuedToken } from '../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -35,11 +37,16 @@ type NavigationProps = NativeStackNavigationProp<
 const isValidateAddr = (addr: string) => addr.length === 42;
 
 type HeaderTokensProps = {
-  tokens: MyToken[];
-  onDelToken?: (token: TokenOf) => void;
+  tokens: ValuedToken[];
+  topTokens: Token[];
+  onDelToken?: (token: Token) => void;
 };
 
-const HeaderTokens: FC<HeaderTokensProps> = ({ tokens, onDelToken }) => {
+const HeaderTokens: FC<HeaderTokensProps> = ({
+  tokens,
+  topTokens,
+  onDelToken,
+}) => {
   const intl = useIntl();
   return (
     <Box>
@@ -68,14 +75,31 @@ const HeaderTokens: FC<HeaderTokensProps> = ({ tokens, onDelToken }) => {
                 borderTopColor="divider"
                 borderTopWidth={index !== 0 ? '1' : undefined}
               >
-                <Token
-                  src={item.logoURI}
-                  size="8"
-                  chain="eth"
-                  name={item.name}
-                  address={item.tokenIdOnNetwork}
-                  description={`${item.balance ?? '0'} ${item.symbol}`}
-                />
+                <Box display="flex" alignItems="center" flexDirection="row">
+                  <Image
+                    src={item.logoURI}
+                    alt="logoURI"
+                    size="8"
+                    borderRadius="full"
+                    fallbackElement={<Icon name="QuestionMarkOutline" />}
+                  />
+                  <Box ml="3">
+                    <Typography.Body1Strong
+                      maxW="56"
+                      textOverflow="ellipsis"
+                      numberOfLines={2}
+                    >
+                      {item.name}({item.symbol})
+                    </Typography.Body1Strong>
+                    <Typography.Body1 numberOfLines={1}>
+                      <FormatBalance
+                        balance={item?.balance ?? '0'}
+                        suffix={item.symbol}
+                        formatOptions={{ fixed: 6 }}
+                      />
+                    </Typography.Body1>
+                  </Box>
+                </Box>
                 <IconButton
                   name="TrashSolid"
                   type="plain"
@@ -86,24 +110,33 @@ const HeaderTokens: FC<HeaderTokensProps> = ({ tokens, onDelToken }) => {
           </Box>
         </Box>
       ) : null}
-      <Typography.Subheading color="text-subdued" mt="2" mb="3">
-        {intl.formatMessage({
-          id: 'form__top_50_tokens',
-          defaultMessage: 'TOP 50 TOKENS',
-        })}
-      </Typography.Subheading>
+      {topTokens.length ? (
+        <Typography.Subheading color="text-subdued" mt="2" mb="3">
+          {intl.formatMessage({
+            id: 'form__top_50_tokens',
+            defaultMessage: 'TOP 50 TOKENS',
+          })}
+        </Typography.Subheading>
+      ) : null}
     </Box>
   );
 };
 
 type HeaderProps = {
-  tokens: MyToken[];
+  topTokens: Token[];
+  tokens: ValuedToken[];
   keyword: string;
   onChange: (keyword: string) => void;
-  onDelToken?: (token: TokenOf) => void;
+  onDelToken?: (token: Token) => void;
 };
 
-const Header: FC<HeaderProps> = ({ tokens, keyword, onChange, onDelToken }) => {
+const Header: FC<HeaderProps> = ({
+  tokens,
+  topTokens,
+  keyword,
+  onChange,
+  onDelToken,
+}) => {
   const intl = useIntl();
   return (
     <Box>
@@ -119,13 +152,17 @@ const Header: FC<HeaderProps> = ({ tokens, keyword, onChange, onDelToken }) => {
         onChangeText={(text) => onChange(text.trim())}
       />
       {keyword.length ? null : (
-        <HeaderTokens tokens={tokens} onDelToken={onDelToken} />
+        <HeaderTokens
+          tokens={tokens}
+          onDelToken={onDelToken}
+          topTokens={topTokens}
+        />
       )}
     </Box>
   );
 };
 
-type ListEmptyComponentProps = { keyword: string; searchedTokens: TokenOf[] };
+type ListEmptyComponentProps = { keyword: string; searchedTokens: Token[] };
 
 const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   keyword,
@@ -155,14 +192,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
         navigation.navigate(ManageTokenRoutes.CustomToken, params);
       }}
     />
-  ) : (
-    <Empty
-      title={intl.formatMessage({
-        id: 'content__no_results',
-        defaultMessage: 'No Result',
-      })}
-    />
-  );
+  ) : null;
 };
 
 export const Listing: FC = () => {
@@ -176,16 +206,16 @@ export const Listing: FC = () => {
     updateAccountTokens,
   } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
-  const debouncedKeyword = useDebounce(keyword, 1000);
-  const [topTokens, setTopTokens] = useState<TokenOf[]>([]);
+  const searchTerm = useDebounce(keyword, 1000);
+  const [top50Tokens, setTop50Tokens] = useState<Token[]>([]);
 
-  const [searchedTokens, setSearchedTokens] = useState<TokenOf[]>([]);
+  const [searchedTokens, setSearchedTokens] = useState<Token[]>([]);
   const { activeNetwork, activeAccount } = useGeneral();
 
   const [visible, setVisible] = useState(false);
-  const [toDeletedToken, setToDeletedToken] = useState<TokenOf>();
+  const [toDeletedToken, setToDeletedToken] = useState<Token>();
 
-  const onToggle = useCallback((token?: TokenOf) => {
+  const onToggleDeleteDialog = useCallback((token?: Token) => {
     if (token) {
       setToDeletedToken(token);
       setVisible(true);
@@ -198,28 +228,31 @@ export const Listing: FC = () => {
     const filtered = allTokens.filter(
       (item) => !accountTokensSet.has(item.tokenIdOnNetwork),
     );
-    setTopTokens(filtered);
+    setTop50Tokens(filtered);
   }, [allTokens, accountTokens, accountTokensSet]);
 
   useEffect(() => {
-    const allUniqTokens: TokenOf[] = ([] as TokenOf[]).concat(
+    if (searchTerm.length === 0) {
+      return;
+    }
+    const allUniqTokens: Token[] = ([] as Token[]).concat(
+      top50Tokens,
       accountTokens,
-      topTokens,
     );
     const result = allUniqTokens.filter(
       (item) =>
-        item.name.toLowerCase().includes(debouncedKeyword.toLowerCase()) ||
-        item.symbol.toLowerCase().includes(debouncedKeyword.toLowerCase()) ||
-        item.tokenIdOnNetwork.toLowerCase() === debouncedKeyword.toLowerCase(),
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.tokenIdOnNetwork.toLowerCase() === searchTerm.toLowerCase(),
     );
     setSearchedTokens(result);
-  }, [accountTokens, topTokens, debouncedKeyword]);
+  }, [accountTokens, top50Tokens, searchTerm]);
 
   const onDelete = useCallback(async () => {
     if (activeAccount && toDeletedToken) {
       await engine.removeTokenFromAccount(activeAccount.id, toDeletedToken?.id);
     }
-    onToggle(undefined);
+    onToggleDeleteDialog(undefined);
     updateTokens();
     updateAccountTokens();
   }, [
@@ -227,18 +260,18 @@ export const Listing: FC = () => {
     toDeletedToken,
     updateTokens,
     updateAccountTokens,
-    onToggle,
+    onToggleDeleteDialog,
   ]);
 
   useFocusEffect(updateTokens);
   useFocusEffect(updateAccountTokens);
 
   const flatListData = useMemo(
-    () => (keyword ? searchedTokens : topTokens),
-    [keyword, searchedTokens, topTokens],
+    () => (searchTerm ? searchedTokens : top50Tokens),
+    [searchTerm, searchedTokens, top50Tokens],
   );
 
-  const renderItem: ListRenderItem<TokenOf> = useCallback(
+  const renderItem: ListRenderItem<Token & { balance?: string }> = useCallback(
     ({ item, index }) => (
       <Box
         borderTopRadius={index === 0 ? '12' : undefined}
@@ -251,43 +284,67 @@ export const Listing: FC = () => {
         p="4"
         alignItems="center"
         bg="surface-default"
+        overflow="hidden"
+        key={item.tokenIdOnNetwork}
       >
-        <Token
-          src={item.logoURI}
-          size="8"
-          chain="eth"
-          name={item.name}
-          address={item.tokenIdOnNetwork}
-          description={utils.shortenAddress(item.tokenIdOnNetwork)}
-        />
-        {accountTokensSet.has(item.tokenIdOnNetwork) ? (
-          <IconButton
-            name="TrashSolid"
-            type="plain"
-            p="4"
-            onPress={() => {
-              onToggle(item);
-            }}
+        <Box display="flex" alignItems="center" flexDirection="row">
+          <Image
+            src={item.logoURI}
+            alt="logoURI"
+            size="8"
+            borderRadius="full"
+            fallbackElement={<Icon name="QuestionMarkOutline" />}
           />
-        ) : (
-          <IconButton
-            name="PlusSolid"
-            type="plain"
-            p="4"
-            onPress={() => {
-              navigation.navigate(ManageTokenRoutes.AddToken, {
-                name: item.name,
-                symbol: item.symbol,
-                address: item.tokenIdOnNetwork,
-                decimal: item.decimals,
-                logoURI: item.logoURI,
-              });
-            }}
-          />
-        )}
+          <Box ml="3">
+            <Typography.Body1Strong
+              maxW="56"
+              textOverflow="ellipsis"
+              numberOfLines={2}
+              color={
+                accountTokensSet.has(item.tokenIdOnNetwork)
+                  ? 'text-disabled'
+                  : 'text-default'
+              }
+            >
+              {item.name}({item.symbol})
+            </Typography.Body1Strong>
+            <Typography.Body1
+              numberOfLines={1}
+              color={
+                accountTokensSet.has(item.tokenIdOnNetwork)
+                  ? 'text-disabled'
+                  : 'text-subdued'
+              }
+            >
+              {item?.balance
+                ? `${item.balance} ${item.symbol}`
+                : utils.shortenAddress(item.tokenIdOnNetwork)}
+            </Typography.Body1>
+          </Box>
+        </Box>
+        <Box>
+          {accountTokensSet.has(item.tokenIdOnNetwork) ? (
+            <Icon name="CheckSolid" color="interactive-disabled" />
+          ) : (
+            <IconButton
+              name="PlusSolid"
+              type="plain"
+              p="4"
+              onPress={() => {
+                navigation.navigate(ManageTokenRoutes.AddToken, {
+                  name: item.name,
+                  symbol: item.symbol,
+                  address: item.tokenIdOnNetwork,
+                  decimal: item.decimals,
+                  logoURI: item.logoURI,
+                });
+              }}
+            />
+          )}
+        </Box>
       </Box>
     ),
-    [navigation, flatListData.length, accountTokensSet, onToggle],
+    [navigation, flatListData.length, accountTokensSet],
   );
 
   return (
@@ -310,7 +367,7 @@ export const Listing: FC = () => {
           // @ts-ignore
           renderItem,
           ItemSeparatorComponent: () => <Divider />,
-          keyExtractor: (item) => (item as TokenOf).tokenIdOnNetwork,
+          keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: () => (
             <ListEmptyComponent
@@ -320,17 +377,18 @@ export const Listing: FC = () => {
           ),
           ListHeaderComponent: (
             <Header
+              topTokens={top50Tokens}
               tokens={accountTokens}
               keyword={keyword}
               onChange={(text) => setKeyword(text)}
-              onDelToken={(token) => onToggle(token)}
+              onDelToken={(token) => onToggleDeleteDialog(token)}
             />
           ),
         }}
       />
       <Dialog
         visible={visible}
-        onClose={() => onToggle(undefined)}
+        onClose={() => onToggleDeleteDialog(undefined)}
         footerButtonProps={{
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: { type: 'destructive', onPromise: onDelete },
