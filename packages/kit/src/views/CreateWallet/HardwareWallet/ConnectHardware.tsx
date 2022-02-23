@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, global-require, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires */
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +9,7 @@ import {
   HStack,
   Icon,
   Image,
+  LottieView,
   Modal,
   Spinner,
   Typography,
@@ -30,23 +30,6 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import Platform from '@onekeyhq/shared/src/platformEnv';
-
-// A hack for document unfound on native error
-// import LottieView from 'lottie-react';
-let LottieViewNative: typeof import('lottie-react-native').default;
-let LottieViewWeb: typeof import('lottie-react').default;
-try {
-  LottieViewNative = require('lottie-react-native');
-} catch (e) {
-  // Ignore
-  console.debug('Error on require `lottie-react-native` module', e);
-}
-try {
-  LottieViewWeb = require('lottie-react').default;
-} catch (e) {
-  // Ignore
-  console.debug('Error on require `lottie-react` module', e);
-}
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
@@ -121,7 +104,6 @@ const ConnectHardwareModal: FC = () => {
     // Show device options when available
   }, []);
 
-  // TODO: Move mobile and desktop screens into separate files
   // Mobile Connect Screen
   const renderConnectScreen = () => {
     if (!isSearching) {
@@ -145,7 +127,8 @@ const ConnectHardwareModal: FC = () => {
     return (
       <VStack space={12} w="full" alignItems="center">
         <Box w="358px" h="220px">
-          <LottieViewNative
+          <LottieView
+            // eslint-disable-next-line global-require
             source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json')}
             autoPlay
             loop
@@ -215,14 +198,12 @@ const ConnectHardwareModal: FC = () => {
   ) : (
     <VStack space={8} alignItems="center">
       <Box borderRadius="12px" bg="surface-neutral-subdued">
-        {!!LottieViewWeb && (
-          <LottieViewWeb
-            // eslint-disable-next-line global-require
-            animationData={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_usb.json')}
-            autoPlay
-            loop
-          />
-        )}
+        <LottieView
+          // eslint-disable-next-line global-require
+          source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_usb.json')}
+          autoPlay
+          loop
+        />
       </Box>
 
       <Typography.DisplayMedium>

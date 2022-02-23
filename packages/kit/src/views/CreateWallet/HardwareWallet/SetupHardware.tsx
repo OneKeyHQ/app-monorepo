@@ -39,7 +39,7 @@ const SetupHardwareModal: FC = () => {
 
   const content = (
     <Center>
-      <VStack space={4}>
+      <VStack space={4} w="full">
         {/* Setup new device option */}
         <PressableItem
           borderRadius="12px"
