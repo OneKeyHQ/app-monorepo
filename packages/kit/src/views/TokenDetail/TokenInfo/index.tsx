@@ -76,7 +76,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
         setTokenPrice(prices?.main);
       }
     }
-    if (isFocused) main();
+    try {
+      if (isFocused) main();
+    } catch (error) {
+      console.warn('TokenInfo', error);
+    }
   }, [accountId, token, isFocused, network]);
 
   const renderAccountAmountInfo = useMemo(

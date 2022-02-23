@@ -1,11 +1,9 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BigNumber } from 'bignumber.js';
 import { IntlShape, useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import {
   Address,
@@ -26,6 +24,7 @@ import {
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
@@ -37,7 +36,6 @@ import {
 } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
 import { useToast } from '../../hooks/useToast';
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
 import NFTView from '../Components/nftView';
@@ -72,36 +70,20 @@ const getTransactionTypeStr = (
   });
 };
 
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
->;
-
 /**
  * 交易详情
  */
 const TransactionDetails: FC = () => {
   const intl = useIntl();
   const toast = useToast();
+
   const route = useRoute<TransactionDetailRouteProp>();
   const { tx } = route.params;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { account, network } = useActiveWalletAccount();
-
-  const navigation = useNavigation<NavigationProps>();
+  const openBlockBrowser = useOpenBlockBrowser(network?.network);
 
   console.log(`Account: ${JSON.stringify(account)}`);
-
-  const openLinkUrl = useCallback((url: string, title?: string) => {
-    if (['android', 'ios'].includes(Platform.OS)) {
-      navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
-        url,
-        title,
-      });
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
 
   useEffect(() => {
     async function getAccounts() {
@@ -486,10 +468,7 @@ const TransactionDetails: FC = () => {
               mb={6}
               size="lg"
               onPress={() => {
-                openLinkUrl(
-                  `https://etherscan.io/tx/${txInfo?.txHash ?? ''}`,
-                  txInfo?.txHash,
-                );
+                openBlockBrowser.openTransactionDetails(txInfo?.txHash);
               }}
               rightIcon={<Icon name="ArrowNarrowRightSolid" />}
             >

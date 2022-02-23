@@ -1,9 +1,8 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
-import { Platform, SectionListProps } from 'react-native';
+import { SectionListProps } from 'react-native';
 
 import {
   Badge,
@@ -21,11 +20,10 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 import {
-  HomeRoutes,
-  HomeRoutesParams,
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
@@ -35,11 +33,7 @@ import engine from '../../../engine/EngineProvider';
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord from '../../Components/transactionRecord';
 
-type NavigationProp = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
-> &
-  ModalScreenProps<TransactionDetailRoutesParams>;
+type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
 
 type TransactionGroup = { title: string; data: Transaction[] };
 
@@ -47,13 +41,16 @@ export type HistoricalRecordProps = {
   accountId: string | null | undefined;
   networkId: string | null | undefined;
   tokenId?: string | null | undefined;
+  headerView?: React.ReactNode | null | undefined;
   isTab?: boolean;
 };
 
 const toTransactionSection = (
   queueStr: string,
-  _data: Transaction[],
+  _data: Transaction[] | null | undefined,
 ): TransactionGroup[] => {
+  if (!_data) return [];
+
   const sortData = _data.sort(
     (a, b) =>
       new Date(b.blockSignedAt).getTime() - new Date(a.blockSignedAt).getTime(),
@@ -79,6 +76,7 @@ const toTransactionSection = (
 
 const defaultProps = {
   tokenId: null,
+  headerView: null,
   isTab: false,
 } as const;
 
@@ -86,34 +84,24 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   accountId,
   networkId,
   tokenId,
+  headerView,
   isTab,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProp['navigation']>();
-  const navigationRoot = useNavigation<NavigationProp>();
   const [transactionRecords, setTransactionRecords] = useState<
     TransactionGroup[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
-
-  const openLinkUrl = useCallback((url: string, title?: string) => {
-    if (['android', 'ios'].includes(Platform.OS)) {
-      navigationRoot.navigate(HomeRoutes.SettingsWebviewScreen, {
-        url,
-        title,
-      });
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
+  const openBlockBrowser = useOpenBlockBrowser(network);
 
   const refreshHistory = useCallback(async () => {
-    try {
-      setTransactionRecords([]);
-      if (!accountId || !networkId) return;
+    setTransactionRecords([]);
+    if (!accountId || !networkId) return;
 
+    try {
       setIsLoading(true);
 
       let history;
@@ -143,8 +131,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     } catch (error) {
       // 异常失败
       setTransactionRecords([]);
+      console.error(error);
     } finally {
-      setIsLoading(false);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
     }
   }, [accountId, intl, networkId, tokenId]);
 
@@ -217,31 +208,30 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     );
 
   const renderHeader = () => (
-    <Box
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      pb={3}
-    >
-      <Typography.Heading>
-        {intl.formatMessage({ id: 'transaction__history' })}
-      </Typography.Heading>
-      <IconButton
-        onPress={() => {
-          openLinkUrl(
-            `https://etherscan.io/address/${
-              (account as SimpleAccount).address
-            }`,
-            account?.name,
-          );
-          console.log('Click Jump block browser');
-        }}
-        size="sm"
-        name="ExternalLinkSolid"
-        type="plain"
-        circle
-      />
-    </Box>
+    <>
+      <Box>{!!headerView && headerView}</Box>
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        pb={3}
+      >
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'transaction__history' })}
+        </Typography.Heading>
+        <IconButton
+          onPress={() => {
+            openBlockBrowser.openAddressDetails(
+              (account as SimpleAccount).address,
+            );
+          }}
+          size="sm"
+          name="ExternalLinkSolid"
+          type="plain"
+          circle
+        />
+      </Box>
+    </>
   );
 
   const renderEmpty = () => (

@@ -172,11 +172,11 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   const amountInfo = useCallback(() => {
     if (transaction?.type === TransactionType.Swap) {
       return (
-        <Box alignItems="flex-end" minW="156px">
+        <Box alignItems="flex-end" minW="156px" maxW="156px" textAlign="right">
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             -{getSwapTransfer(transaction, network)}
           </Text>
-          <Typography.Body2 color="text-subdued">
+          <Typography.Body2 color="text-subdued" textAlign="right">
             →{getSwapReceive(transaction, network)}
           </Typography.Body2>
         </Box>
@@ -193,12 +193,15 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
     );
 
     return (
-      <Box alignItems="flex-end" minW="156px">
-        <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+      <Box alignItems="flex-end" minW="156px" maxW="156px">
+        <Text
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          textAlign="right"
+        >
           {transaction.type === TransactionType.Transfer && '-'}
           {amount}
         </Text>
-        <Typography.Body2 color="text-subdued">
+        <Typography.Body2 color="text-subdued" textAlign="right">
           {transaction.type === TransactionType.Transfer &&
             transaction.tokenType !== TokenType.ERC721 &&
             '-'}

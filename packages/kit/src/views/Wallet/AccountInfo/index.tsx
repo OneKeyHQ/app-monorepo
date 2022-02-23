@@ -65,7 +65,11 @@ const AccountInfo = () => {
       const prices = await engine.getPrices(activeNetwork?.id, [], true);
       setMainTokenPrice(prices);
     }
-    if (isFocused) main();
+    try {
+      if (isFocused) main();
+    } catch (error) {
+      console.warn('AccountInfo', error);
+    }
   }, [activeNetwork, account?.id, isFocused]);
 
   const renderAccountAmountInfo = useCallback(
