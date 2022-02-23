@@ -19,3 +19,4 @@ export type { DappConnectionRoutesParams } from './DappConnection';
 export type { PasswordRoutesParams } from './Password';
 export type { ManageTokenRoutesParams } from './ManageToken';
 export type { CollectiblesRoutesParams } from './Collectibles';
+export type { CreateWalletRoutesParams } from './CreateWallet';

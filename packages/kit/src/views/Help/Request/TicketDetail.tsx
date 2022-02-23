@@ -1,12 +1,14 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useEffect, useMemo, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
+import { format, parseISO } from 'date-fns';
 import { Column, Row, SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
+import { ScrollView } from 'react-native';
 import useSWR from 'swr';
 
-import { Box, Image, Modal, Text } from '@onekeyhq/components';
+import { Box, Image, Modal, Text, useLocale } from '@onekeyhq/components';
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
@@ -14,8 +16,8 @@ import {
 
 import { useSettings } from '../../../hooks/redux';
 
-import { commentsUri } from './TicketService';
-import { CommentType, RequestPayload } from './types';
+import { attachmentUri, commentsUri } from './TicketService';
+import { AttachmentsType, CommentType, RequestPayload, local } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -23,6 +25,22 @@ type RouteProps = RouteProp<
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes.TicketDetailModal
 >;
+
+const Attachment: FC<AttachmentsType> = ({ id }) => {
+  const { instanceId } = useSettings();
+
+  const { data } = useSWR<RequestPayload<string>>(
+    attachmentUri(id, instanceId),
+  );
+
+  const attachment = useMemo(() => {
+    if (data) {
+      return <Image source={{ uri: data.data }} flex={1} borderRadius="12px" />;
+    }
+    return null;
+  }, [data]);
+  return attachment;
+};
 
 type NavigationProps = NativeStackNavigationProp<
   HistoryRequestModalRoutesParams,
@@ -41,6 +59,7 @@ export const TicketDetail: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const isFocused = useIsFocused();
   const { instanceId } = useSettings();
+  const { locale } = useLocale();
 
   const { data, mutate } = useSWR<RequestPayload<CommentType[]>>(
     commentsUri(id, instanceId),
@@ -51,13 +70,13 @@ export const TicketDetail: FC = () => {
   if (data) {
     comments = data.data;
   }
+  const scrollViewRef = useRef<ScrollView>();
 
   useEffect(() => {
     if (isFocused) {
       mutate();
     }
   }, [isFocused, mutate]);
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__reply' })}
@@ -72,6 +91,9 @@ export const TicketDetail: FC = () => {
         });
       }}
       scrollViewProps={{
+        ref: scrollViewRef,
+        onContentSizeChange: () =>
+          scrollViewRef?.current?.scrollToEnd?.({ animated: false }),
         children: [
           <Column space="24px" paddingBottom="40px">
             {comments.map((item, index) => {
@@ -105,11 +127,7 @@ export const TicketDetail: FC = () => {
                         >
                           {item.attachments.map((attachment, _index) => (
                             <Box key={`attachment${_index}`} size={imageSize}>
-                              <Image
-                                src={attachment.content_url}
-                                flex={1}
-                                borderRadius="12px"
-                              />
+                              <Attachment {...attachment} />
                             </Box>
                           ))}
                         </SimpleGrid>
@@ -120,7 +138,9 @@ export const TicketDetail: FC = () => {
                       color="text-subdued"
                       textAlign={isMine ? 'right' : 'left'}
                     >
-                      Jul 27, 00:32
+                      {format(parseISO(item.created_at), 'LLL, HH:mm', {
+                        locale: local(locale),
+                      })}
                     </Text>
                   </Column>
                 </Row>

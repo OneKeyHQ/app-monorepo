@@ -1,5 +1,7 @@
 import Realm from 'realm';
 
+import { OneKeyContext } from '../../base';
+
 class ContextSchema extends Realm.Object {
   public id!: string;
 
@@ -16,5 +18,13 @@ class ContextSchema extends Realm.Object {
       verifyString: 'string',
     },
   };
+
+  get internalObj(): OneKeyContext {
+    return {
+      id: this.id,
+      nextHD: this.nextHD,
+      verifyString: this.verifyString,
+    };
+  }
 }
 export { ContextSchema };

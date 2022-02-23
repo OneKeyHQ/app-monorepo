@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
@@ -31,7 +31,7 @@ import {
 
 import { useSettings } from '../../../hooks/redux';
 
-import { submitUri, uploadImage } from './TicketService';
+import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
 import { ImageModel } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -92,18 +92,17 @@ export const SubmitRequest: FC = () => {
   const { instanceId } = useSettings();
 
   const modalWidth = isSmallScreen ? width : 400;
-  const padding = isSmallScreen ? 16 : 32;
+  const padding = isSmallScreen ? 16 : 24;
 
-  const imageWidth = (modalWidth - padding * 2) / 5;
+  const imageWidth = (modalWidth - padding * 2) / 4;
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
-
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       base64: true,
       aspect: [4, 3],
-      quality: 0.5,
+      quality: 0.3,
     });
 
     if (!result.cancelled) {
@@ -116,9 +115,8 @@ export const SubmitRequest: FC = () => {
       };
 
       let base64Image = result.uri;
-      if (Platform.OS === 'ios') {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        base64Image = `data:image/jpg;base64,${result.base64}`;
+      if (Platform.OS === 'ios' && result.base64) {
+        base64Image = result.base64;
       }
       updateImageArr([...imageArr, image]);
       uploadImage(
@@ -134,56 +132,65 @@ export const SubmitRequest: FC = () => {
         },
       );
     }
-  };
+  }, [imageArr, instanceId]);
 
-  const ImageView = (image: ImageModel, index: number) => {
-    const { localPath, loading } = image;
-    return (
-      <ZStack width={imageWidth} height={imageWidth}>
-        <Box mt="8px" ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-          <ZStack>
-            <Image
-              mt={0}
-              ml={0}
-              width={imageWidth - 8}
-              height={imageWidth - 8}
-              borderRadius="12px"
-              source={{ uri: localPath }}
-              flex={1}
-            />
-            {loading ? (
-              <Box mt={0} ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-                <Center flex={1}>
-                  <Spinner size="sm" />
-                </Center>
-              </Box>
-            ) : null}
-          </ZStack>
-        </Box>
-        <Pressable
-          onPress={() => {
-            imageArr.splice(index, 1);
-            updateImageArr([...imageArr]);
-          }}
-        >
-          <Box ml={imageWidth - 20}>
-            <Icon size={20} name="CloseCircleSolid" />
+  const imagesList = useMemo(() => {
+    const ImageView = (image: ImageModel, index: number) => {
+      const { localPath, loading } = image;
+      return (
+        <ZStack width={`${imageWidth}px`} height={`${imageWidth}px`}>
+          <Box
+            mt="8px"
+            ml={0}
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+          >
+            <ZStack>
+              <Image
+                mt={0}
+                ml={0}
+                width={`${imageWidth - 8}px`}
+                height={`${imageWidth - 8}px`}
+                borderRadius="12px"
+                source={{ uri: localPath }}
+                flex={1}
+              />
+              {loading ? (
+                <Box
+                  mt={0}
+                  ml={0}
+                  width={`${imageWidth - 8}px`}
+                  height={`${imageWidth - 8}px`}
+                >
+                  <Center flex={1}>
+                    <Spinner size="sm" />
+                  </Center>
+                </Box>
+              ) : null}
+            </ZStack>
           </Box>
-        </Pressable>
-      </ZStack>
-    );
-  };
-
-  const imagesList = useMemo(
-    () => (
+          <Pressable
+            onPress={() => {
+              imageArr.splice(index, 1);
+              updateImageArr([...imageArr]);
+            }}
+          >
+            <Box ml={`${imageWidth - 20}px`}>
+              <Icon size={20} name="CloseCircleSolid" />
+            </Box>
+          </Pressable>
+        </ZStack>
+      );
+    };
+    return (
       <Row>
         {imageArr.map((image, index) => ImageView(image, index))}
-        {imageArr.length < 5 ? (
+        {imageArr.length < 4 ? (
           <Pressable onPress={pickImage}>
             <Center
               mt="8px"
-              width={imageWidth - 8}
-              height={imageWidth - 8}
+              width={`${imageWidth - 8}px`}
+              height={`${imageWidth - 8}px`}
               borderRadius="12px"
               borderWidth={1}
               borderColor="border-default"
@@ -193,9 +200,8 @@ export const SubmitRequest: FC = () => {
           </Pressable>
         ) : null}
       </Row>
-    ),
-    [imageArr],
-  );
+    );
+  }, [imageArr, imageWidth, pickImage]);
 
   const options = [
     {
@@ -224,94 +230,94 @@ export const SubmitRequest: FC = () => {
     setIsHardware(value === 'Hardware');
   };
 
-  const uploads = () => {
-    const array: Array<string> = [];
-    imageArr.forEach((image) => {
-      if (image.token) {
-        array.push(image.token);
-      }
-    });
-    return array;
-  };
-
   const { control, handleSubmit } = useForm<SubmitValues>();
-  const onSubmit = handleSubmit((formData) => {
-    const customFields = [
-      {
-        'id': 360013393195,
-        'value': valueWithOption(selectOption),
-      },
-    ];
-    if (!isHardware) {
-      if (formData.appVersion.length > 0) {
-        customFields.push({
-          'id': 360013430096,
-          'value': formData.appVersion,
+  const onSubmit = useCallback(
+    async (formData: SubmitValues) => {
+      const uploads = () => {
+        const array: Array<string> = [];
+        imageArr.forEach((image) => {
+          if (image.token) {
+            array.push(image.token);
+          }
         });
-      }
-    } else {
-      if (formData.seVersion.length > 0) {
-        customFields.push({
-          'id': 360017727195,
-          'value': formData.seVersion,
-        });
-      }
-      if (formData.bleVersion.length > 0) {
-        customFields.push({
-          'id': 360017731836,
-          'value': formData.bleVersion,
-        });
-      }
-      if (formData.firmwareVersion.length > 0) {
-        customFields.push({
-          'id': 360017731816,
-          'value': formData.firmwareVersion,
-        });
-      }
-    }
+        return array;
+      };
 
-    axios
-      .post(submitUri(instanceId), {
-        email: formData.email,
-        ticket: {
-          'subject': formData.comment,
-          'custom_fields': customFields,
-          'comment': {
-            'body': formData.comment,
-            'uploads': uploads(),
-          },
+      const customFields = [
+        {
+          'id': 360013393195,
+          'value': valueWithOption(selectOption),
         },
-      })
-      .then((response) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (response.data.success) {
-          toast.show({
-            title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+      ];
+      if (!isHardware) {
+        if (formData.appVersion.length > 0) {
+          customFields.push({
+            'id': 360013430096,
+            'value': formData.appVersion,
           });
-          navigation.goBack();
         }
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  });
+      } else {
+        if (formData.seVersion.length > 0) {
+          customFields.push({
+            'id': 360017727195,
+            'value': formData.seVersion,
+          });
+        }
+        if (formData.bleVersion.length > 0) {
+          customFields.push({
+            'id': 360017731836,
+            'value': formData.bleVersion,
+          });
+        }
+        if (formData.firmwareVersion.length > 0) {
+          customFields.push({
+            'id': 360017731816,
+            'value': formData.firmwareVersion,
+          });
+        }
+      }
+      return axios
+        .post(submitUri(instanceId), {
+          email: formData.email,
+          ticket: {
+            'subject': formData.comment,
+            'custom_fields': customFields,
+            'comment': {
+              'body': formData.comment,
+              'uploads': uploads(),
+            },
+          },
+        })
+        .then((response) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (response.data.success) {
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+            });
+            navigation.goBack();
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            requestTicketDetail(response.data.data.id, instanceId);
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    },
+    [imageArr, instanceId, intl, isHardware, navigation, toast],
+  );
 
   const optionLab = (
     <Typography.Body2Strong mb="4px" color="text-subdued">
       {intl.formatMessage({ id: 'form__hint_optional' })}
     </Typography.Body2Strong>
   );
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__submit_a_request' })}
       hideSecondaryAction
-      secondaryActionProps={{
-        type: 'basic',
-      }}
       primaryActionTranslationId="action__submit"
-      onPrimaryActionPress={() => {
-        onSubmit();
-      }}
+      primaryActionProps={{ onPromise: () => handleSubmit(onSubmit)() }}
       scrollViewProps={{
         children: [
           <Form>

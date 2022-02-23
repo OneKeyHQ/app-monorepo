@@ -9,7 +9,7 @@ import * as bip39 from 'bip39';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
-import { DBAPI } from './dbs/base';
+import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import {
   FailedToTransfer,
   InvalidAddress,
@@ -941,8 +941,26 @@ class Engine {
 
   updatePassword(oldPassword: string, newPassword: string): Promise<void> {
     // Update global password.
-    console.log(`updatePassword ${oldPassword} ${newPassword}`);
-    throw new NotImplemented();
+    return this.dbApi.updatePassword(oldPassword, newPassword);
+  }
+
+  async isMasterPasswordSet(): Promise<boolean> {
+    const context = await this.dbApi.getContext();
+    return (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    );
+  }
+
+  async verifyMasterPassword(password: string): Promise<boolean> {
+    const context = await this.dbApi.getContext();
+    if (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    ) {
+      return checkPassword(context, password);
+    }
+    return true;
   }
 
   resetApp(password: string): Promise<void> {

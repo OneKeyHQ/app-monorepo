@@ -11,7 +11,7 @@ type AlertType = 'info' | 'warn' | 'error' | 'success';
 
 export type AlertProps = {
   title: string;
-  description: string;
+  description?: string;
   alertType: AlertType;
   expand?: boolean;
   dismiss?: boolean;
@@ -91,7 +91,7 @@ const Alert: FC<AlertProps> = ({
     >
       <Column w="100%">
         <Row space={2} alignItems="center" justifyContent="space-between">
-          <Row space="12px" alignItems="center">
+          <Row space="12px" flex="1">
             <Box padding="2px">
               <Icon
                 size={16}

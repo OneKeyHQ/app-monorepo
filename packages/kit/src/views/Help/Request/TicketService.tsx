@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import { RequestPayload, UploadAttachmentsPayload } from './types';
 
-const host = 'https://e8d8-140-240-35-242.ngrok.io';
+const host = 'https://ticket.onekey.so';
 
 export const listUri = (instanceId: string) =>
   `${host}/api/tickets?instanceId=${instanceId}`;
@@ -21,6 +21,9 @@ export const submitUri = (instanceId: string) =>
 
 export const updateTicketUri = (id: number, instanceId: string) =>
   `${host}/api/ticket/${id}?instanceId=${instanceId}`;
+
+export const attachmentUri = (attachmentId: number, instanceId: string) =>
+  `${host}/api/attachments/${attachmentId}?instanceId=${instanceId}`;
 
 type RequestCallback<T> = (
   error: Error | null,
@@ -45,3 +48,27 @@ export const uploadImage = (
       }
     });
 };
+
+export const requestTicketDetail = (
+  id: number,
+  instanceId: string,
+  callBack?: RequestCallback<UploadAttachmentsPayload>,
+) => {
+  axios
+    .get(ticketDetailUri(id, instanceId))
+    .then((response) => {
+      if (callBack) {
+        callBack(null, response.data);
+      }
+    })
+    .catch((error) => {
+      if (callBack) {
+        callBack(error, null);
+      }
+    });
+};
+
+export const requestAttachmentUri = async (
+  attachmentId: number,
+  instanceId: string,
+) => axios.get<RequestPayload<string>>(attachmentUri(attachmentId, instanceId));

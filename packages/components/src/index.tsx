@@ -58,6 +58,7 @@ export { default as Spacer } from './Spacer';
 export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 export { default as KeyboardDismissView } from './KeyboardDismissView';
 export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
+export { default as LottieView } from './LottieView';
 
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
