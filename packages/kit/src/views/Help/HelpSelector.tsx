@@ -19,6 +19,8 @@ import {
   SubmitRequestRoutes,
 } from '@onekeyhq/kit/src/routes';
 import {
+  HomeRoutes,
+  HomeRoutesParams,
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
@@ -26,8 +28,15 @@ import {
 
 import { useHelpLink } from '../../hooks/useHelpLink';
 
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &
   ModalScreenProps<HistoryRequestModalRoutesParams>;
+
+type StackNavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.SettingsScreen
+>;
 
 type Option = {
   label: string;
@@ -49,20 +58,21 @@ const HelpSelector: FC = () => {
   const userGuideUrl = useHelpLink({ path: 'categories/360000170236' });
   const supportUrl = useHelpLink({ path: '' });
   const walletManual = useHelpLink({ path: 'articles/360002123856' });
+  const stackNavigation = useNavigation<StackNavigationProps>();
 
   const openUrl = useCallback(
     (url: string, title?: string) => {
       console.log('url', url, 'title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
-        // navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
-        //   url,
-        //   title,
-        // });
+        stackNavigation.navigate(HomeRoutes.SettingsWebviewScreen, {
+          url,
+          title,
+        });
       } else {
         window.open(url, '_blank');
       }
     },
-    [navigation],
+    [stackNavigation],
   );
 
   const options: GroupOption[] = [
@@ -204,23 +214,23 @@ const HelpSelector: FC = () => {
           isSmallScreen ? intl.formatMessage({ id: 'title__help' }) : undefined
         }
         dropdownPosition="right"
-        dropdownProps={isSmallScreen ? {} : { minW: '240px', bottom: '54px' }}
+        dropdownProps={isSmallScreen ? {} : { minW: '240px', bottom: '62px' }}
         headerShown={false}
         options={options}
         isTriggerPlain
-        footer={isSmallScreen ? {} : null}
+        footer={null}
         activatable={false}
         onChange={onChange}
         renderTrigger={() => (
           <Center
-            width="38px"
-            height="38px"
+            width="50px"
+            height="50px"
             bg="action-secondary-default"
-            borderRadius="19px"
+            borderRadius="25px"
             borderWidth="1px"
             borderColor="border-default"
           >
-            <Icon size={16} name="QuestionMarkCircleSolid" />
+            <Icon size={24} name="QuestionMarkCircleSolid" />
           </Center>
         )}
       />

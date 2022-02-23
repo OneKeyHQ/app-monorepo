@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import axios from 'axios';
@@ -51,52 +51,55 @@ export const ReplyTicket: FC = () => {
   const { id } = route?.params.order;
   const submitterId = route?.params.order.submitter_id;
   const modalWidth = isSmallScreen ? width : 400;
-  const padding = isSmallScreen ? 16 : 32;
+  const padding = isSmallScreen ? 16 : 24;
   const toast = useToast();
 
-  const imageWidth = (modalWidth - padding * 2) / 5;
+  const imageWidth = (modalWidth - padding * 2) / 4;
   const { control, handleSubmit } = useForm<SubmitValues>();
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
 
-  const uploads = () => {
-    const array: Array<string> = [];
-    imageArr.forEach((image) => {
-      if (image.token) {
-        array.push(image.token);
-      }
-    });
-    return array;
-  };
+  const onSubmit = useCallback(
+    async (data: SubmitValues) => {
+      const uploads = () => {
+        const array: Array<string> = [];
+        imageArr.forEach((image) => {
+          if (image.token) {
+            array.push(image.token);
+          }
+        });
+        return array;
+      };
+      return axios
+        .post(updateTicketUri(id, instanceId), {
+          comment: {
+            'body': data.comment,
+            'author_id': submitterId,
+            'uploads': uploads(),
+          },
+        })
+        .then((response) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (response.data.success) {
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+            });
+            navigation.goBack();
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    },
+    [id, imageArr, instanceId, intl, navigation, submitterId, toast],
+  );
 
-  const onSubmit = handleSubmit((data) => {
-    axios
-      .post(updateTicketUri(id, instanceId), {
-        comment: {
-          'body': data.comment,
-          'author_id': submitterId,
-          'uploads': uploads(),
-        },
-      })
-      .then((response) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (response.data.success) {
-          toast.show({
-            title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
-          });
-          navigation.goBack();
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  });
-
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
+      base64: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.3,
     });
 
     if (!result.cancelled) {
@@ -109,9 +112,8 @@ export const ReplyTicket: FC = () => {
       };
 
       let base64Image = result.uri;
-      if (Platform.OS === 'ios') {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        base64Image = `data:image/jpg;base64,${result.base64}`;
+      if (Platform.OS === 'ios' && result.base64) {
+        base64Image = result.base64;
       }
       updateImageArr([...imageArr, image]);
       uploadImage(
@@ -127,56 +129,65 @@ export const ReplyTicket: FC = () => {
         },
       );
     }
-  };
+  }, [imageArr, instanceId]);
 
-  const ImageView = (image: ImageModel, index: number) => {
-    const { localPath, loading } = image;
-    return (
-      <ZStack width={imageWidth} height={imageWidth}>
-        <Box mt="8px" ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-          <ZStack>
-            <Image
-              mt={0}
-              ml={0}
-              width={imageWidth - 8}
-              height={imageWidth - 8}
-              borderRadius="12px"
-              source={{ uri: localPath }}
-              flex={1}
-            />
-            {loading ? (
-              <Box mt={0} ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-                <Center flex={1}>
-                  <Spinner size="sm" />
-                </Center>
-              </Box>
-            ) : null}
-          </ZStack>
-        </Box>
-        <Pressable
-          onPress={() => {
-            imageArr.splice(index, 1);
-            updateImageArr([...imageArr]);
-          }}
-        >
-          <Box ml={imageWidth - 20}>
-            <Icon size={20} name="CloseCircleSolid" />
+  const imagesList = useMemo(() => {
+    const ImageView = (image: ImageModel, index: number) => {
+      const { localPath, loading } = image;
+      return (
+        <ZStack width={`${imageWidth}px`} height={`${imageWidth}px`}>
+          <Box
+            mt="8px"
+            ml={0}
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+          >
+            <ZStack>
+              <Image
+                mt={0}
+                ml={0}
+                width={`${imageWidth - 8}px`}
+                height={`${imageWidth - 8}px`}
+                borderRadius="12px"
+                source={{ uri: localPath }}
+                flex={1}
+              />
+              {loading ? (
+                <Box
+                  mt={0}
+                  ml={0}
+                  width={`${imageWidth - 8}px`}
+                  height={`${imageWidth - 8}px`}
+                >
+                  <Center flex={1}>
+                    <Spinner size="sm" />
+                  </Center>
+                </Box>
+              ) : null}
+            </ZStack>
           </Box>
-        </Pressable>
-      </ZStack>
-    );
-  };
-
-  const imagesList = useMemo(
-    () => (
+          <Pressable
+            onPress={() => {
+              imageArr.splice(index, 1);
+              updateImageArr([...imageArr]);
+            }}
+          >
+            <Box ml={`${imageWidth - 20}px`}>
+              <Icon size={20} name="CloseCircleSolid" />
+            </Box>
+          </Pressable>
+        </ZStack>
+      );
+    };
+    return (
       <Row>
         {imageArr.map((image, index) => ImageView(image, index))}
-        {imageArr.length < 5 ? (
+        {imageArr.length < 4 ? (
           <Pressable onPress={pickImage}>
             <Center
               mt="8px"
-              width={imageWidth - 8}
-              height={imageWidth - 8}
+              width={`${imageWidth - 8}px`}
+              height={`${imageWidth - 8}px`}
               borderRadius="12px"
               borderWidth={1}
               borderColor="border-default"
@@ -186,9 +197,8 @@ export const ReplyTicket: FC = () => {
           </Pressable>
         ) : null}
       </Row>
-    ),
-    [imageArr],
-  );
+    );
+  }, [imageArr, imageWidth, pickImage]);
 
   return (
     <Modal
@@ -196,11 +206,9 @@ export const ReplyTicket: FC = () => {
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',
+        onPromise: () => handleSubmit(onSubmit)(),
       }}
       primaryActionTranslationId="action__submit"
-      onPrimaryActionPress={() => {
-        onSubmit();
-      }}
       scrollViewProps={{
         children: [
           <Form>
