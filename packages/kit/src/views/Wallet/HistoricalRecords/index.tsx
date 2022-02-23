@@ -1,9 +1,8 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
-import { Platform, SectionListProps } from 'react-native';
+import { SectionListProps } from 'react-native';
 
 import {
   Badge,
@@ -21,11 +20,10 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 import {
-  HomeRoutes,
-  HomeRoutesParams,
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
@@ -35,11 +33,7 @@ import engine from '../../../engine/EngineProvider';
 import { formatMonth } from '../../../utils/DateUtils';
 import TransactionRecord from '../../Components/transactionRecord';
 
-type NavigationProp = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
-> &
-  ModalScreenProps<TransactionDetailRoutesParams>;
+type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
 
 type TransactionGroup = { title: string; data: Transaction[] };
 
@@ -95,27 +89,13 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProp['navigation']>();
-  const navigationRoot = useNavigation<NavigationProp>();
   const [transactionRecords, setTransactionRecords] = useState<
     TransactionGroup[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
-
-  const openLinkUrl = useCallback(
-    (url: string, title?: string) => {
-      if (['android', 'ios'].includes(Platform.OS)) {
-        navigationRoot.navigate(HomeRoutes.SettingsWebviewScreen, {
-          url,
-          title,
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-    },
-    [navigationRoot],
-  );
+  const openBlockBrowser = useOpenBlockBrowser(network);
 
   const refreshHistory = useCallback(async () => {
     setTransactionRecords([]);
@@ -241,13 +221,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         </Typography.Heading>
         <IconButton
           onPress={() => {
-            openLinkUrl(
-              `https://etherscan.io/address/${
-                (account as SimpleAccount).address
-              }`,
-              account?.name,
+            openBlockBrowser.openAddressDetails(
+              (account as SimpleAccount).address,
             );
-            console.log('Click Jump block browser');
           }}
           size="sm"
           name="ExternalLinkSolid"
