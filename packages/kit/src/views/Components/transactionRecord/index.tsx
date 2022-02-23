@@ -19,7 +19,12 @@ import {
   TransactionType,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
+import { Network } from '@onekeyhq/engine/src/types/network';
 
+import {
+  formatBalanceDisplay,
+  useFormatCurrencyDisplay,
+} from '../../../components/Format';
 import { formatDate } from '../../../utils/DateUtils';
 import NFTView from '../nftView';
 
@@ -35,6 +40,7 @@ export type TransactionState = 'pending' | 'dropped' | 'failed' | 'success';
 
 export type TransactionRecordProps = {
   transaction: Transaction;
+  network?: Network | undefined;
 };
 
 export const getTransactionStatusStr = (
@@ -100,7 +106,10 @@ const getTransactionTypeIcon = (
   return stringKeys[state];
 };
 
-const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
+const TransactionRecord: FC<TransactionRecordProps> = ({
+  transaction,
+  network,
+}) => {
   const { size } = useUserDevice();
   const intl = useIntl();
 
@@ -156,34 +165,48 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
     [intl, transaction],
   );
 
+  const amountFiat = useFormatCurrencyDisplay([
+    getTransferAmountFiat(transaction).balance,
+  ]);
+
   const amountInfo = useCallback(() => {
     if (transaction?.type === TransactionType.Swap) {
       return (
         <Box alignItems="flex-end" minW="156px">
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            -{getSwapTransfer(transaction)}
+            -{getSwapTransfer(transaction, network)}
           </Text>
           <Typography.Body2 color="text-subdued">
-            →{getSwapReceive(transaction)}
+            →{getSwapReceive(transaction, network)}
           </Typography.Body2>
         </Box>
       );
     }
+    const originAmount = getTransferAmount(transaction, network);
+    const amount = formatBalanceDisplay(
+      originAmount.balance,
+      originAmount.unit,
+      {
+        unit: originAmount.decimals,
+        fixed: originAmount.fixed,
+      },
+    );
+
     return (
       <Box alignItems="flex-end" minW="156px">
         <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
           {transaction.type === TransactionType.Transfer && '-'}
-          {getTransferAmount(transaction)}
+          {amount}
         </Text>
         <Typography.Body2 color="text-subdued">
           {transaction.type === TransactionType.Transfer &&
             transaction.tokenType !== TokenType.ERC721 &&
             '-'}
-          {getTransferAmountFiat(transaction)}
+          {amountFiat}
         </Typography.Body2>
       </Box>
     );
-  }, [transaction]);
+  }, [amountFiat, network, transaction]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {

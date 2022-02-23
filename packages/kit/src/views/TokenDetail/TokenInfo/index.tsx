@@ -18,16 +18,14 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   ModalNavigatorRoutes,
   ModalTypes,
 } from '@onekeyhq/kit/src/routes/Modal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Network } from '../../../store/reducers/network';
 import extUtils from '../../../utils/extUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -40,43 +38,51 @@ type NavigationProps = NativeStackNavigationProp<
 export type TokenInfoProps = {
   accountId: string | null | undefined;
   token: TokenDO | null | undefined;
+  network: Network | null | undefined;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const isFocused = useIsFocused();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
+
   const { wallet } = useActiveWalletAccount();
   const [amount, setAmount] = useState('0');
-  const [tokenPrice, setTokenPrice] = useState<Record<string, string>>();
+  const [tokenPrice, setTokenPrice] = useState<string>();
 
   useEffect(() => {
     async function main() {
-      if (!accountId || !token?.id || !activeNetwork?.id) return;
+      if (!accountId || !network?.id) return;
       const result = await engine.getAccountBalance(
         accountId,
-        token.networkId,
-        [token.tokenIdOnNetwork],
+        token?.networkId ?? network.id,
+        token ? [token?.tokenIdOnNetwork] : [],
+        true,
       );
-      setAmount(result[token.tokenIdOnNetwork]?.toString() ?? '0');
 
       const prices = await engine.getPrices(
-        activeNetwork.id,
-        [token.tokenIdOnNetwork],
-        false,
+        network.id,
+        token ? [token?.tokenIdOnNetwork] : [],
+        !token,
       );
-      setTokenPrice(prices);
+
+      if (token) {
+        setAmount(result[token.tokenIdOnNetwork]?.toString() ?? '0');
+        setTokenPrice(prices?.[token.tokenIdOnNetwork]);
+      } else {
+        setAmount(result.main?.toString() ?? '0');
+        setTokenPrice(prices?.main);
+      }
     }
     if (isFocused) main();
-  }, [accountId, token, isFocused, activeNetwork]);
+  }, [accountId, token, isFocused, network]);
 
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
-        <Token size={12} src={token?.logoURI} />
+        <Token size={12} src={token?.logoURI ?? network?.logoURI} />
         <Box
           ml={isVertical ? 0 : 4}
           alignItems={isVertical ? 'center' : 'flex-start'}
@@ -86,18 +92,13 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
               balance={amount}
               suffix={token?.symbol}
               formatOptions={{
-                fixed: activeNetwork?.tokenDisplayDecimals ?? 4,
+                fixed: network?.tokenDisplayDecimals ?? 4,
               }}
               as={Typography.DisplayXLarge}
             />
           </Box>
           <FormatCurrency
-            numbers={[
-              amount,
-              token?.tokenIdOnNetwork
-                ? tokenPrice?.[token.tokenIdOnNetwork]
-                : undefined,
-            ]}
+            numbers={[amount, tokenPrice]}
             render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
           />
         </Box>
@@ -105,10 +106,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token }) => {
     ),
     [
       isVertical,
-      token,
+      token?.logoURI,
+      token?.symbol,
+      network?.logoURI,
+      network?.tokenDisplayDecimals,
       amount,
       tokenPrice,
-      activeNetwork?.tokenDisplayDecimals,
     ],
   );
 

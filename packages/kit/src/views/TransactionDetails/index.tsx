@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BigNumber } from 'bignumber.js';
-import * as Linking from 'expo-linking';
 import { IntlShape, useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -31,8 +31,13 @@ import {
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
+import {
+  formatBalanceDisplay,
+  useFormatCurrencyDisplay,
+} from '../../components/Format';
 import engine from '../../engine/EngineProvider';
 import { useToast } from '../../hooks/useToast';
+import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
 import { formatDate } from '../../utils/DateUtils';
 import NFTView from '../Components/nftView';
@@ -67,6 +72,11 @@ const getTransactionTypeStr = (
   });
 };
 
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.SettingsWebviewScreen
+>;
+
 /**
  * 交易详情
  */
@@ -76,13 +86,18 @@ const TransactionDetails: FC = () => {
   const route = useRoute<TransactionDetailRouteProp>();
   const { tx } = route.params;
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
+
+  const navigation = useNavigation<NavigationProps>();
 
   console.log(`Account: ${JSON.stringify(account)}`);
 
-  const openLinkUrl = useCallback((url: string) => {
+  const openLinkUrl = useCallback((url: string, title?: string) => {
     if (['android', 'ios'].includes(Platform.OS)) {
-      Linking.openURL(url);
+      navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
+        url,
+        title,
+      });
     } else {
       window.open(url, '_blank');
     }
@@ -186,22 +201,44 @@ const TransactionDetails: FC = () => {
   const renderAmount = useCallback(
     (titleKey: string) => {
       const list = getTransferNFTList(txInfo);
+      const originAmount = getTransferAmount(txInfo, network?.network);
+      const amount = formatBalanceDisplay(
+        originAmount.balance,
+        originAmount.unit,
+        {
+          unit: originAmount.decimals,
+        },
+      );
+
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
           value={`${
             txInfo?.type === TransactionType.Transfer ? '-' : ''
-          }${getTransferAmount(txInfo)}`}
+          }${amount}`}
           custom={list.map((item) => (
             <NFTView src={item} key={item} size={24} />
           ))}
         />
       );
     },
-    [intl, txInfo],
+    [intl, network, txInfo],
   );
 
   // reader total amount
+  const totalErc20AmountFiat = useFormatCurrencyDisplay([
+    txInfo?.gasQuote ?? 0,
+    txInfo?.tokenEvent && txInfo?.tokenEvent?.length > 0
+      ? txInfo?.tokenEvent[0].deltaQuote
+      : 0,
+  ]);
+
+  const totalAmountFiat = useFormatCurrencyDisplay([
+    new BigNumber(txInfo?.gasQuote ?? 0).plus(
+      new BigNumber(txInfo?.valueQuote ?? 0),
+    ),
+  ]);
+
   const renderTotalAmount = useCallback(() => {
     if (
       txInfo?.tokenType === TokenType.ERC20 &&
@@ -210,44 +247,125 @@ const TransactionDetails: FC = () => {
     ) {
       // token transfer
       const tokenEvent = txInfo?.tokenEvent[0];
-      const feeAmount = `${new BigNumber(txInfo?.gasSpent ?? 0)
-        .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
-        .dividedBy(new BigNumber(1e18))
-        .decimalPlaces(6)
-        .toString()} ETH`;
 
-      const transferAmount = `${new BigNumber(tokenEvent?.tokenAmount ?? '')
-        .dividedBy(new BigNumber(10).pow(tokenEvent?.tokenDecimals ?? 0))
-        .decimalPlaces(4)
-        .toString()} ${tokenEvent?.tokenSymbol}`;
+      const feeAmount = formatBalanceDisplay(
+        new BigNumber(txInfo?.gasSpent ?? 0).multipliedBy(
+          new BigNumber(txInfo?.gasPrice ?? 0),
+        ),
+        network?.network?.symbol,
+        {
+          unit: network?.network?.decimals,
+        },
+      );
+
+      const transferAmount = formatBalanceDisplay(
+        new BigNumber(tokenEvent?.tokenAmount ?? '0'),
+        tokenEvent?.tokenSymbol,
+        {
+          unit: tokenEvent?.tokenDecimals ?? 1,
+        },
+      );
 
       return (
         <Container.Item
           title={intl.formatMessage({ id: 'content__total' })}
           value={`${transferAmount} + ${feeAmount}`}
-          describe={`${new BigNumber(txInfo?.gasQuote ?? 0)
-            .plus(new BigNumber(tokenEvent?.deltaQuote ?? 0))
-            .decimalPlaces(2)
-            .toString()} USD`}
+          describe={totalErc20AmountFiat}
         />
       );
     }
+
+    const transferAmount = formatBalanceDisplay(
+      new BigNumber(txInfo?.gasSpent ?? 0)
+        .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
+        .plus(new BigNumber(txInfo?.value ?? 0)),
+      network?.network?.symbol,
+      {
+        unit: network?.network?.decimals,
+        fixed: network?.network?.nativeDisplayDecimals,
+      },
+    );
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__total' })}
-        value={`${new BigNumber(txInfo?.gasSpent ?? 0)
-          .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
-          .plus(new BigNumber(txInfo?.value ?? 0))
-          .dividedBy(new BigNumber(1e18))
-          .decimalPlaces(6)
-          .toString()} ETH`}
-        describe={`${new BigNumber(txInfo?.gasQuote ?? 0)
-          .plus(new BigNumber(txInfo?.valueQuote ?? 0))
-          .decimalPlaces(2)
-          .toString()} USD`}
+        value={transferAmount}
+        describe={totalAmountFiat}
       />
     );
-  }, [intl, txInfo]);
+  }, [
+    intl,
+    network?.network?.decimals,
+    network?.network?.nativeDisplayDecimals,
+    network?.network?.symbol,
+    totalAmountFiat,
+    totalErc20AmountFiat,
+    txInfo?.gasPrice,
+    txInfo?.gasSpent,
+    txInfo?.tokenEvent,
+    txInfo?.tokenType,
+    txInfo?.value,
+  ]);
+
+  // render transaction fee
+  const renderTransactionFee = useCallback(() => {
+    const feeAmount = formatBalanceDisplay(
+      new BigNumber(txInfo?.gasSpent ?? 0).multipliedBy(
+        new BigNumber(txInfo?.gasPrice ?? 0),
+      ),
+      network?.network?.symbol,
+      {
+        unit: network?.network?.decimals,
+      },
+    );
+
+    return (
+      <Container.Item
+        title={intl.formatMessage({ id: 'content__fee' })}
+        value={feeAmount}
+      />
+    );
+  }, [
+    intl,
+    network?.network?.decimals,
+    network?.network?.symbol,
+    txInfo?.gasPrice,
+    txInfo?.gasSpent,
+  ]);
+
+  // render gas price
+  const renderGasPrice = useCallback(() => {
+    const Amount = formatBalanceDisplay(
+      new BigNumber(txInfo?.gasPrice ?? 0),
+
+      network?.network?.symbol,
+      {
+        unit: network?.network?.decimals,
+      },
+    );
+    const feeAmount = formatBalanceDisplay(
+      new BigNumber(txInfo?.gasPrice ?? 0),
+
+      network?.network?.feeSymbol,
+      {
+        unit: network?.network?.feeDecimals,
+        fixed: network?.network?.tokenDisplayDecimals,
+      },
+    );
+    return (
+      <Container.Item
+        title={intl.formatMessage({ id: 'content__gas_price' })}
+        value={`${Amount} (${feeAmount})`}
+      />
+    );
+  }, [
+    intl,
+    network?.network?.decimals,
+    network?.network?.feeDecimals,
+    network?.network?.feeSymbol,
+    network?.network?.symbol,
+    network?.network?.tokenDisplayDecimals,
+    txInfo?.gasPrice,
+  ]);
 
   return (
     <Modal
@@ -301,14 +419,14 @@ const TransactionDetails: FC = () => {
               {txInfo?.type === TransactionType.Swap && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__send' })}
-                  value={`-${getSwapTransfer(txInfo)}`}
+                  value={`-${getSwapTransfer(txInfo, network?.network)}`}
                 />
               )}
 
               {txInfo?.type === TransactionType.Swap && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__receive' })}
-                  value={`${getSwapReceive(txInfo)}`}
+                  value={`${getSwapReceive(txInfo, network?.network)}`}
                 />
               )}
 
@@ -317,14 +435,7 @@ const TransactionDetails: FC = () => {
                 value={formatDate(new Date(txInfo?.blockSignedAt ?? 0))}
               />
 
-              <Container.Item
-                title={intl.formatMessage({ id: 'content__fee' })}
-                value={`${new BigNumber(txInfo?.gasSpent ?? 0)
-                  .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
-                  .dividedBy(new BigNumber(1e18))
-                  .decimalPlaces(6)
-                  .toString()} ETH`}
-              />
+              {renderTransactionFee()}
 
               {renderTotalAmount()}
             </Container.Box>
@@ -347,15 +458,8 @@ const TransactionDetails: FC = () => {
                   .multipliedBy(100)
                   .toString()} %)`}
               />
-              <Container.Item
-                title={intl.formatMessage({ id: 'content__gas_price' })}
-                value={`${new BigNumber(txInfo?.gasPrice ?? 0)
-                  .dividedBy(1e18)
-                  .toFixed()
-                  .toString()} ETH (${new BigNumber(txInfo?.gasPrice ?? 0)
-                  .dividedBy(1e9)
-                  .toString()} Gwei)`}
-              />
+
+              {renderGasPrice()}
             </Container.Box>
 
             {/* <Typography.Subheading mt={6} w="100%" color="text-subdued">
@@ -382,7 +486,10 @@ const TransactionDetails: FC = () => {
               mb={6}
               size="lg"
               onPress={() => {
-                openLinkUrl(`https://etherscan.io/tx/${txInfo?.txHash ?? ''}`);
+                openLinkUrl(
+                  `https://etherscan.io/tx/${txInfo?.txHash ?? ''}`,
+                  txInfo?.txHash,
+                );
               }}
               rightIcon={<Icon name="ArrowNarrowRightSolid" />}
             >
