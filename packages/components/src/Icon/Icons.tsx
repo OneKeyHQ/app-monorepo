@@ -163,6 +163,7 @@ import MoonOutline from "./react/outline/Moon";
 import MusicNoteOutline from "./react/outline/MusicNote";
 import NewspaperOutline from "./react/outline/Newspaper";
 import OfficeBuildingOutline from "./react/outline/OfficeBuilding";
+import OnekeyLiteOutline from "./react/outline/OnekeyLite";
 import PaperAirplaneOutline from "./react/outline/PaperAirplane";
 import PaperClipOutline from "./react/outline/PaperClip";
 import PauseOutline from "./react/outline/Pause";
@@ -188,6 +189,7 @@ import ReceiptRefundOutline from "./react/outline/ReceiptRefund";
 import ReceiptTaxOutline from "./react/outline/ReceiptTax";
 import RefreshOutline from "./react/outline/Refresh";
 import ReplyOutline from "./react/outline/Reply";
+import RestoreOutline from "./react/outline/Restore";
 import RewindOutline from "./react/outline/Rewind";
 import RssOutline from "./react/outline/Rss";
 import SaveOutline from "./react/outline/Save";
@@ -648,6 +650,7 @@ export type ICON_NAMES =
   | "MusicNoteOutline"
   | "NewspaperOutline"
   | "OfficeBuildingOutline"
+  | "OnekeyLiteOutline"
   | "PaperAirplaneOutline"
   | "PaperClipOutline"
   | "PauseOutline"
@@ -673,6 +676,7 @@ export type ICON_NAMES =
   | "ReceiptTaxOutline"
   | "RefreshOutline"
   | "ReplyOutline"
+  | "RestoreOutline"
   | "RewindOutline"
   | "RssOutline"
   | "SaveOutline"
@@ -1133,6 +1137,7 @@ export default {
   MusicNoteOutline: MusicNoteOutline,
   NewspaperOutline: NewspaperOutline,
   OfficeBuildingOutline: OfficeBuildingOutline,
+  OnekeyLiteOutline: OnekeyLiteOutline,
   PaperAirplaneOutline: PaperAirplaneOutline,
   PaperClipOutline: PaperClipOutline,
   PauseOutline: PauseOutline,
@@ -1158,6 +1163,7 @@ export default {
   ReceiptTaxOutline: ReceiptTaxOutline,
   RefreshOutline: RefreshOutline,
   ReplyOutline: ReplyOutline,
+  RestoreOutline: RestoreOutline,
   RewindOutline: RewindOutline,
   RssOutline: RssOutline,
   SaveOutline: SaveOutline,
