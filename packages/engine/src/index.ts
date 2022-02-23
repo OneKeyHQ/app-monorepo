@@ -568,6 +568,45 @@ class Engine {
     return getPresetTokensOnNetwork(networkId).slice(0, limit);
   }
 
+  async searchTokens(
+    networkId: string,
+    searchTerm: string,
+  ): Promise<Array<Token>> {
+    if (searchTerm.length === 0) {
+      return [];
+    }
+
+    const { displayAddress, normalizedAddress, isValid } =
+      await this.providerManager.verifyTokenAddress(networkId, searchTerm);
+
+    if (
+      isValid &&
+      typeof displayAddress !== 'undefined' &&
+      typeof normalizedAddress !== 'undefined'
+    ) {
+      // valid token address, return the specific token.
+      let token = await this.dbApi.getToken(
+        `${networkId}--${normalizedAddress}`,
+      );
+      const addressesToTry = new Set([normalizedAddress, displayAddress]);
+      addressesToTry.forEach((address) => {
+        if (typeof token === 'undefined') {
+          const presetToken = getPresetToken(networkId, address);
+          if (presetToken.decimals !== -1) {
+            token = presetToken;
+          }
+        }
+      });
+      return typeof token !== 'undefined' ? [token] : [];
+    }
+    const matchPattern = new RegExp(searchTerm, 'i');
+    const tokens = await this.getTokens(networkId);
+    return tokens.filter(
+      (token) =>
+        token.name.match(matchPattern) || token.symbol.match(matchPattern),
+    );
+  }
+
   async prepareTransfer(
     networkId: string,
     accountId: string,
