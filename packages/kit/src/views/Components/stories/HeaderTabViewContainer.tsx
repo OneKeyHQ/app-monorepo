@@ -28,6 +28,7 @@ const HeaderTabViewContainerStory = () => {
       ]}
       renderScene={SceneMap({
         tokens: AssetsList,
+        // @ts-expect-error TODO: Remove in the future
         collectibles: Collectibles,
         history: HistoricalRecord,
       })}

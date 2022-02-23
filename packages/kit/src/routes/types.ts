@@ -32,6 +32,7 @@ export enum ModalRoutes {
   Misc = 'Misc',
   Password = 'Password',
   ManageToken = 'ManageToken',
+  Collectibles = 'Collectibles',
 }
 
 export type ModalRoutesParams = {
@@ -54,6 +55,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
   [ModalRoutes.Password]: NavigatorScreenParams<SubModalRoutesParams.PasswordRoutesParams>;
   [ModalRoutes.ManageToken]: NavigatorScreenParams<SubModalRoutesParams.ManageTokenRoutesParams>;
+  [ModalRoutes.Collectibles]: NavigatorScreenParams<SubModalRoutesParams.CollectiblesRoutesParams>;
 };
 /** Modal */
 

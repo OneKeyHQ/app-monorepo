@@ -172,6 +172,10 @@ const modalStackScreenList = [
     name: ModalRoutes.DappSignatureModal,
     component: DappSignatureStack,
   },
+  {
+    name: ModalRoutes.Collectibles,
+    component: CollectibleModal,
+  },
 ];
 
 // ModalTypes will be delete later, don't update it

@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,41 +11,17 @@ import {
   Icon,
   Image,
   Modal,
+  Spinner,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getUserAsset } from '@onekeyhq/engine/src/managers/opensea';
+import { OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-
-import { ASSETS } from './data';
-
-const getAsset = (id: string | number) => {
-  const collectible = ASSETS.find((col) =>
-    col.assets.find((asset) => String(asset.id) === String(id)),
-  );
-
-  if (!collectible) {
-    return null;
-  }
-
-  const asset = collectible.assets.find(
-    (item) => String(item.id) === String(id),
-  );
-
-  if (!asset) {
-    return null;
-  }
-
-  return {
-    ...asset,
-    chain: collectible.chain,
-    collection: collectible.collection,
-    contractAddress: collectible.contract.address,
-  } as const;
-};
 
 const MODAL_PADDING = 8;
 
@@ -62,10 +38,37 @@ const CollectibleDetailModal: FC = () => {
         CollectiblesModalRoutes.CollectibleDetailModal
       >
     >();
-  const { assetId } = route.params;
-  const asset = getAsset(assetId);
+  const { tokenId, contractAddress, chainName, chainId } = route.params;
+  const [asset, setAsset] = useState<OpenSeaAsset | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  if (!asset) return null;
+  useEffect(() => {
+    if (!contractAddress || !tokenId) {
+      return;
+    }
+
+    (async () => {
+      setIsLoading(true);
+      try {
+        const assetFromBe = await getUserAsset({
+          chainId,
+          contractAddress,
+          tokenId: tokenId.toString(),
+        });
+        setAsset(assetFromBe);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [tokenId, contractAddress, chainId]);
+
+  if (!asset) {
+    return isLoading ? (
+      <Center flex={1}>
+        <Spinner size="lg" />
+      </Center>
+    ) : null;
+  }
 
   return (
     <Modal
@@ -180,7 +183,7 @@ const CollectibleDetailModal: FC = () => {
                     {asset.tokenId}
                   </Typography.Body1Strong>
                 </Box>
-                {!!asset.chain && (
+                {!!chainName && (
                   <>
                     <Divider />
                     <Box
@@ -200,12 +203,12 @@ const CollectibleDetailModal: FC = () => {
                         textAlign="right"
                         numberOfLines={999}
                       >
-                        {asset.chain}
+                        {chainName}
                       </Typography.Body1Strong>
                     </Box>
                   </>
                 )}
-                {!!asset.contractAddress && (
+                {!!contractAddress && (
                   <>
                     <Divider />
                     <Box
@@ -227,7 +230,7 @@ const CollectibleDetailModal: FC = () => {
                         textAlign="right"
                         numberOfLines={999}
                       >
-                        {asset.contractAddress}
+                        {contractAddress}
                       </Typography.Body1Strong>
                     </Box>
                   </>

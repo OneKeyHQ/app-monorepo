@@ -14,6 +14,7 @@ import {
   Tabs,
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
+import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -23,7 +24,7 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
-// import CollectiblesList from './Collectibles';
+import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
 import type { TextStyle } from 'react-native';
@@ -100,30 +101,6 @@ const Home: FC = () => {
     );
   }
 
-  if (!wallet) {
-    return (
-      <Box flex="1" justifyContent="center">
-        <Empty
-          icon="WalletOutline"
-          title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
-          subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
-        />
-        <AccountSelector
-          renderTrigger={({ handleToggleVisible }) => (
-            <Button
-              leftIconName="PlusOutline"
-              type="primary"
-              onPress={handleToggleVisible}
-              size="lg"
-            >
-              {intl.formatMessage({ id: 'action__create_wallet' })}
-            </Button>
-          )}
-        />
-      </Box>
-    );
-  }
-
   return (
     <Tabs.Container
       renderHeader={AccountInfo}
@@ -167,12 +144,15 @@ const Home: FC = () => {
       >
         <AssetsList />
       </Tabs.Tab>
-      {/* <Tabs.Tab
+      <Tabs.Tab
         name={TabEnum.Collectibles}
         label={intl.formatMessage({ id: 'asset__collectibles' })}
       >
-        <CollectiblesList />
-      </Tabs.Tab> */}
+        <CollectiblesList
+          address={(account as SimpleAccount)?.address}
+          network={network?.network}
+        />
+      </Tabs.Tab>
       <Tabs.Tab
         name={TabEnum.History}
         label={intl.formatMessage({ id: 'transaction__history' })}

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -15,30 +14,24 @@ import {
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
-// import { ModalRoutes } from '@onekeyhq/kit/src/routes';
+import { useCollectibleCache } from '@onekeyhq/kit/src/hooks/useCollectiblesData';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '../../../routes/Modal/Collectibles';
 
-import { ASSETS } from './data';
 import { SelectedAsset } from './types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  CollectiblesRoutesParams,
-  CollectiblesModalRoutes.CollectionModal
->;
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 type CollectionModalProps = {
   onSelectAsset: (asset: SelectedAsset) => void;
-};
-
-const getCollection = (id: string | number) => {
-  const data = ASSETS.find((col) => String(col.id) === String(id));
-  return data;
 };
 
 const CollectionImage: FC<{ src?: string | null; size?: number | string }> = ({
@@ -76,7 +69,7 @@ const CollectionImage: FC<{ src?: string | null; size?: number | string }> = ({
 
 const CollectionModal: FC<CollectionModalProps> = () => {
   const isSmallScreen = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const route =
     useRoute<
@@ -85,18 +78,30 @@ const CollectionModal: FC<CollectionModalProps> = () => {
         CollectiblesModalRoutes.CollectionModal
       >
     >();
-  const { id } = route.params;
-  const collectible = getCollection(id);
+  const { collectionName, userAddress, chainId, chainName } = route.params;
+  const collectible = useCollectibleCache(userAddress, collectionName);
 
   // Open Asset detail modal
-  const handleSelectAsset = React.useCallback((_: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    // navigation.navigate(ModalRoutes.CollectibleDetailModal, {
-    //   assetId: asset.id,
-    // });
-  }, []);
+  const handleSelectAsset = React.useCallback(
+    (asset: SelectedAsset) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
+        params: {
+          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          params: {
+            chainId,
+            chainName,
+            contractAddress:
+              asset.contractAddress ?? asset.assetContract.address,
+            tokenId: asset.tokenId,
+          },
+        },
+      });
+    },
+    [chainId, chainName, navigation],
+  );
 
-  if (!collectible) return null;
+  if (!collectible) return <Center />;
 
   return (
     <Modal
@@ -131,13 +136,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
                       title={asset.name}
                       mr={marginRight}
                       mb={4}
-                      onPress={() =>
-                        handleSelectAsset({
-                          ...asset,
-                          chain: collectible.chain,
-                          contractAddress: collectible.contract.address,
-                        })
-                      }
+                      onPress={() => handleSelectAsset(asset)}
                     />
                   );
                 })}
