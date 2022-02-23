@@ -47,6 +47,7 @@ export type HistoricalRecordProps = {
   accountId: string | null | undefined;
   networkId: string | null | undefined;
   tokenId?: string | null | undefined;
+  headerView?: React.ReactNode | null | undefined;
   isTab?: boolean;
 };
 
@@ -79,6 +80,7 @@ const toTransactionSection = (
 
 const defaultProps = {
   tokenId: null,
+  headerView: null,
   isTab: false,
 } as const;
 
@@ -86,6 +88,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   accountId,
   networkId,
   tokenId,
+  headerView,
   isTab,
 }) => {
   const intl = useIntl();
@@ -98,23 +101,26 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
 
-  const openLinkUrl = useCallback((url: string, title?: string) => {
-    if (['android', 'ios'].includes(Platform.OS)) {
-      navigationRoot.navigate(HomeRoutes.SettingsWebviewScreen, {
-        url,
-        title,
-      });
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
+  const openLinkUrl = useCallback(
+    (url: string, title?: string) => {
+      if (['android', 'ios'].includes(Platform.OS)) {
+        navigationRoot.navigate(HomeRoutes.SettingsWebviewScreen, {
+          url,
+          title,
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+    },
+    [navigationRoot],
+  );
 
   const refreshHistory = useCallback(async () => {
-    try {
-      setTransactionRecords([]);
-      if (!accountId || !networkId) return;
+    if (!accountId || !networkId) return;
 
+    try {
       setIsLoading(true);
+      setTransactionRecords([]);
 
       let history;
       if (tokenId) {
@@ -144,7 +150,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       // 异常失败
       setTransactionRecords([]);
     } finally {
-      setIsLoading(false);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
     }
   }, [accountId, intl, networkId, tokenId]);
 
@@ -217,31 +225,34 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     );
 
   const renderHeader = () => (
-    <Box
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      pb={3}
-    >
-      <Typography.Heading>
-        {intl.formatMessage({ id: 'transaction__history' })}
-      </Typography.Heading>
-      <IconButton
-        onPress={() => {
-          openLinkUrl(
-            `https://etherscan.io/address/${
-              (account as SimpleAccount).address
-            }`,
-            account?.name,
-          );
-          console.log('Click Jump block browser');
-        }}
-        size="sm"
-        name="ExternalLinkSolid"
-        type="plain"
-        circle
-      />
-    </Box>
+    <>
+      <Box>{!!headerView && headerView}</Box>
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        pb={3}
+      >
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'transaction__history' })}
+        </Typography.Heading>
+        <IconButton
+          onPress={() => {
+            openLinkUrl(
+              `https://etherscan.io/address/${
+                (account as SimpleAccount).address
+              }`,
+              account?.name,
+            );
+            console.log('Click Jump block browser');
+          }}
+          size="sm"
+          name="ExternalLinkSolid"
+          type="plain"
+          circle
+        />
+      </Box>
+    </>
   );
 
   const renderEmpty = () => (

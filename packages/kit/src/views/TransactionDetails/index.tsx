@@ -88,8 +88,6 @@ const TransactionDetails: FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { account, network } = useActiveWalletAccount();
 
-  const navigation = useNavigation<NavigationProps>();
-
   console.log(`Account: ${JSON.stringify(account)}`);
 
   const openLinkUrl = useCallback((url: string, title?: string) => {

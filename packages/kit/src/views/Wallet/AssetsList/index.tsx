@@ -117,6 +117,7 @@ const AssetsList = () => {
         : network?.network.tokenDisplayDecimals;
     return (
       <Pressable.Item
+        disabled={!item.tokenIdOnNetwork}
         p={4}
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
@@ -163,7 +164,7 @@ const AssetsList = () => {
               />
             </Box>
           )}
-          <Icon size={20} name="ChevronRightSolid" />
+          {item.tokenIdOnNetwork && <Icon size={20} name="ChevronRightSolid" />}
         </Box>
       </Pressable.Item>
     );
