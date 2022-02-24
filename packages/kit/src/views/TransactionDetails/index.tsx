@@ -13,9 +13,11 @@ import {
   Icon,
   Modal,
   Pressable,
+  Text,
   Typography,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import {
   TokenType,
@@ -355,7 +357,7 @@ const TransactionDetails: FC = () => {
   return (
     <Modal
       header={getTransactionTypeStr(intl, txInfo)}
-      headerDescription={txInfo?.toAddress}
+      headerDescription={shortenAddress(txInfo?.toAddress ?? '')}
       footer={null}
       height="560px"
       scrollViewProps={{
@@ -383,11 +385,9 @@ const TransactionDetails: FC = () => {
                   w="100%"
                   flexWrap="wrap"
                 >
-                  <Address
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    text={txInfo?.txHash ?? ''}
-                    short
-                  />
+                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                    {shortenAddress(txInfo?.txHash ?? '', 8)}
+                  </Text>
                   <Pressable ml={3} onPress={copyHashToClipboard}>
                     <Icon size={20} name="DuplicateSolid" />
                   </Pressable>
