@@ -35,9 +35,9 @@ import {
   useFormatCurrencyDisplay,
 } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
+import useFormatDate from '../../hooks/useFormatDate';
 import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
-import { formatDate } from '../../utils/DateUtils';
 import NFTView from '../Components/nftView';
 import { getTransactionStatusStr } from '../Components/transactionRecord';
 import {
@@ -82,6 +82,7 @@ const TransactionDetails: FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { account, network } = useActiveWalletAccount();
   const openBlockBrowser = useOpenBlockBrowser(network?.network);
+  const formatDate = useFormatDate();
 
   const txInfo = tx;
 
@@ -98,6 +99,7 @@ const TransactionDetails: FC = () => {
     getAccounts();
     console.log(`Account: ${JSON.stringify(account)}`);
     console.log(txInfo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getTransactionStatusIcon = (
@@ -414,7 +416,7 @@ const TransactionDetails: FC = () => {
 
               <Container.Item
                 title={intl.formatMessage({ id: 'form__trading_time' })}
-                value={formatDate(new Date(txInfo?.blockSignedAt ?? 0))}
+                value={formatDate.formatDate(txInfo?.blockSignedAt ?? '')}
               />
 
               {renderTransactionFee()}

@@ -25,7 +25,7 @@ import {
   formatBalanceDisplay,
   useFormatCurrencyDisplay,
 } from '../../../components/Format';
-import { formatDate } from '../../../utils/DateUtils';
+import useFormatDate from '../../../hooks/useFormatDate';
 import NFTView from '../nftView';
 
 import {
@@ -113,6 +113,8 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   const { size } = useUserDevice();
   const intl = useIntl();
 
+  const formatDate = useFormatDate();
+
   const renderNFTImages = useCallback(
     () => (
       <HStack space={2} mt={2}>
@@ -157,12 +159,15 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           color={getTransactionStatusColor(transaction.successful)}
         >
           {transaction.successful === TxStatus.Confirmed
-            ? formatDate(new Date(transaction.blockSignedAt))
+            ? formatDate.formatDate(transaction.blockSignedAt, {
+                hideTheYear: true,
+                hideTheMonth: true,
+              })
             : getTransactionStatusStr(intl, transaction.successful)}
         </Typography.Body2>
       </Box>
     ),
-    [intl, transaction],
+    [formatDate, intl, transaction],
   );
 
   const amountFiat = useFormatCurrencyDisplay([

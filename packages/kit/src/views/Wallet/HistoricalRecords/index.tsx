@@ -30,7 +30,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import engine from '../../../engine/EngineProvider';
-import { formatMonth } from '../../../utils/DateUtils';
+import useFormatDate from '../../../hooks/useFormatDate';
 import TransactionRecord from '../../Components/transactionRecord';
 
 type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
@@ -48,6 +48,7 @@ export type HistoricalRecordProps = {
 const toTransactionSection = (
   queueStr: string,
   _data: Transaction[] | null | undefined,
+  formatDate: (date: string) => string,
 ): TransactionGroup[] => {
   if (!_data) return [];
 
@@ -61,7 +62,7 @@ const toTransactionSection = (
     if (_current.successful === TxStatus.Pending) {
       key = queueStr;
     } else {
-      key = formatMonth(new Date(_current.blockSignedAt));
+      key = formatDate(_current.blockSignedAt);
     }
 
     let dateGroup = _pre.find((x) => x.title === key);
@@ -95,6 +96,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
+  const formatDate = useFormatDate();
   const openBlockBrowser = useOpenBlockBrowser(network);
 
   const refreshHistory = useCallback(async () => {
@@ -122,6 +124,8 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
           toTransactionSection(
             intl.formatMessage({ id: 'history__queue' }),
             history.data.txList,
+            (date: string) =>
+              formatDate.formatMonth(date, { hideTheYear: true }),
           ),
         );
       } else {
@@ -137,6 +141,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         setIsLoading(false);
       }, 100);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, intl, networkId, tokenId]);
 
   useEffect(() => {

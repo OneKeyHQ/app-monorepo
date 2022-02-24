@@ -1,7 +1,3 @@
-import { enUS, zhCN } from 'date-fns/locale';
-
-import { LocaleSymbol } from '@onekeyhq/components/src/locale';
-
 export type RequestPayload<T> = {
   success: boolean;
   status: number;
@@ -46,15 +42,4 @@ export type CommentType = {
   'created_at': string;
   'body': string;
   'attachments': AttachmentsType[];
-};
-
-export const local = (localeSymbol: LocaleSymbol) => {
-  switch (localeSymbol) {
-    case 'zh-CN':
-      return zhCN;
-    case 'en-US':
-      return enUS;
-    default:
-      return enUS;
-  }
 };
