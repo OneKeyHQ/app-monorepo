@@ -6,7 +6,6 @@ import { BigNumber } from 'bignumber.js';
 import { IntlShape, useIntl } from 'react-intl';
 
 import {
-  Address,
   Box,
   Button,
   Container,

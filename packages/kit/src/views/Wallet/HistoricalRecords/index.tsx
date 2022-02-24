@@ -13,7 +13,6 @@ import {
   IconButton,
   Pressable,
   SectionList,
-  Spinner,
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -254,9 +253,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   );
 
   const renderLoading = () => (
-    <Box pb={2} pt={2} flexDirection="column" alignItems="center">
-      <Spinner size="lg" />
-    </Box>
+    <Box pb={2} pt={2} flexDirection="column" alignItems="center" />
   );
 
   let listElementType: JSX.Element;
