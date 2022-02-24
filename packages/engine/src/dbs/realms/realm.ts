@@ -229,7 +229,7 @@ class RealmDB implements DBAPI {
   listNetworks(): Promise<DBNetwork[]> {
     const networks: Realm.Results<NetworkSchema> =
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      this.realm!.objects<NetworkSchema>('Network').sorted('position', true);
+      this.realm!.objects<NetworkSchema>('Network').sorted('position');
     return Promise.resolve(networks.map((network) => network.internalObj));
   }
 
