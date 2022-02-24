@@ -7,10 +7,12 @@ import Icon from '../Icon';
 import { ICON_NAMES } from '../Icon/Icons';
 import Typography from '../Typography';
 
+type NonString<T> = T extends string ? never : T;
 type EmptyProps = {
   title: string;
   subTitle?: string | ReactNode;
-  icon?: ICON_NAMES | ReactNode;
+  // HACK: to let icon has the ICON_NAMES lookup and supports ReactNode
+  icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
   handleAction?: () => void;
 };

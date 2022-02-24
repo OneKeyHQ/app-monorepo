@@ -137,8 +137,9 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     if (!isSupported) {
       return (
         <Empty
-          // TODO: Replace with real i18n string
-          title="此网络暂未支持 NFT"
+          icon="HandOutline"
+          title={intl.formatMessage({ id: 'empty__not_supported' })}
+          subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
         />
       );
     }
