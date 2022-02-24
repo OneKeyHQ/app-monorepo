@@ -63,6 +63,7 @@ type Transfer = {
   contractName: string;
   contractTickerSymbol: string;
   contractAddress: string;
+  tokenId: string;
   logoUrl: string;
   /** IN/OUT */
   transferType: string;
@@ -151,7 +152,7 @@ type Transaction = {
   /**  Transaction type, enum [ Transfer, Receive, ContractExecution] */
   type: TransactionType;
   tokenType: TokenType;
-  tokenEvent: Array<Erc20TransferEvent> | null;
+  tokenEvent: Array<Erc20TransferEvent>;
 };
 
 type Erc20TransferEvent = {
@@ -162,11 +163,12 @@ type Erc20TransferEvent = {
   toAddress: string;
   toAddressLabel: string;
   tokenAddress: string;
-  tokenLogoUrl: string;
-  tokenName: string;
+  tokenLogoUrl?: string;
+  tokenName?: string;
   tokenSymbol: string;
   tokenDecimals: number;
   tokenAmount: string;
+  tokenId: string;
   transferType: TransactionType;
   tokenType: TokenType;
   balance: number;
@@ -180,6 +182,53 @@ type Erc20TransferEvent = {
   eventLength: number;
 };
 
+type NftDetail = {
+  data: {
+    updatedAt: string;
+    items: Array<NftMetadata>;
+    pagination: Pagination;
+  };
+  error: boolean;
+  errorMessage: string;
+  errorCode: number;
+};
+
+type NftMetadata = {
+  contractDecimals: number;
+  contractName: string;
+  contractTickerSymbol: string;
+  contractAddress: string;
+  supportsErc: Array<string>;
+  logoUrl: string;
+  type: TokenType;
+  nftData: Array<NftData>;
+};
+
+type NftData = {
+  tokenId: string;
+  tokenBalance: string;
+  tokenUrl: string;
+  supportsErc: Array<string>;
+  tokenPriceWei: number;
+  tokenQuoteRateEth: number;
+  originalOwner: string;
+  owner: string;
+  ownerAddress: string;
+  burned: boolean;
+  externalData: {
+    name: string;
+    description: string;
+    image: string;
+    image256: string;
+    image512: string;
+    image1024: string;
+    animationUrl: string;
+    externalUrl: string;
+    owner: string;
+    attributes: Array<{ traitType: string; value: string }>;
+  };
+};
+
 export type {
   HistoryDetailList,
   TxDetail,
@@ -189,6 +238,8 @@ export type {
   Transfer,
   Transaction,
   TransactionsRawData,
+  NftDetail,
+  NftMetadata,
   BlockTransactionWithLogEvents,
 };
 export { TxStatus, TokenType, TransactionType };
