@@ -218,6 +218,7 @@ class Engine {
           typeof networkId === 'undefined' ||
           isAccountCompatibleWithNetwork(a.id, networkId),
       )
+      .sort((a, b) => (a.name > b.name ? 1 : -1))
       .map((a: DBAccount) => fromDBAccountToAccount(a));
   }
 
