@@ -33,10 +33,17 @@ const Me = () => {
   const intl = useIntl();
 
   return (
-    <Box flex="1" p="4" maxW={MAX_PAGE_CONTAINER_WIDTH} w="100%" marginX="auto">
-      <VStack justifyContent="space-between" flex={1}>
-        <VStack space="3">
-          {/* <Pressable
+    <Box bg="background-default" flex="1">
+      <Box
+        flex="1"
+        p="4"
+        maxW={MAX_PAGE_CONTAINER_WIDTH}
+        w="100%"
+        marginX="auto"
+      >
+        <VStack justifyContent="space-between" flex={1}>
+          <VStack space="3">
+            {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
@@ -55,44 +62,44 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable> */}
-          <Pressable
-            p="4"
-            bg="surface-default"
-            borderRadius="12px"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            onPress={() =>
-              navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
-            }
-          >
-            <HStack space="4">
-              <Icon name="CreditCardOutline" />
-              <Typography.Body1>OneKey Lite</Typography.Body1>
-            </HStack>
-            <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
-          <Pressable
-            p="4"
-            bg="surface-default"
-            borderRadius="12px"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
-          >
-            <HStack space="4">
-              <Icon name="CogOutline" />
-              <Typography.Body1>
-                {intl.formatMessage({
-                  id: 'title__settings',
-                  defaultMessage: 'Settings',
-                })}
-              </Typography.Body1>
-            </HStack>
-            <Icon name="ChevronRightOutline" size={12} />
-          </Pressable>
-          {/* <Pressable
+            <Pressable
+              p="4"
+              bg="surface-default"
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() =>
+                navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
+              }
+            >
+              <HStack space="4">
+                <Icon name="CreditCardOutline" />
+                <Typography.Body1>OneKey Lite</Typography.Body1>
+              </HStack>
+              <Icon name="ChevronRightOutline" size={12} />
+            </Pressable>
+            <Pressable
+              p="4"
+              bg="surface-default"
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
+            >
+              <HStack space="4">
+                <Icon name="CogOutline" />
+                <Typography.Body1>
+                  {intl.formatMessage({
+                    id: 'title__settings',
+                    defaultMessage: 'Settings',
+                  })}
+                </Typography.Body1>
+              </HStack>
+              <Icon name="ChevronRightOutline" size={12} />
+            </Pressable>
+            {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
@@ -114,11 +121,12 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable> */}
+          </VStack>
+          <HStack justifyContent="flex-end">
+            <HelpSelector />
+          </HStack>
         </VStack>
-        <HStack justifyContent="flex-end">
-          <HelpSelector />
-        </HStack>
-      </VStack>
+      </Box>
     </Box>
   );
 };

@@ -68,7 +68,7 @@ const Home: FC = () => {
 
   if (!wallet) {
     return (
-      <Box flex="1" justifyContent="center">
+      <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
           icon="WalletOutline"
           title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
@@ -103,7 +103,7 @@ const Home: FC = () => {
 
   if (!account) {
     return (
-      <Box flex="1" justifyContent="center">
+      <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
           icon="WalletOutline"
           title={intl.formatMessage({ id: 'empty__no_account_title' })}
@@ -137,6 +137,7 @@ const Home: FC = () => {
         maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
         width: '100%',
         marginHorizontal: 'auto',
+        backgroundColor: tabbarBgColor,
       }}
       headerContainerStyle={{
         shadowOffset: { width: 0, height: 0 },

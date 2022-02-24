@@ -62,6 +62,7 @@ const DesktopModal: FC<ModalProps> = ({
       bottom="0"
       justifyContent="center"
       alignItems="center"
+      bg="rgba(0, 0, 0, 0.4)"
       zIndex={99}
     >
       <Box
