@@ -5,19 +5,22 @@ import { IconButton } from '@onekeyhq/components';
 import { useSettings } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 
-type LocalAuthenticationButtonProps = { onOk?: () => void };
+type LocalAuthenticationButtonProps = { onOk?: (password: string) => void };
 
 const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   onOk,
 }) => {
-  const { isOk, localAuthenticate } = useLocalAuthentication();
+  const { isOk, localAuthenticate, getPassword } = useLocalAuthentication();
   const { enableLocalAuthentication } = useSettings();
   const onPress = useCallback(async () => {
     const localAuthenticateResult = await localAuthenticate();
     if (localAuthenticateResult.success) {
-      onOk?.();
+      const password = await getPassword();
+      if (password) {
+        onOk?.(password);
+      }
     }
-  }, [onOk, localAuthenticate]);
+  }, [onOk, localAuthenticate, getPassword]);
   return isOk && enableLocalAuthentication ? (
     <IconButton iconSize={24} name="FaceIdOutline" onPress={onPress} />
   ) : null;

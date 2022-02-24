@@ -25,21 +25,18 @@ export function useLocalAuthentication() {
     });
   }, [isOk]);
 
-  const savePassword = useCallback(
-    async (password: string) => {
-      if (isOk) {
-        await SecureStore.setItemAsync('password', password);
-      }
-    },
-    [isOk],
-  );
+  const savePassword = useCallback(async (password: string) => {
+    if (['ios', 'android'].includes(Platform.OS)) {
+      await SecureStore.setItemAsync('password', password);
+    }
+  }, []);
 
   const getPassword = useCallback(async () => {
-    if (isOk) {
+    if (['ios', 'android'].includes(Platform.OS)) {
       return SecureStore.getItemAsync('password');
     }
     return null;
-  }, [isOk]);
+  }, []);
 
   return { isOk, localAuthenticate, savePassword, getPassword };
 }
