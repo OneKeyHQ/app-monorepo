@@ -30,7 +30,6 @@ export enum ModalRoutes {
   DappMulticallModal = 'DappMulticallModal',
   DappSignatureModal = 'DappSignatureModal',
   DappConnectionModal = 'DappConnectionModal',
-  Misc = 'Misc',
   Password = 'Password',
   ManageToken = 'ManageToken',
   Collectibles = 'Collectibles',
@@ -54,7 +53,6 @@ export type ModalRoutesParams = {
   [ModalRoutes.DappMulticallModal]: NavigatorScreenParams<SubModalRoutesParams.DappMulticallRoutesParams>;
   [ModalRoutes.DappSignatureModal]: NavigatorScreenParams<SubModalRoutesParams.DappSignatureRoutesParams>;
   [ModalRoutes.DappConnectionModal]: NavigatorScreenParams<SubModalRoutesParams.DappConnectionRoutesParams>;
-  [ModalRoutes.Misc]: NavigatorScreenParams<SubModalRoutesParams.MiscRoutesParams>;
   [ModalRoutes.Password]: NavigatorScreenParams<SubModalRoutesParams.PasswordRoutesParams>;
   [ModalRoutes.ManageToken]: NavigatorScreenParams<SubModalRoutesParams.ManageTokenRoutesParams>;
   [ModalRoutes.Collectibles]: NavigatorScreenParams<SubModalRoutesParams.CollectiblesRoutesParams>;

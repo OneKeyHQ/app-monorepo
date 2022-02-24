@@ -439,7 +439,7 @@
   "modal__restore_wallet": "恢复钱包",
   "modal__restore_wallet_desc": "使用已有的助记词在您的设备上恢复私钥。",
   "modal__rug_warning": "欺诈警告",
-  "modal__rug_warning_desc": "该网站被识别为欺诈项目，任何情况下都请勿访问，你还想继续吗？",
+  "modal__rug_warning_desc": "该网站被识别为欺诈项目，任何情况下都请勿访问，您还想继续吗？",
   "modal__setup_complete": "设置已完成！",
   "modal__setup_complete_desc": "您的设备已经可以使用了。",
   "modal__setup_new_device": "设置新设备",
