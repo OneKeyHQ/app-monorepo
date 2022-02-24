@@ -12,8 +12,8 @@ import React, {
 import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
+import KeyboardAwareScrollView from '../KeyboardAwareScrollView';
 import { useUserDevice } from '../Provider/hooks';
-import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 
 import Desktop from './Container/Desktop';
@@ -36,7 +36,7 @@ export type ModalProps = {
   footer?: ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
-  scrollViewProps?: ComponentProps<typeof ScrollView>;
+  scrollViewProps?: ComponentProps<typeof KeyboardAwareScrollView>;
   flatListProps?: ComponentProps<typeof FlatList>;
   sectionListProps?: ComponentProps<typeof SectionList>;
   staticChildrenProps?: ComponentProps<typeof Box>;
@@ -47,7 +47,7 @@ export type ModalProps = {
 const defaultProps = {
   closeable: true,
   size: 'xs',
-  height: '576px',
+  height: 'auto',
 } as const;
 
 const Modal: FC<ModalProps> = ({
@@ -58,6 +58,7 @@ const Modal: FC<ModalProps> = ({
   flatListProps,
   scrollViewProps,
   staticChildrenProps,
+  header,
   ...rest
 }) => {
   const { size } = useUserDevice();
@@ -80,16 +81,41 @@ const Modal: FC<ModalProps> = ({
   const modalContent = useMemo(() => {
     if (sectionListProps) {
       return (
-        <SectionList py={6} px={{ base: 4, md: 6 }} {...sectionListProps} />
+        <SectionList
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: header ? 24 : 0,
+          }}
+          px={{ base: 4, md: 6 }}
+          {...sectionListProps}
+        />
       );
     }
 
     if (flatListProps) {
-      return <FlatList py={6} px={{ base: 4, md: 6 }} {...flatListProps} />;
+      return (
+        <FlatList
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: header ? 24 : 0,
+          }}
+          px={{ base: 4, md: 6 }}
+          {...flatListProps}
+        />
+      );
     }
 
     if (scrollViewProps) {
-      return <ScrollView py={6} px={{ base: 4, md: 6 }} {...scrollViewProps} />;
+      return (
+        <KeyboardAwareScrollView
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: header ? 24 : 0,
+          }}
+          px={{ base: 4, md: 6 }}
+          {...scrollViewProps}
+        />
+      );
     }
 
     if (staticChildrenProps) {
@@ -97,7 +123,7 @@ const Modal: FC<ModalProps> = ({
     }
 
     return (
-      <Box py={6} px={{ base: 4, md: 6 }} flex="1">
+      <Box pt={header ? 6 : 0} pb={6} px={{ base: 4, md: 6 }} flex="1">
         {rest.children}
       </Box>
     );
@@ -107,23 +133,34 @@ const Modal: FC<ModalProps> = ({
     scrollViewProps,
     staticChildrenProps,
     rest.children,
+    header,
   ]);
 
   const modalContainer = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
       return (
-        <Mobile visible={visible} onClose={handleClose} {...rest}>
+        <Mobile
+          header={header}
+          visible={visible}
+          onClose={handleClose}
+          {...rest}
+        >
           {modalContent}
         </Mobile>
       );
     }
 
     return (
-      <Desktop visible={visible} onClose={handleClose} {...rest}>
+      <Desktop
+        header={header}
+        visible={visible}
+        onClose={handleClose}
+        {...rest}
+      >
         {modalContent}
       </Desktop>
     );
-  }, [size, visible, handleClose, rest, modalContent]);
+  }, [size, visible, handleClose, rest, modalContent, header]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;

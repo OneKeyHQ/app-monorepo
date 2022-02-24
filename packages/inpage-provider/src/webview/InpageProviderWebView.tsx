@@ -60,7 +60,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
             zIndex={10}
             rounded={0}
             size="xs"
-            colorScheme="warning"
+            bg="surface-neutral-default"
+            _filledTrack={{
+              bg: 'interactive-default',
+            }}
           />
         )}
         <Box flex={1}>
@@ -89,6 +92,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               ref={iframeRef}
               title="iframe-web"
               src={src}
+              key={src}
               frameBorder="0"
               style={{ height: '100%', width: '100%' }}
             />

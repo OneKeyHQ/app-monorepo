@@ -113,6 +113,7 @@ import ExclamationCircleOutline from "./react/outline/ExclamationCircle";
 import ExternalLinkOutline from "./react/outline/ExternalLink";
 import EyeOutline from "./react/outline/Eye";
 import EyeOffOutline from "./react/outline/EyeOff";
+import FaceIdOutline from "./react/outline/FaceId";
 import FastForwardOutline from "./react/outline/FastForward";
 import FilmOutline from "./react/outline/Film";
 import FilterOutline from "./react/outline/Filter";
@@ -162,6 +163,7 @@ import MoonOutline from "./react/outline/Moon";
 import MusicNoteOutline from "./react/outline/MusicNote";
 import NewspaperOutline from "./react/outline/Newspaper";
 import OfficeBuildingOutline from "./react/outline/OfficeBuilding";
+import OnekeyLiteOutline from "./react/outline/OnekeyLite";
 import PaperAirplaneOutline from "./react/outline/PaperAirplane";
 import PaperClipOutline from "./react/outline/PaperClip";
 import PauseOutline from "./react/outline/Pause";
@@ -187,6 +189,7 @@ import ReceiptRefundOutline from "./react/outline/ReceiptRefund";
 import ReceiptTaxOutline from "./react/outline/ReceiptTax";
 import RefreshOutline from "./react/outline/Refresh";
 import ReplyOutline from "./react/outline/Reply";
+import RestoreOutline from "./react/outline/Restore";
 import RewindOutline from "./react/outline/Rewind";
 import RssOutline from "./react/outline/Rss";
 import SaveOutline from "./react/outline/Save";
@@ -241,6 +244,7 @@ import ViewGridAddOutline from "./react/outline/ViewGridAdd";
 import ViewListOutline from "./react/outline/ViewList";
 import VolumeOffOutline from "./react/outline/VolumeOff";
 import VolumeUpOutline from "./react/outline/VolumeUp";
+import WalletOutline from "./react/outline/Wallet";
 import WifiOutline from "./react/outline/Wifi";
 import ZoomInOutline from "./react/outline/ZoomIn";
 import ZoomOutOutline from "./react/outline/ZoomOut";
@@ -596,6 +600,7 @@ export type ICON_NAMES =
   | "ExternalLinkOutline"
   | "EyeOutline"
   | "EyeOffOutline"
+  | "FaceIdOutline"
   | "FastForwardOutline"
   | "FilmOutline"
   | "FilterOutline"
@@ -645,6 +650,7 @@ export type ICON_NAMES =
   | "MusicNoteOutline"
   | "NewspaperOutline"
   | "OfficeBuildingOutline"
+  | "OnekeyLiteOutline"
   | "PaperAirplaneOutline"
   | "PaperClipOutline"
   | "PauseOutline"
@@ -670,6 +676,7 @@ export type ICON_NAMES =
   | "ReceiptTaxOutline"
   | "RefreshOutline"
   | "ReplyOutline"
+  | "RestoreOutline"
   | "RewindOutline"
   | "RssOutline"
   | "SaveOutline"
@@ -724,6 +731,7 @@ export type ICON_NAMES =
   | "ViewListOutline"
   | "VolumeOffOutline"
   | "VolumeUpOutline"
+  | "WalletOutline"
   | "WifiOutline"
   | "ZoomInOutline"
   | "ZoomOutOutline"
@@ -1079,6 +1087,7 @@ export default {
   ExternalLinkOutline: ExternalLinkOutline,
   EyeOutline: EyeOutline,
   EyeOffOutline: EyeOffOutline,
+  FaceIdOutline: FaceIdOutline,
   FastForwardOutline: FastForwardOutline,
   FilmOutline: FilmOutline,
   FilterOutline: FilterOutline,
@@ -1128,6 +1137,7 @@ export default {
   MusicNoteOutline: MusicNoteOutline,
   NewspaperOutline: NewspaperOutline,
   OfficeBuildingOutline: OfficeBuildingOutline,
+  OnekeyLiteOutline: OnekeyLiteOutline,
   PaperAirplaneOutline: PaperAirplaneOutline,
   PaperClipOutline: PaperClipOutline,
   PauseOutline: PauseOutline,
@@ -1153,6 +1163,7 @@ export default {
   ReceiptTaxOutline: ReceiptTaxOutline,
   RefreshOutline: RefreshOutline,
   ReplyOutline: ReplyOutline,
+  RestoreOutline: RestoreOutline,
   RewindOutline: RewindOutline,
   RssOutline: RssOutline,
   SaveOutline: SaveOutline,
@@ -1207,6 +1218,7 @@ export default {
   ViewListOutline: ViewListOutline,
   VolumeOffOutline: VolumeOffOutline,
   VolumeUpOutline: VolumeUpOutline,
+  WalletOutline: WalletOutline,
   WifiOutline: WifiOutline,
   ZoomInOutline: ZoomInOutline,
   ZoomOutOutline: ZoomOutOutline,

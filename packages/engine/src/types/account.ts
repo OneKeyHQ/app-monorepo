@@ -38,7 +38,7 @@ type SimpleAccount = BaseAccount & {
 
 type MulAddrAccount = BaseAccount & {
   xpub: string;
-  addresses: Map<string, string>; // Address => relative path
+  addresses: Record<string, string>; // Address => relative path
 };
 
 type Account = SimpleAccount | MulAddrAccount;

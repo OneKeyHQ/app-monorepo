@@ -9,23 +9,40 @@ import {
 } from '@reduxjs/toolkit';
 import { cloneDeep, isFunction, isString } from 'lodash';
 import { Reducer } from 'redux';
-import { persistReducer, persistStore } from 'redux-persist';
+import {
+  FLUSH,
+  PAUSE,
+  PERSIST,
+  PURGE,
+  REGISTER,
+  REHYDRATE,
+  persistReducer,
+  persistStore,
+} from 'redux-persist';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IBackgroundApi } from '../background/BackgroundApiProxy';
 
-import accountReducer from './reducers/account';
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
+import fiatMoneyReducer from './reducers/fiatMoney';
+import generalReducer from './reducers/general';
+import networkReducer from './reducers/network';
 import settingsReducer from './reducers/settings';
+import statusReducer from './reducers/status';
+import walletReducer from './reducers/wallet';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
   chain: chainReducer,
-  account: accountReducer,
+  wallet: walletReducer,
   settings: settingsReducer,
+  status: statusReducer,
+  network: networkReducer,
+  general: generalReducer,
+  fiatMoney: fiatMoneyReducer,
   counter,
 });
 
@@ -38,6 +55,8 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
       case 'REPLACE_WHOLE_STATE':
         higherState.state = action.payload as any;
         return higherState.state;
+      case 'LOGOUT':
+        return reducers(undefined, action);
       default:
         return reducers(state, action);
     }
@@ -48,7 +67,7 @@ const persistConfig = {
   key: 'ONEKEY_WALLET',
   version: 1,
   storage: AsyncStorage,
-  whitelist: ['settings'],
+  whitelist: ['settings', 'status'],
 };
 
 export function makeStore() {
@@ -58,6 +77,12 @@ export function makeStore() {
   );
   const store = configureStore({
     reducer: persistedReducer,
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: {
+          ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+        },
+      }),
   });
   const persistor = persistStore(store);
   return { store, persistor };

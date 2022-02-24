@@ -1,17 +1,21 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-import BigNumber from 'bignumber.js';
-import * as bip39 from 'bip39';
-
 import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
-} from '@onekeyhq/blockchain-libs/dist/secret';
+} from '@onekeyfe/blockchain-libs/dist/secret';
+import BigNumber from 'bignumber.js';
+import * as bip39 from 'bip39';
 
-import { IMPL_EVM } from './constants';
-import { DbApi } from './db';
-import { DBAPI } from './db/base';
-import { NotImplemented, OneKeyInternalError } from './errors';
+import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
+import { DbApi } from './dbs';
+import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
+import {
+  FailedToTransfer,
+  InvalidAddress,
+  NotImplemented,
+  OneKeyInternalError,
+} from './errors';
 import {
   buildGetBalanceRequest,
   buildGetBalanceRequestsRaw,
@@ -21,6 +25,7 @@ import {
   getWatchingAccountToCreate,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
+import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -30,18 +35,22 @@ import {
 } from './managers/network';
 import { getNetworkIdFromTokenId } from './managers/token';
 import {
-  fromDBWalletToWallet,
   walletCanBeRemoved,
   walletIsHD,
   walletNameCanBeUpdated,
 } from './managers/wallet';
 import {
+  getPresetNetworks,
   getPresetToken,
   getPresetTokensOnNetwork,
   networkIsPreset,
-  presetNetworks,
 } from './presets';
-import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
+import { syncLatestNetworkList } from './presets/network';
+import {
+  PriceController,
+  ProviderController,
+  fromDBNetworkToChainInfo,
+} from './proxy';
 import {
   ACCOUNT_TYPE_SIMPLE,
   Account,
@@ -50,48 +59,87 @@ import {
   ImportableHDAccount,
 } from './types/account';
 import {
+  HistoryEntry,
+  HistoryEntryStatus,
+  HistoryEntryType,
+} from './types/history';
+import {
   AddNetworkParams,
-  DBNetwork,
+  EIP1559Fee,
   Network,
-  NetworkShort,
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { DBWallet, WALLET_TYPE_HD, Wallet } from './types/wallet';
+import { WALLET_TYPE_HD, Wallet } from './types/wallet';
 
 class Engine {
   private dbApi: DBAPI;
 
   private providerManager: ProviderController;
 
+  private priceManager: PriceController;
+
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
+    this.priceManager = new PriceController();
     this.providerManager = new ProviderController((networkId) =>
       this.dbApi
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
+
+    this.syncPresetNetworks();
+  }
+
+  private async syncPresetNetworks(): Promise<void> {
+    await syncLatestNetworkList();
+
+    try {
+      const dbNetworks = await this.dbApi.listNetworks();
+      const dbNetworkSet = new Set(dbNetworks.map((dbNetwork) => dbNetwork.id));
+
+      const presetNetworksList = Object.values(getPresetNetworks()).sort(
+        (a, b) => (a.name > b.name ? 1 : -1),
+      );
+
+      let position = dbNetworks.length ?? 0;
+      for (const network of presetNetworksList) {
+        if (!dbNetworkSet.has(network.id)) {
+          await this.dbApi.addNetwork({
+            id: network.id,
+            name: network.name,
+            impl: network.impl,
+            symbol: network.symbol,
+            logoURI: network.logoURI,
+            enabled: network.enabled,
+            feeSymbol: network.feeSymbol,
+            decimals: network.decimals,
+            feeDecimals: network.feeDecimals,
+            balance2FeeDecimals: network.balance2FeeDecimals,
+            rpcURL: network.presetRpcURLs[0],
+            position,
+          });
+          position += 1;
+          dbNetworkSet.add(network.id);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    return this.dbApi
-      .getWallets()
-      .then((wallets: Array<DBWallet>) =>
-        wallets.map((w: DBWallet) => fromDBWalletToWallet(w)),
-      );
+    return this.dbApi.getWallets();
   }
 
-  getWallet(walletId: string): Promise<Wallet> {
+  async getWallet(walletId: string): Promise<Wallet> {
     // Return a single wallet.
-    return this.dbApi
-      .getWallet(walletId)
-      .then((dbWallet: DBWallet | undefined) => {
-        if (typeof dbWallet !== 'undefined') {
-          return fromDBWalletToWallet(dbWallet);
-        }
-        throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
-      });
+    const wallet = await this.dbApi.getWallet(walletId);
+    if (typeof wallet !== 'undefined') {
+      return wallet;
+    }
+    throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
   }
 
   createHDWallet(
@@ -113,9 +161,7 @@ class Engine {
     ) {
       throw new OneKeyInternalError('Invalid mnemonic.');
     }
-    return this.dbApi
-      .createHDWallet(password, rs, name)
-      .then((dbWallet: DBWallet) => fromDBWalletToWallet(dbWallet));
+    return this.dbApi.createHDWallet(password, rs, name);
   }
 
   removeWallet(walletId: string, password: string): Promise<void> {
@@ -133,17 +179,19 @@ class Engine {
         `Wallet ${walletId}'s name cannot be updated.`,
       );
     }
-    return this.dbApi
-      .setWalletName(walletId, name)
-      .then((dbWallet: DBWallet) => fromDBWalletToWallet(dbWallet));
+    return this.dbApi.setWalletName(walletId, name);
   }
 
-  revealHDWalletSeed(walletId: string, password: string): Promise<string> {
+  async revealHDWalletMnemonic(
+    walletId: string,
+    password: string,
+  ): Promise<string> {
     // Reveal the wallet seed, raise an error if wallet isn't HD, doesn't exist or password is wrong.
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    return this.dbApi.revealHDWalletSeed(walletId, password);
+    const credential = await this.dbApi.getCredential(walletId, password);
+    return mnemonicFromEntropy(credential.entropy, password);
   }
 
   confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
@@ -151,18 +199,43 @@ class Engine {
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    return this.dbApi
-      .confirmHDWalletBackuped(walletId)
-      .then((dbWallet: DBWallet) => fromDBWalletToWallet(dbWallet));
+    return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
-  getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
+  async getAccounts(
+    accountIds: Array<string>,
+    networkId?: string,
+  ): Promise<Array<Account>> {
     // List accounts by account ids. No token info are returned, only base account info are included.
-    return this.dbApi
-      .getAccounts(accountIds)
-      .then((accounts: Array<DBAccount>) =>
-        accounts.map((a: DBAccount) => fromDBAccountToAccount(a)),
-      );
+    if (accountIds.length === 0) {
+      return [];
+    }
+
+    const accounts = await this.dbApi.getAccounts(accountIds);
+    return accounts
+      .filter(
+        (a) =>
+          typeof networkId === 'undefined' ||
+          isAccountCompatibleWithNetwork(a.id, networkId),
+      )
+      .map((a: DBAccount) => fromDBAccountToAccount(a));
+  }
+
+  async getAccountsByNetwork(
+    networkId: string,
+  ): Promise<Record<string, Array<Account>>> {
+    const ret: Record<string, Array<Account>> = {};
+    const accounts = await this.dbApi.getAllAccounts();
+    accounts
+      .filter((a) => isAccountCompatibleWithNetwork(a.id, networkId))
+      .forEach((a) => {
+        const [walletId] = a.id.split(SEPERATOR, 1);
+        if (typeof ret[walletId] === 'undefined') {
+          ret[walletId] = [];
+        }
+        ret[walletId].push(fromDBAccountToAccount(a));
+      });
+    return ret;
   }
 
   async getAccount(accountId: string, networkId: string): Promise<Account> {
@@ -193,50 +266,46 @@ class Engine {
     return account;
   }
 
-  getAccountBalance(
+  async getAccountBalance(
     accountId: string,
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
   ): Promise<Record<string, BigNumber | undefined>> {
     // Get account balance, main token balance is always included.
-    return Promise.all([
+    const [dbAccount, network, tokens] = await Promise.all([
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
-      this.getTokens(networkId, accountId),
-    ]).then(([dbAccount, network, tokens]) => {
-      const decimalsMap: Record<string, number> = {};
-      tokens.forEach((token) => {
-        if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
-          decimalsMap[token.tokenIdOnNetwork] = token.decimals;
-        }
-      });
-      const tokensToGet = tokenIdsOnNetwork.filter(
-        (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
-      );
-      return this.providerManager
-        .getBalances(
-          networkId,
-          buildGetBalanceRequest(dbAccount, tokensToGet, withMain),
-        )
-        .then((balances) => {
-          const ret: Record<string, BigNumber | undefined> = {};
-          if (withMain && typeof balances[0] !== 'undefined') {
-            ret.main = balances[0].div(new BigNumber(10).pow(network.decimals));
-          }
-          balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
-            const tokenId = tokensToGet[index];
-            const decimals = decimalsMap[tokenId];
-            if (typeof balance !== 'undefined') {
-              ret[tokenId] = balance.div(new BigNumber(10).pow(decimals));
-            }
-          });
-          return ret;
-        });
+      this.getTokens(networkId, accountId, false),
+    ]);
+    const decimalsMap: Record<string, number> = {};
+    tokens.forEach((token) => {
+      if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
+        decimalsMap[token.tokenIdOnNetwork] = token.decimals;
+      }
     });
+    const tokensToGet = tokenIdsOnNetwork.filter(
+      (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
+    );
+    const balances = await this.providerManager.getBalances(
+      networkId,
+      buildGetBalanceRequest(dbAccount, tokensToGet, withMain),
+    );
+    const ret: Record<string, BigNumber | undefined> = {};
+    if (withMain && typeof balances[0] !== 'undefined') {
+      ret.main = balances[0].div(new BigNumber(10).pow(network.decimals));
+    }
+    balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
+      const tokenId1 = tokensToGet[index];
+      const decimals = decimalsMap[tokenId1];
+      if (typeof balance !== 'undefined') {
+        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals));
+      }
+    });
+    return ret;
   }
 
-  searchHDAccounts(
+  async searchHDAccounts(
     walletId: string,
     networkId: string,
     password: string,
@@ -245,44 +314,39 @@ class Engine {
     purpose?: number,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
-    return Promise.all([
-      this.dbApi.getSeed(walletId, password),
+    const [credential, dbNetwork] = await Promise.all([
+      this.dbApi.getCredential(walletId, password),
       this.dbApi.getNetwork(networkId),
-    ]).then(([seed, dbNetwork]) => {
-      const { paths, xpubs } = getXpubs(
-        getImplFromNetworkId(networkId),
-        seed,
-        password,
-        start,
-        limit,
-        purpose,
-        dbNetwork.curve,
-      );
-      return Promise.all(
-        xpubs.map(async (xpub) =>
-          buildGetBalanceRequestsRaw(
-            await this.providerManager.addressFromXpub(networkId, xpub),
-            [],
-          ),
+    ]);
+    const { paths, xpubs } = getXpubs(
+      getImplFromNetworkId(networkId),
+      credential.seed,
+      password,
+      start,
+      limit,
+      purpose,
+      dbNetwork.curve,
+    );
+    const requests = await Promise.all(
+      xpubs.map(async (xpub) =>
+        buildGetBalanceRequestsRaw(
+          await this.providerManager.addressFromXpub(networkId, xpub),
+          [],
         ),
-      ).then((requests) =>
-        this.providerManager
-          .getBalances(
-            networkId,
-            requests.reduce((a, b) => a.concat(b), []),
-          )
-          .then((balances) =>
-            balances.map((balance, index) => ({
-              index: start + index,
-              path: paths[index],
-              mainBalance:
-                typeof balance === 'undefined'
-                  ? new BigNumber(0)
-                  : balance.div(new BigNumber(10).pow(dbNetwork.decimals)),
-            })),
-          ),
-      );
-    });
+      ),
+    );
+    const balances = await this.providerManager.getBalances(
+      networkId,
+      requests.reduce((a, b) => a.concat(b), []),
+    );
+    return balances.map((balance, index) => ({
+      index: start + index,
+      path: paths[index],
+      mainBalance:
+        typeof balance === 'undefined'
+          ? new BigNumber(0)
+          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)),
+    }));
   }
 
   async addHDAccount(
@@ -318,19 +382,18 @@ class Engine {
       index ||
       wallet.nextAccountIds[`${usedPurpose}'/${implToCoinTypes[impl]}'`] ||
       0;
-    const { paths, xpubs } = await Promise.all([
-      this.dbApi.getSeed(walletId, password),
+    const [credential, dbNetwork] = await Promise.all([
+      this.dbApi.getCredential(walletId, password),
       this.dbApi.getNetwork(networkId),
-    ]).then(([seed, dbNetwork]) =>
-      getXpubs(
-        impl,
-        seed,
-        password,
-        usedIndex,
-        1,
-        usedPurpose,
-        dbNetwork.curve,
-      ),
+    ]);
+    const { paths, xpubs } = getXpubs(
+      getImplFromNetworkId(networkId),
+      credential.seed,
+      password,
+      usedIndex,
+      1,
+      usedPurpose,
+      dbNetwork.curve,
     );
     return this.dbApi
       .addAccountToWallet(
@@ -350,28 +413,25 @@ class Engine {
     throw new NotImplemented();
   }
 
-  addWatchingAccount(
+  async addWatchingAccount(
     networkId: string,
     target: string,
     name?: string,
   ): Promise<Account> {
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
-    return this.providerManager
-      .getBalances(networkId, buildGetBalanceRequestsRaw(target, []))
-      .then(async (balance) => {
-        if (typeof balance === 'undefined') {
-          throw new OneKeyInternalError('Invalid address.'); // TODO: better error report.
-        }
-        const account = getWatchingAccountToCreate(
-          getImplFromNetworkId(networkId),
-          target,
-          name,
-        );
-        return this.dbApi
-          .addAccountToWallet('watching', account)
-          .then((a: DBAccount) => this.getAccount(a.id, networkId));
-      });
+    const { normalizedAddress, isValid } =
+      await this.providerManager.verifyAddress(networkId, target);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+    const account = getWatchingAccountToCreate(
+      getImplFromNetworkId(networkId),
+      normalizedAddress,
+      name,
+    );
+    const a = await this.dbApi.addAccountToWallet('watching', account);
+    return this.getAccount(a.id, networkId);
   }
 
   removeAccount(accountId: string, password: string): Promise<void> {
@@ -383,35 +443,42 @@ class Engine {
     );
   }
 
-  setAccountName(accountId: string, name: string): Promise<Account> {
+  async setAccountName(accountId: string, name: string): Promise<Account> {
     // Rename an account. Raise an error if account doesn't exist.
     // Nothing happens if name is not changed.
-    return this.dbApi
-      .setAccountName(accountId, name)
-      .then((a: DBAccount) => fromDBAccountToAccount(a));
+    const a = await this.dbApi.setAccountName(accountId, name);
+    return fromDBAccountToAccount(a);
   }
 
-  private getOrAddToken(
+  private async getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
   ): Promise<Token | undefined> {
-    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
-    return this.dbApi.getToken(tokenId).then((token) => {
-      if (typeof token === 'undefined') {
-        const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
-        return this.providerManager
-          .getTokenInfos(networkId, [tokenIdOnNetwork])
-          .then(([info]) => {
-            toAdd.id = tokenId;
-            Object.assign(toAdd, info);
-            if (toAdd.decimals === -1) {
-              throw new NotImplemented();
-            }
-            return this.dbApi.addToken(toAdd);
-          });
-      }
+    let noThisToken: undefined;
+    const { normalizedAddress, isValid } =
+      await this.providerManager.verifyTokenAddress(
+        networkId,
+        tokenIdOnNetwork,
+      );
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      return noThisToken;
+    }
+
+    const tokenId = `${networkId}--${normalizedAddress}`;
+    const token = await this.dbApi.getToken(tokenId);
+    if (typeof token !== 'undefined') {
+      // Already exists in db.
       return token;
-    });
+    }
+
+    const toAdd = getPresetToken(networkId, normalizedAddress);
+    const [tokenInfo] = await this.providerManager.getTokenInfos(networkId, [
+      normalizedAddress,
+    ]);
+    if (typeof tokenInfo === 'undefined') {
+      return noThisToken;
+    }
+    return this.dbApi.addToken({ ...toAdd, ...tokenInfo, ...{ id: tokenId } });
   }
 
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
@@ -434,7 +501,7 @@ class Engine {
     return this.dbApi.removeTokenFromAccount(accountId, tokenId);
   }
 
-  preAddToken(
+  async preAddToken(
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
@@ -449,84 +516,254 @@ class Engine {
         `account ${accountId} and network ${networkId} isn't compatible.`,
       );
     }
-    return this.getOrAddToken(networkId, tokenIdOnNetwork).then((token) => {
-      if (typeof token === 'undefined') {
-        return undefined;
-      }
-      return this.dbApi
-        .getAccount(accountId)
-        .then((dbAccount) =>
-          this.providerManager.getBalances(
-            networkId,
-            buildGetBalanceRequest(dbAccount, [tokenIdOnNetwork], false),
-          ),
-        )
-        .then(([balance]) => {
-          if (typeof balance === 'undefined') {
-            return undefined;
-          }
-          return [balance.div(new BigNumber(10).pow(token.decimals)), token];
-        });
-    });
+    const token = await this.getOrAddToken(networkId, tokenIdOnNetwork);
+    if (typeof token === 'undefined') {
+      return undefined;
+    }
+    const dbAccount = await this.dbApi.getAccount(accountId);
+    const [balance] = await this.providerManager.getBalances(
+      networkId,
+      buildGetBalanceRequest(dbAccount, [tokenIdOnNetwork], false),
+    );
+    if (typeof balance === 'undefined') {
+      return undefined;
+    }
+    return [balance.div(new BigNumber(10).pow(token.decimals)), token];
   }
 
-  getTokens(networkId: string, accountId?: string): Promise<Array<Token>> {
+  async getTokens(
+    networkId: string,
+    accountId?: string,
+    withMain = true,
+  ): Promise<Array<Token>> {
     // Get token info by network and account.
-    return this.dbApi
-      .getTokens(networkId, accountId)
-      .then((tokens: Array<Token>) => {
-        if (typeof accountId !== 'undefined') {
-          return tokens;
-        }
-        const existingTokens = new Set(
-          tokens.map((token: Token) => token.tokenIdOnNetwork),
-        );
-
-        return tokens.concat(
-          getPresetTokensOnNetwork(networkId).filter(
-            (token: Token) => !existingTokens.has(token.tokenIdOnNetwork),
-          ),
-        );
-      });
+    const tokens = await this.dbApi.getTokens(networkId, accountId);
+    if (typeof accountId !== 'undefined') {
+      // TODO: add default tokens.
+      if (withMain) {
+        const dbNetwork = await this.dbApi.getNetwork(networkId);
+        tokens.unshift({
+          id: dbNetwork.id,
+          name: dbNetwork.name,
+          networkId,
+          tokenIdOnNetwork: '',
+          symbol: dbNetwork.symbol,
+          decimals: dbNetwork.decimals,
+          logoURI: dbNetwork.logoURI,
+        });
+      }
+      return tokens;
+    }
+    const existingTokens = new Set(
+      tokens.map((token: Token) => token.tokenIdOnNetwork),
+    );
+    return tokens.concat(
+      getPresetTokensOnNetwork(networkId).filter(
+        (token1: Token) => !existingTokens.has(token1.tokenIdOnNetwork),
+      ),
+    );
   }
 
-  // TODO: transfer, sign & broadcast.
-  // transfer
+  getTopTokensOnNetwork(networkId: string, limit = 50): Array<Token> {
+    return getPresetTokensOnNetwork(networkId).slice(0, limit);
+  }
+
+  async searchTokens(
+    networkId: string,
+    searchTerm: string,
+  ): Promise<Array<Token>> {
+    if (searchTerm.length === 0) {
+      return [];
+    }
+
+    const { displayAddress, normalizedAddress, isValid } =
+      await this.providerManager.verifyTokenAddress(networkId, searchTerm);
+
+    if (
+      isValid &&
+      typeof displayAddress !== 'undefined' &&
+      typeof normalizedAddress !== 'undefined'
+    ) {
+      // valid token address, return the specific token.
+      let token = await this.dbApi.getToken(
+        `${networkId}--${normalizedAddress}`,
+      );
+      const addressesToTry = new Set([normalizedAddress, displayAddress]);
+      addressesToTry.forEach((address) => {
+        if (typeof token === 'undefined') {
+          const presetToken = getPresetToken(networkId, address);
+          if (presetToken.decimals !== -1) {
+            token = presetToken;
+          }
+        }
+      });
+      return typeof token !== 'undefined' ? [token] : [];
+    }
+    const matchPattern = new RegExp(searchTerm, 'i');
+    const tokens = await this.getTokens(networkId);
+    return tokens.filter(
+      (token) =>
+        token.name.match(matchPattern) || token.symbol.match(matchPattern),
+    );
+  }
+
+  async prepareTransfer(
+    networkId: string,
+    accountId: string,
+    to: string,
+    value: BigNumber,
+    tokenIdOnNetwork?: string,
+    extra?: { [key: string]: any },
+  ): Promise<BigNumber> {
+    // For account model networks, return the estimated gas usage.
+    // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
+    // TODO: validate to parameter.
+    const [network, account] = await Promise.all([
+      this.getNetwork(networkId),
+      this.getAccount(accountId, networkId),
+    ]);
+    // Below properties are used to avoid redundant network requests.
+    const payload = extra || {};
+    payload.nonce = 1;
+    payload.feePricePerUnit = new BigNumber(1);
+    return this.providerManager.preSend(
+      network,
+      account,
+      to,
+      value,
+      tokenIdOnNetwork,
+      payload,
+    );
+  }
+
+  async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {
+    const ret = await this.providerManager.getGasPrice(networkId);
+    if (ret.length > 0 && ret[0] instanceof BigNumber) {
+      const { feeDecimals } = await this.dbApi.getNetwork(networkId);
+      return (ret as Array<BigNumber>).map((price: BigNumber) =>
+        price.shiftedBy(-feeDecimals),
+      );
+    }
+    return ret;
+  }
+
+  async transfer(
+    password: string,
+    networkId: string,
+    accountId: string,
+    to: string,
+    value: BigNumber,
+    gasPrice: BigNumber,
+    gasLimit: BigNumber,
+    tokenIdOnNetwork?: string,
+    extra?: { [key: string]: any },
+  ): Promise<{ txid: string; success: boolean }> {
+    const [credential, network, account] = await Promise.all([
+      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+      this.getNetwork(networkId),
+      this.getAccount(accountId, networkId),
+    ]);
+    try {
+      const { txid, rawTx, success } =
+        await this.providerManager.simpleTransfer(
+          credential.seed,
+          password,
+          network,
+          account,
+          to,
+          value,
+          tokenIdOnNetwork,
+          {
+            ...extra,
+            feeLimit: gasLimit,
+            feePricePerUnit: gasPrice,
+          },
+        );
+      await this.dbApi.addHistoryEntry(
+        `${networkId}--${txid}`,
+        networkId,
+        accountId,
+        HistoryEntryType.TRANSFER,
+        HistoryEntryStatus.PENDING,
+        {
+          contract: tokenIdOnNetwork || '',
+          target: to,
+          value: value.toFixed(),
+          rawTx,
+        },
+      );
+      return { txid, success };
+    } catch (e) {
+      const { message } = e as { message: string };
+      throw new FailedToTransfer(message);
+    }
+  }
+
+  // TODO: sign & broadcast.
   // signTransaction
   // signMessage
   // broadcastRawTransaction
 
-  listNetworks(enabledOnly = true): Promise<Map<string, Array<NetworkShort>>> {
-    return this.dbApi.listNetworks().then((networks: Array<DBNetwork>) => {
-      const ret: Map<string, Array<NetworkShort>> = new Map(
-        [[IMPL_EVM, []]], // TODO: other implemetations
-      );
-      networks.forEach((network) => {
-        if (enabledOnly && !network.enabled) {
-          return;
-        }
-        if (ret.has(network.impl)) {
-          const tmpL = ret.get(network.impl) || [];
-          tmpL.push({
-            id: network.id,
-            name: network.name,
-            impl: network.impl,
-            symbol: network.symbol,
-            logoURI: network.logoURI,
-            enabled: network.enabled,
-            preset: networkIsPreset(network.id),
-          });
-        } else {
-          throw new OneKeyInternalError(
-            `listNetworks: unknown network implementation ${network.impl}.`,
-          );
+  async getHistory(
+    networkId: string,
+    accountId: string,
+    contract?: string,
+    updatePending = true,
+    limit = 100,
+    before?: number,
+  ): Promise<Array<HistoryEntry>> {
+    const entries = await this.dbApi.getHistory(
+      limit,
+      networkId,
+      accountId,
+      contract,
+      before,
+    );
+    let updatedStatusMap: Record<string, HistoryEntryStatus> = {};
+
+    if (updatePending) {
+      const pendings: Array<string> = [];
+      entries.forEach((entry) => {
+        if (entry.status === HistoryEntryStatus.PENDING) {
+          pendings.push(entry.id);
         }
       });
-      return ret;
+
+      updatedStatusMap = await this.providerManager.refreshPendingTxs(
+        networkId,
+        pendings,
+      );
+      if (Object.keys(updatedStatusMap).length > 0) {
+        await this.dbApi.updateHistoryEntryStatuses(updatedStatusMap);
+      }
+    }
+
+    return entries.map((entry) => {
+      const updatedStatus = updatedStatusMap[entry.id];
+      if (typeof updatedStatus !== 'undefined') {
+        return Object.assign(entry, { status: updatedStatus });
+      }
+      return entry;
     });
   }
 
-  addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
+  removeHistoryEntry(entryId: string): Promise<void> {
+    return this.dbApi.removeHistoryEntry(entryId);
+  }
+
+  async listNetworks(enabledOnly = true): Promise<Array<Network>> {
+    const networks = await this.dbApi.listNetworks();
+    const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
+    return networks
+      .filter(
+        (dbNetwork) =>
+          (enabledOnly ? dbNetwork.enabled : true) &&
+          supportedImpls.has(dbNetwork.impl),
+      )
+      .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
+  }
+
+  async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
     if (impl !== IMPL_EVM) {
       throw new OneKeyInternalError(
         `addNetwork: unsupported implementation ${impl} specified`,
@@ -537,26 +774,23 @@ class Engine {
         'addNetwork: empty value is not allowed for RPC URL.',
       );
     }
-    return this.dbApi
-      .addNetwork(getEVMNetworkToCreate(params))
-      .then((dbObj: DBNetwork) => fromDBNetworkToNetwork(dbObj));
+    const dbObj = await this.dbApi.addNetwork(getEVMNetworkToCreate(params));
+    return fromDBNetworkToNetwork(dbObj);
   }
 
-  getNetwork(networkId: string): Promise<Network> {
-    return this.dbApi
-      .getNetwork(networkId)
-      .then((dbObj: DBNetwork) => fromDBNetworkToNetwork(dbObj));
+  async getNetwork(networkId: string): Promise<Network> {
+    const dbObj = await this.dbApi.getNetwork(networkId);
+    return fromDBNetworkToNetwork(dbObj);
   }
 
-  updateNetworkList(
+  async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Map<string, Array<NetworkShort>>> {
-    return this.dbApi
-      .updateNetworkList(networks)
-      .then(() => this.listNetworks(false));
+  ): Promise<Array<Network>> {
+    await this.dbApi.updateNetworkList(networks);
+    return this.listNetworks(false);
   }
 
-  updateNetwork(
+  async updateNetwork(
     networkId: string,
     params: UpdateNetworkParams,
   ): Promise<Network> {
@@ -576,9 +810,8 @@ class Engine {
       }
     }
     // TODO: chain interaction to check rpc url works correctly.
-    return this.dbApi
-      .updateNetwork(networkId, params)
-      .then((dbObj: DBNetwork) => fromDBNetworkToNetwork(dbObj));
+    const dbObj = await this.dbApi.updateNetwork(networkId, params);
+    return fromDBNetworkToNetwork(dbObj);
   }
 
   deleteNetwork(networkId: string): Promise<void> {
@@ -588,33 +821,116 @@ class Engine {
     return this.dbApi.deleteNetwork(networkId);
   }
 
-  getRPCEndpoints(networkId: string): Promise<Array<string>> {
+  async getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
-    return this.dbApi.getNetwork(networkId).then((network: DBNetwork) => {
-      const { presetRpcURLs } = presetNetworks[networkId] || {
-        presetRpcURLs: [],
-      };
-      return [network.rpcURL].concat(
-        presetRpcURLs.filter((url) => url !== network.rpcURL),
-      );
-    });
+    const network = await this.dbApi.getNetwork(networkId);
+    const presetNetworks = getPresetNetworks();
+    const { presetRpcURLs } = presetNetworks[networkId] || {
+      presetRpcURLs: [],
+    };
+    return [network.rpcURL].concat(
+      presetRpcURLs.filter((url) => url !== network.rpcURL),
+    );
+  }
+
+  async getTxHistories(
+    networkId: string,
+    accountId: string,
+    pageNumber: number,
+    pageSize: number,
+  ) {
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    if (network.impl !== IMPL_EVM) {
+      return { data: null, error: false, errorMessage: null, errorCode: null };
+    }
+
+    if (typeof dbAccount === 'undefined') {
+      return { data: null, error: false, errorMessage: null, errorCode: null };
+    }
+
+    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+      return { data: null, error: false, errorMessage: null, errorCode: null };
+    }
+    const chainId = network.id.split(SEPERATOR)[1];
+
+    return getTxHistories(
+      chainId,
+      (dbAccount as DBSimpleAccount).address,
+      pageNumber,
+      pageSize,
+    );
+  }
+
+  async getErc20TxHistories(
+    networkId: string,
+    accountId: string,
+    contract: string,
+    pageNumber: number,
+    pageSize: number,
+  ) {
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    if (network.impl !== IMPL_EVM) {
+      return { data: null, error: false, errorMessage: null, errorCode: null };
+    }
+
+    if (typeof dbAccount === 'undefined') {
+      return { data: null, error: false, errorMessage: null, errorCode: null };
+    }
+
+    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+      return { data: null, error: false, errorMessage: null, errorCode: null };
+    }
+
+    const chainId = network.id.split(SEPERATOR)[1];
+    return getErc20TransferHistories(
+      chainId,
+      (dbAccount as DBSimpleAccount).address,
+      contract,
+      pageNumber,
+      pageSize,
+    );
   }
 
   // TODO: RPC interactions.
-  // getGasPrice(networkId: string);
-  // estimateGasLimit();
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
-  getPrices(networkId: string, tokens?: Array<string>): Map<string, BigNumber> {
-    // Get price info. Main token price (in fiat) is always included.
-    console.log(`getPrices ${networkId} ${JSON.stringify(tokens || [])}`);
-    throw new NotImplemented();
+  async getPrices(
+    networkId: string,
+    tokenIdsOnNetwork: Array<string>,
+    withMain = true,
+  ): Promise<Record<string, string>> {
+    // Get price info.
+    const ret: Record<string, string> = {};
+    const prices = await this.priceManager.getPrices(
+      networkId,
+      tokenIdsOnNetwork.filter(
+        (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
+      ),
+      withMain,
+    );
+    Object.keys(prices).forEach((k) => {
+      ret[k] = prices[k].toFixed();
+    });
+    return ret;
   }
 
-  listFiats(): Promise<Array<string>> {
-    return new Promise((resolve, _reject) => {
-      resolve(['usd', 'cny', 'jpn', 'hkd']);
+  async listFiats(): Promise<Record<string, string>> {
+    const ret: Record<string, string> = {};
+    const fiats = await this.priceManager.getFiats(
+      new Set(['usd', 'cny', 'jpy', 'hkd']),
+    );
+    Object.keys(fiats).forEach((f) => {
+      ret[f] = fiats[f].sd(6).toFixed();
     });
+    return ret;
   }
 
   setFiat(symbol: string): Promise<void> {
@@ -625,14 +941,31 @@ class Engine {
 
   updatePassword(oldPassword: string, newPassword: string): Promise<void> {
     // Update global password.
-    console.log(`updatePassword ${oldPassword} ${newPassword}`);
-    throw new NotImplemented();
+    return this.dbApi.updatePassword(oldPassword, newPassword);
+  }
+
+  async isMasterPasswordSet(): Promise<boolean> {
+    const context = await this.dbApi.getContext();
+    return (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    );
+  }
+
+  async verifyMasterPassword(password: string): Promise<boolean> {
+    const context = await this.dbApi.getContext();
+    if (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    ) {
+      return checkPassword(context, password);
+    }
+    return true;
   }
 
   resetApp(password: string): Promise<void> {
     // Reset app.
-    console.log(`resetApp ${password}`);
-    throw new NotImplemented();
+    return this.dbApi.reset(password);
   }
 }
 

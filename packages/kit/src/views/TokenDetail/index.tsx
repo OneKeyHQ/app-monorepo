@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { Box, ScrollView, VStack } from '@onekeyhq/components';
-import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
+import { RouteProp, useRoute } from '@react-navigation/core';
 
-import { StackBasicRoutes } from '../../routes';
+import { Network } from '@onekeyhq/engine/src/types/network';
+import { Token } from '@onekeyhq/engine/src/types/token';
+
+import { useNavigation } from '../..';
+import engine from '../../engine/EngineProvider';
+import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
 import { TokenDetailRoutesParams } from './routes';
@@ -13,40 +17,59 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type TokenDetailViewProps = NativeStackScreenProps<
   TokenDetailRoutesParams,
-  StackBasicRoutes.ScreenTokenDetail
+  HomeRoutes.ScreenTokenDetail
 >;
 
-const TOKEN = {
-  'chainId': 1,
-  'address': '0xfF20817765cB7f73d4bde2e66e067E58D11095C2',
-  'name': 'Amp',
-  'symbol': 'AMP',
-  'decimals': 18,
-  'logoURI':
-    'https://assets.coingecko.com/coins/images/12409/thumb/amp-200x200.png?1599625397',
-  'amount': '9999999999.0000123',
-  fiatAmount: '99.11 USD',
-};
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-const TokenDetail: React.FC<TokenDetailViewProps> = ({ route }) => {
-  //   const { defaultValues } = route.params;
+const TokenDetail: React.FC<TokenDetailViewProps> = () => {
+  const navigation = useNavigation();
+  const route = useRoute<RouteProps>();
+  const { accountId, networkId, tokenId } = route.params;
+  const [token, setToken] = useState<Token>();
+  const [network, setNetwork] = useState<Network>();
+  const [ready, setReady] = useState(false);
 
-  console.log(route);
+  useEffect(() => {
+    async function main() {
+      setReady(false);
+      const account = await engine.getAccount(accountId, networkId);
+      const resultNetwork = await engine.getNetwork(networkId);
+      const filterToken = account.tokens.find((t) => t.id === tokenId);
+      setToken(filterToken);
+      setNetwork(resultNetwork);
+      setReady(true);
+
+      let title;
+      if (filterToken) {
+        title = filterToken.name;
+      } else if (resultNetwork) {
+        title = resultNetwork.symbol;
+      } else {
+        title = account.name;
+      }
+      navigation.setOptions({
+        title,
+      });
+    }
+    main();
+  }, [accountId, navigation, networkId, tokenId]);
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        marginHorizontal: 'auto',
-      }}
-    >
-      <VStack>
-        <Box>
-          <TokenInfo token={TOKEN} />
-          <HistoricalRecords />
-        </Box>
-      </VStack>
-    </ScrollView>
+    <HistoricalRecords
+      accountId={ready ? accountId : null}
+      networkId={networkId}
+      tokenId={token?.tokenIdOnNetwork}
+      // 接口修改为 tokenId 时需要更新
+      // tokenId={tokenId}
+      headerView={
+        <TokenInfo
+          accountId={ready ? accountId : null}
+          token={token}
+          network={network}
+        />
+      }
+    />
   );
 };
 export default TokenDetail;

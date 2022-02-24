@@ -17,23 +17,19 @@ const PressableItem: FC<PressableItemProps> = ({ children, ...props }) => {
       onBlur={() => setFocused(false)}
       _hover={{
         bg: 'surface-hovered',
-        borderColor: isFocused ? 'focused-default' : 'surface-hovered',
+        borderColor: isFocused ? '' : '',
       }}
       _focus={{
         bg: 'surface-hovered',
-        borderColor: 'focused-default',
       }}
       _focusVisible={{
         bg: 'surface-hovered',
-        borderColor: 'focused-default',
       }}
       _pressed={{
         bg: 'surface-selected',
         borderColor: 'surface-selected',
       }}
       bg="surface-default"
-      borderWidth="2px"
-      borderColor="surface-default"
       {...props}
     >
       {children}

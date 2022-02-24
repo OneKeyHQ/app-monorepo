@@ -1,7 +1,7 @@
 {
   "name": "@onekeyhq/engine",
   "version": "0.0.1",
-  "main": "./dist/index.js",
+  "main": "./src/index.ts",
   "license": "Apache-2.0",
   "private": true,
   "scripts": {
@@ -20,14 +20,25 @@
     "npm-run-all": "^4.1.5"
   },
   "dependencies": {
-    "@onekeyhq/blockchain-libs": "^0.0.16",
-    "@sushiswap/default-token-list": "^20.17.0",
+    "@onekeyfe/default-token-list": "^1.0.5",
+    "@onekeyfe/network-list": "^1.0.5",
+    "@onekeyfe/blockchain-libs": "^0.0.23",
+    "axios": "^0.25.0",
     "bignumber.js": "^9.0.1",
     "bip39": "^3.0.4",
     "bs58": "^4.0.1",
     "buffer": "^6.0.3",
+    "camelcase-keys": "^7.0.2",
     "crypto-browserify": "^3.12.0",
     "elliptic": "^6.5.4",
     "fake-indexeddb": "^3.1.7"
+  },
+  "react-native": {
+    "./src/dbs/indexed": "./src/dbs/realms",
+    "realm": "realm"
+  },
+  "browser": {
+    "realm": false,
+    "fake-indexeddb/auto": false
   }
 }

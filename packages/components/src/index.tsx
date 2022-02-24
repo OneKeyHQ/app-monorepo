@@ -20,7 +20,6 @@ export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
 export { default as HeaderTabViewContainer } from './HeaderTabViewContainer';
-export { default as Layout } from './Layout';
 export { default as Markdown } from './Markdown';
 export { default as Modal } from './Modal';
 export { default as PinCode } from './PinCode';
@@ -58,11 +57,14 @@ export { default as RadioFee } from './RadioFee';
 export { default as Spacer } from './Spacer';
 export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 export { default as KeyboardDismissView } from './KeyboardDismissView';
+export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
+export { default as LottieView } from './LottieView';
 
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
 
-export { useForm, Controller } from 'react-hook-form';
+export { useForm, Controller, useWatch } from 'react-hook-form';
+export type { Control } from 'react-hook-form';
 
 export { utils };
 export type { ICON_NAMES } from './Icon/Icons';

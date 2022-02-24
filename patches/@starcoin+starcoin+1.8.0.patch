@@ -1,0 +1,13 @@
+diff --git a/node_modules/@starcoin/starcoin/dist/starcoin.js b/node_modules/@starcoin/starcoin/dist/starcoin.js
+index 8431cd1..07fc477 100644
+--- a/node_modules/@starcoin/starcoin/dist/starcoin.js
++++ b/node_modules/@starcoin/starcoin/dist/starcoin.js
+@@ -6817,7 +6817,7 @@ var Signer = /*#__PURE__*/function () {
+ 
+       return Promise.resolve(properties$1.resolveProperties(_this6.checkTransaction(transaction))).then(function (tx) {
+         return Promise.resolve(_this6.provider.dryRun(tx)).then(function (txnOutput) {
+-          return typeof txnOutput.gas_used === 'number' ? 3 * txnOutput.gas_used : 3n * txnOutput.gas_used.valueOf();
++          return typeof txnOutput.gas_used === 'number' ? 3 * txnOutput.gas_used : BigInt(3) * txnOutput.gas_used.valueOf();
+         });
+       });
+     } catch (e) {

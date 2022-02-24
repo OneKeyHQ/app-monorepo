@@ -87,7 +87,7 @@ export const Toast: FC<ToastProps> = ({
     >
       <Column>
         <Row space={2} alignItems="center" justifyContent="space-between">
-          <Row space="12px" alignItems="center">
+          <Row alignItems="center">
             {status ? (
               <Box padding="3px">
                 <Icon
@@ -100,24 +100,28 @@ export const Toast: FC<ToastProps> = ({
             {status ? (
               <Typography.Body2>{title}</Typography.Body2>
             ) : (
-              <Typography.Body1 color={textColor}>{title}</Typography.Body1>
+              <Typography.Body1 color={textColor} textAlign="center">
+                {title}
+              </Typography.Body1>
             )}
           </Row>
 
-          <IconButton
-            padding="2px"
-            display={dismiss ? 'flex' : 'none'}
-            icon={
-              <Icon
-                size={20}
-                name="CloseOutline"
-                color={status ? 'icon-default' : iconColor}
-              />
-            }
-            onPress={() => {
-              setDisplay(false);
-            }}
-          />
+          {dismiss ? (
+            <IconButton
+              padding="2px"
+              display={dismiss ? 'flex' : 'none'}
+              icon={
+                <Icon
+                  size={20}
+                  name="CloseOutline"
+                  color={status ? 'icon-default' : iconColor}
+                />
+              }
+              onPress={() => {
+                setDisplay(false);
+              }}
+            />
+          ) : null}
         </Row>
         <Box display={description ? 'flex' : 'none'} pl="32px" pt="8px">
           <Typography.Body2 color="text-subdued">

@@ -1,55 +1,58 @@
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
-import {
-  Box,
-  HStack,
-  Icon,
-  Pressable,
-  Toast,
-  Typography,
-  useToast,
-} from '@onekeyhq/components';
-import { StackBasicRoutes, StackRoutesParams } from '@onekeyhq/kit/src/routes';
+import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
+
+import { useHelpLink } from '../../../hooks/useHelpLink';
+import { useToast } from '../../../hooks/useToast';
+import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  StackRoutesParams,
-  StackBasicRoutes.SettingsScreen
+  HomeRoutesParams,
+  HomeRoutes.SettingsScreen
 >;
 
 export const AboutSection = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
+  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
   const onCheckUpdate = useCallback(() => {
-    toast.show({
-      render: () => (
-        <Toast
-          title={intl.formatMessage({
-            id: 'msg__the_current_version_is_the_latest',
-            defaultMessage: '👏 The current version is the latest',
-          })}
-        />
-      ),
-    });
+    toast.info(
+      intl.formatMessage({
+        id: 'msg__the_current_version_is_the_latest',
+        defaultMessage: '👏 The current version is the latest',
+      }),
+    );
   }, [intl, toast]);
-  const openUrl = useCallback(
+  const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
-      console.log('title', title);
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(StackBasicRoutes.SettingsWebviewScreen);
+        navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
+          url,
+          title,
+        });
       } else {
         window.open(url, '_blank');
       }
     },
     [navigation],
   );
+  const openLinkUrl = useCallback((url: string) => {
+    if (['android', 'ios'].includes(Platform.OS)) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }, []);
   return (
     <Box w="full" mb="4">
       <Box p="2">
@@ -107,8 +110,8 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrl(
-              'https://help.onekey.so/hc/zh-cn/articles/360002014776',
+            openWebViewUrl(
+              userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
                 defaultMessage: 'User Agreement',
@@ -135,8 +138,8 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrl(
-              'https://help.onekey.so/hc/zh-cn/articles/360002003315',
+            openWebViewUrl(
+              privacyPolicyUrl,
               intl.formatMessage({
                 id: 'form__privacy_policy',
                 defaultMessage: 'Privacy Policy',
@@ -163,11 +166,10 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrl(
+            openWebViewUrl(
               'https://www.onekey.so',
               intl.formatMessage({
                 id: 'form__website',
-                defaultMessage: 'Office Website',
               }),
             )
           }
@@ -175,7 +177,6 @@ export const AboutSection = () => {
           <Typography.Body1>
             {intl.formatMessage({
               id: 'form__website',
-              defaultMessage: 'Office Website',
             })}
           </Typography.Body1>
           <HStack space="2" alignItems="center">
@@ -193,14 +194,12 @@ export const AboutSection = () => {
           p="4"
           borderBottomWidth="1"
           borderBottomColor="divider"
-          onPress={() =>
-            openUrl('https://www.discord.gg/nwUJaTzjzv', 'Discord')
-          }
+          onPress={() => openLinkUrl('https://www.discord.gg/onekey')}
         >
           <Typography.Body1>Discord</Typography.Body1>
           <HStack space="2" alignItems="center">
             <Typography.Body2 color="text-success">
-              discord.gg/nwUJaTzjzv
+              discord.gg/onekey
             </Typography.Body2>
             <Icon name="ExternalLinkOutline" color="text-success" size={14} />
           </HStack>
@@ -211,7 +210,7 @@ export const AboutSection = () => {
           justifyContent="space-between"
           alignItems="center"
           p="4"
-          onPress={() => openUrl('https://www.twitter.com/onekeyhq', 'Twitter')}
+          onPress={() => openLinkUrl('https://www.twitter.com/onekeyhq')}
         >
           <Typography.Body1>Twitter</Typography.Body1>
           <HStack space="2" alignItems="center">

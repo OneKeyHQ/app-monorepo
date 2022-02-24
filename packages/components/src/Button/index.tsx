@@ -1,4 +1,10 @@
-import React, { ComponentProps, FC } from 'react';
+import React, {
+  ComponentProps,
+  FC,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
 
 import { Button as NativeBaseButton, Text } from 'native-base';
 
@@ -419,4 +425,37 @@ const Button: FC<
   );
 };
 
-export default Button;
+type OkButtonProps = {
+  onPromise?: () => Promise<any>;
+};
+
+const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
+  onPress,
+  onPromise,
+  isLoading,
+  ...props
+}) => {
+  const [loading, setLoading] = useState(isLoading);
+  const handlePress = useCallback(() => {
+    if (onPromise && typeof isLoading === 'undefined') {
+      setLoading(true);
+      setTimeout(() => {
+        try {
+          onPromise?.().finally(() => setLoading(false));
+        } catch {
+          setLoading(false);
+        }
+      });
+    } else if (onPress) {
+      onPress?.();
+    }
+  }, [onPress, onPromise, setLoading, isLoading]);
+  useEffect(() => {
+    if (typeof isLoading !== 'undefined') {
+      setLoading(isLoading);
+    }
+  }, [isLoading]);
+  return <Button {...props} onPress={handlePress} isLoading={loading} />;
+};
+
+export default OkButton;

@@ -1,13 +1,17 @@
-export enum ManageTokenModalRoutes {
-  ListTokensModal = 'ListTokensModal',
-  AddTokenModal = 'AddTokenModal',
-  AddCustomTokenModal = 'AddCustomTokenModal',
+export enum ManageTokenRoutes {
+  Listing = 'ListTokensModal',
+  AddToken = 'AddToken',
+  CustomToken = 'CustomToken',
 }
 
 export type ManageTokenRoutesParams = {
-  [ManageTokenModalRoutes.ListTokensModal]: undefined;
-  [ManageTokenModalRoutes.AddTokenModal]: undefined;
-  [ManageTokenModalRoutes.AddCustomTokenModal]:
-    | { address?: string }
-    | undefined;
+  [ManageTokenRoutes.Listing]: undefined;
+  [ManageTokenRoutes.AddToken]: {
+    name: string;
+    symbol: string;
+    address: string;
+    decimal: number;
+    logoURI: string;
+  };
+  [ManageTokenRoutes.CustomToken]: { address?: string } | undefined;
 };

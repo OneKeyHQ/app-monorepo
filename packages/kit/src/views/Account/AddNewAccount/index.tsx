@@ -8,7 +8,6 @@ import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
-  ModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +29,7 @@ type NavigationProps = NativeStackNavigationProp<
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const { control } = useForm<PrivateKeyFormValues>();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
   return (
     <Modal
@@ -41,75 +41,67 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       scrollViewProps={{
         children: (
           <>
-            <Box
-              w="full"
-              display="flex"
-              flexDirection="row"
-              justifyContent="center"
-              zIndex={999}
-            >
-              <Form w="full" zIndex={999}>
-                <Form.Item
-                  name="network"
-                  control={control}
-                  label={intl.formatMessage({ id: 'network__network' })}
-                  helpText={intl.formatMessage({
-                    id: 'form__network_helperText',
-                  })}
-                  defaultValue="https://rpc.onekey.so/eth"
-                  formControlProps={{ zIndex: 999 }}
-                >
-                  <Form.Select
-                    title={intl.formatMessage({ id: 'network__network' })}
-                    footer={null}
-                    containerProps={{
-                      zIndex: 999,
-                      padding: 0,
-                    }}
-                    triggerProps={{
-                      py: 2,
-                    }}
-                    options={[
-                      {
-                        label: 'https://google.com',
-                        value: 'https://google.com',
-                      },
-                      {
-                        label: 'https://rpc.onekey.so/eth',
-                        value: 'https://rpc.onekey.so/eth',
-                      },
-                      {
-                        label: 'https://baidu.com',
-                        value: 'https://baidu.com',
-                      },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="name"
-                  label={intl.formatMessage({ id: 'form__account_name' })}
-                  control={control}
-                >
-                  <Form.Input />
-                </Form.Item>
-              </Form>
-            </Box>
-            <Box alignItems="center" mt="6">
-              <Typography.Body1>
-                {intl.formatMessage({
-                  id: 'account__restore_a_previously_used_account',
+            <Form w="full" zIndex={999} h="full">
+              <Form.Item
+                name="network"
+                control={control}
+                label={intl.formatMessage({ id: 'network__network' })}
+                helpText={intl.formatMessage({
+                  id: 'form__network_helperText',
                 })}
-              </Typography.Body1>
-              <Typography.Body1
-                onPress={() =>
-                  navigation.navigate(ModalRoutes.RecoveryAccountForm)
-                }
+                defaultValue="https://rpc.onekey.so/eth"
+                formControlProps={{ zIndex: 999 }}
               >
-                {intl.formatMessage({
-                  id: 'action__recover_accounts',
-                })}
-              </Typography.Body1>
-            </Box>
+                <Form.Select
+                  title={intl.formatMessage({ id: 'network__network' })}
+                  footer={null}
+                  containerProps={{
+                    zIndex: 999,
+                    padding: 0,
+                  }}
+                  triggerProps={{
+                    py: 2,
+                  }}
+                  options={[
+                    {
+                      label: 'https://google.com',
+                      value: 'https://google.com',
+                    },
+                    {
+                      label: 'https://rpc.onekey.so/eth',
+                      value: 'https://rpc.onekey.so/eth',
+                    },
+                    {
+                      label: 'https://baidu.com',
+                      value: 'https://baidu.com',
+                    },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item
+                name="name"
+                label={intl.formatMessage({ id: 'form__account_name' })}
+                control={control}
+              >
+                <Form.Input />
+              </Form.Item>
+              <Box alignItems="center" mt="6">
+                <Typography.Body1>
+                  {intl.formatMessage({
+                    id: 'account__restore_a_previously_used_account',
+                  })}
+                </Typography.Body1>
+                <Typography.Body1
+                // onPress={() =>
+                //   navigation.navigate(ModalRoutes.RecoveryAccountForm)
+                // }
+                >
+                  {intl.formatMessage({
+                    id: 'action__recover_accounts',
+                  })}
+                </Typography.Body1>
+              </Box>
+            </Form>
           </>
         ),
       }}

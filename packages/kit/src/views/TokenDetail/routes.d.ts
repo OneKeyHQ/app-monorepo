@@ -1,5 +1,4 @@
-// eslint-disable-next-line import/no-cycle
-import { StackBasicRoutes } from '../../routes';
+import { HomeRoutes } from '../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -10,12 +9,10 @@ export type TokenDetailScreenValues = {
 };
 
 export type TokenDetailRoutesParams = {
-  [StackBasicRoutes.ScreenTokenDetail]: {
-    defaultValues: TokenDetailScreenValues;
-  };
+  [HomeRoutes.ScreenTokenDetail]: TokenDetailScreenValues;
 };
 
 export type TokenDetailNavigation = NativeStackNavigationProp<
   TokenDetailRoutesParams,
-  StackBasicRoutes
+  HomeRoutes.ScreenTokenDetail
 >;

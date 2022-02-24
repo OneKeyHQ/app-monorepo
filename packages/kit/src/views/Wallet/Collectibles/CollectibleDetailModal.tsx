@@ -1,7 +1,8 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -10,44 +11,26 @@ import {
   Icon,
   Image,
   Modal,
+  Spinner,
   Typography,
   VStack,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getUserAsset } from '@onekeyhq/engine/src/managers/opensea';
+import { OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
 import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 
-import { ASSETS } from './data';
-import { SelectedAsset } from './types';
-
-const getAsset = (id: string | number): SelectedAsset | null => {
-  const collectible = ASSETS.find((col) =>
-    col.assets.find((asset) => String(asset.id) === String(id)),
-  );
-
-  if (!collectible) {
-    return null;
-  }
-
-  const asset = collectible.assets.find(
-    (item) => String(item.id) === String(id),
-  );
-
-  if (!asset) {
-    return null;
-  }
-
-  return {
-    ...asset,
-    chain: collectible.chain,
-    contractAddress: collectible.contract.address,
-  };
-};
+const MODAL_PADDING = 8;
 
 const CollectibleDetailModal: FC = () => {
   const intl = useIntl();
-
+  const { width } = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  // use modal content width 352px on larger screens
+  const imageWidth = isSmallScreen ? width - MODAL_PADDING * 2 : 352;
   const route =
     useRoute<
       RouteProp<
@@ -55,15 +38,42 @@ const CollectibleDetailModal: FC = () => {
         CollectiblesModalRoutes.CollectibleDetailModal
       >
     >();
-  const { assetId } = route.params;
-  const asset = getAsset(assetId);
+  const { tokenId, contractAddress, chainName, chainId } = route.params;
+  const [asset, setAsset] = useState<OpenSeaAsset | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  if (!asset) return null;
+  useEffect(() => {
+    if (!contractAddress || !tokenId) {
+      return;
+    }
+
+    (async () => {
+      setIsLoading(true);
+      try {
+        const assetFromBe = await getUserAsset({
+          chainId,
+          contractAddress,
+          tokenId: tokenId.toString(),
+        });
+        setAsset(assetFromBe);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [tokenId, contractAddress, chainId]);
+
+  if (!asset) {
+    return isLoading ? (
+      <Center flex={1}>
+        <Spinner size="lg" />
+      </Center>
+    ) : null;
+  }
 
   return (
     <Modal
-      header={asset.name ?? ''}
       footer={null}
+      height="640px"
       scrollViewProps={{
         pt: 4,
         children: (
@@ -73,8 +83,8 @@ const CollectibleDetailModal: FC = () => {
               alt={`image of ${
                 typeof asset.name === 'string' ? asset.name : 'nft'
               }`}
-              height={333}
-              width={333}
+              height={imageWidth}
+              width={imageWidth}
               borderRadius="20px"
               src={
                 asset.imageUrl ??
@@ -84,26 +94,47 @@ const CollectibleDetailModal: FC = () => {
               }
               fallbackElement={
                 <Center
-                  width="100%"
+                  width={imageWidth}
                   height="333px"
                   bgColor="surface-default"
                   borderRadius="20px"
                 >
-                  <Icon name="QuestionMarkOutline" size={233} />
+                  <Icon name="QuestionMarkCircleOutline" size={166} />
                 </Center>
               }
             />
 
             <VStack mt={6} space={6} w="100%">
+              {/* Asset name and collection name */}
               <VStack>
-                <Typography.DisplayLarge>{asset.name}</Typography.DisplayLarge>
-                <Typography.Body2 color="text-subdued">
-                  {asset.description}
-                </Typography.Body2>
+                <Typography.DisplayLarge fontWeight="700">
+                  {asset.name}
+                </Typography.DisplayLarge>
+                {!!asset.collection.name && (
+                  <Typography.Body2 color="text-subdued">
+                    {asset.collection.name}
+                  </Typography.Body2>
+                )}
               </VStack>
+
+              {/* Description */}
+              {!!asset.description && (
+                <VStack space={3}>
+                  <Typography.Heading fontWeight="600">
+                    {intl.formatMessage({ id: 'content__description' })}
+                  </Typography.Heading>
+                  <Typography.Body2 color="text-subdued">
+                    {asset.description}
+                  </Typography.Body2>
+                </VStack>
+              )}
+
+              {/* traits */}
               {!!asset.traits?.length && (
                 <VStack space={3}>
-                  <Typography.Heading>Attributes</Typography.Heading>
+                  <Typography.Heading>
+                    {intl.formatMessage({ id: 'content__attributes' })}
+                  </Typography.Heading>
                   <Box flexDirection="row" flexWrap="wrap">
                     {asset.traits.map((trait, index) => (
                       <Box
@@ -116,7 +147,10 @@ const CollectibleDetailModal: FC = () => {
                         bgColor="surface-default"
                         borderRadius="12px"
                       >
-                        <Typography.Caption>
+                        <Typography.Caption
+                          color="text-subdued"
+                          textTransform="uppercase"
+                        >
                           {trait.traitType}
                         </Typography.Caption>
                         <Typography.Body2>{trait.value}</Typography.Body2>
@@ -126,8 +160,11 @@ const CollectibleDetailModal: FC = () => {
                 </VStack>
               )}
 
+              {/* Details */}
               <VStack>
-                <Typography.Heading>Details</Typography.Heading>
+                <Typography.Heading>
+                  {intl.formatMessage({ id: 'content__details' })}
+                </Typography.Heading>
                 <Box
                   flexDirection="row"
                   alignItems="flex-start"
@@ -146,7 +183,7 @@ const CollectibleDetailModal: FC = () => {
                     {asset.tokenId}
                   </Typography.Body1Strong>
                 </Box>
-                {!!asset.chain && (
+                {!!chainName && (
                   <>
                     <Divider />
                     <Box
@@ -166,12 +203,12 @@ const CollectibleDetailModal: FC = () => {
                         textAlign="right"
                         numberOfLines={999}
                       >
-                        {asset.chain}
+                        {chainName}
                       </Typography.Body1Strong>
                     </Box>
                   </>
                 )}
-                {!!asset.contractAddress && (
+                {!!contractAddress && (
                   <>
                     <Divider />
                     <Box
@@ -193,7 +230,7 @@ const CollectibleDetailModal: FC = () => {
                         textAlign="right"
                         numberOfLines={999}
                       >
-                        {asset.contractAddress}
+                        {contractAddress}
                       </Typography.Body1Strong>
                     </Box>
                   </>

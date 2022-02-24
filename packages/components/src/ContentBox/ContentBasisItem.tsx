@@ -9,7 +9,8 @@ import { ContentItemBaseProps } from './Container';
 export type ContentItemProps = {
   title: string;
   value?: string;
-  describe?: string;
+  describe?: string | string[] | null;
+  custom?: React.ReactNode | null;
 } & ContentItemBaseProps;
 
 const ContentItem: FC<ContentItemProps> = ({
@@ -18,6 +19,7 @@ const ContentItem: FC<ContentItemProps> = ({
   describe,
   hasDivider,
   children,
+  custom,
 }) => (
   <Box w="100%" flexDirection="column">
     <Box
@@ -44,18 +46,38 @@ const ContentItem: FC<ContentItemProps> = ({
       >
         {!!children && children}
         {!!value && (
-          <Typography.Body1Strong
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             w="100%"
             color="text-default"
             textAlign="right"
           >
             {value}
-          </Typography.Body1Strong>
+          </Text>
         )}
-        {!!describe && (
-          <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
-            {describe}
-          </Typography.Body2>
+        {!!describe &&
+          describe.length > 0 &&
+          (describe instanceof Array ? (
+            describe.map((describeItem) => (
+              <>
+                <Typography.Body2
+                  w="100%"
+                  color="text-subdued"
+                  textAlign="right"
+                >
+                  {describeItem}
+                </Typography.Body2>
+              </>
+            ))
+          ) : (
+            <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
+              {describe}
+            </Typography.Body2>
+          ))}
+        {!!custom && (
+          <Box w="100%" mt={2} flexDirection="row" justifyContent="flex-end">
+            {custom}
+          </Box>
         )}
       </Box>
     </Box>

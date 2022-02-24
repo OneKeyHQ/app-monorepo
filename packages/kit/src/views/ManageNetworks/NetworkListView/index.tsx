@@ -2,7 +2,9 @@ import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Modal, Toast, useToast, useUserDevice } from '@onekeyhq/components';
+import { Modal, useUserDevice } from '@onekeyhq/components';
+
+import { useToast } from '../../../hooks/useToast';
 
 import { DiscardAlert } from './DiscardAlert';
 import { DisplayView } from './DisplayView';
@@ -32,16 +34,12 @@ export const NetworkListView: FC = () => {
 
   const onToggle = useCallback(() => {
     if (editable) {
-      toast.show({
-        render: () => (
-          <Toast
-            title={intl.formatMessage({
-              id: 'msg__change_saved',
-              defaultMessage: 'Change saved!',
-            })}
-          />
-        ),
-      });
+      toast.info(
+        intl.formatMessage({
+          id: 'msg__change_saved',
+          defaultMessage: 'Change saved!',
+        }),
+      );
     }
     setEditable(!editable);
   }, [editable, intl, toast]);
@@ -53,6 +51,7 @@ export const NetworkListView: FC = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__customize_network' })}
+      height="560px"
       onClose={onPrepareClose}
       hidePrimaryAction
       secondaryActionProps={{
@@ -61,16 +60,19 @@ export const NetworkListView: FC = () => {
         w: size === 'SMALL' ? 'full' : undefined,
       }}
       secondaryActionTranslationId={secondaryActionTranslationId}
-    >
-      <>
-        {children}
-        <DiscardAlert
-          visible={alertOpened}
-          onConfirm={onCloseModal}
-          onClose={onCloseAlert}
-        />
-      </>
-    </Modal>
+      scrollViewProps={{
+        children: (
+          <>
+            {children}
+            <DiscardAlert
+              visible={alertOpened}
+              onConfirm={onCloseModal}
+              onClose={onCloseAlert}
+            />
+          </>
+        ),
+      }}
+    />
   );
 };
 

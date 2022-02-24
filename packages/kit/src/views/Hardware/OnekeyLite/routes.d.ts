@@ -1,18 +1,53 @@
-import { StackBasicRoutes } from '../../../routes';
+export enum OnekeyLiteModalRoutes {
+  OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
+  OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
+  OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
+}
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-export type OnekeyLiteDetailScreenValues = {
-  liteId: string;
-};
-
-export type OnekeyLiteDetailRoutesParams = {
-  [StackBasicRoutes.ScreenOnekeyLiteDetail]: {
-    defaultValues: OnekeyLiteDetailScreenValues;
+export type OnekeyLiteRoutesParams = {
+  [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: {
+    callBack: (pwd: string) => boolean;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: {
+    pwd: string;
+    onRetry: () => void;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: {
+    pwd: string;
+    backupData: string;
+    onRetry: () => void;
   };
 };
 
-export type TokenDetailNavigation = NativeStackNavigationProp<
-  OnekeyLiteDetailRoutesParams,
-  StackBasicRoutes
->;
+// Reset 相关
+export enum OnekeyLiteResetModalRoutes {
+  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
+}
+
+export type OnekeyLiteResetRoutesParams = {
+  [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: undefined;
+};
+
+// Change Pin 相关
+export enum OnekeyLiteChangePinModalRoutes {
+  OnekeyLiteChangePinInputPinModal = 'OnekeyLiteChangePinInputPinModal',
+  OnekeyLiteChangePinSetModal = 'OnekeyLiteChangePinSetModal',
+  OnekeyLiteChangePinRepeatModal = 'OnekeyLiteChangePinRepeatModal',
+  OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
+}
+
+export type OnekeyLiteChangePinRoutesParams = {
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: undefined;
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal]: {
+    currentPin: string;
+  };
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal]: {
+    currentPin: string;
+    newPin: string;
+  };
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal]: {
+    oldPin: string;
+    newPin: string;
+    onRetry: () => void;
+  };
+};

@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps, FC, useCallback } from 'react';
 
 import { Button, Center, ScrollView, Stack } from '@onekeyhq/components';
 
@@ -49,11 +49,65 @@ const ButtonSet: FC<SetProps> = ({ size }) => (
     >
       Button
     </Button>
-    <Button type="outline" rightIconName="AcademicCapSolid" size={size} mb="2">
-      Button
-    </Button>
   </Stack>
 );
+
+const ButtonUsePromise = () => {
+  const onPromise = useCallback(
+    () =>
+      new Promise((resolve, reject) => {
+        setTimeout(() => {
+          if (Math.random() < 0.5) {
+            resolve('OK');
+          } else {
+            reject();
+          }
+        }, 2000);
+      }),
+    [],
+  );
+  return (
+    <Stack
+      direction="row"
+      space="2"
+      mb="2"
+      py="2"
+      alignItems="center"
+      flexWrap="wrap"
+      justifyContent="center"
+    >
+      <Button
+        type="primary"
+        rightIconName="AcademicCapSolid"
+        size="xl"
+        mb="2"
+        onPromise={onPromise}
+      >
+        use Promise
+      </Button>
+      <Button
+        type="primary"
+        rightIconName="AcademicCapSolid"
+        size="xl"
+        mb="2"
+        isLoading={false}
+        onPromise={onPromise}
+      >
+        use Promise(disabled by isLoading)
+      </Button>
+      <Button
+        type="primary"
+        rightIconName="AcademicCapSolid"
+        size="xl"
+        mb="2"
+        onPress={() => {}}
+        onPromise={onPromise}
+      >
+        use Promise(disabled by onPress)
+      </Button>
+    </Stack>
+  );
+};
 
 const Buttons = () => (
   <Center flex="1" bg="background-hovered">
@@ -64,6 +118,7 @@ const Buttons = () => (
         <ButtonSet size="base" />
         <ButtonSet size="lg" />
         <ButtonSet size="xl" />
+        <ButtonUsePromise />
       </Stack>
     </ScrollView>
   </Center>

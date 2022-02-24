@@ -5,100 +5,143 @@ import { IntlShape, useIntl } from 'react-intl';
 import {
   Address,
   Box,
-  Button,
+  Center,
+  HStack,
   Icon,
   Text,
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import {
+  TokenType,
+  Transaction,
+  TransactionType,
+  TxStatus,
+} from '@onekeyhq/engine/src/types/covalent';
+import { Network } from '@onekeyhq/engine/src/types/network';
 
+import {
+  formatBalanceDisplay,
+  useFormatCurrencyDisplay,
+} from '../../../components/Format';
 import { formatDate } from '../../../utils/DateUtils';
+import NFTView from '../nftView';
 
-export type TransactionType = 'Send' | 'Receive' | 'Approve';
+import {
+  getSwapReceive,
+  getSwapTransfer,
+  getTransferAmount,
+  getTransferAmountFiat,
+  getTransferNFTList,
+} from './utils';
+
 export type TransactionState = 'pending' | 'dropped' | 'failed' | 'success';
-
-export type Transaction = {
-  type?: TransactionType;
-  state?: TransactionState;
-  chainId: number;
-  txId: string;
-  amount: number;
-  to: string;
-  date: Date;
-  confirmed: number;
-  approveInfo?: { token: string; url: string };
-};
 
 export type TransactionRecordProps = {
   transaction: Transaction;
+  network?: Network | undefined;
 };
 
 export const getTransactionStatusStr = (
   intl: IntlShape,
-  state: TransactionState = 'pending',
+  state: TxStatus = TxStatus.Pending,
 ): string => {
-  const stringKeys: Record<TransactionState, string> = {
-    'pending': 'transaction__pending',
-    'success': 'transaction__success',
-    'failed': 'transaction__failed',
-    'dropped': 'transaction__dropped',
+  const stringKeys: Record<TxStatus, string> = {
+    'Pending': 'transaction__pending',
+    'Confirmed': 'transaction__success',
+    'Failed': 'transaction__failed',
+    // 'dropped': 'transaction__dropped',
   };
   return intl.formatMessage({
     id: stringKeys[state],
   });
 };
 
+const getTransactionStatusColor = (
+  state: TxStatus = TxStatus.Pending,
+): string => {
+  const stringKeys: Record<TxStatus, string> = {
+    'Pending': 'text-warning',
+    'Confirmed': 'text-subdued',
+    'Failed': 'text-critical',
+    // 'dropped': 'text-critical',
+  };
+  return stringKeys[state];
+};
+
 const getTransactionTypeStr = (
   intl: IntlShape,
   transaction: Transaction,
 ): string => {
-  if (transaction.type === 'Approve' && transaction?.approveInfo?.token) {
-    return intl.formatMessage(
-      { id: 'transaction__approve_token_spend_limit' },
-      { token: transaction.approveInfo.token },
-    );
-  }
+  // if (transaction.type === 'Approve' && transaction?.approveInfo?.token) {
+  //   return intl.formatMessage(
+  //     { id: 'transaction__approve_token_spend_limit' },
+  //     { token: transaction.approveInfo.token },
+  //   );
+  // }
 
   const stringKeys: Record<TransactionType, string> = {
-    'Send': 'action__send',
+    'Transfer': 'action__send',
     'Receive': 'action__receive',
-    'Approve': 'action__send',
+    'Swap': 'transaction__exchange',
+    'ContractExecution': 'transaction__multicall',
+    // 'Approve': 'action__send',
   };
   return intl.formatMessage({
-    id: stringKeys[transaction.type ?? 'Send'],
+    id: stringKeys[transaction.type ?? 'Transfer'],
   });
 };
 
-const getTransactionStatusColor = (
-  state: TransactionState = 'pending',
-): string => {
-  const stringKeys: Record<TransactionState, string> = {
-    'pending': 'text-warning',
-    'success': 'text-subdued',
-    'failed': 'text-critical',
-    'dropped': 'text-critical',
-  };
-  return stringKeys[state];
-};
-
 const getTransactionTypeIcon = (
-  state: TransactionType = 'Send',
+  state: TransactionType = TransactionType.Transfer,
 ): ICON_NAMES => {
   const stringKeys: Record<TransactionType, ICON_NAMES> = {
-    'Send': 'ArrowUpSolid',
+    'Transfer': 'ArrowUpSolid',
     'Receive': 'ArrowDownSolid',
-    'Approve': 'BadgeCheckSolid',
+    'Swap': 'SwitchHorizontalSolid',
+    'ContractExecution': 'ArrowUpSolid',
+    // 'Approve': 'BadgeCheckSolid',
   };
   return stringKeys[state];
 };
 
-const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
+const TransactionRecord: FC<TransactionRecordProps> = ({
+  transaction,
+  network,
+}) => {
   const { size } = useUserDevice();
   const intl = useIntl();
 
+  const renderNFTImages = useCallback(
+    () => (
+      <HStack space={2} mt={2}>
+        {getTransferNFTList(transaction).map((nft, index) => {
+          if (index < 2) {
+            return <NFTView src={nft} key={nft} size={24} />;
+          }
+          if (index === 2) {
+            return (
+              <Center width={24} height={24}>
+                <Icon size={5} name="DotsHorizontalSolid" />
+              </Center>
+            );
+          }
+          return null;
+        })}
+      </HStack>
+    ),
+    [transaction],
+  );
+
+  // 转账、收款、合约执行 展示余额
   const displayAmount = useCallback(() => {
-    if (transaction.type === 'Receive' || transaction.type === 'Send') {
+    if (
+      transaction.type === 'Receive' ||
+      transaction.type === 'Transfer' ||
+      transaction.type === 'Swap' ||
+      transaction.type === 'ContractExecution'
+    ) {
       return true;
     }
     return false;
@@ -110,30 +153,63 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
         <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
           {getTransactionTypeStr(intl, transaction)}
         </Text>
-        <Typography.Body2 color={getTransactionStatusColor(transaction.state)}>
-          {transaction.state === 'success'
-            ? formatDate(transaction.date)
-            : getTransactionStatusStr(intl, transaction.state)}
+        <Typography.Body2
+          color={getTransactionStatusColor(transaction.successful)}
+        >
+          {transaction.successful === TxStatus.Confirmed
+            ? formatDate(new Date(transaction.blockSignedAt))
+            : getTransactionStatusStr(intl, transaction.successful)}
         </Typography.Body2>
       </Box>
     ),
     [intl, transaction],
   );
 
-  const amountInfo = useCallback(
-    () => (
-      <Box alignItems="flex-end" minW="156px">
-        <Typography.Body1Strong>
-          {transaction.type === 'Send' ?? '-'}
-          {transaction.amount}
-        </Typography.Body1Strong>
-        <Typography.Body2 color="text-subdued">
-          {transaction.type === 'Send' ?? '-'}99.89 USD
+  const amountFiat = useFormatCurrencyDisplay([
+    getTransferAmountFiat(transaction).balance,
+  ]);
+
+  const amountInfo = useCallback(() => {
+    if (transaction?.type === TransactionType.Swap) {
+      return (
+        <Box alignItems="flex-end" minW="156px" maxW="156px" textAlign="right">
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            -{getSwapTransfer(transaction, network)}
+          </Text>
+          <Typography.Body2 color="text-subdued" textAlign="right">
+            →{getSwapReceive(transaction, network)}
+          </Typography.Body2>
+        </Box>
+      );
+    }
+    const originAmount = getTransferAmount(transaction, network);
+    const amount = formatBalanceDisplay(
+      originAmount.balance,
+      originAmount.unit,
+      {
+        unit: originAmount.decimals,
+        fixed: originAmount.fixed,
+      },
+    );
+
+    return (
+      <Box alignItems="flex-end" minW="156px" maxW="156px">
+        <Text
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          textAlign="right"
+        >
+          {transaction.type === TransactionType.Transfer && '-'}
+          {amount}
+        </Text>
+        <Typography.Body2 color="text-subdued" textAlign="right">
+          {transaction.type === TransactionType.Transfer &&
+            transaction.tokenType !== TokenType.ERC721 &&
+            '-'}
+          {amountFiat}
         </Typography.Body2>
       </Box>
-    ),
-    [transaction.amount, transaction.type],
-  );
+    );
+  }, [amountFiat, network, transaction]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -141,13 +217,14 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
         <Box flexDirection="row" flex={1}>
           <Box flex={1}>
             {basicInfo()}
-            {transaction.type === 'Approve' ? (
+            {/* {transaction.type === 'Approve' ? (
               <Typography.Body2 color="text-subdued">
                 {transaction?.approveInfo?.url}
               </Typography.Body2>
             ) : (
               <Address color="text-subdued" text={transaction.to} short />
-            )}
+            )} */}
+            <Address color="text-subdued" text={transaction.toAddress} short />
           </Box>
           {displayAmount() && amountInfo()}
         </Box>
@@ -161,27 +238,22 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
         justifyContent="space-between"
       >
         <Box minW="128px">{basicInfo()}</Box>
-        {transaction.type === 'Approve' ? (
+        {/* {transaction.type === 'Approve' ? (
           <Typography.Body2 textAlign="left" color="text-subdued">
             {transaction?.approveInfo?.url}
           </Typography.Body2>
         ) : (
           <Box>
-            <Address color="text-subdued" text={transaction.to} />
+            <Address color="text-subdued" text={transaction.toAddress} />
           </Box>
-        )}
+        )} */}
+        <Box>
+          <Address color="text-subdued" text={transaction.toAddress} />
+        </Box>
         {displayAmount() ? amountInfo() : <Box minW="156px" />}
       </Box>
     );
-  }, [
-    amountInfo,
-    basicInfo,
-    displayAmount,
-    size,
-    transaction?.approveInfo?.url,
-    transaction.to,
-    transaction.type,
-  ]);
+  }, [amountInfo, basicInfo, displayAmount, size, transaction.toAddress]);
 
   return (
     <Box flexDirection="row">
@@ -200,7 +272,10 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
 
       <Box flexDirection="column" flex={1} ml={3}>
         {ItemInfo}
-        {transaction.state === 'pending' && (
+
+        {renderNFTImages()}
+
+        {/* {transaction.state === 'pending' && (
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>
               {transaction.confirmed < 6 &&
@@ -226,7 +301,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
               {intl.formatMessage({ id: 'action__speed_up' })}
             </Button>
           </Box>
-        )}
+        )} */}
       </Box>
     </Box>
   );

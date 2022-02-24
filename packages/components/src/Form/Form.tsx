@@ -1,12 +1,10 @@
-import React, { FC } from 'react';
-
-import { IBoxProps } from 'native-base';
+import React, { ComponentProps, FC } from 'react';
 
 import VStack from '../VStack';
 
-// type FormProps = {};
+type FormProps = ComponentProps<typeof VStack>;
 
-export const Form: FC<IBoxProps> = ({ children, ...props }) => (
+export const Form: FC<FormProps> = ({ children, ...props }) => (
   <VStack space={6} w="full" {...props}>
     {children}
   </VStack>

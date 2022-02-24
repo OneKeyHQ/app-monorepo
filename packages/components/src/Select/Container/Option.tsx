@@ -2,15 +2,17 @@ import React, { Fragment } from 'react';
 
 import { Icon as NBIcon } from 'native-base';
 
+import Badge from '../../Badge';
 import Box from '../../Box';
 import Divider from '../../Divider';
+import HStack from '../../HStack';
 import Icon from '../../Icon';
 import { Check as CheckOUtline } from '../../Icon/react/outline';
 import { Check as CheckSolid } from '../../Icon/react/solid';
 import Pressable from '../../Pressable';
 import { useIsVerticalLayout } from '../../Provider/hooks';
 import Token from '../../Token';
-import Typography from '../../Typography';
+import Typography, { Text } from '../../Typography';
 
 import type { ChildProps, SelectGroupItem, SelectItem } from '..';
 
@@ -26,29 +28,55 @@ function RenderSingleOption<T>({
   activeOption,
   onChange,
   renderItem,
-  asAction,
+  activatable,
 }: Pick<
   ChildProps<T>,
-  'activeOption' | 'onChange' | 'renderItem' | 'asAction'
+  'activeOption' | 'onChange' | 'renderItem' | 'activatable'
 > & {
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
   const isSmallScreen = useIsVerticalLayout();
-  const OptionLabel = () =>
-    isSmallScreen ? (
-      <Typography.Body1
-        color={option.destructive ? 'text-critical' : 'text-default'}
-      >
-        {option.label}
-      </Typography.Body1>
-    ) : (
-      <Typography.Body2
-        color={option.destructive ? 'text-critical' : 'text-default'}
-      >
-        {option.label}
-      </Typography.Body2>
-    );
+  const Leading = () => (
+    <>
+      {!!option.tokenProps && (
+        <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
+      )}
+      {!!option.iconProps && (
+        <Icon
+          color={option.destructive ? 'icon-critical' : 'icon-default'}
+          size={isSmallScreen ? 24 : 20}
+          {...option.iconProps}
+        />
+      )}
+    </>
+  );
+  const OptionText = () => (
+    <Box flex={1}>
+      <HStack alignItems="center">
+        <Text
+          color={
+            option.destructive
+              ? 'text-critical'
+              : option.color ?? 'text-default'
+          }
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          isTruncated
+          mr={2}
+        >
+          {option.label}
+        </Text>
+        {!!option.badge && (
+          <Badge title={option.badge} size="sm" type="default" />
+        )}
+      </HStack>
+      {!!option.description && (
+        <Typography.Body2 color="text-subdued">
+          {option.description ?? '-'}
+        </Typography.Body2>
+      )}
+    </Box>
+  );
   const SelectedIndicator = () => (
     <NBIcon
       as={isSmallScreen ? CheckOUtline : CheckSolid}
@@ -59,49 +87,31 @@ function RenderSingleOption<T>({
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable
-        px={{ base: '4', md: '2' }}
-        py={{ base: '3', md: '2' }}
         key={option.value as unknown as string}
         onPress={() => onChange?.(option.value, option)}
-        borderRadius="xl"
-        display="flex"
-        flexDirection="row"
-        alignItems="center"
-        bg={isActive && !asAction ? 'surface-selected' : undefined}
-        _hover={
-          // eslint-disable-next-line no-nested-ternary
-          isActive && !asAction
-            ? {}
-            : option.destructive
-            ? { bg: 'surface-critical-default' }
-            : { bg: 'surface-hovered' }
-        } // do not apply the hover effect on the activated item.
       >
-        <Box flexDirection="row" alignItems="center" flex={1} mr={3}>
-          {!!option.tokenProps && (
-            <Box mr="3">
-              <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
-            </Box>
-          )}
-          {!!option.iconProps && (
-            <Box mr="3">
-              <Icon
-                color={option.destructive ? 'icon-critical' : 'icon-default'}
-                size={isSmallScreen ? 24 : 20}
-                {...option.iconProps}
-              />
-            </Box>
-          )}
-          <Box>
-            <OptionLabel />
-            {!!option.description && (
-              <Typography.Body2 color="text-subdued">
-                {option.description ?? '-'}
-              </Typography.Body2>
-            )}
-          </Box>
-        </Box>
-        {isActive && !asAction && <SelectedIndicator />}
+        {({ isHovered }) => (
+          <HStack
+            alignItems="center"
+            space={3}
+            px={{ base: '4', md: '2' }}
+            py={{ base: '3', md: '2' }}
+            borderRadius="xl"
+            bg={
+              // eslint-disable-next-line no-nested-ternary
+              isHovered
+                ? option.destructive
+                  ? 'surface-critical-default'
+                  : 'surface-hovered'
+                : ''
+            }
+          >
+            {(!!option.tokenProps || !!option.iconProps) && <Leading />}
+            <OptionText />
+            {!!option.trailing && option.trailing}
+            {!!isActive && !!activatable && <SelectedIndicator />}
+          </HStack>
+        )}
       </Pressable>
     )
   );
@@ -112,30 +122,32 @@ export function renderOptions<T>({
   activeOption,
   renderItem,
   onChange,
-  asAction,
+  activatable,
 }: Pick<
   ChildProps<T>,
-  'activeOption' | 'onChange' | 'renderItem' | 'options' | 'asAction'
+  'activeOption' | 'onChange' | 'renderItem' | 'options' | 'activatable'
 >) {
   return options.map((option, index) => {
     if (isGroup<T>(option)) {
       const isLast = index === options.length - 1;
       return (
-        <Fragment key={option.title}>
-          <Typography.Subheading
-            px={{ base: '4', lg: '2' }}
-            py={{ base: '3', lg: '2' }}
-            color="text-subdued"
-          >
-            {option.title}
-          </Typography.Subheading>
+        <Fragment key={`${option.title}${index}`}>
+          {option.title.length > 0 ? (
+            <Typography.Subheading
+              px={{ base: '4', lg: '2' }}
+              py={{ base: '3', lg: '2' }}
+              color="text-subdued"
+            >
+              {option.title}
+            </Typography.Subheading>
+          ) : null}
           {option.options.map((subOption) =>
             RenderSingleOption<T>({
               activeOption,
               renderItem,
               onChange,
               option: subOption,
-              asAction,
+              activatable,
             }),
           )}
           {!isLast && (
@@ -153,7 +165,7 @@ export function renderOptions<T>({
       renderItem,
       onChange,
       option: singleOption,
-      asAction,
+      activatable,
     });
   });
 }

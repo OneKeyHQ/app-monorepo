@@ -1,196 +1,123 @@
 import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
+import { FlatListProps } from 'react-native';
 
 import {
   Badge,
   Box,
+  Center,
   Divider,
   Empty,
   HStack,
   Icon,
+  Image,
   NftCard,
   Pressable,
   ScrollableFlatListProps,
-  ScrollableSectionListProps,
   SegmentedControl,
-  Token,
+  Spinner,
   Typography,
+  VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
 
-import { Asset, Collectible, CollectibleView, SelectedAsset } from './types';
+import { CollectibleView, SelectedAsset } from './types';
 
-// List
-type CollectibleListProps = {
-  collectibles: Collectible[];
-  renderEmpty: ScrollableFlatListProps<Collectible>['ListEmptyComponent'];
-  renderHeader: ScrollableFlatListProps<Collectible>['ListHeaderComponent'];
-  onPressItem: (item: Collectible) => void;
-};
-
-const CollectibleList: FC<CollectibleListProps> = ({
-  renderEmpty,
-  renderHeader,
-  collectibles,
-  onPressItem,
+const ItemImage: FC<{ src?: string | null; size?: number }> = ({
+  src,
+  size = 8,
 }) => {
-  const renderItem: ScrollableFlatListProps<Collectible>['renderItem'] = ({
-    item,
-    index: itemIndex,
-  }) => (
-    <Pressable.Item
-      p={4}
-      borderTopRadius={itemIndex === 0 ? '12px' : '0px'}
-      borderRadius={itemIndex === collectibles.length - 1 ? '12px' : '0px'}
-      onPress={() => onPressItem(item)}
-    >
-      <HStack space={3} w="100%" flexDirection="row" alignItems="center">
-        <Token src={item.collection.imageUrl ?? undefined} />
-        <Box flex={1}>
-          <Typography.Body1Strong color="text-default">
-            {item.collection.name}
-          </Typography.Body1Strong>
-        </Box>
-        <HStack space={3}>
-          <Badge
-            type="default"
-            title={item.assets.length.toString()}
-            size="sm"
-          />
-          <Icon size={20} name="ChevronRightSolid" />
-        </HStack>
-      </HStack>
-    </Pressable.Item>
+  const fallbackElement = React.useMemo(
+    () => (
+      <Center
+        borderRadius="full"
+        bg="surface-neutral-default"
+        width={size}
+        height={size}
+      >
+        <Icon size={20} name="QuestionMarkCircleSolid" color="icon-default" />
+      </Center>
+    ),
+    [size],
   );
 
+  if (!src) return fallbackElement;
+
   return (
-    <Tabs.FlatList
-      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
-      renderItem={renderItem}
-      keyExtractor={(_, idx) => String(idx)}
-      ListEmptyComponent={renderEmpty}
-      ListHeaderComponent={renderHeader}
-      ItemSeparatorComponent={Divider}
-      ListFooterComponent={() => <Box h="20px" />}
-      data={collectibles}
-      extraData={collectibles}
-      style={{
-        backgroundColor: !collectibles.length ? 'initial' : 'surface-default',
-        borderRadius: 12,
-      }}
+    <Image
+      src={src}
+      key={src}
+      alt={src}
+      width={size}
+      height={size}
+      fallbackElement={fallbackElement}
+      borderRadius="full"
     />
   );
 };
 
-// Grid
-type CollectibleSection = { title: string; data: [Collectible] };
-type CollectibleGridProps = {
-  collectibleSections: CollectibleSection[];
-  renderHeader: ScrollableSectionListProps<Collectible>['ListHeaderComponent'];
-  renderEmpty: ScrollableSectionListProps<Collectible>['ListEmptyComponent'];
-  onPressItem: (item: SelectedAsset) => void;
+type CollectiblesHeaderProps = {
+  show: boolean;
+  view: CollectibleView;
+  onViewChange: (view: CollectibleView) => void;
+};
+
+const CollectiblesHeader = ({
+  show,
+  view,
+  onViewChange,
+}: CollectiblesHeaderProps) => {
+  const intl = useIntl();
+
+  if (!show) return null;
+
+  return (
+    <HStack space={4} alignItems="center" justifyContent="space-between" pb={3}>
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'asset__collectibles' })}
+      </Typography.Heading>
+      <SegmentedControl
+        containerProps={{
+          width: 70,
+          height: 35,
+        }}
+        options={[
+          {
+            iconName: 'ViewListSolid',
+            value: CollectibleView.Flat,
+          },
+          {
+            iconName: 'ViewGridSolid',
+            value: CollectibleView.Grid,
+          },
+        ]}
+        onChange={(value) => onViewChange(value as CollectibleView)}
+        defaultValue={view}
+      />
+    </HStack>
+  );
 };
 
 const stringAppend = (...args: Array<string | null | undefined>) =>
   args.filter(Boolean).join('');
 
-const CollectibleGrid: FC<CollectibleGridProps> = ({
-  renderHeader,
-  renderEmpty,
-  collectibleSections,
-  onPressItem,
-}) => {
-  const isSmallScreen = useIsVerticalLayout();
-
-  const renderItem: ScrollableSectionListProps<Collectible>['renderItem'] = ({
-    item: col,
-  }) => (
-    <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
-      {col.assets.map((asset, itemIndex) => {
-        const marginRight = isSmallScreen && !(itemIndex % 2 === 0) ? 0 : 4;
-
-        return (
-          <NftCard
-            key={
-              asset.id ??
-              stringAppend(col.collection.name, asset.name, asset.tokenId)
-            }
-            image={asset.imageUrl}
-            title={asset.name}
-            mr={marginRight}
-            mb={4}
-            borderColor="background-default"
-            onPress={() =>
-              onPressItem({
-                ...asset,
-                chain: col.chain,
-                contractAddress: col.contract.address,
-              })
-            }
-          />
-        );
-      })}
-    </HStack>
-  );
-
-  const renderSectionHeader: ScrollableSectionListProps<Collectible>['renderSectionHeader'] =
-    ({
-      section: {
-        data: [col],
-        title,
-      },
-    }) => (
-      <HStack space={3} py={2} pb={2} alignItems="center">
-        <Typography.Subheading color="text-subdued">
-          {title}
-        </Typography.Subheading>
-        {!!col.assets?.length && (
-          <Badge
-            type="default"
-            title={col.assets.length.toString()}
-            size="sm"
-          />
-        )}
-      </HStack>
-    );
-
-  return (
-    <Tabs.SectionList
-      contentContainerStyle={{ paddingHorizontal: 16, marginTop: 16 }}
-      sections={collectibleSections}
-      extraData={collectibleSections}
-      renderItem={renderItem}
-      renderSectionHeader={renderSectionHeader}
-      ListEmptyComponent={renderEmpty}
-      ListHeaderComponent={renderHeader}
-      ListFooterComponent={() => <Box h="20px" />}
-      ItemSeparatorComponent={() => <Divider />}
-      keyExtractor={(item: Collectible, index) =>
-        String(item.id ?? item.collection.name ?? index)
-      }
-      showsVerticalScrollIndicator={false}
-      stickySectionHeadersEnabled={false}
-    />
-  );
-};
-
 type CollectibleGalleryProps = {
+  isLoading: boolean;
+  isSupported: boolean;
   collectibles: Collectible[];
+  onReachEnd: FlatListProps<unknown>['onEndReached'];
   onSelectCollectible: (cols: Collectible) => void;
-  onSelectAsset: (asset: Asset) => void;
+  onSelectAsset: (asset: SelectedAsset) => void;
 };
-
-const toSections = (collectibles: Collectible[]) =>
-  collectibles.map<CollectibleSection>((col) => ({
-    title: col.collection.name ?? col.assets?.[0]?.name ?? 'Unknown',
-    // In order to render the grid view, we use [assets] as the data
-    data: [col],
-  }));
 
 const CollectibleGallery: FC<CollectibleGalleryProps> = ({
+  isLoading,
+  isSupported,
   collectibles,
+  onReachEnd,
   onSelectAsset,
   onSelectCollectible,
 }) => {
@@ -204,67 +131,170 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     }
   }, [isSmallScreen]);
 
-  const renderEmpty = () => (
-    <Empty
-      title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
-      subTitle={intl.formatMessage({ id: 'asset__collectibles_empty_desc' })}
-    />
-  );
-
-  const renderHeader = React.useCallback(() => {
-    if (!isSmallScreen || !collectibles.length) return null;
-
-    return (
-      <HStack
-        space={4}
-        alignItems="center"
-        justifyContent="space-between"
-        pb={4}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'asset__collectibles' })}
-        </Typography.Heading>
-        <SegmentedControl
-          containerProps={{
-            width: 70,
-            height: 35,
-          }}
-          options={[
-            {
-              iconName: 'ViewListSolid',
-              value: CollectibleView.Flat,
-            },
-            {
-              iconName: 'ViewGridSolid',
-              value: CollectibleView.Grid,
-            },
-          ]}
-          onChange={(value) => setView(value as CollectibleView)}
-          defaultValue={view}
+  const renderEmpty = React.useCallback(() => {
+    if (!isSupported) {
+      return (
+        <Empty
+          // TODO: Replace with real i18n string
+          title="此网络暂未支持 NFT"
         />
-      </HStack>
-    );
-  }, [collectibles.length, intl, isSmallScreen, view]);
+      );
+    }
 
-  if (view === CollectibleView.Flat) {
-    return (
-      <CollectibleList
-        renderHeader={renderHeader}
-        renderEmpty={renderEmpty}
-        collectibles={collectibles}
-        onPressItem={onSelectCollectible}
+    return isLoading ? (
+      <Center pb={2} pt={2}>
+        <Spinner size="lg" />
+      </Center>
+    ) : (
+      <Empty
+        title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
+        subTitle={intl.formatMessage({
+          id: 'asset__collectibles_empty_desc',
+        })}
       />
     );
-  }
+  }, [intl, isLoading, isSupported]);
 
-  return (
-    <CollectibleGrid
-      renderHeader={renderHeader}
-      renderEmpty={renderEmpty}
-      collectibleSections={toSections(collectibles)}
-      onPressItem={onSelectAsset}
-    />
+  const renderListItem = React.useCallback<
+    NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
+  >(
+    ({ item, index: itemIndex }) => (
+      <Pressable.Item
+        p={4}
+        borderTopRadius={itemIndex === 0 ? '12px' : '0px'}
+        borderRadius={itemIndex === collectibles.length - 1 ? '12px' : '0px'}
+        onPress={() => onSelectCollectible(item)}
+      >
+        <HStack space={3} w="100%" flexDirection="row" alignItems="center">
+          <ItemImage src={item.collection.imageUrl} />
+          <Box flex={1}>
+            <Typography.Body1Strong color="text-default">
+              {item.collection.name}
+            </Typography.Body1Strong>
+          </Box>
+          <HStack space={3}>
+            <Badge
+              type="default"
+              title={item.assets.length.toString()}
+              size="sm"
+            />
+            <Icon size={20} name="ChevronRightSolid" />
+          </HStack>
+        </HStack>
+      </Pressable.Item>
+    ),
+    [collectibles.length, onSelectCollectible],
   );
+
+  const renderGridSectionHeader = (
+    title?: string | null,
+    length?: number | null,
+  ) => (
+    <HStack space={3} alignItems="center">
+      <Typography.Subheading color="text-subdued">
+        {title}
+      </Typography.Subheading>
+      {!!length && <Badge type="default" title={length.toString()} size="sm" />}
+    </HStack>
+  );
+
+  const renderGridItem = React.useCallback<
+    NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
+  >(
+    ({ item }) => {
+      const header = renderGridSectionHeader(
+        item.collection.name,
+        item.assets.length,
+      );
+
+      return (
+        <VStack space={2} mb={2}>
+          {header}
+          <HStack flexWrap="wrap" alignItems="center" space={0} divider={<></>}>
+            {item.assets.map((asset, itemIndex) => {
+              const marginRight =
+                isSmallScreen && !(itemIndex % 2 === 0) ? 0 : 4;
+
+              return (
+                <NftCard
+                  key={
+                    asset.id ??
+                    stringAppend(
+                      item.collection.name,
+                      asset.name,
+                      asset.tokenId,
+                    )
+                  }
+                  image={asset.imageUrl}
+                  title={asset.name}
+                  mr={marginRight}
+                  mb={4}
+                  borderColor="background-default"
+                  onPress={() =>
+                    onSelectAsset({
+                      ...asset,
+                      chain: item.chain,
+                      contractAddress: item.contract.address,
+                    })
+                  }
+                />
+              );
+            })}
+          </HStack>
+        </VStack>
+      );
+    },
+    [isSmallScreen, onSelectAsset],
+  );
+
+  const sharedProps = React.useMemo(
+    () => ({
+      contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
+      keyExtractor: ((_, idx) =>
+        String(idx)) as ScrollableFlatListProps['keyExtractor'],
+      ListEmptyComponent: renderEmpty,
+      ListHeaderComponent: (
+        <CollectiblesHeader
+          view={view}
+          onViewChange={setView}
+          show={isSmallScreen && !!collectibles?.length}
+        />
+      ),
+      ListFooterComponent: () => <Box h="20px" />,
+      data: collectibles,
+      extraData: collectibles,
+      onEndReached: onReachEnd,
+      // Golden Ratio - 1
+      onEndReachedThreshold: 1.618033988749894 - 1,
+    }),
+    [collectibles, onReachEnd, isSmallScreen, renderEmpty, view],
+  );
+
+  const flatListProps = React.useMemo(
+    () => ({
+      style: {
+        backgroundColor: !collectibles.length ? 'initial' : 'surface-default',
+        borderRadius: 12,
+      },
+      renderItem: renderListItem,
+      ItemSeparatorComponent: Divider,
+    }),
+    [collectibles.length, renderListItem],
+  );
+
+  const gridListProps = React.useMemo(
+    () => ({
+      renderItem: renderGridItem,
+    }),
+    [renderGridItem],
+  );
+
+  const mergedProps = {
+    ...(view === CollectibleView.Flat ? flatListProps : gridListProps),
+    ...sharedProps,
+  };
+
+  return <Tabs.FlatList<Collectible> {...mergedProps} />;
 };
 
 export default CollectibleGallery;

@@ -27,7 +27,7 @@ function Mobile<T>({
   activeOption,
   renderItem,
   onModalHide,
-  asAction,
+  activatable,
 }: ChildProps<T>) {
   const { bottom } = useSafeAreaInsets();
   return (
@@ -55,6 +55,7 @@ function Mobile<T>({
         minW="full"
         bg="surface-subdued"
         borderTopRadius="24px"
+        pb={`${footer === null ? bottom : 0}px`}
         {...dropdownProps}
       >
         <Box
@@ -84,7 +85,7 @@ function Mobile<T>({
             activeOption,
             renderItem,
             onChange,
-            asAction,
+            activatable,
           })}
         </ScrollView>
         {isValidElement(footer) || footer === null ? (

@@ -1,69 +1,122 @@
-import React, { FC, useMemo } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
-  Icon,
   IconButton,
   Token,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import {
-  ReceiveQRCodeModalRoutes,
-  ReceiveQRCodeRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ReceiveToken';
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
-  TransactionModalRoutes,
-  TransactionModalRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Transaction';
+  ModalNavigatorRoutes,
+  ModalTypes,
+} from '@onekeyhq/kit/src/routes/Modal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Network } from '../../../store/reducers/network';
 import extUtils from '../../../utils/extUtils';
-import { AssetToken } from '../../Wallet/AssetsList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  TransactionModalRoutesParams,
-  TransactionModalRoutes.TransactionModal
-> &
-  NativeStackNavigationProp<
-    ReceiveQRCodeRoutesParams,
-    ReceiveQRCodeModalRoutes.ReceiveQRCodeModal
-  >;
+  ModalTypes,
+  ModalNavigatorRoutes.ReceiveTokenNavigator
+>;
 
 export type TokenInfoProps = {
-  token: AssetToken;
+  accountId: string | null | undefined;
+  token: TokenDO | null | undefined;
+  network: Network | null | undefined;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
+  const isFocused = useIsFocused();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
+
+  const { wallet } = useActiveWalletAccount();
+  const [amount, setAmount] = useState('0');
+  const [tokenPrice, setTokenPrice] = useState<string>();
+
+  useEffect(() => {
+    async function main() {
+      if (!accountId || !network?.id) return;
+      const result = await engine.getAccountBalance(
+        accountId,
+        token?.networkId ?? network.id,
+        token ? [token?.tokenIdOnNetwork] : [],
+        true,
+      );
+
+      const prices = await engine.getPrices(
+        network.id,
+        token ? [token?.tokenIdOnNetwork] : [],
+        !token,
+      );
+
+      if (token) {
+        setAmount(result[token.tokenIdOnNetwork]?.toString() ?? '0');
+        setTokenPrice(prices?.[token.tokenIdOnNetwork]);
+      } else {
+        setAmount(result.main?.toString() ?? '0');
+        setTokenPrice(prices?.main);
+      }
+    }
+    try {
+      if (isFocused) main();
+    } catch (error) {
+      console.warn('TokenInfo', error);
+    }
+  }, [accountId, token, isFocused, network]);
 
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
-        <Token size={12} src={token.logoURI} />
+        <Token size={12} src={token?.logoURI ?? network?.logoURI} />
         <Box
           ml={isVertical ? 0 : 4}
           alignItems={isVertical ? 'center' : 'flex-start'}
         >
           <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
-            <Typography.DisplayXLarge>{token.amount}</Typography.DisplayXLarge>
-            <Typography.DisplayXLarge pl={2}>
-              {token.symbol}
-            </Typography.DisplayXLarge>
+            <FormatBalance
+              balance={amount}
+              suffix={token?.symbol}
+              formatOptions={{
+                fixed: network?.tokenDisplayDecimals ?? 4,
+              }}
+              as={Typography.DisplayXLarge}
+            />
           </Box>
-          <Typography.Body2 mt={1}>{token.fiatAmount}</Typography.Body2>
+          <FormatCurrency
+            numbers={[amount, tokenPrice]}
+            render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+          />
         </Box>
       </Box>
     ),
-    [token, isVertical],
+    [
+      isVertical,
+      token?.logoURI,
+      token?.symbol,
+      network?.logoURI,
+      network?.tokenDisplayDecimals,
+      amount,
+      tokenPrice,
+    ],
   );
 
   const accountOption = useMemo(
@@ -71,24 +124,31 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
           size={isVertical ? 'lg' : 'base'}
-          leftIcon={<Icon size={20} name="ArrowSmUpSolid" />}
-          minW="126px"
+          leftIconName="ArrowUpSolid"
+          minW={{ base: '126px', md: 'auto' }}
+          isDisabled={wallet?.type === 'watching'}
           type="basic"
-          onPress={() => {
-            navigation.navigate(TransactionModalRoutes.TransactionModal);
-          }}
+          // onPress={() => {
+          //   navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
+          //     screen: ModalRoutes.Send,
+          //   });
+          // }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
         <Button
+          isDisabled={wallet?.type === 'watching'}
           size={isVertical ? 'lg' : 'base'}
           ml={4}
-          leftIcon={<Icon name="ArrowSmDownSolid" />}
-          minW="126px"
+          leftIconName="ArrowDownSolid"
+          minW={{ base: '126px', md: 'auto' }}
           type="basic"
-          onPress={() => {
-            navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
-          }}
+          // onPress={() => {
+          //   navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
+          //     screen: ModalRoutes.ReceiveToken,
+          //     params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
+          //   });
+          // }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
@@ -103,7 +163,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
         )}
       </Box>
     ),
-    [intl, isVertical, navigation],
+    [intl, isVertical, wallet?.type],
   );
 
   return useMemo(

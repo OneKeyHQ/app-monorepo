@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { HasName } from './base';
 
 type NetworkBase = HasName & {
@@ -5,32 +7,52 @@ type NetworkBase = HasName & {
   symbol: string;
   logoURI: string;
   enabled: boolean;
-};
-
-type NetworkShort = NetworkBase & {
-  // Simple version, used in basic listing.
-  preset: boolean;
-};
-
-type NetworkCommon = NetworkBase & {
   feeSymbol: string;
   decimals: number;
   feeDecimals: number;
   balance2FeeDecimals: number;
 };
 
-type DBNetwork = NetworkCommon & {
+type PresetNetwork = NetworkBase & {
+  chainId?: number;
+  isTestnet?: boolean;
+  presetRpcURLs: Array<string>;
+  rpcURLs?: Array<Record<string, string>>;
+  prices?: Array<Record<string, any>>;
+  explorers?: Array<Record<string, any>>;
+  extensions?: Record<string, any>;
+};
+
+type DBNetwork = NetworkBase & {
   rpcURL: string;
   position: number;
   curve?: string;
 };
 
-type PresetNetwork = NetworkCommon & {
-  presetRpcURLs: Array<string>;
-  // TODO explorerURL
+type EvmExtraInfo = {
+  chainId: string;
+  networkVersion: string;
 };
 
-type Network = NetworkShort & DBNetwork & PresetNetwork;
+type BlockExplorer = {
+  address: string;
+  block: string;
+  transaction: string;
+};
+
+type Network = NetworkBase & {
+  rpcURL: string;
+  preset: boolean;
+  isTestnet: boolean;
+  // UI specific properties.
+  // TODO: move this into remote config?
+  nativeDisplayDecimals: number;
+  tokenDisplayDecimals: number;
+  // extra info for dapp interactions
+  extraInfo: EvmExtraInfo | Record<string, any>;
+  // TODO: rpcURLs
+  blockExplorerURL: BlockExplorer;
+};
 
 type AddEVMNetworkParams = {
   name: string;
@@ -48,13 +70,20 @@ type UpdateEVMNetworkParams = {
 
 type UpdateNetworkParams = UpdateEVMNetworkParams;
 
+type EIP1559Fee = {
+  baseFee: BigNumber;
+  maxPriorityFeePerGas: BigNumber;
+  maxFeePerGas: BigNumber;
+};
+
 export type {
-  NetworkBase,
-  NetworkShort,
   DBNetwork,
   PresetNetwork,
   Network,
+  EvmExtraInfo,
+  BlockExplorer,
   AddEVMNetworkParams,
   AddNetworkParams,
   UpdateNetworkParams,
+  EIP1559Fee,
 };

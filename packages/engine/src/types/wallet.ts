@@ -10,15 +10,8 @@ type WalletType = 'hd' | 'hw' | 'imported' | 'watching';
 type Wallet = HasName & {
   type: WalletType;
   backuped: boolean;
-  accounts: Set<string>;
-  nextAccountIds: Map<string, number>; // purpose + cointype => index
-};
-
-type DBWallet = HasName & {
-  type: WalletType;
-  backuped: boolean;
   accounts: Array<string>;
-  nextAccountIds: Record<string, number>;
+  nextAccountIds: Record<string, number>; // purpose + cointype => index
 };
 
 export {
@@ -27,4 +20,4 @@ export {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 };
-export type { WalletType, DBWallet, Wallet };
+export type { WalletType, Wallet };

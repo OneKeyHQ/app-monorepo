@@ -1,4 +1,4 @@
-import { IMPL_EVM, SEPERATOR } from '../constants';
+import { SEPERATOR } from '../constants';
 import { NotImplemented, OneKeyInternalError } from '../errors';
 import {
   ACCOUNT_TYPE_MULADDR,
@@ -15,7 +15,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 
-import { isCoinTypeCompatibleWithImpl } from './impl';
+import { implToCoinTypes, isCoinTypeCompatibleWithImpl } from './impl';
 import { getImplFromNetworkId } from './network';
 
 function fromDBAccountToAccount(dbAccount: DBAccount): Account {
@@ -37,9 +37,7 @@ function fromDBAccountToAccount(dbAccount: DBAccount): Account {
   if (type === ACCOUNT_TYPE_MULADDR) {
     return Object.assign(base, {
       xpub: (dbAccount as DBMulAddrAccount).xpub,
-      addresses: new Map(
-        Object.entries((dbAccount as DBMulAddrAccount).addresses),
-      ),
+      addresses: (dbAccount as DBMulAddrAccount).addresses,
     });
   }
   throw new OneKeyInternalError('Unsupported account type.');
@@ -52,7 +50,8 @@ function getHDAccountToAdd(
   xpub: Buffer,
   name?: string,
 ): DBAccount {
-  if (impl !== IMPL_EVM) {
+  const coinType = implToCoinTypes[impl];
+  if (typeof coinType === 'undefined') {
     throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
   }
   return {
@@ -60,8 +59,8 @@ function getHDAccountToAdd(
     name: name || '',
     type: 'simple',
     path,
-    coinType: '60',
-    pub: xpub.slice(-33).toString('hex'),
+    coinType,
+    pub: xpub.slice(45).toString('hex'),
     address: '',
   };
 }
@@ -71,15 +70,16 @@ function getWatchingAccountToCreate(
   target: string,
   name?: string,
 ): DBAccount {
-  if (impl !== IMPL_EVM) {
+  const coinType = implToCoinTypes[impl];
+  if (typeof coinType === 'undefined') {
     throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
   }
   return {
-    id: `watching--60--${target}`,
+    id: `watching--${coinType}--${target}`,
     name: name || '',
     type: 'simple', // TODO: other implementations.
     path: '',
-    coinType: '60',
+    coinType,
     pub: '', // TODO: only address is supported for now.
     address: target,
   };

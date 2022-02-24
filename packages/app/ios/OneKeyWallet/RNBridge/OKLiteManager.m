@@ -6,86 +6,61 @@
 //
 
 #import "OKLiteManager.h"
-#import "OKNFCLite.h"
-
-
-@interface OKLiteManager ()<OKNFCLiteDelegate>
-
-@property(nonatomic,strong)OKNFCLite *lite;
-
-@property(nonatomic,copy)RCTResponseSenderBlock callback;
-
-
-@end
+#import "RNLiteCallBackManager.h"
+#import "NFCConfig.h"
 
 @implementation OKLiteManager
 
 
 RCT_EXPORT_MODULE();
 
-RCT_EXPORT_METHOD(getLiteInfo:(NSString *)SN callback:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(getCardName:(RCTResponseSenderBlock)callback)
 {
-  OKNFCLite *lite = [[OKNFCLite alloc] init];
-  lite.SN = SN;
-  lite.delegate = self;
-  [lite getLiteInfo];
-  _lite = lite;
-  self.callback = callback;
+  if ([OKLiteManager checkSDKVaild:callback]) {
+    [RNLiteCallBackManager getCardName:callback];
+  }
 }
 
-RCT_EXPORT_METHOD(setMnemonic:(NSString *)mnemonic pin:(NSString *)pin callback:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(getLiteInfo:(RCTResponseSenderBlock)callback)
 {
-  [_lite setMnemonic:mnemonic withPin:pin];
-  self.callback = callback;
+  if ([OKLiteManager checkSDKVaild:callback]) {
+    [RNLiteCallBackManager getLiteInfo:callback];
+  }
+}
 
+RCT_EXPORT_METHOD(setMnemonic:(NSString *)mnemonic pin:(NSString *)pin overwrite:(BOOL)overwrite callback:(RCTResponseSenderBlock)callback)
+{
+  if ([OKLiteManager checkSDKVaild:callback]) {
+    [RNLiteCallBackManager setMnemonic:mnemonic withPin:pin overwrite:overwrite callBack:callback];
+  }
 }
 
 RCT_EXPORT_METHOD(getMnemonicWithPin:(NSString *)pin callback:(RCTResponseSenderBlock)callback)
 {
-  [_lite getMnemonicWithPin:pin];
-  self.callback = callback;
-}
-
-RCT_EXPORT_METHOD(backup:(NSString *)SN callback:(RCTResponseSenderBlock)callback)
-{
-  OKNFCLite *lite = [[OKNFCLite alloc] init];
-  lite.SN = SN;
-  lite.delegate = self;
-  [lite getLiteInfo];
-  _lite = lite;
-  self.callback = callback;
-}
-
-RCT_EXPORT_METHOD(reset:(RCTResponseSenderBlock)callback)
-{
-  OKNFCLite *lite = [[OKNFCLite alloc] init];
-  [lite reset];
-  _lite = lite;
-  lite.resetCallback = ^(BOOL isSuccess) {
-    callback(@[[NSNull null],@(isSuccess)]);
-  };
-}
-
-- (void)ok_lite:(OKNFCLite *)lite getInfoComplete:(OKNFCLiteStatus)status {
-  if (self.callback) {
-    NSDictionary *liteInfo = @{
-      @"pinRTL":@(lite.pinRTL),
-      @"status":@(lite.status),
-      @"SN":lite.SN
-    };
-    self.callback(@[[NSNull null],liteInfo]);
+  if ([OKLiteManager checkSDKVaild:callback]) {
+    [RNLiteCallBackManager getMnemonicWithPin:pin callBack:callback];
   }
 }
 
-- (void)ok_lite:(OKNFCLite *)lite setMnemonicComplete:(OKNFCLiteSetMncStatus)status {
-//  if (self.callback) {
-//    self.callback(@[[NSNull null],@{@"hello" : @"setMnemonicComplete",}]);
-//  }
+RCT_EXPORT_METHOD(changePin:(NSString *)oldPwd newPwd:(NSString *)newPwd callback:(RCTResponseSenderBlock)callback)
+{
+  if ([OKLiteManager checkSDKVaild:callback]) {
+    [RNLiteCallBackManager changePin:oldPwd newPwd:newPwd callBack:callback];
+  }
+}
+RCT_EXPORT_METHOD(reset:(RCTResponseSenderBlock)callback)
+{
+  if ([OKLiteManager checkSDKVaild:callback]) {
+    [RNLiteCallBackManager reset:callback];
+  }
 }
 
-
-- (void)ok_lite:(OKNFCLite *)lite getMnemonic:(NSString *)mnemonic complete:(OKNFCLiteGetMncStatus)status {
-  NSLog(@"getMnemonic %@",mnemonic);
++ (BOOL)checkSDKVaild:(RCTResponseSenderBlock)callback {
+  if ([NFCConfig envFor:@"LITE_CERT"].length > 0 && [NFCConfig envFor:@"NFCSK"].length > 0) {
+    return YES;
+  }
+  callback(@[@{@"code":@(NFCLiteExceptionsInitChannel),@"message":@""},[NSNull null],[NSNull null]]);
+  return NO;
 }
 
 

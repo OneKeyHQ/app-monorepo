@@ -38,6 +38,8 @@ rm -rf ./packages/ext/node_modules
 rm -rf ./packages/ext/.expo
 rm -rf ./packages/ext/build
 
+rm -rf ./packages/engine/node_modules
+
 echo "DONE! please clean ReactNative and Metro bundler cache manually:"
 echo "    yarn react-native start --reset-cache"
 echo "    yarn expo start --clear"

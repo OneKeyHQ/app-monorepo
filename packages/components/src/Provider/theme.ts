@@ -76,7 +76,7 @@ export const light = {
   'background-selected': '#D4D4DD',
   'surface-default': '#FFFFFF',
   'surface-subdued': '#F9F9FB',
-  'surface-hovered': '#F3F3F6',
+  'surface-hovered': '#EDEDF2',
   'surface-selected': '#E8E8ED',
   'surface-warning-default': '#FFEDA3',
   'surface-warning-subdued': '#FFFBEB',

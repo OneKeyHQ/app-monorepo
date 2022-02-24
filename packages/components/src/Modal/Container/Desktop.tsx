@@ -73,8 +73,10 @@ const DesktopModal: FC<ModalProps> = ({
         zIndex={999}
       >
         <Box
-          p={4}
+          pt={4}
+          pr={4}
           pl={index ? 4 : 6}
+          pb={header ? 4 : 0}
           display="flex"
           flexDirection="row"
           justifyContent="space-between"

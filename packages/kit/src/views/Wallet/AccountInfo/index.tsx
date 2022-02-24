@@ -1,6 +1,8 @@
-import React, { useCallback, useMemo } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,37 +10,67 @@ import {
   Button,
   IconButton,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import {
-  ReceiveQRCodeModalRoutes,
-  ReceiveQRCodeRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ReceiveToken';
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
-  TransactionModalRoutes,
-  TransactionModalRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Transaction';
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
+import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
+import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../../../utils/extUtils';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
-type NavigationProps = NativeStackNavigationProp<
-  TransactionModalRoutesParams,
-  TransactionModalRoutes.TransactionModal
-> &
-  NativeStackNavigationProp<
-    ReceiveQRCodeRoutesParams,
-    ReceiveQRCodeModalRoutes.ReceiveQRCodeModal
-  >;
+export const FIXED_VERTICAL_HEADER_HEIGHT = 222;
+export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
 
 const AccountInfo = () => {
-  const isSmallView = ['SMALL', 'NORMAL'].includes(useUserDevice().size);
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
-  const { size } = useUserDevice();
-  const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+  const isSmallView = useIsVerticalLayout();
+  const isFocused = useIsFocused();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const [mainTokenBalance, setMainTokenBalance] =
+    useState<Record<string, any>>();
+  const [mainTokenPrice, setMainTokenPrice] =
+    useState<Record<string, string>>();
+
+  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
+  const { wallet, account } = useActiveWalletAccount();
+
+  useEffect(() => {
+    async function main() {
+      if (!activeNetwork?.id || !account?.id) return;
+      const balance = await engine.getAccountBalance(
+        account.id,
+        activeNetwork?.id,
+        [],
+        true,
+      );
+      setMainTokenBalance(balance);
+
+      const prices = await engine.getPrices(activeNetwork?.id, [], true);
+      setMainTokenPrice(prices);
+    }
+    try {
+      if (isFocused) main();
+    } catch (error) {
+      console.warn('AccountInfo', error);
+    }
+  }, [activeNetwork, account?.id, isFocused]);
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -47,37 +79,65 @@ const AccountInfo = () => {
           {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
-          <Typography.DisplayXLarge>10.100</Typography.DisplayXLarge>
-          <Typography.DisplayXLarge pl={2}>ETH</Typography.DisplayXLarge>
+          <FormatBalance
+            balance={mainTokenBalance?.main}
+            suffix={activeNetwork?.symbol?.toUpperCase?.()}
+            as={Typography.DisplayXLarge}
+            formatOptions={{
+              fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
+            }}
+          />
         </Box>
-        <Typography.Body2 mt={1}>43123.12 USD</Typography.Body2>
+        <FormatCurrency
+          numbers={[mainTokenPrice?.main, mainTokenBalance?.main]}
+          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+        />
       </Box>
     ),
-    [intl],
+    [
+      intl,
+      mainTokenBalance,
+      activeNetwork?.symbol,
+      mainTokenPrice?.main,
+      activeNetwork?.nativeDisplayDecimals,
+    ],
   );
 
   const accountOption = useMemo(
     () => (
       <Box flexDirection="row" justifyContent="center" alignItems="center">
         <Button
-          size={isSmallScreen ? 'lg' : 'base'}
-          leftIconName="ArrowSmUpSolid"
+          size={isSmallView ? 'lg' : 'base'}
+          leftIconName="ArrowUpSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
+          isDisabled={wallet?.type === 'watching'}
           onPress={() => {
-            navigation.navigate(TransactionModalRoutes.TransactionModal);
+            // navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
+            //   screen: ModalRoutes.Send,
+            // });
           }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
         <Button
-          size={isSmallScreen ? 'lg' : 'base'}
+          size={isSmallView ? 'lg' : 'base'}
           ml={4}
-          leftIconName="ArrowSmDownSolid"
+          leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
-            navigation.navigate(ReceiveQRCodeModalRoutes.ReceiveQRCodeModal);
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {
+                  address: (account as SimpleAccount).address,
+                },
+              },
+            });
           }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
@@ -93,17 +153,19 @@ const AccountInfo = () => {
         )}
       </Box>
     ),
-    [intl, isSmallScreen, navigation],
+    [intl, isSmallView, navigation, wallet, account],
   );
 
   return useMemo(() => {
     if (isSmallView) {
       return (
         <Box
+          py={8}
           w="100%"
+          px={4}
           flexDirection="column"
           bgColor="background-default"
-          py={8}
+          h={FIXED_VERTICAL_HEADER_HEIGHT}
         >
           {renderAccountAmountInfo(true)}
           <Box mt={8}>{accountOption}</Box>
@@ -112,7 +174,9 @@ const AccountInfo = () => {
     }
     return (
       <Box
+        h={FIXED_HORIZONTAL_HEDER_HEIGHT}
         py={12}
+        px={4}
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"

@@ -15,5 +15,6 @@ export type ManageNetworkRoutesParams = {
       symbol?: string;
       exploreUrl?: string;
     };
+    isReadOnly?: boolean;
   };
 };
