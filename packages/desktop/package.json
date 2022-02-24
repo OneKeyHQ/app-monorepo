@@ -32,7 +32,7 @@
     "electron-updater": "^4.6.1",
     "expo": "^43.0.2",
     "next": "^11.1.2",
-    "node-fetch": "^2.6.1",
+    "node-fetch": "^2.6.7",
     "react-native-web": "0.17.1"
   },
   "devDependencies": {
