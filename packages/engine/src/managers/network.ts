@@ -31,10 +31,12 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   const { position, curve, ...forNetwork } = dbNetwork;
   const preset = networkIsPreset(dbNetwork.id);
+  let shortName = dbNetwork.name;
   let isTestnet = false;
   let explorer;
   if (preset) {
     const presetNetwork = getPresetNetworks()[dbNetwork.id];
+    shortName = presetNetwork.shortName || shortName;
     [explorer] = presetNetwork.explorers || [];
     isTestnet = presetNetwork.isTestnet || false;
   }
@@ -56,6 +58,7 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   }
   return {
     ...forNetwork,
+    shortName,
     preset,
     isTestnet,
     // The two display decimals fields below are for UI, hard-coded for now.
