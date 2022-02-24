@@ -2,7 +2,6 @@
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { FlatListProps } from 'react-native';
 
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/opensea';
 import { Network } from '@onekeyhq/engine/src/types/network';

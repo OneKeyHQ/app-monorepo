@@ -6,7 +6,6 @@ import useSWRInfinite from 'swr/infinite';
 import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collectible, OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
-import { SWRResponse } from 'swr';
 
 // userAddress -> collectionName -> Collectible
 const USER_COLLECTIBLE_CACHE = new Map<string, Map<string, Collectible>>();
