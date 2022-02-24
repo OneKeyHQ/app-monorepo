@@ -6,11 +6,11 @@ import useSWRInfinite from 'swr/infinite';
 import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collectible, OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
+import { SWRResponse } from 'swr';
 
 // userAddress -> collectionName -> Collectible
 const USER_COLLECTIBLE_CACHE = new Map<string, Map<string, Collectible>>();
 
-// Might wanna move it to redux
 export const useCollectibleCache = (
   userAddress: string,
   collectionAddress: string,
@@ -32,7 +32,7 @@ export const parseCollectiblesData = (
     // Use lowercase address in case of case-insensitive address
     const uniqueName = asset.collection.name;
 
-    // Skip if the collectionAddress is undefined
+    // Skip if the unique name is undefined
     if (uniqueName) {
       const collectible = collectibles.get(uniqueName);
       if (collectible) {
@@ -68,8 +68,9 @@ type UseCollectiblesDataArgs = {
   network?: Network | null;
 };
 type UseCollectiblesDataReturn = {
-  collectibles: Collectible[];
   isLoading: boolean;
+  collectibles: Collectible[];
+  fetchData: () => void;
   loadMore?: () => void;
 };
 const ONEKEY_COLLECTIBLES_PAGE_SIZE = 50;
@@ -98,15 +99,16 @@ export const useCollectiblesData = ({
   );
 
   return useMemo(() => {
-    if (hasNoParams) {
+    if (hasNoParams || !!assetsSwr.error) {
       return {
         isLoading: false,
+        fetchData: assetsSwr.mutate,
         collectibles: [],
       };
     }
 
     const assets = assetsSwr.data?.flat(1) ?? [];
-
+    const collectibles = parseCollectiblesData(assets, address);
     const loadMore = () => {
       const isEmpty = !assetsSwr.data?.length;
       const isReachingEnd =
@@ -120,12 +122,10 @@ export const useCollectiblesData = ({
       }
     };
 
-    const collectibles = assetsSwr.error
-      ? []
-      : parseCollectiblesData(assets, address);
     return {
       loadMore,
       collectibles,
+      fetchData: assetsSwr.mutate,
       isLoading: assetsSwr.isValidating,
     };
   }, [address, assetsSwr, hasNoParams]);
