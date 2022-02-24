@@ -11,6 +11,7 @@ type NonString<T> = T extends string ? never : T;
 type EmptyProps = {
   title: string;
   subTitle?: string | ReactNode;
+  // ref: https://github.com/microsoft/TypeScript/issues/29729#issuecomment-567871939
   // HACK: to let icon has the ICON_NAMES lookup and supports ReactNode
   icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
