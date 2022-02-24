@@ -23,7 +23,7 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 
 import {
   formatBalanceDisplay,
-  useFormatCurrencyDisplay,
+  useFormatAmount,
 } from '../../../components/Format';
 import useFormatDate from '../../../hooks/useFormatDate';
 import NFTView from '../nftView';
@@ -114,6 +114,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   const intl = useIntl();
 
   const formatDate = useFormatDate();
+  const { useFormatCurrencyDisplay } = useFormatAmount();
 
   const renderNFTImages = useCallback(
     () => (
@@ -204,13 +205,13 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           textAlign="right"
         >
           {transaction.type === TransactionType.Transfer && '-'}
-          {amount}
+          {`${amount.amount} ${amount.unit}`}
         </Text>
         <Typography.Body2 color="text-subdued" textAlign="right">
           {transaction.type === TransactionType.Transfer &&
             transaction.tokenType !== TokenType.ERC721 &&
             '-'}
-          {amountFiat}
+          {`${amountFiat.amount} ${amountFiat.unit}`}
         </Typography.Body2>
       </Box>
     );
