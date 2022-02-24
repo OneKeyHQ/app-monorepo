@@ -142,7 +142,7 @@ export function getTransferAmount(
     const tokenSize = tokenEvents?.length ?? 0;
     const tokenSymbol = tokenEvents[0]?.tokenSymbol ?? '';
     amount = tokenSize;
-    decimals = 1;
+    decimals = 0;
     unit = tokenSymbol;
     fixed = network?.tokenDisplayDecimals;
   } else {

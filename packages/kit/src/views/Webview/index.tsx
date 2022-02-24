@@ -14,6 +14,24 @@ import WebView from '../../components/WebView';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.SettingsWebviewScreen>;
 
+function addParamToUrl(originUrl: string, key: string, val: string) {
+  let url = originUrl;
+  if (url.indexOf(key) > -1) {
+    const re = RegExp(`/(${key}=)([^&]*)/gi`);
+    url = url.replace(re, `${key}=${val}`);
+  } else {
+    const paraStr = `${key}=${val}`;
+    const idx = url.indexOf('?');
+    if (idx < 0) {
+      url += '?';
+    } else if (idx >= 0 && idx !== url.length - 1) {
+      url += '&';
+    }
+    url += paraStr;
+  }
+  return url;
+}
+
 export const SettingsWebViews: FC = () => {
   const intl = useIntl();
   const openBrowser = useOpenBrowser();
@@ -49,12 +67,15 @@ export const SettingsWebViews: FC = () => {
   };
 
   useEffect(() => {
-    const tempUrl = currentUrl;
-
     switch (currentOptionType) {
       case 'refresh':
-        setCurrentUrl('');
-        setCurrentUrl(tempUrl);
+        setCurrentUrl(
+          addParamToUrl(
+            url,
+            'onekey-browser-refresh',
+            Math.random().toString(),
+          ),
+        );
         setCurrentOptionType(null);
         break;
       case 'share':
