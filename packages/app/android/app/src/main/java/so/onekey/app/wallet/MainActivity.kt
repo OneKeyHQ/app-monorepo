@@ -11,6 +11,7 @@ import com.swmansion.gesturehandler.react.RNGestureHandlerEnabledRootView
 import expo.modules.devlauncher.launcher.DevLauncherReactActivityDelegateSupplier
 
 class MainActivity : DevMenuAwareReactActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Set the theme to AppTheme BEFORE onCreate to support
         // coloring the background, status bar, and navigation bar.
@@ -28,21 +29,34 @@ class MainActivity : DevMenuAwareReactActivity() {
     }
 
     override fun createReactActivityDelegate(): ReactActivityDelegate {
-        return DevLauncherController.wrapReactActivityDelegate(
-                this,
-                object : DevLauncherReactActivityDelegateSupplier {
-                    override fun get() = object : ReactActivityDelegate(this@MainActivity, mainComponentName) {
-                        override fun createRootView() = RNGestureHandlerEnabledRootView(this@MainActivity)
+        if (BuildConfig.ENABLE_DEV_CLI) {
+            return DevLauncherController.wrapReactActivityDelegate(
+                    this,
+                    object : DevLauncherReactActivityDelegateSupplier {
+                        override fun get() = object : ReactActivityDelegate(this@MainActivity, mainComponentName) {
+                            override fun createRootView() = RNGestureHandlerEnabledRootView(this@MainActivity)
+                        }
                     }
-                }
-        )
+            )
+        }
+
+        return ReactActivityDelegateWrapper(
+                this,
+                object : ReactActivityDelegate(this, mainComponentName) {
+                    override fun createRootView(): ReactRootView {
+                        return RNGestureHandlerEnabledRootView(this@MainActivity)
+                    }
+                })
     }
 
     @Override
     override fun onNewIntent(intent: Intent) {
-        if (DevLauncherController.tryToHandleIntent(this, intent)) {
-            return;
+        if (BuildConfig.ENABLE_DEV_CLI) {
+            if (DevLauncherController.tryToHandleIntent(this, intent)) {
+                return;
+            }
         }
+
         super.onNewIntent(intent);
     }
 }
