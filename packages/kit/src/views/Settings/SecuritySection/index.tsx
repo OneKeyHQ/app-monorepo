@@ -17,10 +17,10 @@ import { useAppDispatch, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
-  setEnableLocalAuthentication,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
 import { PasswordRoutes } from '../../../routes/Modal/Password';
 import {
   ModalRoutes,
@@ -28,7 +28,6 @@ import {
   RootRoutesParams,
 } from '../../../routes/types';
 import { persistor } from '../../../store';
-import { LockDuration } from '../../../utils/constant';
 import { SelectTrigger } from '../SelectTrigger';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -52,56 +51,56 @@ export const SecuritySection = () => {
     () => [
       {
         label: intl.formatMessage({ id: 'form__always' }),
-        value: LockDuration.None, // 100 year,
+        value: 0,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 1 },
         ),
-        value: LockDuration.Minute1,
+        value: 1,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 5 },
         ),
-        value: LockDuration.Minute5,
+        value: 5,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 30 },
         ),
-        value: LockDuration.Minute30,
+        value: 30,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_hour' },
           { 'form__str_hour': 1 },
         ),
-        value: LockDuration.Hour1,
+        value: 60,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_hour' },
           { 'form__str_hour': 6 },
         ),
-        value: LockDuration.Hour6,
+        value: 360,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_day' },
           { 'form__str_day': 1 },
         ),
-        value: LockDuration.Day1,
+        value: 1440,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_day' },
           { 'form__str_day': 7 },
         ),
-        value: LockDuration.Day7,
+        value: 10080,
       },
     ],
     [intl],
@@ -177,16 +176,19 @@ export const SecuritySection = () => {
                 <Switch
                   labelType="false"
                   isChecked={enableLocalAuthentication}
-                  onToggle={() =>
-                    dispatch(
-                      setEnableLocalAuthentication(!enableLocalAuthentication),
-                    )
-                  }
+                  onToggle={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.EnableLocalAuthentication,
+                      params: {
+                        screen:
+                          EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
+                      },
+                    });
+                  }}
                 />
               </Box>
             </Box>
           ) : null}
-
           <Box
             display="flex"
             flexDirection="row"
@@ -210,32 +212,35 @@ export const SecuritySection = () => {
               />
             </Box>
           </Box>
-          <Box w="full" zIndex={95}>
-            <Select<number>
-              title={intl.formatMessage({
-                id: 'form__app_lock_timer',
-                defaultMessage: 'Auto-Lock Timer',
-              })}
-              isTriggerPlain
-              footer={null}
-              value={appLockDuration}
-              defaultValue={appLockDuration}
-              headerShown={false}
-              options={lockTimerOptions}
-              dropdownProps={{ width: '64' }}
-              dropdownPosition="right"
-              renderTrigger={(activeOption) => (
-                <SelectTrigger<number>
-                  title={intl.formatMessage({
-                    id: 'form__app_lock_timer',
-                    defaultMessage: 'Auto-Lock Timer',
-                  })}
-                  activeOption={activeOption}
-                />
-              )}
-              onChange={onSetAppLockDuration}
-            />
-          </Box>
+          {enableAppLock ? (
+            <Box w="full" zIndex={95}>
+              <Select<number>
+                title={intl.formatMessage({
+                  id: 'form__app_lock_timer',
+                  defaultMessage: 'Auto-Lock Timer',
+                })}
+                isTriggerPlain
+                footer={null}
+                value={appLockDuration}
+                defaultValue={appLockDuration}
+                headerShown={false}
+                options={lockTimerOptions}
+                dropdownProps={{ width: '64' }}
+                dropdownPosition="right"
+                renderTrigger={(activeOption) => (
+                  <SelectTrigger<number>
+                    title={intl.formatMessage({
+                      id: 'form__app_lock_timer',
+                      defaultMessage: 'Auto-Lock Timer',
+                    })}
+                    activeOption={activeOption}
+                  />
+                )}
+                onChange={onSetAppLockDuration}
+              />
+            </Box>
+          ) : null}
+
           <Pressable
             display="flex"
             flexDirection="row"

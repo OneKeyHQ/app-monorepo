@@ -149,7 +149,7 @@ const Header: FC<HeaderProps> = ({
         mb="6"
         value={keyword}
         onClear={() => onChange('')}
-        onChangeText={(text) => onChange(text.trim())}
+        onChangeText={(text) => onChange(text)}
       />
       {keyword.length ? null : (
         <HeaderTokens
@@ -207,7 +207,6 @@ export const Listing: FC = () => {
   } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
   const searchTerm = useDebounce(keyword, 1000);
-  const [top50Tokens, setTop50Tokens] = useState<Token[]>([]);
 
   const [searchedTokens, setSearchedTokens] = useState<Token[]>([]);
   const { activeNetwork, activeAccount } = useGeneral();
@@ -223,13 +222,6 @@ export const Listing: FC = () => {
       setVisible(false);
     }
   }, []);
-
-  useEffect(() => {
-    const filtered = allTokens.filter(
-      (item) => !accountTokensSet.has(item.tokenIdOnNetwork),
-    );
-    setTop50Tokens(filtered);
-  }, [allTokens, accountTokens, accountTokensSet]);
 
   useEffect(() => {
     async function searchAndSetTokens(
@@ -265,8 +257,8 @@ export const Listing: FC = () => {
   useFocusEffect(updateAccountTokens);
 
   const flatListData = useMemo(
-    () => (searchTerm ? searchedTokens : top50Tokens),
-    [searchTerm, searchedTokens, top50Tokens],
+    () => (searchTerm ? searchedTokens : allTokens),
+    [searchTerm, searchedTokens, allTokens],
   );
 
   const renderItem: ListRenderItem<Token & { balance?: string }> = useCallback(
@@ -375,7 +367,7 @@ export const Listing: FC = () => {
           ),
           ListHeaderComponent: (
             <Header
-              topTokens={top50Tokens}
+              topTokens={allTokens}
               tokens={accountTokens}
               keyword={keyword}
               onChange={(text) => setKeyword(text)}

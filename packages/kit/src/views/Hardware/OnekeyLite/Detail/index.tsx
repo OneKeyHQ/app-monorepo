@@ -44,7 +44,8 @@ const OnekeyLiteDetail: React.FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { locale } = useLocale();
-  const url = `https://lite.onekey.so/?language=${locale}`;
+  const [url, setUrl] = useState('');
+
   const { wallet } = useActiveWalletAccount();
 
   const [liteOption, setLiteOption] = useState<SelectItem<OptionType>[]>([]);
@@ -56,6 +57,10 @@ const OnekeyLiteDetail: React.FC = () => {
   );
 
   const [controlledWallets, setControlledWallets] = useState<Wallet[]>([]);
+
+  useEffect(() => {
+    setUrl(`https://lite.onekey.so/?language=${locale}`);
+  }, [locale]);
 
   useEffect(() => {
     async function main() {

@@ -60,7 +60,7 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
             minLength: {
               value: 8,
               message: intl.formatMessage({
-                id: 'msg__password_should_be_between_10_and_24',
+                id: 'msg__password_validation',
               }),
             },
           }}
@@ -74,8 +74,8 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
           })}
         </Button>
       </Form>
-      <Center>
-        <LocalAuthenticationButton onOk={() => {}} />
+      <Center mt="8">
+        <LocalAuthenticationButton onOk={onOk} />
       </Center>
     </KeyboardDismissView>
   );

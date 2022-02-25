@@ -41,6 +41,7 @@ import DappSignatureStack, {
   DappSignatureModalRoutes,
   DappSignatureRoutesParams,
 } from './DappSignature';
+import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
 import HardwareOnekeyModal, {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
@@ -178,6 +179,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.CreateWallet,
     component: CreateWalletModalStack,
+  },
+  {
+    name: ModalRoutes.EnableLocalAuthentication,
+    component: EnableLocalAuthenticationModal,
   },
 ];
 
