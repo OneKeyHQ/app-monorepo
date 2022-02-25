@@ -1,23 +1,20 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import { Row, ZStack } from 'native-base';
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { Platform, useWindowDimensions } from 'react-native';
 import uuid from 'react-native-uuid';
 
 import {
-  Box,
   Center,
   Form,
   Icon,
   IconButton,
-  Image,
   Modal,
   Pressable,
-  Spinner,
   useForm,
   useIsVerticalLayout,
   useToast,
@@ -29,6 +26,7 @@ import {
 
 import { useSettings } from '../../../hooks/redux';
 
+import { ImageView } from './SubmitRequest';
 import { updateTicketUri, uploadImage } from './TicketService';
 import { ImageModel } from './types';
 
@@ -47,6 +45,7 @@ export const ReplyTicket: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation();
   const { instanceId } = useSettings();
+
   const route = useRoute<RouteProps>();
   const { id } = route?.params.order;
   const submitterId = route?.params.order.submitter_id;
@@ -115,90 +114,56 @@ export const ReplyTicket: FC = () => {
       if (Platform.OS === 'ios' && result.base64) {
         base64Image = result.base64;
       }
-      updateImageArr([...imageArr, image]);
+
+      imageArr.push(image);
+      updateImageArr([...imageArr]);
       uploadImage(
         { filename: imagename, image: base64Image },
         instanceId,
         (error, responseJson) => {
           if (!error) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            image.token = responseJson.data.upload.token;
-            image.loading = false;
-            updateImageArr([...imageArr, image]);
+            for (const object of imageArr) {
+              if (object.filename === imagename) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                object.token = responseJson.data.upload.token;
+                object.loading = false;
+              }
+            }
+            updateImageArr([...imageArr]);
           }
         },
       );
     }
-  }, [imageArr, instanceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId]);
 
-  const imagesList = useMemo(() => {
-    const ImageView = (image: ImageModel, index: number) => {
-      const { localPath, loading } = image;
-      return (
-        <ZStack width={`${imageWidth}px`} height={`${imageWidth}px`}>
-          <Box
+  const imagesList = () => (
+    <Row>
+      {imageArr.map((image, index) => (
+        <ImageView
+          imageModel={image}
+          onDelete={() => {
+            imageArr.splice(index, 1);
+            updateImageArr([...imageArr]);
+          }}
+        />
+      ))}
+      {imageArr.length < 4 ? (
+        <Pressable onPress={pickImage}>
+          <Center
             mt="8px"
-            ml={0}
             width={`${imageWidth - 8}px`}
             height={`${imageWidth - 8}px`}
+            borderRadius="12px"
+            borderWidth={1}
+            borderColor="border-default"
           >
-            <ZStack>
-              <Image
-                mt={0}
-                ml={0}
-                width={`${imageWidth - 8}px`}
-                height={`${imageWidth - 8}px`}
-                borderRadius="12px"
-                source={{ uri: localPath }}
-                flex={1}
-              />
-              {loading ? (
-                <Box
-                  mt={0}
-                  ml={0}
-                  width={`${imageWidth - 8}px`}
-                  height={`${imageWidth - 8}px`}
-                >
-                  <Center flex={1}>
-                    <Spinner size="sm" />
-                  </Center>
-                </Box>
-              ) : null}
-            </ZStack>
-          </Box>
-          <Pressable
-            onPress={() => {
-              imageArr.splice(index, 1);
-              updateImageArr([...imageArr]);
-            }}
-          >
-            <Box ml={`${imageWidth - 20}px`}>
-              <Icon size={20} name="CloseCircleSolid" />
-            </Box>
-          </Pressable>
-        </ZStack>
-      );
-    };
-    return (
-      <Row>
-        {imageArr.map((image, index) => ImageView(image, index))}
-        {imageArr.length < 4 ? (
-          <Pressable onPress={pickImage}>
-            <Center
-              mt="8px"
-              width={`${imageWidth - 8}px`}
-              height={`${imageWidth - 8}px`}
-              borderRadius="12px"
-              borderWidth={1}
-              borderColor="border-default"
-            >
-              <Icon size={20} name="PlusSolid" />
-            </Center>
-          </Pressable>
-        ) : null}
-      </Row>
-    );
-  }, [imageArr, imageWidth, pickImage]);
+            <Icon size={20} name="PlusSolid" />
+          </Center>
+        </Pressable>
+      ) : null}
+    </Row>
+  );
 
   return (
     <Modal
@@ -223,13 +188,22 @@ export const ReplyTicket: FC = () => {
                   onPress={pickImage}
                 />
               }
+              rules={{
+                required: intl.formatMessage({ id: 'form__field_is_required' }),
+                maxLength: {
+                  value: 1000,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
+              }}
               name="comment"
               formControlProps={{ width: 'full' }}
               defaultValue=""
             >
               <Form.Textarea borderRadius="12px" />
             </Form.Item>
-            {imagesList}
+            {imagesList()}
           </Form>,
         ],
       }}

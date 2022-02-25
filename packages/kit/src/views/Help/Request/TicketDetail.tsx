@@ -79,7 +79,7 @@ export const TicketDetail: FC = () => {
   }, [isFocused, mutate]);
   return (
     <Modal
-      header={intl.formatMessage({ id: 'action__reply' })}
+      header={intl.formatMessage({ id: 'title__request_details' })}
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',
