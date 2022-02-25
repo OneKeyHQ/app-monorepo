@@ -208,8 +208,8 @@ function Select<T = string>({
   ]);
 
   return (
-    <Box w="full" position="relative" {...containerProps}>
-      <Pressable w="full" onPress={toggleVisible} {...triggerProps}>
+    <Box position="relative" {...containerProps}>
+      <Pressable onPress={toggleVisible} {...triggerProps}>
         {({ isHovered, isFocused, isPressed }) =>
           renderTrigger?.(
             activeOption,

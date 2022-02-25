@@ -2,22 +2,22 @@ import React, { FC, useEffect, useMemo, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
-import { format, parseISO } from 'date-fns';
 import { Column, Row, SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native';
 import useSWR from 'swr';
 
-import { Box, Image, Modal, Text, useLocale } from '@onekeyhq/components';
+import { Box, Image, Modal, Text } from '@onekeyhq/components';
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 
 import { useSettings } from '../../../hooks/redux';
+import useFormatDate from '../../../hooks/useFormatDate';
 
 import { attachmentUri, commentsUri } from './TicketService';
-import { AttachmentsType, CommentType, RequestPayload, local } from './types';
+import { AttachmentsType, CommentType, RequestPayload } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -59,7 +59,7 @@ export const TicketDetail: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const isFocused = useIsFocused();
   const { instanceId } = useSettings();
-  const { locale } = useLocale();
+  const { formatDate } = useFormatDate();
 
   const { data, mutate } = useSWR<RequestPayload<CommentType[]>>(
     commentsUri(id, instanceId),
@@ -138,9 +138,7 @@ export const TicketDetail: FC = () => {
                       color="text-subdued"
                       textAlign={isMine ? 'right' : 'left'}
                     >
-                      {format(parseISO(item.created_at), 'LLL, HH:mm', {
-                        locale: local(locale),
-                      })}
+                      {formatDate(item.created_at, { hideYear: true })}
                     </Text>
                   </Column>
                 </Row>
