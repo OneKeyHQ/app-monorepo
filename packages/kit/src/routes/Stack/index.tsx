@@ -111,7 +111,7 @@ const MainScreen = () => {
     const subscription = AppState.addEventListener('change', onRun);
     return () => {
       // @ts-ignore
-      subscription.remove();
+      subscription?.remove();
     };
   }, [dispatch, onRun]);
 

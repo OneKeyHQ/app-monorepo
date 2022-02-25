@@ -69,6 +69,7 @@ const Me = () => {
               flexDirection="row"
               alignItems="center"
               justifyContent="space-between"
+              shadow="depth.2"
               onPress={() =>
                 navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
               }
@@ -87,6 +88,7 @@ const Me = () => {
               alignItems="center"
               justifyContent="space-between"
               onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
+              shadow="depth.2"
             >
               <HStack space="4">
                 <Icon name="CogOutline" />
