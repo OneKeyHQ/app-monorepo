@@ -19,9 +19,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import engine from '../../engine/EngineProvider';
 import { useAppDispatch } from '../../hooks/redux';
-import { login } from '../../store/reducers/status';
+import { unlock } from '../../store/reducers/status';
 
-type UnlockButtonProps = { onOk?: () => void; onForget?: () => void };
+type UnlockButtonProps = {
+  onOk?: (passowrd: string) => void;
+  onForget?: () => void;
+};
 
 type FieldValues = { password: string };
 
@@ -53,7 +56,7 @@ const Unlock = () => {
     async (values: FieldValues) => {
       const isOk = await engine.verifyMasterPassword(values.password);
       if (isOk) {
-        dispatch(login());
+        dispatch(unlock());
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -66,7 +69,7 @@ const Unlock = () => {
     [dispatch, intl, setError],
   );
   const onOk = useCallback(() => {
-    dispatch(login());
+    dispatch(unlock());
   }, [dispatch]);
   return (
     <KeyboardDismissView>

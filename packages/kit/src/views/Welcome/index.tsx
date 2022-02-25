@@ -18,7 +18,7 @@ import logo from '../../../assets/logo.png';
 import { useAppDispatch } from '../../hooks/redux';
 import { CreateWalletModalRoutes } from '../../routes/Modal/CreateWallet';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
-import { setWelcomed } from '../../store/reducers/status';
+import { setBoardingCompleted } from '../../store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -34,11 +34,11 @@ const Welcome = () => {
   const isVertical = useIsVerticalLayout();
   const dispatch = useAppDispatch();
   const onSkip = useCallback(() => {
-    dispatch(setWelcomed());
+    dispatch(setBoardingCompleted());
   }, [dispatch]);
 
   const onCreate = useCallback(() => {
-    dispatch(setWelcomed());
+    dispatch(setBoardingCompleted());
     setTimeout(() => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateWallet,
@@ -66,13 +66,13 @@ const Welcome = () => {
               maxW={isVertical ? undefined : '64'}
               w="full"
             >
-              <Button type="primary" onPress={onCreate}>
+              <Button size="xl" type="primary" onPress={onCreate}>
                 {intl.formatMessage({ id: 'action__create_wallet' })}
               </Button>
-              <Button>
+              <Button size="xl">
                 {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
               </Button>
-              <Button type="plain" onPress={onSkip}>
+              <Button size="xl" type="plain" onPress={onSkip}>
                 {intl.formatMessage({ id: 'action__skip' })}
               </Button>
             </Stack>

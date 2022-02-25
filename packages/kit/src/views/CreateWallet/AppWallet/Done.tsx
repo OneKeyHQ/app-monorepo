@@ -7,7 +7,7 @@ import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected from '../../../components/Protected';
 import engine from '../../../engine/EngineProvider';
 import { useAppDispatch } from '../../../hooks/redux';
-import { login, setInitialized } from '../../../store/reducers/status';
+import { setPasswordCompleted, unlock } from '../../../store/reducers/status';
 
 type DoneProps = {
   password: string;
@@ -19,8 +19,8 @@ const Done: FC<DoneProps> = ({ password }) => {
   useEffect(() => {
     async function main() {
       await engine.createHDWallet(password);
-      dispatch(setInitialized());
-      dispatch(login());
+      dispatch(setPasswordCompleted());
+      dispatch(unlock());
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();
       }
