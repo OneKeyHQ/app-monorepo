@@ -12,7 +12,7 @@ import {
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
-import { useIsVerticalLayout } from '../../../Provider/hooks';
+import { useIsVerticalLayout, useThemeValue } from '../../../Provider/hooks';
 import NavigationBar from '../../NavigationBar';
 import { getTabBarHeight } from '../../NavigationBar/Mobile';
 import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';
@@ -39,6 +39,7 @@ type Props = BottomTabNavigationConfig & {
 
 export default function BottomTabView(props: Props) {
   const isVerticalLayout = useIsVerticalLayout();
+  const bgColor = useThemeValue('background-default');
   const {
     state,
     navigation,
@@ -137,7 +138,7 @@ export default function BottomTabView(props: Props) {
                     navigation: descriptor.navigation,
                     options: descriptor.options,
                   })}
-                  style={sceneContainerStyle}
+                  style={[sceneContainerStyle, { backgroundColor: bgColor }]}
                 >
                   {descriptor.render()}
                 </Screen>
