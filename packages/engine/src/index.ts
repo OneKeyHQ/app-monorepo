@@ -964,9 +964,11 @@ class Engine {
     return true;
   }
 
-  resetApp(password: string): Promise<void> {
+  async resetApp(): Promise<void> {
     // Reset app.
-    return this.dbApi.reset(password);
+    await this.dbApi.reset();
+    this.dbApi = new DbApi() as DBAPI;
+    return Promise.resolve();
   }
 }
 
