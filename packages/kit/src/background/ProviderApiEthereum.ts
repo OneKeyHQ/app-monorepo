@@ -6,9 +6,11 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+// import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// import engine from '../engine/EngineProvider';
 import { DappConnectionModalRoutes } from '../routes';
 import { ModalRoutes } from '../routes/types';
 import extUtils from '../utils/extUtils';
@@ -91,10 +93,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this._getCurrentNetworkVersion();
   }
 
-  eth_blockNumber() {
-    return '0xd29f1a';
-  }
-
   // TODO @publicMethod()
   async metamask_getProviderState() {
     // pass debugLoggerSettings to dapp injected provider
@@ -126,9 +124,12 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // ----------------------------------------------
 
-  protected rpcCall(request: IJsonRpcRequest): any {
+  protected async rpcCall(request: IJsonRpcRequest): Promise<any> {
     console.log('MOCK CHAIN RPC CALL:', request);
-    return {};
+    return Promise.resolve({});
+    // const networkId = `${IMPL_EVM}--${this._getCurrentChainId()}`;
+    // const result = await engine.proxyRPCCall(networkId, request);
+    // return { id: request.id, jsonrpc: request.jsonrpc || '2.0', result };
     // TODO use metamask error object
     // throw new Error(`provider method=${request.method} NOT SUPPORTED yet!`);
   }

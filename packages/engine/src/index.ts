@@ -7,6 +7,8 @@ import {
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
+import { IJsonRpcRequest } from '@onekeyhq/inpage-provider/src/types';
+
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
@@ -923,6 +925,10 @@ class Engine {
       pageNumber,
       pageSize,
     );
+  }
+
+  proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
+    return this.providerManager.proxyRPCCall(networkId, request);
   }
 
   // TODO: RPC interactions.

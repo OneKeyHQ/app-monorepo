@@ -4,6 +4,7 @@
 
 import { Buffer } from 'buffer';
 
+import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
@@ -26,8 +27,11 @@ import {
 import { Signer, Verifier } from '@onekeyfe/blockchain-libs/dist/types/secret';
 import BigNumber from 'bignumber.js';
 
+import { IJsonRpcRequest } from '@onekeyhq/inpage-provider/src/types';
+
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
-import { OneKeyInternalError } from './errors';
+import { NotImplemented, OneKeyInternalError } from './errors';
+import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import { Account, SimpleAccount } from './types/account';
 import { HistoryEntryStatus } from './types/history';
@@ -435,6 +439,31 @@ class ProviderController extends BaseProviderController {
     });
 
     return ret;
+  }
+
+  async proxyRPCCall<T>(
+    networkId: string,
+    request: IJsonRpcRequest,
+  ): Promise<T> {
+    let client: { rpc: JsonRPCRequest };
+    switch (getImplFromNetworkId(networkId)) {
+      case IMPL_EVM:
+        client = (await this.getClient(networkId)) as unknown as {
+          rpc: JsonRPCRequest;
+        };
+        break;
+      case IMPL_SOL:
+        client = (await this.getClient(networkId)) as unknown as {
+          rpc: JsonRPCRequest;
+        };
+        break;
+      default:
+        throw new NotImplemented();
+    }
+    return client.rpc.call(
+      request.method,
+      request.params as Record<string, any> | Array<any>,
+    );
   }
 }
 
