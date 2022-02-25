@@ -56,7 +56,7 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
 interface DBAPI {
   getContext(): Promise<OneKeyContext | undefined>;
   updatePassword(oldPassword: string, newPassword: string): Promise<void>;
-  reset(password: string): Promise<void>;
+  reset(): Promise<void>;
 
   listNetworks(): Promise<Array<DBNetwork>>;
   addNetwork(network: DBNetwork): Promise<DBNetwork>;
