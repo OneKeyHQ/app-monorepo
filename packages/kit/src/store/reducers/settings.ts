@@ -42,8 +42,8 @@ export const settingsSlice = createSlice({
     setEnableAppLock: (state, action: PayloadAction<boolean>) => {
       state.enableAppLock = action.payload;
     },
-    setEnableLocalAuthentication: (state, action: PayloadAction<boolean>) => {
-      state.enableLocalAuthentication = action.payload;
+    toggleEnableLocalAuthentication: (state) => {
+      state.enableLocalAuthentication = !state.enableLocalAuthentication;
     },
     setAppLockDuration: (state, action: PayloadAction<number>) => {
       state.appLockDuration = action.payload;
@@ -64,7 +64,7 @@ export const {
   setTheme,
   setLocale,
   setEnableAppLock,
-  setEnableLocalAuthentication,
+  toggleEnableLocalAuthentication,
   setSelectedFiatMoneySymbol,
   setRefreshTS,
   setAppLockDuration,

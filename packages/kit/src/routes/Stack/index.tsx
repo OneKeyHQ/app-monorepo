@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
@@ -86,32 +86,44 @@ const Dashboard = () => {
 
 const MainScreen = () => {
   const dispatch = useAppDispatch();
+  const [, setState] = useState(0);
   const { appLockDuration, enableAppLock } = useSettings();
+  const { lastActivity, isUnlock, passwordCompleted } = useStatus();
+
+  const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
+  const isKeepAlive = idleDuration < appLockDuration;
+
   const onRun = useCallback(
     (state: AppStateStatus) => {
       if (state === 'background') {
         dispatch(refreshLastActivity());
-        dispatch(lock());
+        if (appLockDuration === 0) {
+          dispatch(lock());
+        }
+      } else if (state === 'active') {
+        setState((v) => v + 1);
       }
     },
-    [dispatch],
+    [dispatch, appLockDuration, setState],
   );
+
   useEffect(() => {
-    AppState.addEventListener('change', onRun);
+    const subscription = AppState.addEventListener('change', onRun);
     return () => {
-      AppState.removeEventListener('change', onRun);
+      // @ts-ignore
+      subscription.remove();
     };
   }, [dispatch, onRun]);
 
-  const { lastActivity, isUnlock, passwordCompleted } = useStatus();
-
-  if (!passwordCompleted) {
+  if (!passwordCompleted || !enableAppLock) {
     return <Dashboard />;
   }
 
-  const idleDuration = (Date.now() - lastActivity) / (1000 * 60);
-  const isKeepAlive = !(enableAppLock && idleDuration > appLockDuration);
-  return isKeepAlive || isUnlock ? <Dashboard /> : <Unlock />;
+  if (appLockDuration === 0) {
+    return isUnlock ? <Dashboard /> : <Unlock />;
+  }
+
+  return isKeepAlive ? <Dashboard /> : <Unlock />;
 };
 
 export default MainScreen;

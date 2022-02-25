@@ -185,7 +185,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
         >
           <Form.PasswordInput />
         </Form.Item>
-        <Button size="xl" onPress={handleSubmit(onSubmit)}>
+        <Button size="xl" onPromise={handleSubmit(onSubmit)}>
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
