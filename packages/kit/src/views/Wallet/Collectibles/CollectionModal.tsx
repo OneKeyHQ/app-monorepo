@@ -10,6 +10,7 @@ import {
   Image,
   Modal,
   NftCard,
+  Spinner,
   Typography,
   VStack,
   useUserDevice,
@@ -101,7 +102,22 @@ const CollectionModal: FC<CollectionModalProps> = () => {
     [chainId, chainName, navigation],
   );
 
-  if (!collectible) return <Center />;
+  if (!collectible) {
+    return (
+      <Modal
+        footer={null}
+        height="640px"
+        scrollViewProps={{
+          pt: 4,
+          children: (
+            <Center flex={1}>
+              <Spinner size="lg" />
+            </Center>
+          ),
+        }}
+      />
+    );
+  }
 
   return (
     <Modal

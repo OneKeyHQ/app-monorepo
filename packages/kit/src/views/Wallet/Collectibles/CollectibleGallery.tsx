@@ -108,6 +108,7 @@ type CollectibleGalleryProps = {
   isLoading: boolean;
   isSupported: boolean;
   collectibles: Collectible[];
+  fetchData: () => void;
   onReachEnd: FlatListProps<unknown>['onEndReached'];
   onSelectCollectible: (cols: Collectible) => void;
   onSelectAsset: (asset: SelectedAsset) => void;
@@ -117,6 +118,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   isLoading,
   isSupported,
   collectibles,
+  fetchData,
   onReachEnd,
   onSelectAsset,
   onSelectCollectible,
@@ -135,8 +137,9 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     if (!isSupported) {
       return (
         <Empty
-          // TODO: Replace with real i18n string
-          title="此网络暂未支持 NFT"
+          icon="HandOutline"
+          title={intl.formatMessage({ id: 'empty__not_supported' })}
+          subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
         />
       );
     }
@@ -247,9 +250,15 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     [isSmallScreen, onSelectAsset],
   );
 
-  const sharedProps = React.useMemo(
+  const sharedProps = React.useMemo<
+    Omit<FlatListProps<Collectible>, 'renderItem'>
+  >(
     () => ({
-      contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
+      contentContainerStyle: {
+        paddingHorizontal: 16,
+        paddingBottom: collectibles.length ? 16 : 0,
+        marginTop: 24,
+      },
       keyExtractor: ((_, idx) =>
         String(idx)) as ScrollableFlatListProps['keyExtractor'],
       ListEmptyComponent: renderEmpty,
@@ -260,17 +269,28 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
           show={isSmallScreen && !!collectibles?.length}
         />
       ),
-      ListFooterComponent: () => <Box h="20px" />,
+      ListFooterComponent: <Box h="24px" w="full" />,
       data: collectibles,
       extraData: collectibles,
       onEndReached: onReachEnd,
       // Golden Ratio - 1
       onEndReachedThreshold: 1.618033988749894 - 1,
+      refreshing: isSupported ? isLoading : undefined,
+      onRefresh: isSupported ? fetchData : undefined,
     }),
-    [collectibles, onReachEnd, isSmallScreen, renderEmpty, view],
+    [
+      renderEmpty,
+      view,
+      isSmallScreen,
+      collectibles,
+      onReachEnd,
+      isSupported,
+      isLoading,
+      fetchData,
+    ],
   );
 
-  const flatListProps = React.useMemo(
+  const flatListProps = React.useMemo<Omit<FlatListProps<Collectible>, 'data'>>(
     () => ({
       style: {
         backgroundColor: !collectibles.length ? 'initial' : 'surface-default',
@@ -282,7 +302,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     [collectibles.length, renderListItem],
   );
 
-  const gridListProps = React.useMemo(
+  const gridListProps = React.useMemo<Omit<FlatListProps<Collectible>, 'data'>>(
     () => ({
       renderItem: renderGridItem,
     }),
