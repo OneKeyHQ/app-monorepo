@@ -205,13 +205,13 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           textAlign="right"
         >
           {transaction.type === TransactionType.Transfer && '-'}
-          {`${amount.amount} ${amount.unit}`}
+          {`${amount.amount ?? '-'} ${amount.unit ?? ''}`}
         </Text>
         <Typography.Body2 color="text-subdued" textAlign="right">
           {transaction.type === TransactionType.Transfer &&
             transaction.tokenType !== TokenType.ERC721 &&
             '-'}
-          {`${amountFiat.amount} ${amountFiat.unit}`}
+          {`${amountFiat.amount ?? '-'} ${amountFiat.unit ?? ''}`}
         </Typography.Body2>
       </Box>
     );

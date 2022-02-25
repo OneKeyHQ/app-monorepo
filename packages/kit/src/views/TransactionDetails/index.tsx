@@ -196,9 +196,9 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
-          value={`${
-            txInfo?.type === TransactionType.Transfer ? '-' : ''
-          }${`${amount.amount} ${amount.unit}`}`}
+          value={`${txInfo?.type === TransactionType.Transfer ? '-' : ''}${`${
+            amount.amount ?? '-'
+          } ${amount.unit ?? ''}`}`}
           custom={list.map((item) => (
             <NFTView src={item} key={item} size={24} />
           ))}
@@ -253,8 +253,12 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: 'content__total' })}
-          value={`${`${transferAmount.amount} ${transferAmount.unit}`} + ${`${feeAmount.amount} ${feeAmount.unit}`}`}
-          describe={`${totalErc20AmountFiat.amount} ${totalErc20AmountFiat.unit}`}
+          value={`${`${transferAmount.amount ?? '-'} ${
+            transferAmount.unit ?? ''
+          }`} + ${`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}`}
+          describe={`${totalErc20AmountFiat.amount ?? '-'} ${
+            totalErc20AmountFiat.unit ?? ''
+          }`}
         />
       );
     }
@@ -272,8 +276,10 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__total' })}
-        value={`${transferAmount.amount} ${transferAmount.unit}`}
-        describe={`${totalAmountFiat.amount} ${totalAmountFiat.unit}`}
+        value={`${transferAmount.amount ?? '-'} ${transferAmount.unit ?? ''}`}
+        describe={`${totalAmountFiat.amount ?? '-'} ${
+          totalAmountFiat.unit ?? ''
+        }`}
       />
     );
   }, [
@@ -307,7 +313,7 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__fee' })}
-        value={`${feeAmount.amount} ${feeAmount.unit}`}
+        value={`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}
       />
     );
   }, [
@@ -340,7 +346,9 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__gas_price' })}
-        value={`${`${Amount.amount} ${Amount.unit}`} (${`${feeAmount.amount} ${feeAmount.unit}`})`}
+        value={`${`${Amount.amount ?? '-'} ${Amount.unit ?? ''}`} (${`${
+          feeAmount.amount ?? '-'
+        } ${feeAmount.unit ?? ''}`})`}
       />
     );
   }, [

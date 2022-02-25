@@ -79,8 +79,8 @@ export function formatBalanceDisplay(
   const { unit, fixed, fullPrecision } = formatOptions || {};
   if (isNil(balance)) {
     return {
-      amount: '-',
-      unit: suffix ? suffix.toUpperCase().trim() : '',
+      amount: undefined,
+      unit: suffix ? suffix.toUpperCase().trim() : undefined,
     };
   }
   const amount = formatNumber(balance, {
@@ -91,7 +91,7 @@ export function formatBalanceDisplay(
 
   return {
     amount: amount || '0',
-    unit: suffix ? suffix.toUpperCase().trim() : '',
+    unit: suffix ? suffix.toUpperCase().trim() : undefined,
   };
 }
 
@@ -118,7 +118,7 @@ export function useFormatAmount() {
       const fiatBN = new BigNumber(fiat);
 
       if (fiatBN.isNaN()) {
-        return '0';
+        return undefined;
       }
 
       return numbers.reduce((memo, curr) => {
@@ -131,7 +131,7 @@ export function useFormatAmount() {
 
     return useMemo(() => {
       if (balance === undefined || balance === '0') {
-        return { amount: 'N/A', unit: '' };
+        return { amount: undefined, unit: undefined };
       }
 
       const amount = formatNumber(balance, {
