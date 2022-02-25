@@ -37,8 +37,8 @@ const App = () => {
 };
 
 const RootStackNavigator = () => {
-  const { welcomed } = useStatus();
-  return welcomed ? <App /> : <Welcome />;
+  const { boardingCompleted } = useStatus();
+  return boardingCompleted ? <App /> : <Welcome />;
 };
 
 export default memo(RootStackNavigator);

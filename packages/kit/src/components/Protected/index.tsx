@@ -13,7 +13,7 @@ type ProtectedProps = {
 
 const Protected: FC<ProtectedProps> = ({ children }) => {
   const [value, setValue] = useState('');
-  const { initialized } = useStatus();
+  const { passwordCompleted } = useStatus();
   if (value) {
     return (
       <Box w="full" h="full">
@@ -21,7 +21,7 @@ const Protected: FC<ProtectedProps> = ({ children }) => {
       </Box>
     );
   }
-  if (initialized) {
+  if (passwordCompleted) {
     return <Validation onOk={setValue} />;
   }
   return <Setup onOk={setValue} />;

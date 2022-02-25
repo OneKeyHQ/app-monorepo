@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
@@ -13,8 +13,7 @@ import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
 import { useAppDispatch, useSettings, useStatus } from '../../hooks/redux';
-import { logout } from '../../store/reducers/status';
-import { LockDuration } from '../../utils/constant';
+import { lock, refreshLastActivity } from '../../store/reducers/status';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
@@ -42,7 +41,7 @@ export const stackScreenList = [
 
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
-const StackScreen = () => {
+const Dashboard = () => {
   const [bgColor, textColor, borderBottomColor] = useThemeValue([
     'surface-subdued',
     'text-default',
@@ -86,41 +85,33 @@ const StackScreen = () => {
 };
 
 const MainScreen = () => {
-  const [, setValue] = useState(0);
   const dispatch = useAppDispatch();
   const { appLockDuration, enableAppLock } = useSettings();
-  const onRefresh = useCallback(() => {
-    setValue((prev) => prev + 1);
-  }, []);
-  useEffect(() => {
-    AppState.addEventListener('change', onRefresh);
-    const timer = setInterval(onRefresh, 10 * 1000);
-    return () => {
-      AppState.removeEventListener('change', onRefresh);
-      clearInterval(timer);
-    };
-  }, [onRefresh]);
-  const onLogout = useCallback(
+  const onRun = useCallback(
     (state: AppStateStatus) => {
-      if (state === 'background' && appLockDuration === LockDuration.None) {
-        dispatch(logout());
+      if (state === 'background') {
+        dispatch(refreshLastActivity());
+        dispatch(lock());
       }
     },
-    [dispatch, appLockDuration],
+    [dispatch],
   );
   useEffect(() => {
-    AppState.addEventListener('change', onLogout);
+    AppState.addEventListener('change', onRun);
     return () => {
-      AppState.removeEventListener('change', onLogout);
+      AppState.removeEventListener('change', onRun);
     };
-  }, [dispatch, onLogout]);
-  const { loginAt, isLogin, initialized } = useStatus();
-  if (!initialized) {
-    return <StackScreen />;
+  }, [dispatch, onRun]);
+
+  const { lastActivity, isUnlock, passwordCompleted } = useStatus();
+
+  if (!passwordCompleted) {
+    return <Dashboard />;
   }
-  const idleDuration = (Date.now() - loginAt) / (1000 * 60);
-  const isLock = enableAppLock && idleDuration > appLockDuration;
-  return isLock || !isLogin ? <Unlock /> : <StackScreen />;
+
+  const idleDuration = (Date.now() - lastActivity) / (1000 * 60);
+  const isKeepAlive = !(enableAppLock && idleDuration > appLockDuration);
+  return isKeepAlive || isUnlock ? <Dashboard /> : <Unlock />;
 };
 
 export default MainScreen;

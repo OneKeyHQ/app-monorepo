@@ -10,6 +10,8 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
+import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
+
 type FieldValues = {
   password: string;
   confirmPassword: string;
@@ -19,6 +21,7 @@ type SetupProps = { onOk?: (text: string) => void };
 
 const Setup: FC<SetupProps> = ({ onOk }) => {
   const intl = useIntl();
+  const { savePassword } = useLocalAuthentication();
   const {
     control,
     handleSubmit,
@@ -28,7 +31,8 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
     mode: 'onChange',
     defaultValues: { password: '', confirmPassword: '' },
   });
-  const onSubmit = handleSubmit((values: FieldValues) => {
+  const onSubmit = handleSubmit(async (values: FieldValues) => {
+    await savePassword(values.password);
     onOk?.(values.password);
   });
 
@@ -60,7 +64,7 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
             minLength: {
               value: 8,
               message: intl.formatMessage({
-                id: 'msg__password_should_be_between_10_and_24',
+                id: 'msg__password_validation',
               }),
             },
           }}
@@ -80,7 +84,7 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
             minLength: {
               value: 8,
               message: intl.formatMessage({
-                id: 'msg__password_should_be_between_10_and_24',
+                id: 'msg__password_validation',
               }),
             },
             validate: (value) =>

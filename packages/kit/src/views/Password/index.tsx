@@ -16,8 +16,9 @@ import {
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import engine from '../../engine/EngineProvider';
 import { useAppDispatch } from '../../hooks/redux';
+import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { useToast } from '../../hooks/useToast';
-import { login } from '../../store/reducers/status';
+import { unlock } from '../../store/reducers/status';
 
 import { PasswordRoutes, PasswordRoutesParams } from './types';
 
@@ -28,10 +29,10 @@ type NavigationProps = NativeStackNavigationProp<
   PasswordRoutes.PasswordRoutes
 >;
 
-type EnterPasswordProps = { onOk?: (password: string) => void };
+type EnterPasswordProps = { onNext?: (password: string) => void };
 type FieldValues = { password: string };
 
-const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
+const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const intl = useIntl();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
@@ -40,7 +41,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
     async (values: FieldValues) => {
       const isOK = await engine.verifyMasterPassword(values.password);
       if (isOK) {
-        onOk?.(values.password);
+        onNext?.(values.password);
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -50,8 +51,9 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
         });
       }
     },
-    [onOk, intl, setError],
+    [onNext, intl, setError],
   );
+
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
       <Typography.DisplayLarge textAlign="center" mb={2}>
@@ -84,7 +86,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
           })}
         </Button>
         <Box display="flex" justifyContent="center" alignItems="center">
-          <LocalAuthenticationButton onOk={() => {}} />
+          <LocalAuthenticationButton onOk={onNext} />
         </Box>
       </Form>
     </KeyboardDismissView>
@@ -99,6 +101,7 @@ type PasswordsFieldValues = {
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
   const toast = useToast();
+  const { savePassword } = useLocalAuthentication();
   const dispatch = useAppDispatch();
   const navigation = useNavigation<NavigationProps>();
   const { control, handleSubmit, getValues } = useForm<PasswordsFieldValues>({
@@ -106,8 +109,9 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   });
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
-      await engine.updatePassword(values.password, oldPassword);
-      dispatch(login());
+      await engine.updatePassword(oldPassword, values.password);
+      await savePassword(values.password);
+      dispatch(unlock());
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
@@ -120,7 +124,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
         }),
       );
     },
-    [navigation, toast, intl, dispatch, oldPassword],
+    [navigation, toast, intl, dispatch, oldPassword, savePassword],
   );
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -146,10 +150,10 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
           control={control}
           rules={{
             required: intl.formatMessage({ id: 'form__field_is_required' }),
-            pattern: {
-              value: /^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{10,24}$/g,
+            minLength: {
+              value: 8,
               message: intl.formatMessage({
-                id: 'msg__password_should_be_between_10_and_24',
+                id: 'msg__password_validation',
               }),
             },
           }}
@@ -165,10 +169,10 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
           control={control}
           rules={{
             required: intl.formatMessage({ id: 'form__field_is_required' }),
-            pattern: {
-              value: /^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{10,24}$/g,
+            minLength: {
+              value: 8,
               message: intl.formatMessage({
-                id: 'msg__password_should_be_between_10_and_24',
+                id: 'msg__password_validation',
               }),
             },
             validate: (value) =>
@@ -200,7 +204,7 @@ export const Password = () => {
         {oldPassword ? (
           <SetNewPassword oldPassword={oldPassword} />
         ) : (
-          <EnterPassword onOk={setOldPassword} />
+          <EnterPassword onNext={setOldPassword} />
         )}
       </Box>
     </Modal>
