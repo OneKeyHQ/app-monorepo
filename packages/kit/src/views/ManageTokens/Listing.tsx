@@ -206,6 +206,7 @@ export const Listing: FC = () => {
     updateAccountTokens,
   } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
+  const [mylist, setMylist] = useState<Token[]>([]);
   const searchTerm = useDebounce(keyword, 1000);
 
   const [searchedTokens, setSearchedTokens] = useState<Token[]>([]);
@@ -213,6 +214,10 @@ export const Listing: FC = () => {
 
   const [visible, setVisible] = useState(false);
   const [toDeletedToken, setToDeletedToken] = useState<Token>();
+
+  useEffect(() => {
+    setMylist(accountTokens.filter((i) => i.tokenIdOnNetwork));
+  }, [accountTokens]);
 
   const onToggleDeleteDialog = useCallback((token?: Token) => {
     if (token) {
@@ -368,7 +373,7 @@ export const Listing: FC = () => {
           ListHeaderComponent: (
             <Header
               topTokens={allTokens}
-              tokens={accountTokens}
+              tokens={mylist}
               keyword={keyword}
               onChange={(text) => setKeyword(text)}
               onDelToken={(token) => onToggleDeleteDialog(token)}

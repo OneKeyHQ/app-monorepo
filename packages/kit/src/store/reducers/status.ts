@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 type StatusState = {
   lastActivity: number;
@@ -31,8 +31,11 @@ export const slice = createSlice({
     lock: (state) => {
       state.isUnlock = false;
     },
-    refreshLastActivity: (state) => {
-      state.lastActivity = Date.now();
+    refreshLastActivity: (
+      state,
+      action?: PayloadAction<number | undefined>,
+    ) => {
+      state.lastActivity = action?.payload || Date.now();
     },
     reset: () => {},
   },
