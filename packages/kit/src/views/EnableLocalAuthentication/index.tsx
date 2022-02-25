@@ -5,8 +5,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Center, Modal, Spinner } from '@onekeyhq/components';
 
 import Protected from '../../components/Protected';
-import { useAppDispatch, useSettings } from '../../hooks/redux';
-import { setEnableLocalAuthentication } from '../../store/reducers/settings';
+import { useAppDispatch } from '../../hooks/redux';
+import { toggleEnableLocalAuthentication } from '../../store/reducers/settings';
 
 type EnableLocalAuthenticationProps = {
   password: string;
@@ -16,17 +16,16 @@ const EnableLocalAuthenticationDone: FC<
   EnableLocalAuthenticationProps
 > = () => {
   const dispatch = useAppDispatch();
-  const { enableLocalAuthentication } = useSettings();
   const navigation = useNavigation();
   useEffect(() => {
     function main() {
-      dispatch(setEnableLocalAuthentication(!enableLocalAuthentication));
+      dispatch(toggleEnableLocalAuthentication());
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();
       }
     }
     main();
-  }, [navigation, dispatch, enableLocalAuthentication]);
+  }, [navigation, dispatch]);
   return (
     <Center h="full" w="full">
       <Spinner size="lg" />
