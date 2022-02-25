@@ -480,7 +480,7 @@ const TransactionDetails: FC = () => {
               onPress={() => {
                 openBlockBrowser.openTransactionDetails(txInfo?.txHash);
               }}
-              rightIcon={<Icon name="ArrowNarrowRightSolid" />}
+              rightIconName="ArrowNarrowRightSolid"
             >
               {intl.formatMessage({ id: 'action__view_in_explorer' })}
             </Button>

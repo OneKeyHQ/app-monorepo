@@ -29,12 +29,11 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import engine from '../../../engine/EngineProvider';
-import useFormatDate from '../../../hooks/useFormatDate';
 import TransactionRecord from '../../Components/transactionRecord';
 
-type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
+import { useHistoricalRecordsData } from './useHistoricalRecordsData';
 
-type TransactionGroup = { title: string; data: Transaction[] };
+type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
 
 export type HistoricalRecordProps = {
   accountId: string | null | undefined;
@@ -42,36 +41,6 @@ export type HistoricalRecordProps = {
   tokenId?: string | null | undefined;
   headerView?: React.ReactNode | null | undefined;
   isTab?: boolean;
-};
-
-const toTransactionSection = (
-  queueStr: string,
-  _data: Transaction[] | null | undefined,
-  formatDate: (date: string) => string,
-): TransactionGroup[] => {
-  if (!_data) return [];
-
-  const sortData = _data.sort(
-    (a, b) =>
-      new Date(b.blockSignedAt).getTime() - new Date(a.blockSignedAt).getTime(),
-  );
-
-  return sortData.reduce((_pre: TransactionGroup[], _current: Transaction) => {
-    let key = queueStr;
-    if (_current.successful === TxStatus.Pending) {
-      key = queueStr;
-    } else {
-      key = formatDate(_current.blockSignedAt);
-    }
-
-    let dateGroup = _pre.find((x) => x.title === key);
-    if (!dateGroup) {
-      dateGroup = { title: key, data: [] };
-      _pre.push(dateGroup);
-    }
-    dateGroup.data.push(_current);
-    return _pre;
-  }, []);
 };
 
 const defaultProps = {
@@ -89,59 +58,24 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProp['navigation']>();
-  const [transactionRecords, setTransactionRecords] = useState<
-    TransactionGroup[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
+
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
-  const formatDate = useFormatDate();
+
   const openBlockBrowser = useOpenBlockBrowser(network);
+  const { transactionRecords, isLoading, loadMore, fetchData } =
+    useHistoricalRecordsData({ account, network, tokenId });
 
-  const refreshHistory = useCallback(async () => {
-    setTransactionRecords([]);
-    if (!accountId || !networkId) return;
-
-    try {
-      setIsLoading(true);
-
-      let history;
-      if (tokenId) {
-        history = await engine.getErc20TxHistories(
-          networkId,
-          accountId,
-          tokenId,
-          0,
-          50,
-        );
-      } else {
-        history = await engine.getTxHistories(networkId, accountId, 0, 20);
-      }
-
-      if (!history?.error && history?.data && history?.data?.txList) {
-        setTransactionRecords(
-          toTransactionSection(
-            intl.formatMessage({ id: 'history__queue' }),
-            history.data.txList,
-            (date: string) =>
-              formatDate.formatMonth(date, { hideTheYear: true }),
-          ),
-        );
-      } else {
-        // 加载失败
-        setTransactionRecords([]);
-      }
-    } catch (error) {
-      // 异常失败
-      setTransactionRecords([]);
-      console.error(error);
-    } finally {
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 100);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, intl, networkId, tokenId]);
+  const handleScrollToEnd: SectionListProps<unknown>['onEndReached'] =
+    useCallback(
+      ({ distanceFromEnd }) => {
+        if (distanceFromEnd > 0) {
+          return;
+        }
+        loadMore?.();
+      },
+      [loadMore],
+    );
 
   useEffect(() => {
     async function loadAccount() {
@@ -164,9 +98,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     loadAccount();
   }, [accountId, networkId]);
 
-  useEffect(() => {
-    refreshHistory();
-  }, [refreshHistory]);
+  const refreshData = () => {
+    fetchData?.();
+  };
 
   const renderItem: SectionListProps<Transaction>['renderItem'] = ({
     item,
@@ -188,7 +122,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             },
           },
         });
-        console.log('Click Transaction : ', item.txHash);
       }}
     >
       <TransactionRecord transaction={item} network={network} />
@@ -246,7 +179,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         subTitle={intl.formatMessage({ id: 'transaction__history_empty_desc' })}
         actionTitle={intl.formatMessage({ id: 'action__refresh' })}
         handleAction={() => {
-          refreshHistory();
+          refreshData();
         }}
       />
     </Box>
@@ -276,7 +209,8 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     keyExtractor: (_: Transaction, index: number) => index.toString(),
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
-    onRefresh: () => refreshHistory(),
+    onRefresh: refreshData,
+    onEndReached: handleScrollToEnd,
   });
 };
 

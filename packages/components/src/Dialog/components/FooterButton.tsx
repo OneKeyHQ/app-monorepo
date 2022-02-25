@@ -44,9 +44,10 @@ const FooterButton: FC<FooterButtonProps> = ({
             size={secondaryActionProps?.size ?? buttonSize}
             {...secondaryActionProps}
           >
-            {intl.formatMessage({
-              id: secondaryActionTranslationId ?? 'action__cancel',
-            })}
+            {secondaryActionProps?.children ??
+              intl.formatMessage({
+                id: secondaryActionTranslationId ?? 'action__cancel',
+              })}
           </Button>
         )}
         {!hidePrimaryAction && (
@@ -57,9 +58,10 @@ const FooterButton: FC<FooterButtonProps> = ({
             {...primaryActionProps}
             onPress={() => onPrimaryActionPress?.({})}
           >
-            {intl.formatMessage({
-              id: primaryActionTranslationId ?? 'action__ok',
-            })}
+            {primaryActionProps?.children ??
+              intl.formatMessage({
+                id: primaryActionTranslationId ?? 'action__ok',
+              })}
           </Button>
         )}
       </HStack>
