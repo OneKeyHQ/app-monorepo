@@ -19,6 +19,7 @@ import {
   setEnableAppLock,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
+import engine from '../../../engine/EngineProvider';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
 import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
 import { PasswordRoutes } from '../../../routes/Modal/Password';
@@ -108,9 +109,10 @@ export const SecuritySection = () => {
   const onOpenResetModal = useCallback(() => {
     setShowResetModal(true);
   }, []);
-  const onReset = useCallback(() => {
+  const onReset = useCallback(async () => {
     persistor.purge();
     dispatch({ type: 'LOGOUT', payload: undefined });
+    await engine.resetApp();
     setShowResetModal(false);
   }, [dispatch]);
   const onSetAppLockDuration = useCallback(
@@ -265,11 +267,11 @@ export const SecuritySection = () => {
         visible={showResetModal}
         onClose={() => setShowResetModal(false)}
         footerButtonProps={{
-          onPrimaryActionPress: onReset,
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {
             type: 'destructive',
             isDisabled: input !== 'RESET',
+            onPromise: onReset,
           },
         }}
         contentProps={{
