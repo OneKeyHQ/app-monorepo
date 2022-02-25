@@ -214,22 +214,19 @@ const OnekeyLiteDetail: React.FC = () => {
     title: 'OneKey Lite',
     headerRight: () => (
       <Select
+        dropdownPosition="right"
         title="Onekey Lite"
         onChange={(v) => {
           if (currentOptionType !== v) setCurrentOptionType(v);
         }}
         footer={null}
         activatable={false}
-        containerProps={{
-          width:
-            Platform.OS === 'android' || Platform.OS === 'ios'
-              ? '40px'
-              : '200px',
-        }}
         triggerProps={{
           width: '40px',
         }}
-        dropdownPosition="right"
+        dropdownProps={{
+          width: 248,
+        }}
         options={liteOption}
         renderTrigger={() => (
           <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
