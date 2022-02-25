@@ -71,7 +71,7 @@ const Collectibles = ({ address, network }: CollectiblesProps) => {
             userAddress: address,
             collectionName: collectible.collection.name,
             chainId: network.extraInfo.networkVersion,
-            chainName: network.name,
+            chainName: network.shortName,
           },
         },
       });
