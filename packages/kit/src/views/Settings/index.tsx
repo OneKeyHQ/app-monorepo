@@ -22,6 +22,7 @@ export const Settings = () => {
 
   return (
     <ScrollView
+      bg="background-default"
       _contentContainerStyle={{
         display: 'flex',
         flexDirection: 'column',
