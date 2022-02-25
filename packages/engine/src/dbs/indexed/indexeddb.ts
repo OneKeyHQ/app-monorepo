@@ -270,30 +270,17 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  reset(password: string): Promise<void> {
+  reset(): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
-          const transaction = db.transaction([CONTEXT_STORE_NAME]);
-          transaction.oncomplete = (_tevent) => {
-            const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
-            deleteRequest.onerror = (_devent) => {
-              reject(new OneKeyInternalError('Failed to delete db.'));
-            };
-            deleteRequest.onsuccess = (_devent) => {
-              resolve();
-            };
+          db.close();
+          const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+          deleteRequest.onerror = (_devent) => {
+            reject(new OneKeyInternalError('Failed to delete db.'));
           };
-
-          const getMainContextRequest = transaction
-            .objectStore(CONTEXT_STORE_NAME)
-            .get(MAIN_CONTEXT);
-          getMainContextRequest.onsuccess = (_cevent) => {
-            const context: OneKeyContext =
-              getMainContextRequest.result as OneKeyContext;
-            if (!checkPassword(context, password)) {
-              reject(new WrongPassword());
-            }
+          deleteRequest.onsuccess = (_devent) => {
+            resolve();
           };
         }),
     );
