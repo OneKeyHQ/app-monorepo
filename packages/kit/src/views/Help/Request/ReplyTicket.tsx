@@ -45,7 +45,6 @@ export const ReplyTicket: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation();
   const { instanceId } = useSettings();
-  // const instanceId = 'd8625e50-594b-4125-ad6f-0bbeee73fea1';
 
   const route = useRoute<RouteProps>();
   const { id } = route?.params.order;
