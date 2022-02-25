@@ -1,36 +1,50 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+type StatusState = {
+  lastActivity: number;
+  isUnlock: boolean;
+  boardingCompleted: boolean;
+  passwordCompleted: boolean;
+};
+
+const initialState: StatusState = {
+  lastActivity: 0,
+  isUnlock: false,
+  boardingCompleted: false,
+  passwordCompleted: false,
+};
+
 export const slice = createSlice({
   name: 'status',
-  initialState: {
-    loginAt: 0,
-    isLogin: false,
-    welcomed: false,
-    initialized: false,
-  },
+  initialState,
   reducers: {
-    setWelcomed: (state) => {
-      // finish onboarding flow
-      state.welcomed = true;
+    setBoardingCompleted: (state) => {
+      state.boardingCompleted = true;
     },
-    setInitialized: (state) => {
-      // finish password setup
-      state.initialized = true;
+    setPasswordCompleted: (state) => {
+      state.passwordCompleted = true;
     },
-    reset: (state) => {
-      state.loginAt = 0;
+    unlock: (state) => {
+      state.lastActivity = Date.now();
+      state.isUnlock = true;
     },
-    login: (state) => {
-      state.loginAt = Date.now();
-      state.isLogin = true;
+    lock: (state) => {
+      state.isUnlock = false;
     },
-    logout: (state) => {
-      state.isLogin = false;
+    refreshLastActivity: (state) => {
+      state.lastActivity = Date.now();
     },
+    reset: () => {},
   },
 });
 
-export const { reset, setWelcomed, setInitialized, login, logout } =
-  slice.actions;
+export const {
+  reset,
+  setBoardingCompleted,
+  setPasswordCompleted,
+  lock,
+  unlock,
+  refreshLastActivity,
+} = slice.actions;
 
 export default slice.reducer;
