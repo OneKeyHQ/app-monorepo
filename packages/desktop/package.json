@@ -31,7 +31,7 @@
     "electron-store": "^8.0.1",
     "electron-updater": "^4.6.1",
     "expo": "^43.0.2",
-    "next": "^11.1.2",
+    "next": "^12.1.0",
     "node-fetch": "^2.6.7",
     "react-native-web": "0.17.1"
   },
