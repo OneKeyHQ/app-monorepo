@@ -40,7 +40,7 @@ export function getSwapTransfer(
   transaction: Transaction | null,
   network?: Network | null | undefined,
 ): string {
-  let amount = '0';
+  let amount;
   if (
     transaction?.type === TransactionType.Swap &&
     transaction?.tokenEvent &&
@@ -70,14 +70,14 @@ export function getSwapTransfer(
       );
     }
   }
-  return amount;
+  return `${amount?.amount ?? '0'}${amount?.unit ? ` ${amount?.unit}` : ''}`;
 }
 
 export function getSwapReceive(
   transaction: Transaction | null,
   network?: Network | null | undefined,
 ): string {
-  let amount = '0';
+  let amount;
   if (
     transaction?.type === TransactionType.Swap &&
     transaction?.tokenEvent &&
@@ -107,7 +107,7 @@ export function getSwapReceive(
       );
     }
   }
-  return amount;
+  return `${amount?.amount ?? '0'}${amount?.unit ? ` ${amount?.unit}` : ''}`;
 }
 
 export function getTransferAmount(
@@ -142,7 +142,7 @@ export function getTransferAmount(
     const tokenSize = tokenEvents?.length ?? 0;
     const tokenSymbol = tokenEvents[0]?.tokenSymbol ?? '';
     amount = tokenSize;
-    decimals = 1;
+    decimals = 0;
     unit = tokenSymbol;
     fixed = network?.tokenDisplayDecimals;
   } else {
