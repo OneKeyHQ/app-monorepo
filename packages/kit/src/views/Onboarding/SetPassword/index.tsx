@@ -18,10 +18,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import {
-  refreshLoginAt,
-  setPassword,
-} from '@onekeyhq/kit/src/store/reducers/status';
+import { login } from '@onekeyhq/kit/src/store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -48,19 +45,15 @@ const SetPassword = () => {
     defaultValues: { password: '', confirmPassword: '' },
   });
   const navigation = useNavigation<NavigationProps>();
-  const onValid = useCallback(
-    (values: FieldValues) => {
-      dispatch(refreshLoginAt());
-      dispatch(setPassword(values.password));
-      setTimeout(() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: { screen: CreateWalletModalRoutes.CreateWalletModal },
-        });
-      }, 100);
-    },
-    [navigation, dispatch],
-  );
+  const onValid = useCallback(() => {
+    dispatch(login());
+    setTimeout(() => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateWallet,
+        params: { screen: CreateWalletModalRoutes.CreateWalletModal },
+      });
+    }, 100);
+  }, [navigation, dispatch]);
   const onSubmit = handleSubmit(onValid);
 
   return (

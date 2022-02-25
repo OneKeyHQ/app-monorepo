@@ -28,6 +28,7 @@ import {
   RootRoutesParams,
 } from '../../../routes/types';
 import { persistor } from '../../../store';
+import { LockDuration } from '../../../utils/constant';
 import { SelectTrigger } from '../SelectTrigger';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -51,56 +52,56 @@ export const SecuritySection = () => {
     () => [
       {
         label: intl.formatMessage({ id: 'form__always' }),
-        value: 54432000, // 100 year
+        value: LockDuration.None, // 100 year,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 1 },
         ),
-        value: 1,
+        value: LockDuration.Minute1,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 5 },
         ),
-        value: 5,
+        value: LockDuration.Minute5,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_minute' },
           { 'form__str_minute': 30 },
         ),
-        value: 30,
+        value: LockDuration.Minute30,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_hour' },
           { 'form__str_hour': 1 },
         ),
-        value: 60,
+        value: LockDuration.Hour1,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_hour' },
           { 'form__str_hour': 6 },
         ),
-        value: 360,
+        value: LockDuration.Hour6,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_day' },
           { 'form__str_day': 1 },
         ),
-        value: 1440,
+        value: LockDuration.Day1,
       },
       {
         label: intl.formatMessage(
           { id: 'form__str_day' },
           { 'form__str_day': 7 },
         ),
-        value: 10080,
+        value: LockDuration.Day7,
       },
     ],
     [intl],

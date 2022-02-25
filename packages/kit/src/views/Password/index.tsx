@@ -14,9 +14,10 @@ import {
 } from '@onekeyhq/components';
 
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { useAppDispatch, useStatus } from '../../hooks/redux';
+import engine from '../../engine/EngineProvider';
+import { useAppDispatch } from '../../hooks/redux';
 import { useToast } from '../../hooks/useToast';
-import { refreshLoginAt, setPassword } from '../../store/reducers/status';
+import { login } from '../../store/reducers/status';
 
 import { PasswordRoutes, PasswordRoutesParams } from './types';
 
@@ -27,19 +28,19 @@ type NavigationProps = NativeStackNavigationProp<
   PasswordRoutes.PasswordRoutes
 >;
 
-type EnterPasswordProps = { onOk?: () => void };
+type EnterPasswordProps = { onOk?: (password: string) => void };
 type FieldValues = { password: string };
 
 const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
   const intl = useIntl();
-  const { password } = useStatus();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
   const onSubmit = useCallback(
-    (values: FieldValues) => {
-      if (values.password === password) {
-        onOk?.();
+    async (values: FieldValues) => {
+      const isOK = await engine.verifyMasterPassword(values.password);
+      if (isOK) {
+        onOk?.(values.password);
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -49,7 +50,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
         });
       }
     },
-    [onOk, intl, password, setError],
+    [onOk, intl, setError],
   );
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -83,7 +84,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onOk }) => {
           })}
         </Button>
         <Box display="flex" justifyContent="center" alignItems="center">
-          <LocalAuthenticationButton onOk={onOk} />
+          <LocalAuthenticationButton onOk={() => {}} />
         </Box>
       </Form>
     </KeyboardDismissView>
@@ -95,7 +96,7 @@ type PasswordsFieldValues = {
   confirmPassword: string;
 };
 
-const SetPassword = () => {
+const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
   const toast = useToast();
   const dispatch = useAppDispatch();
@@ -104,9 +105,9 @@ const SetPassword = () => {
     defaultValues: { password: '', confirmPassword: '' },
   });
   const onSubmit = useCallback(
-    (values: PasswordsFieldValues) => {
-      dispatch(setPassword(values.password));
-      dispatch(refreshLoginAt());
+    async (values: PasswordsFieldValues) => {
+      await engine.updatePassword(values.password, oldPassword);
+      dispatch(login());
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
@@ -119,7 +120,7 @@ const SetPassword = () => {
         }),
       );
     },
-    [navigation, toast, intl, dispatch],
+    [navigation, toast, intl, dispatch, oldPassword],
   );
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -192,11 +193,15 @@ const SetPassword = () => {
 };
 
 export const Password = () => {
-  const [next, setNext] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
   return (
     <Modal footer={null}>
       <Box>
-        {next ? <SetPassword /> : <EnterPassword onOk={() => setNext(true)} />}
+        {oldPassword ? (
+          <SetNewPassword oldPassword={oldPassword} />
+        ) : (
+          <EnterPassword onOk={setOldPassword} />
+        )}
       </Box>
     </Modal>
   );

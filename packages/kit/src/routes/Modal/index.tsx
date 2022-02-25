@@ -69,7 +69,6 @@ import ManageTokenModal, {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from './ManageToken';
-import MiscModal, { MiscModalRoutes, MiscRoutesParams } from './Misc';
 import PasswordModal, {
   PasswordRoutes,
   PasswordRoutesParams,
@@ -123,10 +122,6 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.WatchedAccount,
     component: WatchedAccountModal,
-  },
-  {
-    name: ModalRoutes.Misc,
-    component: MiscModal,
   },
   {
     name: ModalRoutes.ManageToken,
@@ -202,8 +197,6 @@ export type ModalTypes = {
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
-  // [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
-  // [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
   [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;

@@ -90,10 +90,11 @@ export const useManageTokens = () => {
       engine
         .getTokens(activeNetwork.network.id, activeAccount.id)
         .then((dataList) => {
+          const list = dataList.filter((e) => e.tokenIdOnNetwork);
           if (accountTokens.length === 0) {
             dispatch(
               changeActiveOwnedToken(
-                dataList.map((item) => ({ ...item, balance: '0' })),
+                list.map((item) => ({ ...item, balance: '0' })),
               ),
             );
           }
@@ -101,11 +102,11 @@ export const useManageTokens = () => {
             .getAccountBalance(
               activeAccount.id,
               activeNetwork.network.id,
-              dataList.map((token) => token.tokenIdOnNetwork),
+              list.map((token) => token.tokenIdOnNetwork),
               true,
             )
             .then((balanceData) => {
-              const listWithBalances = dataList.map((item) => {
+              const listWithBalances = list.map((item) => {
                 const data = {
                   ...item,
                   balance: item.tokenIdOnNetwork
