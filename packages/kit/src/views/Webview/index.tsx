@@ -3,6 +3,7 @@ import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
+import { URL } from 'react-native-url-polyfill';
 
 import { Box, Icon, Select } from '@onekeyhq/components';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
@@ -13,24 +14,6 @@ import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 import WebView from '../../components/WebView';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.SettingsWebviewScreen>;
-
-function addParamToUrl(originUrl: string, key: string, val: string) {
-  let url = originUrl;
-  if (url.indexOf(key) > -1) {
-    const re = RegExp(`/(${key}=)([^&]*)/gi`);
-    url = url.replace(re, `${key}=${val}`);
-  } else {
-    const paraStr = `${key}=${val}`;
-    const idx = url.indexOf('?');
-    if (idx < 0) {
-      url += '?';
-    } else if (idx >= 0 && idx !== url.length - 1) {
-      url += '&';
-    }
-    url += paraStr;
-  }
-  return url;
-}
 
 export const SettingsWebViews: FC = () => {
   const intl = useIntl();
@@ -66,16 +49,24 @@ export const SettingsWebViews: FC = () => {
     }
   };
 
+  const onRefresh = () => {
+    try {
+      const polyfillUrl = new URL(url);
+      polyfillUrl.searchParams.set(
+        'onekey-browser-refresh',
+        Math.random().toString(),
+      );
+
+      setCurrentUrl(polyfillUrl.toString());
+    } catch (error) {
+      console.warn(error);
+    }
+  };
+
   useEffect(() => {
     switch (currentOptionType) {
       case 'refresh':
-        setCurrentUrl(
-          addParamToUrl(
-            url,
-            'onekey-browser-refresh',
-            Math.random().toString(),
-          ),
-        );
+        onRefresh();
         setCurrentOptionType(null);
         break;
       case 'share':
