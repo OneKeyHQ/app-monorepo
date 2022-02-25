@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
@@ -6,16 +6,17 @@ import { BigNumber } from 'bignumber.js';
 import { IntlShape, useIntl } from 'react-intl';
 
 import {
-  Address,
   Box,
   Button,
   Container,
   Icon,
   Modal,
   Pressable,
+  Text,
   Typography,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import {
   TokenType,
@@ -30,14 +31,11 @@ import {
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
-import {
-  formatBalanceDisplay,
-  useFormatCurrencyDisplay,
-} from '../../components/Format';
+import { formatBalanceDisplay, useFormatAmount } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
+import useFormatDate from '../../hooks/useFormatDate';
 import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
-import { formatDate } from '../../utils/DateUtils';
 import NFTView from '../Components/nftView';
 import { getTransactionStatusStr } from '../Components/transactionRecord';
 import {
@@ -82,6 +80,8 @@ const TransactionDetails: FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { account, network } = useActiveWalletAccount();
   const openBlockBrowser = useOpenBlockBrowser(network?.network);
+  const formatDate = useFormatDate();
+  const { useFormatCurrencyDisplay } = useFormatAmount();
 
   const txInfo = tx;
 
@@ -98,6 +98,7 @@ const TransactionDetails: FC = () => {
     getAccounts();
     console.log(`Account: ${JSON.stringify(account)}`);
     console.log(txInfo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getTransactionStatusIcon = (
@@ -168,13 +169,13 @@ const TransactionDetails: FC = () => {
   );
 
   // render From Address
-  const renderFromAddress = useCallback(() => {
+  const renderFromAddress = useMemo(() => {
     const { fromAddress, fromAddressLabel } = getFromAddress(txInfo);
     return renderAddress('content__from', fromAddress, fromAddressLabel);
   }, [renderAddress, txInfo]);
 
   // render To Address
-  const renderToAddress = useCallback(() => {
+  const renderToAddress = useMemo(() => {
     const { toAddress, toAddressLabel } = getToAddress(txInfo);
     return renderAddress('content__to', toAddress, toAddressLabel);
   }, [renderAddress, txInfo]);
@@ -195,9 +196,9 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
-          value={`${
-            txInfo?.type === TransactionType.Transfer ? '-' : ''
-          }${amount}`}
+          value={`${txInfo?.type === TransactionType.Transfer ? '-' : ''}${`${
+            amount.amount ?? '-'
+          } ${amount.unit ?? ''}`}`}
           custom={list.map((item) => (
             <NFTView src={item} key={item} size={24} />
           ))}
@@ -221,8 +222,9 @@ const TransactionDetails: FC = () => {
     ),
   ]);
 
-  const renderTotalAmount = useCallback(() => {
+  const useRenderTotalAmount = useMemo(() => {
     if (
+      txInfo?.type !== TransactionType.Swap &&
       txInfo?.tokenType === TokenType.ERC20 &&
       txInfo?.tokenEvent &&
       txInfo.tokenEvent.length > 0
@@ -251,8 +253,12 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: 'content__total' })}
-          value={`${transferAmount} + ${feeAmount}`}
-          describe={totalErc20AmountFiat}
+          value={`${`${transferAmount.amount ?? '-'} ${
+            transferAmount.unit ?? ''
+          }`} + ${`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}`}
+          describe={`${totalErc20AmountFiat.amount ?? '-'} ${
+            totalErc20AmountFiat.unit ?? ''
+          }`}
         />
       );
     }
@@ -264,32 +270,36 @@ const TransactionDetails: FC = () => {
       network?.network?.symbol,
       {
         unit: network?.network?.decimals,
-        fixed: network?.network?.nativeDisplayDecimals,
       },
     );
+
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__total' })}
-        value={transferAmount}
-        describe={totalAmountFiat}
+        value={`${transferAmount.amount ?? '-'} ${transferAmount.unit ?? ''}`}
+        describe={`${totalAmountFiat.amount ?? '-'} ${
+          totalAmountFiat.unit ?? ''
+        }`}
       />
     );
   }, [
     intl,
     network?.network?.decimals,
-    network?.network?.nativeDisplayDecimals,
     network?.network?.symbol,
-    totalAmountFiat,
-    totalErc20AmountFiat,
+    totalAmountFiat.amount,
+    totalAmountFiat.unit,
+    totalErc20AmountFiat.amount,
+    totalErc20AmountFiat.unit,
     txInfo?.gasPrice,
     txInfo?.gasSpent,
     txInfo?.tokenEvent,
     txInfo?.tokenType,
+    txInfo?.type,
     txInfo?.value,
   ]);
 
   // render transaction fee
-  const renderTransactionFee = useCallback(() => {
+  const renderTransactionFee = useMemo(() => {
     const feeAmount = formatBalanceDisplay(
       new BigNumber(txInfo?.gasSpent ?? 0).multipliedBy(
         new BigNumber(txInfo?.gasPrice ?? 0),
@@ -303,7 +313,7 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__fee' })}
-        value={feeAmount}
+        value={`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}
       />
     );
   }, [
@@ -315,7 +325,7 @@ const TransactionDetails: FC = () => {
   ]);
 
   // render gas price
-  const renderGasPrice = useCallback(() => {
+  const renderGasPrice = useMemo(() => {
     const Amount = formatBalanceDisplay(
       new BigNumber(txInfo?.gasPrice ?? 0),
 
@@ -336,7 +346,9 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__gas_price' })}
-        value={`${Amount} (${feeAmount})`}
+        value={`${`${Amount.amount ?? '-'} ${Amount.unit ?? ''}`} (${`${
+          feeAmount.amount ?? '-'
+        } ${feeAmount.unit ?? ''}`})`}
       />
     );
   }, [
@@ -352,7 +364,7 @@ const TransactionDetails: FC = () => {
   return (
     <Modal
       header={getTransactionTypeStr(intl, txInfo)}
-      headerDescription={txInfo?.toAddress}
+      headerDescription={shortenAddress(txInfo?.toAddress ?? '')}
       footer={null}
       height="560px"
       scrollViewProps={{
@@ -380,20 +392,18 @@ const TransactionDetails: FC = () => {
                   w="100%"
                   flexWrap="wrap"
                 >
-                  <Address
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    text={txInfo?.txHash ?? ''}
-                    short
-                  />
+                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                    {shortenAddress(txInfo?.txHash ?? '', 8)}
+                  </Text>
                   <Pressable ml={3} onPress={copyHashToClipboard}>
                     <Icon size={20} name="DuplicateSolid" />
                   </Pressable>
                 </Box>
               </Container.Item>
 
-              {renderFromAddress()}
+              {renderFromAddress}
 
-              {renderToAddress()}
+              {renderToAddress}
 
               {txInfo?.type !== TransactionType.Swap &&
                 renderAmount('content__amount')}
@@ -414,12 +424,12 @@ const TransactionDetails: FC = () => {
 
               <Container.Item
                 title={intl.formatMessage({ id: 'form__trading_time' })}
-                value={formatDate(new Date(txInfo?.blockSignedAt ?? 0))}
+                value={formatDate.formatDate(txInfo?.blockSignedAt ?? '')}
               />
 
-              {renderTransactionFee()}
+              {renderTransactionFee}
 
-              {renderTotalAmount()}
+              {useRenderTotalAmount}
             </Container.Box>
 
             <Typography.Subheading mt={6} w="100%" color="text-subdued">
@@ -441,7 +451,7 @@ const TransactionDetails: FC = () => {
                   .toString()} %)`}
               />
 
-              {renderGasPrice()}
+              {renderGasPrice}
             </Container.Box>
 
             {/* <Typography.Subheading mt={6} w="100%" color="text-subdued">

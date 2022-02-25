@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { FlatListProps } from 'react-native';
 
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/opensea';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -32,21 +30,12 @@ export type CollectiblesProps = {
 
 const Collectibles = ({ address, network }: CollectiblesProps) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { collectibles, isLoading, loadMore } = useCollectiblesData({
+  const { collectibles, isLoading, loadMore, fetchData } = useCollectiblesData({
     network,
     address,
   });
   const isCollectibleSupported = isCollectibleSupportedChainId(
     network?.extraInfo.networkVersion,
-  );
-  const handleScrollToEnd: FlatListProps<unknown>['onEndReached'] = useCallback(
-    ({ distanceFromEnd }) => {
-      if (distanceFromEnd > 0) {
-        return;
-      }
-      loadMore?.();
-    },
-    [loadMore],
   );
 
   // Open Asset detail modal
@@ -93,9 +82,10 @@ const Collectibles = ({ address, network }: CollectiblesProps) => {
   return (
     <CollectibleGallery
       collectibles={collectibles}
+      fetchData={fetchData}
       isLoading={isLoading}
       isSupported={isCollectibleSupported}
-      onReachEnd={handleScrollToEnd}
+      onReachEnd={loadMore}
       onSelectCollectible={handleSelectCollectible}
       onSelectAsset={handleSelectAsset}
     />

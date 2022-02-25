@@ -64,9 +64,18 @@ const CollectibleDetailModal: FC = () => {
 
   if (!asset) {
     return isLoading ? (
-      <Center flex={1}>
-        <Spinner size="lg" />
-      </Center>
+      <Modal
+        footer={null}
+        height="640px"
+        scrollViewProps={{
+          pt: 4,
+          children: (
+            <Center flex={1}>
+              <Spinner size="lg" />
+            </Center>
+          ),
+        }}
+      />
     ) : null;
   }
 

@@ -10,7 +10,25 @@ import { Collectible, OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
 // userAddress -> collectionName -> Collectible
 const USER_COLLECTIBLE_CACHE = new Map<string, Map<string, Collectible>>();
 
-// Might wanna move it to redux
+// Defines whether a given uri corresponds to a set of possible file extensions.
+const checkIfIncludeUriExtension = (
+  { animationUrl, imageUrl }: OpenSeaAsset,
+  extensions: string[],
+) => {
+  const uri = animationUrl || imageUrl;
+  if (typeof uri !== 'string' || !Array.isArray(extensions)) {
+    return false;
+  }
+  const supported = extensions.reduce(
+    (maybeSupported: boolean, ext: string): boolean =>
+      maybeSupported ||
+      (typeof ext === 'string' &&
+        uri.toLowerCase().includes(ext.toLowerCase())),
+    false,
+  );
+  return supported;
+};
+
 export const useCollectibleCache = (
   userAddress: string,
   collectionAddress: string,
@@ -29,29 +47,32 @@ export const parseCollectiblesData = (
   const collectibles = new Map<string, Collectible>();
 
   for (const asset of assets) {
-    // Use lowercase address in case of case-insensitive address
-    const uniqueName = asset.collection.name;
+    // Ignore video and audio by now
+    if (!checkIfIncludeUriExtension(asset, ['.mp4', '.wav', '.mp3'])) {
+      // Use lowercase address in case of case-insensitive address
+      const uniqueName = asset.collection.name;
 
-    // Skip if the collectionAddress is undefined
-    if (uniqueName) {
-      const collectible = collectibles.get(uniqueName);
-      if (collectible) {
-        collectible.assets.push(asset);
-      } else {
-        collectibles.set(uniqueName, {
-          id: uniqueName,
-          chain: asset.chain,
-          contract: asset.assetContract,
-          assets: [asset],
-          collection: pick(asset.collection, [
-            'name',
-            'slug',
-            'description',
-            'imageUrl',
-            'bannerImageUrl',
-            'largeImageUrl',
-          ]),
-        });
+      // Skip if the unique name is undefined
+      if (uniqueName) {
+        const collectible = collectibles.get(uniqueName);
+        if (collectible) {
+          collectible.assets.push(asset);
+        } else {
+          collectibles.set(uniqueName, {
+            id: uniqueName,
+            chain: asset.chain,
+            contract: asset.assetContract,
+            assets: [asset],
+            collection: pick(asset.collection, [
+              'name',
+              'slug',
+              'description',
+              'imageUrl',
+              'bannerImageUrl',
+              'largeImageUrl',
+            ]),
+          });
+        }
       }
     }
   }
@@ -68,8 +89,9 @@ type UseCollectiblesDataArgs = {
   network?: Network | null;
 };
 type UseCollectiblesDataReturn = {
-  collectibles: Collectible[];
   isLoading: boolean;
+  collectibles: Collectible[];
+  fetchData: () => void;
   loadMore?: () => void;
 };
 const ONEKEY_COLLECTIBLES_PAGE_SIZE = 50;
@@ -98,15 +120,16 @@ export const useCollectiblesData = ({
   );
 
   return useMemo(() => {
-    if (hasNoParams) {
+    if (hasNoParams || !!assetsSwr.error) {
       return {
         isLoading: false,
+        fetchData: assetsSwr.mutate,
         collectibles: [],
       };
     }
 
     const assets = assetsSwr.data?.flat(1) ?? [];
-
+    const collectibles = parseCollectiblesData(assets, address);
     const loadMore = () => {
       const isEmpty = !assetsSwr.data?.length;
       const isReachingEnd =
@@ -120,12 +143,10 @@ export const useCollectiblesData = ({
       }
     };
 
-    const collectibles = assetsSwr.error
-      ? []
-      : parseCollectiblesData(assets, address);
     return {
       loadMore,
       collectibles,
+      fetchData: assetsSwr.mutate,
       isLoading: assetsSwr.isValidating,
     };
   }, [address, assetsSwr, hasNoParams]);
