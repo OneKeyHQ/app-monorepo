@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
@@ -58,8 +58,6 @@ const defaultOption = (): string => {
   }
 };
 
-let selectOption = defaultOption();
-
 const valueWithOption = (option: string): string => {
   switch (option) {
     case 'App on iOS':
@@ -82,6 +80,64 @@ type NavigationProps = NativeStackNavigationProp<
   SubmitRequestRoutes.SubmitRequestModal
 >;
 
+type ImageProps = {
+  imageModel: ImageModel;
+  onDelete: () => void;
+};
+
+export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
+  const { localPath, loading, filename } = imageModel;
+  const { width } = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  const modalWidth = isSmallScreen ? width : 400;
+  const padding = isSmallScreen ? 16 : 24;
+
+  const imageWidth = (modalWidth - padding * 2) / 4;
+  return (
+    <ZStack
+      key={`ticket_image${filename}`}
+      width={`${imageWidth}px`}
+      height={`${imageWidth}px`}
+    >
+      <Box
+        mt="8px"
+        ml={0}
+        width={`${imageWidth - 8}px`}
+        height={`${imageWidth - 8}px`}
+      >
+        <ZStack>
+          <Image
+            mt={0}
+            ml={0}
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+            borderRadius="12px"
+            source={{ uri: localPath }}
+            flex={1}
+          />
+          <Box
+            mt={0}
+            ml={0}
+            display={loading ? 'flex' : 'none'}
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+          >
+            <Center flex={1}>
+              <Spinner size="sm" />
+            </Center>
+          </Box>
+        </ZStack>
+      </Box>
+      <Pressable onPress={onDelete}>
+        <Box ml={`${imageWidth - 20}px`}>
+          <Icon size={20} name="CloseCircleSolid" />
+        </Box>
+      </Pressable>
+    </ZStack>
+  );
+};
+let selectOption = defaultOption();
+
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
   const [isHardware, setIsHardware] = useState(false);
@@ -95,6 +151,7 @@ export const SubmitRequest: FC = () => {
   const padding = isSmallScreen ? 16 : 24;
 
   const imageWidth = (modalWidth - padding * 2) / 4;
+
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
   const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -118,90 +175,56 @@ export const SubmitRequest: FC = () => {
       if (Platform.OS === 'ios' && result.base64) {
         base64Image = result.base64;
       }
-      updateImageArr([...imageArr, image]);
+
+      imageArr.push(image);
+      updateImageArr([...imageArr]);
       uploadImage(
         { filename: imagename, image: base64Image },
         instanceId,
         (error, responseJson) => {
           if (!error) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            image.token = responseJson.data.upload.token;
-            image.loading = false;
-            updateImageArr([...imageArr, image]);
+            for (const object of imageArr) {
+              if (object.filename === imagename) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                object.token = responseJson.data.upload.token;
+                object.loading = false;
+              }
+            }
+            updateImageArr([...imageArr]);
           }
         },
       );
     }
-  }, [imageArr, instanceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId]);
 
-  const imagesList = useMemo(() => {
-    const ImageView = (image: ImageModel, index: number) => {
-      const { localPath, loading } = image;
-      return (
-        <ZStack width={`${imageWidth}px`} height={`${imageWidth}px`}>
-          <Box
+  const imagesList = () => (
+    <Row>
+      {imageArr.map((image, index) => (
+        <ImageView
+          imageModel={image}
+          onDelete={() => {
+            imageArr.splice(index, 1);
+            updateImageArr([...imageArr]);
+          }}
+        />
+      ))}
+      {imageArr.length < 4 ? (
+        <Pressable onPress={pickImage}>
+          <Center
             mt="8px"
-            ml={0}
             width={`${imageWidth - 8}px`}
             height={`${imageWidth - 8}px`}
+            borderRadius="12px"
+            borderWidth={1}
+            borderColor="border-default"
           >
-            <ZStack>
-              <Image
-                mt={0}
-                ml={0}
-                width={`${imageWidth - 8}px`}
-                height={`${imageWidth - 8}px`}
-                borderRadius="12px"
-                source={{ uri: localPath }}
-                flex={1}
-              />
-              {loading ? (
-                <Box
-                  mt={0}
-                  ml={0}
-                  width={`${imageWidth - 8}px`}
-                  height={`${imageWidth - 8}px`}
-                >
-                  <Center flex={1}>
-                    <Spinner size="sm" />
-                  </Center>
-                </Box>
-              ) : null}
-            </ZStack>
-          </Box>
-          <Pressable
-            onPress={() => {
-              imageArr.splice(index, 1);
-              updateImageArr([...imageArr]);
-            }}
-          >
-            <Box ml={`${imageWidth - 20}px`}>
-              <Icon size={20} name="CloseCircleSolid" />
-            </Box>
-          </Pressable>
-        </ZStack>
-      );
-    };
-    return (
-      <Row>
-        {imageArr.map((image, index) => ImageView(image, index))}
-        {imageArr.length < 4 ? (
-          <Pressable onPress={pickImage}>
-            <Center
-              mt="8px"
-              width={`${imageWidth - 8}px`}
-              height={`${imageWidth - 8}px`}
-              borderRadius="12px"
-              borderWidth={1}
-              borderColor="border-default"
-            >
-              <Icon size={20} name="PlusSolid" />
-            </Center>
-          </Pressable>
-        ) : null}
-      </Row>
-    );
-  }, [imageArr, imageWidth, pickImage]);
+            <Icon size={20} name="PlusSolid" />
+          </Center>
+        </Pressable>
+      ) : null}
+    </Row>
+  );
 
   const options = [
     {
@@ -312,6 +335,16 @@ export const SubmitRequest: FC = () => {
     </Typography.Body2Strong>
   );
 
+  const beforeRemoveCallBack = useCallback(() => {
+    selectOption = defaultOption();
+  }, []);
+
+  useEffect(() => {
+    navigation.addListener('beforeRemove', beforeRemoveCallBack);
+    return () =>
+      navigation.removeListener('beforeRemove', beforeRemoveCallBack);
+  }, [beforeRemoveCallBack, navigation]);
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__submit_a_request' })}
@@ -342,6 +375,12 @@ export const SubmitRequest: FC = () => {
               name="email"
               rules={{
                 required: intl.formatMessage({ id: 'form__field_is_required' }),
+                maxLength: {
+                  value: 36,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
                 pattern: {
                   value: /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/,
                   message: intl.formatMessage({
@@ -366,7 +405,12 @@ export const SubmitRequest: FC = () => {
               control={control}
               rules={{
                 required: intl.formatMessage({ id: 'form__field_is_required' }),
-                maxLength: 1000,
+                maxLength: {
+                  value: 1000,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
               }}
               name="comment"
               formControlProps={{ width: 'full' }}
@@ -379,13 +423,21 @@ export const SubmitRequest: FC = () => {
                 borderRadius="12px"
               />
             </Form.Item>
-            {imagesList}
+            {imagesList()}
             {isHardware ? (
               [
                 <Form.Item
                   label={intl.formatMessage({ id: 'form__firmware_version' })}
                   labelAddon={optionLab}
                   control={control}
+                  rules={{
+                    maxLength: {
+                      value: 12,
+                      message: intl.formatMessage({
+                        id: 'msg__exceeding_the_maximum_word_limit',
+                      }),
+                    },
+                  }}
                   name="firmwareVersion"
                   defaultValue=""
                 >
@@ -395,6 +447,14 @@ export const SubmitRequest: FC = () => {
                   label={intl.formatMessage({ id: 'form__ble_version' })}
                   labelAddon={optionLab}
                   control={control}
+                  rules={{
+                    maxLength: {
+                      value: 12,
+                      message: intl.formatMessage({
+                        id: 'msg__exceeding_the_maximum_word_limit',
+                      }),
+                    },
+                  }}
                   name="bleVersion"
                   defaultValue=""
                 >
@@ -405,6 +465,14 @@ export const SubmitRequest: FC = () => {
                   helpText={intl.formatMessage({
                     id: 'content__these_information_may_be_found',
                   })}
+                  rules={{
+                    maxLength: {
+                      value: 12,
+                      message: intl.formatMessage({
+                        id: 'msg__exceeding_the_maximum_word_limit',
+                      }),
+                    },
+                  }}
                   labelAddon={optionLab}
                   control={control}
                   name="seVersion"
@@ -418,6 +486,14 @@ export const SubmitRequest: FC = () => {
                 label={intl.formatMessage({ id: 'form__app_version' })}
                 labelAddon={optionLab}
                 control={control}
+                rules={{
+                  maxLength: {
+                    value: 12,
+                    message: intl.formatMessage({
+                      id: 'msg__exceeding_the_maximum_word_limit',
+                    }),
+                  },
+                }}
                 name="appVersion"
                 defaultValue="1.0.0"
               >
