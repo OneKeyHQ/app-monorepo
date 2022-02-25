@@ -203,17 +203,8 @@ class RealmDB implements DBAPI {
    * reset the storage, all data will be removed
    * @param password
    */
-  reset(password: string): Promise<void> {
+  reset(): Promise<void> {
     try {
-      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
-        'Context',
-        MAIN_CONTEXT,
-      );
-      if (typeof context !== 'undefined') {
-        if (!checkPassword(context, password)) {
-          return Promise.reject(new WrongPassword());
-        }
-      }
       Realm.deleteFile({ path: DB_PATH });
       return Promise.resolve();
     } catch (error: any) {
