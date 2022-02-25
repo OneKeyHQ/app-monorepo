@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,7 +14,17 @@ import {
 } from '@onekeyhq/components';
 import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type Props = {
   visible: boolean;
   handleToggleVisible: () => void;
@@ -26,10 +37,19 @@ const AccountSelectorTrigger: FC<Props> = ({
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
-
+  const navigation = useNavigation<NavigationProps['navigation']>();
   if (!wallet) {
     return (
-      <Button onPress={handleToggleVisible}>
+      <Button
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateWallet,
+            params: {
+              screen: CreateWalletModalRoutes.CreateWalletModal,
+            },
+          });
+        }}
+      >
         {intl.formatMessage({ id: 'action__create_wallet' })}
       </Button>
     );

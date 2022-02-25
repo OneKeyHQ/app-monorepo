@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { DrawerActions } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -152,7 +153,12 @@ const CreateWalletModal: FC = () => {
               </Typography.Body1Strong>
             ),
             watch: (
-              <Typography.Body1Strong>
+              <Typography.Body1Strong
+                onPress={() => {
+                  navigation.goBack();
+                  navigation.dispatch(DrawerActions.openDrawer());
+                }}
+              >
                 {intl.formatMessage({ id: 'action__watch_lowercase' })}
               </Typography.Body1Strong>
             ),

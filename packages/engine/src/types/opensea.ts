@@ -50,6 +50,9 @@ export type OpenSeaAsset = {
   imagePreviewUrl?: string | null;
   imageThumbnailUrl?: string | null;
   imageOriginalUrl?: string | null;
+  // Audio or Video source
+  animationUrl?: string | null;
+  animationOriginalUrl?: string | null;
   permalink: string | null;
   tokenId: string;
   collection: Collection;
