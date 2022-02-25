@@ -18,7 +18,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { login } from '@onekeyhq/kit/src/store/reducers/status';
+import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -46,7 +46,7 @@ const SetPassword = () => {
   });
   const navigation = useNavigation<NavigationProps>();
   const onValid = useCallback(() => {
-    dispatch(login());
+    dispatch(unlock());
     setTimeout(() => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateWallet,
@@ -85,7 +85,7 @@ const SetPassword = () => {
               pattern: {
                 value: /^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{10,24}$/g,
                 message: intl.formatMessage({
-                  id: 'msg__password_should_be_between_10_and_24',
+                  id: 'msg__password_validation',
                 }),
               },
             }}
@@ -105,7 +105,7 @@ const SetPassword = () => {
               pattern: {
                 value: /^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{10,24}$/g,
                 message: intl.formatMessage({
-                  id: 'msg__password_should_be_between_10_and_24',
+                  id: 'msg__password_validation',
                 }),
               },
               validate: (value) =>

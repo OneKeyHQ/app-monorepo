@@ -129,7 +129,7 @@ const Input = React.forwardRef<
     }
     if (rightCustomElement) {
       rightElements.push(
-        <HStack alignItems="center" mr={-3}>
+        <HStack alignItems="center" mr={-3} key="rightCustomElement">
           {rightCustomElement}
         </HStack>,
       );
