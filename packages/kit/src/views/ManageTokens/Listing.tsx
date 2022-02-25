@@ -345,7 +345,7 @@ export const Listing: FC = () => {
           defaultMessage: 'Manage Tokens',
         })}
         height="560px"
-        headerDescription={activeNetwork?.network.name}
+        headerDescription={activeNetwork?.network.shortName}
         hidePrimaryAction
         onSecondaryActionPress={() => {
           navigation.navigate(ManageTokenRoutes.CustomToken);

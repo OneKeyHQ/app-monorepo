@@ -96,7 +96,7 @@ const ChainSelector: FC = () => {
     if (!networks) return [];
 
     return networks.map((network) => ({
-      label: network.name,
+      label: network.shortName,
       value: network.id,
       tokenProps: {
         src: network.logoURI,
