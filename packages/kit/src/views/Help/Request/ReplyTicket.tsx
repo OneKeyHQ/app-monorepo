@@ -39,6 +39,8 @@ type RouteProps = RouteProp<
   HistoryRequestRoutes.TicketDetailModal
 >;
 
+let uploadCount = 0;
+
 export const ReplyTicket: FC = () => {
   const intl = useIntl();
   const { width } = useWindowDimensions();
@@ -54,7 +56,11 @@ export const ReplyTicket: FC = () => {
   const toast = useToast();
 
   const imageWidth = (modalWidth - padding * 2) / 4;
-  const { control, handleSubmit } = useForm<SubmitValues>();
+  const {
+    control,
+    handleSubmit,
+    formState: { isValid },
+  } = useForm<SubmitValues>({ mode: 'onChange' });
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
 
   const onSubmit = useCallback(
@@ -114,13 +120,14 @@ export const ReplyTicket: FC = () => {
       if (Platform.OS === 'ios' && result.base64) {
         base64Image = result.base64;
       }
-
+      uploadCount += 1;
       imageArr.push(image);
       updateImageArr([...imageArr]);
       uploadImage(
         { filename: imagename, image: base64Image },
         instanceId,
         (error, responseJson) => {
+          uploadCount -= 1;
           if (!error) {
             for (const object of imageArr) {
               if (object.filename === imagename) {
@@ -170,7 +177,7 @@ export const ReplyTicket: FC = () => {
       header={intl.formatMessage({ id: 'action__reply' })}
       hideSecondaryAction
       primaryActionProps={{
-        type: 'basic',
+        isDisabled: !(isValid && uploadCount === 0),
         onPromise: () => handleSubmit(onSubmit)(),
       }}
       primaryActionTranslationId="action__submit"
@@ -185,7 +192,11 @@ export const ReplyTicket: FC = () => {
                   type="plain"
                   size="xs"
                   name="PhotographSolid"
-                  onPress={pickImage}
+                  onPress={() => {
+                    if (imageArr.length < 4) {
+                      pickImage();
+                    }
+                  }}
                 />
               }
               rules={{
@@ -195,6 +206,10 @@ export const ReplyTicket: FC = () => {
                   message: intl.formatMessage({
                     id: 'msg__exceeding_the_maximum_word_limit',
                   }),
+                },
+                validate: (value) => {
+                  console.log(`value = ${value}`);
+                  return undefined;
                 },
               }}
               name="comment"

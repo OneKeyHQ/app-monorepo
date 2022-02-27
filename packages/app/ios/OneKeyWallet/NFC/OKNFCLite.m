@@ -284,6 +284,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
     OKNFCLiteChangePinResult changePinResult = [OKNFCLite setNewPin:self.neoPin withOldPin:self.pin withTag:tag];
     if (changePinResult == OKNFCLiteChangePinResultError) {
+        [self syncLiteInfo];
         [self endNFCSessionWithError:YES];
         self.changePinCallback(OKNFCLiteChangePinStatusPinNotMatch);
         return;
