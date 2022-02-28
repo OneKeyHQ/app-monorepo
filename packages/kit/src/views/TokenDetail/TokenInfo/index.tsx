@@ -69,10 +69,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
       );
 
       if (token) {
-        setAmount(result[token.tokenIdOnNetwork]?.toString() ?? '0');
+        setAmount(result[token.tokenIdOnNetwork] ?? '0');
         setTokenPrice(prices?.[token.tokenIdOnNetwork]);
       } else {
-        setAmount(result.main?.toString() ?? '0');
+        setAmount(result.main ?? '0');
         setTokenPrice(prices?.main);
       }
     }
