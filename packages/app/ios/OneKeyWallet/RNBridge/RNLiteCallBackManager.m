@@ -200,12 +200,14 @@
 
 - (id)cardInfo:(OKNFCLite *)lite status:(NSInteger)status {
   if (lite) {
-    return @{
-      @"hasBackup":[NSNull null],
-      @"pinRetryCount":@(lite.pinRTL),
-      @"isNewCard":@(lite.status == OKNFCLiteStatusNewCard),
-      @"serialNum":lite.SN
-    };
+    if (lite.SN && lite.pinRTL && lite.status) {
+      return @{
+        @"hasBackup":[NSNull null],
+        @"pinRetryCount":@(lite.pinRTL),
+        @"isNewCard":@(lite.status == OKNFCLiteStatusNewCard),
+        @"serialNum":lite.SN
+      };
+    }
   }
   return [NSNull null];
 }
