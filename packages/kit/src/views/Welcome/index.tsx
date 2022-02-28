@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Box,
@@ -16,15 +17,20 @@ import {
 
 import logo from '../../../assets/logo.png';
 import { useAppDispatch } from '../../hooks/redux';
+import { useHelpLink } from '../../hooks/useHelpLink';
 import { CreateWalletModalRoutes } from '../../routes/Modal/CreateWallet';
-import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
+import {
+  OnboardingRoutes,
+  OnboardingRoutesParams,
+  OnboardingStackRoutes,
+} from '../../routes/Onboarding/types';
 import { setBoardingCompleted } from '../../store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  RootRoutesParams,
-  RootRoutes.Root
+  OnboardingRoutesParams,
+  OnboardingRoutes.Stack
 >;
 
 const Welcome = () => {
@@ -32,20 +38,53 @@ const Welcome = () => {
   const navigation = useNavigation<NavigationProps>();
   const { bottom } = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
+
+  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+
   const dispatch = useAppDispatch();
   const onSkip = useCallback(() => {
     dispatch(setBoardingCompleted());
   }, [dispatch]);
 
   const onCreate = useCallback(() => {
-    dispatch(setBoardingCompleted());
-    setTimeout(() => {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: { screen: CreateWalletModalRoutes.CreateWalletModal },
-      });
-    }, 100);
-  }, [dispatch, navigation]);
+    navigation.navigate(OnboardingRoutes.Modal, {
+      screen: CreateWalletModalRoutes.CreateWalletModal,
+    });
+  }, [navigation]);
+
+  const onOpenUrl = useCallback(
+    (url: string, title?: string) => {
+      if (['android', 'ios'].includes(Platform.OS)) {
+        navigation.navigate(OnboardingRoutes.Stack, {
+          screen: OnboardingStackRoutes.Webview,
+          params: { url, title },
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+    },
+    [navigation],
+  );
+
+  const onOpenUserAgreement = useCallback(() => {
+    onOpenUrl(
+      userAgreementUrl,
+      intl.formatMessage({
+        id: 'form__user_agreement',
+      }),
+    );
+  }, [intl, onOpenUrl, userAgreementUrl]);
+
+  const onOpenPrivacyPolicy = useCallback(() => {
+    onOpenUrl(
+      privacyPolicyUrl,
+      intl.formatMessage({
+        id: 'form__privacy_policy',
+      }),
+    );
+  }, [intl, onOpenUrl, privacyPolicyUrl]);
+
   return (
     <Center w="full" h="full" bg="background-default">
       <Box maxW="96" w="full" h="full" position="relative">
@@ -85,12 +124,12 @@ const Welcome = () => {
                 { id: 'content__agree_to_user_agreement_and_privacy_policy' },
                 {
                   a: (text) => (
-                    <Typography.CaptionUnderline>
+                    <Typography.CaptionUnderline onPress={onOpenUserAgreement}>
                       {text}
                     </Typography.CaptionUnderline>
                   ),
                   b: (text) => (
-                    <Typography.CaptionUnderline>
+                    <Typography.CaptionUnderline onPress={onOpenPrivacyPolicy}>
                       {text}
                     </Typography.CaptionUnderline>
                   ),
