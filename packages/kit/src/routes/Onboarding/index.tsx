@@ -7,13 +7,10 @@ import {
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import ModalScreen from './modal';
+import ModalScreen from '../Modal/CreateWallet';
+
 import StackScreen from './stack';
-import {
-  OnboardingModalRoutes,
-  OnboardingRoutes,
-  OnboardingRoutesParams,
-} from './types';
+import { OnboardingRoutes } from './types';
 
 const OnboardingNavigator = createStackNavigator();
 
@@ -42,5 +39,3 @@ const OnboardingScreen = () => {
 };
 
 export default OnboardingScreen;
-export { OnboardingRoutes, OnboardingModalRoutes };
-export type { OnboardingRoutesParams };

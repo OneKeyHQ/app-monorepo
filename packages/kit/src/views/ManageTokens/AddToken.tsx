@@ -49,7 +49,7 @@ export const AddToken: FC = () => {
           address,
         );
         if (res?.[0]) {
-          setBalance(res?.[0].toString());
+          setBalance(res?.[0]);
         }
       }
     }

@@ -21,15 +21,9 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../routes/types';
+import { ModalScreenProps } from '../../routes/types';
 
-type NavigationProps = ModalScreenProps<RootRoutesParams> &
-  ModalScreenProps<CreateWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 const CreateWalletModal: FC = () => {
   const intl = useIntl();
@@ -52,10 +46,7 @@ const CreateWalletModal: FC = () => {
             borderRadius="12px"
             px={4}
             onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: { screen: CreateWalletModalRoutes.AppWalletModal },
-              });
+              navigation.navigate(CreateWalletModalRoutes.AppWalletModal);
             }}
           >
             <HStack justifyContent="space-between" alignItems="center">
@@ -94,12 +85,7 @@ const CreateWalletModal: FC = () => {
             borderRadius="12px"
             px={4}
             onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: {
-                  screen: CreateWalletModalRoutes.ConnectHardwareModal,
-                },
-              });
+              navigation.navigate(CreateWalletModalRoutes.ConnectHardwareModal);
             }}
           >
             <HStack justifyContent="space-between" alignItems="center">

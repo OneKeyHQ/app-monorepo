@@ -347,11 +347,11 @@ class ProviderController extends BaseProviderController {
             suggestedMaxPriorityFeePerGas: string;
             suggestedMaxFeePerGas: string;
           }) => ({
-            baseFee,
+            baseFee: baseFee.toFixed(),
             maxPriorityFeePerGas: new BigNumber(
               p.suggestedMaxPriorityFeePerGas,
-            ),
-            maxFeePerGas: new BigNumber(p.suggestedMaxFeePerGas),
+            ).toFixed(),
+            maxFeePerGas: new BigNumber(p.suggestedMaxFeePerGas).toFixed(),
           }),
         );
       } catch {
@@ -388,11 +388,12 @@ class ProviderController extends BaseProviderController {
             .sort((a, b) => (a.gt(b) ? 1 : -1))[11]
             .shiftedBy(-9);
           return {
-            baseFee,
-            maxPriorityFeePerGas,
+            baseFee: baseFee.toFixed(),
+            maxPriorityFeePerGas: maxPriorityFeePerGas.toFixed(),
             maxFeePerGas: baseFee
               .times(new BigNumber(coefficient))
-              .plus(maxPriorityFeePerGas),
+              .plus(maxPriorityFeePerGas)
+              .toFixed(),
           };
         });
       }

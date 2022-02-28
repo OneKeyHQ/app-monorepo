@@ -120,6 +120,7 @@ PODS:
     - ReactCommon/turbomodule/core (= 0.66.4)
   - fmt (6.2.1)
   - glog (0.3.5)
+  - IQKeyboardManagerSwift (6.5.4)
   - lottie-ios (3.2.3)
   - lottie-react-native (5.0.1):
     - lottie-ios (~> 3.2.3)
@@ -403,6 +404,10 @@ PODS:
     - React-jsi (= 0.66.4)
     - React-logger (= 0.66.4)
     - React-perflogger (= 0.66.4)
+  - ReactNativeKeyboardManager (6.5.4-4):
+    - IQKeyboardManagerSwift (= 6.5.4)
+    - React-Core
+    - React-RCTText
   - RealmJS (10.20.0-beta.0):
     - React
   - RNCAsyncStorage (1.15.14):
@@ -516,6 +521,7 @@ DEPENDENCIES:
   - React-RCTVibration (from `../../../node_modules/react-native/Libraries/Vibration`)
   - React-runtimeexecutor (from `../../../node_modules/react-native/ReactCommon/runtimeexecutor`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
+  - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
@@ -528,6 +534,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - fmt
+    - IQKeyboardManagerSwift
     - MultiplatformBleAdapter
     - ZXingObjC
 
@@ -654,6 +661,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/runtimeexecutor"
   ReactCommon:
     :path: "../../../node_modules/react-native/ReactCommon"
+  ReactNativeKeyboardManager:
+    :path: "../../../node_modules/react-native-keyboard-manager"
   RealmJS:
     :path: "../../../node_modules/realm"
   RNCAsyncStorage:
@@ -702,6 +711,7 @@ SPEC CHECKSUMS:
   FBReactNativeSpec: fe08c1cd7e2e205718d77ad14b34957cce949b58
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
   glog: 5337263514dd6f09803962437687240c5dc39aa4
+  IQKeyboardManagerSwift: 2dde0fc70110e8eac7ccce2a46fdbec6a850b414
   lottie-ios: c058aeafa76daa4cf64d773554bccc8385d0150e
   lottie-react-native: a029a86e1689c86a07169c520ae770e84348cd20
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
@@ -735,6 +745,7 @@ SPEC CHECKSUMS:
   React-RCTVibration: e3ffca672dd3772536cb844274094b0e2c31b187
   React-runtimeexecutor: dec32ee6f2e2a26e13e58152271535fadff5455a
   ReactCommon: 57b69f6383eafcbd7da625bfa6003810332313c4
+  ReactNativeKeyboardManager: f82a63e0982254fb0f6a17ba327fac575a46f1e9
   RealmJS: 6e47a0a9619d19dd238ef635abee5724cb677247
   RNCAsyncStorage: ea6b5c280997b2b32a587793163b1f10e580c4f7
   RNGestureHandler: a479ebd5ed4221a810967000735517df0d2db211

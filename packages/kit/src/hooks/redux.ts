@@ -112,8 +112,8 @@ export const useManageTokens = () => {
                 const data = {
                   ...item,
                   balance: item.tokenIdOnNetwork
-                    ? balanceData[item.tokenIdOnNetwork]?.toString()
-                    : balanceData.main?.toString(),
+                    ? balanceData[item.tokenIdOnNetwork]
+                    : balanceData.main,
                 };
                 return data;
               });

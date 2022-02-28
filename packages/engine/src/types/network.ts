@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { HasName } from './base';
 
 type NetworkBase = HasName & {
@@ -73,9 +71,9 @@ type UpdateEVMNetworkParams = {
 type UpdateNetworkParams = UpdateEVMNetworkParams;
 
 type EIP1559Fee = {
-  baseFee: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
-  maxFeePerGas: BigNumber;
+  baseFee: string;
+  maxPriorityFeePerGas: string;
+  maxFeePerGas: string;
 };
 
 export type {

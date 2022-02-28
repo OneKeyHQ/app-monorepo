@@ -16,15 +16,9 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-type NavigationProps = ModalScreenProps<RootRoutesParams> &
-  ModalScreenProps<CreateWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 const AppWalletModal: FC = () => {
   const intl = useIntl();
@@ -42,12 +36,7 @@ const AppWalletModal: FC = () => {
           alignItems="center"
           justifyContent="space-between"
           onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.AppWalletDoneModal,
-              },
-            });
+            navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal);
           }}
         >
           <HStack space={4} alignItems="center">
@@ -69,12 +58,7 @@ const AppWalletModal: FC = () => {
           alignItems="center"
           justifyContent="space-between"
           onPress={() =>
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.RestoreWalletModal,
-              },
-            })
+            navigation.navigate(CreateWalletModalRoutes.RestoreWalletModal)
           }
         >
           <HStack space={4} alignItems="center">

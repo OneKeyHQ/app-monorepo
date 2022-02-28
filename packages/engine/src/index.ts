@@ -272,7 +272,7 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, BigNumber | undefined>> {
+  ): Promise<Record<string, string | undefined>> {
     // Get account balance, main token balance is always included.
     const [dbAccount, network, tokens] = await Promise.all([
       this.dbApi.getAccount(accountId),
@@ -292,15 +292,17 @@ class Engine {
       networkId,
       buildGetBalanceRequest(dbAccount, tokensToGet, withMain),
     );
-    const ret: Record<string, BigNumber | undefined> = {};
+    const ret: Record<string, string | undefined> = {};
     if (withMain && typeof balances[0] !== 'undefined') {
-      ret.main = balances[0].div(new BigNumber(10).pow(network.decimals));
+      ret.main = balances[0]
+        .div(new BigNumber(10).pow(network.decimals))
+        .toFixed();
     }
     balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
       const tokenId1 = tokensToGet[index];
       const decimals = decimalsMap[tokenId1];
       if (typeof balance !== 'undefined') {
-        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals));
+        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals)).toFixed();
       }
     });
     return ret;
@@ -345,8 +347,8 @@ class Engine {
       path: paths[index],
       mainBalance:
         typeof balance === 'undefined'
-          ? new BigNumber(0)
-          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)),
+          ? '0'
+          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
     }));
   }
 
@@ -506,7 +508,7 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<[BigNumber | undefined, Token] | undefined> {
+  ): Promise<[string | undefined, Token] | undefined> {
     // 1. find local token
     // 2. if not, find token online
     // 3. get token balance
@@ -529,7 +531,10 @@ class Engine {
     if (typeof balance === 'undefined') {
       return undefined;
     }
-    return [balance.div(new BigNumber(10).pow(token.decimals)), token];
+    return [
+      balance.div(new BigNumber(10).pow(token.decimals)).toFixed(),
+      token,
+    ];
   }
 
   async getTokens(
@@ -612,10 +617,10 @@ class Engine {
     networkId: string,
     accountId: string,
     to: string,
-    value: BigNumber,
+    value: string,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
-  ): Promise<BigNumber> {
+  ): Promise<string> {
     // For account model networks, return the estimated gas usage.
     // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
     // TODO: validate to parameter.
@@ -627,25 +632,27 @@ class Engine {
     const payload = extra || {};
     payload.nonce = 1;
     payload.feePricePerUnit = new BigNumber(1);
-    return this.providerManager.preSend(
-      network,
-      account,
-      to,
-      value,
-      tokenIdOnNetwork,
-      payload,
-    );
+    return (
+      await this.providerManager.preSend(
+        network,
+        account,
+        to,
+        new BigNumber(value),
+        tokenIdOnNetwork,
+        payload,
+      )
+    ).toFixed();
   }
 
-  async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {
+  async getGasPrice(networkId: string): Promise<Array<string | EIP1559Fee>> {
     const ret = await this.providerManager.getGasPrice(networkId);
     if (ret.length > 0 && ret[0] instanceof BigNumber) {
       const { feeDecimals } = await this.dbApi.getNetwork(networkId);
       return (ret as Array<BigNumber>).map((price: BigNumber) =>
-        price.shiftedBy(-feeDecimals),
+        price.shiftedBy(-feeDecimals).toFixed(),
       );
     }
-    return ret;
+    return ret as Array<EIP1559Fee>;
   }
 
   async transfer(
@@ -653,9 +660,9 @@ class Engine {
     networkId: string,
     accountId: string,
     to: string,
-    value: BigNumber,
-    gasPrice: BigNumber,
-    gasLimit: BigNumber,
+    value: string,
+    gasPrice: string,
+    gasLimit: string,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; success: boolean }> {
@@ -672,12 +679,12 @@ class Engine {
           network,
           account,
           to,
-          value,
+          new BigNumber(value),
           tokenIdOnNetwork,
           {
             ...extra,
-            feeLimit: gasLimit,
-            feePricePerUnit: gasPrice,
+            feeLimit: new BigNumber(gasLimit),
+            feePricePerUnit: new BigNumber(gasPrice),
           },
         );
       await this.dbApi.addHistoryEntry(
@@ -689,7 +696,7 @@ class Engine {
         {
           contract: tokenIdOnNetwork || '',
           target: to,
-          value: value.toFixed(),
+          value,
           rawTx,
         },
       );

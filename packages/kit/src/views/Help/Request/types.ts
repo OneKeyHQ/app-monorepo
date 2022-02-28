@@ -33,6 +33,8 @@ export type TicketType = {
   'description': string;
   'submitter_id': number;
   'created_at': string;
+  'updated_at': string;
+
   'custom_fields': { 'id': number; 'value': string }[];
 };
 
