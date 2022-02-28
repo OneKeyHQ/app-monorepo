@@ -550,7 +550,7 @@
   "title__pin_changed": "PIN 码更改成功",
   "title__pin_changed_desc": "这个OneKey Lite的 PIN 码已被重置",
   "title__place_your_card_as_shown_below": "按图示放置设备与手机",
-  "title__place_your_card_as_shown_below_desc": "将 OneKey Lite 贴近手机背面并保持，然后点击搜索按钮",
+  "title__place_your_card_as_shown_below_desc": "将 OneKey Lite 贴近手机背面并保持，然后点击连接按钮",
   "title__pool": "流动性池",
   "title__portfolio": "投资组合",
   "title__qr_code_info": "扫码结果",

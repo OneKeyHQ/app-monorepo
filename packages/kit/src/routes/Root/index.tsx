@@ -11,8 +11,8 @@ import KeyboardManager from 'react-native-keyboard-manager';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useStatus } from '../../hooks/redux';
-import Welcome from '../../views/Welcome';
 import ModalStackNavigator from '../Modal';
+import OnboardingScreen from '../Onboarding';
 import StackScreen from '../Stack';
 import { RootRoutes } from '../types';
 
@@ -57,7 +57,7 @@ const App = () => {
 
 const RootStackNavigator = () => {
   const { boardingCompleted } = useStatus();
-  return boardingCompleted ? <App /> : <Welcome />;
+  return boardingCompleted ? <App /> : <OnboardingScreen />;
 };
 
 export default memo(RootStackNavigator);

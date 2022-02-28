@@ -6,6 +6,7 @@ import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Center,
   Dialog,
   Divider,
   Empty,
@@ -14,6 +15,7 @@ import {
   Image,
   Modal,
   Searchbar,
+  Spinner,
   Typography,
   utils,
 } from '@onekeyhq/components';
@@ -24,6 +26,7 @@ import engine from '../../engine/EngineProvider';
 import { useGeneral, useManageTokens } from '../../hooks/redux';
 import useDebounce from '../../hooks/useDebounce';
 
+import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { ValuedToken } from '../../store/reducers/general';
@@ -126,6 +129,7 @@ type HeaderProps = {
   topTokens: Token[];
   tokens: ValuedToken[];
   keyword: string;
+  terms?: string;
   onChange: (keyword: string) => void;
   onDelToken?: (token: Token) => void;
 };
@@ -134,6 +138,7 @@ const Header: FC<HeaderProps> = ({
   tokens,
   topTokens,
   keyword,
+  terms,
   onChange,
   onDelToken,
 }) => {
@@ -151,7 +156,7 @@ const Header: FC<HeaderProps> = ({
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
       />
-      {keyword.length ? null : (
+      {terms ? null : (
         <HeaderTokens
           tokens={tokens}
           onDelToken={onDelToken}
@@ -162,15 +167,26 @@ const Header: FC<HeaderProps> = ({
   );
 };
 
-type ListEmptyComponentProps = { keyword: string; searchedTokens: Token[] };
+type ListEmptyComponentProps = {
+  isLoading: boolean;
+  terms: string;
+};
 
 const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
-  keyword,
-  searchedTokens,
+  isLoading,
+  terms,
 }) => {
+  console.log('rerender', isLoading, terms);
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  return keyword.length > 0 && searchedTokens.length === 0 ? (
+  if (isLoading) {
+    return (
+      <Center w="full" h="20">
+        <Spinner size="lg" />
+      </Center>
+    );
+  }
+  return terms.length > 0 ? (
     <Empty
       title={intl.formatMessage({
         id: 'content__no_results',
@@ -186,8 +202,8 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       })}
       handleAction={() => {
         const params: { address?: string } = {};
-        if (isValidateAddr(keyword)) {
-          params.address = keyword;
+        if (isValidateAddr(terms)) {
+          params.address = terms;
         }
         navigation.navigate(ManageTokenRoutes.CustomToken, params);
       }}
@@ -209,8 +225,12 @@ export const Listing: FC = () => {
   const [mylist, setMylist] = useState<Token[]>([]);
   const searchTerm = useDebounce(keyword, 1000);
 
-  const [searchedTokens, setSearchedTokens] = useState<Token[]>([]);
   const { activeNetwork, activeAccount } = useGeneral();
+  const { loading, searchedTokens } = useSearchTokens(
+    searchTerm,
+    keyword,
+    activeNetwork?.network.id,
+  );
 
   const [visible, setVisible] = useState(false);
   const [toDeletedToken, setToDeletedToken] = useState<Token>();
@@ -227,21 +247,6 @@ export const Listing: FC = () => {
       setVisible(false);
     }
   }, []);
-
-  useEffect(() => {
-    async function searchAndSetTokens(
-      networkId: string,
-      tokenToSearch: string,
-    ) {
-      const result = await engine.searchTokens(networkId, tokenToSearch);
-      setSearchedTokens(result);
-    }
-
-    if (searchTerm.length === 0 || activeNetwork === null) {
-      return;
-    }
-    searchAndSetTokens(activeNetwork.network.id, searchTerm);
-  }, [activeNetwork, searchTerm]);
 
   const onDelete = useCallback(async () => {
     if (activeAccount && toDeletedToken) {
@@ -266,7 +271,7 @@ export const Listing: FC = () => {
     [searchTerm, searchedTokens, allTokens],
   );
 
-  const renderItem: ListRenderItem<Token & { balance?: string }> = useCallback(
+  const renderItem: ListRenderItem<ValuedToken> = useCallback(
     ({ item, index }) => (
       <Box
         borderTopRadius={index === 0 ? '12' : undefined}
@@ -364,17 +369,15 @@ export const Listing: FC = () => {
           ItemSeparatorComponent: () => <Divider />,
           keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
-          ListEmptyComponent: () => (
-            <ListEmptyComponent
-              keyword={keyword}
-              searchedTokens={searchedTokens}
-            />
+          ListEmptyComponent: (
+            <ListEmptyComponent isLoading={loading} terms={searchTerm} />
           ),
           ListHeaderComponent: (
             <Header
               topTokens={allTokens}
               tokens={mylist}
               keyword={keyword}
+              terms={searchTerm}
               onChange={(text) => setKeyword(text)}
               onDelToken={(token) => onToggleDeleteDialog(token)}
             />
