@@ -1,10 +1,7 @@
 import React, { FC } from 'react';
 
-import { Platform, StyleSheet } from 'react-native';
-
 import {
   Box,
-  Center,
   KeyboardAvoidingView,
   Modal,
   PinCode,
