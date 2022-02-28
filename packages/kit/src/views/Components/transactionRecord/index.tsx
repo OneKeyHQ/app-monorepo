@@ -125,7 +125,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           }
           if (index === 2) {
             return (
-              <Center width={24} height={24}>
+              <Center width={24} height={24} key={nft}>
                 <Icon size={5} name="DotsHorizontalSolid" />
               </Center>
             );
