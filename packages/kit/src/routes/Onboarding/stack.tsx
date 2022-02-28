@@ -1,38 +1,53 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { memo } from 'react';
 
 import { createStackNavigator } from '@react-navigation/stack';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { useThemeValue } from '@onekeyhq/components';
 
-import WelcomeScreen from '../../views/Onboarding/Welcome';
+import WebviewScreen from '../../views/Webview';
+import WelcomeScreen from '../../views/Welcome';
 
-import { OnboardingStackRoutes } from './types';
+import { OnboardingStackRoutes, StackRoutesParams } from './types';
 
-export type ModalRoutesParams = {
-  [OnboardingStackRoutes.Welcome]: undefined;
-};
-const ModalStack = createStackNavigator<ModalRoutesParams>();
-
-const OnboardingStackRoutesList = [
-  { name: OnboardingStackRoutes.Welcome, component: WelcomeScreen },
-];
+const ModalStack = createStackNavigator<StackRoutesParams>();
 
 const StackNavigator = () => {
-  const isVerticalLayout = useIsVerticalLayout();
+  const [bgColor, textColor, borderBottomColor] = useThemeValue([
+    'surface-subdued',
+    'text-default',
+    'border-subdued',
+  ]);
   return (
     <ModalStack.Navigator
       screenOptions={{
         headerShown: false,
       }}
     >
-      {OnboardingStackRoutesList.map((stack) => (
+      <ModalStack.Group>
         <ModalStack.Screen
-          key={stack.name}
-          name={stack.name}
-          component={stack.component}
+          name={OnboardingStackRoutes.Welcome}
+          component={WelcomeScreen}
         />
-      ))}
+      </ModalStack.Group>
+      <ModalStack.Group
+        screenOptions={{
+          headerShown: true,
+          headerBackTitleVisible: false,
+          headerBackTitle: '',
+          headerTitleAlign: 'center',
+          headerStyle: {
+            backgroundColor: bgColor,
+            borderBottomColor,
+            shadowColor: borderBottomColor,
+          },
+          headerTintColor: textColor,
+        }}
+      >
+        <ModalStack.Screen
+          name={OnboardingStackRoutes.Webview}
+          component={WebviewScreen}
+        />
+      </ModalStack.Group>
     </ModalStack.Navigator>
   );
 };

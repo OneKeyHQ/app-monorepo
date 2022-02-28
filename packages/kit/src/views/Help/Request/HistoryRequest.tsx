@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 
 import { useSettings } from '../../../hooks/redux';
+import useFormatDate from '../../../hooks/useFormatDate';
 
 import { listUri } from './TicketService';
 import { RequestPayload, TicketType } from './types';
@@ -36,6 +37,7 @@ export const HistoryRequest: FC = () => {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const { instanceId } = useSettings();
+  const { formatDate } = useFormatDate();
 
   function platformWithField(value: string): string {
     switch (value) {
@@ -170,7 +172,9 @@ export const HistoryRequest: FC = () => {
                                 {item.description}
                               </Text>
                               <Text typography="Body2" color="text-subdued">
-                                {item.created_at}
+                                {formatDate(item.created_at, {
+                                  hideYear: true,
+                                })}
                               </Text>
                             </Column>
                             <Icon name="ChevronRightSolid" size={20} />
