@@ -44,7 +44,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
   >(({ label, iconProps = {}, iconName }, active) => {
     if (typeof label === 'string') {
       return (
-        <Center flex="1" padding="6px" ml="3px" w="full" h="full">
+        <Center padding="6px" ml="3px" w="full" h="full">
           <Typography.Body2Strong
             color={active ? 'text-default' : 'text-subdued'}
             textAlign="center"
@@ -56,7 +56,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
     }
     if (iconName) {
       return (
-        <Center flex="1" padding="6px" ml="3px" w="full" h="full">
+        <Center padding="6px" ml="3px" w="full" h="full">
           <Icon
             size={20}
             {...iconProps}
