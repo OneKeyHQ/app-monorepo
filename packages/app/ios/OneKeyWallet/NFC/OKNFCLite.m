@@ -159,7 +159,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     OKNFCLiteSetMncStatus status = OKNFCLiteSetMncStatusError;
   
     if (![self syncLiteInfo]) {
-        [self endNFCSessionWithError:NO];
+        [self endNFCSessionWithError:YES];
         [self.delegate ok_lite:self setMnemonicComplete:status];
         return;
     }
@@ -216,7 +216,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
     OKNFCLiteGetMncStatus status = OKNFCLiteGetMncStatusError;
     if (![self syncLiteInfo]) {
-        [self endNFCSessionWithError:NO];
+        [self endNFCSessionWithError:YES];
         [self.delegate ok_lite:self getMnemonic:nil complete:status];
         return;
     }
@@ -265,7 +265,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
     }
 
   if (![self syncLiteInfo]) {
-      [self endNFCSessionWithError:NO];
+      [self endNFCSessionWithError:YES];
       self.changePinCallback(OKNFCLiteChangePinStatusError);
       return;
   }
@@ -284,6 +284,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
     OKNFCLiteChangePinResult changePinResult = [OKNFCLite setNewPin:self.neoPin withOldPin:self.pin withTag:tag];
     if (changePinResult == OKNFCLiteChangePinResultError) {
+        [self syncLiteInfo];
         [self endNFCSessionWithError:YES];
         self.changePinCallback(OKNFCLiteChangePinStatusPinNotMatch);
         return;

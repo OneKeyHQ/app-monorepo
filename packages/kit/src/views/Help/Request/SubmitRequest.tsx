@@ -136,7 +136,9 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
     </ZStack>
   );
 };
+
 let selectOption = defaultOption();
+let uploadCount = 0;
 
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
@@ -177,11 +179,13 @@ export const SubmitRequest: FC = () => {
       }
 
       imageArr.push(image);
+      uploadCount += 1;
       updateImageArr([...imageArr]);
       uploadImage(
         { filename: imagename, image: base64Image },
         instanceId,
         (error, responseJson) => {
+          uploadCount -= 1;
           if (!error) {
             for (const object of imageArr) {
               if (object.filename === imagename) {
@@ -253,7 +257,11 @@ export const SubmitRequest: FC = () => {
     setIsHardware(value === 'Hardware');
   };
 
-  const { control, handleSubmit } = useForm<SubmitValues>();
+  const {
+    control,
+    handleSubmit,
+    formState: { isValid },
+  } = useForm<SubmitValues>({ mode: 'onChange' });
   const onSubmit = useCallback(
     async (formData: SubmitValues) => {
       const uploads = () => {
@@ -337,6 +345,7 @@ export const SubmitRequest: FC = () => {
 
   const beforeRemoveCallBack = useCallback(() => {
     selectOption = defaultOption();
+    uploadCount = 0;
   }, []);
 
   useEffect(() => {
@@ -350,7 +359,10 @@ export const SubmitRequest: FC = () => {
       header={intl.formatMessage({ id: 'form__submit_a_request' })}
       hideSecondaryAction
       primaryActionTranslationId="action__submit"
-      primaryActionProps={{ onPromise: () => handleSubmit(onSubmit)() }}
+      primaryActionProps={{
+        onPromise: () => handleSubmit(onSubmit)(),
+        isDisabled: !(isValid && uploadCount === 0),
+      }}
       scrollViewProps={{
         children: [
           <Form>
@@ -399,7 +411,11 @@ export const SubmitRequest: FC = () => {
                   type="plain"
                   size="xs"
                   name="PhotographSolid"
-                  onPress={pickImage}
+                  onPress={() => {
+                    if (imageArr.length < 4) {
+                      pickImage();
+                    }
+                  }}
                 />
               }
               control={control}
