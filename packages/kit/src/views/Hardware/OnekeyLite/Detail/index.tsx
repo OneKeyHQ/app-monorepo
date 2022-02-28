@@ -64,6 +64,8 @@ const OnekeyLiteDetail: React.FC = () => {
 
   useEffect(() => {
     async function main() {
+      if (!wallet) return;
+
       const wallets = (await engine.getWallets()).filter(
         (_wallet) => _wallet.type === 'hd' || _wallet.type === 'imported',
       );
