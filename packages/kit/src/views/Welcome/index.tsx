@@ -53,6 +53,12 @@ const Welcome = () => {
     });
   }, [navigation]);
 
+  const onRestore = useCallback(() => {
+    navigation.navigate(OnboardingRoutes.Modal, {
+      screen: CreateWalletModalRoutes.ImportWalletModal,
+    });
+  }, [navigation]);
+
   const onOpenUrl = useCallback(
     (url: string, title?: string) => {
       if (['android', 'ios'].includes(Platform.OS)) {
@@ -108,7 +114,7 @@ const Welcome = () => {
               <Button size="xl" type="primary" onPress={onCreate}>
                 {intl.formatMessage({ id: 'action__create_wallet' })}
               </Button>
-              <Button size="xl">
+              <Button size="xl" onPress={onRestore}>
                 {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
               </Button>
               <Button size="xl" type="plain" onPress={onSkip}>

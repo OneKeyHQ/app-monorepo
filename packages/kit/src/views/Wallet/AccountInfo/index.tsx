@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useManageTokens } from '../../../hooks/useManageTokens';
 import extUtils from '../../../utils/extUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -42,9 +43,8 @@ const AccountInfo = () => {
   const intl = useIntl();
   const isSmallView = useIsVerticalLayout();
   const isFocused = useIsFocused();
+  const { nativeToken } = useManageTokens();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [mainTokenBalance, setMainTokenBalance] =
-    useState<Record<string, any>>();
   const [mainTokenPrice, setMainTokenPrice] =
     useState<Record<string, string>>();
 
@@ -54,14 +54,6 @@ const AccountInfo = () => {
   useEffect(() => {
     async function main() {
       if (!activeNetwork?.id || !account?.id) return;
-      const balance = await engine.getAccountBalance(
-        account.id,
-        activeNetwork?.id,
-        [],
-        true,
-      );
-      setMainTokenBalance(balance);
-
       const prices = await engine.getPrices(activeNetwork?.id, [], true);
       setMainTokenPrice(prices);
     }
@@ -80,7 +72,7 @@ const AccountInfo = () => {
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
           <FormatBalance
-            balance={mainTokenBalance?.main}
+            balance={nativeToken?.balance}
             suffix={activeNetwork?.symbol?.toUpperCase?.()}
             as={Typography.DisplayXLarge}
             formatOptions={{
@@ -89,14 +81,14 @@ const AccountInfo = () => {
           />
         </Box>
         <FormatCurrency
-          numbers={[mainTokenPrice?.main, mainTokenBalance?.main]}
+          numbers={[mainTokenPrice?.main, nativeToken?.balance]}
           render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
         />
       </Box>
     ),
     [
       intl,
-      mainTokenBalance,
+      nativeToken?.balance,
       activeNetwork?.symbol,
       mainTokenPrice?.main,
       activeNetwork?.nativeDisplayDecimals,
