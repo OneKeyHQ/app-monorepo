@@ -243,7 +243,7 @@ const OnekeyLiteDetail: React.FC = () => {
         <WebView src={url} />
       </Box>
 
-      <Box mb={Platform.OS === 'ios' ? 4 : 0}>
+      <Box bg="surface-subdued" pb={Platform.OS === 'ios' ? 4 : 0}>
         {controlledWallets.length > 0 ? (
           <Select
             onChange={() => {
