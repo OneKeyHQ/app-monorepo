@@ -33,8 +33,10 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   useEffect(() => {
     async function main() {
       setReady(false);
-      const account = await engine.getAccount(accountId, networkId);
-      const resultNetwork = await engine.getNetwork(networkId);
+      const [account, resultNetwork] = await Promise.all([
+        engine.getAccount(accountId, networkId),
+        engine.getNetwork(networkId),
+      ]);
       const filterToken = account.tokens.find((t) => t.id === tokenId);
       setToken(filterToken);
       setNetwork(resultNetwork);

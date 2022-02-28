@@ -21,6 +21,7 @@ import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
   useAppSelector,
+  useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -31,7 +32,6 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useManageTokens } from '../../../hooks/useManageTokens';
 import extUtils from '../../../utils/extUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -43,26 +43,39 @@ const AccountInfo = () => {
   const intl = useIntl();
   const isSmallView = useIsVerticalLayout();
   const isFocused = useIsFocused();
-  const { nativeToken } = useManageTokens();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const [mainTokenBalance, setMainTokenBalance] =
+    useState<Record<string, any>>();
   const [mainTokenPrice, setMainTokenPrice] =
     useState<Record<string, string>>();
-
+  const [loading, setLoading] = useState(false);
+  const { autoRefreshTimeStamp } = useSettings();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
   const { wallet, account } = useActiveWalletAccount();
 
   useEffect(() => {
     async function main() {
       if (!activeNetwork?.id || !account?.id) return;
-      const prices = await engine.getPrices(activeNetwork?.id, [], true);
-      setMainTokenPrice(prices);
+      setLoading(true);
+
+      try {
+        const [balance, prices] = await Promise.all([
+          engine.getAccountBalance(account.id, activeNetwork?.id, [], true),
+          engine.getPrices(activeNetwork?.id, [], true),
+        ]);
+        setMainTokenBalance(balance);
+        setMainTokenPrice(prices);
+      } catch (e) {
+        // e
+      }
+      setLoading(false);
     }
     try {
       if (isFocused) main();
     } catch (error) {
       console.warn('AccountInfo', error);
     }
-  }, [activeNetwork, account?.id, isFocused]);
+  }, [activeNetwork, account?.id, isFocused, autoRefreshTimeStamp]);
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -72,23 +85,35 @@ const AccountInfo = () => {
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
           <FormatBalance
-            balance={nativeToken?.balance}
+            balance={mainTokenBalance?.main}
             suffix={activeNetwork?.symbol?.toUpperCase?.()}
             as={Typography.DisplayXLarge}
             formatOptions={{
               fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
             }}
+            render={(ele) => (
+              <Typography.DisplayXLarge>
+                {loading ? '-' : ele}
+              </Typography.DisplayXLarge>
+            )}
           />
         </Box>
         <FormatCurrency
-          numbers={[mainTokenPrice?.main, nativeToken?.balance]}
-          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+          numbers={[
+            mainTokenPrice?.main,
+            mainTokenBalance?.main,
+            loading ? undefined : 1,
+          ]}
+          render={(ele) => (
+            <Typography.Body2 mt={1}>{loading ? '-' : ele}</Typography.Body2>
+          )}
         />
       </Box>
     ),
     [
+      loading,
       intl,
-      nativeToken?.balance,
+      mainTokenBalance,
       activeNetwork?.symbol,
       mainTokenPrice?.main,
       activeNetwork?.nativeDisplayDecimals,

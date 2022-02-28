@@ -3,6 +3,7 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useDrawerStatus } from '@react-navigation/drawer';
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -25,12 +26,14 @@ import type {
   Account as AccountEngineType,
   SimpleAccount,
 } from '@onekeyhq/engine/src/types/account';
+import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
   useAppDispatch,
   useAppSelector,
+  useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
@@ -84,24 +87,28 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 const AccountSelectorChildren: FC = () => {
   const intl = useIntl();
   const dispatch = useAppDispatch();
+  const status = useDrawerStatus();
+  const isOpen = status === 'open';
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { activeNetwork } = useAppSelector((s) => s.general);
 
-  const { account: currentSelectedAccount, wallet: currentSelectedWallet } =
+  const { account: currentSelectedAccount, wallet: defaultSelectedWallet } =
     useActiveWalletAccount();
-
   const wallets = useAppSelector((s) => s.wallet.wallets);
-  const [activeAccountType, setActiveAccountType] =
-    useState<AccountType>('watching');
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
+    defaultSelectedWallet,
+  );
 
   const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
   const handleChange = useCallback(() => {
     // TODO:
   }, []);
 
-  function renderSideAction(type: AccountType, onChange: (v: string) => void) {
+  function renderSideAction(
+    type: AccountType | undefined,
+    onChange: (v: string) => void,
+  ) {
     if (type === 'hd') {
       return (
         <Select
@@ -185,126 +192,138 @@ const AccountSelectorChildren: FC = () => {
     }
   }
 
-  const activeWallet = useMemo(() => {
-    const activeWalletTypeList = wallets?.filter?.(
-      (wallet) => wallet.type === activeAccountType,
-    );
-    return activeWalletTypeList[activeIndex];
-  }, [activeAccountType, activeIndex, wallets]);
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedWallet(defaultSelectedWallet);
+    }
+  }, [isOpen, defaultSelectedWallet]);
+
+  const activeWallet = useMemo(
+    () => wallets.find((wallet) => wallet.id === selectedWallet?.id) ?? null,
+    [selectedWallet?.id, wallets],
+  );
 
   useEffect(() => {
-    if (!activeWallet) return;
     async function main() {
+      if (!activeWallet) return;
       const accounts = await engine.getAccounts(
         activeWallet.accounts,
         activeNetwork?.network?.id,
       );
+
       setActiveAccounts(accounts);
     }
     main();
-  }, [activeWallet, activeNetwork]);
+  }, [activeWallet, activeNetwork, wallets]);
 
   return (
     <>
       <LeftSide
-        activeAccountType={activeAccountType}
-        setActiveAccountType={setActiveAccountType}
+        selectedWallet={selectedWallet}
+        setSelectedWallet={setSelectedWallet}
       />
       <VStack flex={1}>
-        <RightHeader activeAccountType={activeAccountType} />
-        <ScrollView px={2} zIndex={2}>
-          <FlatList
-            data={activeAccounts}
-            keyExtractor={(_, index) => index.toString()}
-            renderItem={({ item }) => (
-              <Pressable
-                zIndex={99}
-                onPress={() => {
-                  dispatch(
-                    // backgroundApiProxy.changeAccounts(item.address);
-                    changeActiveAccount({
-                      account: item,
-                      wallet: activeWallet,
-                    }),
-                  );
-                  setTimeout(() => {
-                    navigation.dispatch(DrawerActions.closeDrawer());
-                  }, 250);
-                }}
-              >
-                {({ isHovered }) => (
-                  <HStack
-                    p="7px"
-                    borderWidth={1}
-                    borderColor={isHovered ? 'border-hovered' : 'transparent'}
-                    bg={
-                      currentSelectedAccount?.id === item.id
-                        ? 'surface-selected'
-                        : 'transparent'
-                    }
-                    space={4}
-                    borderRadius="xl"
-                  >
-                    <Box flex={1}>
-                      <Account
-                        address={(item as SimpleAccount)?.address ?? ''}
-                        name={item.name}
-                      />
-                    </Box>
-                    {renderSideAction(activeAccountType, handleChange)}
-                  </HStack>
-                )}
-              </Pressable>
-            )}
-          />
-          <Pressable
-            mt={2}
-            onPress={() => {
-              if (activeAccountType === 'imported') {
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ImportAccount,
-                  params: {
-                    screen: ImportAccountModalRoutes.ImportAccountModal,
-                  },
-                });
-              }
-              if (activeAccountType === 'watching') {
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.WatchedAccount,
-                  params: {
-                    screen: WatchedAccountModalRoutes.WatchedAccountModal,
-                  },
-                });
-              }
+        <RightHeader selectedWallet={selectedWallet} />
+        <FlatList
+          px={2}
+          contentContainerStyle={{
+            paddingBottom: 16,
+          }}
+          zIndex={2}
+          data={activeAccounts}
+          keyExtractor={(_, index) => index.toString()}
+          renderItem={({ item }) => (
+            <Pressable
+              zIndex={99}
+              onPress={() => {
+                dispatch(
+                  // backgroundApiProxy.changeAccounts(item.address);
+                  changeActiveAccount({
+                    account: item,
+                    wallet: activeWallet,
+                  }),
+                );
+                setTimeout(() => {
+                  navigation.dispatch(DrawerActions.closeDrawer());
+                }, 10);
+              }}
+            >
+              {({ isHovered }) => (
+                <HStack
+                  p="7px"
+                  borderWidth={1}
+                  borderColor={isHovered ? 'border-hovered' : 'transparent'}
+                  bg={
+                    currentSelectedAccount?.id === item.id
+                      ? 'surface-selected'
+                      : 'transparent'
+                  }
+                  space={4}
+                  borderRadius="xl"
+                >
+                  <Box flex={1}>
+                    <Account
+                      address={(item as SimpleAccount)?.address ?? ''}
+                      name={item.name}
+                    />
+                  </Box>
+                  {renderSideAction(selectedWallet?.type, handleChange)}
+                </HStack>
+              )}
+            </Pressable>
+          )}
+          ListFooterComponent={
+            <Pressable
+              mt={2}
+              onPress={() => {
+                if (!selectedWallet) return;
+                if (selectedWallet?.type === 'imported') {
+                  return navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ImportAccount,
+                    params: {
+                      screen: ImportAccountModalRoutes.ImportAccountModal,
+                    },
+                  });
+                }
+                if (selectedWallet?.type === 'watching') {
+                  return navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.WatchedAccount,
+                    params: {
+                      screen: WatchedAccountModalRoutes.WatchedAccountModal,
+                    },
+                  });
+                }
 
-              return navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateAccount,
-                params: {
-                  screen: CreateAccountModalRoutes.CreateAccountForm,
-                },
-              });
-            }}
-          >
-            {({ isHovered }) => (
-              <HStack
-                p={2}
-                borderRadius="xl"
-                space={3}
-                borderWidth={1}
-                borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
-                borderStyle="dashed"
-                alignItems="center"
-              >
-                <Icon name="PlusCircleOutline" />
-                <Typography.Body2Strong color="text-subdued">
-                  {intl.formatMessage({ id: 'action__add_account' })}
-                </Typography.Body2Strong>
-              </HStack>
-            )}
-          </Pressable>
-          {/* When scrolling to the bottom, the Box pushes the content up a little. */}
-          <Box h={4} />
-        </ScrollView>
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateAccount,
+                  params: {
+                    screen: CreateAccountModalRoutes.CreateAccountForm,
+                    params: {
+                      walletId: selectedWallet.id,
+                    },
+                  },
+                });
+              }}
+            >
+              {({ isHovered }) => (
+                <HStack
+                  p={2}
+                  borderRadius="xl"
+                  space={3}
+                  borderWidth={1}
+                  borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                  borderStyle="dashed"
+                  alignItems="center"
+                >
+                  <Icon name="PlusCircleOutline" />
+                  <Typography.Body2Strong color="text-subdued">
+                    {intl.formatMessage({ id: 'action__add_account' })}
+                  </Typography.Body2Strong>
+                </HStack>
+              )}
+            </Pressable>
+          }
+        />
       </VStack>
     </>
   );

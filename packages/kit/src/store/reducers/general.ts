@@ -34,7 +34,7 @@ export const generalSlice = createSlice({
   reducers: {
     $changeActiveAccount(
       state,
-      action: PayloadAction<{ account: Account | null; wallet: Wallet }>,
+      action: PayloadAction<{ account: Account | null; wallet: Wallet | null }>,
     ) {
       const { account, wallet } = action.payload;
       state.activeAccount = account;
@@ -75,7 +75,7 @@ export const { changeActiveTokens, changeActiveOwnedToken } =
 const { $changeActiveAccount, $changeActiveNetwork } = generalSlice.actions;
 
 export const changeActiveAccount =
-  (state: { account: Account | null; wallet: Wallet }) =>
+  (state: { account: Account | null; wallet: Wallet | null }) =>
   async (dispatch: Dispatch) => {
     dispatch($changeActiveAccount(state));
     // use global var to avoid cycle-deps

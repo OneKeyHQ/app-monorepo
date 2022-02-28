@@ -16,12 +16,14 @@ import {
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
-import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
+  CreateAccountModalRoutes,
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
+  ImportAccountModalRoutes,
+  WatchedAccountModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 import {
   ModalRoutes,
@@ -109,18 +111,49 @@ const Home: FC = () => {
           title={intl.formatMessage({ id: 'empty__no_account_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
         />
-        <AccountSelector
-          renderTrigger={({ handleToggleVisible }) => (
-            <Button
-              leftIconName="PlusOutline"
-              type="primary"
-              onPress={handleToggleVisible}
-              size="lg"
-            >
-              {intl.formatMessage({ id: 'action__create_account' })}
-            </Button>
-          )}
-        />
+        <Box
+          position="relative"
+          w={{ md: 'full' }}
+          alignItems="center"
+          h="56px"
+          justifyContent="center"
+        >
+          <Button
+            leftIconName="PlusOutline"
+            type="primary"
+            onPress={() => {
+              if (wallet.type === 'imported') {
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ImportAccount,
+                  params: {
+                    screen: ImportAccountModalRoutes.ImportAccountModal,
+                  },
+                });
+              }
+              if (wallet.type === 'watching') {
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.WatchedAccount,
+                  params: {
+                    screen: WatchedAccountModalRoutes.WatchedAccountModal,
+                  },
+                });
+              }
+
+              return navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateAccount,
+                params: {
+                  screen: CreateAccountModalRoutes.CreateAccountForm,
+                  params: {
+                    walletId: wallet.id,
+                  },
+                },
+              });
+            }}
+            size="lg"
+          >
+            {intl.formatMessage({ id: 'action__create_account' })}
+          </Button>
+        </Box>
       </Box>
     );
   }
