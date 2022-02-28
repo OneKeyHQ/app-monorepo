@@ -1,44 +1,44 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/restrict-template-expressions */
-
 const INTERNAL_METHOD_PREFIX = 'internal_';
 
-// TODO rename to backgroundMethod()
-function internalMethod() {
+// Is a any record, but namely use `PropertyDescriptor['value']`
+export type UnknownTarget = Record<string, PropertyDescriptor['value']>;
+export type UnknownFunc = (...args: unknown[]) => unknown;
+
+const isFunction = (fn?: any): fn is UnknownFunc =>
+  !!fn && {}.toString.call(fn) === '[object Function]';
+
+function backgroundMethod() {
   return function (
-    target: any,
-    name: any,
-    descriptor: {
-      value: any;
-    },
+    target: UnknownTarget,
+    methodName: string,
+    descriptor: PropertyDescriptor,
   ) {
-    target[`${INTERNAL_METHOD_PREFIX}${name}`] = descriptor.value;
+    target[`${INTERNAL_METHOD_PREFIX}${methodName}`] = descriptor.value;
     return descriptor;
   };
 }
 
 function permissionRequired() {
   return function (
-    target: any,
-    name: any,
-    descriptor: {
-      value: any;
-    },
+    _: UnknownTarget,
+    __: string,
+    descriptor: PropertyDescriptor,
   ) {
     const fn = descriptor.value;
 
     // Checks if "descriptor.value"
     // is a function or not
-    if (typeof fn === 'function') {
+    if (isFunction(fn)) {
       descriptor.value = function (...args: Array<any>): any {
-        console.log(`parameters: ${args}`);
+        console.log(`parameters: (${args.toString()})`);
 
         // if (this.walletApi.chainId !== '0x1') {
         //   throw new Error(this.chainId + ' chain not matched');
         // }
 
-        const result: any = fn.apply(this, args);
+        const result = fn.apply(this, args);
 
-        console.log(`addition: ${result}`);
+        console.log('addition:', result);
 
         return result;
       };
@@ -47,4 +47,4 @@ function permissionRequired() {
   };
 }
 
-export { permissionRequired, internalMethod, INTERNAL_METHOD_PREFIX };
+export { permissionRequired, backgroundMethod, INTERNAL_METHOD_PREFIX };
