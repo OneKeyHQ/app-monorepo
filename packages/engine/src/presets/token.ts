@@ -5,13 +5,16 @@ import {
 } from '@onekeyfe/default-token-list';
 import axios from 'axios';
 
+import { IMPL_EVM, IMPL_SOL } from '../constants';
 import { Token } from '../types/token';
 
 import { REMOTE_URL, Version, checkVersion, parseVersion } from './base';
 
+const caseSensitiveImpls = new Set([IMPL_SOL]);
+
 let preset: Record<string, TokenList> = {
-  evm: evmAllTokenList,
-  sol: solAllTokenList,
+  [IMPL_EVM]: evmAllTokenList,
+  [IMPL_SOL]: solAllTokenList,
 };
 let synced = true; // Change to false to enable remote updating
 //  network.id => token_address => Token
@@ -25,7 +28,9 @@ function initTokenList(presetToken: Record<string, TokenList>) {
       if (typeof r[networkId] === 'undefined') {
         r[networkId] = new Map<string, Token>();
       }
-      const tokenAddress = t.address.toLowerCase();
+      const tokenAddress = caseSensitiveImpls.has(impl)
+        ? t.address
+        : t.address.toLowerCase();
       const token: Token = {
         id: '',
         name: t.name,
@@ -86,8 +91,8 @@ async function syncLatestTokenList() {
     return;
   }
   const newTokenList = await syncTokenList(getTokenkListVersion(preset), [
-    'evm',
-    'sol',
+    IMPL_EVM,
+    IMPL_SOL,
   ]);
   if (newTokenList) {
     preset = newTokenList;
