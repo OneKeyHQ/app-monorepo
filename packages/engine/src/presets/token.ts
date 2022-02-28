@@ -1,31 +1,36 @@
-import { TokenList, evmAllTokenList } from '@onekeyfe/default-token-list';
+import {
+  TokenList,
+  evmAllTokenList,
+  solAllTokenList,
+} from '@onekeyfe/default-token-list';
 import axios from 'axios';
 
+import { IMPL_EVM, IMPL_SOL } from '../constants';
 import { Token } from '../types/token';
 
 import { REMOTE_URL, Version, checkVersion, parseVersion } from './base';
 
-const getPresetTokenList = (): Record<string, TokenList> => {
-  const tokenList = evmAllTokenList;
-  const ret: Record<string, TokenList> = {};
-  ret.evm = tokenList;
-  return ret;
-};
+const caseSensitiveImpls = new Set([IMPL_SOL]);
 
-let preset = getPresetTokenList();
-let synced = false;
+let preset: Record<string, TokenList> = {
+  [IMPL_EVM]: evmAllTokenList,
+  [IMPL_SOL]: solAllTokenList,
+};
+let synced = true; // Change to false to enable remote updating
 //  network.id => token_address => Token
-let presetTokens: Record<string, Record<string, Token>> = {};
+let presetTokens: Record<string, Map<string, Token>> = {};
 
 function initTokenList(presetToken: Record<string, TokenList>) {
-  const r: Record<string, Record<string, Token>> = {};
+  const r: Record<string, Map<string, Token>> = {};
   Object.keys(presetToken).forEach((impl) => {
     presetToken[impl].tokens.forEach((t) => {
       const networkId = `${impl}--${t.chainId}`;
       if (typeof r[networkId] === 'undefined') {
-        r[networkId] = {};
+        r[networkId] = new Map<string, Token>();
       }
-      const tokenAddress = t.address.toLowerCase();
+      const tokenAddress = caseSensitiveImpls.has(impl)
+        ? t.address
+        : t.address.toLowerCase();
       const token: Token = {
         id: '',
         name: t.name,
@@ -35,7 +40,7 @@ function initTokenList(presetToken: Record<string, TokenList>) {
         decimals: t.decimals,
         logoURI: t.logoURI || '',
       };
-      r[networkId][tokenAddress] = token;
+      r[networkId].set(tokenAddress, token);
     });
   });
   presetTokens = r;
@@ -86,7 +91,8 @@ async function syncLatestTokenList() {
     return;
   }
   const newTokenList = await syncTokenList(getTokenkListVersion(preset), [
-    'evm',
+    IMPL_EVM,
+    IMPL_SOL,
   ]);
   if (newTokenList) {
     preset = newTokenList;
@@ -100,8 +106,12 @@ async function syncLatestTokenList() {
 })();
 
 function getPresetToken(networkId: string, tokenIdOnNetwork: string): Token {
+  let tokens = presetTokens[networkId];
+  if (typeof tokens === 'undefined') {
+    tokens = new Map<string, Token>();
+  }
   return (
-    (presetTokens[networkId] || {})[tokenIdOnNetwork] || {
+    tokens.get(tokenIdOnNetwork) || {
       id: `${networkId}--${tokenIdOnNetwork}`,
       name: tokenIdOnNetwork.slice(0, 4),
       networkId,
@@ -114,7 +124,15 @@ function getPresetToken(networkId: string, tokenIdOnNetwork: string): Token {
 }
 
 function getPresetTokensOnNetwork(networkId: string): Token[] {
-  return Object.values(presetTokens[networkId] || {});
+  const tokens = presetTokens[networkId];
+  if (typeof tokens === 'undefined') {
+    return [];
+  }
+  const res: Token[] = [];
+  tokens.forEach((value) => {
+    res.push(value);
+  });
+  return res;
 }
 
 export { getPresetToken, getPresetTokensOnNetwork };

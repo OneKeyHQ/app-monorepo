@@ -4,7 +4,7 @@ import { ControllerProps, FieldValues } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
-import type { NetworkShort } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
@@ -19,24 +19,20 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
     if (!networks) return [];
 
     return networks.map((network) => ({
-      title: network.impl,
-      options: [
-        {
-          label: network.name,
-          value: network.id,
-          tokenProps: {
-            src: network.logoURI,
-          },
-        },
-      ],
+      label: network.shortName,
+      value: network.id,
+      tokenProps: {
+        src: network.logoURI,
+      },
+      badge: network.impl === 'evm' ? 'EVM' : undefined,
     }));
   }, [networks]);
 
-  const findActiveNetwork = useCallback<(id: string) => NetworkShort | null>(
+  const findActiveNetwork = useCallback<(id: string) => Network | null>(
     (id) => {
       if (!networks) return null;
 
-      let selectedNetwork: NetworkShort | null = null;
+      let selectedNetwork: Network | null = null;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       networks.forEach((network) => {
         if (network.id === id) {

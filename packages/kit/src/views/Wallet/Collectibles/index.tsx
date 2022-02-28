@@ -1,33 +1,56 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { ModalTypes } from '@onekeyhq/kit/src/routes';
-import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/opensea';
+import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
+import {
+  CollectiblesModalRoutes,
+  CollectiblesRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+
+import { useCollectiblesData } from '../../../hooks/useCollectiblesData';
 
 import CollectibleGallery from './CollectibleGallery';
-import { ASSETS } from './data';
-import { Collectible, SelectedAsset } from './types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SelectedAsset } from './types';
 
-type ModalCollectibleNavigationProp = NativeStackNavigationProp<
-  ModalTypes,
-  CollectiblesModalRoutes.CollectionModal
->;
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
-const Collectibles = () => {
-  const [collectibles] = useState<Collectible[]>(ASSETS);
-  const navigation = useNavigation<ModalCollectibleNavigationProp>();
+export type CollectiblesProps = {
+  address?: string | null;
+  network?: Network | null;
+};
+
+const Collectibles = ({ address, network }: CollectiblesProps) => {
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const { collectibles, isLoading, loadMore, fetchData } = useCollectiblesData({
+    network,
+    address,
+  });
+  const isCollectibleSupported = isCollectibleSupportedChainId(
+    network?.extraInfo.networkVersion,
+  );
 
   // Open Asset detail modal
   const handleSelectAsset = useCallback(
     (asset: SelectedAsset) => {
-      navigation.navigate(CollectiblesModalRoutes.CollectionModal, {
-        screen: CollectiblesModalRoutes.CollectibleDetailModal,
+      if (!asset.tokenId || !asset.contractAddress) return;
+
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
         params: {
-          assetId: asset.id,
+          screen: CollectiblesModalRoutes.CollectibleDetailModal,
+          params: {
+            tokenId: asset.tokenId,
+            contractAddress: asset.contractAddress,
+          },
         },
       });
     },
@@ -36,19 +59,33 @@ const Collectibles = () => {
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collectible) => {
-      navigation.navigate(CollectiblesModalRoutes.CollectionModal, {
-        screen: CollectiblesModalRoutes.CollectionModal,
+      if (!address || !network || !collectible?.collection?.name) {
+        return;
+      }
+
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
         params: {
-          id: collectible.id,
+          screen: CollectiblesModalRoutes.CollectionModal,
+          params: {
+            userAddress: address,
+            collectionName: collectible.collection.name,
+            chainId: network.extraInfo.networkVersion,
+            chainName: network.shortName,
+          },
         },
       });
     },
-    [navigation],
+    [address, navigation, network],
   );
 
   return (
     <CollectibleGallery
       collectibles={collectibles}
+      fetchData={fetchData}
+      isLoading={isLoading}
+      isSupported={isCollectibleSupported}
+      onReachEnd={loadMore}
       onSelectCollectible={handleSelectCollectible}
       onSelectAsset={handleSelectAsset}
     />

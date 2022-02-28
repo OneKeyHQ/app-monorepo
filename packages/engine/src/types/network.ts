@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { HasName } from './base';
 
 type NetworkBase = HasName & {
@@ -7,28 +5,15 @@ type NetworkBase = HasName & {
   symbol: string;
   logoURI: string;
   enabled: boolean;
-};
-
-type NetworkShort = NetworkBase & {
-  // Simple version, used in basic listing.
-  preset: boolean;
-};
-
-type NetworkCommon = NetworkBase & {
   feeSymbol: string;
   decimals: number;
   feeDecimals: number;
   balance2FeeDecimals: number;
 };
 
-type DBNetwork = NetworkCommon & {
-  rpcURL: string;
-  position: number;
-  curve?: string;
-};
-
-type PresetNetwork = NetworkCommon & {
+type PresetNetwork = NetworkBase & {
   chainId?: number;
+  shortName: string;
   isTestnet?: boolean;
   presetRpcURLs: Array<string>;
   rpcURLs?: Array<Record<string, string>>;
@@ -37,17 +22,37 @@ type PresetNetwork = NetworkCommon & {
   extensions?: Record<string, any>;
 };
 
-type NetworkDisplayProperties = {
+type DBNetwork = NetworkBase & {
+  rpcURL: string;
+  position: number;
+  curve?: string;
+};
+
+type EvmExtraInfo = {
+  chainId: string;
+  networkVersion: string;
+};
+
+type BlockExplorer = {
+  address: string;
+  block: string;
+  transaction: string;
+};
+
+type Network = NetworkBase & {
+  rpcURL: string;
+  shortName: string;
+  preset: boolean;
+  isTestnet: boolean;
   // UI specific properties.
   // TODO: move this into remote config?
   nativeDisplayDecimals: number;
   tokenDisplayDecimals: number;
+  // extra info for dapp interactions
+  extraInfo: EvmExtraInfo | Record<string, any>;
+  // TODO: rpcURLs
+  blockExplorerURL: BlockExplorer;
 };
-
-type Network = NetworkShort &
-  DBNetwork &
-  PresetNetwork &
-  NetworkDisplayProperties;
 
 type AddEVMNetworkParams = {
   name: string;
@@ -66,17 +71,17 @@ type UpdateEVMNetworkParams = {
 type UpdateNetworkParams = UpdateEVMNetworkParams;
 
 type EIP1559Fee = {
-  baseFee: BigNumber;
-  maxPriorityFeePerGas: BigNumber;
-  maxFeePerGas: BigNumber;
+  baseFee: string;
+  maxPriorityFeePerGas: string;
+  maxFeePerGas: string;
 };
 
 export type {
-  NetworkBase,
-  NetworkShort,
   DBNetwork,
   PresetNetwork,
   Network,
+  EvmExtraInfo,
+  BlockExplorer,
   AddEVMNetworkParams,
   AddNetworkParams,
   UpdateNetworkParams,

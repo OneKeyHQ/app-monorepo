@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Buffer } from 'buffer';
 
+import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import Realm from 'realm';
-
-import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
 
 import {
   AccountAlreadyExists,
@@ -33,8 +32,10 @@ import {
   DEFAULT_VERIFY_STRING,
   ExportedCredential,
   MAIN_CONTEXT,
+  OneKeyContext,
   StoredCredential,
   checkPassword,
+  decrypt,
   encrypt,
 } from '../base';
 
@@ -131,21 +132,79 @@ class RealmDB implements DBAPI {
     }
   }
 
-  /**
-   * reset the storage, all data will be removed
-   * @param password
-   */
-  reset(password: string): Promise<void> {
+  getContext(): Promise<OneKeyContext | undefined> {
     try {
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context !== 'undefined') {
-        if (!checkPassword(context, password)) {
-          return Promise.reject(new WrongPassword());
-        }
+      return Promise.resolve(
+        typeof context !== 'undefined' ? context.internalObj : context,
+      );
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+    let context: ContextSchema | undefined;
+    try {
+      context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context === 'undefined') {
+        this.realm!.write(() => {
+          context = this.realm!.create('Context', {
+            id: MAIN_CONTEXT,
+            verifyString: DEFAULT_VERIFY_STRING,
+            nextHD: 1,
+          });
+        });
+      } else if (!checkPassword(context, oldPassword)) {
+        return Promise.reject(new WrongPassword());
       }
+
+      if (oldPassword === newPassword) {
+        return Promise.resolve();
+      }
+
+      this.realm!.write(() => {
+        context!.verifyString = encrypt(
+          newPassword,
+          Buffer.from(DEFAULT_VERIFY_STRING),
+        ).toString('hex');
+        const credentials = this.realm!.objects<CredentialSchema>('Credential');
+        credentials.forEach((credentialItem) => {
+          const credentialJSON: StoredCredential = JSON.parse(
+            credentialItem.credential,
+          );
+          credentialItem.credential = JSON.stringify({
+            entropy: encrypt(
+              newPassword,
+              decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
+            ).toString('hex'),
+            seed: encrypt(
+              newPassword,
+              decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
+            ).toString('hex'),
+          });
+        });
+      });
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  /**
+   * reset the storage, all data will be removed
+   * @param password
+   */
+  reset(): Promise<void> {
+    try {
       Realm.deleteFile({ path: DB_PATH });
       return Promise.resolve();
     } catch (error: any) {
@@ -161,7 +220,7 @@ class RealmDB implements DBAPI {
   listNetworks(): Promise<DBNetwork[]> {
     const networks: Realm.Results<NetworkSchema> =
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      this.realm!.objects<NetworkSchema>('Network').sorted('position', true);
+      this.realm!.objects<NetworkSchema>('Network').sorted('position');
     return Promise.resolve(networks.map((network) => network.internalObj));
   }
 

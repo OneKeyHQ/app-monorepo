@@ -3,8 +3,7 @@
 
 import { Buffer } from 'buffer';
 
-import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
-import { encrypt } from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
+import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 
 import {
   AccountAlreadyExists,
@@ -41,6 +40,8 @@ import {
   OneKeyContext,
   StoredCredential,
   checkPassword,
+  decrypt,
+  encrypt,
 } from '../base';
 
 type TokenBinding = {
@@ -184,30 +185,102 @@ class IndexedDBApi implements DBAPI {
     });
   }
 
-  reset(password: string): Promise<void> {
+  getContext(): Promise<OneKeyContext | undefined> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request = db
+            .transaction([CONTEXT_STORE_NAME])
+            .objectStore(CONTEXT_STORE_NAME)
+            .get(MAIN_CONTEXT);
+          request.onsuccess = (_event) => {
+            resolve(request.result as OneKeyContext);
+          };
+        }),
+    );
+  }
+
+  updatePassword(oldPassword: string, newPassword: string): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
-          const transaction = db.transaction([CONTEXT_STORE_NAME]);
+          const transaction = db.transaction(
+            [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to update password.'));
+          };
           transaction.oncomplete = (_tevent) => {
-            const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
-            deleteRequest.onerror = (_devent) => {
-              reject(new OneKeyInternalError('Failed to delete db.'));
-            };
-            deleteRequest.onsuccess = (_devent) => {
-              resolve();
-            };
+            resolve();
           };
 
-          const getMainContextRequest = transaction
-            .objectStore(CONTEXT_STORE_NAME)
-            .get(MAIN_CONTEXT);
-          getMainContextRequest.onsuccess = (_cevent) => {
-            const context: OneKeyContext =
-              getMainContextRequest.result as OneKeyContext;
-            if (!checkPassword(context, password)) {
+          const contextStore = transaction.objectStore(CONTEXT_STORE_NAME);
+          const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_event) => {
+            const context = getMainContextRequest.result as OneKeyContext;
+            if (!checkPassword(context, oldPassword)) {
               reject(new WrongPassword());
+              return;
             }
+
+            if (oldPassword === newPassword) {
+              return;
+            }
+
+            context.verifyString = encrypt(
+              newPassword,
+              Buffer.from(DEFAULT_VERIFY_STRING),
+            ).toString('hex');
+            contextStore.put(context);
+            const openCursorRequest = transaction
+              .objectStore(CREDENTIAL_STORE_NAME)
+              .openCursor();
+            openCursorRequest.onsuccess = (_cursorEvent) => {
+              const cursor: IDBCursorWithValue =
+                openCursorRequest.result as IDBCursorWithValue;
+              if (cursor) {
+                const credentialItem: { id: string; credential: string } =
+                  cursor.value as { id: string; credential: string };
+                const credentialJSON: StoredCredential = JSON.parse(
+                  credentialItem.credential,
+                );
+                credentialItem.credential = JSON.stringify({
+                  entropy: encrypt(
+                    newPassword,
+                    decrypt(
+                      oldPassword,
+                      Buffer.from(credentialJSON.entropy, 'hex'),
+                    ),
+                  ).toString('hex'),
+                  seed: encrypt(
+                    newPassword,
+                    decrypt(
+                      oldPassword,
+                      Buffer.from(credentialJSON.seed, 'hex'),
+                    ),
+                  ).toString('hex'),
+                });
+                cursor.update(credentialItem);
+                cursor.continue();
+              }
+            };
+          };
+        }),
+    );
+  }
+
+  reset(): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          db.close();
+          const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+          deleteRequest.onerror = (_devent) => {
+            reject(new OneKeyInternalError('Failed to delete db.'));
+          };
+          deleteRequest.onsuccess = (_devent) => {
+            resolve();
           };
         }),
     );

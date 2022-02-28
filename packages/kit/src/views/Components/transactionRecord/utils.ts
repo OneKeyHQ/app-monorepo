@@ -1,32 +1,123 @@
 import { BigNumber } from 'bignumber.js';
 
-import { TokenType, Transaction } from '@onekeyhq/engine/src/types/covalent';
+import {
+  TokenType,
+  Transaction,
+  TransactionType,
+} from '@onekeyhq/engine/src/types/covalent';
+import { Network } from '@onekeyhq/engine/src/types/network';
 
-export function getTransferAmount(transaction: Transaction | null): string {
-  let amount = null;
+import { formatBalanceDisplay } from '../../../components/Format';
 
+export type AmountBalance = {
+  balance: BigNumber.Value | undefined;
+  decimals: number;
+  unit: string | null;
+  fixed: number | undefined;
+};
+
+export type AmountFiatBalance = {
+  balance: BigNumber.Value | undefined;
+};
+
+export function getTransferNFTList(transaction: Transaction | null): string[] {
   if (
-    transaction?.tokenType === TokenType.ERC20 &&
+    transaction?.tokenType === TokenType.ERC721 &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
-    // token transfer
-    const tokenEvent = transaction?.tokenEvent[0];
-    amount = `${new BigNumber(tokenEvent?.tokenAmount ?? '')
-      .dividedBy(new BigNumber(10).pow(tokenEvent?.tokenDecimals ?? 1))
-      .decimalPlaces(4)
-      .toString()} ${tokenEvent?.tokenSymbol}`;
-  } else {
-    amount = `${new BigNumber(transaction?.value ?? '')
-      .dividedBy(1e18)
-      .decimalPlaces(6)
-      .toString()} ETH`;
+    // 721 transfer
+    const tokenEvents = transaction?.tokenEvent?.filter(
+      (event) => event.tokenType === TokenType.ERC721,
+    );
+    const sss = tokenEvents?.map((event) => event.tokenLogoUrl);
+    return sss;
   }
-  return amount;
+  return [];
 }
 
-export function getTransferAmountFiat(transaction: Transaction) {
-  let amountFiat;
+export function getSwapTransfer(
+  transaction: Transaction | null,
+  network?: Network | null | undefined,
+): string {
+  let amount;
+  if (
+    transaction?.type === TransactionType.Swap &&
+    transaction?.tokenEvent &&
+    transaction.tokenEvent.length > 0
+  ) {
+    // swap transfer
+    const tokenEvent = transaction?.tokenEvent?.find(
+      (event) => event.transferType === TransactionType.Transfer,
+    );
+    if (tokenEvent?.tokenType === TokenType.ERC20) {
+      amount = formatBalanceDisplay(
+        tokenEvent?.tokenAmount,
+        tokenEvent?.tokenSymbol,
+        {
+          unit: tokenEvent?.tokenDecimals,
+          fixed: network?.tokenDisplayDecimals,
+        },
+      );
+    } else {
+      amount = formatBalanceDisplay(
+        transaction?.value,
+        network?.symbol ?? 'ETH',
+        {
+          unit: network?.decimals ?? 18,
+          fixed: network?.nativeDisplayDecimals,
+        },
+      );
+    }
+  }
+  return `${amount?.amount ?? '0'}${amount?.unit ? ` ${amount?.unit}` : ''}`;
+}
+
+export function getSwapReceive(
+  transaction: Transaction | null,
+  network?: Network | null | undefined,
+): string {
+  let amount;
+  if (
+    transaction?.type === TransactionType.Swap &&
+    transaction?.tokenEvent &&
+    transaction.tokenEvent.length > 0
+  ) {
+    // swap transfer
+    const tokenEvent = transaction?.tokenEvent?.find(
+      (event) => event.transferType === TransactionType.Receive,
+    );
+    if (tokenEvent?.tokenType === TokenType.ERC20) {
+      amount = formatBalanceDisplay(
+        tokenEvent?.tokenAmount,
+        tokenEvent?.tokenSymbol,
+        {
+          unit: tokenEvent?.tokenDecimals,
+          fixed: network?.tokenDisplayDecimals,
+        },
+      );
+    } else {
+      amount = formatBalanceDisplay(
+        transaction?.value,
+        network?.symbol ?? 'ETH',
+        {
+          unit: network?.decimals ?? 18,
+          fixed: network?.nativeDisplayDecimals,
+        },
+      );
+    }
+  }
+  return `${amount?.amount ?? '0'}${amount?.unit ? ` ${amount?.unit}` : ''}`;
+}
+
+export function getTransferAmount(
+  transaction: Transaction | null,
+  network?: Network | null | undefined,
+): AmountBalance {
+  let amount;
+  let decimals = 1;
+  let unit = null;
+  let fixed;
 
   if (
     transaction?.tokenType === TokenType.ERC20 &&
@@ -35,17 +126,64 @@ export function getTransferAmountFiat(transaction: Transaction) {
   ) {
     // token transfer
     const tokenEvent = transaction?.tokenEvent[0];
-
-    amountFiat = `${new BigNumber(tokenEvent?.deltaQuote ?? '')
-      .plus(new BigNumber(transaction?.valueQuote ?? ''))
-      .decimalPlaces(2)
-      .toString()} USD`;
+    amount = tokenEvent?.tokenAmount;
+    decimals = tokenEvent?.tokenDecimals ?? 1;
+    unit = tokenEvent?.tokenSymbol;
+    fixed = network?.tokenDisplayDecimals;
+  } else if (
+    transaction?.tokenType === TokenType.ERC721 &&
+    transaction?.tokenEvent &&
+    transaction.tokenEvent.length > 0
+  ) {
+    // 721 transfer
+    const tokenEvents = transaction?.tokenEvent?.filter(
+      (event) => event.tokenType === TokenType.ERC721,
+    );
+    const tokenSize = tokenEvents?.length ?? 0;
+    const tokenSymbol = tokenEvents[0]?.tokenSymbol ?? '';
+    amount = tokenSize;
+    decimals = 0;
+    unit = tokenSymbol;
+    fixed = network?.tokenDisplayDecimals;
   } else {
-    amountFiat = `${new BigNumber(transaction.valueQuote)
-      .decimalPlaces(2)
-      .toString()} USD`;
+    amount = transaction?.value;
+    decimals = network?.decimals ?? 18;
+    unit = network?.symbol ?? 'ETH';
+    fixed = network?.nativeDisplayDecimals;
   }
-  return amountFiat;
+  return {
+    balance: amount,
+    decimals,
+    unit,
+    fixed,
+  };
+}
+
+export function getTransferAmountFiat(
+  transaction: Transaction,
+): AmountFiatBalance {
+  let amountFiat;
+  if (
+    transaction?.tokenType === TokenType.ERC721 &&
+    transaction?.tokenEvent &&
+    transaction.tokenEvent.length > 0
+  ) {
+    amountFiat = 0;
+  } else if (
+    transaction?.tokenType === TokenType.ERC20 &&
+    transaction?.tokenEvent &&
+    transaction.tokenEvent.length > 0
+  ) {
+    // token transfer
+    const tokenEvent = transaction?.tokenEvent[0];
+
+    amountFiat = new BigNumber(tokenEvent?.deltaQuote ?? '0').plus(
+      new BigNumber(transaction?.valueQuote ?? '0').decimalPlaces(2),
+    );
+  } else {
+    amountFiat = new BigNumber(transaction?.valueQuote ?? '0').decimalPlaces(2);
+  }
+  return { balance: amountFiat };
 }
 
 export function getFromAddress(transaction: Transaction | null) {

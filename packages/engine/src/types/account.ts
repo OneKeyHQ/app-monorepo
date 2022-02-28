@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { HasName } from './base';
 import { Token } from './token';
 
@@ -46,7 +44,7 @@ type Account = SimpleAccount | MulAddrAccount;
 type ImportableHDAccount = {
   index: number;
   path: string;
-  mainBalance: BigNumber;
+  mainBalance: string;
 };
 
 export { ACCOUNT_TYPE_SIMPLE, ACCOUNT_TYPE_MULADDR };

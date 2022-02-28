@@ -5,6 +5,8 @@ import { IntlShape, useIntl } from 'react-intl';
 import {
   Address,
   Box,
+  Center,
+  HStack,
   Icon,
   Text,
   Typography,
@@ -12,19 +14,33 @@ import {
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import {
+  TokenType,
   Transaction,
   TransactionType,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
+import { Network } from '@onekeyhq/engine/src/types/network';
 
-import { formatDate } from '../../../utils/DateUtils';
+import {
+  formatBalanceDisplay,
+  useFormatAmount,
+} from '../../../components/Format';
+import useFormatDate from '../../../hooks/useFormatDate';
+import NFTView from '../nftView';
 
-import { getTransferAmount, getTransferAmountFiat } from './utils';
+import {
+  getSwapReceive,
+  getSwapTransfer,
+  getTransferAmount,
+  getTransferAmountFiat,
+  getTransferNFTList,
+} from './utils';
 
 export type TransactionState = 'pending' | 'dropped' | 'failed' | 'success';
 
 export type TransactionRecordProps = {
   transaction: Transaction;
+  network?: Network | undefined;
 };
 
 export const getTransactionStatusStr = (
@@ -68,6 +84,7 @@ const getTransactionTypeStr = (
   const stringKeys: Record<TransactionType, string> = {
     'Transfer': 'action__send',
     'Receive': 'action__receive',
+    'Swap': 'transaction__exchange',
     'ContractExecution': 'transaction__multicall',
     // 'Approve': 'action__send',
   };
@@ -82,21 +99,50 @@ const getTransactionTypeIcon = (
   const stringKeys: Record<TransactionType, ICON_NAMES> = {
     'Transfer': 'ArrowUpSolid',
     'Receive': 'ArrowDownSolid',
+    'Swap': 'SwitchHorizontalSolid',
     'ContractExecution': 'ArrowUpSolid',
     // 'Approve': 'BadgeCheckSolid',
   };
   return stringKeys[state];
 };
 
-const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
+const TransactionRecord: FC<TransactionRecordProps> = ({
+  transaction,
+  network,
+}) => {
   const { size } = useUserDevice();
   const intl = useIntl();
+
+  const formatDate = useFormatDate();
+  const { useFormatCurrencyDisplay } = useFormatAmount();
+
+  const renderNFTImages = useCallback(
+    () => (
+      <HStack space={2} mt={2}>
+        {getTransferNFTList(transaction).map((nft, index) => {
+          if (index < 2) {
+            return <NFTView src={nft} key={nft} size={24} />;
+          }
+          if (index === 2) {
+            return (
+              <Center width={24} height={24} key={nft}>
+                <Icon size={5} name="DotsHorizontalSolid" />
+              </Center>
+            );
+          }
+          return null;
+        })}
+      </HStack>
+    ),
+    [transaction],
+  );
 
   // 转账、收款、合约执行 展示余额
   const displayAmount = useCallback(() => {
     if (
       transaction.type === 'Receive' ||
       transaction.type === 'Transfer' ||
+      transaction.type === 'Swap' ||
       transaction.type === 'ContractExecution'
     ) {
       return true;
@@ -114,29 +160,62 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
           color={getTransactionStatusColor(transaction.successful)}
         >
           {transaction.successful === TxStatus.Confirmed
-            ? formatDate(new Date(transaction.blockSignedAt))
+            ? formatDate.formatDate(transaction.blockSignedAt, {
+                hideTheYear: true,
+                hideTheMonth: true,
+              })
             : getTransactionStatusStr(intl, transaction.successful)}
         </Typography.Body2>
       </Box>
     ),
-    [intl, transaction],
+    [formatDate, intl, transaction],
   );
 
-  const amountInfo = useCallback(
-    () => (
-      <Box alignItems="flex-end" minW="156px">
-        <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+  const amountFiat = useFormatCurrencyDisplay([
+    getTransferAmountFiat(transaction).balance,
+  ]);
+
+  const amountInfo = useCallback(() => {
+    if (transaction?.type === TransactionType.Swap) {
+      return (
+        <Box alignItems="flex-end" minW="156px" maxW="156px" textAlign="right">
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            -{getSwapTransfer(transaction, network)}
+          </Text>
+          <Typography.Body2 color="text-subdued" textAlign="right">
+            →{getSwapReceive(transaction, network)}
+          </Typography.Body2>
+        </Box>
+      );
+    }
+    const originAmount = getTransferAmount(transaction, network);
+    const amount = formatBalanceDisplay(
+      originAmount.balance,
+      originAmount.unit,
+      {
+        unit: originAmount.decimals,
+        fixed: originAmount.fixed,
+      },
+    );
+
+    return (
+      <Box alignItems="flex-end" minW="156px" maxW="156px">
+        <Text
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          textAlign="right"
+        >
           {transaction.type === TransactionType.Transfer && '-'}
-          {getTransferAmount(transaction)}
+          {`${amount.amount ?? '-'} ${amount.unit ?? ''}`}
         </Text>
-        <Typography.Body2 color="text-subdued">
-          {transaction.type === TransactionType.Transfer && '-'}
-          {getTransferAmountFiat(transaction)}
+        <Typography.Body2 color="text-subdued" textAlign="right">
+          {transaction.type === TransactionType.Transfer &&
+            transaction.tokenType !== TokenType.ERC721 &&
+            '-'}
+          {`${amountFiat.amount ?? '-'} ${amountFiat.unit ?? ''}`}
         </Typography.Body2>
       </Box>
-    ),
-    [transaction],
-  );
+    );
+  }, [amountFiat, network, transaction]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -199,9 +278,8 @@ const TransactionRecord: FC<TransactionRecordProps> = ({ transaction }) => {
 
       <Box flexDirection="column" flex={1} ml={3}>
         {ItemInfo}
-        {/* <Box>
-          <Image w="96px" h="96px" />
-        </Box> */}
+
+        {renderNFTImages()}
 
         {/* {transaction.state === 'pending' && (
           <Box flexDirection="row" mt={4} alignItems="center">

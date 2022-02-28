@@ -1,36 +1,35 @@
-import React, {
-  FC,
-  ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Center,
   Dialog,
   Divider,
   Empty,
-  FlatList,
+  Icon,
   IconButton,
-  KeyboardDismissView,
+  Image,
   Modal,
   Searchbar,
-  Token,
+  Spinner,
   Typography,
   utils,
 } from '@onekeyhq/components';
-import { Token as TypeOfToken } from '@onekeyhq/engine/src/types/token';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
+import { FormatBalance } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
-import { useGeneral, useSettings } from '../../hooks/redux';
+import { useGeneral, useManageTokens } from '../../hooks/redux';
+import useDebounce from '../../hooks/useDebounce';
 
+import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
+import type { ValuedToken } from '../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -40,153 +39,21 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
-export const Listing: FC = () => {
+type HeaderTokensProps = {
+  tokens: ValuedToken[];
+  topTokens: Token[];
+  onDelToken?: (token: Token) => void;
+};
+
+const HeaderTokens: FC<HeaderTokensProps> = ({
+  tokens,
+  topTokens,
+  onDelToken,
+}) => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
-  const [keyword, setKeyword] = useState<string>('');
-  const [top50list, setTop50List] = useState<TypeOfToken[]>([]);
-  const [mylist, setMyList] = useState<TypeOfToken[]>([]);
-  const [selectedToken, setSelectedToken] = useState<TypeOfToken>();
-  const { activeNetwork, activeAccount } = useGeneral();
-  const { refreshTimeStamp } = useSettings();
-
-  const onDelete = useCallback(async () => {
-    if (activeAccount && selectedToken) {
-      await engine.removeTokenFromAccount(activeAccount.id, selectedToken?.id);
-    }
-    setSelectedToken(undefined);
-  }, [activeAccount, selectedToken]);
-
-  useEffect(() => {
-    async function fetchTokens() {
-      if (activeNetwork?.network) {
-        const resFortop50list = await engine.getTokens(
-          activeNetwork.network.id,
-        );
-        setTop50List(resFortop50list);
-      }
-      if (activeNetwork?.network && activeAccount) {
-        const resFormylist = await engine.getTokens(
-          activeNetwork.network.id,
-          activeAccount.id,
-        );
-        console.log('resFormylist', resFormylist);
-        setMyList(resFormylist);
-      }
-    }
-    fetchTokens();
-  }, [activeNetwork, activeAccount, refreshTimeStamp]);
-
-  const searched = useMemo(() => {
-    if (!keyword) {
-      return [];
-    }
-    const allTokens: TypeOfToken[] = ([] as TypeOfToken[]).concat(
-      mylist,
-      top50list,
-    );
-    const result = allTokens.filter(
-      (item) =>
-        item.name.toLowerCase().includes(keyword.toLowerCase()) ||
-        item.symbol.toLowerCase().includes(keyword.toLowerCase()),
-    );
-    return result;
-  }, [keyword, mylist, top50list]);
-
-  const renderItem = ({ item }: { item: TypeOfToken }) => (
-    <Box
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      p="4"
-      alignItems="center"
-    >
-      <Token
-        size="8"
-        chain="eth"
-        name={item.name}
-        address={item.tokenIdOnNetwork}
-        description={utils.shortenAddress(item.tokenIdOnNetwork)}
-      />
-      <IconButton
-        name="PlusSolid"
-        type="plain"
-        onPress={() => {
-          navigation.navigate(ManageTokenRoutes.AddToken, {
-            name: item.name,
-            symbol: item.symbol,
-            address: item.tokenIdOnNetwork,
-            decimal: item.decimals,
-          });
-        }}
-      />
-    </Box>
-  );
-  const renderOwnedItem = ({ item }: { item: TypeOfToken }) => (
-    <Box
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      p="4"
-      alignItems="center"
-    >
-      <Token
-        size="8"
-        chain="eth"
-        name={item.name}
-        address={item.tokenIdOnNetwork}
-        description={`0 ${item.symbol}`}
-      />
-      <IconButton
-        name="TrashSolid"
-        type="plain"
-        onPress={() => {
-          setSelectedToken(item);
-        }}
-      />
-    </Box>
-  );
-
-  let contentView: ReactElement | undefined;
-  if (keyword) {
-    contentView = searched.length ? (
-      <FlatList
-        bg="surface-default"
-        borderRadius="12"
-        mt="3"
-        mb="3"
-        data={searched}
-        renderItem={renderOwnedItem}
-        ItemSeparatorComponent={() => <Divider />}
-        keyExtractor={(_, index: number) => index.toString()}
-        showsVerticalScrollIndicator={false}
-      />
-    ) : (
-      <Empty
-        title={intl.formatMessage({
-          id: 'content__no_results',
-          defaultMessage: 'No Result',
-        })}
-        subTitle={intl.formatMessage({
-          id: 'content__no_results_desc',
-          defaultMessage: 'The token you searched for was not found',
-        })}
-        actionTitle={intl.formatMessage({
-          id: 'action__add_custom_tokens',
-          defaultMessage: 'Add Custom Token',
-        })}
-        handleAction={() => {
-          const params: { address?: string } = {};
-          if (isValidateAddr(keyword)) {
-            params.address = keyword;
-          }
-          navigation.navigate(ManageTokenRoutes.CustomToken, params);
-        }}
-      />
-    );
-  } else {
-    contentView = (
-      <Box>
+  return (
+    <Box>
+      {tokens.length ? (
         <Box>
           <Typography.Subheading color="text-subdued">
             {intl.formatMessage({
@@ -194,40 +61,291 @@ export const Listing: FC = () => {
               defaultMessage: 'MY TOKENS',
             })}
           </Typography.Subheading>
-          <FlatList
-            bg="surface-default"
-            borderRadius="12"
-            mt="3"
-            mb="3"
-            data={mylist}
-            renderItem={renderOwnedItem}
-            ItemSeparatorComponent={() => <Divider />}
-            keyExtractor={(_, index: number) => index.toString()}
-            showsVerticalScrollIndicator={false}
-          />
+          <Box mt="3" mb="3">
+            {tokens.map((item, index) => (
+              <Box
+                key={item.tokenIdOnNetwork}
+                borderTopRadius={index === 0 ? '12' : undefined}
+                borderBottomRadius={
+                  index === tokens.length - 1 ? '12' : undefined
+                }
+                display="flex"
+                flexDirection="row"
+                justifyContent="space-between"
+                p="4"
+                alignItems="center"
+                bg="surface-default"
+                borderTopColor="divider"
+                borderTopWidth={index !== 0 ? '1' : undefined}
+              >
+                <Box display="flex" alignItems="center" flexDirection="row">
+                  <Image
+                    src={item.logoURI}
+                    alt="logoURI"
+                    size="8"
+                    borderRadius="full"
+                    fallbackElement={<Icon name="QuestionMarkOutline" />}
+                  />
+                  <Box ml="3">
+                    <Typography.Body1Strong
+                      maxW="56"
+                      textOverflow="ellipsis"
+                      numberOfLines={2}
+                    >
+                      {item.name}({item.symbol})
+                    </Typography.Body1Strong>
+                    <Typography.Body1 numberOfLines={1}>
+                      <FormatBalance
+                        balance={item?.balance ?? '0'}
+                        suffix={item.symbol}
+                        formatOptions={{ fixed: 6 }}
+                      />
+                    </Typography.Body1>
+                  </Box>
+                </Box>
+                <IconButton
+                  name="TrashSolid"
+                  type="plain"
+                  onPress={() => onDelToken?.(item)}
+                />
+              </Box>
+            ))}
+          </Box>
         </Box>
-        <Box>
-          <Typography.Subheading color="text-subdued" mt="2">
-            {intl.formatMessage({
-              id: 'form__top_50_tokens',
-              defaultMessage: 'TOP 50 TOKENS',
-            })}
-          </Typography.Subheading>
-          <FlatList
-            bg="surface-default"
-            borderRadius="12"
-            mt="3"
-            mb="3"
-            data={top50list}
-            renderItem={renderItem}
-            ItemSeparatorComponent={() => <Divider />}
-            keyExtractor={(_, index: number) => index.toString()}
-            showsVerticalScrollIndicator={false}
-          />
-        </Box>
-      </Box>
+      ) : null}
+      {topTokens.length ? (
+        <Typography.Subheading color="text-subdued" mt="2" mb="3">
+          {intl.formatMessage({
+            id: 'form__top_50_tokens',
+            defaultMessage: 'TOP 50 TOKENS',
+          })}
+        </Typography.Subheading>
+      ) : null}
+    </Box>
+  );
+};
+
+type HeaderProps = {
+  topTokens: Token[];
+  tokens: ValuedToken[];
+  keyword: string;
+  terms?: string;
+  onChange: (keyword: string) => void;
+  onDelToken?: (token: Token) => void;
+};
+
+const Header: FC<HeaderProps> = ({
+  tokens,
+  topTokens,
+  keyword,
+  terms,
+  onChange,
+  onDelToken,
+}) => {
+  const intl = useIntl();
+  return (
+    <Box>
+      <Searchbar
+        w="full"
+        placeholder={intl.formatMessage({
+          id: 'form__search_tokens',
+          defaultMessage: 'Search Tokens',
+        })}
+        mb="6"
+        value={keyword}
+        onClear={() => onChange('')}
+        onChangeText={(text) => onChange(text)}
+      />
+      {terms ? null : (
+        <HeaderTokens
+          tokens={tokens}
+          onDelToken={onDelToken}
+          topTokens={topTokens}
+        />
+      )}
+    </Box>
+  );
+};
+
+type ListEmptyComponentProps = {
+  isLoading: boolean;
+  terms: string;
+};
+
+const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
+  isLoading,
+  terms,
+}) => {
+  console.log('rerender', isLoading, terms);
+  const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+  if (isLoading) {
+    return (
+      <Center w="full" h="20">
+        <Spinner size="lg" />
+      </Center>
     );
   }
+  return terms.length > 0 ? (
+    <Empty
+      title={intl.formatMessage({
+        id: 'content__no_results',
+        defaultMessage: 'No Result',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'content__no_results_desc',
+        defaultMessage: 'The token you searched for was not found',
+      })}
+      actionTitle={intl.formatMessage({
+        id: 'action__add_custom_tokens',
+        defaultMessage: 'Add Custom Token',
+      })}
+      handleAction={() => {
+        const params: { address?: string } = {};
+        if (isValidateAddr(terms)) {
+          params.address = terms;
+        }
+        navigation.navigate(ManageTokenRoutes.CustomToken, params);
+      }}
+    />
+  ) : null;
+};
+
+export const Listing: FC = () => {
+  const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+  const {
+    accountTokens,
+    accountTokensSet,
+    allTokens,
+    updateTokens,
+    updateAccountTokens,
+  } = useManageTokens();
+  const [keyword, setKeyword] = useState<string>('');
+  const [mylist, setMylist] = useState<Token[]>([]);
+  const searchTerm = useDebounce(keyword, 1000);
+
+  const { activeNetwork, activeAccount } = useGeneral();
+  const { loading, searchedTokens } = useSearchTokens(
+    searchTerm,
+    keyword,
+    activeNetwork?.network.id,
+  );
+
+  const [visible, setVisible] = useState(false);
+  const [toDeletedToken, setToDeletedToken] = useState<Token>();
+
+  useEffect(() => {
+    setMylist(accountTokens.filter((i) => i.tokenIdOnNetwork));
+  }, [accountTokens]);
+
+  const onToggleDeleteDialog = useCallback((token?: Token) => {
+    if (token) {
+      setToDeletedToken(token);
+      setVisible(true);
+    } else {
+      setVisible(false);
+    }
+  }, []);
+
+  const onDelete = useCallback(async () => {
+    if (activeAccount && toDeletedToken) {
+      await engine.removeTokenFromAccount(activeAccount.id, toDeletedToken?.id);
+    }
+    onToggleDeleteDialog(undefined);
+    updateTokens();
+    updateAccountTokens();
+  }, [
+    activeAccount,
+    toDeletedToken,
+    updateTokens,
+    updateAccountTokens,
+    onToggleDeleteDialog,
+  ]);
+
+  useFocusEffect(updateTokens);
+  useFocusEffect(updateAccountTokens);
+
+  const flatListData = useMemo(
+    () => (searchTerm ? searchedTokens : allTokens),
+    [searchTerm, searchedTokens, allTokens],
+  );
+
+  const renderItem: ListRenderItem<ValuedToken> = useCallback(
+    ({ item, index }) => (
+      <Box
+        borderTopRadius={index === 0 ? '12' : undefined}
+        borderBottomRadius={
+          index === flatListData.length - 1 ? '12' : undefined
+        }
+        display="flex"
+        flexDirection="row"
+        justifyContent="space-between"
+        p="4"
+        alignItems="center"
+        bg="surface-default"
+        overflow="hidden"
+        key={item.tokenIdOnNetwork}
+      >
+        <Box display="flex" alignItems="center" flexDirection="row">
+          <Image
+            src={item.logoURI}
+            alt="logoURI"
+            size="8"
+            borderRadius="full"
+            fallbackElement={<Icon name="QuestionMarkOutline" />}
+          />
+          <Box ml="3">
+            <Typography.Body1Strong
+              maxW="56"
+              textOverflow="ellipsis"
+              numberOfLines={2}
+              color={
+                accountTokensSet.has(item.tokenIdOnNetwork)
+                  ? 'text-disabled'
+                  : 'text-default'
+              }
+            >
+              {item.name}({item.symbol})
+            </Typography.Body1Strong>
+            <Typography.Body1
+              numberOfLines={1}
+              color={
+                accountTokensSet.has(item.tokenIdOnNetwork)
+                  ? 'text-disabled'
+                  : 'text-subdued'
+              }
+            >
+              {item?.balance
+                ? `${item.balance} ${item.symbol}`
+                : utils.shortenAddress(item.tokenIdOnNetwork)}
+            </Typography.Body1>
+          </Box>
+        </Box>
+        <Box>
+          {accountTokensSet.has(item.tokenIdOnNetwork) ? (
+            <Icon name="CheckSolid" color="interactive-disabled" />
+          ) : (
+            <IconButton
+              name="PlusSolid"
+              type="plain"
+              p="4"
+              onPress={() => {
+                navigation.navigate(ManageTokenRoutes.AddToken, {
+                  name: item.name,
+                  symbol: item.symbol,
+                  address: item.tokenIdOnNetwork,
+                  decimal: item.decimals,
+                  logoURI: item.logoURI,
+                });
+              }}
+            />
+          )}
+        </Box>
+      </Box>
+    ),
+    [navigation, flatListData.length, accountTokensSet],
+  );
 
   return (
     <>
@@ -237,41 +355,41 @@ export const Listing: FC = () => {
           defaultMessage: 'Manage Tokens',
         })}
         height="560px"
-        headerDescription="Ethereum Mainnet"
+        headerDescription={activeNetwork?.network.shortName}
         hidePrimaryAction
         onSecondaryActionPress={() => {
           navigation.navigate(ManageTokenRoutes.CustomToken);
         }}
         secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
         secondaryActionTranslationId="action__add_custom_tokens"
-        scrollViewProps={{
-          children: (
-            <KeyboardDismissView>
-              <Box>
-                <Searchbar
-                  w="full"
-                  placeholder={intl.formatMessage({
-                    id: 'form__search_tokens',
-                    defaultMessage: 'Search Tokens',
-                  })}
-                  mb="6"
-                  value={keyword}
-                  onClear={() => setKeyword('')}
-                  onChangeText={(text) => setKeyword(text.trim())}
-                />
-                {contentView}
-              </Box>
-            </KeyboardDismissView>
+        flatListProps={{
+          data: flatListData,
+          // @ts-ignore
+          renderItem,
+          ItemSeparatorComponent: () => <Divider />,
+          keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
+          showsVerticalScrollIndicator: false,
+          ListEmptyComponent: (
+            <ListEmptyComponent isLoading={loading} terms={searchTerm} />
+          ),
+          ListHeaderComponent: (
+            <Header
+              topTokens={allTokens}
+              tokens={mylist}
+              keyword={keyword}
+              terms={searchTerm}
+              onChange={(text) => setKeyword(text)}
+              onDelToken={(token) => onToggleDeleteDialog(token)}
+            />
           ),
         }}
       />
       <Dialog
-        visible={!!selectedToken}
-        onClose={() => setSelectedToken(undefined)}
+        visible={visible}
+        onClose={() => onToggleDeleteDialog(undefined)}
         footerButtonProps={{
-          onPrimaryActionPress: onDelete,
           primaryActionTranslationId: 'action__delete',
-          primaryActionProps: { type: 'destructive' },
+          primaryActionProps: { type: 'destructive', onPromise: onDelete },
         }}
         contentProps={{
           iconType: 'danger',
@@ -284,7 +402,7 @@ export const Listing: FC = () => {
               id: 'modal__delete_this_token_desc',
               defaultMessage: '{token} will be removed from my tokens',
             },
-            { token: selectedToken?.name },
+            { token: toDeletedToken?.name },
           ),
         }}
       />

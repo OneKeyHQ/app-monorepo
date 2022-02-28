@@ -4,6 +4,9 @@ import {
   TransitionPresets,
   createStackNavigator,
 } from '@react-navigation/stack';
+import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
+import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -15,8 +18,24 @@ import { RootRoutes } from '../types';
 
 const RootStack = createStackNavigator();
 
-const MainScreen = () => {
+const App = () => {
   const isVerticalLayout = useIsVerticalLayout();
+  const intl = useIntl();
+
+  if (Platform.OS === 'ios') {
+    KeyboardManager.setEnable(true);
+    KeyboardManager.setEnableDebugging(false);
+    KeyboardManager.setKeyboardDistanceFromTextField(10);
+    KeyboardManager.setLayoutIfNeededOnUpdate(true);
+    KeyboardManager.setEnableAutoToolbar(true);
+    KeyboardManager.setToolbarDoneBarButtonItemText(
+      intl.formatMessage({ id: 'action__done' }),
+    );
+    KeyboardManager.setToolbarPreviousNextButtonEnable(false);
+    KeyboardManager.setKeyboardAppearance('default');
+    KeyboardManager.setShouldPlayInputClicks(true);
+  }
+
   return (
     <RootStack.Navigator
       screenOptions={{
@@ -37,8 +56,8 @@ const MainScreen = () => {
 };
 
 const RootStackNavigator = () => {
-  const { password } = useStatus();
-  return password ? <MainScreen /> : <OnboardingScreen />;
+  const { boardingCompleted } = useStatus();
+  return boardingCompleted ? <App /> : <OnboardingScreen />;
 };
 
 export default memo(RootStackNavigator);

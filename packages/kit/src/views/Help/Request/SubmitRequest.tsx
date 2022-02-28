@@ -1,9 +1,12 @@
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Row, ZStack } from 'native-base';
 import { useIntl } from 'react-intl';
 import { Platform, useWindowDimensions } from 'react-native';
+import uuid from 'react-native-uuid';
 
 import {
   Box,
@@ -15,15 +18,23 @@ import {
   Modal,
   Pressable,
   Select,
+  Spinner,
   Typography,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
+import {
+  SubmitRequestModalRoutesParams,
+  SubmitRequestRoutes,
+} from '@onekeyhq/kit/src/routes';
 
-type ImageModel = {
-  loading: boolean;
-  localPath: string;
-};
+import { useSettings } from '../../../hooks/redux';
+
+import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
+import { ImageModel } from './types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type SubmitValues = {
   email: string;
@@ -47,82 +58,177 @@ const defaultOption = (): string => {
   }
 };
 
+const valueWithOption = (option: string): string => {
+  switch (option) {
+    case 'App on iOS':
+      return 'app_on_ios';
+    case 'App on Android':
+      return 'app_on_android';
+    case 'App on Browser':
+      return 'app_on_browser';
+    case 'App on Desktop':
+      return 'app_on_desktop';
+    case 'Hardware':
+      return 'hardware';
+    default:
+      return '';
+  }
+};
+
+type NavigationProps = NativeStackNavigationProp<
+  SubmitRequestModalRoutesParams,
+  SubmitRequestRoutes.SubmitRequestModal
+>;
+
+type ImageProps = {
+  imageModel: ImageModel;
+  onDelete: () => void;
+};
+
+export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
+  const { localPath, loading, filename } = imageModel;
+  const { width } = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
+  const modalWidth = isSmallScreen ? width : 400;
+  const padding = isSmallScreen ? 16 : 24;
+
+  const imageWidth = (modalWidth - padding * 2) / 4;
+  return (
+    <ZStack
+      key={`ticket_image${filename}`}
+      width={`${imageWidth}px`}
+      height={`${imageWidth}px`}
+    >
+      <Box
+        mt="8px"
+        ml={0}
+        width={`${imageWidth - 8}px`}
+        height={`${imageWidth - 8}px`}
+      >
+        <ZStack>
+          <Image
+            mt={0}
+            ml={0}
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+            borderRadius="12px"
+            source={{ uri: localPath }}
+            flex={1}
+          />
+          <Box
+            mt={0}
+            ml={0}
+            display={loading ? 'flex' : 'none'}
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+          >
+            <Center flex={1}>
+              <Spinner size="sm" />
+            </Center>
+          </Box>
+        </ZStack>
+      </Box>
+      <Pressable onPress={onDelete}>
+        <Box ml={`${imageWidth - 20}px`}>
+          <Icon size={20} name="CloseCircleSolid" />
+        </Box>
+      </Pressable>
+    </ZStack>
+  );
+};
+
 let selectOption = defaultOption();
+let uploadCount = 0;
 
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
   const [isHardware, setIsHardware] = useState(false);
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
+  const toast = useToast();
+  const navigation = useNavigation<NavigationProps>();
+  const { instanceId } = useSettings();
 
   const modalWidth = isSmallScreen ? width : 400;
-  const padding = isSmallScreen ? 16 : 32;
+  const padding = isSmallScreen ? 16 : 24;
 
-  const imageWidth = (modalWidth - padding * 2) / 5;
+  const imageWidth = (modalWidth - padding * 2) / 4;
+
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
-
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
+      base64: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.3,
     });
 
     if (!result.cancelled) {
+      const tempName = uuid.v4() as string;
+      const imagename = `${tempName}.png`;
       const image: ImageModel = {
-        loading: false,
+        loading: true,
         localPath: result.uri,
+        filename: imagename,
       };
-      updateImageArr([...imageArr, image]);
-    }
-  };
 
-  const ImageView = (image: ImageModel, index: number) => {
-    const { localPath } = image;
-    return (
-      <ZStack width={imageWidth} height={imageWidth}>
-        <Box mt="8px" ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-          <Image borderRadius="12px" source={{ uri: localPath }} flex={1} />
-        </Box>
-        <Pressable
-          onPress={() => {
+      let base64Image = result.uri;
+      if (Platform.OS === 'ios' && result.base64) {
+        base64Image = result.base64;
+      }
+
+      imageArr.push(image);
+      uploadCount += 1;
+      updateImageArr([...imageArr]);
+      uploadImage(
+        { filename: imagename, image: base64Image },
+        instanceId,
+        (error, responseJson) => {
+          uploadCount -= 1;
+          if (!error) {
+            for (const object of imageArr) {
+              if (object.filename === imagename) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                object.token = responseJson.data.upload.token;
+                object.loading = false;
+              }
+            }
+            updateImageArr([...imageArr]);
+          }
+        },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId]);
+
+  const imagesList = () => (
+    <Row>
+      {imageArr.map((image, index) => (
+        <ImageView
+          imageModel={image}
+          onDelete={() => {
             imageArr.splice(index, 1);
             updateImageArr([...imageArr]);
           }}
-        >
-          <Box ml={imageWidth - 20}>
-            <Icon size={20} name="CloseCircleSolid" />
-          </Box>
+        />
+      ))}
+      {imageArr.length < 4 ? (
+        <Pressable onPress={pickImage}>
+          <Center
+            mt="8px"
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+            borderRadius="12px"
+            borderWidth={1}
+            borderColor="border-default"
+          >
+            <Icon size={20} name="PlusSolid" />
+          </Center>
         </Pressable>
-      </ZStack>
-    );
-  };
-
-  const imagesList = useMemo(() => {
-    if (imageArr.length > 0) {
-      return (
-        <Row>
-          {imageArr.map((image, index) => ImageView(image, index))}
-          {imageArr.length < 5 ? (
-            <Pressable onPress={pickImage}>
-              <Center
-                mt="8px"
-                width={imageWidth - 8}
-                height={imageWidth - 8}
-                borderRadius="12px"
-                borderWidth={1}
-                borderColor="border-default"
-              >
-                <Icon size={20} name="PlusSolid" />
-              </Center>
-            </Pressable>
-          ) : null}
-        </Row>
-      );
-    }
-    return null;
-  }, [imageArr]);
+      ) : null}
+    </Row>
+  );
 
   const options = [
     {
@@ -150,24 +256,112 @@ export const SubmitRequest: FC = () => {
     selectOption = value;
     setIsHardware(value === 'Hardware');
   };
-  const { control, handleSubmit } = useForm<SubmitValues>();
-  const onSubmit = handleSubmit((data) => console.log(data));
+
+  const {
+    control,
+    handleSubmit,
+    formState: { isValid },
+  } = useForm<SubmitValues>({ mode: 'onChange' });
+  const onSubmit = useCallback(
+    async (formData: SubmitValues) => {
+      const uploads = () => {
+        const array: Array<string> = [];
+        imageArr.forEach((image) => {
+          if (image.token) {
+            array.push(image.token);
+          }
+        });
+        return array;
+      };
+
+      const customFields = [
+        {
+          'id': 360013393195,
+          'value': valueWithOption(selectOption),
+        },
+      ];
+      if (!isHardware) {
+        if (formData.appVersion.length > 0) {
+          customFields.push({
+            'id': 360013430096,
+            'value': formData.appVersion,
+          });
+        }
+      } else {
+        if (formData.seVersion.length > 0) {
+          customFields.push({
+            'id': 360017727195,
+            'value': formData.seVersion,
+          });
+        }
+        if (formData.bleVersion.length > 0) {
+          customFields.push({
+            'id': 360017731836,
+            'value': formData.bleVersion,
+          });
+        }
+        if (formData.firmwareVersion.length > 0) {
+          customFields.push({
+            'id': 360017731816,
+            'value': formData.firmwareVersion,
+          });
+        }
+      }
+      return axios
+        .post(submitUri(instanceId), {
+          email: formData.email,
+          ticket: {
+            'subject': formData.comment,
+            'custom_fields': customFields,
+            'comment': {
+              'body': formData.comment,
+              'uploads': uploads(),
+            },
+          },
+        })
+        .then((response) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (response.data.success) {
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+            });
+            navigation.goBack();
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            requestTicketDetail(response.data.data.id, instanceId);
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    },
+    [imageArr, instanceId, intl, isHardware, navigation, toast],
+  );
 
   const optionLab = (
     <Typography.Body2Strong mb="4px" color="text-subdued">
       {intl.formatMessage({ id: 'form__hint_optional' })}
     </Typography.Body2Strong>
   );
+
+  const beforeRemoveCallBack = useCallback(() => {
+    selectOption = defaultOption();
+    uploadCount = 0;
+  }, []);
+
+  useEffect(() => {
+    navigation.addListener('beforeRemove', beforeRemoveCallBack);
+    return () =>
+      navigation.removeListener('beforeRemove', beforeRemoveCallBack);
+  }, [beforeRemoveCallBack, navigation]);
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__submit_a_request' })}
       hideSecondaryAction
-      secondaryActionProps={{
-        type: 'basic',
-      }}
       primaryActionTranslationId="action__submit"
-      onPrimaryActionPress={() => {
-        onSubmit();
+      primaryActionProps={{
+        onPromise: () => handleSubmit(onSubmit)(),
+        isDisabled: !(isValid && uploadCount === 0),
       }}
       scrollViewProps={{
         children: [
@@ -192,7 +386,13 @@ export const SubmitRequest: FC = () => {
               control={control}
               name="email"
               rules={{
-                required: 'Email cannot be empty',
+                required: intl.formatMessage({ id: 'form__field_is_required' }),
+                maxLength: {
+                  value: 36,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
                 pattern: {
                   value: /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/,
                   message: intl.formatMessage({
@@ -211,10 +411,23 @@ export const SubmitRequest: FC = () => {
                   type="plain"
                   size="xs"
                   name="PhotographSolid"
-                  onPress={pickImage}
+                  onPress={() => {
+                    if (imageArr.length < 4) {
+                      pickImage();
+                    }
+                  }}
                 />
               }
               control={control}
+              rules={{
+                required: intl.formatMessage({ id: 'form__field_is_required' }),
+                maxLength: {
+                  value: 1000,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
+              }}
               name="comment"
               formControlProps={{ width: 'full' }}
               defaultValue=""
@@ -226,13 +439,21 @@ export const SubmitRequest: FC = () => {
                 borderRadius="12px"
               />
             </Form.Item>
-            {imagesList}
+            {imagesList()}
             {isHardware ? (
               [
                 <Form.Item
                   label={intl.formatMessage({ id: 'form__firmware_version' })}
                   labelAddon={optionLab}
                   control={control}
+                  rules={{
+                    maxLength: {
+                      value: 12,
+                      message: intl.formatMessage({
+                        id: 'msg__exceeding_the_maximum_word_limit',
+                      }),
+                    },
+                  }}
                   name="firmwareVersion"
                   defaultValue=""
                 >
@@ -242,6 +463,14 @@ export const SubmitRequest: FC = () => {
                   label={intl.formatMessage({ id: 'form__ble_version' })}
                   labelAddon={optionLab}
                   control={control}
+                  rules={{
+                    maxLength: {
+                      value: 12,
+                      message: intl.formatMessage({
+                        id: 'msg__exceeding_the_maximum_word_limit',
+                      }),
+                    },
+                  }}
                   name="bleVersion"
                   defaultValue=""
                 >
@@ -252,6 +481,14 @@ export const SubmitRequest: FC = () => {
                   helpText={intl.formatMessage({
                     id: 'content__these_information_may_be_found',
                   })}
+                  rules={{
+                    maxLength: {
+                      value: 12,
+                      message: intl.formatMessage({
+                        id: 'msg__exceeding_the_maximum_word_limit',
+                      }),
+                    },
+                  }}
                   labelAddon={optionLab}
                   control={control}
                   name="seVersion"
@@ -265,6 +502,14 @@ export const SubmitRequest: FC = () => {
                 label={intl.formatMessage({ id: 'form__app_version' })}
                 labelAddon={optionLab}
                 control={control}
+                rules={{
+                  maxLength: {
+                    value: 12,
+                    message: intl.formatMessage({
+                      id: 'msg__exceeding_the_maximum_word_limit',
+                    }),
+                  },
+                }}
                 name="appVersion"
                 defaultValue="1.0.0"
               >

@@ -1,118 +1,186 @@
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import { Row, ZStack } from 'native-base';
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
+import uuid from 'react-native-uuid';
 
 import {
-  Box,
   Center,
   Form,
   Icon,
   IconButton,
-  Image,
   Modal,
   Pressable,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+} from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
+
+import { useSettings } from '../../../hooks/redux';
+
+import { ImageView } from './SubmitRequest';
+import { updateTicketUri, uploadImage } from './TicketService';
+import { ImageModel } from './types';
 
 type SubmitValues = {
   comment: string;
 };
 
-type ImageModel = {
-  loading: boolean;
-  localPath: string;
-};
+type RouteProps = RouteProp<
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes.TicketDetailModal
+>;
+
+let uploadCount = 0;
+
 export const ReplyTicket: FC = () => {
   const intl = useIntl();
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
+  const navigation = useNavigation();
+  const { instanceId } = useSettings();
 
+  const route = useRoute<RouteProps>();
+  const { id } = route?.params.order;
+  const submitterId = route?.params.order.submitter_id;
   const modalWidth = isSmallScreen ? width : 400;
-  const padding = isSmallScreen ? 16 : 32;
+  const padding = isSmallScreen ? 16 : 24;
+  const toast = useToast();
 
-  const imageWidth = (modalWidth - padding * 2) / 5;
-  const { control, handleSubmit } = useForm<SubmitValues>();
-  const onSubmit = handleSubmit((data) => console.log(data));
+  const imageWidth = (modalWidth - padding * 2) / 4;
+  const {
+    control,
+    handleSubmit,
+    formState: { isValid },
+  } = useForm<SubmitValues>({ mode: 'onChange' });
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
 
-  const pickImage = async () => {
+  const onSubmit = useCallback(
+    async (data: SubmitValues) => {
+      const uploads = () => {
+        const array: Array<string> = [];
+        imageArr.forEach((image) => {
+          if (image.token) {
+            array.push(image.token);
+          }
+        });
+        return array;
+      };
+      return axios
+        .post(updateTicketUri(id, instanceId), {
+          comment: {
+            'body': data.comment,
+            'author_id': submitterId,
+            'uploads': uploads(),
+          },
+        })
+        .then((response) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (response.data.success) {
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
+            });
+            navigation.goBack();
+          }
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    },
+    [id, imageArr, instanceId, intl, navigation, submitterId, toast],
+  );
+
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
+      base64: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.3,
     });
 
     if (!result.cancelled) {
+      const tempName = uuid.v4() as string;
+      const imagename = `${tempName}.png`;
       const image: ImageModel = {
-        loading: false,
+        loading: true,
         localPath: result.uri,
+        filename: imagename,
       };
-      updateImageArr([...imageArr, image]);
-    }
-  };
 
-  const ImageView = (image: ImageModel, index: number) => {
-    const { localPath } = image;
-    return (
-      <ZStack width={imageWidth} height={imageWidth}>
-        <Box mt="8px" ml={0} width={imageWidth - 8} height={imageWidth - 8}>
-          <Image borderRadius="12px" source={{ uri: localPath }} flex={1} />
-        </Box>
-        <Pressable
-          onPress={() => {
+      let base64Image = result.uri;
+      if (Platform.OS === 'ios' && result.base64) {
+        base64Image = result.base64;
+      }
+      uploadCount += 1;
+      imageArr.push(image);
+      updateImageArr([...imageArr]);
+      uploadImage(
+        { filename: imagename, image: base64Image },
+        instanceId,
+        (error, responseJson) => {
+          uploadCount -= 1;
+          if (!error) {
+            for (const object of imageArr) {
+              if (object.filename === imagename) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                object.token = responseJson.data.upload.token;
+                object.loading = false;
+              }
+            }
+            updateImageArr([...imageArr]);
+          }
+        },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId]);
+
+  const imagesList = () => (
+    <Row>
+      {imageArr.map((image, index) => (
+        <ImageView
+          imageModel={image}
+          onDelete={() => {
             imageArr.splice(index, 1);
             updateImageArr([...imageArr]);
           }}
-        >
-          <Box ml={imageWidth - 20}>
-            <Icon size={20} name="CloseCircleSolid" />
-          </Box>
+        />
+      ))}
+      {imageArr.length < 4 ? (
+        <Pressable onPress={pickImage}>
+          <Center
+            mt="8px"
+            width={`${imageWidth - 8}px`}
+            height={`${imageWidth - 8}px`}
+            borderRadius="12px"
+            borderWidth={1}
+            borderColor="border-default"
+          >
+            <Icon size={20} name="PlusSolid" />
+          </Center>
         </Pressable>
-      </ZStack>
-    );
-  };
-
-  const imagesList = useMemo(() => {
-    if (imageArr.length > 0) {
-      return (
-        <Row>
-          {imageArr.map((image, index) => ImageView(image, index))}
-          {imageArr.length < 5 ? (
-            <Pressable onPress={pickImage}>
-              <Center
-                mt="8px"
-                width={imageWidth - 8}
-                height={imageWidth - 8}
-                borderRadius="12px"
-                borderWidth={1}
-                borderColor="border-default"
-              >
-                <Icon size={20} name="PlusSolid" />
-              </Center>
-            </Pressable>
-          ) : null}
-        </Row>
-      );
-    }
-    return null;
-  }, [imageArr]);
+      ) : null}
+    </Row>
+  );
 
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__reply' })}
       hideSecondaryAction
       primaryActionProps={{
-        type: 'basic',
+        isDisabled: !(isValid && uploadCount === 0),
+        onPromise: () => handleSubmit(onSubmit)(),
       }}
       primaryActionTranslationId="action__submit"
-      onPrimaryActionPress={() => {
-        onSubmit();
-      }}
       scrollViewProps={{
         children: [
           <Form>
@@ -124,16 +192,33 @@ export const ReplyTicket: FC = () => {
                   type="plain"
                   size="xs"
                   name="PhotographSolid"
-                  onPress={pickImage}
+                  onPress={() => {
+                    if (imageArr.length < 4) {
+                      pickImage();
+                    }
+                  }}
                 />
               }
+              rules={{
+                required: intl.formatMessage({ id: 'form__field_is_required' }),
+                maxLength: {
+                  value: 1000,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
+                validate: (value) => {
+                  console.log(`value = ${value}`);
+                  return undefined;
+                },
+              }}
               name="comment"
               formControlProps={{ width: 'full' }}
               defaultValue=""
             >
               <Form.Textarea borderRadius="12px" />
             </Form.Item>
-            {imagesList}
+            {imagesList()}
           </Form>,
         ],
       }}

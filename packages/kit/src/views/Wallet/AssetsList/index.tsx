@@ -2,7 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,10 +23,16 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { FormatCurrency } from '@onekeyhq/kit/src/components/Format';
+import {
+  FormatBalance,
+  FormatCurrency,
+} from '@onekeyhq/kit/src/components/Format';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import {
+  useActiveWalletAccount,
+  useManageTokens,
+} from '@onekeyhq/kit/src/hooks/redux';
 
-import engine from '../../../engine/EngineProvider';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -32,6 +42,7 @@ import {
 } from '../../../routes/types';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
+import type { ValuedToken } from '../../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -71,84 +82,96 @@ const ListHeaderComponent = () => {
 
 const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
-  const [tokens, setTokens] = useState<TokenType[]>([]);
-  const [tokenBalance, setTokenBalance] = useState({});
+  const { accountTokens, updateAccountTokens } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
+  const [mainTokenPrice, setMainTokenPrice] =
+    useState<Record<string, string>>();
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     async function main() {
       if (!network?.network?.id || !account?.id) return;
-      const tokensBE = await engine.getTokens(
+      const prices = await engine.getPrices(
         network.network.id,
-        account.id,
+        accountTokens.map((token) => token.tokenIdOnNetwork),
         true,
       );
-      setTokens(tokensBE);
-
-      const balance = await engine.getAccountBalance(
-        account.id,
-        network.network.id,
-        tokensBE.map((token) => token.id),
-        true,
-      );
-      setTokenBalance(balance);
+      setMainTokenPrice(prices);
     }
-    main();
-  }, [network, account?.id]);
 
-  const renderItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
+    try {
+      if (isFocused) main();
+    } catch (error) {
+      console.warn('AssetsList', error);
+    }
+  }, [network, account?.id, isFocused, accountTokens]);
+
+  useFocusEffect(updateAccountTokens);
+
+  const renderItem: ScrollableFlatListProps<ValuedToken>['renderItem'] = ({
     item,
     index,
-  }) => (
-    <Pressable.Item
-      p={4}
-      borderTopRadius={index === 0 ? '12px' : '0px'}
-      borderRadius={index === tokens?.length - 1 ? '12px' : '0px'}
-      onPress={() => {
-        if (!item.tokenIdOnNetwork) return;
+  }) => {
+    const mapKey = index === 0 ? 'main' : item.tokenIdOnNetwork;
+    const decimal =
+      index === 0
+        ? network?.network.nativeDisplayDecimals
+        : network?.network.tokenDisplayDecimals;
+    return (
+      <Pressable.Item
+        disabled={!item.tokenIdOnNetwork}
+        p={4}
+        borderTopRadius={index === 0 ? '12px' : '0px'}
+        borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
+        onPress={() => {
+          // if (!item.tokenIdOnNetwork) return;
 
-        navigation.navigate(HomeRoutes.ScreenTokenDetail, {
-          accountId: account?.id ?? '',
-          networkId: item.networkId ?? '',
-          tokenId: item.id ?? '',
-        });
-      }}
-    >
-      <Box w="100%" flexDirection="row" alignItems="center">
-        <Token size={8} src={item.logoURI} />
-        <Box ml={3} mr={3} flexDirection="column" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {(index === 0
-              ? /** @ts-expect-error */
-                tokenBalance?.main?.toFixed?.(2)
-              : /** @ts-expect-error */
-                tokenBalance?.[item.id]?.toFixed?.(2)) ?? '-'}
-            &nbsp;&nbsp;
-            {item.symbol}
-          </Text>
-          <FormatCurrency
-            numbers={[0]}
-            render={(ele) => (
-              <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
-            )}
-          />
-        </Box>
-        {!isSmallScreen && (
-          <Box ml={3} mr={20} flexDirection="row" flex={1}>
-            <Icon size={20} name="ActivityOutline" />
-            <FormatCurrency
-              numbers={[0]}
+          navigation.navigate(HomeRoutes.ScreenTokenDetail, {
+            accountId: account?.id ?? '',
+            networkId: item.networkId ?? '',
+            tokenId: item.id ?? '',
+          });
+        }}
+      >
+        <Box w="100%" flexDirection="row" alignItems="center">
+          <Token size={8} src={item.logoURI} />
+          <Box ml={3} mr={3} flexDirection="column" flex={1}>
+            <FormatBalance
+              balance={item.balance}
+              suffix={item.symbol}
+              formatOptions={{
+                fixed: decimal ?? 4,
+              }}
               render={(ele) => (
-                <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
+                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                  {ele}
+                </Text>
+              )}
+            />
+            <FormatCurrency
+              numbers={[item.balance, mainTokenPrice?.[mapKey]]}
+              render={(ele) => (
+                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
               )}
             />
           </Box>
-        )}
-        <Icon size={20} name="ChevronRightSolid" />
-      </Box>
-    </Pressable.Item>
-  );
+          {!isSmallScreen && (
+            <Box ml={3} mr={20} flexDirection="row" flex={1}>
+              <Icon size={20} name="ActivityOutline" />
+              <FormatCurrency
+                numbers={[item.balance, mainTokenPrice?.[mapKey]]}
+                render={(ele) => (
+                  <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
+                )}
+              />
+            </Box>
+          )}
+          {item.tokenIdOnNetwork && <Icon size={20} name="ChevronRightSolid" />}
+        </Box>
+      </Pressable.Item>
+    );
+  };
 
   return (
     <Tabs.FlatList
@@ -156,7 +179,7 @@ const AssetsList = () => {
         paddingHorizontal: 16,
         marginTop: 24,
       }}
-      data={tokens}
+      data={accountTokens}
       renderItem={renderItem}
       ListHeaderComponent={<ListHeaderComponent />}
       ItemSeparatorComponent={Divider}

@@ -44,7 +44,8 @@ const OnekeyLiteDetail: React.FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { locale } = useLocale();
-  const url = `https://lite.onekey.so/?language=${locale}`;
+  const [url, setUrl] = useState('');
+
   const { wallet } = useActiveWalletAccount();
 
   const [liteOption, setLiteOption] = useState<SelectItem<OptionType>[]>([]);
@@ -56,6 +57,10 @@ const OnekeyLiteDetail: React.FC = () => {
   );
 
   const [controlledWallets, setControlledWallets] = useState<Wallet[]>([]);
+
+  useEffect(() => {
+    setUrl(`https://lite.onekey.so/?language=${locale}`);
+  }, [locale]);
 
   useEffect(() => {
     async function main() {
@@ -209,22 +214,19 @@ const OnekeyLiteDetail: React.FC = () => {
     title: 'OneKey Lite',
     headerRight: () => (
       <Select
+        dropdownPosition="right"
         title="Onekey Lite"
         onChange={(v) => {
           if (currentOptionType !== v) setCurrentOptionType(v);
         }}
         footer={null}
         activatable={false}
-        containerProps={{
-          width:
-            Platform.OS === 'android' || Platform.OS === 'ios'
-              ? '40px'
-              : '200px',
-        }}
         triggerProps={{
           width: '40px',
         }}
-        dropdownPosition="right"
+        dropdownProps={{
+          width: 248,
+        }}
         options={liteOption}
         renderTrigger={() => (
           <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
@@ -291,6 +293,7 @@ const OnekeyLiteDetail: React.FC = () => {
         footerMoreView={
           <Box mb={3}>
             <Input
+              w="full"
               value={resetValidationInput}
               isInvalid={resetAllow != null ? !resetAllow : false}
               onChangeText={setResetValidationInput}
@@ -305,9 +308,12 @@ const OnekeyLiteDetail: React.FC = () => {
         footerButtonProps={{
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            navigation.navigate(
-              OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
-            );
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.OnekeyLiteReset,
+              params: {
+                screen: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+              },
+            });
           },
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {

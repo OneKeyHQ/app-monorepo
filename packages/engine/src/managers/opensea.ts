@@ -1,43 +1,95 @@
 import axios from 'axios';
-import { OpenSeaAsset } from 'opensea-js/lib/types';
+import camelcaseKeys from 'camelcase-keys';
 
+import {
+  CollectibleChainIdMap,
+  OpenSeaAsset,
+  OpenSeaAssetsResp,
+} from '../types/opensea';
+
+// TODO: Move into env
 const OPENSEA_API_KEY = '9254ce052d7b49d8972757591909bda6';
 
-const config = {
-  headers: { 'X-API-KEY': OPENSEA_API_KEY, Accept: 'application/json' },
-};
+const ASSETS_NETWORKS = {
+  [CollectibleChainIdMap.ETH]: 'https://api.opensea.io/api/v1/assets',
+  [CollectibleChainIdMap.Rinkeby]:
+    'https://rinkeby-api.opensea.io/api/v1/assets',
+  // [CollectibleChainIdMap.POLYGON]: 'https://api.opensea.io/api/v2/beta/assets',
+} as const;
 
-type AssetList = { assets: OpenSeaAsset[]; estimatedCount: number };
-
-function getAssets(
-  owner: string,
+export const getUserAssets = async ({
+  account,
+  chainId = CollectibleChainIdMap.ETH,
+  collection,
+  limit = 20,
   offset = 0,
-  limit = 50,
-  assetContractAddress?: string,
-): Promise<AssetList> {
-  let request = `https://api.opensea.io/api/v1/assets?offset=${offset}&limit=${limit}&`;
-
-  request += `owner=${owner}`;
-
-  if (assetContractAddress) {
-    request += `asset_contract_address=${assetContractAddress}&`;
+}: {
+  account: string;
+  chainId?: number | string | null;
+  collection?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<OpenSeaAsset[]> => {
+  const apiUrl = ASSETS_NETWORKS[chainId as keyof typeof ASSETS_NETWORKS];
+  if (!apiUrl) {
+    throw new Error(`Can not get nft assets of user '${account}'`);
   }
 
-  return axios
-    .get<AssetList>(request, config)
-    .then((response) => response.data);
-}
+  const result = await axios.get<OpenSeaAssetsResp>(apiUrl, {
+    params: {
+      owner: account,
+      collection,
+      limit,
+      offset,
+    },
+    headers: {
+      'Accept': 'application/json',
+      'X-Api-Key': OPENSEA_API_KEY,
+    },
+  });
+  if (result.status !== 200) {
+    throw new Error(result.statusText);
+  }
+  const res: OpenSeaAssetsResp = result.data ?? { assets: [] };
+  return camelcaseKeys(res.assets, { deep: true });
+};
 
-function getAssetDetail(
-  assetContractAddress: string,
-  tokenId: string,
-): Promise<OpenSeaAsset> {
-  const request = `https://api.opensea.io/api/v1/asset/${assetContractAddress}/${tokenId}`;
+const ASSET_NETWORKS = {
+  [CollectibleChainIdMap.ETH]: 'https://api.opensea.io/api/v1/asset',
+  [CollectibleChainIdMap.Rinkeby]:
+    'https://rinkeby-api.opensea.io/api/v1/asset',
+} as const;
 
-  return axios
-    .get<OpenSeaAsset>(request, config)
-    .then((response) => response.data);
-}
+export const getUserAsset = async ({
+  contractAddress,
+  tokenId,
+  chainId = CollectibleChainIdMap.ETH,
+}: {
+  contractAddress: string;
+  tokenId: string;
+  chainId?: number | string | null;
+}) => {
+  const apiUrl = ASSET_NETWORKS[chainId as keyof typeof ASSETS_NETWORKS];
+  if (!apiUrl) {
+    throw new Error(
+      `Can not retrieve specific nft asset of slug '${contractAddress}/${tokenId}'`,
+    );
+  }
 
-export { getAssets, getAssetDetail };
-export type { OpenSeaAsset as asset } from 'opensea-js/lib/types';
+  // https://api.opensea.io/api/v1/asset/{contractAddress}/{tokenId}
+  const url = `${apiUrl}/${contractAddress}/${tokenId}`;
+  const result = await axios.get<OpenSeaAsset>(url, {
+    headers: {
+      'Accept': 'application/json',
+      'X-Api-Key': OPENSEA_API_KEY,
+    },
+  });
+  if (result.status !== 200) {
+    throw new Error(result.statusText);
+  }
+  const res: OpenSeaAsset = result.data ?? {};
+  return camelcaseKeys(res, { deep: true });
+};
+
+export const isCollectibleSupportedChainId = (chainId: number | string) =>
+  Object.values(CollectibleChainIdMap).includes(Number(chainId));

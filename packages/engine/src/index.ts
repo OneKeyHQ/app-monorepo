@@ -1,16 +1,15 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-import BigNumber from 'bignumber.js';
-import * as bip39 from 'bip39';
-
 import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
-} from '@onekeyhq/blockchain-libs/dist/secret';
+} from '@onekeyfe/blockchain-libs/dist/secret';
+import BigNumber from 'bignumber.js';
+import * as bip39 from 'bip39';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
-import { DBAPI } from './dbs/base';
+import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import {
   FailedToTransfer,
   InvalidAddress,
@@ -46,6 +45,7 @@ import {
   getPresetTokensOnNetwork,
   networkIsPreset,
 } from './presets';
+import { syncLatestNetworkList } from './presets/network';
 import {
   PriceController,
   ProviderController,
@@ -67,7 +67,6 @@ import {
   AddNetworkParams,
   EIP1559Fee,
   Network,
-  NetworkShort,
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
@@ -88,6 +87,45 @@ class Engine {
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
+
+    this.syncPresetNetworks();
+  }
+
+  private async syncPresetNetworks(): Promise<void> {
+    await syncLatestNetworkList();
+
+    try {
+      const dbNetworks = await this.dbApi.listNetworks();
+      const dbNetworkSet = new Set(dbNetworks.map((dbNetwork) => dbNetwork.id));
+
+      const presetNetworksList = Object.values(getPresetNetworks()).sort(
+        (a, b) => (a.name > b.name ? 1 : -1),
+      );
+
+      let position = dbNetworks.length ?? 0;
+      for (const network of presetNetworksList) {
+        if (!dbNetworkSet.has(network.id)) {
+          await this.dbApi.addNetwork({
+            id: network.id,
+            name: network.name,
+            impl: network.impl,
+            symbol: network.symbol,
+            logoURI: network.logoURI,
+            enabled: network.enabled,
+            feeSymbol: network.feeSymbol,
+            decimals: network.decimals,
+            feeDecimals: network.feeDecimals,
+            balance2FeeDecimals: network.balance2FeeDecimals,
+            rpcURL: network.presetRpcURLs[0],
+            position,
+          });
+          position += 1;
+          dbNetworkSet.add(network.id);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   getWallets(): Promise<Array<Wallet>> {
@@ -164,10 +202,24 @@ class Engine {
     return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
-  async getAccounts(accountIds: Array<string>): Promise<Array<Account>> {
+  async getAccounts(
+    accountIds: Array<string>,
+    networkId?: string,
+  ): Promise<Array<Account>> {
     // List accounts by account ids. No token info are returned, only base account info are included.
+    if (accountIds.length === 0) {
+      return [];
+    }
+
     const accounts = await this.dbApi.getAccounts(accountIds);
-    return accounts.map((a: DBAccount) => fromDBAccountToAccount(a));
+    return accounts
+      .filter(
+        (a) =>
+          typeof networkId === 'undefined' ||
+          isAccountCompatibleWithNetwork(a.id, networkId),
+      )
+      .sort((a, b) => (a.name > b.name ? 1 : -1))
+      .map((a: DBAccount) => fromDBAccountToAccount(a));
   }
 
   async getAccountsByNetwork(
@@ -220,7 +272,7 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<Record<string, BigNumber | undefined>> {
+  ): Promise<Record<string, string | undefined>> {
     // Get account balance, main token balance is always included.
     const [dbAccount, network, tokens] = await Promise.all([
       this.dbApi.getAccount(accountId),
@@ -240,15 +292,17 @@ class Engine {
       networkId,
       buildGetBalanceRequest(dbAccount, tokensToGet, withMain),
     );
-    const ret: Record<string, BigNumber | undefined> = {};
+    const ret: Record<string, string | undefined> = {};
     if (withMain && typeof balances[0] !== 'undefined') {
-      ret.main = balances[0].div(new BigNumber(10).pow(network.decimals));
+      ret.main = balances[0]
+        .div(new BigNumber(10).pow(network.decimals))
+        .toFixed();
     }
     balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
       const tokenId1 = tokensToGet[index];
       const decimals = decimalsMap[tokenId1];
       if (typeof balance !== 'undefined') {
-        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals));
+        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals)).toFixed();
       }
     });
     return ret;
@@ -293,8 +347,8 @@ class Engine {
       path: paths[index],
       mainBalance:
         typeof balance === 'undefined'
-          ? new BigNumber(0)
-          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)),
+          ? '0'
+          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
     }));
   }
 
@@ -427,9 +481,7 @@ class Engine {
     if (typeof tokenInfo === 'undefined') {
       return noThisToken;
     }
-    return this.dbApi.addToken(
-      Object.assign(toAdd, tokenInfo, { id: tokenId }),
-    );
+    return this.dbApi.addToken({ ...toAdd, ...tokenInfo, ...{ id: tokenId } });
   }
 
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
@@ -456,7 +508,7 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
-  ): Promise<[BigNumber | undefined, Token] | undefined> {
+  ): Promise<[string | undefined, Token] | undefined> {
     // 1. find local token
     // 2. if not, find token online
     // 3. get token balance
@@ -479,7 +531,10 @@ class Engine {
     if (typeof balance === 'undefined') {
       return undefined;
     }
-    return [balance.div(new BigNumber(10).pow(token.decimals)), token];
+    return [
+      balance.div(new BigNumber(10).pow(token.decimals)).toFixed(),
+      token,
+    ];
   }
 
   async getTokens(
@@ -515,14 +570,57 @@ class Engine {
     );
   }
 
+  getTopTokensOnNetwork(networkId: string, limit = 50): Array<Token> {
+    return getPresetTokensOnNetwork(networkId).slice(0, limit);
+  }
+
+  async searchTokens(
+    networkId: string,
+    searchTerm: string,
+  ): Promise<Array<Token>> {
+    if (searchTerm.length === 0) {
+      return [];
+    }
+
+    const { displayAddress, normalizedAddress, isValid } =
+      await this.providerManager.verifyTokenAddress(networkId, searchTerm);
+
+    if (
+      isValid &&
+      typeof displayAddress !== 'undefined' &&
+      typeof normalizedAddress !== 'undefined'
+    ) {
+      // valid token address, return the specific token.
+      let token = await this.dbApi.getToken(
+        `${networkId}--${normalizedAddress}`,
+      );
+      const addressesToTry = new Set([normalizedAddress, displayAddress]);
+      addressesToTry.forEach((address) => {
+        if (typeof token === 'undefined') {
+          const presetToken = getPresetToken(networkId, address);
+          if (presetToken.decimals !== -1) {
+            token = presetToken;
+          }
+        }
+      });
+      return typeof token !== 'undefined' ? [token] : [];
+    }
+    const matchPattern = new RegExp(searchTerm, 'i');
+    const tokens = await this.getTokens(networkId);
+    return tokens.filter(
+      (token) =>
+        token.name.match(matchPattern) || token.symbol.match(matchPattern),
+    );
+  }
+
   async prepareTransfer(
     networkId: string,
     accountId: string,
     to: string,
-    value: BigNumber,
+    value: string,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
-  ): Promise<BigNumber> {
+  ): Promise<string> {
     // For account model networks, return the estimated gas usage.
     // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
     // TODO: validate to parameter.
@@ -534,25 +632,27 @@ class Engine {
     const payload = extra || {};
     payload.nonce = 1;
     payload.feePricePerUnit = new BigNumber(1);
-    return this.providerManager.preSend(
-      network,
-      account,
-      to,
-      value,
-      tokenIdOnNetwork,
-      payload,
-    );
+    return (
+      await this.providerManager.preSend(
+        network,
+        account,
+        to,
+        new BigNumber(value),
+        tokenIdOnNetwork,
+        payload,
+      )
+    ).toFixed();
   }
 
-  async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {
+  async getGasPrice(networkId: string): Promise<Array<string | EIP1559Fee>> {
     const ret = await this.providerManager.getGasPrice(networkId);
     if (ret.length > 0 && ret[0] instanceof BigNumber) {
       const { feeDecimals } = await this.dbApi.getNetwork(networkId);
       return (ret as Array<BigNumber>).map((price: BigNumber) =>
-        price.shiftedBy(-feeDecimals),
+        price.shiftedBy(-feeDecimals).toFixed(),
       );
     }
-    return ret;
+    return ret as Array<EIP1559Fee>;
   }
 
   async transfer(
@@ -560,9 +660,9 @@ class Engine {
     networkId: string,
     accountId: string,
     to: string,
-    value: BigNumber,
-    gasPrice: BigNumber,
-    gasLimit: BigNumber,
+    value: string,
+    gasPrice: string,
+    gasLimit: string,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; success: boolean }> {
@@ -579,12 +679,12 @@ class Engine {
           network,
           account,
           to,
-          value,
+          new BigNumber(value),
           tokenIdOnNetwork,
           {
             ...extra,
-            feeLimit: gasLimit,
-            feePricePerUnit: gasPrice,
+            feeLimit: new BigNumber(gasLimit),
+            feePricePerUnit: new BigNumber(gasPrice),
           },
         );
       await this.dbApi.addHistoryEntry(
@@ -596,7 +696,7 @@ class Engine {
         {
           contract: tokenIdOnNetwork || '',
           target: to,
-          value: value.toFixed(),
+          value,
           rawTx,
         },
       );
@@ -659,24 +759,16 @@ class Engine {
     return this.dbApi.removeHistoryEntry(entryId);
   }
 
-  async listNetworks(enabledOnly = true): Promise<Array<NetworkShort>> {
+  async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
     const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
     return networks
       .filter(
-        (network) =>
-          (enabledOnly ? network.enabled : true) &&
-          supportedImpls.has(network.impl),
+        (dbNetwork) =>
+          (enabledOnly ? dbNetwork.enabled : true) &&
+          supportedImpls.has(dbNetwork.impl),
       )
-      .map((network) => ({
-        id: network.id,
-        name: network.name,
-        impl: network.impl,
-        symbol: network.symbol,
-        logoURI: network.logoURI,
-        enabled: network.enabled,
-        preset: networkIsPreset(network.id),
-      }));
+      .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }
 
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
@@ -701,7 +793,7 @@ class Engine {
 
   async updateNetworkList(
     networks: Array<[string, boolean]>,
-  ): Promise<Array<NetworkShort>> {
+  ): Promise<Array<Network>> {
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
@@ -827,7 +919,9 @@ class Engine {
     const ret: Record<string, string> = {};
     const prices = await this.priceManager.getPrices(
       networkId,
-      tokenIdsOnNetwork,
+      tokenIdsOnNetwork.filter(
+        (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
+      ),
       withMain,
     );
     Object.keys(prices).forEach((k) => {
@@ -855,13 +949,33 @@ class Engine {
 
   updatePassword(oldPassword: string, newPassword: string): Promise<void> {
     // Update global password.
-    console.log(`updatePassword ${oldPassword} ${newPassword}`);
-    throw new NotImplemented();
+    return this.dbApi.updatePassword(oldPassword, newPassword);
   }
 
-  resetApp(password: string): Promise<void> {
+  async isMasterPasswordSet(): Promise<boolean> {
+    const context = await this.dbApi.getContext();
+    return (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    );
+  }
+
+  async verifyMasterPassword(password: string): Promise<boolean> {
+    const context = await this.dbApi.getContext();
+    if (
+      typeof context !== 'undefined' &&
+      context.verifyString !== DEFAULT_VERIFY_STRING
+    ) {
+      return checkPassword(context, password);
+    }
+    return true;
+  }
+
+  async resetApp(): Promise<void> {
     // Reset app.
-    return this.dbApi.reset(password);
+    await this.dbApi.reset();
+    this.dbApi = new DbApi() as DBAPI;
+    return Promise.resolve();
   }
 }
 

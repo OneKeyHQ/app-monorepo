@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import React, { FC, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -11,7 +12,7 @@ export type FormatOptions = {
   unit?: number;
   /** 保留小数位数 */
   fixed?: number;
-  /** 是否完整显示 */
+  /** 是否完整显示，为 false 时抹零 */
   fullPrecision?: boolean;
 };
 
@@ -20,6 +21,9 @@ export type FormatAmountResult = {
   dec?: string;
   sep: string;
 };
+
+/** 默认使用 25 位小数防止格式化为科学计数法 */
+BigNumber.config({ DECIMAL_PLACES: 25 });
 
 function decimalSeparator() {
   return (
@@ -45,25 +49,12 @@ function formatAmount(
 
     const sep = decimalSeparator();
 
-    if (opts.fullPrecision) {
-      const [int, dec] = bn.toFormat().split(sep);
-      if (typeof opts.fixed !== 'number' || opts.fixed <= 0) {
-        return { int, dec, sep };
-      }
-      if (dec) {
-        if (dec.length < opts.fixed) {
-          return { int, dec: dec + '0'.repeat(opts.fixed - dec.length), sep };
-        }
-        return { int, dec, sep };
-      }
-
-      return { int, dec: '0'.repeat(opts.fixed), sep };
-    }
-
     const [int, dec] = (
       typeof opts.fixed === 'number'
         ? // 向下取整
-          bn.toFormat(opts.fixed, BigNumber.ROUND_FLOOR)
+          opts.fullPrecision
+          ? bn.toFormat(opts.fixed, BigNumber.ROUND_FLOOR)
+          : bn.decimalPlaces(opts.fixed, BigNumber.ROUND_FLOOR).toFormat()
         : bn.toFormat()
     ).split(sep);
     return { int, dec, sep };
@@ -80,42 +71,131 @@ export function formatNumber(val: BigNumber.Value, opts: FormatOptions) {
   return `${formattedNumber.int}${formattedNumber.sep}${formattedNumber.dec}`;
 }
 
+export function formatBalanceDisplay(
+  balance?: BigNumber.Value,
+  suffix?: string | null,
+  formatOptions?: FormatOptions,
+) {
+  const { unit, fixed, fullPrecision } = formatOptions || {};
+  if (isNil(balance)) {
+    return {
+      amount: undefined,
+      unit: suffix ? suffix.toUpperCase().trim() : undefined,
+    };
+  }
+  const amount = formatNumber(balance, {
+    unit,
+    fixed,
+    fullPrecision,
+  });
+
+  return {
+    amount: amount || '0',
+    unit: suffix ? suffix.toUpperCase().trim() : undefined,
+  };
+}
+
+export function useFormatAmount() {
+  const useFormatBalanceDisplay = (
+    balance?: BigNumber.Value,
+    suffix?: string | null,
+    formatOptions?: FormatOptions,
+  ) =>
+    useMemo(
+      () => formatBalanceDisplay(balance, suffix, formatOptions),
+      [balance, formatOptions, suffix],
+    );
+
+  const useFormatCurrencyDisplay = (
+    numbers: (BigNumber.Value | string | undefined)[],
+    formatOptions?: FormatOptions,
+  ) => {
+    const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+    const map = useAppSelector((s) => s.fiatMoney.map);
+    const fiat = map[selectedFiatMoneySymbol];
+
+    const balance = useMemo(() => {
+      const fiatBN = new BigNumber(fiat);
+
+      if (fiatBN.isNaN()) {
+        return undefined;
+      }
+
+      return numbers.reduce((memo, curr) => {
+        if (curr === undefined || memo === undefined) return memo;
+        const memoBN = new BigNumber(memo);
+        const currBN = new BigNumber(curr);
+        return memoBN.multipliedBy(currBN);
+      }, fiatBN);
+    }, [fiat, numbers]);
+
+    return useMemo(() => {
+      if (balance === undefined || balance === '0') {
+        return { amount: undefined, unit: undefined };
+      }
+
+      const amount = formatNumber(balance, {
+        ...formatOptions,
+        fixed: 2,
+        fullPrecision: true,
+      });
+
+      return {
+        amount: amount || '0',
+        unit: selectedFiatMoneySymbol.toUpperCase().trim(),
+      };
+    }, [balance, formatOptions, selectedFiatMoneySymbol]);
+  };
+
+  return { useFormatCurrencyDisplay, useFormatBalanceDisplay };
+}
+
 export const FormatCurrency: FC<{
-  numbers: (BigNumber.Value | string)[];
+  numbers: (BigNumber.Value | string | undefined)[];
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;
   as?: FC;
 }> = ({ numbers, formatOptions = {}, as = Text, render }) => {
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-  const map = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = map[selectedFiatMoneySymbol];
-
-  const amount = useMemo(() => {
-    const fiatBN = new BigNumber(fiat);
-
-    if (fiatBN.isNaN()) return null;
-
-    return numbers.reduce((memo, curr) => {
-      const memoBN = new BigNumber(memo);
-      const currBN = new BigNumber(curr);
-      return memoBN.multipliedBy(currBN);
-    }, fiatBN);
-  }, [fiat, numbers]);
+  const { useFormatCurrencyDisplay } = useFormatAmount();
+  const amount = useFormatCurrencyDisplay(numbers, formatOptions);
 
   const child = useMemo(
     () => (
       <>
-        {isNil(amount)
-          ? '-'
-          : formatNumber(amount, {
-              ...formatOptions,
-              // currency 固定保留两位，不抹零
-              fixed: 2,
-            })}
-        &nbsp;{selectedFiatMoneySymbol.toUpperCase()}
+        {amount.amount}
+        &nbsp;{amount.unit}
       </>
     ),
-    [amount, formatOptions, selectedFiatMoneySymbol],
+    [amount],
+  );
+
+  if (render) {
+    return render?.(child);
+  }
+
+  const Component = as;
+
+  return <Component>{child}</Component>;
+};
+
+export const FormatBalance: FC<{
+  balance: BigNumber.Value | string | undefined;
+  suffix?: string;
+  formatOptions?: FormatOptions;
+  render?: (c: JSX.Element) => JSX.Element;
+  as?: FC;
+}> = ({ balance, formatOptions = {}, as = Text, render, suffix }) => {
+  const { useFormatBalanceDisplay } = useFormatAmount();
+  const amount = useFormatBalanceDisplay(balance, suffix, formatOptions);
+
+  const child = useMemo(
+    () => (
+      <>
+        {amount.amount}
+        {amount?.unit ? ` ${amount?.unit}` : null}
+      </>
+    ),
+    [amount.amount, amount?.unit],
   );
 
   if (render) {

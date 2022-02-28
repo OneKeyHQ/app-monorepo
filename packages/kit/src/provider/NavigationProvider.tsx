@@ -13,7 +13,8 @@ const NavigationApp = () => {
   const linking = {
     prefixes: [prefix],
   };
-  const [bgColor, textColor, defaultColor] = useThemeValue([
+
+  const [bgColor, textColor] = useThemeValue([
     'surface-subdued',
     'text-default',
     'background-default',
@@ -24,12 +25,12 @@ const NavigationApp = () => {
       ...DefaultTheme,
       colors: {
         ...DefaultTheme.colors,
-        background: defaultColor,
+        background: 'transparent',
         card: bgColor,
         text: textColor,
       },
     }),
-    [bgColor, textColor, defaultColor],
+    [bgColor, textColor],
   );
 
   return (

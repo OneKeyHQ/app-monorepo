@@ -17,10 +17,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { useAppDispatch, useStatus } from '../../hooks/redux';
-import { refreshLoginAt } from '../../store/reducers/status';
+import engine from '../../engine/EngineProvider';
+import { useAppDispatch } from '../../hooks/redux';
+import { unlock } from '../../store/reducers/status';
 
-type UnlockButtonProps = { onOk?: () => void; onForget?: () => void };
+type UnlockButtonProps = {
+  onOk?: (passowrd: string) => void;
+  onForget?: () => void;
+};
 
 type FieldValues = { password: string };
 
@@ -42,7 +46,6 @@ const UnlockButton: FC<UnlockButtonProps> = ({ onOk, onForget }) => {
 const Unlock = () => {
   const intl = useIntl();
   const dispatch = useAppDispatch();
-  const { password } = useStatus();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
@@ -50,9 +53,10 @@ const Unlock = () => {
   const justifyContent = isSmall ? 'space-between' : 'center';
   const py = isSmall ? '16' : undefined;
   const onUnlock = useCallback(
-    (values: FieldValues) => {
-      if (values.password === password) {
-        dispatch(refreshLoginAt());
+    async (values: FieldValues) => {
+      const isOk = await engine.verifyMasterPassword(values.password);
+      if (isOk) {
+        dispatch(unlock());
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -62,10 +66,10 @@ const Unlock = () => {
         });
       }
     },
-    [dispatch, intl, password, setError],
+    [dispatch, intl, setError],
   );
   const onOk = useCallback(() => {
-    dispatch(refreshLoginAt());
+    dispatch(unlock());
   }, [dispatch]);
   return (
     <KeyboardDismissView>

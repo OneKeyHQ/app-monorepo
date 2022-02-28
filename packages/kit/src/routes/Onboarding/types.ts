@@ -1,3 +1,5 @@
+import { CreateWalletRoutesParams } from '../Modal/CreateWallet';
+
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export enum OnboardingRoutes {
@@ -7,19 +9,15 @@ export enum OnboardingRoutes {
 
 export enum OnboardingStackRoutes {
   Welcome = 'Welcome',
+  Webview = 'Webview',
 }
 
-export enum OnboardingModalRoutes {
-  SetPassword = 'SetPassword',
-  Terms = 'Terms',
-}
-
-export type OnboardingRoutesParams = {
-  [OnboardingRoutes.Stack]: undefined;
-  [OnboardingRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
+export type StackRoutesParams = {
+  [OnboardingStackRoutes.Welcome]: undefined;
+  [OnboardingStackRoutes.Webview]: { url: string; title?: string };
 };
 
-export type ModalRoutesParams = {
-  [OnboardingModalRoutes.Terms]: undefined;
-  [OnboardingModalRoutes.SetPassword]: undefined;
+export type OnboardingRoutesParams = {
+  [OnboardingRoutes.Stack]: NavigatorScreenParams<StackRoutesParams>;
+  [OnboardingRoutes.Modal]: NavigatorScreenParams<CreateWalletRoutesParams>;
 };

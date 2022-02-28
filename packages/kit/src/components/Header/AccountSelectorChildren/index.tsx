@@ -14,6 +14,7 @@ import {
   Icon,
   IconButton,
   Pressable,
+  ScrollView,
   Select,
   Typography,
   VStack,
@@ -194,7 +195,10 @@ const AccountSelectorChildren: FC = () => {
   useEffect(() => {
     if (!activeWallet) return;
     async function main() {
-      const accounts = await engine.getAccounts(activeWallet.accounts);
+      const accounts = await engine.getAccounts(
+        activeWallet.accounts,
+        activeNetwork?.network?.id,
+      );
       setActiveAccounts(accounts);
     }
     main();
@@ -208,7 +212,7 @@ const AccountSelectorChildren: FC = () => {
       />
       <VStack flex={1}>
         <RightHeader activeAccountType={activeAccountType} />
-        <Box px={2} zIndex={2}>
+        <ScrollView px={2} zIndex={2}>
           <FlatList
             data={activeAccounts}
             keyExtractor={(_, index) => index.toString()}
@@ -217,6 +221,7 @@ const AccountSelectorChildren: FC = () => {
                 zIndex={99}
                 onPress={() => {
                   dispatch(
+                    // backgroundApiProxy.changeAccounts(item.address);
                     changeActiveAccount({
                       account: item,
                       wallet: activeWallet,
@@ -225,7 +230,6 @@ const AccountSelectorChildren: FC = () => {
                   setTimeout(() => {
                     navigation.dispatch(DrawerActions.closeDrawer());
                   }, 250);
-                  // backgroundApiProxy.changeAccounts(item.address);
                 }}
               >
                 {({ isHovered }) => (
@@ -235,8 +239,8 @@ const AccountSelectorChildren: FC = () => {
                     borderColor={isHovered ? 'border-hovered' : 'transparent'}
                     bg={
                       currentSelectedAccount?.id === item.id
-                        ? 'background-selected'
-                        : 'background-hovered'
+                        ? 'surface-selected'
+                        : 'transparent'
                     }
                     space={4}
                     borderRadius="xl"
@@ -298,7 +302,9 @@ const AccountSelectorChildren: FC = () => {
               </HStack>
             )}
           </Pressable>
-        </Box>
+          {/* When scrolling to the bottom, the Box pushes the content up a little. */}
+          <Box h={4} />
+        </ScrollView>
       </VStack>
     </>
   );

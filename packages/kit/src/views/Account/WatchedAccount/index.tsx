@@ -11,7 +11,10 @@ import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { changeActiveAccount } from '@onekeyhq/kit/src/store/reducers/general';
+import {
+  changeActiveAccount,
+  changeActiveNetwork,
+} from '@onekeyhq/kit/src/store/reducers/general';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +34,7 @@ const WatchedAccount: FC = () => {
   const toast = useToast();
   const { control, handleSubmit } = useForm<WatchedAccountFormValues>();
   const wallets = useAppSelector((s) => s.wallet.wallets);
+  const networks = useAppSelector((s) => s.network.network);
   const navigation = useNavigation<NavigationProps>();
   const dispatch = useAppDispatch();
 
@@ -55,6 +59,9 @@ const WatchedAccount: FC = () => {
       toast.show({
         title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
       });
+      const selectedNetwork = networks?.find(
+        (network) => network.id === data.network,
+      );
       dispatch(setRefreshTS());
       dispatch(
         changeActiveAccount({
@@ -62,6 +69,15 @@ const WatchedAccount: FC = () => {
           wallet,
         }),
       );
+      if (selectedNetwork) {
+        dispatch(
+          changeActiveNetwork({
+            network: selectedNetwork,
+            sharedChainName: selectedNetwork.impl,
+          }),
+        );
+      }
+
       navigation.goBack();
     } catch (e) {
       const errorKey = (e as { key: string }).key;
@@ -76,7 +92,7 @@ const WatchedAccount: FC = () => {
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={intl.formatMessage({ id: 'wallet__watched_accounts' })}
       primaryActionTranslationId="action__import"
-      onPrimaryActionPress={() => onSubmit()}
+      primaryActionProps={{ onPromise: onSubmit }}
       hideSecondaryAction
       scrollViewProps={{
         children: (
@@ -93,6 +109,14 @@ const WatchedAccount: FC = () => {
 
               <Form.Item
                 name="name"
+                rules={{
+                  maxLength: {
+                    value: 24,
+                    message: intl.formatMessage({
+                      id: 'msg__exceeding_the_maximum_word_limit',
+                    }),
+                  },
+                }}
                 label={intl.formatMessage({ id: 'form__account_name' })}
                 control={control}
               >

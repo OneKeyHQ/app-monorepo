@@ -1,7 +1,12 @@
 import { IMPL_EVM, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getPresetNetworks, networkIsPreset } from '../presets';
-import { AddEVMNetworkParams, DBNetwork, Network } from '../types/network';
+import {
+  AddEVMNetworkParams,
+  BlockExplorer,
+  DBNetwork,
+  Network,
+} from '../types/network';
 
 function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
   // TODO: chain interaction to check rpc url works correctly. Get network id and chain id.
@@ -24,19 +29,45 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
 }
 
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
-  const isPresetNetwork = networkIsPreset(dbNetwork.id);
-  const presetNetworks = getPresetNetworks();
-  const preset = isPresetNetwork
-    ? presetNetworks[dbNetwork.id] || { presetRpcURLs: [], isTestnet: false }
-    : { presetRpcURLs: [], isTestnet: false };
+  const { position, curve, ...forNetwork } = dbNetwork;
+  const preset = networkIsPreset(dbNetwork.id);
+  let shortName = dbNetwork.name;
+  let isTestnet = false;
+  let explorer;
+  if (preset) {
+    const presetNetwork = getPresetNetworks()[dbNetwork.id];
+    shortName = presetNetwork.shortName || shortName;
+    [explorer] = presetNetwork.explorers || [];
+    isTestnet = presetNetwork.isTestnet || false;
+  }
+
+  const { name, ...blockExplorerURL } = explorer || {
+    name: '',
+    address: '',
+    block: '',
+    transaction: '',
+  };
+
+  let extraInfo = {};
+  if (dbNetwork.impl === IMPL_EVM) {
+    const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
+    extraInfo = {
+      chainId: `0x${chainId.toString(16)}`,
+      networkVersion: chainId.toString(),
+    };
+  }
   return {
-    ...dbNetwork,
-    preset: isPresetNetwork,
-    ...preset,
+    ...forNetwork,
+    shortName,
+    preset,
+    isTestnet,
     // The two display decimals fields below are for UI, hard-coded for now.
     // TODO: define display decimals in remote config and give defaults for different implementations.
     nativeDisplayDecimals: 6,
     tokenDisplayDecimals: 4,
+    // extra info for dapp interactions
+    extraInfo,
+    blockExplorerURL: blockExplorerURL as BlockExplorer,
   };
 }
 

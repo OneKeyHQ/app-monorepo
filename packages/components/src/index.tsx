@@ -58,11 +58,13 @@ export { default as Spacer } from './Spacer';
 export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 export { default as KeyboardDismissView } from './KeyboardDismissView';
 export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
+export { default as LottieView } from './LottieView';
 
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
 
-export { useForm, Controller } from 'react-hook-form';
+export { useForm, Controller, useWatch } from 'react-hook-form';
+export type { Control } from 'react-hook-form';
 
 export { utils };
 export type { ICON_NAMES } from './Icon/Icons';

@@ -1,10 +1,10 @@
 import { Buffer } from 'buffer';
 
-import { RevealableSeed } from '@onekeyhq/blockchain-libs/dist/secret';
+import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
   decrypt,
   encrypt,
-} from '@onekeyhq/blockchain-libs/dist/secret/encryptors/aes256';
+} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
 import { DBAccount } from '../types/account';
 import {
@@ -54,7 +54,9 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
   }
 }
 interface DBAPI {
-  reset(password: string): Promise<void>;
+  getContext(): Promise<OneKeyContext | undefined>;
+  updatePassword(oldPassword: string, newPassword: string): Promise<void>;
+  reset(): Promise<void>;
 
   listNetworks(): Promise<Array<DBNetwork>>;
   addNetwork(network: DBNetwork): Promise<DBNetwork>;
@@ -125,4 +127,4 @@ interface DBAPI {
 }
 
 export type { DBAPI, OneKeyContext, StoredCredential, ExportedCredential };
-export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, MAIN_CONTEXT };
+export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, decrypt, MAIN_CONTEXT };

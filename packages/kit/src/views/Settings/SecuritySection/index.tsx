@@ -17,10 +17,11 @@ import { useAppDispatch, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
-  setEnableLocalAuthentication,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
+import engine from '../../../engine/EngineProvider';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
 import { PasswordRoutes } from '../../../routes/Modal/Password';
 import {
   ModalRoutes,
@@ -51,7 +52,7 @@ export const SecuritySection = () => {
     () => [
       {
         label: intl.formatMessage({ id: 'form__always' }),
-        value: 54432000, // 100 year
+        value: 0,
       },
       {
         label: intl.formatMessage(
@@ -108,9 +109,10 @@ export const SecuritySection = () => {
   const onOpenResetModal = useCallback(() => {
     setShowResetModal(true);
   }, []);
-  const onReset = useCallback(() => {
+  const onReset = useCallback(async () => {
     persistor.purge();
     dispatch({ type: 'LOGOUT', payload: undefined });
+    await engine.resetApp();
     setShowResetModal(false);
   }, [dispatch]);
   const onSetAppLockDuration = useCallback(
@@ -176,16 +178,19 @@ export const SecuritySection = () => {
                 <Switch
                   labelType="false"
                   isChecked={enableLocalAuthentication}
-                  onToggle={() =>
-                    dispatch(
-                      setEnableLocalAuthentication(!enableLocalAuthentication),
-                    )
-                  }
+                  onToggle={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.EnableLocalAuthentication,
+                      params: {
+                        screen:
+                          EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
+                      },
+                    });
+                  }}
                 />
               </Box>
             </Box>
           ) : null}
-
           <Box
             display="flex"
             flexDirection="row"
@@ -209,32 +214,35 @@ export const SecuritySection = () => {
               />
             </Box>
           </Box>
-          <Box w="full" zIndex={95}>
-            <Select<number>
-              title={intl.formatMessage({
-                id: 'form__app_lock_timer',
-                defaultMessage: 'Auto-Lock Timer',
-              })}
-              isTriggerPlain
-              footer={null}
-              value={appLockDuration}
-              defaultValue={appLockDuration}
-              headerShown={false}
-              options={lockTimerOptions}
-              dropdownProps={{ width: '64' }}
-              dropdownPosition="right"
-              renderTrigger={(activeOption) => (
-                <SelectTrigger<number>
-                  title={intl.formatMessage({
-                    id: 'form__app_lock_timer',
-                    defaultMessage: 'Auto-Lock Timer',
-                  })}
-                  activeOption={activeOption}
-                />
-              )}
-              onChange={onSetAppLockDuration}
-            />
-          </Box>
+          {enableAppLock ? (
+            <Box w="full" zIndex={95}>
+              <Select<number>
+                title={intl.formatMessage({
+                  id: 'form__app_lock_timer',
+                  defaultMessage: 'Auto-Lock Timer',
+                })}
+                isTriggerPlain
+                footer={null}
+                value={appLockDuration}
+                defaultValue={appLockDuration}
+                headerShown={false}
+                options={lockTimerOptions}
+                dropdownProps={{ width: '64' }}
+                dropdownPosition="right"
+                renderTrigger={(activeOption) => (
+                  <SelectTrigger<number>
+                    title={intl.formatMessage({
+                      id: 'form__app_lock_timer',
+                      defaultMessage: 'Auto-Lock Timer',
+                    })}
+                    activeOption={activeOption}
+                  />
+                )}
+                onChange={onSetAppLockDuration}
+              />
+            </Box>
+          ) : null}
+
           <Pressable
             display="flex"
             flexDirection="row"
@@ -259,11 +267,11 @@ export const SecuritySection = () => {
         visible={showResetModal}
         onClose={() => setShowResetModal(false)}
         footerButtonProps={{
-          onPrimaryActionPress: onReset,
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {
             type: 'destructive',
             isDisabled: input !== 'RESET',
+            onPromise: onReset,
           },
         }}
         contentProps={{

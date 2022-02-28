@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,19 +15,31 @@ import {
   Tabs,
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
+import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
-// import CollectiblesList from './Collectibles';
+import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
 import type { TextStyle } from 'react-native';
+
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 enum TabEnum {
   Tokens = 'Tokens',
@@ -50,15 +63,51 @@ const Home: FC = () => {
     'border-subdued',
   ]);
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network } = useActiveWalletAccount();
+  const { wallet, account, network } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
-  if (!account) {
+  if (!wallet) {
     return (
-      <Box flex="1" justifyContent="center">
+      <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
           icon="WalletOutline"
           title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
+        />
+        <Box
+          position="relative"
+          w={{ md: 'full' }}
+          alignItems="center"
+          h="56px"
+          justifyContent="center"
+        >
+          <Button
+            leftIconName="PlusOutline"
+            type="primary"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateWallet,
+                params: {
+                  screen: CreateWalletModalRoutes.CreateWalletModal,
+                },
+              });
+            }}
+            size="lg"
+          >
+            {intl.formatMessage({ id: 'action__create_wallet' })}
+          </Button>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (!account) {
+    return (
+      <Box flex="1" justifyContent="center" bg="background-default">
+        <Empty
+          icon="WalletOutline"
+          title={intl.formatMessage({ id: 'empty__no_account_title' })}
+          subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
         />
         <AccountSelector
           renderTrigger={({ handleToggleVisible }) => (
@@ -68,7 +117,7 @@ const Home: FC = () => {
               onPress={handleToggleVisible}
               size="lg"
             >
-              {intl.formatMessage({ id: 'action__create_wallet' })}
+              {intl.formatMessage({ id: 'action__create_account' })}
             </Button>
           )}
         />
@@ -88,6 +137,7 @@ const Home: FC = () => {
         maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
         width: '100%',
         marginHorizontal: 'auto',
+        backgroundColor: tabbarBgColor,
       }}
       headerContainerStyle={{
         shadowOffset: { width: 0, height: 0 },
@@ -119,12 +169,15 @@ const Home: FC = () => {
       >
         <AssetsList />
       </Tabs.Tab>
-      {/* <Tabs.Tab
+      <Tabs.Tab
         name={TabEnum.Collectibles}
         label={intl.formatMessage({ id: 'asset__collectibles' })}
       >
-        <CollectiblesList />
-      </Tabs.Tab> */}
+        <CollectiblesList
+          address={(account as SimpleAccount)?.address}
+          network={network?.network}
+        />
+      </Tabs.Tab>
       <Tabs.Tab
         name={TabEnum.History}
         label={intl.formatMessage({ id: 'transaction__history' })}

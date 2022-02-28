@@ -17,6 +17,10 @@ import CreateAccountModal, {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from './CreateAccount';
+import CreateWalletModalStack, {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from './CreateWallet';
 import DappApproveStack, {
   DappApproveModalRoutes,
   DappApproveRoutesParams,
@@ -37,6 +41,7 @@ import DappSignatureStack, {
   DappSignatureModalRoutes,
   DappSignatureRoutesParams,
 } from './DappSignature';
+import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
 import HardwareOnekeyModal, {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
@@ -65,7 +70,6 @@ import ManageTokenModal, {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from './ManageToken';
-import MiscModal, { MiscModalRoutes, MiscRoutesParams } from './Misc';
 import PasswordModal, {
   PasswordRoutes,
   PasswordRoutesParams,
@@ -121,10 +125,6 @@ const modalStackScreenList = [
     component: WatchedAccountModal,
   },
   {
-    name: ModalRoutes.Misc,
-    component: MiscModal,
-  },
-  {
     name: ModalRoutes.ManageToken,
     component: ManageTokenModal,
   },
@@ -172,6 +172,18 @@ const modalStackScreenList = [
     name: ModalRoutes.DappSignatureModal,
     component: DappSignatureStack,
   },
+  {
+    name: ModalRoutes.Collectibles,
+    component: CollectibleModal,
+  },
+  {
+    name: ModalRoutes.CreateWallet,
+    component: CreateWalletModalStack,
+  },
+  {
+    name: ModalRoutes.EnableLocalAuthentication,
+    component: EnableLocalAuthenticationModal,
+  },
 ];
 
 // ModalTypes will be delete later, don't update it
@@ -189,8 +201,7 @@ export type ModalTypes = {
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
-  // [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: NavigatorScreenParams<OnekeyLiteResetRoutesParams>;
-  // [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: NavigatorScreenParams<OnekeyLiteChangePinRoutesParams>;
+  [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
   [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;

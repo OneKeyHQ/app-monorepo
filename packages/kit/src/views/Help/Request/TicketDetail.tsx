@@ -1,8 +1,11 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useMemo, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/native';
 import { Column, Row, SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
+import { ScrollView } from 'react-native';
+import useSWR from 'swr';
 
 import { Box, Image, Modal, Text } from '@onekeyhq/components';
 import {
@@ -10,7 +13,11 @@ import {
   HistoryRequestRoutes,
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 
-import { commentList } from './MockData';
+import { useSettings } from '../../../hooks/redux';
+import useFormatDate from '../../../hooks/useFormatDate';
+
+import { attachmentUri, commentsUri } from './TicketService';
+import { AttachmentsType, CommentType, RequestPayload } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -18,6 +25,22 @@ type RouteProps = RouteProp<
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes.TicketDetailModal
 >;
+
+const Attachment: FC<AttachmentsType> = ({ id }) => {
+  const { instanceId } = useSettings();
+
+  const { data } = useSWR<RequestPayload<string>>(
+    attachmentUri(id, instanceId),
+  );
+
+  const attachment = useMemo(() => {
+    if (data) {
+      return <Image source={{ uri: data.data }} flex={1} borderRadius="12px" />;
+    }
+    return null;
+  }, [data]);
+  return attachment;
+};
 
 type NavigationProps = NativeStackNavigationProp<
   HistoryRequestModalRoutesParams,
@@ -30,25 +53,50 @@ function isMe(submitterId: number, authorId: number) {
 export const TicketDetail: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { submitterId } = route?.params.order;
+  const { id } = route?.params.order;
+  const submitterId = route.params.order.submitter_id;
   const imageSize = (260 - 16) / 3;
   const navigation = useNavigation<NavigationProps>();
+  const isFocused = useIsFocused();
+  const { instanceId } = useSettings();
+  const { formatDate } = useFormatDate();
 
+  const { data, mutate } = useSWR<RequestPayload<CommentType[]>>(
+    commentsUri(id, instanceId),
+  );
+
+  let comments: CommentType[] = [];
+
+  if (data) {
+    comments = data.data;
+  }
+  const scrollViewRef = useRef<ScrollView>();
+
+  useEffect(() => {
+    if (isFocused) {
+      mutate();
+    }
+  }, [isFocused, mutate]);
   return (
     <Modal
-      header={intl.formatMessage({ id: 'action__reply' })}
+      header={intl.formatMessage({ id: 'title__request_details' })}
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',
       }}
       primaryActionTranslationId="action__reply"
       onPrimaryActionPress={() => {
-        navigation.navigate(HistoryRequestRoutes.ReplyTicketModel);
+        navigation.navigate(HistoryRequestRoutes.ReplyTicketModel, {
+          order: route?.params.order,
+        });
       }}
       scrollViewProps={{
+        ref: scrollViewRef,
+        onContentSizeChange: () =>
+          scrollViewRef?.current?.scrollToEnd?.({ animated: false }),
         children: [
           <Column space="24px" paddingBottom="40px">
-            {commentList.comments.map((item, index) => {
+            {comments.map((item, index) => {
               const isMine = isMe(item.author_id, submitterId);
               let { body } = item;
               if (index === 0) {
@@ -79,11 +127,7 @@ export const TicketDetail: FC = () => {
                         >
                           {item.attachments.map((attachment, _index) => (
                             <Box key={`attachment${_index}`} size={imageSize}>
-                              <Image
-                                src={attachment.content_url}
-                                flex={1}
-                                borderRadius="12px"
-                              />
+                              <Attachment {...attachment} />
                             </Box>
                           ))}
                         </SimpleGrid>
@@ -94,7 +138,7 @@ export const TicketDetail: FC = () => {
                       color="text-subdued"
                       textAlign={isMine ? 'right' : 'left'}
                     >
-                      Jul 27, 00:32
+                      {formatDate(item.created_at, { hideYear: true })}
                     </Text>
                   </Column>
                 </Row>

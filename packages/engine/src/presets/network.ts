@@ -10,10 +10,8 @@ import { REMOTE_URL, Version, checkVersion } from './base';
 
 // TODO: desc order is expected in network list
 
-const getPresetNetworkList = (): NetworkList => networkList;
-
-let synced = false;
-let preset = getPresetNetworkList();
+let synced = true; // Change to false to enable remote updating
+let preset = networkList;
 //  network.id => PresetNetwork
 let presetNetworks: Record<string, PresetNetwork> = {};
 
@@ -32,6 +30,7 @@ function initNetworkList(presetNetwork: NetworkList) {
       logoURI: network.logoURI,
       enabled: !network.isTestnet && network.enable,
       chainId: network.chainId,
+      shortName: network.shortname,
       isTestnet: network.isTestnet,
       feeSymbol: network.fee.symbol,
       feeDecimals: network.fee.decimals,
@@ -85,11 +84,6 @@ async function syncLatestNetworkList() {
   synced = true;
 }
 
-// sync from remote
-(async () => {
-  await syncLatestNetworkList();
-})();
-
 function getPresetNetworks(): Record<string, PresetNetwork> {
   return presetNetworks;
 }
@@ -98,4 +92,4 @@ function networkIsPreset(networkId: string): boolean {
   return typeof presetNetworks[networkId] !== 'undefined';
 }
 
-export { networkIsPreset, getPresetNetworks };
+export { networkIsPreset, getPresetNetworks, syncLatestNetworkList };
