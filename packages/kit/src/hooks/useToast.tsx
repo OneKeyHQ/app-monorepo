@@ -16,20 +16,18 @@ type Options = {
 export function useToast() {
   const toast = useBaseToast();
   const info = useCallback(
-    (text: string, options?: Options) => {
+    (text: string, options?: Options) =>
       toast.show({
         render: () => <Toast title={text} />,
         placement: options?.placement,
-      });
-    },
+      }) as string,
     [toast],
   );
   const show = useCallback(
-    (props: ToastProps) => {
+    (props: ToastProps) =>
       toast.show({
         render: () => <Toast {...props} />,
-      });
-    },
+      }) as string,
     [toast],
   );
   return { ...toast, info, show };
