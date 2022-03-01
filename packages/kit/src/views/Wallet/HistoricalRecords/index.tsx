@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -144,31 +144,34 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       </Box>
     );
 
-  const renderHeader = () => (
-    <>
-      <Box>{!!headerView && headerView}</Box>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'transaction__history' })}
-        </Typography.Heading>
-        <IconButton
-          onPress={() => {
-            openBlockBrowser.openAddressDetails(
-              (account as SimpleAccount).address,
-            );
-          }}
-          size="sm"
-          name="ExternalLinkSolid"
-          type="plain"
-          circle
-        />
-      </Box>
-    </>
+  const header = useMemo(
+    () => (
+      <>
+        <Box>{headerView}</Box>
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          pb={3}
+        >
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'transaction__history' })}
+          </Typography.Heading>
+          <IconButton
+            onPress={() => {
+              openBlockBrowser.openAddressDetails(
+                (account as SimpleAccount).address,
+              );
+            }}
+            size="sm"
+            name="ExternalLinkSolid"
+            type="plain"
+            circle
+          />
+        </Box>
+      </>
+    ),
+    [account, headerView, intl, openBlockBrowser],
   );
 
   const renderEmpty = () => (
@@ -202,7 +205,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     refreshing: isLoading,
     renderItem,
     renderSectionHeader,
-    ListHeaderComponent: renderHeader(),
+    ListHeaderComponent: header,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box h="20px" />,
     ItemSeparatorComponent: () => <Divider />,

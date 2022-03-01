@@ -28,7 +28,10 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useSettings,
+} from '@onekeyhq/kit/src/hooks/redux';
 
 import { useManageTokens } from '../../../hooks/useManageTokens';
 import {
@@ -86,16 +89,18 @@ const AssetsList = () => {
   const [mainTokenPrice, setMainTokenPrice] =
     useState<Record<string, string>>();
   const isFocused = useIsFocused();
-
+  const [loading, setIsLoading] = useState(false);
+  const { autoRefreshTimeStamp } = useSettings();
+  const idList = accountTokens.map((token) => token.tokenIdOnNetwork);
   useEffect(() => {
     async function main() {
       if (!network?.network?.id || !account?.id) return;
-      const prices = await engine.getPrices(
-        network.network.id,
-        accountTokens.map((token) => token.tokenIdOnNetwork),
-        true,
-      );
+
+      setIsLoading(true);
+
+      const prices = await engine.getPrices(network.network.id, idList, true);
       setMainTokenPrice(prices);
+      setIsLoading(false);
     }
 
     try {
@@ -103,7 +108,8 @@ const AssetsList = () => {
     } catch (error) {
       console.warn('AssetsList', error);
     }
-  }, [network, account?.id, isFocused, accountTokens]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [network, account?.id, isFocused, idList.join(','), autoRefreshTimeStamp]);
 
   useFocusEffect(updateAccountTokens);
 
@@ -143,14 +149,16 @@ const AssetsList = () => {
               }}
               render={(ele) => (
                 <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {ele}
+                  {loading ? '-' : ele}
                 </Text>
               )}
             />
             <FormatCurrency
               numbers={[item.balance, mainTokenPrice?.[mapKey]]}
               render={(ele) => (
-                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+                <Typography.Body2 color="text-subdued">
+                  {loading ? '-' : ele}
+                </Typography.Body2>
               )}
             />
           </Box>

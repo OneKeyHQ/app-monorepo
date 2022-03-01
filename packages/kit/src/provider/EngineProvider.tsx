@@ -17,6 +17,7 @@ import {
   changeActiveNetwork,
 } from '@onekeyhq/kit/src/store/reducers/general';
 import { updateNetworkMap } from '@onekeyhq/kit/src/store/reducers/network';
+import { setAutoRefreshTimeStamp } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 
 const EngineApp: FC = ({ children }) => {
@@ -33,6 +34,10 @@ const EngineApp: FC = ({ children }) => {
   }, [dispatch]);
 
   useSWR('fiat-money', () => handleFiatMoneyUpdate(), {
+    refreshInterval: 1 * 60 * 60 * 1000,
+  });
+
+  useSWR('auto-refresh', () => dispatch(setAutoRefreshTimeStamp()), {
     refreshInterval: 1 * 60 * 60 * 1000,
   });
 
@@ -57,19 +62,43 @@ const EngineApp: FC = ({ children }) => {
       const hasAccountsWallet = walletsFromBE.find(
         (wallet) => !!wallet.accounts.length,
       );
-      if (!hasAccountsWallet) return;
-      const accountId = hasAccountsWallet.accounts[0];
+      if (hasAccountsWallet) {
+        const accountId = hasAccountsWallet.accounts[0];
 
-      engine
-        .getAccounts([accountId], activeNetwork?.network.id)
-        .then(([activeAccount]) => {
+        engine
+          .getAccounts([accountId], activeNetwork?.network.id)
+          .then(([activeAccount]) => {
+            dispatch(
+              changeActiveAccount({
+                account: activeAccount,
+                wallet: hasAccountsWallet,
+              }),
+            );
+          });
+      } else {
+        // none wallet, return the first wallet or none
+        const wallet = walletsFromBE.find((w) => w.type !== 'watching') ?? null;
+        const accountId = wallet?.accounts?.[0];
+        if (accountId) {
+          engine
+            .getAccounts([accountId], activeNetwork?.network.id)
+            .then(([activeAccount]) => {
+              dispatch(
+                changeActiveAccount({
+                  account: activeAccount,
+                  wallet,
+                }),
+              );
+            });
+        } else {
           dispatch(
             changeActiveAccount({
-              account: activeAccount,
-              wallet: hasAccountsWallet,
+              account: null,
+              wallet,
             }),
           );
-        });
+        }
+      }
     }
     main();
   }, [dispatch, refreshTimeStamp, account, activeNetwork]);

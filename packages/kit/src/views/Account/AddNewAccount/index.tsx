@@ -1,14 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
+import { Form, Modal, useForm } from '@onekeyhq/components';
+import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
+import Protected from '@onekeyhq/kit/src/components/Protected';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
+
+import { useAppSelector } from '../../../hooks/redux';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -26,83 +31,79 @@ type NavigationProps = NativeStackNavigationProp<
   CreateAccountModalRoutes.RecoveryAccountForm
 >;
 
+type RouteProps = RouteProp<
+  CreateAccountRoutesParams,
+  CreateAccountModalRoutes.CreateAccountForm
+>;
+
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
-  const { control } = useForm<PrivateKeyFormValues>();
+  const { control, handleSubmit } = useForm<PrivateKeyFormValues>();
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
+  const route = useRoute<RouteProps>();
+  const wallets = useAppSelector((s) => s.wallet.wallets);
+  const selectedWalletId = route.params.walletId;
+  const defaultWalletName = useMemo(() => {
+    const wallet = wallets.find((wallet) => wallet.id === selectedWalletId);
+
+    const id = wallet?.nextAccountIds?.global;
+    if (!id) return '';
+    return `Account #${id}`;
+  }, [wallets, selectedWalletId]);
+
+  const onSubmit = handleSubmit((data) => {
+    console.log('----data', data);
+  });
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__add_account' })}
-      headerDescription={`${intl.formatMessage({ id: 'wallet__wallet' })}#2`}
+      headerDescription={`${intl.formatMessage({ id: 'wallet__wallet' })}`}
       onClose={onClose}
+      primaryActionProps={{ onPromise: onSubmit }}
       primaryActionTranslationId="action__create"
       hideSecondaryAction
       scrollViewProps={{
         children: (
-          <>
-            <Form w="full" zIndex={999} h="full">
-              <Form.Item
-                name="network"
-                control={control}
-                label={intl.formatMessage({ id: 'network__network' })}
-                helpText={intl.formatMessage({
-                  id: 'form__network_helperText',
-                })}
-                defaultValue="https://rpc.onekey.so/eth"
-                formControlProps={{ zIndex: 999 }}
-              >
-                <Form.Select
-                  title={intl.formatMessage({ id: 'network__network' })}
-                  footer={null}
-                  containerProps={{
-                    zIndex: 999,
-                    padding: 0,
-                  }}
-                  triggerProps={{
-                    py: 2,
-                  }}
-                  options={[
-                    {
-                      label: 'https://google.com',
-                      value: 'https://google.com',
-                    },
-                    {
-                      label: 'https://rpc.onekey.so/eth',
-                      value: 'https://rpc.onekey.so/eth',
-                    },
-                    {
-                      label: 'https://baidu.com',
-                      value: 'https://baidu.com',
-                    },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item
-                name="name"
-                label={intl.formatMessage({ id: 'form__account_name' })}
-                control={control}
-              >
-                <Form.Input />
-              </Form.Item>
-              <Box alignItems="center" mt="6">
+          <Form w="full" zIndex={999} h="full">
+            <FormChainSelector control={control} name="network" />
+            <Form.Item
+              name="name"
+              rules={{
+                required: intl.formatMessage({
+                  id: 'form__field_is_required',
+                }),
+                maxLength: {
+                  value: 24,
+                  message: intl.formatMessage({
+                    id: 'msg__exceeding_the_maximum_word_limit',
+                  }),
+                },
+              }}
+              label={intl.formatMessage({ id: 'form__account_name' })}
+              control={control}
+            >
+              <Form.Input placeholder={defaultWalletName} />
+            </Form.Item>
+            {/* <Box alignItems="center" mt="6">
                 <Typography.Body1>
                   {intl.formatMessage({
                     id: 'account__restore_a_previously_used_account',
                   })}
                 </Typography.Body1>
                 <Typography.Body1
-                // onPress={() =>
-                //   navigation.navigate(ModalRoutes.RecoveryAccountForm)
-                // }
+                  onPress={() =>
+                    // TODO
+                  }
                 >
                   {intl.formatMessage({
                     id: 'action__recover_accounts',
                   })}
                 </Typography.Body1>
-              </Box>
-            </Form>
-          </>
+              </Box> */}
+          </Form>
         ),
       }}
     />

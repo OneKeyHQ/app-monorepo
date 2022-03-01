@@ -12,7 +12,7 @@ export enum CreateAccountModalRoutes {
 }
 
 export type CreateAccountRoutesParams = {
-  [CreateAccountModalRoutes.CreateAccountForm]: undefined;
+  [CreateAccountModalRoutes.CreateAccountForm]: { walletId: string };
   [CreateAccountModalRoutes.RecoveryAccountForm]: undefined;
 };
 

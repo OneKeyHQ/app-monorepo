@@ -47,28 +47,37 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
   const isFocused = useIsFocused();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
-
   const { wallet } = useActiveWalletAccount();
-  const [amount, setAmount] = useState('0');
+  const [amount, setAmount] = useState<string>();
   const [tokenPrice, setTokenPrice] = useState<string>();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function main() {
-      if (!accountId || !network?.id) return;
+      if (
+        !accountId ||
+        !network?.id ||
+        !token?.networkId ||
+        !token?.tokenIdOnNetwork
+      )
+        return;
+
+      setLoading(true);
       const result = await engine.getAccountBalance(
         accountId,
         token?.networkId ?? network.id,
-        token ? [token?.tokenIdOnNetwork] : [],
+        token?.tokenIdOnNetwork ? [token?.tokenIdOnNetwork] : [],
         true,
       );
 
       const prices = await engine.getPrices(
         network.id,
-        token ? [token?.tokenIdOnNetwork] : [],
-        !token,
+        token?.tokenIdOnNetwork ? [token?.tokenIdOnNetwork] : [],
+        !token?.tokenIdOnNetwork,
       );
 
-      if (token) {
+      setLoading(false);
+      if (token.tokenIdOnNetwork) {
         setAmount(result[token.tokenIdOnNetwork] ?? '0');
         setTokenPrice(prices?.[token.tokenIdOnNetwork]);
       } else {
@@ -81,7 +90,13 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
     } catch (error) {
       console.warn('TokenInfo', error);
     }
-  }, [accountId, token, isFocused, network]);
+  }, [
+    accountId,
+    token?.tokenIdOnNetwork,
+    token?.networkId,
+    isFocused,
+    network?.id,
+  ]);
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -99,16 +114,24 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
                 fixed: network?.tokenDisplayDecimals ?? 4,
               }}
               as={Typography.DisplayXLarge}
+              render={(ele) => (
+                <Typography.DisplayXLarge>
+                  {loading ? '-' : ele}
+                </Typography.DisplayXLarge>
+              )}
             />
           </Box>
           <FormatCurrency
             numbers={[amount, tokenPrice]}
-            render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+            render={(ele) => (
+              <Typography.Body2 mt={1}>{loading ? '-' : ele}</Typography.Body2>
+            )}
           />
         </Box>
       </Box>
     ),
     [
+      loading,
       isVertical,
       token?.logoURI,
       token?.symbol,
