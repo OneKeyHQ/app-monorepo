@@ -25,7 +25,44 @@ function getEVMNetworkToCreate(params: AddEVMNetworkParams): DBNetwork {
     balance2FeeDecimals: 9,
     rpcURL: params.rpcURL,
     position: 0,
+    explorerURL: params.explorerURL,
   };
+}
+
+function generateEIP3091(customExplorerURL?: string):
+  | {
+      name: string;
+      address: string;
+      block: string;
+      transaction: string;
+    }
+  | undefined {
+  if (!customExplorerURL) {
+    return;
+  }
+  try {
+    const u = new URL(customExplorerURL);
+    const base = u.pathname.endsWith('/') ? u.pathname : `${u.pathname}/`;
+
+    u.pathname = `${base}address/{address}`;
+    const address = u.toString().replace('%7Baddress%7D', '{address}');
+
+    u.pathname = `${base}block/{block}`;
+    const block = u.toString().replace('%7Bblock%7D', '{block}');
+
+    u.pathname = `${base}transaction/{transaction}`;
+    const transaction = u
+      .toString()
+      .replace('%7Btransaction%7D', '{transaction}');
+    return {
+      name: customExplorerURL,
+      address,
+      block,
+      transaction,
+    };
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
@@ -33,20 +70,29 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
   const preset = networkIsPreset(dbNetwork.id);
   let shortName = dbNetwork.name;
   let isTestnet = false;
-  let explorer;
+  let firstExplorer;
+  let matchedExplorer;
   if (preset) {
     const presetNetwork = getPresetNetworks()[dbNetwork.id];
     shortName = presetNetwork.shortName || shortName;
-    [explorer] = presetNetwork.explorers || [];
     isTestnet = presetNetwork.isTestnet || false;
+
+    [firstExplorer] = presetNetwork.explorers || [];
+    if (dbNetwork.explorerURL) {
+      matchedExplorer = (presetNetwork.explorers || []).find(
+        (e) => e.name === dbNetwork.explorerURL,
+      );
+    }
   }
 
-  const { name, ...blockExplorerURL } = explorer || {
-    name: '',
-    address: '',
-    block: '',
-    transaction: '',
-  };
+  const { name, ...blockExplorerURL } = matchedExplorer ||
+    generateEIP3091(dbNetwork.explorerURL) ||
+    firstExplorer || {
+      name: '',
+      address: '',
+      block: '',
+      transaction: '',
+    };
 
   let extraInfo = {};
   if (dbNetwork.impl === IMPL_EVM) {
