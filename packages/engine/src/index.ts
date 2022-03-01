@@ -782,6 +782,15 @@ class Engine {
         'addNetwork: empty value is not allowed for RPC URL.',
       );
     }
+    if (params.explorerURL) {
+      try {
+        const u = new URL(params.explorerURL);
+        params.explorerURL = u.toString();
+      } catch (error) {
+        console.error(error);
+        throw new OneKeyInternalError('addNetwork invalid URL');
+      }
+    }
     const dbObj = await this.dbApi.addNetwork(getEVMNetworkToCreate(params));
     return fromDBNetworkToNetwork(dbObj);
   }
@@ -804,6 +813,15 @@ class Engine {
   ): Promise<Network> {
     if (Object.keys(params).length === 0) {
       throw new OneKeyInternalError('updateNetwork: params is empty.');
+    }
+    if (params.explorerURL) {
+      try {
+        const u = new URL(params.explorerURL);
+        params.explorerURL = u.toString();
+      } catch (error) {
+        console.error(error);
+        throw new OneKeyInternalError('updateNetwork invalid URL');
+      }
     }
     if (networkIsPreset(networkId)) {
       if (typeof params.name !== 'undefined') {

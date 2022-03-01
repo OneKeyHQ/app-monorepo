@@ -26,6 +26,7 @@ type DBNetwork = NetworkBase & {
   rpcURL: string;
   position: number;
   curve?: string;
+  explorerURL?: string;
 };
 
 type EvmExtraInfo = {
@@ -58,6 +59,7 @@ type AddEVMNetworkParams = {
   name: string;
   symbol?: string;
   rpcURL: string;
+  explorerURL?: string;
 };
 
 type AddNetworkParams = AddEVMNetworkParams;
@@ -66,6 +68,7 @@ type UpdateEVMNetworkParams = {
   name?: string;
   symbol?: string;
   rpcURL?: string;
+  explorerURL?: string;
 };
 
 type UpdateNetworkParams = UpdateEVMNetworkParams;

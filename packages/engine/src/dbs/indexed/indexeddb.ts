@@ -11,7 +11,6 @@ import {
   OneKeyInternalError,
   WrongPassword,
 } from '../../errors';
-import { getPresetNetworks } from '../../presets';
 import {
   ACCOUNT_TYPE_SIMPLE,
   DBAccount,
@@ -147,39 +146,6 @@ class IndexedDBApi implements DBAPI {
 
         transaction.oncomplete = (_tevent) => {
           resolve(request.result);
-        };
-
-        const networkStore: IDBObjectStore =
-          transaction.objectStore(NETWORK_STORE_NAME);
-        const getNetworkIdsRequest: IDBRequest = networkStore.getAllKeys();
-
-        getNetworkIdsRequest.onsuccess = (_revent) => {
-          const networkIds = new Set(getNetworkIdsRequest.result);
-          let position = networkIds.size;
-          const presetNetworksList = Object.values(getPresetNetworks()).sort(
-            (a, b) => (a.name > b.name ? 1 : -1),
-          );
-          presetNetworksList.forEach((network) => {
-            if (networkIds.has(network.id)) {
-              return;
-            }
-            networkStore.add({
-              id: network.id,
-              name: network.name,
-              impl: network.impl,
-              symbol: network.symbol,
-              logoURI: network.logoURI,
-              feeSymbol: network.feeSymbol,
-              decimals: network.decimals,
-              feeDecimals: network.feeDecimals,
-              balance2FeeDecimals: network.balance2FeeDecimals,
-              rpcURL: network.presetRpcURLs[0],
-              enabled: network.enabled,
-              position,
-            });
-            position += 1;
-            networkIds.add(network.id);
-          });
         };
       };
     });

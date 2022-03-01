@@ -31,6 +31,8 @@ class NetworkSchema extends Realm.Object {
 
   public curve?: string;
 
+  public explorerURL?: string;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Network',
     primaryKey: 'id',
@@ -49,6 +51,7 @@ class NetworkSchema extends Realm.Object {
       rpcURL: 'string',
       position: 'int',
       curve: 'string?',
+      explorerURL: 'string?',
     },
   };
 
@@ -69,6 +72,9 @@ class NetworkSchema extends Realm.Object {
     };
     if (this.curve !== null) {
       Object.assign(ret, { curve: this.curve });
+    }
+    if (this.explorerURL !== null) {
+      Object.assign(ret, { explorerURL: this.explorerURL });
     }
     return ret;
   }
