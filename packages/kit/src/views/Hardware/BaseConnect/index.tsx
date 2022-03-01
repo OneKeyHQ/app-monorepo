@@ -1,23 +1,23 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import {
   Box,
   Icon,
   Image,
+  LottieView,
   Modal,
   Typography,
   ZStack,
 } from '@onekeyhq/components';
 import Button, { ButtonType } from '@onekeyhq/components/src/Button';
-import iconHardwareConnecting from '@onekeyhq/kit/assets/ic_pair_hardware_connecting.png';
-import iconHardwareConnectComplete from '@onekeyhq/kit/assets/ic_pair_hardware_operation_complete.png';
-import iconNFCScanHint from '@onekeyhq/kit/assets/ic_pair_hint_scan_lite.png';
-import iconNFCConnecting from '@onekeyhq/kit/assets/ic_pair_nfc.png';
-import iconNFCConnectComplete from '@onekeyhq/kit/assets/ic_pair_nfc_operation_successful.png';
-import iconNFCTransferData from '@onekeyhq/kit/assets/ic_pair_nfc_transfer.png';
+import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
+import lottieNFCConnectComplete from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_complete.json';
+import lottieNFCConnecting from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_connect.json';
+import lottieNFCTransferData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transfer.json';
+import lottieNFCTransmittingData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transmitting.json';
 
 export type ConnectType = 'ble' | 'nfc';
 export type OperateType = 'guide' | 'connect' | 'transfer' | 'complete';
@@ -47,63 +47,33 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
 }) => {
   const intl = useIntl();
   const [visibleIosHint, setVisibleIosHint] = useState(false);
-  const [operateIcon, setOperateIcon] = useState(iconNFCConnecting);
-  const [connectingIcon, setConnectingIcon] = useState(iconHardwareConnecting);
-
-  const hardwareConnectAnimValue = useRef(new Animated.Value(0)).current;
-  const hardwareConnectAnim = useRef(
-    Animated.loop(
-      Animated.timing(hardwareConnectAnimValue, {
-        useNativeDriver: false,
-        toValue: 1,
-        duration: 2000,
-      }),
-    ),
-  ).current;
-  const [hardwareConnectAnimRunning, setHardwareConnectAnimRunning] =
-    useState(true);
-
-  useEffect(() => {
-    if (hardwareConnectAnimRunning) {
-      hardwareConnectAnim.start();
-    } else {
-      hardwareConnectAnim.stop();
-      hardwareConnectAnimValue.setValue(0);
-    }
-
-    return () => hardwareConnectAnim.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hardwareConnectAnimRunning, hardwareConnectAnim]);
+  const [lottieConnectingIcon, setLottieConnectingIcon] =
+    useState<any>(lottieNFCConnecting);
 
   useEffect(() => {
     if (operateType === 'guide') {
-      setOperateIcon(iconNFCConnecting);
-      setConnectingIcon(iconHardwareConnecting);
-      setHardwareConnectAnimRunning(true);
+      setLottieConnectingIcon(lottieNFCConnecting);
       if (Platform.OS === 'ios') {
         setVisibleIosHint(false);
       }
     }
     if (operateType === 'connect') {
-      setOperateIcon(iconNFCConnecting);
-      setConnectingIcon(iconHardwareConnecting);
-      setHardwareConnectAnimRunning(true);
+      setLottieConnectingIcon(lottieNFCConnecting);
       if (Platform.OS === 'ios') {
         setVisibleIosHint(true);
       }
     }
     if (operateType === 'transfer') {
-      setOperateIcon(iconNFCTransferData);
-      setConnectingIcon(iconHardwareConnecting);
-      setHardwareConnectAnimRunning(true);
+      setLottieConnectingIcon(lottieNFCTransferData);
+      setTimeout(() => {
+        setLottieConnectingIcon(lottieNFCTransmittingData);
+      }, 1000);
       if (Platform.OS === 'ios') {
         setVisibleIosHint(false);
       }
     }
     if (operateType === 'complete') {
-      setOperateIcon(iconNFCConnectComplete);
-      setConnectingIcon(iconHardwareConnectComplete);
-      setHardwareConnectAnimRunning(false);
+      setLottieConnectingIcon(lottieNFCConnectComplete);
       if (Platform.OS === 'ios') {
         setVisibleIosHint(false);
       }
@@ -152,29 +122,20 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
                 {actionDescription}
               </Typography.Body1>
 
-              <ZStack w="100%" mt={9} h="460px" alignItems="center">
-                <ZStack h="300px" alignItems="center" justifyContent="center">
-                  <Animated.View
-                    style={{
-                      transform: [
-                        {
-                          rotate: hardwareConnectAnimValue.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['0deg', '360deg'],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <Box>
-                      <Image source={connectingIcon} />
-                    </Box>
-                  </Animated.View>
-                  <Box pt="30px">
-                    <Image source={operateIcon} />
-                  </Box>
+              <ZStack w="100%" h="560px" alignItems="center">
+                <ZStack
+                  h="360px"
+                  w="100%"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <LottieView
+                    source={lottieConnectingIcon}
+                    autoPlay={operateType !== 'guide'}
+                    loop={operateType !== 'complete'}
+                  />
                 </ZStack>
-                <Box mt="165px">
+                <Box mt="202px">
                   <Image source={iconNFCScanHint} />
                 </Box>
               </ZStack>
