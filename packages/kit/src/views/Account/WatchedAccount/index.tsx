@@ -63,7 +63,7 @@ const WatchedAccount: FC = () => {
       const selectedNetwork = networks?.find(
         (network) => network.id === data.network,
       );
-      
+
       dispatch(setRefreshTS());
       dispatch(setBoardingCompleted());
       dispatch(

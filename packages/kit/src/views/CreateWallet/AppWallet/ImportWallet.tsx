@@ -33,10 +33,7 @@ const ImportWalletModal: FC = () => {
           borderRadius="12px"
           px={4}
           onPress={() => {
-            // navigation.navigate(RootRoutes.Modal, {
-            //   screen: ModalRoutes.CreateWallet,
-            //   params: { screen: CreateWalletModalRoutes.SetupNewDeviceModal },
-            // });
+            navigation.navigate(CreateWalletModalRoutes.CreateImportedAccount);
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">
@@ -65,9 +62,7 @@ const ImportWalletModal: FC = () => {
           borderRadius="12px"
           px={4}
           onPress={() => {
-            navigation.navigate(
-              CreateWalletModalRoutes.ImpoartWatchWalletModal,
-            );
+            navigation.navigate(CreateWalletModalRoutes.CreateWatchedAccount);
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">
