@@ -7,6 +7,7 @@ import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected from '../../../components/Protected';
 import engine from '../../../engine/EngineProvider';
 import { useAppDispatch } from '../../../hooks/redux';
+import { changeActiveAccount } from '../../../store/reducers/general';
 import {
   setBoardingCompleted,
   setPasswordCompleted,
@@ -22,10 +23,16 @@ const Done: FC<DoneProps> = ({ password }) => {
   const navigation = useNavigation();
   useEffect(() => {
     async function main() {
-      await engine.createHDWallet(password);
+      const wallet = await engine.createHDWallet(password);
       dispatch(setBoardingCompleted());
       dispatch(setPasswordCompleted());
       dispatch(unlock());
+      dispatch(
+        changeActiveAccount({
+          account: null,
+          wallet,
+        }),
+      );
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();
       }

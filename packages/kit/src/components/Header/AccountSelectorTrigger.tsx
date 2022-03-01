@@ -58,7 +58,7 @@ const AccountSelectorTrigger: FC<Props> = ({
   if (!account) {
     return (
       <Button onPress={handleToggleVisible}>
-        {intl.formatMessage({ id: 'action__create_account' })}
+        {intl.formatMessage({ id: 'empty__no_account_title' })}
       </Button>
     );
   }

@@ -62,7 +62,7 @@ const WatchedAccount: FC = () => {
       const selectedNetwork = networks?.find(
         (network) => network.id === data.network,
       );
-      dispatch(setRefreshTS());
+
       dispatch(
         changeActiveAccount({
           account: createdAccount,
@@ -78,6 +78,7 @@ const WatchedAccount: FC = () => {
         );
       }
 
+      dispatch(setRefreshTS());
       navigation.goBack();
     } catch (e) {
       const errorKey = (e as { key: string }).key;

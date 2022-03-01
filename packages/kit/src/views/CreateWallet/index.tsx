@@ -1,6 +1,5 @@
 import React, { FC } from 'react';
 
-import { DrawerActions } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -21,9 +20,15 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { ModalScreenProps } from '../../routes/types';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../routes/types';
 
-type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<RootRoutesParams> &
+  ModalScreenProps<CreateWalletRoutesParams>;
 
 const CreateWalletModal: FC = () => {
   const intl = useIntl();
@@ -46,7 +51,10 @@ const CreateWalletModal: FC = () => {
             borderRadius="12px"
             px={4}
             onPress={() => {
-              navigation.navigate(CreateWalletModalRoutes.AppWalletModal);
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateWallet,
+                params: { screen: CreateWalletModalRoutes.AppWalletModal },
+              });
             }}
           >
             <HStack justifyContent="space-between" alignItems="center">
@@ -85,7 +93,12 @@ const CreateWalletModal: FC = () => {
             borderRadius="12px"
             px={4}
             onPress={() => {
-              navigation.navigate(CreateWalletModalRoutes.ConnectHardwareModal);
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateWallet,
+                params: {
+                  screen: CreateWalletModalRoutes.ConnectHardwareModal,
+                },
+              });
             }}
           >
             <HStack justifyContent="space-between" alignItems="center">
@@ -134,16 +147,29 @@ const CreateWalletModal: FC = () => {
           { id: 'content__import_or_watch_an_account' },
           {
             import: (
-              <Typography.Body1Strong>
+              <Typography.Body1Strong
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.CreateWallet,
+                    params: {
+                      screen: CreateWalletModalRoutes.CreateImportedAccount,
+                    },
+                  });
+                }}
+              >
                 {intl.formatMessage({ id: 'action__import' })}
               </Typography.Body1Strong>
             ),
             watch: (
               <Typography.Body1Strong
-                onPress={() => {
-                  navigation.goBack();
-                  navigation.dispatch(DrawerActions.openDrawer());
-                }}
+                onPress={() =>
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.CreateWallet,
+                    params: {
+                      screen: CreateWalletModalRoutes.CreateWatchedAccount,
+                    },
+                  })
+                }
               >
                 {intl.formatMessage({ id: 'action__watch_lowercase' })}
               </Typography.Body1Strong>

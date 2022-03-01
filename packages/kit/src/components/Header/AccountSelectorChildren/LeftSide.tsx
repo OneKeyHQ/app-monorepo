@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { ComponentProps, FC } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
 
 import {
   Box,
@@ -12,9 +13,21 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import type { AccountType } from './index';
 
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type WalletItemProps = {
   isSelected?: boolean;
   decorationColor?: string;
@@ -77,56 +90,80 @@ const WalletItemDefaultProps = {
 WalletItem.defaultProps = WalletItemDefaultProps;
 
 type LeftSideProps = {
-  activeAccountType: AccountType;
-  setActiveAccountType: (v: AccountType) => void;
+  selectedWallet?: Wallet | null;
+  setSelectedWallet: (v: Wallet) => void;
 };
 
-const LeftSide: FC<LeftSideProps> = ({
-  activeAccountType,
-  setActiveAccountType,
-}) => (
-  <VStack borderRightWidth={1} borderRightColor="border-subdued">
-    <ScrollView>
-      <VStack space={6} py={2}>
-        {/* APP Wallet */}
-        {/* <VStack space={2}>
-          <WalletItem
-            onPress={() => setActiveAccountType('normal')}
-            isSelected={activeAccountType === 'normal'}
-            decorationColor="#FFF7D7"
-            walletType="normal"
-            emoji="👽"
-          />
-        </VStack> */}
-        {/* Hardware Wallet */}
-        {/* <VStack space={2}>
-          <WalletItem
-            onPress={() => setActiveAccountType('hd')}
-            isSelected={activeAccountType === 'hd'}
-            decorationColor="#FFE0DF"
-            walletType="hd"
-            deviceIconUrl={MiniDeviceIcon}
-          />
-        </VStack> */}
-        {/* Imported or watched wallet */}
-        <VStack space={2}>
-          {/* <WalletItem
-            onPress={() => setActiveAccountType('imported')}
-            isSelected={activeAccountType === 'imported'}
-            walletType="imported"
-          /> */}
-          <WalletItem
-            onPress={() => setActiveAccountType('watching')}
-            isSelected={activeAccountType === 'watching'}
-            walletType="watching"
-          />
+const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const wallets = useAppSelector((s) => s.wallet.wallets);
+  return (
+    <VStack borderRightWidth={1} borderRightColor="border-subdued">
+      <ScrollView>
+        <VStack space={6} py={2}>
+          {/* APP Wallet */}
+          <VStack space={2}>
+            {wallets
+              .filter((wallet) => wallet.type === 'hd')
+              .map((wallet) => (
+                <WalletItem
+                  key={wallet.id}
+                  onPress={() => setSelectedWallet(wallet)}
+                  isSelected={selectedWallet?.id === wallet.id}
+                  decorationColor="#FFF7D7"
+                  walletType="hd"
+                  emoji="🌈"
+                />
+              ))}
+          </VStack>
+          {/* Hardware Wallet */}
+          {/* <VStack space={2}>
+            <WalletItem
+              onPress={() => setActiveAccountType('hd')}
+              isSelected={activeAccountType === 'hd'}
+              decorationColor="#FFE0DF"
+              walletType="hd"
+              deviceIconUrl={MiniDeviceIcon}
+            />
+          </VStack> */}
+          {/* Imported or watched wallet */}
+          <VStack space={2}>
+            {/* <WalletItem
+              onPress={() => setActiveAccountType('imported')}
+              isSelected={activeAccountType === 'imported'}
+              walletType="imported"
+            /> */}
+
+            {wallets
+              .filter((wallet) => wallet.type === 'watching')
+              .map((wallet) => (
+                <WalletItem
+                  key={wallet.id}
+                  onPress={() => setSelectedWallet(wallet)}
+                  isSelected={selectedWallet?.id === wallet.id}
+                  walletType="watching"
+                />
+              ))}
+          </VStack>
         </VStack>
-      </VStack>
-    </ScrollView>
-    {/* <Box p={2}>
-      <IconButton type="plain" name="PlusOutline" size="xl" />
-    </Box> */}
-  </VStack>
-);
+      </ScrollView>
+      <Box p={2}>
+        <IconButton
+          type="plain"
+          name="PlusOutline"
+          size="xl"
+          onPress={() =>
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.CreateWallet,
+              params: {
+                screen: CreateWalletModalRoutes.CreateWalletModal,
+              },
+            })
+          }
+        />
+      </Box>
+    </VStack>
+  );
+};
 
 export default LeftSide;

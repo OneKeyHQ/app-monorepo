@@ -3,6 +3,8 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import ImportedAccount from '@onekeyhq/kit/src/views/Account/ImportedAccount';
+import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
 import CreateWallet from '@onekeyhq/kit/src/views/CreateWallet';
 import AppWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AppWallet';
 import AppWalletDone from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Done';
@@ -31,6 +33,8 @@ export enum CreateWalletModalRoutes {
   RestoreHardwareWalletModal = 'RestoreHardwareWalletModal',
   RestoreHardwareWalletDescriptionModal = 'RestoreHardwareWalletDescriptionModal',
   ImportWalletModal = 'ImportWalletModal',
+  CreateWatchedAccount = 'CreateWatchedAccount',
+  CreateImportedAccount = 'CreateImportedAccount',
 }
 
 export type CreateWalletRoutesParams = {
@@ -47,6 +51,8 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.RestoreHardwareWalletModal]: undefined;
   [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: undefined;
   [CreateWalletModalRoutes.ImportWalletModal]: undefined;
+  [CreateWalletModalRoutes.CreateImportedAccount]: undefined;
+  [CreateWalletModalRoutes.CreateWatchedAccount]: undefined;
 };
 
 const CreateWalletNavigator = createStackNavigator<CreateWalletRoutesParams>();
@@ -103,6 +109,14 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.ImportWalletModal,
     component: ImportWallet,
+  },
+  {
+    name: CreateWalletModalRoutes.CreateWatchedAccount,
+    component: WatchedAccount,
+  },
+  {
+    name: CreateWalletModalRoutes.CreateImportedAccount,
+    component: ImportedAccount,
   },
 ];
 
