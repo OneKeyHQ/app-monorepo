@@ -64,6 +64,8 @@ const OnekeyLiteDetail: React.FC = () => {
 
   useEffect(() => {
     async function main() {
+      if (!wallet) return;
+
       const wallets = (await engine.getWallets()).filter(
         (_wallet) => _wallet.type === 'hd' || _wallet.type === 'imported',
       );
@@ -243,7 +245,7 @@ const OnekeyLiteDetail: React.FC = () => {
         <WebView src={url} />
       </Box>
 
-      <Box mb={Platform.OS === 'ios' ? 4 : 0}>
+      <Box bg="surface-subdued" pb={Platform.OS === 'ios' ? 4 : 0}>
         {controlledWallets.length > 0 ? (
           <Select
             onChange={() => {

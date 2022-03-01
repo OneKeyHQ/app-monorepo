@@ -1,6 +1,6 @@
 import cloneDeep from 'lodash/cloneDeep';
 
-import { internalMethod } from '@onekeyhq/inpage-provider/src/provider/decorators';
+import { backgroundMethod } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import { IJsonRpcRequest } from '@onekeyhq/inpage-provider/src/types';
 
 import store from '../store';
@@ -14,8 +14,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return this.walletApi.accounts;
   }
 
-  // @ts-expect-error
-  @internalMethod()
+  @backgroundMethod()
   dispatchAction(action: any) {
     // * update background store
     // TODO init store from constructor
@@ -30,31 +29,27 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     // * TODO auto sync full state to UI when ui mount
   }
 
-  // @ts-expect-error
-  @internalMethod()
+  @backgroundMethod()
   getStoreState(): Promise<any> {
     const state = cloneDeep(store.getState());
     return Promise.resolve(state);
   }
 
   // TODO remove
-  // @ts-expect-error
-  @internalMethod()
+  @backgroundMethod()
   changeAccounts(address: string) {
     console.log('changeAccounts', address);
     this.notifyAccountsChanged();
   }
 
   // TODO remove
-  // @ts-expect-error
-  @internalMethod()
+  @backgroundMethod()
   changeChain(chainId: string, networkVersion?: string) {
     console.log('changeChain', { chainId, networkVersion });
     this.notifyChainChanged();
   }
 
-  // @ts-expect-error
-  @internalMethod()
+  @backgroundMethod()
   notifyAccountsChanged(): void {
     const accounts = this.walletApi.getCurrentAccounts();
 
@@ -66,8 +61,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     });
   }
 
-  // @ts-expect-error
-  @internalMethod()
+  @backgroundMethod()
   notifyChainChanged(): void {
     const { chainId, networkVersion } = this.walletApi.getCurrentNetwork();
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {

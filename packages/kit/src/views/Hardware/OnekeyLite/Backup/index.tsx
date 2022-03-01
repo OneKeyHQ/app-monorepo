@@ -109,6 +109,7 @@ const Backup: FC = () => {
         break;
       case 'connect':
       case 'transfer':
+        if (Platform.OS === 'ios') return;
         OnekeyLite.cancel();
         navigation.goBack();
         break;
