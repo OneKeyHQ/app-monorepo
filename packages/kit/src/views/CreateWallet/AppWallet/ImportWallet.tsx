@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 
-// import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,21 +13,17 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-// import {
-//   CreateWalletModalRoutes,
-//   CreateWalletRoutesParams,
-// } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-// import {
-//   ModalRoutes,
-//   ModalScreenProps,
-//   RootRoutes,
-// } from '@onekeyhq/kit/src/routes/types';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-// type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 const ImportWalletModal: FC = () => {
   const intl = useIntl();
-  // const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const content = (
     <Center>
@@ -37,10 +33,7 @@ const ImportWalletModal: FC = () => {
           borderRadius="12px"
           px={4}
           onPress={() => {
-            // navigation.navigate(RootRoutes.Modal, {
-            //   screen: ModalRoutes.CreateWallet,
-            //   params: { screen: CreateWalletModalRoutes.SetupNewDeviceModal },
-            // });
+            navigation.navigate(CreateWalletModalRoutes.CreateImportedAccount);
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">
@@ -69,10 +62,7 @@ const ImportWalletModal: FC = () => {
           borderRadius="12px"
           px={4}
           onPress={() => {
-            // navigation.navigate(RootRoutes.Modal, {
-            //   screen: ModalRoutes.CreateWallet,
-            //   params: { screen: CreateWalletModalRoutes.SetupNewDeviceModal },
-            // });
+            navigation.navigate(CreateWalletModalRoutes.CreateWatchedAccount);
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">

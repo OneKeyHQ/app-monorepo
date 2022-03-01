@@ -1,10 +1,11 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   Center,
   HStack,
   Icon,
@@ -20,12 +21,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../routes/types';
+import { ModalScreenProps, RootRoutesParams } from '../../routes/types';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
@@ -33,6 +29,9 @@ type NavigationProps = ModalScreenProps<RootRoutesParams> &
 const CreateWalletModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const onRestore = useCallback(() => {
+    navigation.navigate(CreateWalletModalRoutes.ImportWalletModal);
+  }, [navigation]);
 
   const content = (
     <Center>
@@ -51,10 +50,7 @@ const CreateWalletModal: FC = () => {
             borderRadius="12px"
             px={4}
             onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: { screen: CreateWalletModalRoutes.AppWalletModal },
-              });
+              navigation.navigate(CreateWalletModalRoutes.AppWalletModal);
             }}
           >
             <HStack justifyContent="space-between" alignItems="center">
@@ -93,12 +89,7 @@ const CreateWalletModal: FC = () => {
             borderRadius="12px"
             px={4}
             onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: {
-                  screen: CreateWalletModalRoutes.ConnectHardwareModal,
-                },
-              });
+              navigation.navigate(CreateWalletModalRoutes.ConnectHardwareModal);
             }}
           >
             <HStack justifyContent="space-between" alignItems="center">
@@ -142,41 +133,9 @@ const CreateWalletModal: FC = () => {
 
   const footer = (
     <Center pt={4} pb={8}>
-      <Typography.Body1 color="text-subdued">
-        {intl.formatMessage(
-          { id: 'content__import_or_watch_an_account' },
-          {
-            import: (
-              <Typography.Body1Strong
-                onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.CreateImportedAccount,
-                    },
-                  });
-                }}
-              >
-                {intl.formatMessage({ id: 'action__import' })}
-              </Typography.Body1Strong>
-            ),
-            watch: (
-              <Typography.Body1Strong
-                onPress={() =>
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.CreateWatchedAccount,
-                    },
-                  })
-                }
-              >
-                {intl.formatMessage({ id: 'action__watch_lowercase' })}
-              </Typography.Body1Strong>
-            ),
-          },
-        )}
-      </Typography.Body1>
+      <Button type="plain" size="xl" onPress={onRestore}>
+        {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
+      </Button>
     </Center>
   );
 

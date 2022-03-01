@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Icon,
+  Image,
   KeyboardDismissView,
   Modal,
-  Token,
   Typography,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
 import { useGeneral } from '../../hooks/redux';
@@ -36,6 +38,7 @@ export const AddToken: FC = () => {
   const { activeAccount, activeNetwork } = useGeneral();
   const { info } = useToast();
   const [balance, setBalance] = useState<string | undefined>();
+  const [token, setToken] = useState<Token>();
   const {
     params: { name, symbol, decimal, address, logoURI },
   } = useRoute<RouteProps>();
@@ -49,7 +52,10 @@ export const AddToken: FC = () => {
           address,
         );
         if (res?.[0]) {
-          setBalance(res?.[0]);
+          setBalance(res?.[0].toString());
+        }
+        if (res?.[1]) {
+          setToken(res?.[1]);
         }
       }
     }
@@ -99,13 +105,8 @@ export const AddToken: FC = () => {
   }, [name, symbol, address, decimal, balance, intl]);
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
-      const res = await engine.preAddToken(
-        activeAccount?.id,
-        activeNetwork.network.id,
-        address,
-      );
-      if (res?.[1]) {
-        await engine.addTokenToAccount(activeAccount?.id, res?.[1].id);
+      if (token) {
+        await engine.addTokenToAccount(activeAccount?.id, token.id);
         info(
           intl.formatMessage({
             id: 'msg__token_added',
@@ -117,7 +118,7 @@ export const AddToken: FC = () => {
         }
       }
     }
-  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
+  }, [intl, activeAccount, navigation, activeNetwork, info, token]);
   return (
     <Modal
       header={intl.formatMessage({
@@ -125,8 +126,13 @@ export const AddToken: FC = () => {
         defaultMessage: 'Add Token',
       })}
       height="560px"
-      primaryActionProps={{ onPromise: onPrimaryActionPress }}
-      primaryActionTranslationId="action__confirm"
+      primaryActionProps={{
+        onPromise: onPrimaryActionPress,
+        isDisabled: !token,
+      }}
+      primaryActionTranslationId={
+        !token ? 'action__checking' : 'action__confirm'
+      }
       hideSecondaryAction
       scrollViewProps={{
         children: (
@@ -138,10 +144,12 @@ export const AddToken: FC = () => {
                 justifyContent="center"
                 my="4"
               >
-                <Token
+                <Image
                   src={logoURI}
-                  chain="eth"
-                  address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+                  alt="logoURI"
+                  size="8"
+                  borderRadius="full"
+                  fallbackElement={<Icon name="QuestionMarkOutline" />}
                 />
                 <Typography.Heading mt="2">
                   {name}({symbol})

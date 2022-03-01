@@ -38,7 +38,9 @@ type RouteProps = RouteProp<
 
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
-  const { control, handleSubmit } = useForm<PrivateKeyFormValues>();
+  const { control, handleSubmit } = useForm<PrivateKeyFormValues>({
+    defaultValues: { name: '' },
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
