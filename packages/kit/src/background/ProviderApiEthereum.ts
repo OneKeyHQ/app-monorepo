@@ -36,7 +36,6 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // ----------------------------------------------
 
-  // @ts-expect-error
   @permissionRequired()
   eth_sendTransaction() {
     if (platformEnv.isExtension) {

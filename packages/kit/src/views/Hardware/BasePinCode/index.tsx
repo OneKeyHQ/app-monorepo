@@ -1,6 +1,12 @@
 import React, { FC } from 'react';
 
-import { Box, Modal, PinCode, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  KeyboardAvoidingView,
+  Modal,
+  PinCode,
+  Typography,
+} from '@onekeyhq/components';
 
 export type HardwarePinCodeViewProp = {
   title?: string;
@@ -16,31 +22,46 @@ const HardwarePinCode: FC<HardwarePinCodeViewProp> = ({
   onComplete,
 }) => (
   <Modal header="PIN" footer={null}>
-    <Box alignItems="center" flex={1}>
-      <Typography.DisplayXLarge
-        mt={8}
-        mx={9}
-        color="text-default"
-        textAlign="center"
+    <KeyboardAvoidingView flex={1}>
+      <Box
+        flexDirection="column"
+        alignItems="center"
+        h="100%"
+        justifyContent="space-between"
       >
-        {title}
-      </Typography.DisplayXLarge>
-      <Typography.Body1 mt={2} mx={9} color="text-subdued" textAlign="center">
-        {description}
-      </Typography.Body1>
+        <Box alignItems="center">
+          <Typography.DisplayXLarge
+            mt={8}
+            mx={9}
+            color="text-default"
+            textAlign="center"
+          >
+            {title}
+          </Typography.DisplayXLarge>
+          <Typography.Body1
+            mt={2}
+            mx={9}
+            color="text-subdued"
+            textAlign="center"
+          >
+            {description}
+          </Typography.Body1>
 
-      <Box mt={8}>
-        <PinCode
-          autoFocus
-          onCodeCompleted={(pinCode) =>
-            onComplete?.(pinCode) ?? Promise.resolve(false)
-          }
-        />
+          <Box mt={8}>
+            <PinCode
+              autoFocus
+              onCodeCompleted={(pinCode) =>
+                onComplete?.(pinCode) ?? Promise.resolve(false)
+              }
+            />
+          </Box>
+        </Box>
+
+        <Typography.Body2 mb={3} px={8} textAlign="center">
+          {securityReminder}
+        </Typography.Body2>
       </Box>
-    </Box>
-    <Typography.Body2 mb={3} px={8} textAlign="center">
-      {securityReminder}
-    </Typography.Body2>
+    </KeyboardAvoidingView>
   </Modal>
 );
 
