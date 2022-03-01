@@ -13,7 +13,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 
-import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
+import { IMPL_EVM, IMPL_SOL, SEPERATOR, SUPPORTED_IMPLS } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import {
@@ -838,12 +838,11 @@ class Engine {
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
-    const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
     return networks
       .filter(
         (dbNetwork) =>
           (enabledOnly ? dbNetwork.enabled : true) &&
-          supportedImpls.has(dbNetwork.impl),
+          SUPPORTED_IMPLS.has(dbNetwork.impl),
       )
       .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }

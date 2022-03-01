@@ -6,7 +6,14 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret';
 import bs58check from 'bs58check';
 
-import { COINTYPE_ETH, COINTYPE_SOL, IMPL_EVM, IMPL_SOL } from '../constants';
+import {
+  COINTYPE_ALGO,
+  COINTYPE_ETH,
+  COINTYPE_SOL,
+  IMPL_ALGO,
+  IMPL_EVM,
+  IMPL_SOL,
+} from '../constants';
 import { OneKeyInternalError } from '../errors';
 
 import { implToCoinTypes } from './impl';
@@ -16,17 +23,20 @@ const versionBytesMap: Record<string, Buffer> = {};
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
   [IMPL_SOL]: [44],
+  [IMPL_ALGO]: [44],
 };
 
 const curveMap: Record<string, Array<CurveName>> = {
   [IMPL_EVM]: ['secp256k1'],
   [IMPL_SOL]: ['ed25519'],
+  [IMPL_ALGO]: ['ed25519'],
 };
 
 // derive path template by coin types.
 const INCREMENT_LEVEL_TAG = 'INCR';
 const PURPOSE_TAG = 'PURPOSE';
 const derivationPathTemplates: Record<string, string> = {
+  [COINTYPE_ALGO]: `m/44'/${COINTYPE_ALGO}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_ETH]: `m/44'/${COINTYPE_ETH}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_SOL]: `m/44'/${COINTYPE_SOL}'/${INCREMENT_LEVEL_TAG}'/0'`,
 };

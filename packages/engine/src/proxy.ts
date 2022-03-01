@@ -33,7 +33,7 @@ import {
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
-import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
+import { IMPL_ALGO, IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
@@ -48,6 +48,7 @@ const CGK_BATCH_SIZE = 100;
 const IMPL_MAPPINGS: Record<string, string> = {
   [IMPL_EVM]: 'eth',
   [IMPL_SOL]: 'sol',
+  [IMPL_ALGO]: 'algo',
 };
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -66,6 +67,10 @@ const IMPL_PROPERTIES: Record<string, ImplProperty> = {
   [IMPL_SOL]: {
     defaultCurve: 'ed25519',
     clientProvider: 'Solana',
+  },
+  [IMPL_ALGO]: {
+    defaultCurve: 'ed25519',
+    clientProvider: 'Algod',
   },
 };
 
@@ -89,7 +94,13 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     curve: (dbNetwork.curve as Curve) || implProperties.defaultCurve,
     implOptions,
     clients: [
-      { name: implProperties.clientProvider, args: [dbNetwork.rpcURL] },
+      {
+        name: implProperties.clientProvider,
+        args:
+          dbNetwork.impl === IMPL_ALGO
+            ? [dbNetwork.rpcURL, { url: `${dbNetwork.rpcURL}/idx2` }]
+            : [dbNetwork.rpcURL],
+      },
     ],
   };
 }
