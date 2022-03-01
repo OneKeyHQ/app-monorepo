@@ -1,1 +1,1 @@
-export * from '@onekeyhq/inpage-provider/src/types.d';
+export * from '@onekeyfe/cross-inpage-provider-types';

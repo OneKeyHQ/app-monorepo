@@ -1,10 +1,10 @@
-import { PayloadAction } from '@reduxjs/toolkit';
-
-import inpageProviderUi from '@onekeyhq/inpage-provider/src/extension/ui';
 import {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
+} from '@onekeyfe/cross-inpage-provider-types';
+import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
+import { PayloadAction } from '@reduxjs/toolkit';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
 
@@ -17,7 +17,7 @@ function init() {
     }
   };
   // TODO rename global.$extensionJsBridgeUiToBg
-  window.extJsBridgeUiToBg = inpageProviderUi.createUiJsBridge({
+  window.extJsBridgeUiToBg = bridgeSetup.ui.createUiJsBridge({
     receiveHandler: jsBridgeReceiveHandler,
     onPortConnect() {
       backgroundApiProxy.getStoreState().then((state: any) => {
