@@ -6,6 +6,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import CreateWallet from '@onekeyhq/kit/src/views/CreateWallet';
 import AppWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AppWallet';
 import AppWalletDone from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Done';
+import ImportWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/ImportWallet';
 import RestoreFromMnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreFromMnemonic';
 import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreWallet';
 import ConnectHardware from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
@@ -29,6 +30,7 @@ export enum CreateWalletModalRoutes {
   DeviceStatusCheckModal = 'DeviceStatusCheckModal',
   RestoreHardwareWalletModal = 'RestoreHardwareWalletModal',
   RestoreHardwareWalletDescriptionModal = 'RestoreHardwareWalletDescriptionModal',
+  ImportWalletModal = 'ImportWalletModal',
 }
 
 export type CreateWalletRoutesParams = {
@@ -44,6 +46,7 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.DeviceStatusCheckModal]: undefined;
   [CreateWalletModalRoutes.RestoreHardwareWalletModal]: undefined;
   [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: undefined;
+  [CreateWalletModalRoutes.ImportWalletModal]: undefined;
 };
 
 const CreateWalletNavigator = createStackNavigator<CreateWalletRoutesParams>();
@@ -96,6 +99,10 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.AppWalletDoneModal,
     component: AppWalletDone,
+  },
+  {
+    name: CreateWalletModalRoutes.ImportWalletModal,
+    component: ImportWallet,
   },
 ];
 

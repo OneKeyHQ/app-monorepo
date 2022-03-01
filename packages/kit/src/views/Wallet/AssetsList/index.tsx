@@ -28,11 +28,9 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import {
-  useActiveWalletAccount,
-  useManageTokens,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
+import { useManageTokens } from '../../../hooks/useManageTokens';
 import {
   HomeRoutes,
   HomeRoutesParams,
