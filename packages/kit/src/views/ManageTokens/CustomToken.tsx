@@ -12,8 +12,9 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
-import { useGeneral, useManageTokens } from '../../hooks/redux';
+import { useGeneral } from '../../hooks/redux';
 import useDebounce from '../../hooks/useDebounce';
+import { useManageTokens } from '../../hooks/useManageTokens';
 import { useToast } from '../../hooks/useToast';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
