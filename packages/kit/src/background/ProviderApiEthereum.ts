@@ -124,7 +124,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       method: 'metamask_accountsChanged',
       params: info.accounts || [],
     };
-    console.log('notifyDappAccountsChanged', data);
+    // console.log('notifyDappAccountsChanged', data);
     info.send(data);
   }
 

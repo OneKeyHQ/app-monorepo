@@ -19,7 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
-// random 883gfg
+// random 11122333333
 
 // console.log('=============', injectedNativeCode);
 

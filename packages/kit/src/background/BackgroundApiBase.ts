@@ -193,7 +193,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       // send to all dapp sites content-script
       this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
-      console.log('sendMessagesToInjectedBridge', { data, scope });
+      // console.log('sendMessagesToInjectedBridge', { data, scope });
       this.bridge.requestSync({ data, scope });
     }
   };
