@@ -16,6 +16,7 @@ import {
   changeActiveNetwork,
 } from '@onekeyhq/kit/src/store/reducers/general';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
+import { setBoardingCompleted } from '@onekeyhq/kit/src/store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -62,7 +63,9 @@ const WatchedAccount: FC = () => {
       const selectedNetwork = networks?.find(
         (network) => network.id === data.network,
       );
-
+      
+      dispatch(setRefreshTS());
+      dispatch(setBoardingCompleted());
       dispatch(
         changeActiveAccount({
           account: createdAccount,
