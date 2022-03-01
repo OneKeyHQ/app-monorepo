@@ -34,7 +34,7 @@ declare global {
     ReactNativeWebView: WebView;
 
     // Desktop internal (main,renderer)
-    ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
+    // ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
 
     // Ext internal (ui,background,contentScript)
     extJsBridgeUiToBg: JsBridgeBase;

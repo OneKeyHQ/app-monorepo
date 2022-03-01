@@ -7,12 +7,20 @@ declare global {
   }
 }
 
-ipcRenderer.on('SET_ONEKEY_DESKTOP_GLOBALS', (_, globals: Record<any, any>) => {
-  // for DesktopWebView:
-  //    const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS;
-  window.ONEKEY_DESKTOP_GLOBALS = globals;
-  // contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_GLOBALS', globals);
-});
+ipcRenderer.on(
+  'SET_ONEKEY_DESKTOP_GLOBALS',
+  (
+    _,
+    globals: {
+      preloadJsUrl: string;
+    },
+  ) => {
+    // for DesktopWebView:
+    //    const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS;
+    window.ONEKEY_DESKTOP_GLOBALS = globals;
+    // contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_GLOBALS', globals);
+  },
+);
 
 const desktopApi = {
   hello: 'world',
