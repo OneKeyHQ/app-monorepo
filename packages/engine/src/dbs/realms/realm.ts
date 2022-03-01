@@ -8,8 +8,10 @@ import {
   AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
+  TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
+import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { ACCOUNT_TYPE_SIMPLE, DBAccount } from '../../types/account';
 import {
   HistoryEntry,
@@ -630,6 +632,9 @@ class RealmDB implements DBAPI {
         });
         wallet.accounts!.add(accountNew as AccountSchema);
         if (wallet.type === WALLET_TYPE_WATCHING) {
+          if (wallet.accounts!.length > LIMIT_WATCHING_ACCOUNT_NUM) {
+            return Promise.reject(new TooManyWatchingAccounts());
+          }
           wallet.nextAccountIds!.global += 1;
         } else if (wallet.type === WALLET_TYPE_HD) {
           const pathComponents = account.path.split('/');
