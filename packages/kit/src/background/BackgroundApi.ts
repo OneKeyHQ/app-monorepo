@@ -1,12 +1,11 @@
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import cloneDeep from 'lodash/cloneDeep';
-
-import { backgroundMethod } from '@onekeyhq/inpage-provider/src/provider/decorators';
-import { IJsonRpcRequest } from '@onekeyhq/inpage-provider/src/types';
 
 import store from '../store';
 
 import BackgroundApiBase from './BackgroundApiBase';
 import { IBackgroundApi } from './BackgroundApiProxy';
+import { backgroundMethod } from './decorators';
 import ProviderApiBase from './ProviderApiBase';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {

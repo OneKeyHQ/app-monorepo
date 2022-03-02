@@ -27,8 +27,8 @@ sourcemapServer.start();
 const transpileModules = [
   '@onekeyhq/components',
   '@onekeyhq/kit',
-  '@onekeyhq/inpage-provider',
   '@onekeyhq/shared',
+  // '@onekeyhq/inpage-provider',
 ];
 
 // TODO use webpack 4.43.0

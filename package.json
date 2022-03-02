@@ -10,9 +10,8 @@
     "node": "^16.0.0"
   },
   "scripts": {
-    "postinstall": "yarn setup:env && husky install && yarn build:connect && yarn build:inject && patch-package",
-    "build:inject": "cross-env NODE_ENV=production yarn workspace @onekeyhq/inpage-provider build",
-    "watch:inject": "yarn workspace @onekeyhq/inpage-provider watch-inject",
+    "postinstall": "yarn setup:env && husky install && yarn build:connect && yarn copy:inject && patch-package",
+    "copy:inject": "bash development/copy-injected.sh",
     "build:connect": "yarn build:connect:desktop && yarn build:connect:native",
     "build:connect:desktop": "yarn webpack --config ./packages/kit/development/desktop.connect.webpack.config.js",
     "build:connect:native": "yarn webpack --config ./packages/kit/development/native.connect.webpack.config.js",
@@ -20,7 +19,7 @@
     "lint-staged": "lint-staged",
     "lint": "yarn workspaces run lint",
     "native": "yarn workspace @onekeyhq/app start --reset-cache",
-    "ios": "yarn workspace @onekeyhq/app ios",
+    "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "ios-install": "cd ./packages/app/ios && pod install && cd -",
     "ios-xcode": "open ./packages/app/ios/OneKeyWallet.xcworkspace",
     "android": "yarn workspace @onekeyhq/app android",
@@ -36,7 +35,13 @@
     "test:unit": "yarn jest ./test/unit/",
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@onekeyfe/cross-inpage-provider-core": "^0.0.7-alpha.3",
+    "@onekeyfe/cross-inpage-provider-types": "^0.0.7-alpha.3",
+    "@onekeyfe/cross-inpage-provider-injected": "^0.0.7-alpha.3",
+    "@onekeyfe/extension-bridge-hosted": "^0.0.7-alpha.3",
+    "@onekeyfe/onekey-cross-webview": "^0.0.7-alpha.3"
+  },
   "devDependencies": {
     "@babel/core": "^7.15.8",
     "@babel/eslint-parser": "^7.15.4",

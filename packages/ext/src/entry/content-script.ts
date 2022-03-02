@@ -4,7 +4,7 @@ import './shared';
 // inject css to dapp web
 // import './content-script.css';
 
-import inpageProviderContentScript from '@onekeyhq/inpage-provider/src/extension/contentScript';
+import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import devToolsButton from '../content-script/devToolsButton';
 
@@ -13,8 +13,8 @@ console.log('==== injected script tag start >>>>>>>', performance.now());
 console.log('[OneKey RN]: Content script works! 333');
 console.log('   Must reload extension for modifications to take effect.');
 
-inpageProviderContentScript.inject('injected.js');
-inpageProviderContentScript.setupMessagePort();
+bridgeSetup.contentScript.inject('injected.js');
+bridgeSetup.contentScript.setupMessagePort();
 
 if (
   process.env.NODE_ENV !== 'production' &&

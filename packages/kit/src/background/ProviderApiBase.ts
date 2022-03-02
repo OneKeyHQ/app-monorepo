@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access */
-import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
+import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
+} from '@onekeyfe/cross-inpage-provider-types';
 
 import WalletApi from './WalletApi';
 
