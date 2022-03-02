@@ -5,7 +5,16 @@ import {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import uuid from 'react-native-uuid';
 
+import { DappConnectionModalRoutes } from '../routes';
+import { ModalRoutes, RootRoutes } from '../routes/types';
+
+import {
+  IBackgroundApi,
+  IBackgroundApiBridge,
+  IDappCallParams,
+} from './IBackgroundApi';
 import WalletApi from './WalletApi';
 
 export type IProviderBaseBackgroundNotifyInfo = {
@@ -20,14 +29,17 @@ abstract class ProviderApiBase {
     this.backgroundApi = backgroundApi;
   }
 
-  backgroundApi: any;
+  backgroundApi: IBackgroundApi;
 
   get walletApi() {
-    return this.backgroundApi.walletApi as WalletApi;
+    if (this.backgroundApi.walletApi) {
+      return this.backgroundApi.walletApi;
+    }
+    throw new Error('walletApi init error');
   }
 
   get bridge() {
-    return this.backgroundApi.bridge as JsBridgeBase;
+    return this.backgroundApi.bridge;
   }
 
   public abstract providerName: IInjectedProviderNamesStrings;
@@ -41,14 +53,6 @@ abstract class ProviderApiBase {
   ): void;
 
   protected abstract rpcCall(request: IJsonRpcRequest): any;
-
-  protected rpcResult(result: any) {
-    return {
-      id: undefined,
-      jsonrpc: '2.0',
-      result,
-    };
-  }
 
   async handleMethods(payload: IJsBridgeMessagePayload) {
     const { origin, data } = payload;
@@ -68,6 +72,37 @@ abstract class ProviderApiBase {
     //  exists methods
     //  RPC methods
     //  throwMethodNotFound
+  }
+
+  async openDappApprovalModal({
+    screens = [],
+    request,
+  }: {
+    screens: any[];
+    request: IJsBridgeMessagePayload;
+  }) {
+    return new Promise((resolve, reject) => {
+      const id = this.backgroundApi.promiseContainer?.createCallback({
+        resolve,
+        reject,
+      });
+      global.$navigationRef.current?.navigate(RootRoutes.Modal, {
+        screen: screens[0],
+        params: {
+          screen: screens[1],
+          // @ts-expect-error
+          params: {
+            id,
+            origin: request.origin,
+            scope: request.scope, // ethereum
+            data: JSON.stringify(request.data),
+          } as IDappCallParams,
+        },
+      });
+
+      // TODO ext open new window
+      // extUtils.openApprovalWindow();
+    });
   }
 }
 

@@ -113,6 +113,9 @@ const DesktopModal: FC<ModalProps> = ({
               type="plain"
               circle
               onPress={() => {
+                if (onClose) {
+                  onClose();
+                }
                 navigation.getParent()?.goBack?.();
               }}
             />
