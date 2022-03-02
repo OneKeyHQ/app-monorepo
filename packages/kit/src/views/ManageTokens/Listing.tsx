@@ -88,11 +88,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     fallbackElement={<Icon name="QuestionMarkOutline" />}
                   />
                   <Box ml="3">
-                    <Typography.Body1Strong
-                      maxW="56"
-                      textOverflow="ellipsis"
-                      numberOfLines={2}
-                    >
+                    <Typography.Body1Strong maxW="56" numberOfLines={2}>
                       {item.name}({item.symbol})
                     </Typography.Body1Strong>
                     <Typography.Body1 numberOfLines={1}>
