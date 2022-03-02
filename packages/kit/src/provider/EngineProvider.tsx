@@ -62,15 +62,14 @@ const EngineApp: FC = ({ children }) => {
       const hasAccountsWallet = walletsFromBE.find(
         (wallet) => !!wallet.accounts.length,
       );
-      if (hasAccountsWallet) {
-        const accountId = hasAccountsWallet.accounts[0];
 
+      if (hasAccountsWallet) {
         engine
-          .getAccounts([accountId], activeNetwork?.network.id)
-          .then(([activeAccount]) => {
+          .getAccounts(hasAccountsWallet.accounts, activeNetwork?.network.id)
+          .then((accountDetailList) => {
             dispatch(
               changeActiveAccount({
-                account: activeAccount,
+                account: accountDetailList?.[0] ?? null,
                 wallet: hasAccountsWallet,
               }),
             );

@@ -3,6 +3,7 @@ import React, { FC, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 
 import Protected from '../../../components/Protected';
 import engine from '../../../engine/EngineProvider';
@@ -24,6 +25,8 @@ const Done: FC<DoneProps> = ({ password }) => {
   useEffect(() => {
     async function main() {
       const wallet = await engine.createHDWallet(password);
+      const walletsFromBE = await engine.getWallets();
+      dispatch(updateWallets(walletsFromBE));
       dispatch(setBoardingCompleted());
       dispatch(setPasswordCompleted());
       dispatch(unlock());

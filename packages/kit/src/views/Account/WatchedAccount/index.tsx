@@ -66,22 +66,24 @@ const WatchedAccount: FC = () => {
 
       dispatch(setRefreshTS());
       dispatch(setBoardingCompleted());
-      dispatch(
-        changeActiveAccount({
-          account: createdAccount,
-          wallet,
-        }),
-      );
-      if (selectedNetwork) {
+
+      setTimeout(() => {
         dispatch(
-          changeActiveNetwork({
-            network: selectedNetwork,
-            sharedChainName: selectedNetwork.impl,
+          changeActiveAccount({
+            account: createdAccount,
+            wallet,
           }),
         );
-      }
+        if (selectedNetwork) {
+          dispatch(
+            changeActiveNetwork({
+              network: selectedNetwork,
+              sharedChainName: selectedNetwork.impl,
+            }),
+          );
+        }
+      }, 50);
 
-      dispatch(setRefreshTS());
       navigation.goBack();
     } catch (e) {
       const errorKey = (e as { key: string }).key;
