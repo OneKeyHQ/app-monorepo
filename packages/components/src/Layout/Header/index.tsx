@@ -49,6 +49,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     >
       {headerLeftNode ? (
         <HStack
+          flex={1}
           alignItems="center"
           h="full"
           borderRightColor="border-subdued"
@@ -67,7 +68,12 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
           <Typography.Heading>Home</Typography.Heading>
         </HStack>
       )}
-      <HStack alignItems="center" pr={{ md: 6 }}>
+      <HStack
+        flex={1}
+        alignItems="center"
+        justifyContent="flex-end"
+        pr={{ md: 6 }}
+      >
         {headerRight()}
       </HStack>
     </HStack>

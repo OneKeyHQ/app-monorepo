@@ -104,7 +104,7 @@ const EngineApp: FC = ({ children }) => {
   }, [dispatch, refreshTimeStamp, account, activeNetwork]);
 
   useEffect(() => {
-    if (!networks) return;
+    if (!networks || !networks?.[0]) return;
     if (activeNetwork?.network) return;
     const sharedChainName = networks[0].impl;
     const defaultNetwork = networks[0];
