@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import so.onekey.app.wallet.nfc.NFCExceptions
 import so.onekey.app.wallet.nfc.NfcUtils
 import so.onekey.app.wallet.onekeyLite.entitys.CardState
+import so.onekey.app.wallet.reactModule.OKLiteManager
 import so.onekey.app.wallet.utils.HexUtils
 import so.onekey.app.wallet.utils.NfcPermissionUtils
 
@@ -18,16 +19,28 @@ object OnekeyLiteCard {
 
     suspend fun startNfc(activity: FragmentActivity, callback: ((Boolean) -> Unit)? = null) = withContext(Dispatchers.Main) {
         if (NfcUtils.isNfcExits(activity)) {
-            NfcUtils.init(activity)
+            val adapter = NfcUtils.init(activity)
+            if(adapter == null){
+                Log.d(TAG, "startNfc: NfcAdapter is null")
+                callback?.invoke(false)
+                return@withContext
+            }
         }
+        Log.d(TAG, "startNfc: ${NfcUtils.isNfcExits(activity)}")
 
         NfcPermissionUtils.checkPermission(activity) {
+            Log.d(TAG, "startNfc Have permission")
+
             NfcUtils.mNfcAdapter?.enableForegroundDispatch(
                     activity, NfcUtils.mPendingIntent, NfcUtils.mIntentFilter, NfcUtils.mTechList
             )
+
+            Log.d(TAG, "startNfc: enableForegroundDispatch")
+
             callback?.invoke(true)
             return@withContext
         }
+        Log.e(TAG, "startNfc Not NFC permission")
         callback?.invoke(false)
     }
 

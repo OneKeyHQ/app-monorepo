@@ -15,7 +15,7 @@ Java_so_onekey_app_wallet_keys_KeysNativeProvider_getLiteSecureChannelInitParams
                                                                                  jobject thiz,
                                                                                  jobject context) {
 #if (HAS_KEYS == 1)
-    if (checkSecurityPermission(env, context, (char **) authorizedAppSha1)) {
+    if (checkSecurityPermission(env, context, (char **) authorizedAppSha1, 3)) {
         return getDecryptedKey(env, liteInitGPCParams, sizeof(liteInitGPCParams));
     }
     LOGD("create process failure");

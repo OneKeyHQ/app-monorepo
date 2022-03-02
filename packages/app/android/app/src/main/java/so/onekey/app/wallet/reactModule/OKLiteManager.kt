@@ -66,10 +66,11 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
                         putString("type", "unknown")
                     }
                     sendEvent(context, NFC_ACTIVE_CONNECTION, dataMap)
+                    Log.d(TAG, "Unknown device")
                     return
                 }
 
-                Log.e(OnekeyLiteCard.TAG, isoDep.toString())
+                Log.d(TAG, isoDep.toString())
                 launch(Dispatchers.IO) {
                     mNFCConnectedChannel.trySend(isoDep)
                     try {
@@ -124,9 +125,11 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
                 try {
                     OnekeyLiteCard.startNfc(it) {
                         mNFCState.set(NFCState.Started)
+
+                        Log.d(TAG, "NFC starting success")
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "startNfc failed", e)
                 }
             }
         }
@@ -138,8 +141,9 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
                 try {
                     OnekeyLiteCard.stopNfc(it as FragmentActivity)
                     mNFCState.set(NFCState.Dead)
+                    Log.d(TAG, "NFC 已关闭")
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "stopNfc failed", e)
                 }
             }
         }
@@ -254,6 +258,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         val isNfcExists = NfcUtils.isNfcExits(topActivity)
         if (!isNfcExists) {
             // 没有 NFC 设备
+            Log.d(TAG, "NFC device not found")
             callback.invoke(NFCExceptions.NotExistsNFC().createArguments(), null, null)
             return
         }
@@ -261,22 +266,27 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         val isNfcEnable = NfcUtils.isNfcEnable(topActivity)
         if (!isNfcEnable) {
             // 没有打开 NFC 开关
+            Log.d(TAG, "NFC device not enable")
             callback.invoke(NFCExceptions.NotEnableNFC().createArguments(), null, null)
             return
         }
 
-        NfcPermissionUtils.checkMiuiPermission(topActivity) {
+        NfcPermissionUtils.checkPermission(topActivity) {
             try {
+                Log.d(TAG, "NFC permission check success")
                 val isoDep = acquireDevice() ?: return
                 val executeResult = execute(isoDep)
                 callback.invoke(null, executeResult, mCurrentCardState.createArguments())
             } catch (e: NFCExceptions) {
+                Log.e(TAG, "NFC device execute error", e)
                 callback.invoke(e.createArguments(), null, mCurrentCardState.createArguments())
+            }finally {
+                releaseDevice()
             }
-            releaseDevice()
             return
         }
         // 没有 NFC 使用权限
+        Log.d(TAG, "NFC device not permission")
         callback.invoke(NFCExceptions.NotNFCPermission().createArguments(), null, null)
     }
 
