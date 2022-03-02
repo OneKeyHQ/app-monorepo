@@ -244,7 +244,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   if (isTab) {
     listElementType = <Tabs.SectionList sections={[]} />;
   } else {
-    listElementType = <SectionList sections={[]} />;
+    listElementType = <SectionList bg="background-default" sections={[]} />;
   }
 
   return React.cloneElement(listElementType, {

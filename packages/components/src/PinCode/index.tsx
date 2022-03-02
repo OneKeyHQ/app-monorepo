@@ -1,6 +1,6 @@
 import React, { ComponentProps, FC, useEffect, useMemo, useState } from 'react';
 
-import { Animated, InteractionManager, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import {
   CodeField,
   Cursor,
@@ -160,13 +160,10 @@ const PinCode: FC<PinCodeProps> = ({
   useEffect(() => {
     if (!autoFocus) return;
     const inputRef = ref.current;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const interactionPromise = InteractionManager.runAfterInteractions(
-      () => (timeoutId = setTimeout(() => inputRef?.focus?.(), 550)),
-    );
+    const timeoutId = setTimeout(() => inputRef?.focus?.(), 550);
+
     return () => {
       clearTimeout(timeoutId);
-      interactionPromise.cancel();
       inputRef?.blur();
     };
   }, [autoFocus, ref]);
