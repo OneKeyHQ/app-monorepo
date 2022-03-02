@@ -28,6 +28,7 @@ const TextArea = React.forwardRef<
       borderRadius={12}
       px="3"
       color="text-default"
+      placeholderTextColor="text-disabled"
       fontFamily={textProps.fontFamily}
       fontWeight={textProps.fontWeight}
       fontSize={textProps.fontSize}
