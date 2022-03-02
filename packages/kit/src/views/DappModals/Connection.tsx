@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { useNavigation } from '@react-navigation/core';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -144,7 +143,7 @@ const Connection = () => {
           setRugConfirmDialogVisible(true);
         }}
         onSecondaryActionPress={rejectConnection}
-        // TODO top-right corner onClose not working (redirect to HOME)
+        // TODO onClose may trigger many times
         onClose={() => rejectConnection({ close: () => null })}
         scrollViewProps={{
           children: (
