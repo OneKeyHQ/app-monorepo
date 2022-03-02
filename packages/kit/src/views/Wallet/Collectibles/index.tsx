@@ -30,13 +30,14 @@ export type CollectiblesProps = {
 
 const Collectibles = ({ address, network }: CollectiblesProps) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { collectibles, isLoading, loadMore, fetchData } = useCollectiblesData({
-    network,
-    address,
-  });
   const isCollectibleSupported = isCollectibleSupportedChainId(
     network?.extraInfo.networkVersion,
   );
+  const { collectibles, isLoading, loadMore, fetchData } = useCollectiblesData({
+    network,
+    address,
+    isCollectibleSupported,
+  });
 
   // Open Asset detail modal
   const handleSelectAsset = useCallback(

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { pick } from 'lodash';
-import useSWRInfinite from 'swr/infinite';
+import useSWRInfinite, { SWRInfiniteResponse } from 'swr/infinite';
 
 import { getUserAssets } from '@onekeyhq/engine/src/managers/opensea';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -87,8 +87,10 @@ type CollectibleRequestParams = Parameters<typeof getUserAssets>[0];
 type UseCollectiblesDataArgs = {
   address?: string | null;
   network?: Network | null;
+  isCollectibleSupported?: boolean;
 };
 type UseCollectiblesDataReturn = {
+  error?: SWRInfiniteResponse['error'];
   isLoading: boolean;
   collectibles: Collectible[];
   fetchData: () => void;
@@ -99,11 +101,15 @@ const ONEKEY_COLLECTIBLES_PAGE_SIZE = 50;
 export const useCollectiblesData = ({
   address,
   network,
+  isCollectibleSupported,
 }: UseCollectiblesDataArgs): UseCollectiblesDataReturn => {
   const hasNoParams = !address || !network?.extraInfo?.networkVersion;
 
   // Collectibles data fetching
   const getKey = (size: number, previousPageData: OpenSeaResponse) => {
+    if (!isCollectibleSupported) {
+      return null;
+    }
     // reached the end
     const isEndOfData = previousPageData && !previousPageData.length;
     if (isEndOfData || hasNoParams) return null;
@@ -120,7 +126,7 @@ export const useCollectiblesData = ({
   );
 
   return useMemo(() => {
-    if (hasNoParams || !!assetsSwr.error) {
+    if (hasNoParams) {
       return {
         isLoading: false,
         fetchData: assetsSwr.mutate,
