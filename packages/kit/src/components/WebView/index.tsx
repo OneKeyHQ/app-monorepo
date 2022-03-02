@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
+import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useIsFocused } from '@react-navigation/native';
 
 import {
@@ -11,9 +13,6 @@ import {
   Select,
   VStack,
 } from '@onekeyhq/components';
-import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types';
-import InpageProviderWebView from '@onekeyhq/inpage-provider/src/webview/InpageProviderWebView';
-import useWebViewBridge from '@onekeyhq/inpage-provider/src/webview/useWebViewBridge';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,6 +20,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 // TODO remove: ui should use walletApi by backgroundApiProxy
 import walletApi from '../../background/instance/walletApi';
 import extUtils from '../../utils/extUtils';
+
+import InpageProviderWebView from './InpageProviderWebView';
 
 const { isDesktop, isExtension } = platformEnv;
 

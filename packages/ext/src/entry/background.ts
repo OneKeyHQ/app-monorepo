@@ -1,7 +1,8 @@
 // eslint-disable-next-line import/order
 import './shared';
 
-import inpageProviderBackground from '@onekeyhq/inpage-provider/src/extension/background';
+import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -13,7 +14,7 @@ console.log(
   `[OneKey RN] Extension background page ready: ${new Date().toLocaleTimeString()}`,
 );
 
-const bridge = inpageProviderBackground.createHostBridge({
+const bridge = bridgeSetup.background.createHostBridge({
   receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
 });
 

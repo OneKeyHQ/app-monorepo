@@ -6,15 +6,22 @@ import React, {
   useState,
 } from 'react';
 
+import { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import {
+  DesktopWebView,
+  IWebViewWrapperRef,
+  NativeWebView,
+  useWebViewBridge,
+} from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { InpageProviderWebViewProps } from '../types';
+// @ts-ignore
+import injectedNativeCode from './injectedNative.text-js';
+// random 11122333333
 
-import DesktopWebView from './DesktopWebView';
-import NativeWebView from './NativeWebView';
-import useWebViewBridge, { IWebViewWrapperRef } from './useWebViewBridge';
+// console.log('=============', injectedNativeCode);
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
@@ -81,9 +88,13 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               src={src}
               onSrcChange={onSrcChange}
               receiveHandler={receiveHandler}
+              injectedJavaScriptBeforeContentLoaded={injectedNativeCode}
               onLoadProgress={({ nativeEvent }) => {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 setProgress(Math.ceil(nativeEvent.progress * 100));
               }}
+              textInteractionEnabled={undefined}
+              minimumFontSize={undefined}
             />
           )}
           {isRenderAsIframe && (

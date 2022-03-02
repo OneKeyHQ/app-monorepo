@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
-import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
-import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
+import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import {
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
-} from '@onekeyhq/inpage-provider/src/types';
+} from '@onekeyfe/cross-inpage-provider-types';
+
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
+
+import { INTERNAL_METHOD_PREFIX } from './decorators';
 
 export interface IBackgroundApiBridge {
   connectBridge(bridge: JsBridgeBase): void;

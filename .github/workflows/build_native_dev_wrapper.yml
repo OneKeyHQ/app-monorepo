@@ -29,8 +29,7 @@ jobs:
 
       - name: Setup keys secret
         run: |
-          echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/.env
-          echo ${{ secrets.AND_KEYS_SECRET }} | base64 -d > packages/app/android/keys.secret
+          echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/ios/OneKeyWallet/RNBridge/NFCENV.m
 
       - name: Setup Expo
         uses: expo/expo-github-action@v5

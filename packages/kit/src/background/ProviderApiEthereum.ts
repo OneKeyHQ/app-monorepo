@@ -1,15 +1,16 @@
 /* eslint-disable camelcase */
 
-import { permissionRequired } from '@onekeyhq/inpage-provider/src/provider/decorators';
 import {
   IInjectedProviderNames,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
+} from '@onekeyfe/cross-inpage-provider-types';
+
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../utils/extUtils';
 
+import { permissionRequired } from './decorators';
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
@@ -123,6 +124,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       method: 'metamask_accountsChanged',
       params: info.accounts || [],
     };
+    // console.log('notifyDappAccountsChanged', data);
     info.send(data);
   }
 

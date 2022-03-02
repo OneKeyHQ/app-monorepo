@@ -1,17 +1,18 @@
-import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
-import JsBridgeExtBackground from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeExtBackground';
-import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
+import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import {
   IInjectedProviderNames,
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
+} from '@onekeyfe/cross-inpage-provider-types';
+import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IBackgroundApiBridge } from './BackgroundApiProxy';
+import { INTERNAL_METHOD_PREFIX } from './decorators';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
@@ -192,6 +193,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       // send to all dapp sites content-script
       this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
+      // console.log('sendMessagesToInjectedBridge', { data, scope });
       this.bridge.requestSync({ data, scope });
     }
   };
