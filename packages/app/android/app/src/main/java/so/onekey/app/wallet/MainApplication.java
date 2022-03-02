@@ -25,7 +25,6 @@ import so.onekey.app.wallet.utils.Utils;
 import com.facebook.react.bridge.JSIModulePackage;
 import com.swmansion.reanimated.ReanimatedJSIModulePackage;
 
-import expo.modules.updates.UpdatesDevLauncherController;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
@@ -74,9 +73,6 @@ public class MainApplication extends Application implements ReactApplication , V
 
     if(BuildConfig.ENABLE_DEV_CLI){
       DevLauncherController.initialize(this, getReactNativeHost());
-      if (BuildConfig.DEBUG) {
-        DevLauncherController.getInstance().setUpdatesInterface(UpdatesDevLauncherController.initialize(this));
-      }
     }
 
     initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
