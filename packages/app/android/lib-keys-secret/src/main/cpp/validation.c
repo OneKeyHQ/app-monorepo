@@ -208,9 +208,8 @@ char *signatureSha1(JNIEnv *env, jbyteArray message) {
     return hex_sha;
 }
 
-jboolean checkValidity(char *sha1, char * app_sha1[]) {
+jboolean checkValidity(char *sha1, char * app_sha1[], size_t size) {
     //比较签名
-    int size = sizeof(app_sha1) / sizeof(app_sha1[0]);
     for (int i = 0; i < size; ++i) {
         const char *current = app_sha1[i];
         if (strcmp(sha1, current) == 0) {
@@ -222,7 +221,7 @@ jboolean checkValidity(char *sha1, char * app_sha1[]) {
     return JNI_FALSE;
 }
 
-jboolean checkSecurityPermission(JNIEnv *env, jobject contextObject, char * app_sha1[]) {
+jboolean checkSecurityPermission(JNIEnv *env, jobject contextObject, char * app_sha1[], size_t size) {
     char *sha1 = getSignatureSha1(env, contextObject);
-    return checkValidity(sha1, app_sha1);
+    return checkValidity(sha1, app_sha1, size);
 }
