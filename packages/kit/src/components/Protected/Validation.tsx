@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 
 import engine from '../../engine/EngineProvider';
+import { useSettings } from '../../hooks/redux';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 type FieldValues = { password: string };
@@ -20,6 +21,7 @@ type ValidationProps = { onOk?: (text: string) => void };
 
 const Validation: FC<ValidationProps> = ({ onOk }) => {
   const intl = useIntl();
+  const { enableLocalAuthentication } = useSettings();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
@@ -74,9 +76,11 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
           })}
         </Button>
       </Form>
-      <Center mt="8">
-        <LocalAuthenticationButton onOk={onOk} />
-      </Center>
+      {enableLocalAuthentication && (
+        <Center mt="8">
+          <LocalAuthenticationButton onOk={onOk} />
+        </Center>
+      )}
     </KeyboardDismissView>
   );
 };
