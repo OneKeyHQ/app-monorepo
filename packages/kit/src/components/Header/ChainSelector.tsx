@@ -11,6 +11,7 @@ import {
   Select,
   Token,
   Typography,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import {
@@ -44,7 +45,7 @@ const ChainSelector: FC = () => {
   const networks = useAppSelector((s) => s.network.network);
   const { wallet } = useActiveWalletAccount();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
-
+  const { screenWidth } = useUserDevice();
   const handleActiveChainChange = useCallback(
     async (id) => {
       if (!networks) return null;
@@ -133,10 +134,15 @@ const ChainSelector: FC = () => {
             }
             borderRadius="xl"
             alignItems="center"
+            justifyContent="flex-end"
           >
-            <HStack maxW="104" space={3} alignItems="center">
+            <HStack space={3} alignItems="center">
               <Token size={6} {...activeOption.tokenProps} />
-              <Typography.Body2Strong flex={1} isTruncated>
+              <Typography.Body2Strong
+                isTruncated
+                numberOfLines={1}
+                maxW={screenWidth / 2 - 72}
+              >
                 {activeOption.label}
               </Typography.Body2Strong>
             </HStack>

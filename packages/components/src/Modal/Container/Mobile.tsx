@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement } from 'react';
+import React, { FC, isValidElement, useState } from 'react';
 
-import { useNavigation, useNavigationState } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useNavigation,
+  useNavigationState,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
@@ -32,13 +36,18 @@ const MobileModal: FC<ModalProps> = ({
   const navigation = useNavigation();
   const { bottom } = useSafeAreaInsets();
   const index = useNavigationState((state) => state.index);
+  const [currentStackIndex, setCurrentStackIndex] = useState(0);
+
+  useFocusEffect(() => {
+    setCurrentStackIndex(index);
+  });
 
   return (
     <Box flex="1" bg="surface-subdued">
       <Box
         pt={1}
         pr={2}
-        pl={index ? 2 : '56px'}
+        pl={currentStackIndex ? 2 : '56px'}
         pb={header ? 1 : 0}
         display="flex"
         flexDirection="row"
@@ -47,7 +56,7 @@ const MobileModal: FC<ModalProps> = ({
         borderBottomColor="border-subdued"
         borderBottomWidth={header ? 1 : undefined}
       >
-        {index ? (
+        {currentStackIndex && navigation.canGoBack() ? (
           <IconButton
             size="xl"
             name="ChevronLeftOutline"

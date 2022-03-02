@@ -120,7 +120,7 @@ export const GenaralSection = () => {
               isTriggerPlain
               footer={null}
               headerShown={false}
-              value={selectedFiatMoneySymbol}
+              value={selectedFiatMoneySymbol ?? 'usd'}
               onChange={(value) => {
                 dispatch(setSelectedFiatMoneySymbol(value));
               }}
