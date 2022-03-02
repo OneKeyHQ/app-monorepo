@@ -20,7 +20,7 @@ type PinCodeProps = {
   count?: number;
   autoFocus?: boolean;
   containerStyle?: ComponentProps<typeof View>['style'];
-  onCodeCompleted?: (c: string) => Promise<boolean | void>;
+  onCodeCompleted?: (c: string) => Promise<boolean | void | string> | void;
   onCodeNext?: (c: string) => void;
   errorMessage?: string;
 };
@@ -33,6 +33,7 @@ const PinCode: FC<PinCodeProps> = ({
   onCodeNext,
 }) => {
   const [value, setValue] = useState('');
+  const [error, setError] = useState(false);
   const ref = useBlurOnFulfill({ value, cellCount: count });
   const [props, getCellOnLayoutHandler] = useClearByFocusCell({
     value,
@@ -40,12 +41,14 @@ const PinCode: FC<PinCodeProps> = ({
   });
 
   const { themeVariant } = useTheme();
-  const [bgColor, activeBgColor, borderColor, emptyBgColor] = useThemeValue([
-    'action-primary-default',
-    'focused-default',
-    'border-default',
-    'action-secondary-default',
-  ]);
+  const [bgColor, activeBgColor, borderColor, emptyBgColor, errorColor] =
+    useThemeValue([
+      'action-primary-default',
+      'focused-default',
+      'border-default',
+      'action-secondary-default',
+      'border-critical-default',
+    ]);
 
   const { animationsColor, animationsScale } = useMemo(() => {
     const color = [...new Array(count)].map(() => new Value(0));
@@ -118,7 +121,8 @@ const PinCode: FC<PinCodeProps> = ({
     const hasValue = Boolean(symbol);
     const animatedCellStyle = {
       borderWidth: hasValue ? 0 : 1,
-      borderColor: isFocused ? activeBgColor : borderColor,
+      // eslint-disable-next-line no-nested-ternary
+      borderColor: error ? errorColor : isFocused ? activeBgColor : borderColor,
       backgroundColor: hasValue
         ? animationsScale[index].interpolate({
             inputRange: [0, 1],
@@ -170,16 +174,25 @@ const PinCode: FC<PinCodeProps> = ({
 
   useEffect(() => {
     async function main() {
+      if (value.length === 1 && error) {
+        setError(false);
+      }
       if (value.length === count) {
         if (onCodeCompleted && typeof onCodeCompleted === 'function') {
           const status = await onCodeCompleted?.(value);
-          if (status === false) return setValue('');
+          if (status === false) {
+            setValue('');
+            return setError(true);
+          }
+          if (status === '') {
+            return setValue('');
+          }
         }
         onCodeNext?.(value);
       }
     }
     main();
-  }, [value, onCodeCompleted, onCodeNext, count]);
+  }, [value, onCodeCompleted, onCodeNext, count, error]);
 
   return (
     <CodeField

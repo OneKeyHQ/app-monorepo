@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
-import { Center, Column, Row } from 'native-base';
+import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
 
@@ -21,8 +21,6 @@ import { copyToClipboard } from '../../utils/ClipboardUtils';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
 
-const AccountName = 'ETH #1';
-
 type NavigationProps = RouteProp<
   ReceiveTokenRoutesParams,
   ReceiveTokenRoutes.ReceiveToken
@@ -34,7 +32,7 @@ const ReceiveToken = () => {
   const borderColor = useThemeValue('border-subdued');
   const route = useRoute<NavigationProps>();
 
-  const { address } = route.params;
+  const { address, name } = route.params;
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(address);
@@ -49,8 +47,16 @@ const ReceiveToken = () => {
       scrollViewProps={{
         children: (
           <Column flex={1}>
-            <Center>
-              <Account avatarSize="sm" name={AccountName} address="" />
+            <Box alignItems="center">
+              <Box w="160px" alignItems="center">
+                <Account
+                  avatarSize="sm"
+                  name={name}
+                  address={address}
+                  notShowAddress
+                />
+              </Box>
+
               <Box
                 mt="16px"
                 padding="16px"
@@ -60,9 +66,9 @@ const ReceiveToken = () => {
                 borderColor={borderColor}
                 width="192px"
               >
-                <QRCode value="https://onekey.so/" size={160} />
+                <QRCode value={address} size={160} />
               </Box>
-            </Center>
+            </Box>
             <Row
               justifyContent="space-between"
               padding="16px"

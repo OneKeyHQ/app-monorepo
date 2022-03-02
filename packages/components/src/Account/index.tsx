@@ -3,7 +3,6 @@ import React, { FC } from 'react';
 import Address from '../Address';
 import Avatar from '../Avatar';
 import Box from '../Box';
-import HStack from '../HStack';
 import Typography from '../Typography';
 
 export type AvatarSizeVariant = 'sm' | 'md' | 'lg' | 'xl';
@@ -91,7 +90,7 @@ const Account: FC<AccountProps> = ({
   }
 
   return (
-    <HStack alignItems="center">
+    <Box alignItems="center" flexDirection="row" justifyContent="center">
       {!hiddenAvatar && (
         <Box justifyContent={avatarAlign} mr={avatarMarginRight}>
           <Avatar
@@ -133,7 +132,7 @@ const Account: FC<AccountProps> = ({
             ))}
         </Box>
       )}
-    </HStack>
+    </Box>
   );
 };
 
