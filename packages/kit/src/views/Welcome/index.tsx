@@ -9,8 +9,8 @@ import {
   Button,
   Center,
   Image,
-  Stack,
   Typography,
+  VStack,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -92,57 +92,75 @@ const Welcome = () => {
   }, [intl, onOpenUrl, privacyPolicyUrl]);
 
   return (
-    <Center w="full" h="full" bg="background-default">
-      <Box maxW="96" w="full" h="full" position="relative">
-        <Center w="full" h="full">
-          <Center w="full">
-            <Image w="16" h="16" source={logo} alt="logo" mb="8" />
-            <Typography.DisplayXLarge mb="2">
-              {intl.formatMessage({ id: 'onboarding__landing_welcome_title' })}
-            </Typography.DisplayXLarge>
-            <Typography.Body1 color="text-subdued">
-              {intl.formatMessage({ id: 'onboarding__landing_welcome_desc' })}
-            </Typography.Body1>
+    <Center w="full" h="full" bg="surface-default">
+      <Box h="full" w="full" maxW="400px" px={8}>
+        <Box
+          flex={1}
+          py={8}
+          justifyContent={{ base: 'center', md: 'flex-end' }}
+        >
+          <Center mb={8}>
+            <Image w="16" h="16" source={logo} alt="logo" />
           </Center>
-          <Center mt={isVertical ? '32' : '16'} px="4" w="full">
-            <Stack
-              direction="column"
-              space="2"
-              maxW={isVertical ? undefined : '64'}
-              w="full"
+          <Typography.DisplayXLarge mb="2" textAlign="center">
+            {intl.formatMessage({ id: 'onboarding__landing_welcome_title' })}
+          </Typography.DisplayXLarge>
+          <Typography.Body1 color="text-subdued" textAlign="center">
+            {intl.formatMessage({ id: 'onboarding__landing_welcome_desc' })}
+          </Typography.Body1>
+        </Box>
+        <Box flex={{ md: 1 }} alignItems="center" pt={8} pb={bottom + 8}>
+          <VStack
+            space={{ base: 4, md: 3 }}
+            mb={{ base: 16, md: 8 }}
+            w={{ base: 'full', md: '240px' }}
+          >
+            <Button
+              size={isVertical ? 'xl' : 'base'}
+              type="primary"
+              onPress={onCreate}
             >
-              <Button size="xl" type="primary" onPress={onCreate}>
-                {intl.formatMessage({ id: 'action__create_wallet' })}
-              </Button>
-              <Button size="xl" onPress={onRestore}>
-                {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
-              </Button>
-              <Button size="xl" type="plain" onPress={onSkip}>
-                {intl.formatMessage({ id: 'action__skip' })}
-              </Button>
-            </Stack>
-          </Center>
-        </Center>
-        <Box position="absolute" bottom={bottom + 8} w="full">
-          <Center w="full">
-            <Typography.Caption textAlign="center">
-              {intl.formatMessage(
-                { id: 'content__agree_to_user_agreement_and_privacy_policy' },
-                {
-                  a: (text) => (
-                    <Typography.CaptionUnderline onPress={onOpenUserAgreement}>
-                      {text}
-                    </Typography.CaptionUnderline>
-                  ),
-                  b: (text) => (
-                    <Typography.CaptionUnderline onPress={onOpenPrivacyPolicy}>
-                      {text}
-                    </Typography.CaptionUnderline>
-                  ),
-                },
-              )}
-            </Typography.Caption>
-          </Center>
+              {intl.formatMessage({ id: 'action__create_wallet' })}
+            </Button>
+            <Button size={isVertical ? 'xl' : 'base'} onPress={onRestore}>
+              {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
+            </Button>
+            <Button
+              size={isVertical ? 'xl' : 'base'}
+              type="plain"
+              onPress={onSkip}
+            >
+              {intl.formatMessage({ id: 'action__skip' })}
+            </Button>
+          </VStack>
+          <Typography.Caption
+            mt="auto"
+            maxW="300px"
+            textAlign="center"
+            color="text-subdued"
+          >
+            {intl.formatMessage(
+              { id: 'content__agree_to_user_agreement_and_privacy_policy' },
+              {
+                a: (text) => (
+                  <Typography.CaptionUnderline
+                    color="text-subdued"
+                    onPress={onOpenUserAgreement}
+                  >
+                    {text}
+                  </Typography.CaptionUnderline>
+                ),
+                b: (text) => (
+                  <Typography.CaptionUnderline
+                    color="text-subdued"
+                    onPress={onOpenPrivacyPolicy}
+                  >
+                    {text}
+                  </Typography.CaptionUnderline>
+                ),
+              },
+            )}
+          </Typography.Caption>
         </Box>
       </Box>
     </Center>
