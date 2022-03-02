@@ -41,7 +41,7 @@ const OnekeyLiteNewSetPinCode: FC = () => {
           OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal,
           { currentPin, newPin: pinCode },
         );
-        return Promise.resolve(false);
+        return Promise.resolve('');
       }}
     />
   );

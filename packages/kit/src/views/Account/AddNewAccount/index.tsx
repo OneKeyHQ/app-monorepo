@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-shadow */
 import React, { FC, useMemo } from 'react';
 
@@ -7,15 +6,17 @@ import { useIntl } from 'react-intl';
 
 import { Form, Modal, useForm } from '@onekeyhq/components';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import Protected from '@onekeyhq/kit/src/components/Protected';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import { useAppSelector } from '../../../hooks/redux';
-
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type PrivateKeyFormValues = {
   network: string;
@@ -25,11 +26,7 @@ type PrivateKeyFormValues = {
 type CreateAccountProps = {
   onClose: () => void;
 };
-
-type NavigationProps = NativeStackNavigationProp<
-  CreateAccountRoutesParams,
-  CreateAccountModalRoutes.RecoveryAccountForm
->;
+type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
@@ -42,8 +39,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     defaultValues: { name: '' },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const wallets = useAppSelector((s) => s.wallet.wallets);
   const selectedWalletId = route.params.walletId;
@@ -56,7 +52,16 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   }, [wallets, selectedWalletId]);
 
   const onSubmit = handleSubmit((data) => {
-    console.log('----data', data);
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.CreateAccount,
+      params: {
+        screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+        params: {
+          walletId: selectedWalletId,
+          ...data,
+        },
+      },
+    });
   });
 
   return (
