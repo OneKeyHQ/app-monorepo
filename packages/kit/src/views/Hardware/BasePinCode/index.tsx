@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import {
   Box,
@@ -12,7 +12,11 @@ export type HardwarePinCodeViewProp = {
   title?: string;
   description?: string;
   securityReminder?: string;
-  onComplete?: (pinCode: string) => Promise<boolean | void>;
+} & {
+  onComplete: Pick<
+    ComponentProps<typeof PinCode>,
+    'onCodeCompleted'
+  >['onCodeCompleted'];
 };
 
 const HardwarePinCode: FC<HardwarePinCodeViewProp> = ({
@@ -50,9 +54,7 @@ const HardwarePinCode: FC<HardwarePinCodeViewProp> = ({
           <Box mt={8}>
             <PinCode
               autoFocus
-              onCodeCompleted={(pinCode) =>
-                onComplete?.(pinCode) ?? Promise.resolve(false)
-              }
+              onCodeCompleted={(pinCode) => onComplete?.(pinCode)}
             />
           </Box>
         </Box>

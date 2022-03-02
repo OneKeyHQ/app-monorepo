@@ -152,6 +152,7 @@ const AccountInfo = () => {
                 screen: ReceiveTokenRoutes.ReceiveToken,
                 params: {
                   address: (account as SimpleAccount).address,
+                  name: (account as SimpleAccount).name,
                 },
               },
             });

@@ -19,21 +19,19 @@ import {
 } from '@onekeyhq/kit/src/components/Format';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
+import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
-  ModalNavigatorRoutes,
-  ModalTypes,
-} from '@onekeyhq/kit/src/routes/Modal';
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Network } from '../../../store/reducers/network';
 import extUtils from '../../../utils/extUtils';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  ModalTypes,
-  ModalNavigatorRoutes.ReceiveTokenNavigator
->;
+type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
   accountId: string | null | undefined;
@@ -45,9 +43,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const isFocused = useIsFocused();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useNavigation<NavigationProps>();
-  const { wallet } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const { wallet, account } = useActiveWalletAccount();
   const [amount, setAmount] = useState<string>();
   const [tokenPrice, setTokenPrice] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -166,12 +163,18 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
           leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
-          // onPress={() => {
-          //   navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
-          //     screen: ModalRoutes.ReceiveToken,
-          //     params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
-          //   });
-          // }}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {
+                  address: (account as any)?.address,
+                  name: account?.name ?? '',
+                },
+              },
+            });
+          }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
@@ -186,7 +189,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
         )}
       </Box>
     ),
-    [intl, isVertical, wallet?.type],
+    [intl, isVertical, wallet?.type, account, navigation],
   );
 
   return useMemo(
