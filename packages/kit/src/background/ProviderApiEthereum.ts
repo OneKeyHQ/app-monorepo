@@ -10,11 +10,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DappConnectionModalRoutes } from '../routes';
-import { ModalRoutes, RootRoutes } from '../routes/types';
+import { ModalRoutes } from '../routes/types';
 import extUtils from '../utils/extUtils';
 
 import { permissionRequired } from './decorators';
-import { IDappCallParams } from './IBackgroundApi';
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';

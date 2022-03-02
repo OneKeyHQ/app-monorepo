@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -17,9 +16,9 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappParams from '../../hooks/useDappParams';
 
 import { DescriptionList, DescriptionListItem } from './DescriptionList';
 import RugConfirmDialog from './RugConfirmDialog';
@@ -67,29 +66,10 @@ const getPermissionTransId = (type: PermissionType) => {
       return type;
   }
 };
-
 const isRug = (target: string) => {
   const RUG_LIST = ['app.uniswap.org'];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
 };
-
-function useDappParams() {
-  const route = useRoute();
-  const params = route.params as IDappCallParams;
-  let data: IJsonRpcRequest = {
-    method: '',
-    params: [],
-  };
-  try {
-    data = JSON.parse(params.data);
-  } catch (error) {
-    console.error(`parse dapp params.data error: ${params.data}`);
-  }
-  return {
-    ...params,
-    data,
-  };
-}
 
 /* Connection Modal are use to accept user with permission to dapp */
 const Connection = () => {

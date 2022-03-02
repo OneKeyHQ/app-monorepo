@@ -1,3 +1,4 @@
+/* eslint-disable no-var,vars-on-top */
 import React from 'react';
 
 import { NavigationContainerRef } from '@react-navigation/native';

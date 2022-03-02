@@ -1,5 +1,4 @@
 import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
   IInjectedProviderNamesStrings,

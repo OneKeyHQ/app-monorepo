@@ -1,21 +1,13 @@
-/* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access */
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+/* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 import {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import uuid from 'react-native-uuid';
 
-import { DappConnectionModalRoutes } from '../routes';
-import { ModalRoutes, RootRoutes } from '../routes/types';
+import { RootRoutes } from '../routes/types';
 
-import {
-  IBackgroundApi,
-  IBackgroundApiBridge,
-  IDappCallParams,
-} from './IBackgroundApi';
-import WalletApi from './WalletApi';
+import { IBackgroundApi, IDappCallParams } from './IBackgroundApi';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   accounts?: string[];
@@ -55,15 +47,13 @@ abstract class ProviderApiBase {
   protected abstract rpcCall(request: IJsonRpcRequest): any;
 
   async handleMethods(payload: IJsBridgeMessagePayload) {
-    const { origin, data } = payload;
+    const { data } = payload;
     const request = data as IJsonRpcRequest;
     const { method, params = [] } = request;
     const paramsArr = [].concat(params as any);
 
-    // @ts-ignore
-    const methodFunc = this[method];
+    const methodFunc = (this as any)[method];
     if (methodFunc) {
-      // @ts-ignore
       return methodFunc.call(this, payload, ...paramsArr);
     }
     return this.rpcCall(request);

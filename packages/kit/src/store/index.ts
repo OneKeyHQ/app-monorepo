@@ -22,6 +22,8 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { IBackgroundApi } from '../background/IBackgroundApi';
+
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
@@ -31,7 +33,6 @@ import networkReducer from './reducers/network';
 import settingsReducer from './reducers/settings';
 import statusReducer from './reducers/status';
 import walletReducer from './reducers/wallet';
-import { IBackgroundApi } from "../background/IBackgroundApi";
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
