@@ -75,44 +75,42 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const navigation = useNavigation();
   const { account } = useActiveWalletAccount();
   const accountInfo = account as SimpleAccount;
   const { origin, data, scope, id } = useDappParams();
   const computedIsRug = isRug(MockData.target.link);
 
-  const closeModal = useCallback(() => {
-    // TODO also close window in extension, add add window unload event listener
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  }, [navigation]);
+  const rejectConnection = useCallback(
+    ({ close }: { close: () => void }) => {
+      backgroundApiProxy.rejectPromiseCallback({
+        id,
+        error: web3Errors.provider.userRejectedRequest(),
+      });
+      close();
+    },
+    [id],
+  );
 
-  const rejectConnection = useCallback(() => {
-    backgroundApiProxy.rejectPromiseCallback({
-      id,
-      error: web3Errors.provider.userRejectedRequest(),
-    });
-    closeModal();
-  }, [closeModal, id]);
-
-  const approveConnection = useCallback(() => {
-    let accounts: string[] | { accounts: string[] } = [accountInfo.address];
-    // data format may be different in different chain
-    if (scope === 'ethereum') {
-      accounts = [accountInfo.address];
-    }
-    if (scope === 'near') {
-      accounts = {
-        accounts: [accountInfo.address],
-      };
-    }
-    backgroundApiProxy.resolvePromiseCallback({
-      id,
-      data: accounts,
-    });
-    closeModal();
-  }, [accountInfo.address, closeModal, id, scope]);
+  const approveConnection = useCallback(
+    ({ close }: { close: () => void }) => {
+      let accounts: string[] | { accounts: string[] } = [accountInfo.address];
+      // data format may be different in different chain
+      if (scope === 'ethereum') {
+        accounts = [accountInfo.address];
+      }
+      if (scope === 'near') {
+        accounts = {
+          accounts: [accountInfo.address],
+        };
+      }
+      backgroundApiProxy.resolvePromiseCallback({
+        id,
+        data: accounts,
+      });
+      close();
+    },
+    [accountInfo.address, id, scope],
+  );
 
   const [permissionValues, setPermissionValues] = React.useState(
     MockData.permissions.map(({ type }) => type),
@@ -138,19 +136,16 @@ const Connection = () => {
         secondaryActionTranslationId="action__reject"
         header={intl.formatMessage({ id: 'title__approve' })}
         headerDescription={scope}
-        onPrimaryActionPress={({ onClose }) => {
+        onPrimaryActionPress={({ close }) => {
           if (!computedIsRug) {
-            approveConnection();
-            // Do approve operation
-            // TODO onClose not working
-            return onClose?.();
+            return approveConnection({ close });
           }
           // Do confirm before approve
           setRugConfirmDialogVisible(true);
         }}
         onSecondaryActionPress={rejectConnection}
         // TODO top-right corner onClose not working (redirect to HOME)
-        onClose={rejectConnection}
+        onClose={() => rejectConnection({ close: () => null })}
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
