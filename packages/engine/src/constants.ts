@@ -9,7 +9,10 @@ const COINTYPE_SOL = '501';
 const IMPL_ALGO = 'algo';
 const COINTYPE_ALGO = '283';
 
-const SUPPORTED_IMPLS = new Set([IMPL_EVM, IMPL_SOL, IMPL_ALGO]);
+const IMPL_NEAR = 'near';
+const COINTYPE_NEAR = '397';
+
+const SUPPORTED_IMPLS = new Set([IMPL_EVM, IMPL_SOL, IMPL_ALGO, IMPL_NEAR]);
 
 export {
   SEPERATOR,
@@ -19,5 +22,7 @@ export {
   COINTYPE_SOL,
   IMPL_ALGO,
   COINTYPE_ALGO,
+  IMPL_NEAR,
+  COINTYPE_NEAR,
   SUPPORTED_IMPLS,
 };
