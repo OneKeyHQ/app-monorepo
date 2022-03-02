@@ -10,6 +10,7 @@ it('two bridge communication', async () => {
   let currentChainId = '0x3';
   // TODO sendAsString=false
   const host = new JsBridgeSimple({
+    timeout: 0, // TODO remove, fix in JsBridgeSimple: this.callbacksExpireTimeout=0
     sendAsString: false,
     receiveHandler(event: IJsBridgeMessagePayload) {
       console.log('jest: host onMessage', event);
@@ -22,6 +23,7 @@ it('two bridge communication', async () => {
     },
   });
   const inpage = new JsBridgeSimple({
+    timeout: 0, // TODO remove, fix in JsBridgeSimple: this.callbacksExpireTimeout=0
     sendAsString: false,
     receiveHandler(event: IJsBridgeMessagePayload) {
       console.log('jest: inpage onMessage', event);
