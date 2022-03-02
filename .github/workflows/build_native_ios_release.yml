@@ -38,4 +38,25 @@ jobs:
       - name: Build on EAS
         run: |
           cd packages/app
-          npx eas-cli build --profile=production --platform ios --non-interactive --no-wait
+          npx eas-cli build --profile=production --platform ios --non-interactive --no-wait > eas-build.log
+
+      - name: Read EAS build Info
+        id: build_info
+        run: |
+          cd packages/app
+          export IOS_DOWNLOAD_URL=$(egrep '(Build details: )\S+' eas-build.log | egrep -o '(https?):\/\/[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]' | head -n 1)
+          echo "::set-output name=ios_url::$(echo $IOS_DOWNLOAD_URL)"
+          export APP_JSON=`cat app.json`
+          export APP_VERSION=`echo $(jq -r '.expo.version' <<< "$APP_JSON")`
+          echo "::set-output name=version::$(echo $APP_VERSION)"
+
+      - name: Notice Slack Update
+        uses: OneKeyHQ/onekey-github-actions/notice-slack-app-update@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          artifact-type: iOS-Release
+          artifact-name: iOS-Release
+          artifact-download-url: ${{ steps.build_info.outputs.ios_url }}
+          artifact-bundle-id:  'so.onekey.app.wallet'
+          artifact-version-code:  ${{ steps.build_info.outputs.version }}
+          artifact-version-name:  ${{ steps.build_info.outputs.version }}
