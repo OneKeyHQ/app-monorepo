@@ -39,7 +39,7 @@ object NfcUtils {
                 Intent(activity, activity.javaClass)
                         .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT)
-        mIntentFilter = arrayOf(IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED, "*/*"))
+        mIntentFilter = arrayOf(IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED, "*/*"), IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED, "*/*"))
         return mNfcAdapter
     }
 
