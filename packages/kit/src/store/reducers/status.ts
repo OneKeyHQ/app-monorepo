@@ -5,6 +5,7 @@ type StatusState = {
   isUnlock: boolean;
   boardingCompleted: boolean;
   passwordCompleted: boolean;
+  supportFaceId: boolean;
 };
 
 const initialState: StatusState = {
@@ -12,6 +13,7 @@ const initialState: StatusState = {
   isUnlock: false,
   boardingCompleted: false,
   passwordCompleted: false,
+  supportFaceId: true,
 };
 
 export const slice = createSlice({
@@ -23,6 +25,9 @@ export const slice = createSlice({
     },
     setPasswordCompleted: (state) => {
       state.passwordCompleted = true;
+    },
+    setSupportFaceId: (state) => {
+      state.supportFaceId = true;
     },
     unlock: (state) => {
       state.lastActivity = Date.now();
@@ -45,6 +50,7 @@ export const {
   reset,
   setBoardingCompleted,
   setPasswordCompleted,
+  setSupportFaceId,
   lock,
   unlock,
   refreshLastActivity,
