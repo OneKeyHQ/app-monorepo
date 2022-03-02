@@ -254,8 +254,8 @@ const OnekeyLiteDetail: React.FC = () => {
               );
             }}
             title={intl.formatMessage({ id: 'title_select_wallet' })}
-            value=""
             footer={null}
+            activatable={false}
             dropdownPosition="right"
             containerProps={{
               zIndex: 5,

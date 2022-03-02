@@ -19,10 +19,6 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
-      - name: Setup keys secret
-        run: |
-          echo ${{ secrets.AND_KEYS_SECRET }} | base64 -d > packages/app/android/keys.secret 
-
       - name: Setup Expo
         uses: expo/expo-github-action@v5
         with:
