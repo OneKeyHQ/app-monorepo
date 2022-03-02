@@ -117,21 +117,30 @@ const Connection = () => {
   }, [closeModal, id]);
 
   const approveConnection = useCallback(() => {
+    let accounts: string[] | { accounts: string[] } = [accountInfo.address];
+    // data format may be different in different chain
+    if (scope === 'ethereum') {
+      accounts = [accountInfo.address];
+    }
+    if (scope === 'near') {
+      accounts = {
+        accounts: [accountInfo.address],
+      };
+    }
     backgroundApiProxy.resolvePromiseCallback({
       id,
-      // TODO data format may be different in different chain
-      data: [accountInfo.address],
+      data: accounts,
     });
     closeModal();
-  }, [accountInfo.address, closeModal, id]);
+  }, [accountInfo.address, closeModal, id, scope]);
 
   const [permissionValues, setPermissionValues] = React.useState(
     MockData.permissions.map(({ type }) => type),
   );
 
   // TODO
-  //  - check scope=ethereum matches EVM only
-  //  - check account exists
+  //  - check scope=ethereum and active chain is EVM
+  //  - check active account exists
 
   return (
     <>
@@ -160,7 +169,7 @@ const Connection = () => {
           setRugConfirmDialogVisible(true);
         }}
         onSecondaryActionPress={rejectConnection}
-        // TODO right top corner onClose not working for calling rejectConnection
+        // TODO top-right corner onClose not working (redirect to HOME)
         onClose={rejectConnection}
         scrollViewProps={{
           children: (

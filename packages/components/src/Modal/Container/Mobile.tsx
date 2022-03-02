@@ -83,6 +83,10 @@ const MobileModal: FC<ModalProps> = ({
           type="plain"
           circle
           onPress={() => {
+            // TODO redirect to HOME?
+            if (onClose) {
+              onClose();
+            }
             navigation.getParent()?.goBack?.();
           }}
         />

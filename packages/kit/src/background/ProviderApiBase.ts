@@ -75,32 +75,42 @@ abstract class ProviderApiBase {
   }
 
   async openDappApprovalModal({
-    screens = [],
     request,
+    screens = [],
   }: {
-    screens: any[];
     request: IJsBridgeMessagePayload;
+    screens: any[];
   }) {
     return new Promise((resolve, reject) => {
-      const id = this.backgroundApi.promiseContainer?.createCallback({
+      if (!this.backgroundApi.promiseContainer) {
+        throw new Error('promiseContainer not found in backgroundApi');
+      }
+      const id = this.backgroundApi.promiseContainer.createCallback({
         resolve,
         reject,
       });
-      global.$navigationRef.current?.navigate(RootRoutes.Modal, {
-        screen: screens[0],
-        params: {
-          screen: screens[1],
-          // @ts-expect-error
-          params: {
-            id,
-            origin: request.origin,
-            scope: request.scope, // ethereum
-            data: JSON.stringify(request.data),
-          } as IDappCallParams,
-        },
+      const modalParams: { screen: any; params: any } = {
+        screen: null,
+        params: {},
+      };
+      let paramsCurrent = modalParams;
+      let paramsLast = modalParams;
+      screens.forEach((screen) => {
+        paramsCurrent.screen = screen;
+        paramsCurrent.params = {};
+        paramsLast = paramsCurrent;
+        paramsCurrent = paramsCurrent.params;
       });
+      paramsLast.params = {
+        id,
+        origin: request.origin,
+        scope: request.scope, // ethereum
+        data: JSON.stringify(request.data),
+      } as IDappCallParams;
 
-      // TODO ext open new window
+      global.$navigationRef.current?.navigate(RootRoutes.Modal, modalParams);
+
+      // TODO extension open new window
       // extUtils.openApprovalWindow();
     });
   }
