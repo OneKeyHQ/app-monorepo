@@ -221,10 +221,10 @@ class RealmDB implements DBAPI {
         );
       }
       const position: number =
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.realm!.objects<NetworkSchema>('Network').max(
+        (this.realm!.objects<NetworkSchema>('Network').max(
           'position',
-        ) as unknown as number;
+        ) as number) || 0;
+
       network.position = position + 1;
       this.realm!.write(() => {
         this.realm!.create('Network', {

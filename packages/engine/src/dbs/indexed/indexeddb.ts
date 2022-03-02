@@ -291,19 +291,25 @@ class IndexedDBApi implements DBAPI {
 
           const networkStore: IDBObjectStore =
             transaction.objectStore(NETWORK_STORE_NAME);
-          const getNetworkIdsRequest: IDBRequest = networkStore.getAllKeys();
+          const getNetworksRequest: IDBRequest = networkStore.getAll();
 
-          getNetworkIdsRequest.onsuccess = (_revent) => {
-            const networkIds = new Set(getNetworkIdsRequest.result);
-            if (networkIds.has(network.id)) {
-              reject(
-                new OneKeyInternalError(
-                  `Network ${network.id} already exists.`,
-                ),
-              );
-              return;
+          getNetworksRequest.onsuccess = (_revent) => {
+            const networks = getNetworksRequest.result as Array<DBNetwork>;
+
+            let maxPos = 0;
+            for (const v of networks) {
+              maxPos = v.position > maxPos ? v.position : maxPos;
+
+              if (v.id === network.id) {
+                reject(
+                  new OneKeyInternalError(
+                    `Network ${network.id} already exists.`,
+                  ),
+                );
+                return;
+              }
             }
-            network.position = networkIds.size;
+            network.position = maxPos + 1;
             networkStore.add(network);
           };
         }),
