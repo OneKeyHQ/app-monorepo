@@ -17,6 +17,7 @@ import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
 import { DescriptionList, DescriptionListItem } from './DescriptionList';
@@ -76,40 +77,32 @@ const Connection = () => {
   const intl = useIntl();
   const { account } = useActiveWalletAccount();
   const accountInfo = account as SimpleAccount;
-  const { origin, data, scope, id } = useDappParams();
   const computedIsRug = isRug(MockData.target.link);
+  const { origin, data, scope, id } = useDappParams();
 
-  const rejectConnection = useCallback(
-    ({ close }: { close: () => void }) => {
-      backgroundApiProxy.rejectPromiseCallback({
-        id,
-        error: web3Errors.provider.userRejectedRequest(),
-      });
-      close();
-    },
-    [id],
-  );
+  const getResolveData = useCallback(() => {
+    let accounts: string | string[] | { accounts: string[] } = [
+      accountInfo.address,
+    ];
+    // data format may be different in different chain
+    if (scope === 'ethereum') {
+      accounts = [accountInfo.address];
+    }
+    if (scope === 'near') {
+      accounts = {
+        accounts: [accountInfo.address],
+      };
+    }
+    if (scope === 'solana') {
+      accounts = accountInfo.address;
+    }
+    return accounts;
+  }, [accountInfo.address, scope]);
 
-  const approveConnection = useCallback(
-    ({ close }: { close: () => void }) => {
-      let accounts: string[] | { accounts: string[] } = [accountInfo.address];
-      // data format may be different in different chain
-      if (scope === 'ethereum') {
-        accounts = [accountInfo.address];
-      }
-      if (scope === 'near') {
-        accounts = {
-          accounts: [accountInfo.address],
-        };
-      }
-      backgroundApiProxy.resolvePromiseCallback({
-        id,
-        data: accounts,
-      });
-      close();
-    },
-    [accountInfo.address, id, scope],
-  );
+  const dappApprove = useDappApproveAction({
+    id,
+    getResolveData,
+  });
 
   const [permissionValues, setPermissionValues] = React.useState(
     MockData.permissions.map(({ type }) => type),
@@ -137,14 +130,14 @@ const Connection = () => {
         headerDescription={scope}
         onPrimaryActionPress={({ close }) => {
           if (!computedIsRug) {
-            return approveConnection({ close });
+            return dappApprove.resolve({ close });
           }
           // Do confirm before approve
           setRugConfirmDialogVisible(true);
         }}
-        onSecondaryActionPress={rejectConnection}
+        onSecondaryActionPress={dappApprove.reject}
         // TODO onClose may trigger many times
-        onClose={() => rejectConnection({ close: () => null })}
+        onClose={() => dappApprove.reject({ close: () => null })}
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
