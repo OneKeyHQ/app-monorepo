@@ -3,7 +3,7 @@ import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import { EnhancedStore } from '@reduxjs/toolkit/src/configureStore';
 import WebView from 'react-native-webview';
 
-import { IBackgroundApi } from '@onekeyhq/kit/src/background/BackgroundApiProxy';
+import { IBackgroundApi } from '@onekeyhq/kit/src/background/IBackgroundApi';
 
 declare const self: ServiceWorkerGlobalScope;
 
