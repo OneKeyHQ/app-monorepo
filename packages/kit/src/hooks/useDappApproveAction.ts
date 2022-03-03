@@ -27,6 +27,7 @@ function useDappApproveAction({
     async ({ close }: { close: () => void }) => {
       try {
         setRejectError(null);
+        // throw new Error('simulate something is wrong');
         const data = await getResolveData();
         backgroundApiProxy.resolvePromiseCallback({
           id,
