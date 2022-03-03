@@ -4,8 +4,8 @@ import { RequestPayload, UploadAttachmentsPayload } from './types';
 
 const host = 'https://ticket.onekey.so';
 
-export const listUri = (instanceId: string) =>
-  `${host}/api/tickets?instanceId=${instanceId}`;
+export const listUri = (instanceId: string, updatedAt?: string) =>
+  `${host}/api/tickets?instanceId=${instanceId}&updatedAt=${updatedAt ?? ''}`;
 
 export const ticketDetailUri = (id: number, instanceId: string) =>
   `${host}/api/ticket/${id}?instanceId=${instanceId}`;
