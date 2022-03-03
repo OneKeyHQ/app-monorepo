@@ -1,13 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
 import { Box } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { useNavigation } from '../..';
-import engine from '../../engine/EngineProvider';
+import { useActiveWalletAccount } from '../../hooks/redux';
+import { useManageTokens } from '../../hooks/useManageTokens';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
@@ -27,52 +25,22 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
-  const [token, setToken] = useState<Token>();
-  const [network, setNetwork] = useState<Network>();
-  const [ready, setReady] = useState(false);
+  const { account } = useActiveWalletAccount();
+  const { accountTokensMap, nativeToken } = useManageTokens();
+  const token = accountTokensMap.get(tokenId);
 
   useEffect(() => {
-    async function main() {
-      setReady(false);
-      const [account, resultNetwork] = await Promise.all([
-        engine.getAccount(accountId, networkId),
-        engine.getNetwork(networkId),
-      ]);
-      const filterToken = account.tokens.find((t) => t.id === tokenId);
-      setToken(filterToken);
-      setNetwork(resultNetwork);
-      setReady(true);
-
-      let title;
-      if (filterToken) {
-        title = filterToken.name;
-      } else if (resultNetwork) {
-        title = resultNetwork.symbol;
-      } else {
-        title = account.name;
-      }
-      navigation.setOptions({
-        title,
-      });
-    }
-    main();
-  }, [accountId, navigation, networkId, tokenId]);
+    const title = token?.name || nativeToken?.name || account?.name;
+    navigation.setOptions({ title });
+  }, [navigation, account, token, nativeToken]);
 
   return (
     <Box bg="background-default" flex={1}>
       <HistoricalRecords
-        accountId={ready ? accountId : null}
+        accountId={accountId}
         networkId={networkId}
-        tokenId={token?.tokenIdOnNetwork}
-        // 接口修改为 tokenId 时需要更新
-        // tokenId={tokenId}
-        headerView={
-          <TokenInfo
-            accountId={ready ? accountId : null}
-            token={token}
-            network={network}
-          />
-        }
+        tokenId={tokenId}
+        headerView={<TokenInfo token={token} network={undefined} />}
       />
     </Box>
   );

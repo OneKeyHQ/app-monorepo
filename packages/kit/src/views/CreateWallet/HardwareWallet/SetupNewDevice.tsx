@@ -32,8 +32,18 @@ const SetupNewDeviceModal: FC = () => {
   const content = (
     <Center>
       <VStack space={4}>
-        <Box bgColor="surface-neutral-subdued" borderRadius="12px">
-          <Image source={SetupNewDevicePng} w="358px" h="160px" />
+        <Box
+          bgColor="surface-neutral-subdued"
+          w="full"
+          h="160px"
+          borderRadius="12px"
+        >
+          <Image
+            source={SetupNewDevicePng}
+            w="full"
+            h="full"
+            resizeMode="cover"
+          />
         </Box>
         <VStack space={2} mt={4}>
           <Typography.DisplayMedium>

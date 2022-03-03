@@ -80,7 +80,6 @@ const AppWalletModal: FC = () => {
       footer={null}
       header={intl.formatMessage({ id: 'wallet__app_wallet' })}
       scrollViewProps={{
-        pt: 4,
         children: content,
       }}
     />
