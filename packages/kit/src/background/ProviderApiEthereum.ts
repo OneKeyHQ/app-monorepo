@@ -2,12 +2,15 @@
 
 import {
   IInjectedProviderNames,
+  IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { DappConnectionModalRoutes } from '../routes';
+import { ModalRoutes } from '../routes/types';
 import extUtils from '../utils/extUtils';
 
 import { permissionRequired } from './decorators';
@@ -19,8 +22,9 @@ class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
   _getCurrentAccounts() {
+    return [];
     // return this.walletApi.isConnected ? [this.walletApi.selectedAddress] : [];
-    return this.walletApi.getCurrentAccounts();
+    // return this.walletApi.getCurrentAccounts();
   }
 
   _getCurrentChainId() {
@@ -42,22 +46,32 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (platformEnv.isExtension) {
       return extUtils.openApprovalWindow();
     }
-    return Promise.resolve(this.rpcResult({ txid: '111110000' }));
+    return Promise.resolve({ txid: '111110000' });
   }
 
   async wallet_getDebugLoggerSettings() {
     const result = (await debugLogger.debug?.load()) || '';
-    return this.rpcResult(result);
+    return result;
   }
 
-  eth_requestAccounts() {
-    // TODO show approval confirmation, skip in whitelist domain
-    console.log('=============== confirm check');
-    if (!this.walletApi.isConnected) {
-      this.walletApi.isConnected = true;
-    }
+  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+    debugLogger.backgroundApi('eth_requestAccounts', request);
 
-    return this.eth_accounts();
+    const result = await this.openDappApprovalModal({
+      request,
+      screens: [
+        ModalRoutes.DappConnectionModal,
+        DappConnectionModalRoutes.ConnectionModal,
+      ],
+    });
+    return result;
+
+    // TODO show approval confirmation, skip in whitelist domain
+    // if (!this.walletApi.isConnected) {
+    //   // this.walletApi.isConnected = true;
+    // }
+    //
+    // return this.eth_accounts();
   }
 
   eth_coinbase() {
@@ -66,55 +80,55 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   eth_accounts() {
-    return this.rpcResult(this._getCurrentAccounts());
+    return this._getCurrentAccounts();
   }
 
   eth_chainId() {
-    return this.rpcResult(this._getCurrentChainId());
+    return this._getCurrentChainId();
   }
 
   net_version() {
-    return this.rpcResult(this._getCurrentNetworkVersion());
+    return this._getCurrentNetworkVersion();
   }
 
   eth_blockNumber() {
-    return this.rpcResult('0xd29f1a');
+    return '0xd29f1a';
   }
 
   // TODO @publicMethod()
   async metamask_getProviderState() {
     // pass debugLoggerSettings to dapp injected provider
     const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
-    return this.rpcResult({
+    return {
       accounts: this._getCurrentAccounts(),
       chainId: this._getCurrentChainId(),
       isUnlocked: this._getCurrentUnlockState(),
       networkVersion: this._getCurrentNetworkVersion(),
       debugLoggerSettings,
-    });
+    };
   }
 
   // get and save Dapp site icon & title
   metamask_sendDomainMetadata() {
     // TODO save to DB
-    return this.rpcResult({});
+    return {};
   }
 
   metamask_logWeb3ShimUsage() {
     // TODO
-    return this.rpcResult({});
+    return {};
   }
 
   eth_subscription() {
     // TODO
-    return this.rpcResult({});
+    return {};
   }
 
   // ----------------------------------------------
 
   protected rpcCall(request: IJsonRpcRequest): any {
     console.log('MOCK CHAIN RPC CALL:', request);
-    return this.rpcResult({});
+    return {};
     // TODO use metamask error object
     // throw new Error(`provider method=${request.method} NOT SUPPORTED yet!`);
   }

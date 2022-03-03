@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useState } from 'react';
+import React, { FC, isValidElement, useCallback, useState } from 'react';
 
 import {
   useFocusEffect,
@@ -37,6 +37,13 @@ const MobileModal: FC<ModalProps> = ({
   const { bottom } = useSafeAreaInsets();
   const index = useNavigationState((state) => state.index);
   const [currentStackIndex, setCurrentStackIndex] = useState(0);
+
+  const close = useCallback(() => {
+    if (onClose) {
+      onClose();
+    }
+    navigation.getParent()?.goBack?.();
+  }, [navigation, onClose]);
 
   useFocusEffect(() => {
     setCurrentStackIndex(index);
@@ -82,9 +89,7 @@ const MobileModal: FC<ModalProps> = ({
           name="CloseOutline"
           type="plain"
           circle
-          onPress={() => {
-            navigation.getParent()?.goBack?.();
-          }}
+          onPress={close}
         />
       </Box>
       {children}
@@ -106,7 +111,7 @@ const MobileModal: FC<ModalProps> = ({
                 size="xl"
                 type="primary"
                 onPress={() => {
-                  onPrimaryActionPress?.({ onClose });
+                  onPrimaryActionPress?.({ onClose, close });
                 }}
                 {...primaryActionProps}
               >
@@ -120,7 +125,7 @@ const MobileModal: FC<ModalProps> = ({
                 flex="1"
                 size="xl"
                 onPress={() => {
-                  onSecondaryActionPress?.();
+                  onSecondaryActionPress?.({ close });
                   onClose?.();
                 }}
                 {...secondaryActionProps}

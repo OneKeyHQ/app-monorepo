@@ -1,6 +1,5 @@
 // TODO rename to BackgroundService, WalletService, ProviderService?
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 
 import { getActiveWalletAccount } from '../hooks/redux';
@@ -24,7 +23,9 @@ class WalletApi {
   isConnected = true; // current dapp isConnected
 
   getCurrentAccounts() {
-    if (!this.isConnected) {
+    return [];
+    /*
+   if (!this.isConnected) {
       return [];
     }
     const { account } = getActiveWalletAccount();
@@ -34,6 +35,7 @@ class WalletApi {
       return [account1.address];
     }
     return [];
+    */
   }
 
   getCurrentNetwork(): EvmExtraInfo {
