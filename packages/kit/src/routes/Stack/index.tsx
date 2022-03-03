@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
@@ -12,7 +12,13 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
-import { useAppDispatch, useSettings, useStatus } from '../../hooks/redux';
+import {
+  useAppDispatch,
+  useGeneral,
+  useSettings,
+  useStatus,
+} from '../../hooks/redux';
+import useInterval from '../../hooks/useInterval';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
@@ -86,44 +92,45 @@ const Dashboard = () => {
 
 const MainScreen = () => {
   const dispatch = useAppDispatch();
-  const [, setState] = useState(0);
   const { appLockDuration, enableAppLock } = useSettings();
   const { lastActivity, isUnlock, passwordCompleted } = useStatus();
+  const { isRuntimeUnlock } = useGeneral();
 
-  const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
-  const isKeepAlive = idleDuration < appLockDuration;
+  const refresh = useCallback(
+    () => dispatch(refreshLastActivity()),
+    [dispatch],
+  );
+  useInterval(refresh, 5 * 1000);
 
-  const onRun = useCallback(
+  const onChange = useCallback(
     (state: AppStateStatus) => {
-      if (state === 'background') {
-        dispatch(refreshLastActivity());
-        if (appLockDuration === 0) {
-          dispatch(lock());
-        }
-      } else if (state === 'active') {
-        setState((v) => v + 1);
+      if (state !== 'active') {
+        return;
+      }
+      const idleDuration = Math.floor(
+        (Date.now() - lastActivity) / (1000 * 60),
+      );
+      const isStale = idleDuration >= appLockDuration;
+      if (isStale) {
+        dispatch(lock());
       }
     },
-    [dispatch, appLockDuration, setState],
+    [dispatch, appLockDuration, lastActivity],
   );
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', onRun);
+    const subscription = AppState.addEventListener('change', onChange);
     return () => {
       // @ts-ignore
       subscription?.remove();
     };
-  }, [dispatch, onRun]);
+  }, [dispatch, onChange]);
 
   if (!passwordCompleted || !enableAppLock) {
     return <Dashboard />;
   }
 
-  if (appLockDuration === 0) {
-    return isUnlock ? <Dashboard /> : <Unlock />;
-  }
-
-  return isKeepAlive ? <Dashboard /> : <Unlock />;
+  return isUnlock && isRuntimeUnlock ? <Dashboard /> : <Unlock />;
 };
 
 export default MainScreen;

@@ -7,23 +7,29 @@ import {
   ValuedToken,
   changeActiveOwnedToken,
   changeActiveTokens,
+  updateTokensPrice,
 } from '../store/reducers/general';
 
 import { useAppDispatch, useAppSelector } from './redux';
 
 export const useManageTokens = () => {
-  const { activeAccount, activeNetwork, tokens, ownedTokens } = useAppSelector(
-    (s) => s.general,
-  );
+  const { activeAccount, activeNetwork, tokens, ownedTokens, tokensPrice } =
+    useAppSelector((s) => s.general);
   const dispatch = useAppDispatch();
 
-  const { allTokens } = useMemo(() => {
-    let allListData: Token[] = [];
-    if (activeAccount && activeNetwork) {
-      allListData =
-        tokens[activeAccount?.id]?.[activeNetwork?.network.id] ?? [];
+  const prices = useMemo(() => {
+    if (!activeNetwork) {
+      return {};
     }
-    return { allTokens: allListData };
+    return tokensPrice[activeNetwork.network.id] ?? {};
+  }, [tokensPrice, activeNetwork]);
+
+  const { allTokens } = useMemo(() => {
+    let data: Token[] = [];
+    if (activeAccount && activeNetwork) {
+      data = tokens[activeAccount?.id]?.[activeNetwork?.network.id] ?? [];
+    }
+    return { allTokens: data };
   }, [tokens, activeAccount, activeNetwork]);
 
   const { accountTokens, accountTokensMap, accountTokensSet, nativeToken } =
@@ -70,15 +76,21 @@ export const useManageTokens = () => {
             ),
           );
         }
+        const addressList = list
+          .filter((i) => i.tokenIdOnNetwork)
+          .map((token) => token.tokenIdOnNetwork);
+
         engine
-          .getAccountBalance(
-            accountId,
-            networkId,
-            list
-              .filter((i) => i.tokenIdOnNetwork)
-              .map((token) => token.tokenIdOnNetwork),
-            true,
-          )
+          .getPrices(activeNetwork.network.id, addressList, true)
+          .then((priceData) => {
+            if (networkId !== activeNetwork.network.id) {
+              return;
+            }
+            dispatch(updateTokensPrice(priceData));
+          });
+
+        engine
+          .getAccountBalance(accountId, networkId, addressList, true)
           .then((balanceData) => {
             if (
               networkId !== activeNetwork.network.id ||
@@ -117,6 +129,7 @@ export const useManageTokens = () => {
     accountTokensSet,
     accountTokens,
     allTokens,
+    prices,
     updateTokens,
     updateAccountTokens,
   };

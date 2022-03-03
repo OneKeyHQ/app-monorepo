@@ -1,12 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
-import {
-  useFocusEffect,
-  useIsFocused,
-  useNavigation,
-} from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,11 +23,7 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import {
-  useActiveWalletAccount,
-  useSettings,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { useManageTokens } from '../../../hooks/useManageTokens';
 import {
@@ -83,33 +75,9 @@ const ListHeaderComponent = () => {
 
 const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
-  const { accountTokens, updateAccountTokens } = useManageTokens();
+  const { accountTokens, updateAccountTokens, prices } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const [mainTokenPrice, setMainTokenPrice] =
-    useState<Record<string, string>>();
-  const isFocused = useIsFocused();
-  const [loading, setIsLoading] = useState(false);
-  const { autoRefreshTimeStamp } = useSettings();
-  const idList = accountTokens.map((token) => token.tokenIdOnNetwork);
-  useEffect(() => {
-    async function main() {
-      if (!network?.network?.id || !account?.id) return;
-
-      setIsLoading(true);
-
-      const prices = await engine.getPrices(network.network.id, idList, true);
-      setMainTokenPrice(prices);
-      setIsLoading(false);
-    }
-
-    try {
-      if (isFocused) main();
-    } catch (error) {
-      console.warn('AssetsList', error);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [network, account?.id, isFocused, idList.join(','), autoRefreshTimeStamp]);
 
   useFocusEffect(updateAccountTokens);
 
@@ -134,7 +102,7 @@ const AssetsList = () => {
           navigation.navigate(HomeRoutes.ScreenTokenDetail, {
             accountId: account?.id ?? '',
             networkId: item.networkId ?? '',
-            tokenId: item.id ?? '',
+            tokenId: item.tokenIdOnNetwork ?? '',
           });
         }}
       >
@@ -149,15 +117,15 @@ const AssetsList = () => {
               }}
               render={(ele) => (
                 <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {loading ? '-' : ele}
+                  {!prices?.[mapKey] ? '-' : ele}
                 </Text>
               )}
             />
             <FormatCurrency
-              numbers={[item.balance, mainTokenPrice?.[mapKey]]}
+              numbers={[item.balance, prices?.[mapKey]]}
               render={(ele) => (
                 <Typography.Body2 color="text-subdued">
-                  {loading ? '-' : ele}
+                  {!prices?.[mapKey] ? '-' : ele}
                 </Typography.Body2>
               )}
             />
@@ -166,7 +134,7 @@ const AssetsList = () => {
             <Box ml={3} mr={20} flexDirection="row" flex={1}>
               <Icon size={20} name="ActivityOutline" />
               <FormatCurrency
-                numbers={[item.balance, mainTokenPrice?.[mapKey]]}
+                numbers={[item.balance, prices?.[mapKey]]}
                 render={(ele) => (
                   <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
                 )}
