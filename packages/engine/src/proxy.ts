@@ -111,17 +111,19 @@ function fillUnsignedTx(
     [key: string]: any;
   };
   const { maxFeePerGas, maxPriorityFeePerGas } = payload as {
-    maxFeePerGas: BigNumber;
-    maxPriorityFeePerGas: BigNumber;
+    maxFeePerGas: string;
+    maxPriorityFeePerGas: string;
   };
   if (
-    maxFeePerGas instanceof BigNumber &&
-    maxPriorityFeePerGas instanceof BigNumber
+    typeof maxFeePerGas === 'string' &&
+    typeof maxPriorityFeePerGas === 'string'
   ) {
-    payload.maxFeePerGas = maxFeePerGas.shiftedBy(network.feeDecimals);
-    payload.maxPriorityFeePerGas = maxPriorityFeePerGas.shiftedBy(
+    payload.maxFeePerGas = new BigNumber(maxFeePerGas).shiftedBy(
       network.feeDecimals,
     );
+    payload.maxPriorityFeePerGas = new BigNumber(
+      maxPriorityFeePerGas,
+    ).shiftedBy(network.feeDecimals);
     payload.EIP1559Enabled = true;
   }
   return {
