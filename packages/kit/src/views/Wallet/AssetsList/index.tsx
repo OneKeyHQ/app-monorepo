@@ -102,7 +102,7 @@ const AssetsList = () => {
           navigation.navigate(HomeRoutes.ScreenTokenDetail, {
             accountId: account?.id ?? '',
             networkId: item.networkId ?? '',
-            tokenId: item.id ?? '',
+            tokenId: item.tokenIdOnNetwork ?? '',
           });
         }}
       >

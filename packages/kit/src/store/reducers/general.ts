@@ -30,7 +30,7 @@ const initialState: GeneralInitialState = {
   ownedTokens: {},
   tokensPrice: {},
   // eslint-disable-next-line
-  isRuntimeUnlock: !__DEV__, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
+  isRuntimeUnlock: __DEV__, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
 };
 
 export const generalSlice = createSlice({

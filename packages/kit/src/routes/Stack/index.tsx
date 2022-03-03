@@ -130,7 +130,7 @@ const MainScreen = () => {
     return <Dashboard />;
   }
 
-  return isUnlock && !isRuntimeUnlock ? <Dashboard /> : <Unlock />;
+  return isUnlock && isRuntimeUnlock ? <Dashboard /> : <Unlock />;
 };
 
 export default MainScreen;

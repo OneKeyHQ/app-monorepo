@@ -117,6 +117,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     section,
   }) => (
     <Pressable.Item
+      key={item.txHash}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       mb={index === section.data.length - 1 ? 6 : undefined}

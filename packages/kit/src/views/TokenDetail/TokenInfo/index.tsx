@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC, useMemo } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,7 +17,6 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -28,72 +27,27 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useManageTokens } from '../../../hooks/useManageTokens';
 import { Network } from '../../../store/reducers/network';
 import extUtils from '../../../utils/extUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
-  accountId: string | null | undefined;
   token: TokenDO | null | undefined;
   network: Network | null | undefined;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
-  const isVertical = useIsVerticalLayout();
+const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const intl = useIntl();
-  const isFocused = useIsFocused();
+  const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
-  const [amount, setAmount] = useState<string>();
-  const [tokenPrice, setTokenPrice] = useState<string>();
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    async function main() {
-      if (
-        !accountId ||
-        !network?.id ||
-        !token?.networkId ||
-        !token?.tokenIdOnNetwork
-      )
-        return;
-
-      setLoading(true);
-      const result = await engine.getAccountBalance(
-        accountId,
-        token?.networkId ?? network.id,
-        token?.tokenIdOnNetwork ? [token?.tokenIdOnNetwork] : [],
-        true,
-      );
-
-      const prices = await engine.getPrices(
-        network.id,
-        token?.tokenIdOnNetwork ? [token?.tokenIdOnNetwork] : [],
-        !token?.tokenIdOnNetwork,
-      );
-
-      setLoading(false);
-      if (token.tokenIdOnNetwork) {
-        setAmount(result[token.tokenIdOnNetwork] ?? '0');
-        setTokenPrice(prices?.[token.tokenIdOnNetwork]);
-      } else {
-        setAmount(result.main ?? '0');
-        setTokenPrice(prices?.main);
-      }
-    }
-    try {
-      if (isFocused) main();
-    } catch (error) {
-      console.warn('TokenInfo', error);
-    }
-  }, [
-    accountId,
-    token?.tokenIdOnNetwork,
-    token?.networkId,
-    isFocused,
-    network?.id,
-  ]);
+  const { accountTokensMap, prices } = useManageTokens();
+  const amount = accountTokensMap.get(
+    token?.tokenIdOnNetwork ?? 'main',
+  )?.balance;
+  const tokenPrice = prices[token?.tokenIdOnNetwork ?? 'main'];
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -112,23 +66,18 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
               }}
               as={Typography.DisplayXLarge}
               render={(ele) => (
-                <Typography.DisplayXLarge>
-                  {loading ? '-' : ele}
-                </Typography.DisplayXLarge>
+                <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
               )}
             />
           </Box>
           <FormatCurrency
             numbers={[amount, tokenPrice]}
-            render={(ele) => (
-              <Typography.Body2 mt={1}>{loading ? '-' : ele}</Typography.Body2>
-            )}
+            render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
           />
         </Box>
       </Box>
     ),
     [
-      loading,
       isVertical,
       token?.logoURI,
       token?.symbol,
@@ -148,11 +97,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
           minW={{ base: '126px', md: 'auto' }}
           isDisabled={wallet?.type === 'watching'}
           type="basic"
-          // onPress={() => {
-          //   navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
-          //     screen: ModalRoutes.Send,
-          //   });
-          // }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
@@ -170,7 +114,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
                 screen: ReceiveTokenRoutes.ReceiveToken,
                 params: {
                   address: (account as any)?.address,
-                  name: account?.name ?? '',
+                  name: '',
                 },
               },
             });
