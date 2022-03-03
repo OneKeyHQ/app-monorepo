@@ -1,17 +1,15 @@
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import {
-  IInjectedProviderNamesStrings,
-  IJsBridgeReceiveHandler,
-} from '@onekeyfe/cross-inpage-provider-types';
-
-import {
+import type {
   PromiseContainerCallbackCreate,
   PromiseContainerReject,
   PromiseContainerResolve,
 } from './PromiseContainer';
-
 import type PromiseContainer from './PromiseContainer';
 import type WalletApi from './WalletApi';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type {
+  IInjectedProviderNamesStrings,
+  IJsBridgeReceiveHandler,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IBackgroundApiBridge {
   connectBridge(bridge: JsBridgeBase): void;

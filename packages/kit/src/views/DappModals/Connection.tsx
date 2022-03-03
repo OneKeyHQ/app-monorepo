@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
 
-import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -15,7 +14,6 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
