@@ -12,7 +12,12 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
-import { useAppDispatch, useSettings, useStatus, useGeneral } from '../../hooks/redux';
+import {
+  useAppDispatch,
+  useGeneral,
+  useSettings,
+  useStatus,
+} from '../../hooks/redux';
 import useInterval from '../../hooks/useInterval';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import Dev from '../Dev';
@@ -89,7 +94,7 @@ const MainScreen = () => {
   const dispatch = useAppDispatch();
   const { appLockDuration, enableAppLock } = useSettings();
   const { lastActivity, isUnlock, passwordCompleted } = useStatus();
-  const { isUnlockOnce } =  useGeneral()
+  const { isRuntimeUnlock } = useGeneral();
 
   const refresh = useCallback(
     () => dispatch(refreshLastActivity()),
@@ -125,7 +130,7 @@ const MainScreen = () => {
     return <Dashboard />;
   }
 
-  return isUnlock && isUnlockOnce ? <Dashboard /> : <Unlock />;
+  return isUnlock && !isRuntimeUnlock ? <Dashboard /> : <Unlock />;
 };
 
 export default MainScreen;

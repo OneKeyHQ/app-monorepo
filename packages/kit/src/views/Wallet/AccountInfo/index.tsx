@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,11 +17,9 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
   useAppSelector,
-  useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -32,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useManageTokens } from '../../../hooks/useManageTokens';
 import extUtils from '../../../utils/extUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -42,40 +41,11 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
 const AccountInfo = () => {
   const intl = useIntl();
   const isSmallView = useIsVerticalLayout();
-  const isFocused = useIsFocused();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [mainTokenBalance, setMainTokenBalance] =
-    useState<Record<string, any>>();
-  const [mainTokenPrice, setMainTokenPrice] =
-    useState<Record<string, string>>();
-  const [loading, setLoading] = useState(false);
-  const { autoRefreshTimeStamp } = useSettings();
+  const { prices, nativeToken, updateAccountTokens } = useManageTokens();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
   const { wallet, account } = useActiveWalletAccount();
-
-  useEffect(() => {
-    async function main() {
-      if (!activeNetwork?.id || !account?.id) return;
-      setLoading(true);
-
-      try {
-        const [balance, prices] = await Promise.all([
-          engine.getAccountBalance(account.id, activeNetwork?.id, [], true),
-          engine.getPrices(activeNetwork?.id, [], true),
-        ]);
-        setMainTokenBalance(balance);
-        setMainTokenPrice(prices);
-      } catch (e) {
-        // e
-      }
-      setLoading(false);
-    }
-    try {
-      if (isFocused) main();
-    } catch (error) {
-      console.warn('AccountInfo', error);
-    }
-  }, [activeNetwork, account?.id, isFocused, autoRefreshTimeStamp]);
+  useEffect(updateAccountTokens, [updateAccountTokens]);
 
   const renderAccountAmountInfo = useCallback(
     (isCenter: boolean) => (
@@ -85,7 +55,7 @@ const AccountInfo = () => {
         </Typography.Subheading>
         <Box flexDirection="row" mt={2}>
           <FormatBalance
-            balance={mainTokenBalance?.main}
+            balance={nativeToken?.balance}
             suffix={activeNetwork?.symbol?.toUpperCase?.()}
             as={Typography.DisplayXLarge}
             formatOptions={{
@@ -93,29 +63,30 @@ const AccountInfo = () => {
             }}
             render={(ele) => (
               <Typography.DisplayXLarge>
-                {loading ? '-' : ele}
+                {!nativeToken?.balance ? '-' : ele}
               </Typography.DisplayXLarge>
             )}
           />
         </Box>
         <FormatCurrency
           numbers={[
-            mainTokenPrice?.main,
-            mainTokenBalance?.main,
-            loading ? undefined : 1,
+            prices?.main,
+            nativeToken?.balance,
+            !nativeToken?.balance ? undefined : 1,
           ]}
           render={(ele) => (
-            <Typography.Body2 mt={1}>{loading ? '-' : ele}</Typography.Body2>
+            <Typography.Body2 mt={1}>
+              {!nativeToken?.balance ? '-' : ele}
+            </Typography.Body2>
           )}
         />
       </Box>
     ),
     [
-      loading,
       intl,
-      mainTokenBalance,
+      nativeToken?.balance,
       activeNetwork?.symbol,
-      mainTokenPrice?.main,
+      prices.main,
       activeNetwork?.nativeDisplayDecimals,
     ],
   );

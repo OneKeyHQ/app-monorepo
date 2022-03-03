@@ -19,8 +19,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import engine from '../../engine/EngineProvider';
 import { useAppDispatch } from '../../hooks/redux';
+import { runtimeUnlock } from '../../store/reducers/general';
 import { unlock } from '../../store/reducers/status';
-import { unlockOnce } from '../../store/reducers/general'
 
 type UnlockButtonProps = {
   onOk?: (passowrd: string) => void;
@@ -58,7 +58,7 @@ const Unlock = () => {
       const isOk = await engine.verifyMasterPassword(values.password);
       if (isOk) {
         dispatch(unlock());
-        dispatch(unlockOnce());
+        dispatch(runtimeUnlock());
       } else {
         setError('password', {
           message: intl.formatMessage({
