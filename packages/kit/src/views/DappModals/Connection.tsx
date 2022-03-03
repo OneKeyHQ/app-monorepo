@@ -74,11 +74,15 @@ const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const { account } = useActiveWalletAccount();
-  const accountInfo = account as SimpleAccount;
-  const computedIsRug = isRug(MockData.target.link);
+  const accountInfo = account as SimpleAccount | null;
   const { origin, data, scope, id } = useDappParams();
+  const computedIsRug = isRug(origin);
 
   const getResolveData = useCallback(() => {
+    if (!accountInfo) {
+      return null;
+    }
+
     let accounts: string | string[] | { accounts: string[] } = [
       accountInfo.address,
     ];
@@ -95,7 +99,7 @@ const Connection = () => {
       accounts = accountInfo.address;
     }
     return accounts;
-  }, [accountInfo.address, scope]);
+  }, [accountInfo, scope]);
 
   const dappApprove = useDappApproveAction({
     id,
@@ -157,10 +161,10 @@ const Connection = () => {
                       <Text
                         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                       >
-                        {accountInfo.name}
+                        {accountInfo?.name}
                       </Text>
                       <Typography.Body2 textAlign="right" color="text-subdued">
-                        {accountInfo.address}
+                        {accountInfo?.address}
                       </Typography.Body2>
                     </Column>
                   }

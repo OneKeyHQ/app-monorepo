@@ -120,12 +120,13 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
     () => (
       <HStack space={2} mt={2}>
         {getTransferNFTList(transaction).map((nft, index) => {
+          const key = `${nft}${index}`;
           if (index < 2) {
-            return <NFTView src={nft} key={nft} size={24} />;
+            return <NFTView src={nft} key={key} size={24} />;
           }
           if (index === 2) {
             return (
-              <Center width={24} height={24} key={nft}>
+              <Center width={24} height={24} key={key}>
                 <Icon size={5} name="DotsHorizontalSolid" />
               </Center>
             );
