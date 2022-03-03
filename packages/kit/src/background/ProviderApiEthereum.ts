@@ -7,6 +7,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 // import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+// import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -154,6 +155,50 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
+
+  // ----------------------------------------------
+
+  /*
+  private async signMessage(
+    type: ETHMessageTypes,
+    message: string,
+  ): Promise<string> {
+    const networkId = `${IMPL_EVM}--${this._getCurrentChainId()}`;
+    const password = '';
+    const accountId = '';
+    const signatures = await engine.signMessage(
+      password,
+      networkId,
+      accountId,
+      [{ type, message }],
+    );
+    return signatures[0];
+  }
+
+  personal_sign(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.PERSONAL_SIGN, message);
+  }
+
+  eth_sign(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.ETH_SIGN, message);
+  }
+
+  eth_signTypedData(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.TYPED_DATA_V1, message);
+  }
+
+  eth_signTypedData_v1(message: string): Promise<string> {
+    return this.eth_signTypedData(message);
+  }
+
+  eth_signTypedData_v3(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.TYPED_DATA_V3, message);
+  }
+
+  eth_signTypedData_v4(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.TYPED_DATA_V4, message);
+  }
+  */
 }
 
 export default ProviderApiEthereum;

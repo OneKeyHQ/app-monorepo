@@ -4,10 +4,9 @@ import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
-
-import { IJsonRpcRequest } from '@onekeyhq/inpage-provider/src/types';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
@@ -65,6 +64,7 @@ import {
   HistoryEntryStatus,
   HistoryEntryType,
 } from './types/history';
+import { Message } from './types/message';
 import {
   AddNetworkParams,
   EIP1559Fee,
@@ -709,9 +709,32 @@ class Engine {
     }
   }
 
+  async signMessage(
+    password: string,
+    networkId: string,
+    accountId: string,
+    messages: Array<Message>,
+    _ref?: string,
+  ): Promise<Array<string>> {
+    const [credential, network, account] = await Promise.all([
+      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+      this.getNetwork(networkId),
+      this.getAccount(accountId, networkId),
+    ]);
+    // TODO: address check needed?
+    const signatures = await this.providerManager.signMessages(
+      credential.seed,
+      password,
+      network,
+      account,
+      messages,
+    );
+    // TODO: add history
+    return signatures;
+  }
+
   // TODO: sign & broadcast.
   // signTransaction
-  // signMessage
   // broadcastRawTransaction
 
   async getHistory(
