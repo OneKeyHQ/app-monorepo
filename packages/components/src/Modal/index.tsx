@@ -27,8 +27,14 @@ export type ModalProps = {
   closeable?: boolean;
   primaryActionTranslationId?: string;
   secondaryActionTranslationId?: string;
-  onPrimaryActionPress?: ({ onClose }: { onClose?: () => void }) => void;
-  onSecondaryActionPress?: () => void;
+  onPrimaryActionPress?: ({
+    onClose,
+    close,
+  }: {
+    onClose?: () => void;
+    close: () => void;
+  }) => void;
+  onSecondaryActionPress?: ({ close }: { close: () => void }) => void;
   hidePrimaryAction?: boolean;
   hideSecondaryAction?: boolean;
   primaryActionProps?: ComponentProps<typeof Button>;

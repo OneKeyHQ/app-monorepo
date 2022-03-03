@@ -5,14 +5,16 @@ import {
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
   IJsonRpcRequest,
+  IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IBackgroundApiBridge } from './BackgroundApiProxy';
 import { INTERNAL_METHOD_PREFIX } from './decorators';
+import { IBackgroundApiBridge } from './IBackgroundApi';
+import PromiseContainer from './PromiseContainer';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
@@ -43,11 +45,12 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
     extensionUrl.startsWith(origin)
   );
 }
-
 class BackgroundApiBase implements IBackgroundApiBridge {
   constructor({ walletApi }: { walletApi: WalletApi }) {
     this.walletApi = walletApi;
   }
+
+  promiseContainer: PromiseContainer = new PromiseContainer();
 
   walletApi: WalletApi;
 
@@ -62,6 +65,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi: this,
     }),
+    // near
     // conflux
     // solana
     // sollet
@@ -74,7 +78,15 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.bridge = bridge;
   }
 
-  handleProviderMethods(payload: IJsBridgeMessagePayload) {
+  protected rpcResult(result: any) {
+    return {
+      id: undefined,
+      jsonrpc: '2.0',
+      result,
+    };
+  }
+
+  async handleProviderMethods(payload: IJsBridgeMessagePayload) {
     const { scope, origin } = payload;
     const provider: ProviderApiBase | null = this.providers[scope as string];
     if (!provider) {
@@ -90,7 +102,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         `${origin as string} is not allowed to call $private methods.`,
       );
     }
-    return provider.handleMethods(payload);
+    // throw web3Errors.provider.custom({
+    //   code: 3881,
+    //   message: 'test custom error to dapp',
+    // });
+    const result = (await provider.handleMethods(
+      payload,
+    )) as IJsonRpcResponse<any>;
+    return this.rpcResult(result);
   }
 
   async _bridgeReceiveHandler(payload: IJsBridgeMessagePayload): Promise<any> {

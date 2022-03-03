@@ -4,11 +4,28 @@ import cloneDeep from 'lodash/cloneDeep';
 import store from '../store';
 
 import BackgroundApiBase from './BackgroundApiBase';
-import { IBackgroundApi } from './BackgroundApiProxy';
 import { backgroundMethod } from './decorators';
+import { IBackgroundApi } from './IBackgroundApi';
+import {
+  PromiseContainerCallbackCreate,
+  PromiseContainerReject,
+  PromiseContainerResolve,
+} from './PromiseContainer';
 import ProviderApiBase from './ProviderApiBase';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
+  createPromiseCallback(params: PromiseContainerCallbackCreate): number {
+    return this.promiseContainer.createCallback(params);
+  }
+
+  resolvePromiseCallback(params: PromiseContainerResolve): void {
+    return this.promiseContainer.resolveCallback(params);
+  }
+
+  rejectPromiseCallback(params: PromiseContainerReject): void {
+    return this.promiseContainer.rejectCallback(params);
+  }
+
   get accounts() {
     return this.walletApi.accounts;
   }

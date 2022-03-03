@@ -22,7 +22,7 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IBackgroundApi } from '../background/BackgroundApiProxy';
+import { IBackgroundApi } from '../background/IBackgroundApi';
 
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
