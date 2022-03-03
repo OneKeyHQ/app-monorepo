@@ -64,27 +64,31 @@ export const SettingsWebViews: FC = () => {
   };
 
   useEffect(() => {
-    switch (currentOptionType) {
-      case 'refresh':
-        onRefresh();
-        setCurrentOptionType(null);
-        break;
-      case 'share':
-        onShare();
-        setCurrentOptionType(null);
-        break;
-      case 'copyUrl':
-        copyToClipboard(currentUrl ?? '');
-        toast.info(intl.formatMessage({ id: 'msg__copied' }));
-        setCurrentOptionType(null);
-        break;
-      case 'openInBrowser':
-        openBrowser.openUrlExternal(currentUrl);
-        setCurrentOptionType(null);
-        break;
-      default:
-        break;
+    function main() {
+      switch (currentOptionType) {
+        case 'refresh':
+          onRefresh();
+          setCurrentOptionType(null);
+          break;
+        case 'share':
+          onShare();
+          setCurrentOptionType(null);
+          break;
+        case 'copyUrl':
+          copyToClipboard(currentUrl ?? '');
+          toast.info(intl.formatMessage({ id: 'msg__copied' }));
+          setCurrentOptionType(null);
+          break;
+        case 'openInBrowser':
+          openBrowser.openUrlExternal(currentUrl);
+          setCurrentOptionType(null);
+          break;
+        default:
+          break;
+      }
     }
+
+    setTimeout(() => main(), 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentOptionType]);
 
