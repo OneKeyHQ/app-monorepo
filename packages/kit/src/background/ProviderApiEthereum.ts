@@ -1,10 +1,10 @@
-/* eslint-disable camelcase */
-
+/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase */
 import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { ethErrors } from 'eth-rpc-errors';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,12 +41,58 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // ----------------------------------------------
 
+  /**
+   * Depends on the data we have, show contract call or send confirm modal to the user
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Multicall.tsx").default} contract modal
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/SendConfirm.tsx").default} send modal
+   *
+   * Example:
+   * const result = await ethereum.request({
+   *    method: 'eth_sendTransaction',
+   *    params: [
+   *      {
+   *        from: accounts[0],
+   *        to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
+   *        value: '0x0',
+   *        gasLimit: '0x5028',
+   *        gasPrice: '0x2540be400',
+   *        type: '0x0',
+   *      },
+   *    ],
+   *  });
+   */
   @permissionRequired()
-  eth_sendTransaction() {
+  eth_sendTransaction(
+    req,
+    { from, to, value, gasLimit, gasPrice, data, nonce },
+  ) {
     if (platformEnv.isExtension) {
       return extUtils.openApprovalWindow();
     }
     return Promise.resolve({ txid: '111110000' });
+  }
+
+  /**
+   * Add token to user wallet
+   * const result = await ethereum.request({
+   *   method: 'wallet_watchAsset',
+   *   params: {
+   *     type: 'ERC20',
+   *     options: {
+   *       address: contract.address,
+   *       symbol: _tokenSymbol,
+   *       decimals: _decimalUnits,
+   *       image: 'https://metamask.github.io/test-dapp/metamask-fox.svg',
+   *     },
+   *   },
+   * });
+   */
+  @permissionRequired()
+  wallet_watchAsset(
+    req,
+    { type, options: { address, symbol, decimals, image } },
+  ) {
+    return this.rpcResult({});
   }
 
   async wallet_getDebugLoggerSettings() {
@@ -65,18 +111,38 @@ class ProviderApiEthereum extends ProviderApiBase {
       ],
     });
     return result;
-
-    // TODO show approval confirmation, skip in whitelist domain
-    // if (!this.walletApi.isConnected) {
-    //   // this.walletApi.isConnected = true;
-    // }
-    //
-    // return this.eth_accounts();
   }
 
   eth_coinbase() {
     // TODO some different with eth_accounts, check metamask code source
     return this.eth_accounts();
+  }
+
+  /** Sign transaction
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
+   */
+  eth_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
+    if (params[1].length === 66 || params[1].length === 67) {
+      // const rawSignature = await addUnapprovedMessage({
+      //   data: params[1]
+      //   from: params[0]
+      // // dapp metadata
+      //   ...{
+      //     url, title, icon
+      //   },
+      //   origin: req.origin
+      // })
+      // return signature
+      throw new Error('eth_signTransaction not supported yet');
+    }
+    throw ethErrors.rpc.invalidParams('eth_sign requires 32 byte message hash');
+  }
+
+  /** Sign unapproved message
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
+   */
+  eth_sign(req: IJsBridgeMessagePayload, ...[msg, from, passphrase]) {
+    throw new Error('eth_sign not supported yet');
   }
 
   eth_accounts() {
@@ -122,6 +188,31 @@ class ProviderApiEthereum extends ProviderApiBase {
   eth_subscription() {
     // TODO
     return {};
+  }
+
+  /**
+   * Add new chain to wallet and switch to it, we also need a request modal UI
+   */
+  wallet_addEthereumChain(
+    req: IJsBridgeMessagePayload,
+    {
+      chainId,
+      chainName = null,
+      blockExplorerUrls = null,
+      nativeCurrency = null,
+      rpcUrls,
+    },
+  ) {
+    // TODO
+    return this.rpcResult({});
+  }
+
+  /**
+   * Add switch to a chain, we also need a request modal UI
+   */
+  wallet_switchEthereumChain(req: IJsBridgeMessagePayload, { chainId }) {
+    // TODO
+    return this.rpcResult({});
   }
 
   // ----------------------------------------------

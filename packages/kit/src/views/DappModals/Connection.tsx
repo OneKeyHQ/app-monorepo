@@ -28,30 +28,10 @@ type Permission = {
 };
 
 const MockData = {
-  account: {
-    address: '0x4d16878c270x4d16878c270x4',
-    name: 'ETH #1',
-  },
-  // target: {
-  //   avatar:
-  //     'https://raw.githubusercontent.com/Uniswap/interface/main/public/images/512x512_App_Icon.png',
-  //   name: 'Uniswap',
-  //   link: 'app.uniswap.org',
-  // },
-  target: {
-    avatar:
-      'https://raw.githubusercontent.com/pancakeswap/pancake-frontend/develop/public/logo.png',
-    name: 'Pancakeswap',
-    link: 'pancakeswap.finance',
-  },
   permissions: [
     {
       type: 'view-addresses',
       required: true,
-    },
-    {
-      type: 'A fake permission',
-      required: false,
     },
   ] as Permission[],
 };
@@ -65,7 +45,7 @@ const getPermissionTransId = (type: PermissionType) => {
   }
 };
 const isRug = (target: string) => {
-  const RUG_LIST = ['app.uniswap.org'];
+  const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
 };
 
@@ -75,8 +55,8 @@ const Connection = () => {
   const intl = useIntl();
   const { account } = useActiveWalletAccount();
   const accountInfo = account as SimpleAccount;
-  const computedIsRug = isRug(MockData.target.link);
   const { origin, data, scope, id } = useDappParams();
+  const computedIsRug = isRug(origin);
 
   const getResolveData = useCallback(() => {
     let accounts: string | string[] | { accounts: string[] } = [
@@ -116,9 +96,7 @@ const Connection = () => {
       <RugConfirmDialog
         visible={rugConfirmDialogVisible}
         onCancel={() => setRugConfirmDialogVisible(false)}
-        onConfirm={() => {
-          // Do something
-        }}
+        onConfirm={() => setRugConfirmDialogVisible(false)}
       />
       {/* Main Modal */}
       <Modal
@@ -141,7 +119,7 @@ const Connection = () => {
             // Add padding to escape the footer
             <Column flex="1" pb="20" space={6}>
               <Center>
-                <Token src={MockData.target.avatar} size="56px" />
+                <Token size="56px" />
                 <Typography.Heading mt="8px">
                   {data?.method}:{id}
                 </Typography.Heading>
@@ -150,7 +128,7 @@ const Connection = () => {
                 {/* Account */}
                 <DescriptionListItem
                   title={intl.formatMessage({
-                    id: 'content__account_lowercase',
+                    id: 'form__account',
                   })}
                   detail={
                     <Column alignItems="flex-end" w="auto" flex={1}>

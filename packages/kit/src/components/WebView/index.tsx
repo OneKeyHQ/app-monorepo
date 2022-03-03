@@ -236,7 +236,6 @@ function WebView({
                     if (!jsBridge) {
                       return;
                     }
-                    console.log('11111');
                     const newName = `Desktop OneKey-${Date.now()
                       .toString()
                       .slice(-4)}`;
