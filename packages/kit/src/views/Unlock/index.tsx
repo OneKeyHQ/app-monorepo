@@ -20,6 +20,7 @@ import LocalAuthenticationButton from '../../components/LocalAuthenticationButto
 import engine from '../../engine/EngineProvider';
 import { useAppDispatch } from '../../hooks/redux';
 import { unlock } from '../../store/reducers/status';
+import { unlockOnce } from '../../store/reducers/general'
 
 type UnlockButtonProps = {
   onOk?: (passowrd: string) => void;
@@ -57,6 +58,7 @@ const Unlock = () => {
       const isOk = await engine.verifyMasterPassword(values.password);
       if (isOk) {
         dispatch(unlock());
+        dispatch(unlockOnce());
       } else {
         setError('password', {
           message: intl.formatMessage({

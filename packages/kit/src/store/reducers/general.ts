@@ -18,6 +18,7 @@ export type GeneralInitialState = {
   } | null;
   tokens: Record<string, Record<string, Token[]>>;
   ownedTokens: Record<string, Record<string, ValuedToken[]>>;
+  isUnlockOnce: Boolean;
 };
 
 const initialState: GeneralInitialState = {
@@ -26,6 +27,7 @@ const initialState: GeneralInitialState = {
   activeWallet: null,
   tokens: {},
   ownedTokens: {},
+  isUnlockOnce: false, // isUnlockOnce is in memory, so when app was killed/reload, it will be reset to false
 };
 
 export const generalSlice = createSlice({
@@ -66,10 +68,13 @@ export const generalSlice = createSlice({
           action.payload;
       }
     },
+    unlockOnce(state) {
+      state.isUnlockOnce = true
+    }
   },
 });
 
-export const { changeActiveTokens, changeActiveOwnedToken } =
+export const { changeActiveTokens, changeActiveOwnedToken, unlockOnce } =
   generalSlice.actions;
 
 const { $changeActiveAccount, $changeActiveNetwork } = generalSlice.actions;
