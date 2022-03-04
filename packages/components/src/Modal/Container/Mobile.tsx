@@ -8,12 +8,17 @@ import {
 } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import Typography from '../../Typography';
+
+import useModalClose from './useModalClose';
 
 import type { ModalProps } from '..';
 
@@ -38,12 +43,7 @@ const MobileModal: FC<ModalProps> = ({
   const index = useNavigationState((state) => state.index);
   const [currentStackIndex, setCurrentStackIndex] = useState(0);
 
-  const close = useCallback(() => {
-    if (onClose) {
-      onClose();
-    }
-    navigation.getParent()?.goBack?.();
-  }, [navigation, onClose]);
+  const close = useModalClose({ onClose });
 
   useFocusEffect(() => {
     setCurrentStackIndex(index);

@@ -27,6 +27,7 @@ import { IBackgroundApi } from '../background/IBackgroundApi';
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
+import dappReducer from './reducers/dapp';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
 import networkReducer from './reducers/network';
@@ -43,6 +44,7 @@ const allReducers = combineReducers({
   network: networkReducer,
   general: generalReducer,
   fiatMoney: fiatMoneyReducer,
+  dapp: dappReducer,
   counter,
 });
 
@@ -67,7 +69,7 @@ const persistConfig = {
   key: 'ONEKEY_WALLET',
   version: 1,
   storage: AsyncStorage,
-  whitelist: ['settings', 'status'],
+  whitelist: ['settings', 'status', 'dapp'],
 };
 
 export function makeStore() {

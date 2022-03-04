@@ -17,7 +17,11 @@ import {
   StackRoutes,
 } from '@onekeyhq/kit/src/routes/Dev';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../hooks/redux';
+import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import HelpSelector from '../Help/HelpSelector';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -31,6 +35,17 @@ type NavigationProps = CompositeNavigationProp<
 const Me = () => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
+  const connections = useAppSelector((s) => s.dapp.connections);
+
+  const pressableProps = {
+    p: '4',
+    bg: 'surface-default',
+    borderRadius: '12px',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadow: 'depth.2',
+  } as any;
 
   return (
     <Box bg="background-default" flex="1">
@@ -101,6 +116,22 @@ const Me = () => {
               </HStack>
               <Icon name="ChevronRightOutline" size={12} />
             </Pressable>
+            {platformEnv.isDev && (
+              <>
+                <Pressable
+                  {...pressableProps}
+                  onPress={() => {
+                    backgroundApiProxy.dispatchAction(
+                      dappClearSiteConnection(),
+                    );
+                  }}
+                >
+                  <Typography.Body1>
+                    断开 Dapp 连接 ({connections.length})
+                  </Typography.Body1>
+                </Pressable>
+              </>
+            )}
             {/* <Pressable
             p="4"
             bg="surface-default"
