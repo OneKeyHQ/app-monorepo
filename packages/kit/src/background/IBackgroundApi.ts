@@ -3,8 +3,7 @@ import type {
   PromiseContainerReject,
   PromiseContainerResolve,
 } from './PromiseContainer';
-import type PromiseContainer from './PromiseContainer';
-import type WalletApi from './WalletApi';
+import type DappService from './service/DappService';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNamesStrings,
@@ -14,11 +13,11 @@ import type {
 export interface IBackgroundApiBridge {
   connectBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
-  walletApi?: WalletApi;
   bridge?: JsBridgeBase | null;
-  promiseContainer?: PromiseContainer;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
+  dappService?: DappService;
+
   dispatchAction(action: any): void;
 
   getStoreState(): Promise<any>;
