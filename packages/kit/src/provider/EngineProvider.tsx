@@ -34,11 +34,11 @@ const EngineApp: FC = ({ children }) => {
   }, [dispatch]);
 
   useSWR('fiat-money', () => handleFiatMoneyUpdate(), {
-    refreshInterval: 1 * 60 * 60 * 1000,
+    refreshInterval: 1 * 60 * 1000,
   });
 
   useSWR('auto-refresh', () => dispatch(setAutoRefreshTimeStamp()), {
-    refreshInterval: 1 * 60 * 60 * 1000,
+    refreshInterval: 1 * 60 * 1000,
   });
 
   const hideSplashScreen = useCallback(async () => {

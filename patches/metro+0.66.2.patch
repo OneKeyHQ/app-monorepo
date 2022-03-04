@@ -1,0 +1,19 @@
+diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
+index dd7e944..e8f81d0 100644
+--- a/node_modules/metro/src/Server.js
++++ b/node_modules/metro/src/Server.js
+@@ -904,12 +904,13 @@ class Server {
+ 
+   async _symbolicate(req, res) {
+     const getCodeFrame = (urls, symbolicatedStack) => {
++
+       for (let i = 0; i < symbolicatedStack.length; i++) {
+         const { collapse, column, file, lineNumber } = symbolicatedStack[i]; // $FlowFixMe[incompatible-call]
+ 
+         const entryPoint = path.resolve(this._config.projectRoot, file);
+ 
+-        if (collapse || lineNumber == null || urls.has(entryPoint)) {
++        if (collapse || lineNumber == null || urls.has(entryPoint) || file?.startsWith?.('http')) {
+           continue;
+         }
+ 
