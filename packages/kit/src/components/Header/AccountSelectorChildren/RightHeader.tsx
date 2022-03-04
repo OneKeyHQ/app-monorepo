@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -72,6 +72,25 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isVerticalLayout = useIsVerticalLayout();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
+
+  const renderBackupState = useMemo(() => {
+    if (!selectedWallet) return null;
+    if (selectedWallet.backuped) {
+      return (
+        <Icon
+          name={isVerticalLayout ? 'CheckCircleOutline' : 'CheckCircleSolid'}
+          color="icon-success"
+        />
+      );
+    }
+    return (
+      <Icon
+        name={isVerticalLayout ? 'ExclamationOutline' : 'ExclamationSolid'}
+        color="icon-warning"
+      />
+    );
+  }, [isVerticalLayout, selectedWallet]);
+
   return (
     <HStack zIndex={99} py={3} px={4} space={4} alignItems="center">
       <VStack flex={1}>
@@ -123,6 +142,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                   ? 'ShieldCheckOutline'
                   : 'ShieldCheckSolid',
               },
+              trailing: renderBackupState,
             },
             {
               label: intl.formatMessage({ id: 'action__delete_wallet' }),

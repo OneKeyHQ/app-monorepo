@@ -5,10 +5,12 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
+import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 
 import engine from '../../../engine/EngineProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { updateWallet } from '../../../store/reducers/wallet';
 import { BackupWalletModalRoutes, BackupWalletRoutesParams } from '../routes';
 
 type RouteProps = RouteProp<
@@ -26,6 +28,7 @@ const BackupMnemonicsVerifyView: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
+  const dispatch = useAppDispatch();
   const { mnemonics, walletId } = useRoute<RouteProps>().params;
 
   const { control, handleSubmit } = useForm<MnemonicsVerifyValues>({
@@ -60,6 +63,7 @@ const BackupMnemonicsVerifyView: FC = () => {
         if (!wallet || wallet?.backuped === false)
           throw new Error("Wallet isn't backuped");
 
+        dispatch(updateWallet(wallet));
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.BackupWallet,
           params: {

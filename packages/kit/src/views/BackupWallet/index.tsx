@@ -120,7 +120,7 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
                 describe={init.formatMessage({
                   id: 'backup__onekey_lite_backup_desc',
                 })}
-                badge={init.formatMessage({ id: 'badge__backed_up' })}
+                // badge={init.formatMessage({ id: 'badge__backed_up' })}
                 badgeType="success"
                 onPress={() => onManualBackup('OnekeyLite')}
               />
