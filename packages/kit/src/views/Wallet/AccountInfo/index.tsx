@@ -21,6 +21,7 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
+import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -28,12 +29,13 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useManageTokens } from '../../../hooks/useManageTokens';
-import extUtils from '../../../utils/extUtils';
+import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
-type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
+type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
+  ModalScreenProps<SendRoutesParams>;
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 222;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
@@ -92,7 +94,15 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         leftIconName="ArrowUpSolid"
         minW={{ base: '126px', md: 'auto' }}
         type="basic"
-        isDisabled={wallet?.type === 'watching'}
+        isDisabled={wallet?.type === 'watching' || !account}
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendRoutes.Send,
+            },
+          });
+        }}
       >
         {intl.formatMessage({ id: 'action__send' })}
       </Button>
@@ -111,7 +121,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
               screen: ReceiveTokenRoutes.ReceiveToken,
               params: {
                 address: (account as SimpleAccount).address,
-                name: '',
+                name: account.name,
               },
             },
           });

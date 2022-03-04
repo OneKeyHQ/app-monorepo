@@ -9,7 +9,6 @@ import { LogBox } from 'react-native';
 import { Provider } from '@onekeyhq/kit';
 
 LogBox.ignoreLogs([
-  'Overwriting fontFamily style attribute preprocessor',
   'Require cycle',
   'recommended absolute minimum',
   'Easing was renamed to EasingNode',
@@ -17,6 +16,7 @@ LogBox.ignoreLogs([
   'Consider refactoring to remove the need for a cycle',
   'console.disableYellowBox',
   'NativeBase:',
+  'style attribute preprocessor',
 ]);
 
 console.warn = () => {};
