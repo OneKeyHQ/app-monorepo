@@ -175,7 +175,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                     id: 'msg__wrong_address_format',
                   });
                 }
-                if (accountTokensSet.has(value)) {
+                if (accountTokensSet.has(value.toLowerCase())) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });

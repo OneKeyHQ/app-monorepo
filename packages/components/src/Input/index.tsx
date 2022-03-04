@@ -1,6 +1,7 @@
 import React, { ComponentProps, ReactNode } from 'react';
 
 import { Input as BaseInput, Pressable, Stack } from 'native-base';
+import { Platform } from 'react-native';
 
 import Divider from '../Divider';
 import HStack from '../HStack';
@@ -185,7 +186,9 @@ const Input = React.forwardRef<
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',
-          cursor: 'not-allowed',
+          cursor: ['ios', 'android'].includes(Platform.OS)
+            ? undefined
+            : 'not-allowed',
         }}
         _hover={{
           bg: 'action-secondary-default', // remove this will use the background color from default theme of NativeBase
