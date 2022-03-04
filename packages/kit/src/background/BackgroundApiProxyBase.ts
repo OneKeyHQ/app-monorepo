@@ -1,12 +1,14 @@
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
 import { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
+  bridge = {} as JsBridgeBase;
+
   connectBridge(bridge: JsBridgeBase) {
     this.backgroundApi?.connectBridge(bridge);
   }
@@ -59,7 +61,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {
-    return this.callBackgroundMethod(true, method, ...params);
+    this.callBackgroundMethod(true, method, ...params);
   }
 
   callBackground(method: string, ...params: Array<any>): any {

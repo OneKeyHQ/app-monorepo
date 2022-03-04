@@ -1,16 +1,29 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
+import type { Engine } from '@onekeyhq/engine';
+
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
-import { IBackgroundApi } from './IBackgroundApi';
-import {
+
+import type { IBackgroundApi } from './IBackgroundApi';
+import type {
   PromiseContainerCallbackCreate,
   PromiseContainerReject,
   PromiseContainerResolve,
 } from './PromiseContainer';
+import type PromiseContainer from './PromiseContainer';
+import type DappService from './service/DappService';
+
+const NOOP = {};
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
   implements IBackgroundApi
 {
+  engine = NOOP as Engine;
+
+  dappService = NOOP as DappService;
+
+  promiseContainer = NOOP as PromiseContainer;
+
   // TODO add custom eslint rule to force method name match
   dispatchAction(action: any) {
     return this.callBackgroundSync('dispatchAction', action);
@@ -21,11 +34,11 @@ class BackgroundApiProxy
   }
 
   changeAccounts(address: string): void {
-    return this.callBackgroundSync('changeAccounts', address);
+    this.callBackgroundSync('changeAccounts', address);
   }
 
   changeChain(chainId: string, networkVersion?: string): void {
-    return this.callBackgroundSync('changeChain', chainId, networkVersion);
+    this.callBackgroundSync('changeChain', chainId, networkVersion);
   }
 
   notifyAccountsChanged(): void {
@@ -46,6 +59,10 @@ class BackgroundApiProxy
 
   resolvePromiseCallback(params: PromiseContainerResolve): void {
     return this.callBackground('resolvePromiseCallback', params);
+  }
+
+  listNetworks(...params: any) {
+    return this.callBackground('listNetworks', ...params);
   }
 }
 

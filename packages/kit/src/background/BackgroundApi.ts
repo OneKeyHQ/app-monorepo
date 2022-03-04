@@ -1,12 +1,15 @@
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import cloneDeep from 'lodash/cloneDeep';
 
+import type { Engine } from '@onekeyhq/engine';
+
+import engine from '../engine/EngineProvider';
 import store from '../store';
 
 import BackgroundApiBase from './BackgroundApiBase';
 import { backgroundMethod } from './decorators';
 import { IBackgroundApi } from './IBackgroundApi';
-import {
+import PromiseContainer, {
   PromiseContainerCallbackCreate,
   PromiseContainerReject,
   PromiseContainerResolve,
@@ -15,6 +18,10 @@ import ProviderApiBase from './ProviderApiBase';
 import DappService from './service/DappService';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
+  engine: Engine = engine;
+
+  promiseContainer: PromiseContainer = new PromiseContainer();
+
   dappService = new DappService({
     backgroundApi: this,
   });
@@ -52,6 +59,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return Promise.resolve(state);
   }
 
+  // ----------------------------------------------
+
   // TODO remove
   @backgroundMethod()
   changeAccounts(address: string) {
@@ -82,6 +91,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
         send: this.sendForProvider(provider.providerName),
       });
     });
+  }
+
+  @backgroundMethod()
+  listNetworks(...params: any) {
+    return this.engine.listNetworks(...params);
   }
 }
 export default BackgroundApi;

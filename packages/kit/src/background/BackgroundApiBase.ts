@@ -15,13 +15,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
 import { IBackgroundApiBridge } from './IBackgroundApi';
-import PromiseContainer from './PromiseContainer';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
 
 function throwMethodNotFound(method: string) {
-  throw new Error(`dapp provider method not support (method=${method})`);
+  throw new Error(
+    `Dapp provider or background method not support (method=${method})`,
+  );
 }
 
 function isPrivateAllowedOrigin(origin?: string) {
@@ -45,9 +46,8 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
     extensionUrl.startsWith(origin)
   );
 }
-class BackgroundApiBase implements IBackgroundApiBridge {
-  promiseContainer: PromiseContainer = new PromiseContainer();
 
+class BackgroundApiBase implements IBackgroundApiBridge {
   bridge: JsBridgeBase | null = null;
 
   bridgeExtBg: JsBridgeExtBackground | null = null;

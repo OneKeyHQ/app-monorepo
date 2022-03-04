@@ -32,7 +32,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       extUtils.openUrlInTab(url);
     }
     if (platformEnv.isDesktop || platformEnv.isNative) {
-      const bridge = this.bridge as JsBridgeDesktopHost;
+      const bridge = this.backgroundApi.bridge as JsBridgeDesktopHost;
       const webview = bridge.webviewWrapper as IWebViewWrapperRef;
       webview.loadURL(url);
     }

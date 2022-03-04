@@ -1,8 +1,11 @@
+import type { Engine } from '@onekeyhq/engine';
+
 import type {
   PromiseContainerCallbackCreate,
   PromiseContainerReject,
   PromiseContainerResolve,
 } from './PromiseContainer';
+import type PromiseContainer from './PromiseContainer';
 import type DappService from './service/DappService';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -11,20 +14,22 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IBackgroundApiBridge {
+  bridge: JsBridgeBase | null;
   connectBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
-  bridge?: JsBridgeBase | null;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
-  dappService?: DappService;
-
-  dispatchAction(action: any): void;
-
-  getStoreState(): Promise<any>;
+  engine: Engine;
+  promiseContainer: PromiseContainer;
+  dappService: DappService;
 
   createPromiseCallback(params: PromiseContainerCallbackCreate): number;
   resolvePromiseCallback(params: PromiseContainerResolve): void;
   rejectPromiseCallback(params: PromiseContainerReject): void;
+
+  dispatchAction(action: any): void;
+
+  getStoreState(): Promise<any>;
 
   // ----------------------------------------------
   changeAccounts(address: string): void;
@@ -34,6 +39,8 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   notifyAccountsChanged(): void;
 
   notifyChainChanged(): void;
+
+  listNetworks(): any;
 }
 
 export type IDappCallParams = {

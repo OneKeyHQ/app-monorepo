@@ -1,5 +1,7 @@
 import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { getActiveWalletAccount } from '../../hooks/redux';
 import { RootRoutes } from '../../routes/types';
 import { appSelector } from '../../store';
@@ -54,7 +56,15 @@ class DappService extends BaseService {
         data: JSON.stringify(request.data),
       } as IDappCallParams;
 
-      global.$navigationRef.current?.navigate(RootRoutes.Modal, modalParams);
+      if (platformEnv.isExtension) {
+        console.log(
+          'open new window in ext: openApprovalModal()',
+          RootRoutes.Modal,
+          modalParams,
+        );
+      } else {
+        global.$navigationRef.current?.navigate(RootRoutes.Modal, modalParams);
+      }
 
       // TODO extension open new window
       // extUtils.openApprovalWindow();

@@ -18,10 +18,6 @@ abstract class ProviderApiBase {
 
   backgroundApi: IBackgroundApi;
 
-  get bridge() {
-    return this.backgroundApi.bridge;
-  }
-
   public abstract providerName: IInjectedProviderNamesStrings;
 
   public abstract notifyDappAccountsChanged(
