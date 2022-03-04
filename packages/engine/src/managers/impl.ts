@@ -3,10 +3,12 @@ import {
   COINTYPE_ETH,
   COINTYPE_NEAR,
   COINTYPE_SOL,
+  COINTYPE_STC,
   IMPL_ALGO,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
+  IMPL_STC,
 } from '../constants';
 
 const implToCoinTypes: Record<string, string> = {
@@ -14,6 +16,7 @@ const implToCoinTypes: Record<string, string> = {
   [IMPL_SOL]: COINTYPE_SOL,
   [IMPL_ALGO]: COINTYPE_ALGO,
   [IMPL_NEAR]: COINTYPE_NEAR,
+  [IMPL_STC]: COINTYPE_STC,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {

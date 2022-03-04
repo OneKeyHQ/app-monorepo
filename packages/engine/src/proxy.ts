@@ -27,6 +27,7 @@ import {
 import { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
 import {
   TransactionStatus,
+  TxInput,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import {
@@ -41,6 +42,7 @@ import {
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
+  IMPL_STC,
   SEPERATOR,
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
@@ -59,6 +61,7 @@ const IMPL_MAPPINGS: Record<string, string> = {
   [IMPL_SOL]: 'sol',
   [IMPL_ALGO]: 'algo',
   [IMPL_NEAR]: 'near',
+  [IMPL_STC]: 'stc',
 };
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -86,6 +89,10 @@ const IMPL_PROPERTIES: Record<string, ImplProperty> = {
     defaultCurve: 'ed25519',
     clientProvider: 'NearCli',
   },
+  [IMPL_STC]: {
+    defaultCurve: 'ed25519',
+    clientProvider: 'StcClient',
+  },
 };
 
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
@@ -100,6 +107,10 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     const EIP1559Enabled =
       chainId === 1 || chainId === 3 || chainId === 4 || chainId === 5;
     implOptions = { ...implOptions, chainId, EIP1559Enabled };
+  }
+  if (dbNetwork.impl === IMPL_STC) {
+    const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
+    implOptions = { ...implOptions, chainId };
   }
   return {
     code: dbNetwork.id,
@@ -151,14 +162,17 @@ function fillUnsignedTx(
     ).shiftedBy(network.feeDecimals);
     payload.EIP1559Enabled = true;
   }
+  const input: TxInput = {
+    address: (account as SimpleAccount).address,
+    value: valueOnChain,
+    tokenAddress: tokenIdOnNetwork,
+  };
+  if (network.impl === IMPL_STC) {
+    input.publicKey = (account as SimpleAccount).pub;
+  }
+
   return {
-    inputs: [
-      {
-        address: (account as SimpleAccount).address,
-        value: valueOnChain,
-        tokenAddress: tokenIdOnNetwork,
-      },
-    ],
+    inputs: [input],
     outputs: [
       {
         address: to,
