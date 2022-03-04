@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Action,
   Dispatch,
@@ -21,6 +20,7 @@ import {
 } from 'redux-persist';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { IBackgroundApi } from '../background/IBackgroundApi';
 
@@ -68,7 +68,7 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
 const persistConfig = {
   key: 'ONEKEY_WALLET',
   version: 1,
-  storage: AsyncStorage,
+  storage: appStorage, // AsyncStorage not working in ext background (localStorage not available)
   whitelist: ['settings', 'status', 'dapp'],
 };
 

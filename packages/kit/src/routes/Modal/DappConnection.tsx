@@ -5,9 +5,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 
-export enum DappConnectionModalRoutes {
-  ConnectionModal = 'ConnectionModal',
-}
+import { DappConnectionModalRoutes } from '../routesEnum';
+
+export { DappConnectionModalRoutes };
 
 export type DappConnectionRoutesParams = {
   [DappConnectionModalRoutes.ConnectionModal]: undefined;

@@ -28,6 +28,8 @@ const transpileModules = [
   '@onekeyhq/components',
   '@onekeyhq/kit',
   '@onekeyhq/shared',
+  '@onekeyhq/engine',
+  '@onekeyhq/app',
   // '@onekeyhq/inpage-provider',
 ];
 

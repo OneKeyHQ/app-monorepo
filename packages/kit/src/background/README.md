@@ -1,0 +1,5 @@
+- routes/routesEnum.ts
+- @onekeyhq/app/src/hardware/OnekeyLite
+- AsyncStorage -> appStorage
+- navigation url required hash url ( @react-navigation+native+6.0.6.patch useLinking.js )
+  - deep linking in ios/android 

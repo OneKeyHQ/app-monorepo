@@ -14,8 +14,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../hooks/redux';
-import { DappConnectionModalRoutes } from '../routes';
-import { ModalRoutes } from '../routes/types';
+import { DappConnectionModalRoutes, ModalRoutes } from '../routes/routesEnum';
 import extUtils from '../utils/extUtils';
 
 import { permissionRequired } from './decorators';

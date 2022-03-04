@@ -7,7 +7,7 @@ import { useThemeValue } from '@onekeyhq/components';
 
 import Navigator, { navigationRef } from '../navigator';
 
-const prefix = createURL('/');
+const prefix = createURL('#/onekey/hello/');
 
 const NavigationApp = () => {
   const linking = {
