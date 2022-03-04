@@ -1,11 +1,7 @@
 import BackgroundApi from '../BackgroundApi';
 
-import walletApi from './walletApi';
-
 function backgroundApiInit() {
-  const backgroundApi = new BackgroundApi({
-    walletApi,
-  });
+  const backgroundApi = new BackgroundApi();
 
   global.$backgroundApi = backgroundApi;
   return backgroundApi;

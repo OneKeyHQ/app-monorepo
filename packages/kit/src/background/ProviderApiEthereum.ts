@@ -6,12 +6,14 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-// import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+// import engine from '../engine/EngineProvider';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// import engine from '../engine/EngineProvider';
+import { getActiveWalletAccount } from '../hooks/redux';
 import { DappConnectionModalRoutes } from '../routes';
 import { ModalRoutes } from '../routes/types';
 import extUtils from '../utils/extUtils';
@@ -24,22 +26,21 @@ import ProviderApiBase, {
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
-  _getCurrentAccounts() {
-    return [];
-    // return this.walletApi.isConnected ? [this.walletApi.selectedAddress] : [];
-    // return this.walletApi.getCurrentAccounts();
-  }
-
-  _getCurrentChainId() {
-    return this.walletApi.getCurrentNetwork().chainId;
-  }
-
-  _getCurrentNetworkVersion() {
-    return `${parseInt(this._getCurrentChainId(), 16)}`;
-  }
-
   _getCurrentUnlockState() {
     return true;
+  }
+
+  _getCurrentNetworkExtraInfo(): EvmExtraInfo {
+    const { network } = getActiveWalletAccount();
+    // return a random chainId in non-evm, as empty string may cause dapp error
+    let networkInfo: EvmExtraInfo = {
+      chainId: '0x736d17dc',
+      networkVersion: '1936529372',
+    };
+    if (network && network.network.impl === IMPL_EVM) {
+      networkInfo = network.network.extraInfo as EvmExtraInfo;
+    }
+    return networkInfo;
   }
 
   // ----------------------------------------------
@@ -58,51 +59,59 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.backgroundApi('eth_requestAccounts', request);
+    // debugLogger.backgroundApi('eth_requestAccounts', request);
 
-    const result = await this.openDappApprovalModal({
+    const accounts = this.eth_accounts(request);
+    if (accounts && accounts.length) {
+      return accounts;
+    }
+
+    await this.backgroundApi.dappService?.openApprovalModal({
       request,
       screens: [
         ModalRoutes.DappConnectionModal,
         DappConnectionModalRoutes.ConnectionModal,
       ],
     });
-    return result;
+    return this.eth_accounts(request);
 
     // TODO show approval confirmation, skip in whitelist domain
-    // if (!this.walletApi.isConnected) {
-    //   // this.walletApi.isConnected = true;
-    // }
-    //
-    // return this.eth_accounts();
   }
 
-  eth_coinbase() {
+  eth_coinbase(request: IJsBridgeMessagePayload) {
     // TODO some different with eth_accounts, check metamask code source
-    return this.eth_accounts();
+    return this.eth_accounts(request);
   }
 
-  eth_accounts() {
-    return this._getCurrentAccounts();
+  eth_accounts(request: IJsBridgeMessagePayload) {
+    const accounts = this.backgroundApi.dappService?.getConnectedAccounts({
+      origin: request.origin as string,
+    });
+    if (!accounts) {
+      return [];
+    }
+    return accounts.map((account) => account.address);
   }
 
   eth_chainId() {
-    return this._getCurrentChainId();
+    const networkExtraInfo = this._getCurrentNetworkExtraInfo();
+    return networkExtraInfo.chainId;
   }
 
   net_version() {
-    return this._getCurrentNetworkVersion();
+    const networkExtraInfo = this._getCurrentNetworkExtraInfo();
+    return networkExtraInfo.networkVersion;
   }
 
   // TODO @publicMethod()
-  async metamask_getProviderState() {
+  async metamask_getProviderState(request: IJsBridgeMessagePayload) {
     // pass debugLoggerSettings to dapp injected provider
     const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
     return {
-      accounts: this._getCurrentAccounts(),
-      chainId: this._getCurrentChainId(),
+      accounts: this.eth_accounts(request),
+      chainId: this.eth_chainId(),
+      networkVersion: this.net_version(),
       isUnlocked: this._getCurrentUnlockState(),
-      networkVersion: this._getCurrentNetworkVersion(),
       debugLoggerSettings,
     };
   }
@@ -136,19 +145,29 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = {
-      method: 'metamask_accountsChanged',
-      params: info.accounts || [],
+    const data = ({ origin }: { origin: string }) => {
+      const result = {
+        method: 'metamask_accountsChanged',
+        params: this.eth_accounts({ origin }),
+      };
+      return result;
     };
     // console.log('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = {
-      method: 'metamask_chainChanged',
-      params: { chainId: info.chainId, networkVersion: info.networkVersion },
+    const data = () => {
+      const result = {
+        method: 'metamask_chainChanged',
+        params: {
+          chainId: this.eth_chainId(),
+          networkVersion: this.net_version(),
+        },
+      };
+      return result;
     };
+
     info.send(data);
   }
 

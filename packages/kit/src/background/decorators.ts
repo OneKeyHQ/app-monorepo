@@ -32,7 +32,7 @@ function permissionRequired() {
       descriptor.value = function (...args: Array<any>): any {
         console.log(`parameters: (${args.toString()})`);
 
-        // if (this.walletApi.chainId !== '0x1') {
+        // if (this.chainId !== '0x1') {
         //   throw new Error(this.chainId + ' chain not matched');
         // }
 
