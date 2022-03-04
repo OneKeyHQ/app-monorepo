@@ -5,9 +5,7 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { RootRoutes } from '../routes/types';
-
-import { IBackgroundApi, IDappCallParams } from './IBackgroundApi';
+import { IBackgroundApi } from './IBackgroundApi';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   send: (data: any) => void;
