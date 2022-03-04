@@ -82,7 +82,7 @@ type NavigationProps = NativeStackNavigationProp<
 
 type ImageProps = {
   imageModel: ImageModel;
-  onDelete: () => void;
+  onDelete: (imageModel: ImageModel) => void;
 };
 
 export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
@@ -128,7 +128,11 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
           </Box>
         </ZStack>
       </Box>
-      <Pressable onPress={onDelete}>
+      <Pressable
+        onPress={() => {
+          onDelete(imageModel);
+        }}
+      >
         <Box ml={`${imageWidth - 20}px`}>
           <Icon size={20} name="CloseCircleSolid" />
         </Box>
@@ -138,8 +142,6 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
 };
 
 let selectOption = defaultOption();
-let uploadCount = 0;
-
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
   const [isHardware, setIsHardware] = useState(false);
@@ -178,38 +180,69 @@ export const SubmitRequest: FC = () => {
         base64Image = result.base64;
       }
 
-      imageArr.push(image);
-      uploadCount += 1;
-      updateImageArr([...imageArr]);
+      updateImageArr((prev) => [...prev, image]);
       uploadImage(
         { filename: imagename, image: base64Image },
         instanceId,
         (error, responseJson) => {
-          uploadCount -= 1;
           if (!error) {
-            for (const object of imageArr) {
-              if (object.filename === imagename) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                object.token = responseJson.data.upload.token;
-                object.loading = false;
-              }
-            }
-            updateImageArr([...imageArr]);
+            updateImageArr((prev) => {
+              const imageIndex = prev.findIndex(
+                (i) => i.filename === imagename,
+              );
+              if (imageIndex < 0) return prev;
+              console.log([
+                ...prev.slice(0, imageIndex),
+                {
+                  ...prev[imageIndex],
+                  loading: false,
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  token: responseJson.data.upload.token,
+                },
+                ...prev.slice(imageIndex + 1),
+              ]);
+
+              return [
+                ...prev.slice(0, imageIndex),
+                {
+                  ...prev[imageIndex],
+                  loading: false,
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  token: responseJson.data.upload.token,
+                },
+                ...prev.slice(imageIndex + 1),
+              ];
+            });
           }
         },
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceId]);
 
   const imagesList = () => (
     <Row>
       {imageArr.map((image, index) => (
         <ImageView
+          key={index}
           imageModel={image}
-          onDelete={() => {
-            imageArr.splice(index, 1);
-            updateImageArr([...imageArr]);
+          onDelete={(imageModel) => {
+            updateImageArr((prev) => {
+              const imageIndex = prev.findIndex(
+                (i) => i.filename === imageModel.filename,
+              );
+              console.log('xxx', imageModel, imageIndex);
+
+              if (imageIndex < 0) return prev;
+              console.log([
+                ...prev.slice(0, imageIndex),
+                ...prev.slice(imageIndex),
+              ]);
+
+              return [
+                ...prev.slice(0, imageIndex),
+                ...prev.slice(imageIndex + 1),
+              ];
+            });
           }}
         />
       ))}
@@ -345,7 +378,6 @@ export const SubmitRequest: FC = () => {
 
   const beforeRemoveCallBack = useCallback(() => {
     selectOption = defaultOption();
-    uploadCount = 0;
   }, []);
 
   useEffect(() => {
@@ -361,7 +393,9 @@ export const SubmitRequest: FC = () => {
       primaryActionTranslationId="action__submit"
       primaryActionProps={{
         onPromise: () => handleSubmit(onSubmit)(),
-        isDisabled: !(isValid && uploadCount === 0),
+        isDisabled: !(
+          isValid && !imageArr.filter((image) => !image?.token)?.length
+        ),
       }}
       scrollViewProps={{
         children: [

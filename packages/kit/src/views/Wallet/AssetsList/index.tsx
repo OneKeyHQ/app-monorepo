@@ -117,7 +117,7 @@ const AssetsList = () => {
               }}
               render={(ele) => (
                 <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {!prices?.[mapKey] ? '-' : ele}
+                  {!item.balance ? '-' : ele}
                 </Text>
               )}
             />

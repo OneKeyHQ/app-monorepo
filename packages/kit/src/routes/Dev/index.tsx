@@ -19,6 +19,7 @@ import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
 import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/stories/HeaderTabViewContainer';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons';
+import ImageViewerGallery from '@onekeyhq/kit/src/views/Components/stories/ImageViewer';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
@@ -91,6 +92,7 @@ export enum StackRoutes {
   ComponentWebview = 'component/webview',
   ComponentPinCode = 'component/pincode',
   ComponentRestfulRequest = 'component/restful-request',
+  ComponentImageViewer = 'component/imageViewer',
 }
 
 export type StackBasicRoutesParams = {
@@ -136,6 +138,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentWebview]: undefined;
   [StackRoutes.ComponentPinCode]: undefined;
   [StackRoutes.ComponentRestfulRequest]: undefined;
+  [StackRoutes.ComponentImageViewer]: undefined;
 };
 
 export const stackScreenList = [
@@ -188,6 +191,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentWebview,
     component: WebViewGallery,
+  },
+  {
+    name: StackRoutes.ComponentImageViewer,
+    component: ImageViewerGallery,
   },
 ];
 
