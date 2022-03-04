@@ -12,8 +12,13 @@ import {
   PromiseContainerResolve,
 } from './PromiseContainer';
 import ProviderApiBase from './ProviderApiBase';
+import DappService from './service/DappService';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
+  dappService = new DappService({
+    backgroundApi: this,
+  });
+
   createPromiseCallback(params: PromiseContainerCallbackCreate): number {
     return this.promiseContainer.createCallback(params);
   }
@@ -24,10 +29,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   rejectPromiseCallback(params: PromiseContainerReject): void {
     return this.promiseContainer.rejectCallback(params);
-  }
-
-  get accounts() {
-    return this.walletApi.accounts;
   }
 
   @backgroundMethod()
@@ -67,11 +68,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   @backgroundMethod()
   notifyAccountsChanged(): void {
-    const accounts = this.walletApi.getCurrentAccounts();
-
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappAccountsChanged({
-        accounts,
         send: this.sendForProvider(provider.providerName),
       });
     });
@@ -79,11 +77,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   @backgroundMethod()
   notifyChainChanged(): void {
-    const { chainId, networkVersion } = this.walletApi.getCurrentNetwork();
     Object.values(this.providers).forEach((provider: ProviderApiBase) => {
       provider.notifyDappChainChanged({
-        chainId,
-        networkVersion,
         send: this.sendForProvider(provider.providerName),
       });
     });

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useCallback } from 'react';
+import React, { FC, isValidElement } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,8 @@ import Button from '../../Button';
 import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import Typography from '../../Typography';
+
+import useModalClose from './useModalClose';
 
 import type { ModalProps } from '..';
 
@@ -34,12 +36,7 @@ const DesktopModal: FC<ModalProps> = ({
   const navigation = useNavigation();
   const index = useNavigationState((state) => state.index);
 
-  const close = useCallback(() => {
-    if (onClose) {
-      onClose();
-    }
-    navigation.getParent()?.goBack?.();
-  }, [navigation, onClose]);
+  const close = useModalClose({ onClose });
 
   function modalSizing(modalSize: string | undefined) {
     switch (modalSize) {

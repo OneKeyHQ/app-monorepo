@@ -14,9 +14,11 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
+import { dappSaveSiteConnection } from '../../store/reducers/dapp';
 
 import { DescriptionList, DescriptionListItem } from './DescriptionList';
 import RugConfirmDialog from './RugConfirmDialog';
@@ -65,7 +67,7 @@ const getPermissionTransId = (type: PermissionType) => {
   }
 };
 const isRug = (target: string) => {
-  const RUG_LIST = ['app.uniswap.org'];
+  const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
 };
 
@@ -73,33 +75,39 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
   const accountInfo = account as SimpleAccount | null;
   const { origin, data, scope, id } = useDappParams();
   const computedIsRug = isRug(origin);
 
   const getResolveData = useCallback(() => {
-    if (!accountInfo) {
-      return null;
-    }
-
-    let accounts: string | string[] | { accounts: string[] } = [
-      accountInfo.address,
-    ];
+    const address = accountInfo?.address || '';
+    let accounts: string | string[] | { accounts: string[] } = [address].filter(
+      Boolean,
+    );
     // data format may be different in different chain
     if (scope === 'ethereum') {
-      accounts = [accountInfo.address];
+      accounts = [address].filter(Boolean);
     }
     if (scope === 'near') {
       accounts = {
-        accounts: [accountInfo.address],
+        accounts: [address].filter(Boolean),
       };
     }
     if (scope === 'solana') {
-      accounts = accountInfo.address;
+      accounts = address;
     }
+    backgroundApiProxy.dispatchAction(
+      dappSaveSiteConnection({
+        site: {
+          origin,
+        },
+        networkImpl: network?.network?.impl || '',
+        address,
+      }),
+    );
     return accounts;
-  }, [accountInfo, scope]);
+  }, [accountInfo, network?.network?.impl, origin, scope]);
 
   const dappApprove = useDappApproveAction({
     id,
@@ -113,6 +121,7 @@ const Connection = () => {
   // TODO
   //  - check scope=ethereum and active chain is EVM
   //  - check active account exists
+  //  - check network not exists
 
   return (
     <>
