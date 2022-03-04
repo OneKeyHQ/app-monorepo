@@ -173,7 +173,6 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   isLoading,
   terms,
 }) => {
-  console.log('rerender', isLoading, terms);
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   if (isLoading) {
@@ -295,7 +294,6 @@ export const Listing: FC = () => {
           <Box ml="3">
             <Typography.Body1Strong
               maxW="56"
-              textOverflow="ellipsis"
               numberOfLines={2}
               color={
                 accountTokensSet.has(item.tokenIdOnNetwork)

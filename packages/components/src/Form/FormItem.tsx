@@ -63,10 +63,11 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             </FormControl.Label>
             {Array.isArray(labelAddon) ? (
               <Stack direction="row" space="2">
-                {labelAddon.map((item) => {
+                {labelAddon.map((item, i) => {
                   if (item === 'paste') {
                     return (
                       <IconButton
+                        key={i}
                         type="plain"
                         size="xs"
                         name="ClipboardOutline"
