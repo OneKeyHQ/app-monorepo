@@ -4,6 +4,7 @@
 
 import { Buffer } from 'buffer';
 
+import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
@@ -14,6 +15,8 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import {
+  ExtendedKey,
+  N,
   batchGetPrivateKeys,
   sign,
   uncompressPublicKey,
@@ -23,14 +26,20 @@ import {
   TransactionStatus,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { Signer, Verifier } from '@onekeyfe/blockchain-libs/dist/types/secret';
+import {
+  Signer as ISigner,
+  Verifier as IVerifier,
+} from '@onekeyfe/blockchain-libs/dist/types/secret';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
-import { OneKeyInternalError } from './errors';
+import { NotImplemented, OneKeyInternalError } from './errors';
+import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import { Account, SimpleAccount } from './types/account';
 import { HistoryEntryStatus } from './types/history';
+import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 
 const CGK_BATCH_SIZE = 100;
@@ -102,17 +111,19 @@ function fillUnsignedTx(
     [key: string]: any;
   };
   const { maxFeePerGas, maxPriorityFeePerGas } = payload as {
-    maxFeePerGas: BigNumber;
-    maxPriorityFeePerGas: BigNumber;
+    maxFeePerGas: string;
+    maxPriorityFeePerGas: string;
   };
   if (
-    maxFeePerGas instanceof BigNumber &&
-    maxPriorityFeePerGas instanceof BigNumber
+    typeof maxFeePerGas === 'string' &&
+    typeof maxPriorityFeePerGas === 'string'
   ) {
-    payload.maxFeePerGas = maxFeePerGas.shiftedBy(network.feeDecimals);
-    payload.maxPriorityFeePerGas = maxPriorityFeePerGas.shiftedBy(
+    payload.maxFeePerGas = new BigNumber(maxFeePerGas).shiftedBy(
       network.feeDecimals,
     );
+    payload.maxPriorityFeePerGas = new BigNumber(
+      maxPriorityFeePerGas,
+    ).shiftedBy(network.feeDecimals);
     payload.EIP1559Enabled = true;
   }
   return {
@@ -138,6 +149,62 @@ function fillUnsignedTx(
   };
 }
 
+class Verifier implements IVerifier {
+  private uncompressedPublicKey: Buffer;
+
+  private compressedPublicKey: Buffer;
+
+  constructor(pub: string, curve: Curve) {
+    this.compressedPublicKey = Buffer.from(pub, 'hex');
+    this.uncompressedPublicKey = uncompressPublicKey(
+      curve,
+      this.compressedPublicKey,
+    );
+  }
+
+  getPubkey(compressed?: boolean) {
+    return Promise.resolve(
+      compressed ? this.compressedPublicKey : this.uncompressedPublicKey,
+    );
+  }
+
+  verify(_digest: Buffer, _signature: Buffer) {
+    // Not used.
+    return Promise.resolve(Buffer.from([]));
+  }
+}
+
+class Signer extends Verifier implements ISigner {
+  constructor(
+    private encryptedPrivateKey: ExtendedKey,
+    private password: string,
+    private curve: Curve,
+  ) {
+    super(N(curve, encryptedPrivateKey, password).key.toString('hex'), curve);
+  }
+
+  getPrvkey() {
+    // Not used.
+    return Promise.resolve(Buffer.from([]));
+  }
+
+  sign(digest: Buffer): Promise<[Buffer, number]> {
+    const signature = sign(
+      this.curve,
+      this.encryptedPrivateKey.key,
+      digest,
+      this.password,
+    );
+    if (this.curve === 'secp256k1') {
+      return Promise.resolve([
+        signature.slice(0, -1),
+        signature[signature.length - 1],
+      ]);
+    }
+    return Promise.resolve([signature, 0]);
+  }
+}
+
 class ProviderController extends BaseProviderController {
   private clients: Record<string, BaseClient> = {};
 
@@ -156,7 +223,7 @@ class ProviderController extends BaseProviderController {
     }));
   }
 
-  private getVerifier(networkId: string, pub: string): Verifier {
+  private getVerifier(networkId: string, pub: string): IVerifier {
     const provider = this.providers[networkId];
     if (typeof provider === 'undefined') {
       throw new OneKeyInternalError('Provider not found.');
@@ -164,16 +231,7 @@ class ProviderController extends BaseProviderController {
     const { chainInfo } = this.providers[networkId];
     const implProperties = IMPL_PROPERTIES[chainInfo.impl];
     const curve = chainInfo.curve || implProperties.defaultCurve;
-    return {
-      getPubkey: (compressed?: boolean) =>
-        Promise.resolve(
-          compressed
-            ? Buffer.from(pub, 'hex')
-            : uncompressPublicKey(curve, Buffer.from(pub, 'hex')),
-        ),
-      verify: (_digest: Buffer, _signature: Buffer) =>
-        Promise.resolve(Buffer.from([])), // Not used.
-    };
+    return new Verifier(pub, curve as Curve);
   }
 
   private getSigners(
@@ -181,7 +239,7 @@ class ProviderController extends BaseProviderController {
     seed: Buffer,
     password: string,
     account: Account,
-  ): { [p: string]: Signer } {
+  ): { [p: string]: ISigner } {
     const provider = this.providers[networkId];
     if (typeof provider === 'undefined') {
       throw new OneKeyInternalError('Provider not found.');
@@ -190,32 +248,22 @@ class ProviderController extends BaseProviderController {
     const implProperties = IMPL_PROPERTIES[chainInfo.impl];
     const curve = chainInfo.curve || implProperties.defaultCurve;
 
+    const pathComponents = account.path.split('/');
+    const relPath = pathComponents.pop() as string;
+    const { extendedKey } = batchGetPrivateKeys(
+      curve,
+      seed,
+      password,
+      pathComponents.join('/'),
+      [relPath],
+    )[0];
+
     return {
-      [(account as SimpleAccount).address]: {
-        getPubkey: (_compressed?: boolean) => Promise.resolve(Buffer.from([])),
-        verify: (_digest: Buffer, _signature: Buffer) =>
-          Promise.resolve(Buffer.from([])),
-        getPrvkey: () => Promise.resolve(Buffer.from([])),
-        sign: (digest: Buffer) => {
-          const pathComponents = account.path.split('/');
-          const relPath = pathComponents.pop() as string;
-          const { extendedKey } = batchGetPrivateKeys(
-            curve,
-            seed,
-            password,
-            pathComponents.join('/'),
-            [relPath],
-          )[0];
-          const signature = sign(curve, extendedKey.key, digest, password);
-          if (curve === 'secp256k1') {
-            return Promise.resolve([
-              signature.slice(0, -1),
-              signature[signature.length - 1],
-            ]);
-          }
-          return Promise.resolve([signature, 0]);
-        },
-      },
+      [(account as SimpleAccount).address]: new Signer(
+        extendedKey,
+        password,
+        curve as Curve,
+      ),
     };
   }
 
@@ -435,6 +483,62 @@ class ProviderController extends BaseProviderController {
     });
 
     return ret;
+  }
+
+  async proxyRPCCall<T>(
+    networkId: string,
+    request: IJsonRpcRequest,
+  ): Promise<T> {
+    let client: { rpc: JsonRPCRequest };
+    switch (getImplFromNetworkId(networkId)) {
+      case IMPL_EVM:
+        client = (await this.getClient(networkId)) as unknown as {
+          rpc: JsonRPCRequest;
+        };
+        break;
+      case IMPL_SOL:
+        client = (await this.getClient(networkId)) as unknown as {
+          rpc: JsonRPCRequest;
+        };
+        break;
+      default:
+        throw new NotImplemented();
+    }
+    return client.rpc.call(
+      request.method,
+      request.params as Record<string, any> | Array<any>,
+    );
+  }
+
+  async signMessages(
+    seed: Buffer,
+    password: string,
+    network: Network,
+    account: Account,
+    messages: Array<Message>,
+  ): Promise<Array<string>> {
+    if (network.impl !== IMPL_EVM) {
+      // TODO: other network signing.
+      throw new NotImplemented(
+        `Message signing not support on ${network.name}`,
+      );
+    }
+    const defaultType = ETHMessageTypes.PERSONAL_SIGN;
+    const [signer] = Object.values(
+      this.getSigners(network.id, seed, password, account),
+    );
+    return Promise.all(
+      messages.map((message) => {
+        if (typeof message === 'string') {
+          return this.signMessage(
+            network.id,
+            { message, type: defaultType },
+            signer,
+          );
+        }
+        return this.signMessage(network.id, message, signer);
+      }),
+    );
   }
 }
 

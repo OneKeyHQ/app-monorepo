@@ -6,9 +6,12 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+// import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+// import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// import engine from '../engine/EngineProvider';
 import { DappConnectionModalRoutes } from '../routes';
 import { ModalRoutes } from '../routes/types';
 import extUtils from '../utils/extUtils';
@@ -91,10 +94,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this._getCurrentNetworkVersion();
   }
 
-  eth_blockNumber() {
-    return '0xd29f1a';
-  }
-
   // TODO @publicMethod()
   async metamask_getProviderState() {
     // pass debugLoggerSettings to dapp injected provider
@@ -126,9 +125,12 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // ----------------------------------------------
 
-  protected rpcCall(request: IJsonRpcRequest): any {
+  protected async rpcCall(request: IJsonRpcRequest): Promise<any> {
     console.log('MOCK CHAIN RPC CALL:', request);
-    return {};
+    return Promise.resolve({});
+    // const networkId = `${IMPL_EVM}--${this._getCurrentChainId()}`;
+    // const result = await engine.proxyRPCCall(networkId, request);
+    // return { id: request.id, jsonrpc: request.jsonrpc || '2.0', result };
     // TODO use metamask error object
     // throw new Error(`provider method=${request.method} NOT SUPPORTED yet!`);
   }
@@ -153,6 +155,50 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
+
+  // ----------------------------------------------
+
+  /*
+  private async signMessage(
+    type: ETHMessageTypes,
+    message: string,
+  ): Promise<string> {
+    const networkId = `${IMPL_EVM}--${this._getCurrentChainId()}`;
+    const password = '';
+    const accountId = '';
+    const signatures = await engine.signMessage(
+      password,
+      networkId,
+      accountId,
+      [{ type, message }],
+    );
+    return signatures[0];
+  }
+
+  personal_sign(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.PERSONAL_SIGN, message);
+  }
+
+  eth_sign(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.ETH_SIGN, message);
+  }
+
+  eth_signTypedData(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.TYPED_DATA_V1, message);
+  }
+
+  eth_signTypedData_v1(message: string): Promise<string> {
+    return this.eth_signTypedData(message);
+  }
+
+  eth_signTypedData_v3(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.TYPED_DATA_V3, message);
+  }
+
+  eth_signTypedData_v4(message: string): Promise<string> {
+    return this.signMessage(ETHMessageTypes.TYPED_DATA_V4, message);
+  }
+  */
 }
 
 export default ProviderApiEthereum;

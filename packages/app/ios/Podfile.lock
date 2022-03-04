@@ -31,6 +31,9 @@ PODS:
     - UMTaskManagerInterface
   - EXManifests (0.2.2):
     - EXJSONUtils
+  - EXMediaLibrary (14.0.1):
+    - ExpoModulesCore
+    - React-Core
   - Expo (43.0.3):
     - ExpoModulesCore
   - expo-dev-client (0.7.2):
@@ -466,6 +469,7 @@ DEPENDENCIES:
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXManifests (from `../../../node_modules/expo-manifests/ios`)
+  - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
   - expo-dev-client (from `../../../node_modules/expo-dev-client`)
   - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
@@ -560,6 +564,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-location/ios"
   EXManifests:
     :path: "../../../node_modules/expo-manifests/ios"
+  EXMediaLibrary:
+    :path: "../../../node_modules/expo-media-library/ios"
   Expo:
     :path: "../../../node_modules/expo/ios"
   expo-dev-client:
@@ -683,6 +689,7 @@ SPEC CHECKSUMS:
   EXLocalAuthentication: 4c7166ed3133d2c75586093833936652e7d2c7fc
   EXLocation: 192eaee761c159d1479111a0ced3bab7ad8475a3
   EXManifests: 50e42e01335df4e54109dee7be5a91bfd37347db
+  EXMediaLibrary: 843669e1d9d38965057830138609ee99ef260cf1
   Expo: 5316c3ecdc34eb0cad340d01dc8beec97c7e879e
   expo-dev-client: b0a6b5deedba945162633b2d27f02a727e3eaa47
   expo-dev-launcher: b76cf991b0a63a7df3a832909addcff1d5668675
