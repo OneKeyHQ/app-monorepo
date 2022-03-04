@@ -17,7 +17,7 @@ class DappService extends BaseService {
     const accounts = connections.filter(
       (item) =>
         item.site.origin === origin &&
-        item.chainImpl === networkImpl &&
+        item.networkImpl === networkImpl &&
         item.address === accountAddress, // only match current active account
     );
     return accounts;

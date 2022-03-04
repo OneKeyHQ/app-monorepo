@@ -23,5 +23,4 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
   return close;
 }
 
-
 export default useModalClose;

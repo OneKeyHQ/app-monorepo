@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useCallback, useState } from 'react';
+import React, { FC, isValidElement, useState } from 'react';
 
 import {
   useFocusEffect,
@@ -7,9 +7,6 @@ import {
   useNavigationState,
 } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
 import Button from '../../Button';

@@ -102,7 +102,7 @@ const Connection = () => {
         site: {
           origin,
         },
-        chainImpl: network?.network?.impl || '',
+        networkImpl: network?.network?.impl || '',
         address,
       }),
     );

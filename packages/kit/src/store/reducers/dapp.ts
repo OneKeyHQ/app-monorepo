@@ -8,7 +8,7 @@ export type DappSiteInfo = {
 
 export type DappSiteConnectionSavePayload = {
   site: DappSiteInfo;
-  chainImpl: string;
+  networkImpl: string;
   address: string;
 };
 
@@ -41,7 +41,7 @@ export const dappSlicer = createSlice({
       let info: DappSiteConnection | undefined = connections.find(
         (item) =>
           item.site.origin === payload.site.origin &&
-          item.chainImpl === payload.chainImpl &&
+          item.networkImpl === payload.networkImpl &&
           item.address === payload.address,
       );
       if (!info) {

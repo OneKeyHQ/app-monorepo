@@ -1,6 +1,5 @@
 import BackgroundApi from '../BackgroundApi';
 
-
 function backgroundApiInit() {
   const backgroundApi = new BackgroundApi();
 

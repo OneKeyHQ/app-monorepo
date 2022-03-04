@@ -110,8 +110,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     return {
       accounts: this.eth_accounts(request),
       chainId: this.eth_chainId(),
-      isUnlocked: this._getCurrentUnlockState(),
       networkVersion: this.net_version(),
+      isUnlocked: this._getCurrentUnlockState(),
       debugLoggerSettings,
     };
   }
