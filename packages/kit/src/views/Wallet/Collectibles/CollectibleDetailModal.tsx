@@ -52,7 +52,7 @@ const CollectibleDetailModal: FC = () => {
   const toastId = useRef<string>();
 
   useEffect(() => {
-    if (!contractAddress || !tokenId) {
+    if (!contractAddress || !tokenId || !!asset) {
       return;
     }
 
@@ -65,6 +65,7 @@ const CollectibleDetailModal: FC = () => {
           tokenId: tokenId.toString(),
         });
         setAsset(assetFromBe);
+        setIsLoading(false);
       } catch (e) {
         console.log(`Error on fetching nft asset ${tokenId}`);
         const error = e as Error | string | null | undefined;
@@ -74,34 +75,33 @@ const CollectibleDetailModal: FC = () => {
             title: message,
           });
         }
-        const navParent = navigation.getParent();
-        if (navParent?.canGoBack()) {
-          navParent.goBack();
-        }
-      } finally {
-        setIsLoading(false);
+        // Delay after hook
+        setTimeout(() => {
+          const navParent = navigation.getParent();
+          if (navParent?.canGoBack()) {
+            return navParent.goBack();
+          }
+        }, 50);
       }
     })();
-  }, [tokenId, contractAddress, chainId, navigation, toast]);
-
-  if (isLoading) {
-    return (
-      <Modal
-        footer={null}
-        height="640px"
-        scrollViewProps={{
-          pt: 4,
-          children: (
-            <Center flex={1}>
-              <Spinner size="lg" />
-            </Center>
-          ),
-        }}
-      />
-    );
-  }
+  }, [tokenId, contractAddress, chainId, navigation, toast, asset]);
 
   if (!asset) {
+    if (isLoading) {
+      return (
+        <Modal
+          footer={null}
+          height="640px"
+          scrollViewProps={{
+            children: (
+              <Center flex={1}>
+                <Spinner size="lg" />
+              </Center>
+            ),
+          }}
+        />
+      );
+    }
     return null;
   }
 
@@ -110,7 +110,6 @@ const CollectibleDetailModal: FC = () => {
       footer={null}
       height="640px"
       scrollViewProps={{
-        pt: 4,
         children: (
           <Center>
             <Image

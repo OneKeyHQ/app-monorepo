@@ -67,7 +67,7 @@ const getPermissionTransId = (type: PermissionType) => {
   }
 };
 const isRug = (target: string) => {
-  const RUG_LIST = ['app.uniswap.org'];
+  const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
 };
 
@@ -77,8 +77,8 @@ const Connection = () => {
   const intl = useIntl();
   const { account, network } = useActiveWalletAccount();
   const accountInfo = account as SimpleAccount | null;
-  const computedIsRug = isRug(MockData.target.link);
   const { origin, data, scope, id } = useDappParams();
+  const computedIsRug = isRug(origin);
 
   const getResolveData = useCallback(() => {
     const address = accountInfo?.address || '';
