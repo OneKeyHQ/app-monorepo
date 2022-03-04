@@ -12,6 +12,7 @@
 //#import "OKNFCHintViewController.h"
 //#import "OKMnemonic.h"
 #import "NSString+OKAdd.h"
+#import "OKTools.h"
 
 static const NSInteger OKNFC_PIN_LENGTH = 6;
 static const NSInteger OKNFC_PIN_UNSET = -1;
@@ -52,7 +53,8 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 - (void)endNFCSessionWithError:(BOOL)isError {
     self.session.alertMessage = @"";
     if (isError) {
-        [self.session invalidateSessionWithErrorMessage:@"读取失败，请重试"];
+        
+      [self.session invalidateSessionWithErrorMessage:OKTools.isChineseLan ? @"读取失败，请重试":@"Connect fail, please try again."];
     } else {
         [self.session invalidateSession];
     }

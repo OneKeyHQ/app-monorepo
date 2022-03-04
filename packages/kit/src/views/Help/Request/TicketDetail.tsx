@@ -26,7 +26,7 @@ type RouteProps = RouteProp<
   HistoryRequestRoutes.TicketDetailModal
 >;
 
-const Attachment: FC<AttachmentsType> = ({ id }) => {
+const Attachment: FC<AttachmentsType> = ({ id, size }) => {
   const { instanceId } = useSettings();
 
   const { data } = useSWR<RequestPayload<string>>(
@@ -35,10 +35,18 @@ const Attachment: FC<AttachmentsType> = ({ id }) => {
 
   const attachment = useMemo(() => {
     if (data) {
-      return <Image source={{ uri: data.data }} flex={1} borderRadius="12px" />;
+      return (
+        <Image
+          width={size}
+          height={size}
+          src={data.data}
+          borderRadius="12px"
+          preview
+        />
+      );
     }
     return null;
-  }, [data]);
+  }, [data, size]);
   return attachment;
 };
 
@@ -127,7 +135,7 @@ export const TicketDetail: FC = () => {
                         >
                           {item.attachments.map((attachment, _index) => (
                             <Box key={`attachment${_index}`} size={imageSize}>
-                              <Attachment {...attachment} />
+                              <Attachment {...attachment} size={imageSize} />
                             </Box>
                           ))}
                         </SimpleGrid>
