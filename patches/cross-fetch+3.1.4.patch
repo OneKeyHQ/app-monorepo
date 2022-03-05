@@ -1,0 +1,13 @@
+diff --git a/node_modules/cross-fetch/dist/browser-ponyfill.js b/node_modules/cross-fetch/dist/browser-ponyfill.js
+index f26eb09..cab435c 100644
+--- a/node_modules/cross-fetch/dist/browser-ponyfill.js
++++ b/node_modules/cross-fetch/dist/browser-ponyfill.js
+@@ -1,7 +1,7 @@
+ var global = typeof self !== 'undefined' ? self : this;
+ var __self__ = (function () {
+ function F() {
+-this.fetch = false;
++this.fetch = global.fetch || false; // false not working in extension background (using XMLHttpRequest)
+ this.DOMException = global.DOMException
+ }
+ F.prototype = global;

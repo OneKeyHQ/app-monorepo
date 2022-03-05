@@ -31,7 +31,8 @@
     "camelcase-keys": "^7.0.2",
     "crypto-browserify": "^3.12.0",
     "elliptic": "^6.5.4",
-    "fake-indexeddb": "^3.1.7"
+    "fake-indexeddb": "^3.1.7",
+    "@vespaiach/axios-fetch-adapter": "^0.1.1"
   },
   "react-native": {
     "./src/dbs/indexed": "./src/dbs/realms",

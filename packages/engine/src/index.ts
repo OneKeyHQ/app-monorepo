@@ -8,6 +8,8 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
+import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
+
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
@@ -130,6 +132,7 @@ class Engine {
     }
   }
 
+  @backgroundMethod()
   getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
     return this.dbApi.getWallets();
@@ -204,6 +207,7 @@ class Engine {
     return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
+  @backgroundMethod()
   async getAccounts(
     accountIds: Array<string>,
     networkId?: string,
@@ -224,6 +228,7 @@ class Engine {
       .map((a: DBAccount) => fromDBAccountToAccount(a));
   }
 
+  @backgroundMethod()
   async getAccountsByNetwork(
     networkId: string,
   ): Promise<Record<string, Array<Account>>> {
@@ -269,6 +274,7 @@ class Engine {
     return account;
   }
 
+  @backgroundMethod()
   async getAccountBalance(
     accountId: string,
     networkId: string,
@@ -539,6 +545,7 @@ class Engine {
     ];
   }
 
+  @backgroundMethod()
   async getTokens(
     networkId: string,
     accountId?: string,
@@ -646,6 +653,7 @@ class Engine {
     ).toFixed();
   }
 
+  @backgroundMethod()
   async getGasPrice(networkId: string): Promise<Array<string | EIP1559Fee>> {
     const ret = await this.providerManager.getGasPrice(networkId);
     if (ret.length > 0 && ret[0] instanceof BigNumber) {
@@ -784,6 +792,7 @@ class Engine {
     return this.dbApi.removeHistoryEntry(entryId);
   }
 
+  @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
     const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
@@ -820,6 +829,7 @@ class Engine {
     return fromDBNetworkToNetwork(dbObj);
   }
 
+  @backgroundMethod()
   async getNetwork(networkId: string): Promise<Network> {
     const dbObj = await this.dbApi.getNetwork(networkId);
     return fromDBNetworkToNetwork(dbObj);
@@ -884,6 +894,7 @@ class Engine {
     );
   }
 
+  @backgroundMethod()
   async getTxHistories(
     networkId: string,
     accountId: string,
@@ -957,6 +968,7 @@ class Engine {
   // TODO: RPC interactions.
   // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
+  @backgroundMethod()
   async getPrices(
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
@@ -977,6 +989,7 @@ class Engine {
     return ret;
   }
 
+  @backgroundMethod()
   async listFiats(): Promise<Record<string, string>> {
     const ret: Record<string, string> = {};
     const fiats = await this.priceManager.getFiats(

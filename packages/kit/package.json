@@ -8,6 +8,7 @@
     "@onekeyhq/components": "*",
     "@reduxjs/toolkit": "^1.6.2",
     "axios": "^0.24.0",
+    "@vespaiach/axios-fetch-adapter": "^0.1.1",
     "date-fns": "^2.27.0",
     "expo-barcode-scanner": "^11.2.0",
     "expo-clipboard": "2.0.3",

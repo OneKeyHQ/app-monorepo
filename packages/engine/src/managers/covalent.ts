@@ -1,3 +1,5 @@
+// @ts-ignore
+import axiosAdapter from '@vespaiach/axios-fetch-adapter';
 import axios from 'axios';
 import camelcase from 'camelcase-keys';
 
@@ -13,6 +15,8 @@ import {
   TxDetail,
   TxStatus,
 } from '../types/covalent';
+
+axios.defaults.adapter = axiosAdapter;
 
 const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
 

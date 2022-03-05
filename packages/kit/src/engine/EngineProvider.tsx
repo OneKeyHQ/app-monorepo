@@ -1,5 +1,3 @@
-import { Engine } from '@onekeyhq/engine';
-
-const engine = new Engine();
+const { engine } = global.$backgroundApiProxy;
 
 export default engine;

@@ -1,9 +1,8 @@
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import cloneDeep from 'lodash/cloneDeep';
 
-import type { Engine } from '@onekeyhq/engine';
+import { Engine } from '@onekeyhq/engine';
 
-import engine from '../engine/EngineProvider';
 import store from '../store';
 
 import BackgroundApiBase from './BackgroundApiBase';
@@ -18,7 +17,7 @@ import ProviderApiBase from './ProviderApiBase';
 import DappService from './service/DappService';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
-  engine: Engine = engine;
+  engine: Engine = new Engine();
 
   promiseContainer: PromiseContainer = new PromiseContainer();
 

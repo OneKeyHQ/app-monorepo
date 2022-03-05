@@ -18,10 +18,13 @@ import { IBackgroundApiBridge } from './IBackgroundApi';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
+import { ensureSerializable } from './utils';
 
 function throwMethodNotFound(method: string) {
+  // @backgroundMethod() in background internal methods
+  // @providerMethod() in background provider methods
   throw new Error(
-    `Dapp provider or background method not support (method=${method})`,
+    `DApp Provider or Background method not support (method=${method})`,
   );
 }
 
@@ -103,6 +106,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const result = (await provider.handleMethods(
       payload,
     )) as IJsonRpcResponse<any>;
+    ensureSerializable(result);
+    // TODO non rpc result return in some chain provider
     return this.rpcResult(result);
   }
 
@@ -166,18 +171,20 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   // eslint-disable-next-line @typescript-eslint/require-await
   async handleInternalMethods(payload: IJsBridgeMessagePayload): Promise<any> {
     const { method, params } = (payload.data ?? {}) as IJsonRpcRequest;
+    const serviceName = (payload.data as { service?: string })?.service || '';
     const paramsArr = [].concat(params as any);
 
     /* eslint-disable  */
-    // @ts-ignore
-    const methodFunc = this[method];
+    const serviceApi = serviceName ? (this as any)[serviceName] : this;
+    const methodFunc = serviceApi[method];
     if (methodFunc) {
-      // @ts-ignore
-      return methodFunc.call(this, ...paramsArr);
+      const result =  await methodFunc.call(serviceApi, ...paramsArr);
+      ensureSerializable(result);
+      return result
     }
     /* eslint-enable  */
 
-    throwMethodNotFound(method);
+    throwMethodNotFound(`${serviceName ? `${serviceName}.` : ''}${method}`);
   }
 
   sendForProviderMaps: Record<string, any> = {};

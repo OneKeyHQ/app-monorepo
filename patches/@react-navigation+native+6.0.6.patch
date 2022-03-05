@@ -1,13 +1,16 @@
 diff --git a/node_modules/@react-navigation/native/lib/module/useLinking.js b/node_modules/@react-navigation/native/lib/module/useLinking.js
-index 3321728..f0ec59e 100644
+index 3321728..e2c12d6 100644
 --- a/node_modules/@react-navigation/native/lib/module/useLinking.js
 +++ b/node_modules/@react-navigation/native/lib/module/useLinking.js
-@@ -3,6 +3,18 @@ import { nanoid } from 'nanoid/non-secure';
+@@ -3,6 +3,21 @@ import { nanoid } from 'nanoid/non-secure';
  import * as React from 'react';
  import ServerContext from './ServerContext';
- 
+
 +function prefixHashPath(path) {
-+  if(path.indexOf('#') === 0){
++  if(typeof path !== 'string') {
++    return path;
++  }
++  if(path.indexOf('#') === 0) {
 +    return path;
 +  }
 +  return '#' + path;
@@ -21,16 +24,16 @@ index 3321728..f0ec59e 100644
  const createMemoryHistory = () => {
    let index = 0;
    let items = []; // Pending callbacks for `history.go(n)`
-@@ -48,7 +60,7 @@ const createMemoryHistory = () => {
+@@ -48,7 +63,7 @@ const createMemoryHistory = () => {
        for (let i = index - 1; i >= 0; i--) {
          const item = items[i];
- 
+
 -        if (item.path === path) {
 +        if (prefixHashPath(item.path) === prefixHashPath(path)) {
            return i;
          }
        }
-@@ -60,6 +72,7 @@ const createMemoryHistory = () => {
+@@ -60,6 +75,7 @@ const createMemoryHistory = () => {
        path,
        state
      }) {
@@ -38,26 +41,26 @@ index 3321728..f0ec59e 100644
        interrupt();
        const id = nanoid(); // When a new entry is pushed, all the existing entries after index will be inaccessible
        // So we remove any existing entries after the current index to clean them up
-@@ -84,6 +97,7 @@ const createMemoryHistory = () => {
+@@ -84,6 +100,7 @@ const createMemoryHistory = () => {
        path,
        state
      }) {
 +      path = prefixHashPath(path);
        var _window$history$state2, _window$history$state3;
- 
+
        interrupt();
-@@ -345,7 +359,9 @@ export default function useLinking(ref, {
+@@ -345,7 +362,9 @@ export default function useLinking(ref, {
      if (enabledRef.current) {
        var _server$location;
- 
+
 -      const location = (_server$location = server === null || server === void 0 ? void 0 : server.location) !== null && _server$location !== void 0 ? _server$location : typeof window !== 'undefined' ? window.location : undefined;
 +      let location = (_server$location = server === null || server === void 0 ? void 0 : server.location) !== null && _server$location !== void 0 ? _server$location : typeof window !== 'undefined' ? window.location : undefined;
 +      location = getHashLocation();
 +
        const path = location ? location.pathname + location.search : undefined;
- 
+
        if (path) {
-@@ -378,7 +394,7 @@ export default function useLinking(ref, {
+@@ -378,7 +397,7 @@ export default function useLinking(ref, {
        if (!navigation || !enabled) {
          return;
        }
@@ -66,18 +69,18 @@ index 3321728..f0ec59e 100644
        const path = location.pathname + location.search;
        const index = history.index;
        const previousIndex = (_previousIndexRef$cur = previousIndexRef.current) !== null && _previousIndexRef$cur !== void 0 ? _previousIndexRef$cur : 0;
-@@ -446,7 +462,8 @@ export default function useLinking(ref, {
+@@ -446,7 +465,8 @@ export default function useLinking(ref, {
          var _route$path;
- 
+
          const route = findFocusedRoute(state);
 -        const path = (_route$path = route === null || route === void 0 ? void 0 : route.path) !== null && _route$path !== void 0 ? _route$path : getPathFromStateRef.current(state, configRef.current);
 +        let path = (_route$path = route === null || route === void 0 ? void 0 : route.path) !== null && _route$path !== void 0 ? _route$path : getPathFromStateRef.current(state, configRef.current);
 +        path = prefixHashPath(path);
- 
+
          if (previousStateRef.current === undefined) {
            previousStateRef.current = state;
-@@ -470,9 +487,11 @@ export default function useLinking(ref, {
- 
+@@ -470,9 +490,11 @@ export default function useLinking(ref, {
+
        const previousState = previousStateRef.current;
        const state = navigation.getRootState();
 -      const pendingPath = pendingPopStatePathRef.current;

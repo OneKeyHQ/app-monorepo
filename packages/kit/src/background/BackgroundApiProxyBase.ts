@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
 import { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
+import { ensureSerializable } from './utils';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
@@ -35,9 +37,19 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     method: string,
     ...params: Array<any>
   ): any {
+    ensureSerializable(params);
+    let [serviceName, methodName] = method.split('.');
+    if (!methodName) {
+      methodName = serviceName;
+      serviceName = '';
+    }
+    if (serviceName === 'ROOT') {
+      serviceName = '';
+    }
     if (platformEnv.isExtension && isExtensionUi()) {
       const data = {
-        method: `${INTERNAL_METHOD_PREFIX}${method}`,
+        service: serviceName,
+        method: `${INTERNAL_METHOD_PREFIX}${methodName}`,
         params,
       };
       if (sync) {
@@ -54,9 +66,10 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
       if (!this.backgroundApi) {
         throw new Error('backgroundApi not found in non-ext env');
       }
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
-      return this.backgroundApi[method].call(this.backgroundApi, ...params);
+      const serviceApi = serviceName
+        ? (this.backgroundApi as any)[serviceName]
+        : this.backgroundApi;
+      return serviceApi[methodName].call(serviceApi, ...params);
     }
   }
 

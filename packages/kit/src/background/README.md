@@ -5,5 +5,20 @@
   - deep linking in ios/android 
 - EngineProvider.tsx to background
   - EngineProxy
+  - listFiats() ReferenceError: XMLHttpRequest is not defined
+    - cross-fetch
+  - all api needs to be async promise
+  - method params and return should be serialized
+  - property not available
+  - using @backgroundMethod() 
+- axios
+  - axios-fetch-adapter
 - https://metamask.github.io/test-dapp/ Error: missing provider ( manifest v3 inject delay )
-  - https://github.com/MetaMask/test-dapp 
+  - https://github.com/MetaMask/test-dapp
+  - Network disable cache, Network throttling
+- useSWR in background
+- redux-persist in background
+- backgroundApi safe check: other extension call; background and ui password; 
+- background redux state init (with engine init)
+  - render UI after background redux state sync done
+  - getImplFromNetworkId ERROR: networkId required (first time open UI after extension reload)

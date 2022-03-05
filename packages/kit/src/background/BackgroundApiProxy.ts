@@ -12,21 +12,42 @@ import type {
 import type PromiseContainer from './PromiseContainer';
 import type DappService from './service/DappService';
 
-const NOOP = {};
-
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
   implements IBackgroundApi
 {
-  engine = NOOP as Engine;
+  proxyServiceCache = {} as any;
 
-  dappService = NOOP as DappService;
+  createProxyService(name = 'ROOT') {
+    const NOOP = new Proxy(
+      {},
+      {
+        get: (target, prop) => {
+          const key = `${name}.${prop as string}`;
+          if (!this.proxyServiceCache[key]) {
+            this.proxyServiceCache[key] = (...args: any) => {
+              console.log('proxy method call', key, ...args);
+              return this.callBackground(key, ...args);
+            };
+          }
+          return this.proxyServiceCache[key];
+        },
+      },
+    );
+    return NOOP;
+  }
 
-  promiseContainer = NOOP as PromiseContainer;
+  engine = this.createProxyService('engine') as Engine;
+
+  dappService = this.createProxyService('dappService') as DappService;
+
+  promiseContainer = this.createProxyService(
+    'promiseContainer',
+  ) as PromiseContainer;
 
   // TODO add custom eslint rule to force method name match
   dispatchAction(action: any) {
-    return this.callBackgroundSync('dispatchAction', action);
+    this.callBackgroundSync('dispatchAction', action);
   }
 
   getStoreState(): Promise<any> {
