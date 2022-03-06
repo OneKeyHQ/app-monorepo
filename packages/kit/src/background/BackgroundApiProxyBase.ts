@@ -30,7 +30,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   }
 
   // init in NON-Ext UI env
-  private backgroundApi?: IBackgroundApi;
+  private readonly backgroundApi?: IBackgroundApi | null = null;
 
   callBackgroundMethod(
     sync = true,

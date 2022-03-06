@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 import * as SubModalRoutesParams from './Modal/types';
-import { ModalRoutes } from './routesEnum';
+import { ModalRoutes, RootRoutes } from './routesEnum';
 
 import type { StackBasicRoutesParams } from './Dev';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -84,11 +84,8 @@ export type HomeRoutesParams = {
 /** HomeStack */
 
 /** Root */
-export enum RootRoutes {
-  Root = 'root',
-  Modal = 'modal',
-  Tab = 'tab',
-}
+
+export { RootRoutes };
 
 /** Root */
 

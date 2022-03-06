@@ -27,3 +27,8 @@ export enum ModalRoutes {
 export enum DappConnectionModalRoutes {
   ConnectionModal = 'ConnectionModal',
 }
+export enum RootRoutes {
+  Root = 'root',
+  Modal = 'modal',
+  Tab = 'tab',
+}

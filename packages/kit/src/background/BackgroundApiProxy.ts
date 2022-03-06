@@ -11,7 +11,7 @@ class BackgroundApiProxy
   extends BackgroundApiProxyBase
   implements IBackgroundApi
 {
-  proxyServiceCache = {} as any;
+  _proxyServiceCache = {} as any;
 
   engine = this._createProxyService('engine') as Engine;
 
@@ -27,13 +27,13 @@ class BackgroundApiProxy
       {
         get: (target, prop) => {
           const key = `${name}.${prop as string}`;
-          if (!this.proxyServiceCache[key]) {
-            this.proxyServiceCache[key] = (...args: any) => {
+          if (!this._proxyServiceCache[key]) {
+            this._proxyServiceCache[key] = (...args: any) => {
               console.log('proxy method call', key, ...args);
               return this.callBackground(key, ...args);
             };
           }
-          return this.proxyServiceCache[key];
+          return this._proxyServiceCache[key];
         },
       },
     );

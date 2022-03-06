@@ -3,8 +3,11 @@ import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
-import { DappConnectionModalRoutes } from '../../routes';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
+import {
+  DappConnectionModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../routes/routesEnum';
 import { appSelector } from '../../store';
 import {
   DappSiteConnection,

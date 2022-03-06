@@ -16,7 +16,8 @@ export function isSerializable(obj: any) {
     isNull(obj) ||
     isBoolean(obj) ||
     isNumber(obj) ||
-    isString(obj)
+    isString(obj) ||
+    obj instanceof Error
   ) {
     return true;
   }
