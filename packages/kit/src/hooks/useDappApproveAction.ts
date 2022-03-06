@@ -14,7 +14,7 @@ function useDappApproveAction({
   const [rejectError, setRejectError] = useState<Error | null>(null);
   const reject = useCallback(
     ({ close }: { close: () => void }) => {
-      backgroundApiProxy.rejectPromiseCallback({
+      backgroundApiProxy.promiseContainer.rejectCallback({
         id,
         error: rejectError || web3Errors.provider.userRejectedRequest(),
       });
@@ -29,7 +29,7 @@ function useDappApproveAction({
         setRejectError(null);
         // throw new Error('simulate something is wrong');
         const data = await getResolveData();
-        backgroundApiProxy.resolvePromiseCallback({
+        backgroundApiProxy.promiseContainer.resolveCallback({
           id,
           data,
         });

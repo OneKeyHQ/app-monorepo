@@ -3,9 +3,14 @@ import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
-import { RootRoutes } from '../../routes/types';
+import { DappConnectionModalRoutes } from '../../routes';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { appSelector } from '../../store';
-import { DappSiteConnection } from '../../store/reducers/dapp';
+import {
+  DappSiteConnection,
+  DappSiteConnectionSavePayload,
+  dappSaveSiteConnection,
+} from '../../store/reducers/dapp';
 import { IDappCallParams } from '../IBackgroundApi';
 
 import BaseService from './BaseService';
@@ -16,13 +21,33 @@ class DappService extends BaseService {
     const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
     );
-    const accounts = connections.filter(
-      (item) =>
-        item.site.origin === origin &&
-        item.networkImpl === networkImpl &&
-        item.address === accountAddress, // only match current active account
-    );
+    const accounts = connections
+      .filter(
+        (item) =>
+          item.site.origin === origin &&
+          item.networkImpl === networkImpl &&
+          item.address === accountAddress, // only match current active account
+      )
+      .filter((item) => item.address && item.networkImpl);
     return accounts;
+  }
+
+  saveConnectedAccounts(payload: DappSiteConnectionSavePayload) {
+    this.backgroundApi.dispatchAction(dappSaveSiteConnection(payload));
+  }
+
+  openConnectionApprovalModal({
+    request,
+  }: {
+    request: IJsBridgeMessagePayload;
+  }) {
+    return this.openApprovalModal({
+      request,
+      screens: [
+        ModalRoutes.DappConnectionModal,
+        DappConnectionModalRoutes.ConnectionModal,
+      ],
+    });
   }
 
   async openApprovalModal({
@@ -33,7 +58,7 @@ class DappService extends BaseService {
     screens: any[];
   }) {
     return new Promise((resolve, reject) => {
-      const id = this.backgroundApi.createPromiseCallback({
+      const id = this.backgroundApi.promiseContainer.createCallback({
         resolve,
         reject,
       });

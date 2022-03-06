@@ -1,10 +1,5 @@
 import type { Engine } from '@onekeyhq/engine';
 
-import type {
-  PromiseContainerCallbackCreate,
-  PromiseContainerReject,
-  PromiseContainerResolve,
-} from './PromiseContainer';
 import type PromiseContainer from './PromiseContainer';
 import type DappService from './service/DappService';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -22,10 +17,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   engine: Engine;
   promiseContainer: PromiseContainer;
   dappService: DappService;
-
-  createPromiseCallback(params: PromiseContainerCallbackCreate): number;
-  resolvePromiseCallback(params: PromiseContainerResolve): void;
-  rejectPromiseCallback(params: PromiseContainerReject): void;
 
   dispatchAction(action: any): void;
 

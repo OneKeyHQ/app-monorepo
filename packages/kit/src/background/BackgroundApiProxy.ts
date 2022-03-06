@@ -4,11 +4,6 @@ import type { Engine } from '@onekeyhq/engine';
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
-import type {
-  PromiseContainerCallbackCreate,
-  PromiseContainerReject,
-  PromiseContainerResolve,
-} from './PromiseContainer';
 import type PromiseContainer from './PromiseContainer';
 import type DappService from './service/DappService';
 
@@ -18,7 +13,15 @@ class BackgroundApiProxy
 {
   proxyServiceCache = {} as any;
 
-  createProxyService(name = 'ROOT') {
+  engine = this._createProxyService('engine') as Engine;
+
+  dappService = this._createProxyService('dappService') as DappService;
+
+  promiseContainer = this._createProxyService(
+    'promiseContainer',
+  ) as PromiseContainer;
+
+  _createProxyService(name = 'ROOT') {
     const NOOP = new Proxy(
       {},
       {
@@ -36,14 +39,6 @@ class BackgroundApiProxy
     );
     return NOOP;
   }
-
-  engine = this.createProxyService('engine') as Engine;
-
-  dappService = this.createProxyService('dappService') as DappService;
-
-  promiseContainer = this.createProxyService(
-    'promiseContainer',
-  ) as PromiseContainer;
 
   // TODO add custom eslint rule to force method name match
   dispatchAction(action: any) {
@@ -68,18 +63,6 @@ class BackgroundApiProxy
 
   notifyChainChanged(): void {
     return this.callBackground('notifyChainChanged');
-  }
-
-  createPromiseCallback(params: PromiseContainerCallbackCreate): number {
-    return this.callBackground('createPromiseCallback', params);
-  }
-
-  rejectPromiseCallback(params: PromiseContainerReject): void {
-    return this.callBackground('rejectPromiseCallback', params);
-  }
-
-  resolvePromiseCallback(params: PromiseContainerResolve): void {
-    return this.callBackground('resolvePromiseCallback', params);
   }
 
   listNetworks(...params: any) {
