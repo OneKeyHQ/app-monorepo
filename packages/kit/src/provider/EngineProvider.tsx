@@ -102,6 +102,7 @@ const EngineApp: FC = ({ children }) => {
               );
             });
         } else {
+          // TODO async actions to backgroundApi
           dispatch(
             changeActiveAccount({
               account: null,
@@ -119,6 +120,7 @@ const EngineApp: FC = ({ children }) => {
     if (activeNetwork?.network) return;
     const sharedChainName = networks[0].impl;
     const defaultNetwork = networks[0];
+    // TODO async actions to backgroundApi
     dispatch(changeActiveNetwork({ network: defaultNetwork, sharedChainName }));
   }, [dispatch, networks, activeNetwork]);
 

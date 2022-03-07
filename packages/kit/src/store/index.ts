@@ -122,8 +122,9 @@ export async function appDispatch(
   if (isFunction(action)) {
     const asyncAction = action as (dispatch: Dispatch) => Promise<unknown>;
     await asyncAction(backgroundDispatch as Dispatch);
-    throw new Error(
+    console.error(
       'dispatch async action is NOT allowed, please use backgroundApi instead',
+      action,
     );
   } else if (backgroundDispatch) {
     backgroundDispatch(action);
