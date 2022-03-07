@@ -17,9 +17,14 @@ export const walletSlice = createSlice({
     updateWallets(state, action: PayloadAction<BaseWallet[]>) {
       state.wallets = action.payload;
     },
+    updateWallet(state, action: PayloadAction<BaseWallet>) {
+      state.wallets = state.wallets.map((w) =>
+        w.id === action.payload.id ? action.payload : w,
+      );
+    },
   },
 });
 
-export const { updateWallets } = walletSlice.actions;
+export const { updateWallets, updateWallet } = walletSlice.actions;
 
 export default walletSlice.reducer;

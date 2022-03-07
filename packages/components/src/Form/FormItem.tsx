@@ -58,9 +58,12 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             alignItems="center"
             mb={1}
           >
-            <FormControl.Label mb={0}>
-              <Typography.Body2Strong>{label}</Typography.Body2Strong>
-            </FormControl.Label>
+            {!!label && (
+              <FormControl.Label mb={0}>
+                <Typography.Body2Strong>{label}</Typography.Body2Strong>
+              </FormControl.Label>
+            )}
+
             {Array.isArray(labelAddon) ? (
               <Stack direction="row" space="2">
                 {labelAddon.map((item, i) => {

@@ -27,6 +27,8 @@ class NfcCommand {
         const val VERIFY_SUCCESS = 100
         const val INTERRUPT_STATUS = 1000
         const val RESET_PIN_SUCCESS = -1
+        const val CHANGE_PIN_SUCCESS = -10
+        const val CHANGE_PIN_ERROR = -100
         const val NEW_PIN = "029000"
         const val MAX_RETRY_NUM = 10
         const val NO_RETRY_NUM_RESET_CARD = 0
@@ -42,19 +44,22 @@ class NfcCommand {
         @JvmStatic
         fun verifyPinCommand(string: String?): String? {
             return GPChannelNatives.nativeGPCBuildSafeAPDU(
-                    0x80, 0x20, 0x00, 0x00, "06" + HexUtils.stringToHexString(string))
+                0x80, 0x20, 0x00, 0x00, "06" + HexUtils.stringToHexString(string)
+            )
         }
 
         @JvmStatic
         fun setPinCommand(string: String?): String? {
             return GPChannelNatives.nativeGPCBuildSafeAPDU(
-                    0x80,
-                    0xCB,
-                    0x80,
-                    0x00,
-                    "DFFE0B8204080006"
-                            + HexUtils.stringToHexString(
-                            string))
+                0x80,
+                0xCB,
+                0x80,
+                0x00,
+                "DFFE0B8204080006"
+                        + HexUtils.stringToHexString(
+                    string
+                )
+            )
         }
 
         private fun combCommand(command: ByteArray? = null, vararg params: ByteArray?): ByteArray {
@@ -79,34 +84,39 @@ class NfcCommand {
         }
 
         private fun changePinCommand(oldPin: String?, newPin: String?): String? {
-            val changePinCommand = combCommand(HexUtils.hexString2Bytes("8204"),
-                    HexUtils.hexString2Bytes(HexUtils.stringToHexString(oldPin)),
-                    HexUtils.hexString2Bytes(HexUtils.stringToHexString(newPin)))
+            val changePinCommand = combCommand(
+                HexUtils.hexString2Bytes("8204"),
+                HexUtils.hexString2Bytes(HexUtils.stringToHexString(oldPin)),
+                HexUtils.hexString2Bytes(HexUtils.stringToHexString(newPin))
+            )
 
             val execCommand = combCommand(HexUtils.hexString2Bytes("DFFE"), changePinCommand)
 
             return GPChannelNatives.nativeGPCBuildSafeAPDU(
-                    0x80,
-                    0xCB,
-                    0x80,
-                    0x00,
-                    HexUtils.byteArr2HexStr(execCommand))
+                0x80,
+                0xCB,
+                0x80,
+                0x00,
+                HexUtils.byteArr2HexStr(execCommand)
+            )
         }
 
         @JvmStatic
         fun backupCommand(mnemonic: String?): String? {
             return GPChannelNatives.nativeGPCBuildAPDU(
-                    0x80,
-                    0x3B,
-                    0x00,
-                    0x00,
-                    mnemonic)
+                0x80,
+                0x3B,
+                0x00,
+                0x00,
+                mnemonic
+            )
         }
 
         @JvmStatic
         fun isNewCardCommand(): String {
             return GPChannelNatives.nativeGPCBuildAPDU(
-                    0x80, 0xCB, 0x80, 0x00, "DFFF028105")
+                0x80, 0xCB, 0x80, 0x00, "DFFF028105"
+            )
         }
 
 
@@ -123,7 +133,8 @@ class NfcCommand {
         @JvmStatic
         fun selectAppCommand(): String {
             return GPChannelNatives.nativeGPCBuildAPDU(
-                    0x00, 0xA4, 0x04, 0x00, "D156000132834001")
+                0x00, 0xA4, 0x04, 0x00, "D156000132834001"
+            )
         }
 
         @JvmStatic
@@ -139,16 +150,18 @@ class NfcCommand {
         @JvmStatic
         fun selectSdCommand(): String {
             return GPChannelNatives.nativeGPCBuildAPDU(
-                    0x00, 0xA4, 0x04, 0x00, "")
+                0x00, 0xA4, 0x04, 0x00, ""
+            )
         }
 
         @JvmStatic
         fun exportCommand(isoDep: IsoDep?): String? {
             val export = GPChannelNatives.nativeGPCBuildAPDU(
-                    0x80,
-                    0x4B,
-                    0x00,
-                    0x00, "")
+                0x80,
+                0x4B,
+                0x00,
+                0x00, ""
+            )
             val sendResult = send(isoDep, export)
             if (sendResult.isNullOrEmpty() || !sendResult.endsWith(STATUS_SUCCESS)) {
                 return null
@@ -170,7 +183,7 @@ class NfcCommand {
         fun startVerifyPinCommand(isoDep: IsoDep, verifyPin: String): Int {
             // 验证PIN
             val verify: String? =
-                    verifyPinCommand(verifyPin)
+                verifyPinCommand(verifyPin)
             val response = send(isoDep, verify)
             return if (response?.endsWith(STATUS_SUCCESS) == true) {
                 Log.d(LITE_TAG, "---verify success")
@@ -215,7 +228,7 @@ class NfcCommand {
             }
 
             val changePin: String? =
-                    setPinCommand(setUpPin)
+                setPinCommand(setUpPin)
             val res = send(isoDep, changePin)
             Log.d(LITE_TAG, " set Pin command result --->$res")
             return if (res.isNullOrEmpty()) {
@@ -227,31 +240,31 @@ class NfcCommand {
 
         @JvmStatic
         @Throws(NFCExceptions::class)
-        fun changePinCommand(isoDep: IsoDep, oldPin: String, newPin: String?): Boolean {
+        fun changePinCommand(isoDep: IsoDep, oldPin: String, newPin: String?): Int {
             val initChannelResult = initChannel(isoDep)
             if (initChannelResult != INIT_CHANNEL_SUCCESS) {
-                return false
+                throw NFCExceptions.InterruptException()
             }
             if (!selectIssuerSd(isoDep)) {
-                return false
+                throw NFCExceptions.InterruptException()
             }
             if (openSecureChannelFailed(isoDep)) {
-                return false
+                throw NFCExceptions.InterruptException()
             }
             val changePin: String? =
-                    changePinCommand(oldPin, newPin)
+                changePinCommand(oldPin, newPin)
 
             val res = send(isoDep, changePin)
             Log.d(LITE_TAG, " set Pin command result --->$res")
 
             if (res?.endsWith("9B01") == true) {
                 // 原密码错误
-                throw NFCExceptions.PasswordWrongException()
+                return retryNumCommandAndReset(isoDep)
             }
-            return if (res.isNullOrEmpty()) {
-                false
+            return if (res.isNullOrEmpty() || !res.endsWith(STATUS_SUCCESS)) {
+                CHANGE_PIN_ERROR
             } else {
-                res.endsWith(STATUS_SUCCESS)
+                CHANGE_PIN_SUCCESS
             }
         }
 
@@ -261,7 +274,7 @@ class NfcCommand {
                 return false
             }
             val clearStatus =
-                    GPChannelNatives.nativeGPCBuildAPDU(0x80, 0x7A, 0x00, 0x00, "")
+                GPChannelNatives.nativeGPCBuildAPDU(0x80, 0x7A, 0x00, 0x00, "")
             val res = send(isoDep, clearStatus)
             Log.d(LITE_TAG, "----clearBackUpStatus-->$res")
             return if (res.isNullOrEmpty()) {
@@ -275,7 +288,8 @@ class NfcCommand {
             if (!selectIssuerSd(isoDep)) {
                 return INTERRUPT_STATUS
             }
-            val getRetryMaxNumCommand = GPChannelNatives.nativeGPCBuildAPDU(0x80, 0xCB, 0x80, 0x00, "DFFF028102")
+            val getRetryMaxNumCommand =
+                GPChannelNatives.nativeGPCBuildAPDU(0x80, 0xCB, 0x80, 0x00, "DFFF028102")
             val retryMaxNum = send(isoDep, getRetryMaxNumCommand)
             if (retryMaxNum.isNullOrEmpty() || !retryMaxNum.endsWith(STATUS_SUCCESS)) {
                 return INTERRUPT_STATUS
@@ -306,7 +320,7 @@ class NfcCommand {
                 return INTERRUPT_STATUS
             }
             val clearStatus =
-                    GPChannelNatives.nativeGPCBuildSafeAPDU(0x80, 0xCB, 0x80, 0x00, "DFFE028205")
+                GPChannelNatives.nativeGPCBuildSafeAPDU(0x80, 0xCB, 0x80, 0x00, "DFFE028205")
             val res = send(isoDep, clearStatus)
             return if (res?.endsWith(STATUS_SUCCESS) == true) {
                 RESET_PIN_SUCCESS
@@ -364,7 +378,8 @@ class NfcCommand {
             }
             // 1. 初始化安全通道设置
             val param = SecureChanelParam.objectFromData(
-                    KeysNativeProvider().getLiteSecureChannelInitParams(Utils.getApp()))
+                KeysNativeProvider().getLiteSecureChannelInitParams(Utils.getApp())
+            )
             param.cardGroupID = groupId
             val status1 = GPChannelNatives.nativeGPCInitialize(param.toString())
             return if (status1 != 0) {
@@ -391,10 +406,12 @@ class NfcCommand {
 
         private fun exportSeed(originSeedString: String): String? {
             val originResponse = GPChannelNatives.nativeGPCParseAPDUResponse(
-                    originSeedString)
+                originSeedString
+            )
             val response = CardResponse.objectFromData(
-                    originResponse)
-                    .response
+                originResponse
+            )
+                .response
             Log.d(LITE_TAG, "---origin-->$response")
             return response
         }
@@ -434,7 +451,8 @@ class NfcCommand {
             if (authRes.isNullOrEmpty()) {
                 return true
             }
-            val res = CardResponse.objectFromData(GPChannelNatives.nativeGPCParseAPDUResponse(authRes))
+            val res =
+                CardResponse.objectFromData(GPChannelNatives.nativeGPCParseAPDUResponse(authRes))
                     .response
             val status = GPChannelNatives.nativeGPCOpenSecureChannel(res)
             if (status != 0) {
@@ -462,7 +480,8 @@ class NfcCommand {
                     isoDep.connect()
                     isoDep.timeout = 4000
                 }
-                response = HexUtils.byteArr2HexStr(isoDep?.transceive(HexUtils.hexString2Bytes(request)))
+                response =
+                    HexUtils.byteArr2HexStr(isoDep?.transceive(HexUtils.hexString2Bytes(request)))
             } catch (e: IOException) {
                 e.printStackTrace()
                 return null

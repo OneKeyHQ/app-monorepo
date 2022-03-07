@@ -1,5 +1,6 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +14,15 @@ import {
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
@@ -54,10 +64,32 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   return <Typography.Body1Strong>{title}</Typography.Body1Strong>;
 };
 
+type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
+
 const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const isVerticalLayout = useIsVerticalLayout();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
+
+  const renderBackupState = useMemo(() => {
+    if (!selectedWallet) return null;
+    if (selectedWallet.backuped) {
+      return (
+        <Icon
+          name={isVerticalLayout ? 'CheckCircleOutline' : 'CheckCircleSolid'}
+          color="icon-success"
+        />
+      );
+    }
+    return (
+      <Icon
+        name={isVerticalLayout ? 'ExclamationOutline' : 'ExclamationSolid'}
+        color="icon-warning"
+      />
+    );
+  }, [isVerticalLayout, selectedWallet]);
+
   return (
     <HStack zIndex={99} py={3} px={4} space={4} alignItems="center">
       <VStack flex={1}>
@@ -69,6 +101,28 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
       </VStack>
       {['hd', 'normal'].includes(selectedWallet?.type ?? '') ? (
         <Select
+          onChange={(_value) => {
+            switch (_value) {
+              case 'rename':
+                break;
+              case 'backup':
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.BackupWallet,
+                  params: {
+                    screen: BackupWalletModalRoutes.BackupWalletModal,
+                    params: {
+                      walletId: selectedWallet?.id ?? '',
+                    },
+                  },
+                });
+                break;
+              case 'remove':
+                break;
+
+              default:
+                break;
+            }
+          }}
           dropdownPosition="left"
           activatable={false}
           options={[
@@ -81,12 +135,13 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             },
             {
               label: intl.formatMessage({ id: 'action__backup' }),
-              value: 'detail',
+              value: 'backup',
               iconProps: {
                 name: isVerticalLayout
                   ? 'ShieldCheckOutline'
                   : 'ShieldCheckSolid',
               },
+              trailing: renderBackupState,
             },
             {
               label: intl.formatMessage({ id: 'action__delete_wallet' }),

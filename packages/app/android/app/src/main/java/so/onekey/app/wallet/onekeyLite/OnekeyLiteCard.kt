@@ -17,32 +17,33 @@ object OnekeyLiteCard {
     const val TAG = "OnekeyLiteCard"
 
 
-    suspend fun startNfc(activity: FragmentActivity, callback: ((Boolean) -> Unit)? = null) = withContext(Dispatchers.Main) {
-        if (NfcUtils.isNfcExits(activity)) {
-            val adapter = NfcUtils.init(activity)
-            if(adapter == null){
-                Log.d(TAG, "startNfc: NfcAdapter is null")
-                callback?.invoke(false)
+    suspend fun startNfc(activity: FragmentActivity, callback: ((Boolean) -> Unit)? = null) =
+        withContext(Dispatchers.Main) {
+            if (NfcUtils.isNfcExits(activity)) {
+                val adapter = NfcUtils.init(activity)
+                if (adapter == null) {
+                    Log.d(TAG, "startNfc: NfcAdapter is null")
+                    callback?.invoke(false)
+                    return@withContext
+                }
+            }
+            Log.d(TAG, "startNfc: ${NfcUtils.isNfcExits(activity)}")
+
+            NfcPermissionUtils.checkPermission(activity) {
+                Log.d(TAG, "startNfc Have permission")
+
+                NfcUtils.mNfcAdapter?.enableForegroundDispatch(
+                    activity, NfcUtils.mPendingIntent, NfcUtils.mIntentFilter, NfcUtils.mTechList
+                )
+
+                Log.d(TAG, "startNfc: enableForegroundDispatch")
+
+                callback?.invoke(true)
                 return@withContext
             }
+            Log.e(TAG, "startNfc Not NFC permission")
+            callback?.invoke(false)
         }
-        Log.d(TAG, "startNfc: ${NfcUtils.isNfcExits(activity)}")
-
-        NfcPermissionUtils.checkPermission(activity) {
-            Log.d(TAG, "startNfc Have permission")
-
-            NfcUtils.mNfcAdapter?.enableForegroundDispatch(
-                    activity, NfcUtils.mPendingIntent, NfcUtils.mIntentFilter, NfcUtils.mTechList
-            )
-
-            Log.d(TAG, "startNfc: enableForegroundDispatch")
-
-            callback?.invoke(true)
-            return@withContext
-        }
-        Log.e(TAG, "startNfc Not NFC permission")
-        callback?.invoke(false)
-    }
 
     fun stopNfc(activity: Activity) {
         NfcUtils.mNfcAdapter?.disableForegroundDispatch(activity)
@@ -65,14 +66,15 @@ object OnekeyLiteCard {
         }
     }
 
-    suspend fun startConnectCommand(isoDep: IsoDep, startConnected: Boolean = true) = withContext(Dispatchers.IO) {
-        val selected = NfcCommand.selectBackupApp(isoDep)
-        if (!selected) {
-            throw NFCExceptions.ConnectionFailException()
-        }
+    suspend fun startConnectCommand(isoDep: IsoDep, startConnected: Boolean = true) =
+        withContext(Dispatchers.IO) {
+            val selected = NfcCommand.selectBackupApp(isoDep)
+            if (!selected) {
+                throw NFCExceptions.ConnectionFailException()
+            }
 
-        return@withContext getCardInfo(isoDep)
-    }
+            return@withContext getCardInfo(isoDep)
+        }
 
     @Throws(NFCExceptions::class)
     private fun hasBackup(isoDep: IsoDep): Boolean {
@@ -116,7 +118,7 @@ object OnekeyLiteCard {
     }
 
     @Throws(NFCExceptions::class)
-    fun changePinRequest(isoDep: IsoDep, oldPwd: String?, newPwd: String?): Boolean {
+    fun changePinRequest(isoDep: IsoDep, oldPwd: String?, newPwd: String?): Int {
         if (oldPwd.isNullOrEmpty()) {
             throw NFCExceptions.InputPasswordEmptyException()
         }
@@ -177,7 +179,14 @@ object OnekeyLiteCard {
     }
 
     @Throws(NFCExceptions::class)
-    fun setMnemonic(cardState: CardState?, isoDep: IsoDep, mnemonic: String, pwd: String, overwrite: Boolean = false, isBackup: Boolean = true): Boolean {
+    fun setMnemonic(
+        cardState: CardState?,
+        isoDep: IsoDep,
+        mnemonic: String,
+        pwd: String,
+        overwrite: Boolean = false,
+        isBackup: Boolean = true
+    ): Boolean {
         if (cardState == null) throw  NFCExceptions.ConnectionFailException()
 
         if (!overwrite) {
@@ -193,7 +202,7 @@ object OnekeyLiteCard {
             }
         }
         val verifyPin = verifyPinBackupRequest(isoDep, pwd)
-        Log.d("verifyPinBackupRequest","getMnemonicWithPin ${verifyPin}")
+        Log.d("verifyPinBackupRequest", "getMnemonicWithPin ${verifyPin}")
         if (verifyPin != NfcCommand.VERIFY_SUCCESS) {
             if (overwrite) {
                 when (verifyPin) {
@@ -227,7 +236,7 @@ object OnekeyLiteCard {
         }
 
         val verifyPin = verifyPinBackupRequest(isoDep, pwd)
-        Log.d("verifyPinBackupRequest","getMnemonicWithPin ${verifyPin}")
+        Log.d("verifyPinBackupRequest", "getMnemonicWithPin ${verifyPin}")
         if (verifyPin != NfcCommand.VERIFY_SUCCESS) {
             when (verifyPin) {
                 NfcCommand.INTERRUPT_STATUS -> {
@@ -262,7 +271,28 @@ object OnekeyLiteCard {
             throw NFCExceptions.NotInitializedException()
         }
 
-        return changePinRequest(isoDep, oldPwd, newPwd)
+        val result = changePinRequest(isoDep, oldPwd, newPwd)
+        when (result) {
+            NfcCommand.CHANGE_PIN_SUCCESS -> {
+                return true
+            }
+            NfcCommand.CHANGE_PIN_ERROR -> {
+                return false
+            }
+            NfcCommand.INTERRUPT_STATUS -> {
+                // Reset 卡片错误,已经锁定
+                throw NFCExceptions.CardLockException()
+            }
+            NfcCommand.RESET_PIN_SUCCESS -> {
+                // Reset 卡片成功
+                throw NFCExceptions.UpperErrorAutoResetException()
+            }
+            else -> {
+                // 密码错误
+                cardState.pinRetryCount = result
+                throw NFCExceptions.PasswordWrongException()
+            }
+        }
     }
 
     fun reset(isoDep: IsoDep): Boolean {

@@ -73,17 +73,17 @@ const OnekeyLiteDetail: React.FC = () => {
     main();
   }, [wallet]);
 
-  const getMenuOptions = useMemo(() => {
+  useEffect(() => {
     const menuOptions: SelectItem<OptionType>[] = [];
-    if (controlledWallets.length > 0) {
-      menuOptions.push({
-        label: intl.formatMessage({
-          id: 'action__restore_with_onekey_lite',
-        }),
-        value: 'restore',
-        iconProps: { name: 'SaveAsOutline' },
-      });
-    }
+
+    menuOptions.push({
+      label: intl.formatMessage({
+        id: 'action__restore_with_onekey_lite',
+      }),
+      value: 'restore',
+      iconProps: { name: 'SaveAsOutline' },
+    });
+
     menuOptions.push({
       label: intl.formatMessage({
         id: 'action__change_pin',
@@ -99,10 +99,7 @@ const OnekeyLiteDetail: React.FC = () => {
       iconProps: { name: 'TrashOutline', color: 'icon-critical' },
       color: 'icon-critical',
     });
-    return menuOptions;
-  }, [controlledWallets, intl]);
 
-  useEffect(() => {
     navigation.setOptions({
       title: 'OneKey Lite',
       headerRight: () => (
@@ -120,7 +117,7 @@ const OnekeyLiteDetail: React.FC = () => {
           dropdownProps={{
             width: 248,
           }}
-          options={getMenuOptions}
+          options={menuOptions}
           renderTrigger={() => (
             <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
               <Icon name="DotsHorizontalOutline" />
@@ -130,7 +127,7 @@ const OnekeyLiteDetail: React.FC = () => {
       ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [intl, navigation]);
 
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
     navigation.navigate(RootRoutes.Modal, {
