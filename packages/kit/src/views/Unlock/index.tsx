@@ -47,8 +47,14 @@ const UnlockButton: FC<UnlockButtonProps> = ({ onOk, onForget }) => {
 const Unlock = () => {
   const intl = useIntl();
   const dispatch = useAppDispatch();
-  const { control, handleSubmit, setError } = useForm<FieldValues>({
+  const {
+    control,
+    handleSubmit,
+    setError,
+    formState: { isValid },
+  } = useForm<FieldValues>({
     defaultValues: { password: '' },
+    mode: 'onChange',
   });
   const isSmall = useIsVerticalLayout();
   const justifyContent = isSmall ? 'space-between' : 'center';
@@ -72,6 +78,7 @@ const Unlock = () => {
   );
   const onOk = useCallback(() => {
     dispatch(unlock());
+    dispatch(runtimeUnlock());
   }, [dispatch]);
   return (
     <KeyboardDismissView>
@@ -105,10 +112,20 @@ const Unlock = () => {
                   id: 'form__password',
                   defaultMessage: 'Password',
                 })}
+                rules={{
+                  required: intl.formatMessage({
+                    id: 'form__field_is_required',
+                  }),
+                }}
               >
                 <Form.PasswordInput />
               </Form.Item>
-              <Button size="xl" onPress={handleSubmit(onUnlock)}>
+              <Button
+                size="xl"
+                isDisabled={!isValid}
+                type="primary"
+                onPress={handleSubmit(onUnlock)}
+              >
                 {intl.formatMessage({
                   id: 'action__unlock',
                   defaultMessage: 'Unlock',

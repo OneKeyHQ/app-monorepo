@@ -82,7 +82,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
               >
                 <Box display="flex" alignItems="center" flexDirection="row">
                   <Image
-                    src={item.logoURI}
+                    source={{ uri: item.logoURI }}
                     alt="logoURI"
                     size="8"
                     borderRadius="full"
@@ -98,14 +98,10 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     }
                   />
                   <Box ml="3">
-                    <Text
-                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      maxW="56"
-                      numberOfLines={2}
-                    >
-                      {item.name}({item.symbol})
-                    </Text>
-                    <Typography.Body2 numberOfLines={1} color="text-subdued">
+                    <Typography.Body1Strong maxW="56" numberOfLines={2}>
+                      {item.symbol}({item.name})
+                    </Typography.Body1Strong>
+                    <Typography.Body2 maxW="56" numberOfLines={1}>
                       <FormatBalance
                         balance={item?.balance ?? '0'}
                         suffix={item.symbol}
@@ -300,7 +296,7 @@ export const Listing: FC = () => {
       >
         <Box display="flex" alignItems="center" flexDirection="row">
           <Image
-            src={item.logoURI}
+            source={{ uri: item.logoURI }}
             alt="logoURI"
             size="8"
             borderRadius="full"
@@ -326,7 +322,7 @@ export const Listing: FC = () => {
                   : 'text-default'
               }
             >
-              {item.name}({item.symbol})
+              {item.symbol}({item.name})
             </Text>
             <Typography.Body2
               numberOfLines={1}

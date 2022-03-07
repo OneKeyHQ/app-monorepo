@@ -96,14 +96,21 @@ const MainScreen = () => {
   const { lastActivity, isUnlock, passwordCompleted } = useStatus();
   const { isRuntimeUnlock } = useGeneral();
 
-  const refresh = useCallback(
-    () => dispatch(refreshLastActivity()),
-    [dispatch],
-  );
+  const refresh = useCallback(() => {
+    if (AppState.currentState === 'active') {
+      dispatch(refreshLastActivity());
+    }
+  }, [dispatch]);
   useInterval(refresh, 5 * 1000);
 
   const onChange = useCallback(
     (state: AppStateStatus) => {
+      if (appLockDuration === 0) {
+        if (state === 'background') {
+          dispatch(lock());
+        }
+        return;
+      }
       if (state !== 'active') {
         return;
       }

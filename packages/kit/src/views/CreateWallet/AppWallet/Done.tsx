@@ -8,7 +8,10 @@ import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 import Protected from '../../../components/Protected';
 import engine from '../../../engine/EngineProvider';
 import { useAppDispatch } from '../../../hooks/redux';
-import { changeActiveAccount } from '../../../store/reducers/general';
+import {
+  changeActiveAccount,
+  runtimeUnlock,
+} from '../../../store/reducers/general';
 import {
   setBoardingCompleted,
   setPasswordCompleted,
@@ -30,6 +33,7 @@ const Done: FC<DoneProps> = ({ password }) => {
       dispatch(setBoardingCompleted());
       dispatch(setPasswordCompleted());
       dispatch(unlock());
+      dispatch(runtimeUnlock());
       dispatch(
         changeActiveAccount({
           account: null,

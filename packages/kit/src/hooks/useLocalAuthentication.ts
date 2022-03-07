@@ -15,15 +15,16 @@ export function useLocalAuthentication() {
 
   const localAuthenticate = useCallback<
     () => Promise<LocalAuthentication.LocalAuthenticationResult>
-  >(() => {
-    if (!isOk) {
-      return Promise.resolve({ success: false, error: 'no supported' });
+  >(async () => {
+    const supported = await LocalAuthentication.hasHardwareAsync();
+    if (!supported) {
+      return { success: false, error: 'no supported' };
     }
     return LocalAuthentication.authenticateAsync({
       cancelLabel: 'Cancel',
       promptMessage: 'Face ID',
     });
-  }, [isOk]);
+  }, []);
 
   const savePassword = useCallback(async (password: string) => {
     if (['ios', 'android'].includes(Platform.OS)) {
