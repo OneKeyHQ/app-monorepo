@@ -31,6 +31,9 @@ PODS:
     - UMTaskManagerInterface
   - EXManifests (0.2.2):
     - EXJSONUtils
+  - EXMediaLibrary (14.0.1):
+    - ExpoModulesCore
+    - React-Core
   - Expo (43.0.3):
     - ExpoModulesCore
   - expo-dev-client (0.7.2):
@@ -102,7 +105,7 @@ PODS:
   - EXSplashScreen (0.13.5):
     - ExpoModulesCore
     - React-Core
-  - EXUpdatesInterface (0.4.0)
+  - EXUpdatesInterface (0.5.0)
   - FBLazyVector (0.66.4)
   - FBReactNativeSpec (0.66.4):
     - RCT-Folly (= 2021.06.28.00-v2)
@@ -466,6 +469,7 @@ DEPENDENCIES:
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXManifests (from `../../../node_modules/expo-manifests/ios`)
+  - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
   - expo-dev-client (from `../../../node_modules/expo-dev-client`)
   - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
@@ -560,6 +564,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-location/ios"
   EXManifests:
     :path: "../../../node_modules/expo-manifests/ios"
+  EXMediaLibrary:
+    :path: "../../../node_modules/expo-media-library/ios"
   Expo:
     :path: "../../../node_modules/expo/ios"
   expo-dev-client:
@@ -683,6 +689,7 @@ SPEC CHECKSUMS:
   EXLocalAuthentication: 4c7166ed3133d2c75586093833936652e7d2c7fc
   EXLocation: 192eaee761c159d1479111a0ced3bab7ad8475a3
   EXManifests: 50e42e01335df4e54109dee7be5a91bfd37347db
+  EXMediaLibrary: 843669e1d9d38965057830138609ee99ef260cf1
   Expo: 5316c3ecdc34eb0cad340d01dc8beec97c7e879e
   expo-dev-client: b0a6b5deedba945162633b2d27f02a727e3eaa47
   expo-dev-launcher: b76cf991b0a63a7df3a832909addcff1d5668675
@@ -691,7 +698,7 @@ SPEC CHECKSUMS:
   ExpoModulesCore: a9a9bf32b2da35cd9b7299c80790c03a91ac7d15
   EXSecureStore: b80c74c5ee29d0160c2aace3fd9a24a5edc20015
   EXSplashScreen: 57f329dbf25c5c12800feed79068a056453dc772
-  EXUpdatesInterface: e1c01b4f5ec76bd1d6cc714938f9edf5ef6379b9
+  EXUpdatesInterface: f459b515151bd73fff7a35366eace34a6c6a0d3f
   FBLazyVector: e5569e42a1c79ca00521846c223173a57aca1fe1
   FBReactNativeSpec: fe08c1cd7e2e205718d77ad14b34957cce949b58
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9

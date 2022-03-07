@@ -32,8 +32,13 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
   const content = (
     <Center>
       <VStack space={4}>
-        <Box bgColor="surface-neutral-subdued" borderRadius="12px">
-          <Image source={RestoreWalletPng} w="358px" h="160px" />
+        <Box bgColor="surface-neutral-subdued" h="160px" borderRadius="12px">
+          <Image
+            source={RestoreWalletPng}
+            w="full"
+            h="full"
+            resizeMode="cover"
+          />
         </Box>
         <VStack space={2} mt={4}>
           <Typography.DisplayMedium>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useCallback, useState } from 'react';
+import React, { FC, isValidElement, useState } from 'react';
 
 import {
   useFocusEffect,
@@ -14,6 +14,8 @@ import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import Typography from '../../Typography';
+
+import useModalClose from './useModalClose';
 
 import type { ModalProps } from '..';
 
@@ -38,12 +40,7 @@ const MobileModal: FC<ModalProps> = ({
   const index = useNavigationState((state) => state.index);
   const [currentStackIndex, setCurrentStackIndex] = useState(0);
 
-  const close = useCallback(() => {
-    if (onClose) {
-      onClose();
-    }
-    navigation.getParent()?.goBack?.();
-  }, [navigation, onClose]);
+  const close = useModalClose({ onClose });
 
   useFocusEffect(() => {
     setCurrentStackIndex(index);

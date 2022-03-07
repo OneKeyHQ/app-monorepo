@@ -8,6 +8,7 @@ import {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+import { isFunction } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -18,7 +19,6 @@ import PromiseContainer from './PromiseContainer';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
-import WalletApi from './WalletApi';
 
 function throwMethodNotFound(method: string) {
   throw new Error(`dapp provider method not support (method=${method})`);
@@ -46,13 +46,7 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
   );
 }
 class BackgroundApiBase implements IBackgroundApiBridge {
-  constructor({ walletApi }: { walletApi: WalletApi }) {
-    this.walletApi = walletApi;
-  }
-
   promiseContainer: PromiseContainer = new PromiseContainer();
-
-  walletApi: WalletApi;
 
   bridge: JsBridgeBase | null = null;
 
@@ -199,7 +193,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     return this.sendForProviderMaps[providerName];
   }
 
-  sendMessagesToInjectedBridge = (
+  sendMessagesToInjectedBridge = async (
     scope: IInjectedProviderNamesStrings,
     data: unknown,
   ) => {
@@ -213,6 +207,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
       // console.log('sendMessagesToInjectedBridge', { data, scope });
+      if (isFunction(data)) {
+        // eslint-disable-next-line no-param-reassign
+        data = await data({ origin: this.bridge.remoteInfo.origin });
+      }
       this.bridge.requestSync({ data, scope });
     }
   };

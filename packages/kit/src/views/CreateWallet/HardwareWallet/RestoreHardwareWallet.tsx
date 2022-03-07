@@ -30,20 +30,15 @@ const RestoreHardwareWalletModal: FC = () => {
 
   const content = (
     <Center>
-      <VStack space={4}>
-        <Center
-          w="358px"
-          h="160px"
-          bgColor="surface-neutral-subdued"
-          borderRadius="24px"
-        >
+      <VStack space={8}>
+        <Center h="160px" bgColor="surface-neutral-subdued" borderRadius="24px">
           <Image source={UnboxingPng} w="116.66px" h="103.89px" />
         </Center>
-        <VStack space={2} mt={4}>
-          <Typography.DisplayMedium>
+        <VStack space={2}>
+          <Typography.DisplayMedium textAlign="center">
             {intl.formatMessage({ id: 'modal__check_the_box_contents' })}
           </Typography.DisplayMedium>
-          <Typography.Body2 color="text-subdued">
+          <Typography.Body2 textAlign="center" color="text-subdued">
             {intl.formatMessage({ id: 'modal__check_the_box_contents_desc' })}
           </Typography.Body2>
         </VStack>
@@ -62,8 +57,6 @@ const RestoreHardwareWalletModal: FC = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'modal__setup_new_device' })}
-      height="640px"
       primaryActionTranslationId="action__continue"
       secondaryActionTranslationId="action__contact"
       onPrimaryActionPress={() => {

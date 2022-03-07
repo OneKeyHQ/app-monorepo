@@ -31,7 +31,7 @@ export function getTransferNFTList(transaction: Transaction | null): string[] {
       (event) => event.tokenType === TokenType.ERC721,
     );
     const sss = tokenEvents?.map((event) => event.tokenLogoUrl);
-    return sss;
+    return sss ?? [];
   }
   return [];
 }
