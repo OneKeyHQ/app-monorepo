@@ -16,14 +16,14 @@ import {
 } from '@onekeyhq/components';
 import { BadgeType } from '@onekeyhq/components/src/Badge';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
-import {
-  BackupType,
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from './routes';
+import { BackupType } from './types';
 
 export type BackupWalletViewProps = {
   walletId: string;

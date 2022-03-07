@@ -7,11 +7,14 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
 import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import engine from '../../../engine/EngineProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { updateWallet } from '../../../store/reducers/wallet';
-import { BackupWalletModalRoutes, BackupWalletRoutesParams } from '../routes';
 
 type RouteProps = RouteProp<
   BackupWalletRoutesParams,

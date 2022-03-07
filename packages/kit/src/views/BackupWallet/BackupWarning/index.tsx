@@ -6,9 +6,12 @@ import { useIntl } from 'react-intl';
 
 import { Box, Icon, Image, Modal, Typography } from '@onekeyhq/components';
 import IconWarning from '@onekeyhq/kit/assets/wallet/ic_backup_wallet_manual_warning.png';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { BackupWalletModalRoutes, BackupWalletRoutesParams } from '../routes';
 
 type RouteProps = RouteProp<
   BackupWalletRoutesParams,

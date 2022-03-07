@@ -5,9 +5,12 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, CheckBox, Icon, Modal, Typography } from '@onekeyhq/components';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { BackupWalletModalRoutes, BackupWalletRoutesParams } from '../routes';
 
 type RouteProps = RouteProp<
   BackupWalletRoutesParams,

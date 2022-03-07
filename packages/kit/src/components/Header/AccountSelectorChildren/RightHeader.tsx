@@ -15,15 +15,14 @@ import {
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import {
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-
-import {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '../../../views/BackupWallet/routes';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;

@@ -7,15 +7,15 @@ import { useIntl } from 'react-intl';
 
 import { Modal, Spinner } from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import engine from '../../../engine/EngineProvider';
 import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import {
-  BackupType,
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '../routes';
+import { BackupType } from '../types';
 
 type BackupWalletAuthorityVerifyDoneProps = {
   password: string;
@@ -63,7 +63,7 @@ const BackupWalletAuthorityVerifyDone: FC<
             break;
           case 'showMnemonics':
             navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.BackupWallet,
+              screen: ModalRoutes.WalletViewMnemonics,
               params: {
                 screen: BackupWalletModalRoutes.BackupShowMnemonicsModal,
                 params: {
@@ -105,7 +105,7 @@ type RouteProps = RouteProp<
   BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal
 >;
 
-export const BackupAuthorityWalletVerify = () => {
+const BackupAuthorityWalletVerifyView: FC = () => {
   const { walletId, backupType } = useRoute<RouteProps>().params;
 
   return (
@@ -122,3 +122,5 @@ export const BackupAuthorityWalletVerify = () => {
     </Modal>
   );
 };
+
+export default BackupAuthorityWalletVerifyView;

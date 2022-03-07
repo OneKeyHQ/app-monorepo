@@ -5,11 +5,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Button, Modal, Typography } from '@onekeyhq/components';
+import {
+  BackupWalletModalRoutes,
+  BackupWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 
 import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { BackupWalletModalRoutes, BackupWalletRoutesParams } from '../routes';
 
 type RouteProps = RouteProp<
   BackupWalletRoutesParams,
@@ -65,9 +68,7 @@ const BackupShowMnemonicsView: FC = () => {
       primaryActionTranslationId={readOnly ? 'action__done' : 'action__next'}
       onPrimaryActionPress={() => {
         if (readOnly) {
-          if (navigation.canGoBack()) {
-            navigation.getParent()?.goBack();
-          }
+          navigation.getParent()?.goBack?.();
           return;
         }
         navigation.navigate(RootRoutes.Modal, {

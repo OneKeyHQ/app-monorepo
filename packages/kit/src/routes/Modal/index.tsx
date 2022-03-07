@@ -5,9 +5,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
-import BackupWalletModal, {
+import {
+  BackupWalletModalStack as BackupWalletModal,
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
+  BackupWalletViewMnemonicsModalStack as BackupWalletViewMnemonicsModal,
 } from './BackupWallet';
 import CollectibleModal, {
   CollectiblesModalRoutes,
@@ -87,7 +89,6 @@ import TransactionDetailModal, {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
 } from './TransactionDetail';
-import WalletViewMnemonicsModal from './WalletViewMnemonics';
 import WatchedAccountModal, {
   WatchedAccountModalRoutes,
   WatchedAccountRoutesParams,
@@ -119,7 +120,7 @@ const modalStackScreenList = [
   },
   {
     name: ModalRoutes.WalletViewMnemonics,
-    component: WalletViewMnemonicsModal,
+    component: BackupWalletViewMnemonicsModal,
   },
   {
     name: ModalRoutes.TransactionDetail,

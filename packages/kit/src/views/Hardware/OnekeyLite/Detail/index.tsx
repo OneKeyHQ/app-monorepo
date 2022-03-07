@@ -126,6 +126,7 @@ const OnekeyLiteDetail: React.FC = () => {
         />
       ),
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intl, navigation]);
 
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
