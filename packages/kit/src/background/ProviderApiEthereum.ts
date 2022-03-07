@@ -46,7 +46,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @permissionRequired()
   eth_sendTransaction() {
     if (platformEnv.isExtension) {
-      return extUtils.openApprovalWindow();
+      // return extUtils.openApprovalWindow();
     }
     return Promise.resolve({ txid: '111110000' });
   }

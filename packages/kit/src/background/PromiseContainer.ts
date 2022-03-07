@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { backgroundMethod } from "./decorators";
 
 export type PromiseContainerCallbackCreate = {
   resolve: (value: unknown) => void;
@@ -61,6 +62,7 @@ export default class PromiseContainer {
     return latestId;
   }
 
+  @backgroundMethod()
   rejectCallback({ id, error }: PromiseContainerReject) {
     this._processCallback({
       method: 'reject',
@@ -69,6 +71,7 @@ export default class PromiseContainer {
     });
   }
 
+  @backgroundMethod()
   resolveCallback({ id, data }: PromiseContainerResolve) {
     this._processCallback({
       method: 'resolve',

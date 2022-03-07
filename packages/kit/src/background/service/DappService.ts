@@ -14,12 +14,15 @@ import {
   DappSiteConnectionSavePayload,
   dappSaveSiteConnection,
 } from '../../store/reducers/dapp';
+import extUtils from '../../utils/extUtils';
+import { backgroundMethod } from '../decorators';
 import { IDappCallParams } from '../IBackgroundApi';
 
 import BaseService from './BaseService';
 
 class DappService extends BaseService {
   getConnectedAccounts({ origin }: { origin: string }): DappSiteConnection[] {
+    // TODO unlock status check
     const { networkImpl, accountAddress } = getActiveWalletAccount();
     const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
@@ -35,6 +38,7 @@ class DappService extends BaseService {
     return accounts;
   }
 
+  @backgroundMethod()
   saveConnectedAccounts(payload: DappSiteConnectionSavePayload) {
     this.backgroundApi.dispatchAction(dappSaveSiteConnection(payload));
   }
@@ -65,6 +69,14 @@ class DappService extends BaseService {
         resolve,
         reject,
       });
+      const routeNames = [RootRoutes.Modal, ...screens];
+      const routeParams = {
+        id,
+        origin: request.origin,
+        scope: request.scope, // ethereum
+        data: JSON.stringify(request.data),
+      } as IDappCallParams;
+
       const modalParams: { screen: any; params: any } = {
         screen: null,
         params: {},
@@ -77,25 +89,16 @@ class DappService extends BaseService {
         paramsLast = paramsCurrent;
         paramsCurrent = paramsCurrent.params;
       });
-      paramsLast.params = {
-        id,
-        origin: request.origin,
-        scope: request.scope, // ethereum
-        data: JSON.stringify(request.data),
-      } as IDappCallParams;
+      paramsLast.params = routeParams;
 
       if (platformEnv.isExtension) {
-        console.log(
-          'open new window in ext: openApprovalModal()',
-          RootRoutes.Modal,
-          modalParams,
-        );
+        extUtils.openStandaloneWindow({
+          routes: routeNames,
+          params: routeParams,
+        });
       } else {
         global.$navigationRef.current?.navigate(RootRoutes.Modal, modalParams);
       }
-
-      // TODO extension open new window
-      // extUtils.openApprovalWindow();
     });
   }
 }

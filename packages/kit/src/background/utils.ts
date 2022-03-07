@@ -10,6 +10,22 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+export function toPlainErrorObject(error: {
+  name?: any;
+  code?: any;
+  data?: any;
+  message?: any;
+  stack?: any;
+}) {
+  return {
+    name: error.name,
+    code: error.code,
+    data: error.data,
+    message: error.message,
+    stack: error.stack,
+  };
+}
+
 export function isSerializable(obj: any) {
   if (
     isUndefined(obj) ||

@@ -1,8 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { toPlainErrorObject } from '../background/utils';
 
 function useDappApproveAction({
   id,
@@ -13,12 +16,17 @@ function useDappApproveAction({
 }) {
   const [rejectError, setRejectError] = useState<Error | null>(null);
   const reject = useCallback(
-    ({ close }: { close: () => void }) => {
+    ({ close = () => null }: { close?: () => void } = {}) => {
+      const error = rejectError || web3Errors.provider.userRejectedRequest();
       backgroundApiProxy.promiseContainer.rejectCallback({
         id,
-        error: rejectError || web3Errors.provider.userRejectedRequest(),
+        error: toPlainErrorObject(error),
       });
       close();
+      if (platformEnv.isExtensionUiStandaloneWindow) {
+        // timeout wait reject done.
+        setTimeout(() => window.close(), 0);
+      }
     },
     [id, rejectError],
   );
@@ -41,6 +49,15 @@ function useDappApproveAction({
     },
     [getResolveData, id],
   );
+
+  useEffect(() => {
+    // TODO do not reject with hardware interaction when beforeunload
+    window.addEventListener('beforeunload', () => reject());
+    return () => {
+      window.removeEventListener('beforeunload', () => reject());
+    };
+  }, [reject]);
+
   return {
     reject,
     resolve,

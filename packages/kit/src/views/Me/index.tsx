@@ -124,6 +124,7 @@ const Me = () => {
                     backgroundApiProxy.dispatchAction(
                       dappClearSiteConnection(),
                     );
+                    backgroundApiProxy.notifyAccountsChanged();
                   }}
                 >
                   <Typography.Body1>

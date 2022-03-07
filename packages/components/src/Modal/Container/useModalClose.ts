@@ -17,7 +17,10 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
       // navigate() not working
       navigation.navigate(RootRoutes.Root);
       window.location.href = '#/';
-      window.location.reload();
+      // standalone window reload will cause approve promise fail
+      if (!platformEnv.isExtensionUiStandaloneWindow) {
+        window.location.reload();
+      }
     }
     if (onClose) {
       onClose();
