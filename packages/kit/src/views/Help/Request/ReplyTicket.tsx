@@ -39,8 +39,6 @@ type RouteProps = RouteProp<
   HistoryRequestRoutes.TicketDetailModal
 >;
 
-let uploadCount = 0;
-
 export const ReplyTicket: FC = () => {
   const intl = useIntl();
   const { width } = useWindowDimensions();
@@ -120,23 +118,28 @@ export const ReplyTicket: FC = () => {
       if (Platform.OS === 'ios' && result.base64) {
         base64Image = result.base64;
       }
-      uploadCount += 1;
-      imageArr.push(image);
-      updateImageArr([...imageArr]);
+      updateImageArr((prev) => [...prev, image]);
       uploadImage(
         { filename: imagename, image: base64Image },
         instanceId,
         (error, responseJson) => {
-          uploadCount -= 1;
           if (!error) {
-            for (const object of imageArr) {
-              if (object.filename === imagename) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                object.token = responseJson.data.upload.token;
-                object.loading = false;
-              }
-            }
-            updateImageArr([...imageArr]);
+            updateImageArr((prev) => {
+              const imageIndex = prev.findIndex(
+                (i) => i.filename === imagename,
+              );
+              if (imageIndex < 0) return prev;
+              return [
+                ...prev.slice(0, imageIndex),
+                {
+                  ...prev[imageIndex],
+                  loading: false,
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  token: responseJson.data.upload.token,
+                },
+                ...prev.slice(imageIndex + 1),
+              ];
+            });
           }
         },
       );
@@ -148,10 +151,26 @@ export const ReplyTicket: FC = () => {
     <Row>
       {imageArr.map((image, index) => (
         <ImageView
+          key={index}
           imageModel={image}
-          onDelete={() => {
-            imageArr.splice(index, 1);
-            updateImageArr([...imageArr]);
+          onDelete={(imageModel) => {
+            updateImageArr((prev) => {
+              const imageIndex = prev.findIndex(
+                (i) => i.filename === imageModel.filename,
+              );
+              console.log('xxx', imageModel, imageIndex);
+
+              if (imageIndex < 0) return prev;
+              console.log([
+                ...prev.slice(0, imageIndex),
+                ...prev.slice(imageIndex),
+              ]);
+
+              return [
+                ...prev.slice(0, imageIndex),
+                ...prev.slice(imageIndex + 1),
+              ];
+            });
           }}
         />
       ))}
@@ -177,7 +196,9 @@ export const ReplyTicket: FC = () => {
       header={intl.formatMessage({ id: 'action__reply' })}
       hideSecondaryAction
       primaryActionProps={{
-        isDisabled: !(isValid && uploadCount === 0),
+        isDisabled: !(
+          isValid && !imageArr.filter((image) => !image?.token)?.length
+        ),
         onPromise: () => handleSubmit(onSubmit)(),
       }}
       primaryActionTranslationId="action__submit"

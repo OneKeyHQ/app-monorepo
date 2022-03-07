@@ -113,7 +113,6 @@ export const HistoryRequest: FC = () => {
 
   return (
     <Modal
-      // size="lg"
       header={intl.formatMessage({ id: 'form__s_request_history' })}
       hideSecondaryAction
       hidePrimaryAction={isEmpty}
