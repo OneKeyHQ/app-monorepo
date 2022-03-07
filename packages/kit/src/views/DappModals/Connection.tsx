@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -81,6 +82,8 @@ const Connection = () => {
 
   // TODO move to DappService
   const getResolveData = useCallback(() => {
+    // throw web3Errors.provider.unauthorized();
+    // throw new Error('Testing: some error occur in approval.');
     if (!networkImpl || !accountAddress) {
       throw new Error(
         'Wallet or account not selected, you should create or import one.',
@@ -115,6 +118,7 @@ const Connection = () => {
   const dappApprove = useDappApproveAction({
     id,
     getResolveData,
+    closeOnError: true,
   });
 
   const [permissionValues, setPermissionValues] = React.useState(

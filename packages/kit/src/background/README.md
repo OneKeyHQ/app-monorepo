@@ -18,7 +18,14 @@
   - Network disable cache, Network throttling
 - useSWR in background
 - redux-persist in background
-- backgroundApi safe check: other extension call; background and ui password; 
+- backgroundApi safe check: 
+  - other extension call; 
+  - background and ui message with random password; 
 - background redux state init (with engine init)
   - render UI after background redux state sync done
   - getImplFromNetworkId ERROR: networkId required (first time open UI after extension reload)
+- @forceBackgroundOnly
+  - Engine
+  - BackgroundApi
+  - ServiceApi
+  - ProviderApi

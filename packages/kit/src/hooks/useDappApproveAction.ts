@@ -10,11 +10,15 @@ import { toPlainErrorObject } from '../background/utils';
 function useDappApproveAction({
   id,
   getResolveData,
+  closeOnError,
 }: {
   id: number | string;
   getResolveData: () => Promise<any> | any;
+  closeOnError?: boolean;
 }) {
+  const isExt = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
+  // TODO ignore multiple times reject/resolve
   const reject = useCallback(
     ({ close = () => null }: { close?: () => void } = {}) => {
       const error = rejectError || web3Errors.provider.userRejectedRequest();
@@ -23,12 +27,12 @@ function useDappApproveAction({
         error: toPlainErrorObject(error),
       });
       close();
-      if (platformEnv.isExtensionUiStandaloneWindow) {
+      if (isExt) {
         // timeout wait reject done.
         setTimeout(() => window.close(), 0);
       }
     },
-    [id, rejectError],
+    [id, isExt, rejectError],
   );
 
   const resolve = useCallback(
@@ -43,6 +47,7 @@ function useDappApproveAction({
         });
         close();
       } catch (error) {
+        console.error('getResolveData ERROR:', error);
         setRejectError(error as Error);
         throw error;
       }
@@ -51,12 +56,23 @@ function useDappApproveAction({
   );
 
   useEffect(() => {
+    if (rejectError && closeOnError) {
+      reject();
+    }
+  }, [closeOnError, reject, rejectError]);
+
+  // also trigger browser refresh
+  useEffect(() => {
     // TODO do not reject with hardware interaction when beforeunload
-    window.addEventListener('beforeunload', () => reject());
+    if (isExt) {
+      window.addEventListener('beforeunload', () => reject());
+    }
     return () => {
-      window.removeEventListener('beforeunload', () => reject());
+      if (isExt) {
+        window.removeEventListener('beforeunload', () => reject());
+      }
     };
-  }, [reject]);
+  }, [isExt, reject]);
 
   return {
     reject,

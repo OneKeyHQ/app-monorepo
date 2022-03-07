@@ -17,6 +17,7 @@ import {
 import extUtils from '../../utils/extUtils';
 import { backgroundMethod } from '../decorators';
 import { IDappCallParams } from '../IBackgroundApi';
+import { ensureSerializable } from '../utils';
 
 import BaseService from './BaseService';
 
@@ -90,6 +91,8 @@ class DappService extends BaseService {
         paramsCurrent = paramsCurrent.params;
       });
       paramsLast.params = routeParams;
+
+      ensureSerializable(modalParams);
 
       if (platformEnv.isExtension) {
         extUtils.openStandaloneWindow({
