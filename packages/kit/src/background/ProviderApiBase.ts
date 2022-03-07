@@ -5,12 +5,14 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+import { backgroundClass } from './decorators';
 import { IBackgroundApi } from './IBackgroundApi';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   send: (data: any) => void;
 };
 
+@backgroundClass()
 abstract class ProviderApiBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     this.backgroundApi = backgroundApi;

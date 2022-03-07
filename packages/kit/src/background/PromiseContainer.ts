@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { backgroundMethod } from "./decorators";
+
+import { backgroundClass, backgroundMethod } from './decorators';
 
 export type PromiseContainerCallbackCreate = {
   resolve: (value: unknown) => void;
@@ -23,6 +24,7 @@ export type PromiseContainerReject = {
 
 let latestId = -1;
 
+@backgroundClass()
 export default class PromiseContainer {
   constructor() {
     //  this.callbacksExpireTimeout = config.timeout ?? this.callbacksExpireTimeout;

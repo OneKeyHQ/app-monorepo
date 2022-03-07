@@ -13,7 +13,7 @@ import { isFunction } from 'lodash';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { INTERNAL_METHOD_PREFIX } from './decorators';
+import { INTERNAL_METHOD_PREFIX, backgroundClass } from './decorators';
 import { IBackgroundApiBridge } from './IBackgroundApi';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
@@ -50,6 +50,7 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
   );
 }
 
+@backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
   bridge: JsBridgeBase | null = null;
 

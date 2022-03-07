@@ -1,9 +1,11 @@
 import React, { FC, useCallback, useEffect } from 'react';
 
 import * as SplashScreen from 'expo-splash-screen';
+import { useDispatch } from 'react-redux';
 import useSWR from 'swr';
 
 import { Box } from '@onekeyhq/components';
+import { Engine } from '@onekeyhq/engine';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
@@ -20,7 +22,17 @@ import { updateNetworkMap } from '@onekeyhq/kit/src/store/reducers/network';
 import { setAutoRefreshTimeStamp } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 
+import PromiseContainer from '../background/PromiseContainer';
+
 const EngineApp: FC = ({ children }) => {
+  const myDispatch = useDispatch();
+
+  useEffect(() => {
+    // const engine2 = new Engine();
+    // const p = new PromiseContainer();
+    // myDispatch(setAutoRefreshTimeStamp());
+  }, [myDispatch]);
+
   const networks = useAppSelector((s) => s.network.network);
   const { activeNetwork } = useAppSelector((s) => s.general);
   const { refreshTimeStamp } = useSettings();

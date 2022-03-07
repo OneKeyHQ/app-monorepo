@@ -7,6 +7,35 @@ export type UnknownFunc = (...args: unknown[]) => unknown;
 const isFunction = (fn?: any): fn is UnknownFunc =>
   !!fn && {}.toString.call(fn) === '[object Function]';
 
+function backgroundClass() {
+  // @ts-ignore
+  return function (constructor) {
+    if (process.env.NODE_ENV !== 'production') {
+      return class extends constructor {
+        constructor(...args: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          super(...args);
+          try {
+            throw new Error();
+          } catch (error) {
+            const err = error as Error;
+            if (err.stack && !err.stack.includes('backgroundApiInit')) {
+              console.error(
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions
+                `[${constructor?.name}] Class should run in background`,
+              );
+              console.warn('ERROR stack: ', (error as Error)?.stack);
+            }
+          }
+        }
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return constructor;
+  };
+}
+
 function backgroundMethod() {
   return function (
     target: UnknownTarget,
@@ -47,4 +76,9 @@ function permissionRequired() {
   };
 }
 
-export { permissionRequired, backgroundMethod, INTERNAL_METHOD_PREFIX };
+export {
+  backgroundClass,
+  permissionRequired,
+  backgroundMethod,
+  INTERNAL_METHOD_PREFIX,
+};

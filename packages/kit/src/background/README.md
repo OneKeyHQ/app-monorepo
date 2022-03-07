@@ -29,3 +29,5 @@
   - BackgroundApi
   - ServiceApi
   - ProviderApi
+- NetworkService\AccountService\DappService\PromiseService\EngineService
+  - ServiceAccount

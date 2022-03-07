@@ -8,7 +8,10 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
-import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/kit/src/background/decorators';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
 import { DbApi } from './dbs';
@@ -76,6 +79,7 @@ import {
 import { Token } from './types/token';
 import { WALLET_TYPE_HD, Wallet } from './types/wallet';
 
+@backgroundClass()
 class Engine {
   private dbApi: DBAPI;
 

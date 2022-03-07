@@ -1,5 +1,6 @@
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import cloneDeep from 'lodash/cloneDeep';
+import isFunction from 'lodash/isFunction';
 
 import { Engine } from '@onekeyhq/engine';
 
@@ -23,6 +24,14 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   @backgroundMethod()
   dispatchAction(action: any) {
+    if (isFunction(action)) {
+      throw new Error(
+        'backgroundApi.dispatchAction ERROR:  async action is NOT allowed.',
+      );
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    action.$isDispatchFromBackground = true;
+
     // * update background store
     // TODO init store from constructor
     store.dispatch(action);
@@ -32,7 +41,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       method: 'dispatchActionBroadcast',
       params: action,
     } as IJsonRpcRequest);
-    // * TODO async action
     // * TODO auto sync full state to UI when ui mount
   }
 

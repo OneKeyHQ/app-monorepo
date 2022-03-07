@@ -24,6 +24,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { IBackgroundApi } from '../background/IBackgroundApi';
 
+import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
@@ -84,7 +85,7 @@ export function makeStore() {
         serializableCheck: {
           ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
         },
-      }),
+      }).concat(middlewares),
   });
   const persistor = persistStore(store);
   return { store, persistor };
@@ -121,6 +122,9 @@ export async function appDispatch(
   if (isFunction(action)) {
     const asyncAction = action as (dispatch: Dispatch) => Promise<unknown>;
     await asyncAction(backgroundDispatch as Dispatch);
+    throw new Error(
+      'dispatch async action is NOT allowed, please use backgroundApi instead',
+    );
   } else if (backgroundDispatch) {
     backgroundDispatch(action);
   }
