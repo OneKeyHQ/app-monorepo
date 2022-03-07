@@ -13,9 +13,11 @@ export type OnekeyLiteRoutesParams = {
     onRetry: () => void;
   };
   [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: {
+    walletId: string | null;
     pwd: string;
     backupData: string;
     onRetry: () => void;
+    onSuccess: () => void;
   };
 };
 

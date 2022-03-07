@@ -19,6 +19,7 @@ import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import {
   ModalRoutes,
   ModalScreenProps,
@@ -172,11 +173,13 @@ const OnekeyLiteDetail: React.FC = () => {
       params: {
         screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
         params: {
+          walletId: null,
           pwd: inputPwd,
           backupData,
           onRetry: () => {
             callBack?.();
           },
+          onSuccess: () => {},
         },
       },
     });
@@ -242,10 +245,18 @@ const OnekeyLiteDetail: React.FC = () => {
     if (controlledWallets.length) {
       return (
         <Select
-          onChange={() => {
-            startBackupPinVerifyModal(
-              'space raise engine dumb aware purse arrive three polar slam sell bottom',
-            );
+          onChange={(walletId) => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.BackupWallet,
+              params: {
+                screen:
+                  BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
+                params: {
+                  walletId,
+                  backupType: 'OnekeyLite',
+                },
+              },
+            });
           }}
           title={intl.formatMessage({ id: 'title_select_wallet' })}
           footer={null}

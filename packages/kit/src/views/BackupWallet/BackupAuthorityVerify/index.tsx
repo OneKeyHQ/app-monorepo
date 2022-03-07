@@ -11,6 +11,7 @@ import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { OnekeyLiteModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekeyLite';
 
 import engine from '../../../engine/EngineProvider';
 import { useToast } from '../../../hooks/useToast';
@@ -34,6 +35,45 @@ const BackupWalletAuthorityVerifyDone: FC<
     toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
   };
 
+  const startBackupModal = (
+    inputPwd: string,
+    backupData: string,
+    callBack: () => void,
+  ) => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
+      params: {
+        screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
+        params: {
+          walletId,
+          pwd: inputPwd,
+          backupData,
+          onRetry: () => {
+            callBack?.();
+          },
+          onSuccess: () => {},
+        },
+      },
+    });
+  };
+
+  const startBackupPinVerifyModal = (backupData: string) => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
+      params: {
+        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+        params: {
+          callBack: (inputPwd) => {
+            startBackupModal(inputPwd, backupData, () => {
+              startBackupPinVerifyModal(backupData);
+            });
+            return true;
+          },
+        },
+      },
+    });
+  };
+
   useEffect(() => {
     async function obtainMnemonic() {
       if (!password && !backupType) return;
@@ -49,6 +89,9 @@ const BackupWalletAuthorityVerifyDone: FC<
         }
 
         switch (backupType) {
+          case 'OnekeyLite':
+            startBackupPinVerifyModal(mnemonic);
+            break;
           case 'Manual':
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.BackupWallet,
