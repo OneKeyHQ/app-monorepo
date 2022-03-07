@@ -163,45 +163,6 @@ const OnekeyLiteDetail: React.FC = () => {
     });
   };
 
-  const startBackupModal = (
-    inputPwd: string,
-    backupData: string,
-    callBack: () => void,
-  ) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
-      params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
-        params: {
-          walletId: null,
-          pwd: inputPwd,
-          backupData,
-          onRetry: () => {
-            callBack?.();
-          },
-          onSuccess: () => {},
-        },
-      },
-    });
-  };
-
-  const startBackupPinVerifyModal = (backupData: string) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
-      params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
-        params: {
-          callBack: (inputPwd) => {
-            startBackupModal(inputPwd, backupData, () => {
-              startBackupPinVerifyModal(backupData);
-            });
-            return true;
-          },
-        },
-      },
-    });
-  };
-
   const startChangePinInputPinModal = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.OnekeyLiteChangePinInputPin,
