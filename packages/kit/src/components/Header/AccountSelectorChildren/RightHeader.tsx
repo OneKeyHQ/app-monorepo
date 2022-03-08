@@ -128,6 +128,16 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             onChange={(_value) => {
               switch (_value) {
                 case 'rename':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManagerWallet,
+                    params: {
+                      screen:
+                        ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+                      params: {
+                        walletId: selectedWallet?.id ?? '',
+                      },
+                    },
+                  });
                   break;
                 case 'backup':
                   navigation.navigate(RootRoutes.Modal, {

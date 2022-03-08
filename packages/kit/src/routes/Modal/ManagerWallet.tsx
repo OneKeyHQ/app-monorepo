@@ -4,11 +4,13 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ManagerWalletDialogAuthorityVerifyView from '@onekeyhq/kit/src/views/ManagerWallet/ManagerWalletDialogAuthorityVerify';
+import ModifyWalletNameView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWallet/name';
 import { ManagerType } from '@onekeyhq/kit/src/views/ManagerWallet/types';
 
 export enum ManagerWalletModalRoutes {
   ManagerWalletModal = 'ManagerWalletModal',
   ManagerWalletDialogAuthorityVerifyModal = 'ManagerWalletDialogAuthorityVerifyModal',
+  ManagerWalletModifyNameModal = 'ManagerWalletModifyNameModal',
 }
 
 export type ManagerWalletRoutesParams = {
@@ -19,6 +21,9 @@ export type ManagerWalletRoutesParams = {
     walletId: string;
     managerType: ManagerType;
   };
+  [ManagerWalletModalRoutes.ManagerWalletModifyNameModal]: {
+    walletId: string;
+  };
 };
 
 const ManagerWalletNavigator =
@@ -28,6 +33,10 @@ const modalRoutes = [
   {
     name: ManagerWalletModalRoutes.ManagerWalletDialogAuthorityVerifyModal,
     component: ManagerWalletDialogAuthorityVerifyView,
+  },
+  {
+    name: ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+    component: ModifyWalletNameView,
   },
 ];
 

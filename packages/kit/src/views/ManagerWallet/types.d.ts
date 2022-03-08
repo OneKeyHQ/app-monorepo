@@ -1,1 +1,1 @@
-export type ManagerType = 'deleteWallet';
+export type ManagerType = 'deleteWallet' | 'modifyWalletName';
