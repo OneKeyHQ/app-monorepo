@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 
+import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useIsFocused } from '@react-navigation/native';
 
 import {
@@ -11,16 +13,13 @@ import {
   Select,
   VStack,
 } from '@onekeyhq/components';
-import { IJsBridgeMessagePayload } from '@onekeyhq/inpage-provider/src/types';
-import InpageProviderWebView from '@onekeyhq/inpage-provider/src/webview/InpageProviderWebView';
-import useWebViewBridge from '@onekeyhq/inpage-provider/src/webview/useWebViewBridge';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-// TODO remove: ui should use walletApi by backgroundApiProxy
-import walletApi from '../../background/instance/walletApi';
 import extUtils from '../../utils/extUtils';
+
+import InpageProviderWebView from './InpageProviderWebView';
 
 const { isDesktop, isExtension } = platformEnv;
 
@@ -129,7 +128,7 @@ function WebView({
                   width: '180px',
                   zIndex: 999,
                 }}
-                defaultValue={walletApi.chainId}
+                defaultValue="0x1"
                 onChange={(value) => {
                   setName(`${Date.now()}`);
                   const chainId = value;
@@ -147,13 +146,13 @@ function WebView({
                   width: '180px',
                   zIndex: 999,
                 }}
-                defaultValue={walletApi.selectedAddress}
+                defaultValue=""
                 onChange={(value) => {
                   // TODO only notify to Dapp when isConnected?
                   const selectedAddress = value;
                   backgroundApiProxy.changeAccounts(selectedAddress);
                 }}
-                options={walletApi.accounts.map((address: string) => ({
+                options={[].map((address: string) => ({
                   value: address,
                   label: `${address.slice(0, 6)}...${address.slice(-4)}`,
                 }))}
@@ -167,95 +166,6 @@ function WebView({
                 Reload
               </Button>
             </HStack>
-          )}
-
-          {showDemoActions && (
-            <VStack space={2}>
-              <Button
-                size="sm"
-                onPress={() => setWebViewVisible(!webviewVisible)}
-              >
-                Toggle WebView Visible
-              </Button>
-
-              <Box zIndex={2}>
-                <Select
-                  containerProps={{
-                    width: '360px',
-                    zIndex: 999,
-                  }}
-                  value={srcLocal}
-                  onChange={(v) => setSrcLocal(v)}
-                  options={srcList.map((uri) => ({
-                    value: uri,
-                    label: uri,
-                  }))}
-                />
-              </Box>
-
-              <HStack space={2}>
-                <Button
-                  onPress={() => {
-                    walletApi.isConnected = false;
-                    jsBridge?.request({
-                      data: {
-                        method: 'metamask_accountsChanged',
-                        params: [],
-                      },
-                    });
-                  }}
-                >
-                  disconnect 888
-                </Button>
-                <Button
-                  onPress={() => {
-                    walletApi.isConnected = true;
-                    jsBridge?.request({
-                      data: {
-                        method: 'metamask_accountsChanged',
-                        params: [walletApi.selectedAddress],
-                      },
-                    });
-                    jsBridge?.request({
-                      data: {
-                        method: 'metamask_chainChanged',
-                        params: {
-                          chainId: walletApi.chainId,
-                          networkVersion: '1',
-                        },
-                      },
-                    });
-                  }}
-                >
-                  connect
-                </Button>
-
-                <Button
-                  onPress={async () => {
-                    if (!jsBridge) {
-                      return;
-                    }
-                    console.log('11111');
-                    const newName = `Desktop OneKey-${Date.now()
-                      .toString()
-                      .slice(-4)}`;
-                    setName(newName);
-                    setResName('');
-                    const res = await jsBridge.request({
-                      data: {
-                        onekeyName: newName,
-                      },
-                    });
-                    // @ts-ignore
-                    setResName(res?.onekeyNameRes);
-                  }}
-                >
-                  requestToInpage
-                </Button>
-              </HStack>
-              <Box>request: {name}</Box>
-              <Box>response: {resName}</Box>
-            </VStack>
           )}
         </VStack>
       )}

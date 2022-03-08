@@ -126,7 +126,7 @@ const ConnectHardwareModal: FC = () => {
     }
     return (
       <VStack space={12} w="full" alignItems="center">
-        <Box w="358px" h="220px">
+        <Box w="358px" h="220px" mb={-4}>
           <LottieView
             // eslint-disable-next-line global-require
             source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json')}
@@ -197,7 +197,7 @@ const ConnectHardwareModal: FC = () => {
     <Center>{renderConnectScreen()}</Center>
   ) : (
     <VStack space={8} alignItems="center">
-      <Box borderRadius="12px" bg="surface-neutral-subdued">
+      <Box>
         <LottieView
           // eslint-disable-next-line global-require
           source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_usb.json')}
@@ -215,7 +215,6 @@ const ConnectHardwareModal: FC = () => {
   return (
     <Modal
       scrollViewProps={{
-        pt: 4,
         children: content,
       }}
       hidePrimaryAction={!Platform.isNative}

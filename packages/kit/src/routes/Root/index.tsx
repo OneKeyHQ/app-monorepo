@@ -1,16 +1,18 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect } from 'react';
 
 import {
   TransitionPresets,
   createStackNavigator,
 } from '@react-navigation/stack';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useStatus } from '../../hooks/redux';
+import { useAppDispatch, useStatus } from '../../hooks/redux';
+import { setSupportFaceId } from '../../store/reducers/status';
 import ModalStackNavigator from '../Modal';
 import OnboardingScreen from '../Onboarding';
 import StackScreen from '../Stack';
@@ -21,6 +23,7 @@ const RootStack = createStackNavigator();
 const App = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
+  const dispatch = useAppDispatch();
 
   if (Platform.OS === 'ios') {
     KeyboardManager.setEnable(true);
@@ -35,6 +38,21 @@ const App = () => {
     KeyboardManager.setKeyboardAppearance('default');
     KeyboardManager.setShouldPlayInputClicks(true);
   }
+
+  useEffect(() => {
+    if (['ios', 'android'].includes(Platform.OS)) {
+      LocalAuthentication.supportedAuthenticationTypesAsync().then((types) => {
+        if (
+          types.includes(
+            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+          ) ||
+          types.includes(LocalAuthentication.AuthenticationType.IRIS)
+        ) {
+          dispatch(setSupportFaceId());
+        }
+      });
+    }
+  }, [dispatch]);
 
   return (
     <RootStack.Navigator

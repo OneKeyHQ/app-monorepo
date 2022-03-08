@@ -12,8 +12,9 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
-import { useGeneral, useManageTokens } from '../../hooks/redux';
+import { useGeneral } from '../../hooks/redux';
 import useDebounce from '../../hooks/useDebounce';
+import { useManageTokens } from '../../hooks/useManageTokens';
 import { useToast } from '../../hooks/useToast';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -174,7 +175,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                     id: 'msg__wrong_address_format',
                   });
                 }
-                if (accountTokensSet.has(value)) {
+                if (accountTokensSet.has(value.toLowerCase())) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });

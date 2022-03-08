@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 
 import { Box, IconButton, useLocale, useTheme } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../components/WebView';
 
 const Discover = () => {
   const { themeVariant } = useTheme();
   const { locale } = useLocale();
-  const initialUrl = `https://discover.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
+  let initialUrl = `https://discover.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
+  if (platformEnv.isDev) {
+    initialUrl = 'https://metamask.github.io/test-dapp/';
+  }
   const [url, setUrl] = useState(initialUrl);
   console.log('Discover url changed: ', url);
   return (

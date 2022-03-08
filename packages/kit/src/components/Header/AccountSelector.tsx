@@ -52,10 +52,10 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   return (
     <Box
       position="relative"
-      w={{ md: 'full' }}
-      alignItems="center"
+      alignItems="flex-start"
       h="56px"
       justifyContent="center"
+      w="full"
     >
       {renderTrigger?.({ visible, handleToggleVisible }) ?? (
         <AccountSelectorTrigger

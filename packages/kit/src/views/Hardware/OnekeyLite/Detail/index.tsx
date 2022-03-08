@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -48,7 +48,6 @@ const OnekeyLiteDetail: React.FC = () => {
 
   const { wallet } = useActiveWalletAccount();
 
-  const [liteOption, setLiteOption] = useState<SelectItem<OptionType>[]>([]);
   const [resetDialogVisible, setResetDialogVisible] = useState<boolean>(false);
   const [resetAllow, setResetAllow] = useState<boolean | null>(null);
   const [resetValidationInput, setResetValidationInput] = useState('');
@@ -64,6 +63,8 @@ const OnekeyLiteDetail: React.FC = () => {
 
   useEffect(() => {
     async function main() {
+      if (!wallet) return;
+
       const wallets = (await engine.getWallets()).filter(
         (_wallet) => _wallet.type === 'hd' || _wallet.type === 'imported',
       );
@@ -74,15 +75,15 @@ const OnekeyLiteDetail: React.FC = () => {
 
   useEffect(() => {
     const menuOptions: SelectItem<OptionType>[] = [];
-    if (controlledWallets.length > 0) {
-      menuOptions.push({
-        label: intl.formatMessage({
-          id: 'action__restore_with_onekey_lite',
-        }),
-        value: 'restore',
-        iconProps: { name: 'SaveAsOutline' },
-      });
-    }
+
+    menuOptions.push({
+      label: intl.formatMessage({
+        id: 'action__restore_with_onekey_lite',
+      }),
+      value: 'restore',
+      iconProps: { name: 'SaveAsOutline' },
+    });
+
     menuOptions.push({
       label: intl.formatMessage({
         id: 'action__change_pin',
@@ -98,8 +99,35 @@ const OnekeyLiteDetail: React.FC = () => {
       iconProps: { name: 'TrashOutline', color: 'icon-critical' },
       color: 'icon-critical',
     });
-    setLiteOption(menuOptions);
-  }, [controlledWallets, intl]);
+
+    navigation.setOptions({
+      title: 'OneKey Lite',
+      headerRight: () => (
+        <Select
+          dropdownPosition="right"
+          title="Onekey Lite"
+          onChange={(v) => {
+            if (currentOptionType !== v) setCurrentOptionType(v);
+          }}
+          footer={null}
+          activatable={false}
+          triggerProps={{
+            width: '40px',
+          }}
+          dropdownProps={{
+            width: 248,
+          }}
+          options={menuOptions}
+          renderTrigger={() => (
+            <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
+              <Icon name="DotsHorizontalOutline" />
+            </Box>
+          )}
+        />
+      ),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intl, navigation]);
 
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
     navigation.navigate(RootRoutes.Modal, {
@@ -210,32 +238,56 @@ const OnekeyLiteDetail: React.FC = () => {
     }
   }, [resetValidationInput]);
 
-  navigation.setOptions({
-    title: 'OneKey Lite',
-    headerRight: () => (
-      <Select
-        dropdownPosition="right"
-        title="Onekey Lite"
-        onChange={(v) => {
-          if (currentOptionType !== v) setCurrentOptionType(v);
+  const renderOptions = useMemo(() => {
+    if (controlledWallets.length) {
+      return (
+        <Select
+          onChange={() => {
+            startBackupPinVerifyModal(
+              'space raise engine dumb aware purse arrive three polar slam sell bottom',
+            );
+          }}
+          title={intl.formatMessage({ id: 'title_select_wallet' })}
+          footer={null}
+          activatable={false}
+          dropdownPosition="right"
+          containerProps={{
+            zIndex: 5,
+          }}
+          options={controlledWallets.map((_wallet) => ({
+            label: _wallet.name,
+            description: intl.formatMessage(
+              { id: 'form__str_accounts' },
+              { count: _wallet.accounts.length.toString() },
+            ),
+            value: _wallet.id,
+            tokenProps: {
+              address: _wallet.id,
+            },
+          }))}
+          renderTrigger={() => (
+            <Button pointerEvents="none" size="lg" m={4} type="primary">
+              {intl.formatMessage({ id: 'action__back_up_to_onekey_lite' })}
+            </Button>
+          )}
+        />
+      );
+    }
+    return (
+      <Button
+        size="lg"
+        m={4}
+        type="primary"
+        onPress={() => {
+          startRestorePinVerifyModal();
         }}
-        footer={null}
-        activatable={false}
-        triggerProps={{
-          width: '40px',
-        }}
-        dropdownProps={{
-          width: 248,
-        }}
-        options={liteOption}
-        renderTrigger={() => (
-          <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
-            <Icon name="DotsHorizontalOutline" />
-          </Box>
-        )}
-      />
-    ),
-  });
+      >
+        {intl.formatMessage({ id: 'action__restore_with_onekey_lite' })}
+      </Button>
+    );
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlledWallets.length, intl]);
 
   return (
     <Box flexDirection="column" flex={1}>
@@ -243,50 +295,8 @@ const OnekeyLiteDetail: React.FC = () => {
         <WebView src={url} />
       </Box>
 
-      <Box mb={Platform.OS === 'ios' ? 4 : 0}>
-        {controlledWallets.length > 0 ? (
-          <Select
-            onChange={() => {
-              startBackupPinVerifyModal(
-                'space raise engine dumb aware purse arrive three polar slam sell bottom',
-              );
-            }}
-            title={intl.formatMessage({ id: 'title_select_wallet' })}
-            value=""
-            footer={null}
-            dropdownPosition="right"
-            containerProps={{
-              zIndex: 5,
-            }}
-            options={controlledWallets.map((_wallet) => ({
-              label: _wallet.name,
-              description: intl.formatMessage(
-                { id: 'form__str_accounts' },
-                { count: _wallet.accounts.length.toString() },
-              ),
-              value: _wallet.id,
-              tokenProps: {
-                address: _wallet.id,
-              },
-            }))}
-            renderTrigger={() => (
-              <Button pointerEvents="none" size="lg" m={4} type="primary">
-                {intl.formatMessage({ id: 'action__back_up_to_onekey_lite' })}
-              </Button>
-            )}
-          />
-        ) : (
-          <Button
-            size="lg"
-            m={4}
-            type="primary"
-            onPress={() => {
-              startRestorePinVerifyModal();
-            }}
-          >
-            {intl.formatMessage({ id: 'action__restore_with_onekey_lite' })}
-          </Button>
-        )}
+      <Box bg="surface-subdued" pb={Platform.OS === 'ios' ? 4 : 0}>
+        {renderOptions}
       </Box>
       <Dialog
         visible={resetDialogVisible}

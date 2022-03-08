@@ -11,7 +11,7 @@ import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 import Box from '../Box';
 import FormControl from '../FormControl';
 import Icon from '../Icon';
-import Pressable from '../Pressable';
+import IconButton from '../IconButton';
 import Stack from '../Stack';
 import Typography from '../Typography';
 
@@ -58,20 +58,24 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             alignItems="center"
             mb={1}
           >
-            <FormControl.Label mb={0}>
-              <Typography.Body2Strong>{label}</Typography.Body2Strong>
-            </FormControl.Label>
+            {!!label && (
+              <FormControl.Label mb={0}>
+                <Typography.Body2Strong>{label}</Typography.Body2Strong>
+              </FormControl.Label>
+            )}
+
             {Array.isArray(labelAddon) ? (
               <Stack direction="row" space="2">
-                {labelAddon.map((item) => {
+                {labelAddon.map((item, i) => {
                   if (item === 'paste') {
                     return (
-                      <Pressable
-                        key="item"
+                      <IconButton
+                        key={i}
+                        type="plain"
+                        size="xs"
+                        name="ClipboardOutline"
                         onPress={() => handleCopied(onChange)}
-                      >
-                        <Icon size={16} name="ClipboardOutline" />
-                      </Pressable>
+                      />
                     );
                   }
                   return null;

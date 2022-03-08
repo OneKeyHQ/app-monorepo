@@ -10,6 +10,8 @@ import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import Typography from '../../Typography';
 
+import useModalClose from './useModalClose';
+
 import type { ModalProps } from '..';
 
 const DesktopModal: FC<ModalProps> = ({
@@ -33,6 +35,8 @@ const DesktopModal: FC<ModalProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const index = useNavigationState((state) => state.index);
+
+  const close = useModalClose({ onClose });
 
   function modalSizing(modalSize: string | undefined) {
     switch (modalSize) {
@@ -112,9 +116,7 @@ const DesktopModal: FC<ModalProps> = ({
               name="CloseSolid"
               type="plain"
               circle
-              onPress={() => {
-                navigation.getParent()?.goBack?.();
-              }}
+              onPress={close}
             />
           )}
         </Box>
@@ -136,7 +138,7 @@ const DesktopModal: FC<ModalProps> = ({
                   type="primary"
                   minW="120px"
                   onPress={() => {
-                    onPrimaryActionPress?.({ onClose });
+                    onPrimaryActionPress?.({ onClose, close });
                   }}
                   {...primaryActionProps}
                 >
@@ -149,7 +151,7 @@ const DesktopModal: FC<ModalProps> = ({
                 <Button
                   minW="120px"
                   onPress={() => {
-                    onSecondaryActionPress?.();
+                    onSecondaryActionPress?.({ close });
                     onClose?.();
                   }}
                   {...secondaryActionProps}

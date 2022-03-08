@@ -9,9 +9,10 @@ import {
   AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
+  TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
-import { getPresetNetworks } from '../../presets';
+import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import {
   ACCOUNT_TYPE_SIMPLE,
   DBAccount,
@@ -147,39 +148,6 @@ class IndexedDBApi implements DBAPI {
 
         transaction.oncomplete = (_tevent) => {
           resolve(request.result);
-        };
-
-        const networkStore: IDBObjectStore =
-          transaction.objectStore(NETWORK_STORE_NAME);
-        const getNetworkIdsRequest: IDBRequest = networkStore.getAllKeys();
-
-        getNetworkIdsRequest.onsuccess = (_revent) => {
-          const networkIds = new Set(getNetworkIdsRequest.result);
-          let position = networkIds.size;
-          const presetNetworksList = Object.values(getPresetNetworks()).sort(
-            (a, b) => (a.name > b.name ? 1 : -1),
-          );
-          presetNetworksList.forEach((network) => {
-            if (networkIds.has(network.id)) {
-              return;
-            }
-            networkStore.add({
-              id: network.id,
-              name: network.name,
-              impl: network.impl,
-              symbol: network.symbol,
-              logoURI: network.logoURI,
-              feeSymbol: network.feeSymbol,
-              decimals: network.decimals,
-              feeDecimals: network.feeDecimals,
-              balance2FeeDecimals: network.balance2FeeDecimals,
-              rpcURL: network.presetRpcURLs[0],
-              enabled: network.enabled,
-              position,
-            });
-            position += 1;
-            networkIds.add(network.id);
-          });
         };
       };
     });
@@ -323,19 +291,25 @@ class IndexedDBApi implements DBAPI {
 
           const networkStore: IDBObjectStore =
             transaction.objectStore(NETWORK_STORE_NAME);
-          const getNetworkIdsRequest: IDBRequest = networkStore.getAllKeys();
+          const getNetworksRequest: IDBRequest = networkStore.getAll();
 
-          getNetworkIdsRequest.onsuccess = (_revent) => {
-            const networkIds = new Set(getNetworkIdsRequest.result);
-            if (networkIds.has(network.id)) {
-              reject(
-                new OneKeyInternalError(
-                  `Network ${network.id} already exists.`,
-                ),
-              );
-              return;
+          getNetworksRequest.onsuccess = (_revent) => {
+            const networks = getNetworksRequest.result as Array<DBNetwork>;
+
+            let maxPos = 0;
+            for (const v of networks) {
+              maxPos = v.position > maxPos ? v.position : maxPos;
+
+              if (v.id === network.id) {
+                reject(
+                  new OneKeyInternalError(
+                    `Network ${network.id} already exists.`,
+                  ),
+                );
+                return;
+              }
             }
-            network.position = networkIds.size;
+            network.position = maxPos + 1;
             networkStore.add(network);
           };
         }),
@@ -1016,6 +990,10 @@ class IndexedDBApi implements DBAPI {
             wallet.accounts.push(account.id);
 
             if (wallet.type === WALLET_TYPE_WATCHING) {
+              if (wallet.accounts.length > LIMIT_WATCHING_ACCOUNT_NUM) {
+                reject(new TooManyWatchingAccounts());
+                return;
+              }
               wallet.nextAccountIds.global += 1;
             } else if (wallet.type === WALLET_TYPE_HD) {
               const pathComponents = account.path.split('/');

@@ -7,7 +7,7 @@ import { useThemeValue } from '../Provider/hooks';
 import { ThemeValues } from '../Provider/theme';
 import Typography from '../Typography';
 
-type AlertType = 'info' | 'warn' | 'error' | 'success';
+type AlertType = 'info' | 'warn' | 'error' | 'success' | 'SeriousWarning';
 
 export type AlertProps = {
   title: string;
@@ -53,6 +53,13 @@ const SuccessAlertProps: AlertTypeProps = {
   borderColor: 'border-success-subdued',
 };
 
+const SeriousWarningAlertProps: AlertTypeProps = {
+  iconName: 'ExclamationSolid',
+  iconColor: 'icon-critical',
+  bgColor: 'surface-critical-subdued',
+  borderColor: 'border-critical-subdued',
+};
+
 function alertPropWithType(alertType: AlertType) {
   switch (alertType) {
     case 'info':
@@ -61,6 +68,8 @@ function alertPropWithType(alertType: AlertType) {
       return WarnAlertProps;
     case 'error':
       return ErrorAlertProps;
+    case 'SeriousWarning':
+      return SeriousWarningAlertProps;
     default:
       return SuccessAlertProps;
   }
@@ -99,7 +108,7 @@ const Alert: FC<AlertProps> = ({
                 color={alertTypeProps.iconColor}
               />
             </Box>
-            <Typography.Body2Strong>{title}</Typography.Body2Strong>
+            <Typography.Body2Strong flex={1}>{title}</Typography.Body2Strong>
           </Row>
           <IconButton
             padding="2px"

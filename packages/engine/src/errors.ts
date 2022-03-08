@@ -20,6 +20,10 @@ class AccountAlreadyExists extends OneKeyError {
   key = 'msg__engine__account_already_exists';
 }
 
+class TooManyWatchingAccounts extends OneKeyError {
+  key = 'msg__engine_too_many_watching_accounts';
+}
+
 class FailedToTransfer extends OneKeyError {
   key = 'msg__engine__failed_to_transfer';
 }
@@ -33,6 +37,7 @@ export {
   OneKeyInternalError,
   WrongPassword,
   AccountAlreadyExists,
+  TooManyWatchingAccounts,
   FailedToTransfer,
   InvalidAddress,
 };

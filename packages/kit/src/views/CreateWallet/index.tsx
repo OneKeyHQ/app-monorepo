@@ -1,11 +1,12 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
-import { DrawerActions } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Box,
+  Button,
   Center,
   HStack,
   Icon,
@@ -21,136 +22,111 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { ModalScreenProps } from '../../routes/types';
+import { ModalScreenProps, RootRoutesParams } from '../../routes/types';
 
-type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<RootRoutesParams> &
+  ModalScreenProps<CreateWalletRoutesParams>;
 
 const CreateWalletModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const onRestore = useCallback(() => {
+    navigation.navigate(CreateWalletModalRoutes.ImportWalletModal);
+  }, [navigation]);
 
   const content = (
-    <Center>
-      <VStack space={8} w="full">
-        <VStack space={2} alignItems="center">
-          <Typography.DisplayLarge>
-            {intl.formatMessage({ id: 'action__create_wallet' })}
-          </Typography.DisplayLarge>
-          <Typography.Body1 color="text-subdued">
-            {intl.formatMessage({ id: 'content__select_wallet_type' })}
-          </Typography.Body1>
-        </VStack>
-        <VStack space={4}>
-          {/* APP Wallet option */}
-          <PressableItem
-            borderRadius="12px"
-            px={4}
-            onPress={() => {
-              navigation.navigate(CreateWalletModalRoutes.AppWalletModal);
-            }}
-          >
-            <HStack justifyContent="space-between" alignItems="center">
-              <Center
-                size={12}
-                borderRadius="12px"
-                bg="surface-neutral-default"
-              >
-                <Typography.DisplayLarge>🤑</Typography.DisplayLarge>
-              </Center>
-              <Icon name="ChevronRightOutline" size={24} />
-            </HStack>
-            <VStack space={1} mt={3}>
-              <Typography.Body1Strong>
-                {intl.formatMessage({
-                  id: 'wallet__app_wallet',
-                })}
-              </Typography.Body1Strong>
-
-              <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({
-                  id: 'content__app_wallet_desc',
-                })}
-              </Typography.Body2>
-            </VStack>
-
-            <Typography.Caption mt={4} color="text-disabled">
+    <VStack space={8} w="full">
+      <Box>
+        <Typography.DisplayLarge textAlign="center">
+          {intl.formatMessage({ id: 'action__create_wallet' })}
+        </Typography.DisplayLarge>
+        <Typography.Body1 mt={2} textAlign="center" color="text-subdued">
+          {intl.formatMessage({ id: 'content__select_wallet_type' })}
+        </Typography.Body1>
+      </Box>
+      <VStack space={4}>
+        {/* APP Wallet option */}
+        <PressableItem
+          borderRadius="12px"
+          px={4}
+          onPress={() => {
+            navigation.navigate(CreateWalletModalRoutes.AppWalletModal);
+          }}
+        >
+          <HStack justifyContent="space-between" alignItems="center">
+            <Center size={12} borderRadius="12px" bg="surface-neutral-default">
+              <Typography.DisplayLarge>🤑</Typography.DisplayLarge>
+            </Center>
+            <Icon name="ChevronRightOutline" size={24} />
+          </HStack>
+          <VStack space={1} mt={3}>
+            <Typography.Body1Strong>
               {intl.formatMessage({
-                id: 'content__for_people_who_dont_have_hardware_wallet',
+                id: 'wallet__app_wallet',
               })}
-            </Typography.Caption>
-          </PressableItem>
+            </Typography.Body1Strong>
 
-          {/* Hardware Wallet option */}
-          <PressableItem
-            borderRadius="12px"
-            px={4}
-            onPress={() => {
-              navigation.navigate(CreateWalletModalRoutes.ConnectHardwareModal);
-            }}
-          >
-            <HStack justifyContent="space-between" alignItems="center">
-              <Center
-                size={12}
-                borderRadius="12px"
-                bg="surface-neutral-default"
-              >
-                <Image source={MiniDeviceIcon} width={5} height={30} />
-              </Center>
-              <Badge
-                title={intl.formatMessage({ id: 'badge__coming_soon' })}
-                size="sm"
-                type="default"
-              />
-            </HStack>
-            <VStack space={1} mt={3}>
-              <Typography.Body1Strong>
-                {intl.formatMessage({
-                  id: 'wallet__hardware_wallet',
-                })}
-              </Typography.Body1Strong>
-
-              <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({
-                  id: 'content__hardware_wallet_desc',
-                })}
-              </Typography.Body2>
-            </VStack>
-
-            <Typography.Caption mt={4} color="text-disabled">
+            <Typography.Body2 color="text-subdued">
               {intl.formatMessage({
-                id: 'content__for_people_who_have_hardware_wallet',
+                id: 'content__app_wallet_desc',
               })}
-            </Typography.Caption>
-          </PressableItem>
-        </VStack>
+            </Typography.Body2>
+          </VStack>
+
+          <Typography.Caption mt={4} color="text-disabled">
+            {intl.formatMessage({
+              id: 'content__for_people_who_dont_have_hardware_wallet',
+            })}
+          </Typography.Caption>
+        </PressableItem>
+
+        {/* Hardware Wallet option */}
+        <PressableItem
+          borderRadius="12px"
+          px={4}
+          onPress={() => {
+            navigation.navigate(CreateWalletModalRoutes.ConnectHardwareModal);
+          }}
+        >
+          <HStack justifyContent="space-between" alignItems="center">
+            <Center size={12} borderRadius="12px" bg="surface-neutral-default">
+              <Image source={MiniDeviceIcon} width={5} height={30} />
+            </Center>
+            <Badge
+              title={intl.formatMessage({ id: 'badge__coming_soon' })}
+              size="sm"
+              type="default"
+            />
+          </HStack>
+          <VStack space={1} mt={3}>
+            <Typography.Body1Strong>
+              {intl.formatMessage({
+                id: 'wallet__hardware_wallet',
+              })}
+            </Typography.Body1Strong>
+
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({
+                id: 'content__hardware_wallet_desc',
+              })}
+            </Typography.Body2>
+          </VStack>
+
+          <Typography.Caption mt={4} color="text-disabled">
+            {intl.formatMessage({
+              id: 'content__for_people_who_have_hardware_wallet',
+            })}
+          </Typography.Caption>
+        </PressableItem>
       </VStack>
-    </Center>
+    </VStack>
   );
 
   const footer = (
-    <Center pt={4} pb={8}>
-      <Typography.Body1 color="text-subdued">
-        {intl.formatMessage(
-          { id: 'content__import_or_watch_an_account' },
-          {
-            import: (
-              <Typography.Body1Strong>
-                {intl.formatMessage({ id: 'action__import' })}
-              </Typography.Body1Strong>
-            ),
-            watch: (
-              <Typography.Body1Strong
-                onPress={() => {
-                  navigation.goBack();
-                  navigation.dispatch(DrawerActions.openDrawer());
-                }}
-              >
-                {intl.formatMessage({ id: 'action__watch_lowercase' })}
-              </Typography.Body1Strong>
-            ),
-          },
-        )}
-      </Typography.Body1>
+    <Center pt={2} pb={6}>
+      <Button type="plain" size="xl" onPress={onRestore}>
+        {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
+      </Button>
     </Center>
   );
 
@@ -158,7 +134,6 @@ const CreateWalletModal: FC = () => {
     <Modal
       footer={footer}
       scrollViewProps={{
-        pt: 4,
         children: content,
       }}
     />

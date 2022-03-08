@@ -4,6 +4,7 @@ import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
@@ -63,6 +64,7 @@ import {
   HistoryEntryStatus,
   HistoryEntryType,
 } from './types/history';
+import { Message } from './types/message';
 import {
   AddNetworkParams,
   EIP1559Fee,
@@ -707,9 +709,32 @@ class Engine {
     }
   }
 
+  async signMessage(
+    password: string,
+    networkId: string,
+    accountId: string,
+    messages: Array<Message>,
+    _ref?: string,
+  ): Promise<Array<string>> {
+    const [credential, network, account] = await Promise.all([
+      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+      this.getNetwork(networkId),
+      this.getAccount(accountId, networkId),
+    ]);
+    // TODO: address check needed?
+    const signatures = await this.providerManager.signMessages(
+      credential.seed,
+      password,
+      network,
+      account,
+      messages,
+    );
+    // TODO: add history
+    return signatures;
+  }
+
   // TODO: sign & broadcast.
   // signTransaction
-  // signMessage
   // broadcastRawTransaction
 
   async getHistory(
@@ -782,6 +807,15 @@ class Engine {
         'addNetwork: empty value is not allowed for RPC URL.',
       );
     }
+    if (params.explorerURL) {
+      try {
+        const u = new URL(params.explorerURL);
+        params.explorerURL = u.toString();
+      } catch (error) {
+        console.error(error);
+        throw new OneKeyInternalError('addNetwork invalid URL');
+      }
+    }
     const dbObj = await this.dbApi.addNetwork(getEVMNetworkToCreate(params));
     return fromDBNetworkToNetwork(dbObj);
   }
@@ -804,6 +838,15 @@ class Engine {
   ): Promise<Network> {
     if (Object.keys(params).length === 0) {
       throw new OneKeyInternalError('updateNetwork: params is empty.');
+    }
+    if (params.explorerURL) {
+      try {
+        const u = new URL(params.explorerURL);
+        params.explorerURL = u.toString();
+      } catch (error) {
+        console.error(error);
+        throw new OneKeyInternalError('updateNetwork invalid URL');
+      }
     }
     if (networkIsPreset(networkId)) {
       if (typeof params.name !== 'undefined') {
@@ -905,6 +948,10 @@ class Engine {
       pageNumber,
       pageSize,
     );
+  }
+
+  proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
+    return this.providerManager.proxyRPCCall(networkId, request);
   }
 
   // TODO: RPC interactions.

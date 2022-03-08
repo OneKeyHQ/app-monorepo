@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement } from 'react';
+import React, { FC, isValidElement, useState } from 'react';
 
-import { useNavigation, useNavigationState } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useNavigation,
+  useNavigationState,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
@@ -10,6 +14,8 @@ import HStack from '../../HStack';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
 import Typography from '../../Typography';
+
+import useModalClose from './useModalClose';
 
 import type { ModalProps } from '..';
 
@@ -32,13 +38,20 @@ const MobileModal: FC<ModalProps> = ({
   const navigation = useNavigation();
   const { bottom } = useSafeAreaInsets();
   const index = useNavigationState((state) => state.index);
+  const [currentStackIndex, setCurrentStackIndex] = useState(0);
+
+  const close = useModalClose({ onClose });
+
+  useFocusEffect(() => {
+    setCurrentStackIndex(index);
+  });
 
   return (
     <Box flex="1" bg="surface-subdued">
       <Box
         pt={1}
         pr={2}
-        pl={index ? 2 : '56px'}
+        pl={currentStackIndex ? 2 : '56px'}
         pb={header ? 1 : 0}
         display="flex"
         flexDirection="row"
@@ -47,7 +60,7 @@ const MobileModal: FC<ModalProps> = ({
         borderBottomColor="border-subdued"
         borderBottomWidth={header ? 1 : undefined}
       >
-        {index ? (
+        {currentStackIndex && navigation.canGoBack() ? (
           <IconButton
             size="xl"
             name="ChevronLeftOutline"
@@ -73,9 +86,7 @@ const MobileModal: FC<ModalProps> = ({
           name="CloseOutline"
           type="plain"
           circle
-          onPress={() => {
-            navigation.getParent()?.goBack?.();
-          }}
+          onPress={close}
         />
       </Box>
       {children}
@@ -97,7 +108,7 @@ const MobileModal: FC<ModalProps> = ({
                 size="xl"
                 type="primary"
                 onPress={() => {
-                  onPrimaryActionPress?.({ onClose });
+                  onPrimaryActionPress?.({ onClose, close });
                 }}
                 {...primaryActionProps}
               >
@@ -111,7 +122,7 @@ const MobileModal: FC<ModalProps> = ({
                 flex="1"
                 size="xl"
                 onPress={() => {
-                  onSecondaryActionPress?.();
+                  onSecondaryActionPress?.({ close });
                   onClose?.();
                 }}
                 {...secondaryActionProps}

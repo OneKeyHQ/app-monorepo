@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +12,13 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappApproveAction from '../../hooks/useDappApproveAction';
+import useDappParams from '../../hooks/useDappParams';
+import { dappSaveSiteConnection } from '../../store/reducers/dapp';
 
 import { DescriptionList, DescriptionListItem } from './DescriptionList';
 import RugConfirmDialog from './RugConfirmDialog';
@@ -60,9 +66,8 @@ const getPermissionTransId = (type: PermissionType) => {
       return type;
   }
 };
-
 const isRug = (target: string) => {
-  const RUG_LIST = ['app.uniswap.org'];
+  const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
 };
 
@@ -70,13 +75,53 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const navigation = useNavigation();
+  const { account, network } = useActiveWalletAccount();
+  const accountInfo = account as SimpleAccount | null;
+  const { origin, data, scope, id } = useDappParams();
+  const computedIsRug = isRug(origin);
 
-  const computedIsRug = isRug(MockData.target.link);
+  const getResolveData = useCallback(() => {
+    const address = accountInfo?.address || '';
+    let accounts: string | string[] | { accounts: string[] } = [address].filter(
+      Boolean,
+    );
+    // data format may be different in different chain
+    if (scope === 'ethereum') {
+      accounts = [address].filter(Boolean);
+    }
+    if (scope === 'near') {
+      accounts = {
+        accounts: [address].filter(Boolean),
+      };
+    }
+    if (scope === 'solana') {
+      accounts = address;
+    }
+    backgroundApiProxy.dispatchAction(
+      dappSaveSiteConnection({
+        site: {
+          origin,
+        },
+        networkImpl: network?.network?.impl || '',
+        address,
+      }),
+    );
+    return accounts;
+  }, [accountInfo, network?.network?.impl, origin, scope]);
+
+  const dappApprove = useDappApproveAction({
+    id,
+    getResolveData,
+  });
 
   const [permissionValues, setPermissionValues] = React.useState(
     MockData.permissions.map(({ type }) => type),
   );
+
+  // TODO
+  //  - check scope=ethereum and active chain is EVM
+  //  - check active account exists
+  //  - check network not exists
 
   return (
     <>
@@ -93,20 +138,17 @@ const Connection = () => {
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__reject"
         header={intl.formatMessage({ id: 'title__approve' })}
-        headerDescription={MockData.target.link}
-        onPrimaryActionPress={({ onClose }) => {
+        headerDescription={scope}
+        onPrimaryActionPress={({ close }) => {
           if (!computedIsRug) {
-            // Do approve operation
-            return onClose?.();
+            return dappApprove.resolve({ close });
           }
           // Do confirm before approve
           setRugConfirmDialogVisible(true);
         }}
-        onSecondaryActionPress={() => {
-          if (navigation.canGoBack()) {
-            navigation.goBack();
-          }
-        }}
+        onSecondaryActionPress={dappApprove.reject}
+        // TODO onClose may trigger many times
+        onClose={() => dappApprove.reject({ close: () => null })}
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
@@ -114,7 +156,7 @@ const Connection = () => {
               <Center>
                 <Token src={MockData.target.avatar} size="56px" />
                 <Typography.Heading mt="8px">
-                  {MockData.target.name}
+                  {data?.method}:{id}
                 </Typography.Heading>
               </Center>
               <DescriptionList>
@@ -128,10 +170,10 @@ const Connection = () => {
                       <Text
                         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                       >
-                        {MockData.account.name}
+                        {accountInfo?.name}
                       </Text>
                       <Typography.Body2 textAlign="right" color="text-subdued">
-                        {MockData.account.address}
+                        {accountInfo?.address}
                       </Typography.Body2>
                     </Column>
                   }
@@ -141,7 +183,7 @@ const Connection = () => {
                   title={intl.formatMessage({
                     id: 'content__interact_with',
                   })}
-                  detail={MockData.target.link}
+                  detail={origin}
                   isRug={computedIsRug}
                 />
               </DescriptionList>

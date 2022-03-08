@@ -1,6 +1,6 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -22,6 +22,11 @@ import {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import { useToast } from '../../../hooks/useToast';
+
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 const MODAL_PADDING = 8;
 
@@ -42,8 +47,12 @@ const CollectibleDetailModal: FC = () => {
   const [asset, setAsset] = useState<OpenSeaAsset | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const toast = useToast();
+  const toastId = useRef<string>();
+
   useEffect(() => {
-    if (!contractAddress || !tokenId) {
+    if (!contractAddress || !tokenId || !!asset) {
       return;
     }
 
@@ -56,27 +65,44 @@ const CollectibleDetailModal: FC = () => {
           tokenId: tokenId.toString(),
         });
         setAsset(assetFromBe);
-      } finally {
         setIsLoading(false);
+      } catch (e) {
+        console.log(`Error on fetching nft asset ${tokenId}`);
+        const error = e as Error | string | null | undefined;
+        const message = typeof error === 'string' ? error : error?.message;
+        if (message && !toastId.current) {
+          toastId.current = toast.show({
+            title: message,
+          });
+        }
+        // Delay after hook
+        setTimeout(() => {
+          const navParent = navigation.getParent();
+          if (navParent?.canGoBack()) {
+            return navParent.goBack();
+          }
+        }, 50);
       }
     })();
-  }, [tokenId, contractAddress, chainId]);
+  }, [tokenId, contractAddress, chainId, navigation, toast, asset]);
 
   if (!asset) {
-    return isLoading ? (
-      <Modal
-        footer={null}
-        height="640px"
-        scrollViewProps={{
-          pt: 4,
-          children: (
-            <Center flex={1}>
-              <Spinner size="lg" />
-            </Center>
-          ),
-        }}
-      />
-    ) : null;
+    if (isLoading) {
+      return (
+        <Modal
+          footer={null}
+          height="640px"
+          scrollViewProps={{
+            children: (
+              <Center flex={1}>
+                <Spinner size="lg" />
+              </Center>
+            ),
+          }}
+        />
+      );
+    }
+    return null;
   }
 
   return (
@@ -84,7 +110,6 @@ const CollectibleDetailModal: FC = () => {
       footer={null}
       height="640px"
       scrollViewProps={{
-        pt: 4,
         children: (
           <Center>
             <Image

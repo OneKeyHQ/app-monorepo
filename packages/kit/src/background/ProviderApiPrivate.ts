@@ -1,10 +1,13 @@
 /* eslint-disable camelcase */
-import JsBridgeDesktopHost from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeDesktopHost';
 import {
   IInjectedProviderNames,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
-import { IWebViewWrapperRef } from '@onekeyhq/inpage-provider/src/webview/useWebViewBridge';
+} from '@onekeyfe/cross-inpage-provider-types';
+import {
+  IWebViewWrapperRef,
+  JsBridgeDesktopHost,
+} from '@onekeyfe/onekey-cross-webview';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import extUtils from '../utils/extUtils';

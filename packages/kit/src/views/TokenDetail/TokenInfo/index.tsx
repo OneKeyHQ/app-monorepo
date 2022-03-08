@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC, useMemo } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,71 +17,37 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
+import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
-  ModalNavigatorRoutes,
-  ModalTypes,
-} from '@onekeyhq/kit/src/routes/Modal';
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useManageTokens } from '../../../hooks/useManageTokens';
 import { Network } from '../../../store/reducers/network';
 import extUtils from '../../../utils/extUtils';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  ModalTypes,
-  ModalNavigatorRoutes.ReceiveTokenNavigator
->;
+type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
-  accountId: string | null | undefined;
   token: TokenDO | null | undefined;
   network: Network | null | undefined;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
-  const isVertical = useIsVerticalLayout();
+const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const intl = useIntl();
-  const isFocused = useIsFocused();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useNavigation<NavigationProps>();
-
-  const { wallet } = useActiveWalletAccount();
-  const [amount, setAmount] = useState('0');
-  const [tokenPrice, setTokenPrice] = useState<string>();
-
-  useEffect(() => {
-    async function main() {
-      if (!accountId || !network?.id) return;
-      const result = await engine.getAccountBalance(
-        accountId,
-        token?.networkId ?? network.id,
-        token ? [token?.tokenIdOnNetwork] : [],
-        true,
-      );
-
-      const prices = await engine.getPrices(
-        network.id,
-        token ? [token?.tokenIdOnNetwork] : [],
-        !token,
-      );
-
-      if (token) {
-        setAmount(result[token.tokenIdOnNetwork] ?? '0');
-        setTokenPrice(prices?.[token.tokenIdOnNetwork]);
-      } else {
-        setAmount(result.main ?? '0');
-        setTokenPrice(prices?.main);
-      }
-    }
-    try {
-      if (isFocused) main();
-    } catch (error) {
-      console.warn('TokenInfo', error);
-    }
-  }, [accountId, token, isFocused, network]);
+  const isVertical = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const { wallet, account } = useActiveWalletAccount();
+  const { accountTokensMap, prices } = useManageTokens();
+  const amount = accountTokensMap.get(
+    token?.tokenIdOnNetwork ?? 'main',
+  )?.balance;
+  const tokenPrice = prices[token?.tokenIdOnNetwork ?? 'main'];
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -99,6 +65,9 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
                 fixed: network?.tokenDisplayDecimals ?? 4,
               }}
               as={Typography.DisplayXLarge}
+              render={(ele) => (
+                <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
+              )}
             />
           </Box>
           <FormatCurrency
@@ -128,11 +97,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
           minW={{ base: '126px', md: 'auto' }}
           isDisabled={wallet?.type === 'watching'}
           type="basic"
-          // onPress={() => {
-          //   navigation.navigate(ModalNavigatorRoutes.SendNavigator, {
-          //     screen: ModalRoutes.Send,
-          //   });
-          // }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
@@ -143,12 +107,18 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
           leftIconName="ArrowDownSolid"
           minW={{ base: '126px', md: 'auto' }}
           type="basic"
-          // onPress={() => {
-          //   navigation.navigate(ModalNavigatorRoutes.ReceiveTokenNavigator, {
-          //     screen: ModalRoutes.ReceiveToken,
-          //     params: { address: '0x4330b96cde5bf063f21978870ff193ae8cae4c48' },
-          //   });
-          // }}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {
+                  address: (account as any)?.address,
+                  name: '',
+                },
+              },
+            });
+          }}
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
@@ -163,7 +133,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ accountId, token, network }) => {
         )}
       </Box>
     ),
-    [intl, isVertical, wallet?.type],
+    [intl, isVertical, wallet?.type, account, navigation],
   );
 
   return useMemo(

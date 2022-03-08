@@ -23,8 +23,9 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import { FormatBalance } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
-import { useGeneral, useManageTokens } from '../../hooks/redux';
+import { useGeneral } from '../../hooks/redux';
 import useDebounce from '../../hooks/useDebounce';
+import { useManageTokens } from '../../hooks/useManageTokens';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -87,11 +88,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     fallbackElement={<Icon name="QuestionMarkOutline" />}
                   />
                   <Box ml="3">
-                    <Typography.Body1Strong
-                      maxW="56"
-                      textOverflow="ellipsis"
-                      numberOfLines={2}
-                    >
+                    <Typography.Body1Strong maxW="56" numberOfLines={2}>
                       {item.name}({item.symbol})
                     </Typography.Body1Strong>
                     <Typography.Body1 numberOfLines={1}>
@@ -176,7 +173,6 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   isLoading,
   terms,
 }) => {
-  console.log('rerender', isLoading, terms);
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   if (isLoading) {
@@ -298,7 +294,6 @@ export const Listing: FC = () => {
           <Box ml="3">
             <Typography.Body1Strong
               maxW="56"
-              textOverflow="ellipsis"
               numberOfLines={2}
               color={
                 accountTokensSet.has(item.tokenIdOnNetwork)

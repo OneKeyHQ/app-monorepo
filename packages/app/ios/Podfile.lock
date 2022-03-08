@@ -31,6 +31,9 @@ PODS:
     - UMTaskManagerInterface
   - EXManifests (0.2.2):
     - EXJSONUtils
+  - EXMediaLibrary (14.0.1):
+    - ExpoModulesCore
+    - React-Core
   - Expo (43.0.3):
     - ExpoModulesCore
   - expo-dev-client (0.7.2):
@@ -102,14 +105,7 @@ PODS:
   - EXSplashScreen (0.13.5):
     - ExpoModulesCore
     - React-Core
-  - EXStructuredHeaders (2.0.0)
-  - EXUpdates (0.10.15):
-    - EXManifests
-    - ExpoModulesCore
-    - EXStructuredHeaders
-    - EXUpdatesInterface
-    - React-Core
-  - EXUpdatesInterface (0.4.0)
+  - EXUpdatesInterface (0.5.0)
   - FBLazyVector (0.66.4)
   - FBReactNativeSpec (0.66.4):
     - RCT-Folly (= 2021.06.28.00-v2)
@@ -331,6 +327,8 @@ PODS:
     - react-native-config/App (= 1.4.5)
   - react-native-config/App (1.4.5):
     - React-Core
+  - react-native-netinfo (8.1.0):
+    - React-Core
   - react-native-pager-view (5.4.9):
     - React-Core
   - react-native-randombytes (3.6.1):
@@ -473,6 +471,7 @@ DEPENDENCIES:
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXManifests (from `../../../node_modules/expo-manifests/ios`)
+  - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
   - expo-dev-client (from `../../../node_modules/expo-dev-client`)
   - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
@@ -481,8 +480,6 @@ DEPENDENCIES:
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core/ios`)
   - EXSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
-  - EXStructuredHeaders (from `../../../node_modules/expo-structured-headers/ios`)
-  - EXUpdates (from `../../../node_modules/expo-updates/ios`)
   - EXUpdatesInterface (from `../../../node_modules/expo-updates-interface/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
@@ -505,6 +502,7 @@ DEPENDENCIES:
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-config (from `../../../node_modules/react-native-config`)
+  - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
@@ -569,6 +567,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-location/ios"
   EXManifests:
     :path: "../../../node_modules/expo-manifests/ios"
+  EXMediaLibrary:
+    :path: "../../../node_modules/expo-media-library/ios"
   Expo:
     :path: "../../../node_modules/expo/ios"
   expo-dev-client:
@@ -585,10 +585,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-secure-store/ios"
   EXSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
-  EXStructuredHeaders:
-    :path: "../../../node_modules/expo-structured-headers/ios"
-  EXUpdates:
-    :path: "../../../node_modules/expo-updates/ios"
   EXUpdatesInterface:
     :path: "../../../node_modules/expo-updates-interface/ios"
   FBLazyVector:
@@ -629,6 +625,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-ble-plx"
   react-native-config:
     :path: "../../../node_modules/react-native-config"
+  react-native-netinfo:
+    :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
     :path: "../../../node_modules/react-native-pager-view"
   react-native-randombytes:
@@ -696,6 +694,7 @@ SPEC CHECKSUMS:
   EXLocalAuthentication: 4c7166ed3133d2c75586093833936652e7d2c7fc
   EXLocation: 192eaee761c159d1479111a0ced3bab7ad8475a3
   EXManifests: 50e42e01335df4e54109dee7be5a91bfd37347db
+  EXMediaLibrary: 843669e1d9d38965057830138609ee99ef260cf1
   Expo: 5316c3ecdc34eb0cad340d01dc8beec97c7e879e
   expo-dev-client: b0a6b5deedba945162633b2d27f02a727e3eaa47
   expo-dev-launcher: b76cf991b0a63a7df3a832909addcff1d5668675
@@ -704,9 +703,7 @@ SPEC CHECKSUMS:
   ExpoModulesCore: a9a9bf32b2da35cd9b7299c80790c03a91ac7d15
   EXSecureStore: b80c74c5ee29d0160c2aace3fd9a24a5edc20015
   EXSplashScreen: 57f329dbf25c5c12800feed79068a056453dc772
-  EXStructuredHeaders: 873e7f329c2f6279c1b1e0229df59c9861560b53
-  EXUpdates: 061b67c33f0e7f8fd335bbb48697c4a4fc8a5157
-  EXUpdatesInterface: e1c01b4f5ec76bd1d6cc714938f9edf5ef6379b9
+  EXUpdatesInterface: f459b515151bd73fff7a35366eace34a6c6a0d3f
   FBLazyVector: e5569e42a1c79ca00521846c223173a57aca1fe1
   FBReactNativeSpec: fe08c1cd7e2e205718d77ad14b34957cce949b58
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
@@ -729,6 +726,7 @@ SPEC CHECKSUMS:
   React-logger: 933f80c97c633ee8965d609876848148e3fef438
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
+  react-native-netinfo: 379ba2af7d2abcec0c062267abe1c9a977c72bf9
   react-native-pager-view: 3ee7d4c7697fb3ef788346e834a60cca97ed8540
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 584dc04881deb49474363f3be89e4ca0e854c057

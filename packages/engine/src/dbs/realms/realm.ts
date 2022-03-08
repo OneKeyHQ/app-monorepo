@@ -8,9 +8,10 @@ import {
   AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
+  TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
-import { getPresetNetworks } from '../../presets';
+import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { ACCOUNT_TYPE_SIMPLE, DBAccount } from '../../types/account';
 import {
   HistoryEntry,
@@ -74,12 +75,10 @@ class RealmDB implements DBAPI {
         CredentialSchema,
         HistoryEntrySchema,
       ],
+      schemaVersion: 1,
     })
       .then((realm) => {
         if (update || realm.empty) {
-          const presetNetworksList = Object.values(getPresetNetworks()).sort(
-            (a, b) => (a.name > b.name ? 1 : -1),
-          );
           realm.write(() => {
             if (realm.empty) {
               realm.create('Wallet', {
@@ -91,27 +90,6 @@ class RealmDB implements DBAPI {
                 nextAccountIds: { 'global': 1 },
               });
             }
-            presetNetworksList.forEach((network, index) => {
-              realm.create(
-                'Network',
-                {
-                  id: network.id,
-                  name: network.name,
-                  impl: network.impl,
-                  symbol: network.symbol,
-                  logoURI: network.logoURI,
-                  feeSymbol: network.feeSymbol,
-                  decimals: network.decimals,
-                  feeDecimals: network.feeDecimals,
-                  balance2FeeDecimals: network.balance2FeeDecimals,
-                  rpcURL: network.presetRpcURLs[0],
-                  enabled: network.enabled,
-                  preset: true,
-                  position: index,
-                },
-                Realm.UpdateMode.Modified,
-              );
-            });
           });
         }
         this.realm = realm;
@@ -243,10 +221,10 @@ class RealmDB implements DBAPI {
         );
       }
       const position: number =
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.realm!.objects<NetworkSchema>('Network').max(
+        (this.realm!.objects<NetworkSchema>('Network').max(
           'position',
-        ) as unknown as number;
+        ) as number) || 0;
+
       network.position = position + 1;
       this.realm!.write(() => {
         this.realm!.create('Network', {
@@ -262,6 +240,7 @@ class RealmDB implements DBAPI {
           rpcURL: network.rpcURL,
           enabled: network.enabled,
           position: position + 1,
+          explorerURL: network.explorerURL,
         });
       });
     } catch (error: any) {
@@ -338,6 +317,7 @@ class RealmDB implements DBAPI {
       name?: string;
       symbol?: string;
       rpcURL?: string;
+      explorerURL?: string;
     },
   ): Promise<DBNetwork> {
     try {
@@ -359,6 +339,9 @@ class RealmDB implements DBAPI {
         }
         if (params.rpcURL) {
           network.rpcURL = params.rpcURL;
+        }
+        if (params.explorerURL) {
+          network.explorerURL = params.explorerURL;
         }
       });
       return Promise.resolve(network.internalObj);
@@ -649,6 +632,9 @@ class RealmDB implements DBAPI {
         });
         wallet.accounts!.add(accountNew as AccountSchema);
         if (wallet.type === WALLET_TYPE_WATCHING) {
+          if (wallet.accounts!.length > LIMIT_WATCHING_ACCOUNT_NUM) {
+            return Promise.reject(new TooManyWatchingAccounts());
+          }
           wallet.nextAccountIds!.global += 1;
         } else if (wallet.type === WALLET_TYPE_HD) {
           const pathComponents = account.path.split('/');

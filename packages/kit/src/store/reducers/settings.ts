@@ -15,6 +15,7 @@ type SettingsState = {
   selectedFiatMoneySymbol: string;
   appLockDuration: number;
   refreshTimeStamp: number;
+  autoRefreshTimeStamp: number;
 };
 
 const initialState: SettingsState = {
@@ -27,6 +28,7 @@ const initialState: SettingsState = {
   appLockDuration: 5,
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
+  autoRefreshTimeStamp: getTimeStamp(),
 };
 
 export const settingsSlice = createSlice({
@@ -57,6 +59,9 @@ export const settingsSlice = createSlice({
     setRefreshTS: (state) => {
       state.refreshTimeStamp = getTimeStamp();
     },
+    setAutoRefreshTimeStamp: (state) => {
+      state.autoRefreshTimeStamp = getTimeStamp();
+    },
   },
 });
 
@@ -68,6 +73,7 @@ export const {
   setSelectedFiatMoneySymbol,
   setRefreshTS,
   setAppLockDuration,
+  setAutoRefreshTimeStamp,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

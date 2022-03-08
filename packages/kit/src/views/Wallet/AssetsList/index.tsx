@@ -1,12 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
-import {
-  useFocusEffect,
-  useIsFocused,
-  useNavigation,
-} from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,12 +23,9 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import {
-  useActiveWalletAccount,
-  useManageTokens,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
+import { useManageTokens } from '../../../hooks/useManageTokens';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -82,30 +75,9 @@ const ListHeaderComponent = () => {
 
 const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
-  const { accountTokens, updateAccountTokens } = useManageTokens();
+  const { accountTokens, updateAccountTokens, prices } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const [mainTokenPrice, setMainTokenPrice] =
-    useState<Record<string, string>>();
-  const isFocused = useIsFocused();
-
-  useEffect(() => {
-    async function main() {
-      if (!network?.network?.id || !account?.id) return;
-      const prices = await engine.getPrices(
-        network.network.id,
-        accountTokens.map((token) => token.tokenIdOnNetwork),
-        true,
-      );
-      setMainTokenPrice(prices);
-    }
-
-    try {
-      if (isFocused) main();
-    } catch (error) {
-      console.warn('AssetsList', error);
-    }
-  }, [network, account?.id, isFocused, accountTokens]);
 
   useFocusEffect(updateAccountTokens);
 
@@ -130,7 +102,7 @@ const AssetsList = () => {
           navigation.navigate(HomeRoutes.ScreenTokenDetail, {
             accountId: account?.id ?? '',
             networkId: item.networkId ?? '',
-            tokenId: item.id ?? '',
+            tokenId: item.tokenIdOnNetwork ?? '',
           });
         }}
       >
@@ -145,14 +117,16 @@ const AssetsList = () => {
               }}
               render={(ele) => (
                 <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {ele}
+                  {!item.balance ? '-' : ele}
                 </Text>
               )}
             />
             <FormatCurrency
-              numbers={[item.balance, mainTokenPrice?.[mapKey]]}
+              numbers={[item.balance, prices?.[mapKey]]}
               render={(ele) => (
-                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+                <Typography.Body2 color="text-subdued">
+                  {!prices?.[mapKey] ? '-' : ele}
+                </Typography.Body2>
               )}
             />
           </Box>
@@ -160,7 +134,7 @@ const AssetsList = () => {
             <Box ml={3} mr={20} flexDirection="row" flex={1}>
               <Icon size={20} name="ActivityOutline" />
               <FormatCurrency
-                numbers={[item.balance, mainTokenPrice?.[mapKey]]}
+                numbers={[item.balance, prices?.[mapKey]]}
                 render={(ele) => (
                   <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
                 )}

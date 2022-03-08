@@ -1,17 +1,13 @@
-/* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access */
-import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
+/* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 import {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
+} from '@onekeyfe/cross-inpage-provider-types';
 
-import WalletApi from './WalletApi';
+import { IBackgroundApi } from './IBackgroundApi';
 
 export type IProviderBaseBackgroundNotifyInfo = {
-  accounts?: string[];
-  chainId?: string;
-  networkVersion?: string;
   send: (data: any) => void;
 };
 
@@ -20,14 +16,10 @@ abstract class ProviderApiBase {
     this.backgroundApi = backgroundApi;
   }
 
-  backgroundApi: any;
-
-  get walletApi() {
-    return this.backgroundApi.walletApi as WalletApi;
-  }
+  backgroundApi: IBackgroundApi;
 
   get bridge() {
-    return this.backgroundApi.bridge as JsBridgeBase;
+    return this.backgroundApi.bridge;
   }
 
   public abstract providerName: IInjectedProviderNamesStrings;
@@ -42,24 +34,14 @@ abstract class ProviderApiBase {
 
   protected abstract rpcCall(request: IJsonRpcRequest): any;
 
-  protected rpcResult(result: any) {
-    return {
-      id: undefined,
-      jsonrpc: '2.0',
-      result,
-    };
-  }
-
   async handleMethods(payload: IJsBridgeMessagePayload) {
-    const { origin, data } = payload;
+    const { data } = payload;
     const request = data as IJsonRpcRequest;
     const { method, params = [] } = request;
     const paramsArr = [].concat(params as any);
 
-    // @ts-ignore
-    const methodFunc = this[method];
+    const methodFunc = (this as any)[method];
     if (methodFunc) {
-      // @ts-ignore
       return methodFunc.call(this, payload, ...paramsArr);
     }
     return this.rpcCall(request);

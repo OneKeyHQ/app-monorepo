@@ -58,14 +58,14 @@ const AccountSelectorTrigger: FC<Props> = ({
   if (!account) {
     return (
       <Button onPress={handleToggleVisible}>
-        {intl.formatMessage({ id: 'action__create_account' })}
+        {intl.formatMessage({ id: 'empty__no_account_title' })}
       </Button>
     );
   }
 
   const { address, name } = account as SimpleAccount;
   return (
-    <Pressable onPress={handleToggleVisible} w="full">
+    <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
       {({ isHovered }) => (
         <HStack
           p="2"

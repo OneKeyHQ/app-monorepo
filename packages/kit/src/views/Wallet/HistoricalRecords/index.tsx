@@ -1,24 +1,27 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { SectionListProps } from 'react-native';
+import { Animated, SectionListProps } from 'react-native';
 
 import {
   Badge,
   Box,
+  Center,
   Divider,
   Empty,
   Icon,
   IconButton,
   Pressable,
   SectionList,
+  Spinner,
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { useAnimation } from '@onekeyhq/kit/src/hooks/useAnimation';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
@@ -66,6 +69,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const { transactionRecords, isLoading, loadMore, fetchData } =
     useHistoricalRecordsData({ account, network, tokenId });
 
+  const refreshAnimation = useAnimation({
+    doAnimation: isLoading,
+    duration: 1000,
+    loop: true,
+  });
+
   const handleScrollToEnd: SectionListProps<unknown>['onEndReached'] =
     useCallback(
       ({ distanceFromEnd }) => {
@@ -98,9 +107,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     loadAccount();
   }, [accountId, networkId]);
 
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     fetchData?.();
-  };
+  }, [fetchData]);
 
   const renderItem: SectionListProps<Transaction>['renderItem'] = ({
     item,
@@ -108,6 +117,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     section,
   }) => (
     <Pressable.Item
+      key={item.txHash}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       mb={index === section.data.length - 1 ? 6 : undefined}
@@ -144,31 +154,71 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       </Box>
     );
 
-  const renderHeader = () => (
-    <>
-      <Box>{!!headerView && headerView}</Box>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        pb={3}
-      >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'transaction__history' })}
-        </Typography.Heading>
-        <IconButton
-          onPress={() => {
-            openBlockBrowser.openAddressDetails(
-              (account as SimpleAccount).address,
-            );
-          }}
-          size="sm"
-          name="ExternalLinkSolid"
-          type="plain"
-          circle
-        />
-      </Box>
-    </>
+  const header = useMemo(
+    () => (
+      <>
+        <Box>{headerView}</Box>
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          pb={3}
+        >
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'transaction__history' })}
+          </Typography.Heading>
+          <Box flexDirection="row">
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: refreshAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <IconButton
+                onPress={() => {
+                  refreshData();
+                }}
+                disabled={isLoading}
+                p={2}
+                size="sm"
+                name="RefreshSolid"
+                type="plain"
+                circle
+              />
+            </Animated.View>
+
+            <IconButton
+              onPress={() => {
+                openBlockBrowser.openAddressDetails(
+                  (account as SimpleAccount).address,
+                );
+              }}
+              ml={3}
+              p={2}
+              size="sm"
+              name="ExternalLinkSolid"
+              type="plain"
+              circle
+            />
+          </Box>
+        </Box>
+      </>
+    ),
+    [
+      account,
+      refreshAnimation,
+      headerView,
+      intl,
+      isLoading,
+      openBlockBrowser,
+      refreshData,
+    ],
   );
 
   const renderEmpty = () => (
@@ -176,40 +226,41 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       <Empty
         icon={<Icon name="DatabaseOutline" size={48} />}
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
-        subTitle={intl.formatMessage({ id: 'transaction__history_empty_desc' })}
+        subTitle={intl.formatMessage({
+          id: 'transaction__history_empty_desc',
+        })}
         actionTitle={intl.formatMessage({ id: 'action__refresh' })}
-        handleAction={() => {
-          refreshData();
-        }}
+        handleAction={refreshData}
       />
     </Box>
   );
 
   const renderLoading = () => (
-    <Box pb={2} pt={2} flexDirection="column" alignItems="center" />
+    <Center pb={2} pt={2}>
+      <Spinner size="lg" />
+    </Center>
   );
 
   let listElementType: JSX.Element;
   if (isTab) {
     listElementType = <Tabs.SectionList sections={[]} />;
   } else {
-    listElementType = <SectionList sections={[]} />;
+    listElementType = <SectionList bg="background-default" sections={[]} />;
   }
 
   return React.cloneElement(listElementType, {
     contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
     sections: transactionRecords,
-    refreshing: isLoading,
+    extraData: { isLoading, refreshAnimation },
     renderItem,
     renderSectionHeader,
-    ListHeaderComponent: renderHeader(),
+    ListHeaderComponent: header,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box h="20px" />,
     ItemSeparatorComponent: () => <Divider />,
     keyExtractor: (_: Transaction, index: number) => index.toString(),
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
-    onRefresh: refreshData,
     onEndReached: handleScrollToEnd,
   });
 };

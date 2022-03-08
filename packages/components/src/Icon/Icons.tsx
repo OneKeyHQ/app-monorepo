@@ -4,6 +4,8 @@ import BrandLogoIllus from "./react/illus/BrandLogo";
 import CrownBadgeIllus from "./react/illus/CrownBadge";
 import DiamondBadgeIllus from "./react/illus/DiamondBadge";
 import EmptyNftIllus from "./react/illus/EmptyNft";
+import FaceIdIllus from "./react/illus/FaceId";
+import FingerPrintIllus from "./react/illus/FingerPrint";
 import MetamaskIllus from "./react/illus/Metamask";
 import NftPegIllus from "./react/illus/NftPeg";
 import StarBadgeIllus from "./react/illus/StarBadge";
@@ -485,12 +487,14 @@ import VolumeUpSolid from "./react/solid/VolumeUp";
 import WifiSolid from "./react/solid/Wifi";
 import ZoomInSolid from "./react/solid/ZoomIn";
 import ZoomOutSolid from "./react/solid/ZoomOut";
-
+import OfficeSolid from "./react/solid/Offline";
 export type ICON_NAMES =
   | "BrandLogoIllus"
   | "CrownBadgeIllus"
   | "DiamondBadgeIllus"
   | "EmptyNftIllus"
+  | "FaceIdIllus"
+  | "FingerPrintIllus"
   | "MetamaskIllus"
   | "NftPegIllus"
   | "StarBadgeIllus"
@@ -971,13 +975,16 @@ export type ICON_NAMES =
   | "VolumeUpSolid"
   | "WifiSolid"
   | "ZoomInSolid"
-  | "ZoomOutSolid";
+  | "ZoomOutSolid" 
+  | "OfficeSolid";
 
 export default {
   BrandLogoIllus: BrandLogoIllus,
   CrownBadgeIllus: CrownBadgeIllus,
   DiamondBadgeIllus: DiamondBadgeIllus,
   EmptyNftIllus: EmptyNftIllus,
+  FaceIdIllus: FaceIdIllus,
+  FingerPrintIllus: FingerPrintIllus,
   MetamaskIllus: MetamaskIllus,
   NftPegIllus: NftPegIllus,
   StarBadgeIllus: StarBadgeIllus,
@@ -1459,4 +1466,5 @@ export default {
   WifiSolid: WifiSolid,
   ZoomInSolid: ZoomInSolid,
   ZoomOutSolid: ZoomOutSolid,
+  OfficeSolid: OfficeSolid,
 };

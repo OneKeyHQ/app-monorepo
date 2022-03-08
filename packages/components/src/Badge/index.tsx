@@ -4,7 +4,7 @@ import { Badge as NBBadge } from 'native-base';
 
 import Typography from '../Typography';
 
-type BadgeType = 'default' | 'success' | 'info' | 'warning' | 'critical';
+export type BadgeType = 'default' | 'success' | 'info' | 'warning' | 'critical';
 type SizeType = 'sm' | 'lg';
 
 export type BadgeProps = {

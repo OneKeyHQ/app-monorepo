@@ -5,7 +5,7 @@ import { createURL } from 'expo-linking';
 
 import { useThemeValue } from '@onekeyhq/components';
 
-import Navigator from '../navigator';
+import Navigator, { navigationRef } from '../navigator';
 
 const prefix = createURL('/');
 
@@ -34,7 +34,11 @@ const NavigationApp = () => {
   );
 
   return (
-    <NavigationContainer theme={navigationTheme} linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navigationTheme}
+      linking={linking}
+    >
       <Navigator />
     </NavigationContainer>
   );

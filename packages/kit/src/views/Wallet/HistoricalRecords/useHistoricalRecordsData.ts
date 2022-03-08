@@ -121,7 +121,7 @@ export const useHistoricalRecordsData = ({
     if (hasNoParams) {
       return {
         isLoading: true,
-        fetchData: assetsSwr.mutate,
+        fetchData: mutate,
         transactionRecords: [],
       };
     }
@@ -129,7 +129,7 @@ export const useHistoricalRecordsData = ({
     if (error) {
       return {
         isLoading: false,
-        fetchData: assetsSwr.mutate,
+        fetchData: mutate,
         transactionRecords: [],
       };
     }

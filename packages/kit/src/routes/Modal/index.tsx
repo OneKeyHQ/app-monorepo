@@ -5,9 +5,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
-import BackupWalletModal, {
+import {
+  BackupWalletModalStack as BackupWalletModal,
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
+  BackupWalletViewMnemonicsModalStack as BackupWalletViewMnemonicsModal,
 } from './BackupWallet';
 import CollectibleModal, {
   CollectiblesModalRoutes,
@@ -113,6 +115,14 @@ const modalStackScreenList = [
     component: Send,
   },
   {
+    name: ModalRoutes.BackupWallet,
+    component: BackupWalletModal,
+  },
+  {
+    name: ModalRoutes.WalletViewMnemonics,
+    component: BackupWalletViewMnemonicsModal,
+  },
+  {
     name: ModalRoutes.TransactionDetail,
     component: TransactionDetailModal,
   },
@@ -197,11 +207,11 @@ export type ModalTypes = {
   [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
   [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
   [PasswordRoutes.PasswordRoutes]: NavigatorScreenParams<PasswordRoutesParams>;
-  [BackupWalletModalRoutes.BackupSeedHintModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
+  [BackupWalletModalRoutes.BackupWalletModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
   [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;

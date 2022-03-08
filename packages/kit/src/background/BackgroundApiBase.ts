@@ -1,21 +1,24 @@
-import JsBridgeBase from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeBase';
-import JsBridgeExtBackground from '@onekeyhq/inpage-provider/src/jsBridge/JsBridgeExtBackground';
-import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/inpage-provider/src/provider/decorators';
+import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import {
   IInjectedProviderNames,
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
   IJsonRpcRequest,
-} from '@onekeyhq/inpage-provider/src/types';
+  IJsonRpcResponse,
+} from '@onekeyfe/cross-inpage-provider-types';
+import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+import { isFunction } from 'lodash';
+
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IBackgroundApiBridge } from './BackgroundApiProxy';
+import { INTERNAL_METHOD_PREFIX } from './decorators';
+import { IBackgroundApiBridge } from './IBackgroundApi';
+import PromiseContainer from './PromiseContainer';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
-import WalletApi from './WalletApi';
 
 function throwMethodNotFound(method: string) {
   throw new Error(`dapp provider method not support (method=${method})`);
@@ -42,13 +45,8 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
     extensionUrl.startsWith(origin)
   );
 }
-
 class BackgroundApiBase implements IBackgroundApiBridge {
-  constructor({ walletApi }: { walletApi: WalletApi }) {
-    this.walletApi = walletApi;
-  }
-
-  walletApi: WalletApi;
+  promiseContainer: PromiseContainer = new PromiseContainer();
 
   bridge: JsBridgeBase | null = null;
 
@@ -61,6 +59,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi: this,
     }),
+    // near
     // conflux
     // solana
     // sollet
@@ -73,7 +72,15 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.bridge = bridge;
   }
 
-  handleProviderMethods(payload: IJsBridgeMessagePayload) {
+  protected rpcResult(result: any) {
+    return {
+      id: undefined,
+      jsonrpc: '2.0',
+      result,
+    };
+  }
+
+  async handleProviderMethods(payload: IJsBridgeMessagePayload) {
     const { scope, origin } = payload;
     const provider: ProviderApiBase | null = this.providers[scope as string];
     if (!provider) {
@@ -89,7 +96,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         `${origin as string} is not allowed to call $private methods.`,
       );
     }
-    return provider.handleMethods(payload);
+    // throw web3Errors.provider.custom({
+    //   code: 3881,
+    //   message: 'test custom error to dapp',
+    // });
+    const result = (await provider.handleMethods(
+      payload,
+    )) as IJsonRpcResponse<any>;
+    return this.rpcResult(result);
   }
 
   async _bridgeReceiveHandler(payload: IJsBridgeMessagePayload): Promise<any> {
@@ -179,7 +193,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     return this.sendForProviderMaps[providerName];
   }
 
-  sendMessagesToInjectedBridge = (
+  sendMessagesToInjectedBridge = async (
     scope: IInjectedProviderNamesStrings,
     data: unknown,
   ) => {
@@ -192,6 +206,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       // send to all dapp sites content-script
       this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
+      // console.log('sendMessagesToInjectedBridge', { data, scope });
+      if (isFunction(data)) {
+        // eslint-disable-next-line no-param-reassign
+        data = await data({ origin: this.bridge.remoteInfo.origin });
+      }
       this.bridge.requestSync({ data, scope });
     }
   };

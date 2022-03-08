@@ -33,3 +33,4 @@ webpack.config.preview.devServer.json
 *.mobileprovision
 *.orig.*
 web-build/
+/inpage-provider-bak

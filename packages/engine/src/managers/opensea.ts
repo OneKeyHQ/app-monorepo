@@ -10,6 +10,11 @@ import {
 // TODO: Move into env
 const OPENSEA_API_KEY = '9254ce052d7b49d8972757591909bda6';
 
+export const isCollectibleSupportedChainId = (
+  chainId?: number | string | null,
+) =>
+  !!chainId && Object.values(CollectibleChainIdMap).includes(Number(chainId));
+
 const ASSETS_NETWORKS = {
   [CollectibleChainIdMap.ETH]: 'https://api.opensea.io/api/v1/assets',
   [CollectibleChainIdMap.Rinkeby]:
@@ -30,6 +35,15 @@ export const getUserAssets = async ({
   limit?: number;
   offset?: number;
 }): Promise<OpenSeaAsset[]> => {
+  if (!isCollectibleSupportedChainId(chainId)) {
+    throw new Error(
+      `ChainId ${
+        chainId ?? ''
+      } is not supported. Please use one of the following: '${Object.values(
+        CollectibleChainIdMap,
+      ).join(', ')}'`,
+    );
+  }
   const apiUrl = ASSETS_NETWORKS[chainId as keyof typeof ASSETS_NETWORKS];
   if (!apiUrl) {
     throw new Error(`Can not get nft assets of user '${account}'`);
@@ -69,6 +83,15 @@ export const getUserAsset = async ({
   tokenId: string;
   chainId?: number | string | null;
 }) => {
+  if (!isCollectibleSupportedChainId(chainId)) {
+    throw new Error(
+      `ChainId ${
+        chainId ?? ''
+      } is not supported. Please use one of the following: '${Object.values(
+        CollectibleChainIdMap,
+      ).join(', ')}'`,
+    );
+  }
   const apiUrl = ASSET_NETWORKS[chainId as keyof typeof ASSETS_NETWORKS];
   if (!apiUrl) {
     throw new Error(
@@ -90,6 +113,3 @@ export const getUserAsset = async ({
   const res: OpenSeaAsset = result.data ?? {};
   return camelcaseKeys(res, { deep: true });
 };
-
-export const isCollectibleSupportedChainId = (chainId: number | string) =>
-  Object.values(CollectibleChainIdMap).includes(Number(chainId));
