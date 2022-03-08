@@ -23,17 +23,12 @@ import {
   OneKeyInternalError,
 } from './errors';
 import {
-  buildGetBalanceRequest,
-  buildGetBalanceRequestsRaw,
-  fromDBAccountToAccount,
-  getHDAccountToAdd,
   getWalletIdFromAccountId,
-  getWatchingAccountToCreate,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
 import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
-import { implToCoinTypes } from './managers/impl';
+import { implToAccountType, implToCoinTypes } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
@@ -59,10 +54,11 @@ import {
   getRPCStatus,
 } from './proxy';
 import {
-  ACCOUNT_TYPE_SIMPLE,
   Account,
+  AccountType,
   DBAccount,
   DBSimpleAccount,
+  DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
 import {
@@ -218,6 +214,55 @@ class Engine {
     return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
+  private async buildReturnedAccount(
+    dbAccount: DBAccount,
+    networkId?: string,
+  ): Promise<Account> {
+    const account = {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+    };
+    switch (dbAccount.type) {
+      case AccountType.SIMPLE:
+        if (dbAccount.address === '' && typeof networkId !== 'undefined') {
+          const address = await this.providerManager.addressFromPub(
+            networkId,
+            (dbAccount as DBSimpleAccount).pub,
+          );
+          await this.dbApi.addAccountAddress(dbAccount.id, networkId, address);
+          account.address = address;
+        }
+        break;
+      case AccountType.VARIANT:
+        if (typeof networkId !== 'undefined') {
+          account.address = ((dbAccount as DBVariantAccount).addresses || {})[
+            networkId
+          ];
+          if (typeof account.address === 'undefined') {
+            const address = await this.providerManager.addressFromBase(
+              networkId,
+              dbAccount.address,
+            );
+            await this.dbApi.addAccountAddress(
+              dbAccount.id,
+              networkId,
+              address,
+            );
+            account.address = address;
+          }
+        }
+        break;
+      default:
+        break;
+    }
+    return Promise.resolve(account);
+  }
+
   @backgroundMethod()
   async getAccounts(
     accountIds: Array<string>,
@@ -229,59 +274,24 @@ class Engine {
     }
 
     const accounts = await this.dbApi.getAccounts(accountIds);
-    return accounts
-      .filter(
-        (a) =>
-          typeof networkId === 'undefined' ||
-          isAccountCompatibleWithNetwork(a.id, networkId),
-      )
-      .sort((a, b) => (a.name > b.name ? 1 : -1))
-      .map((a: DBAccount) => fromDBAccountToAccount(a));
-  }
-
-  @backgroundMethod()
-  async getAccountsByNetwork(
-    networkId: string,
-  ): Promise<Record<string, Array<Account>>> {
-    const ret: Record<string, Array<Account>> = {};
-    const accounts = await this.dbApi.getAllAccounts();
-    accounts
-      .filter((a) => isAccountCompatibleWithNetwork(a.id, networkId))
-      .forEach((a) => {
-        const [walletId] = a.id.split(SEPERATOR, 1);
-        if (typeof ret[walletId] === 'undefined') {
-          ret[walletId] = [];
-        }
-        ret[walletId].push(fromDBAccountToAccount(a));
-      });
-    return ret;
+    return Promise.all(
+      accounts
+        .filter(
+          (a) =>
+            typeof networkId === 'undefined' ||
+            isAccountCompatibleWithNetwork(a.id, networkId),
+        )
+        .sort((a, b) => (a.name > b.name ? 1 : -1))
+        .map((a: DBAccount) => this.buildReturnedAccount(a, networkId)),
+    );
   }
 
   @backgroundMethod()
   async getAccount(accountId: string, networkId: string): Promise<Account> {
     // Get account by id. Raise an error if account doesn't exist.
     // Token ids are included.
-    let dbAccount = await this.dbApi.getAccount(accountId);
-    if (typeof dbAccount === 'undefined') {
-      throw new OneKeyInternalError(`Account ${accountId} not found.`);
-    }
-
-    if (
-      dbAccount.type === ACCOUNT_TYPE_SIMPLE &&
-      (dbAccount as DBSimpleAccount).address === ''
-    ) {
-      const address = await this.providerManager.addressFromPub(
-        networkId,
-        (dbAccount as DBSimpleAccount).pub,
-      );
-      dbAccount = await this.dbApi.addAccountAddress(
-        accountId,
-        networkId,
-        address,
-      );
-    }
-
-    const account = fromDBAccountToAccount(dbAccount);
+    const dbAccount = await this.dbApi.getAccount(accountId);
+    const account = await this.buildReturnedAccount(dbAccount, networkId);
     account.tokens = await this.dbApi.getTokens(networkId, accountId);
     return account;
   }
@@ -308,9 +318,11 @@ class Engine {
     const tokensToGet = tokenIdsOnNetwork.filter(
       (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
     );
-    const balances = await this.providerManager.getBalances(
+    const balances = await this.providerManager.proxyGetBalances(
       networkId,
-      buildGetBalanceRequest(dbAccount, tokensToGet, withMain),
+      dbAccount,
+      tokensToGet,
+      withMain,
     );
     const ret: Record<string, string | undefined> = {};
     if (withMain && typeof balances[0] !== 'undefined') {
@@ -358,12 +370,10 @@ class Engine {
         this.providerManager.addressFromPub(networkId, accountInfo.info),
       ),
     );
-    const requests = addresses.map((address) =>
-      buildGetBalanceRequestsRaw(address, []),
-    );
-    const balances = await this.providerManager.getBalances(
+    const balances = await this.providerManager.proxyGetBalances(
       networkId,
-      requests.reduce((a, b) => a.concat(b), []),
+      addresses,
+      [],
     );
     return balances.map((balance, index) => ({
       index: start + index,
@@ -425,17 +435,33 @@ class Engine {
       usedPurpose,
       dbNetwork.curve,
     );
+    const coinType = implToCoinTypes[impl];
+    if (typeof coinType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+    const accountType = implToAccountType[impl];
+    if (typeof accountType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+    let address = '';
+    if (accountType === AccountType.VARIANT) {
+      address = await this.providerManager.addressFromPub(
+        networkId,
+        accountInfo.info,
+      );
+      address = await this.providerManager.addressToBase(networkId, address);
+    }
+
     return this.dbApi
-      .addAccountToWallet(
-        walletId,
-        getHDAccountToAdd(
-          impl,
-          walletId,
-          accountInfo.path,
-          accountInfo.info,
-          name,
-        ),
-      )
+      .addAccountToWallet(walletId, {
+        id: `${walletId}--${accountInfo.path}`,
+        name: name || '',
+        type: accountType,
+        path: accountInfo.path,
+        coinType,
+        pub: accountInfo.info,
+        address,
+      })
       .then((a: DBAccount) => this.getAccount(a.id, networkId));
   }
 
@@ -462,12 +488,30 @@ class Engine {
     if (!isValid || typeof normalizedAddress === 'undefined') {
       throw new InvalidAddress();
     }
-    const account = getWatchingAccountToCreate(
-      getImplFromNetworkId(networkId),
-      normalizedAddress,
-      name,
-    );
-    const a = await this.dbApi.addAccountToWallet('watching', account);
+    const impl = getImplFromNetworkId(networkId);
+    const coinType = implToCoinTypes[impl];
+    if (typeof coinType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+    const accountType = implToAccountType[impl];
+    if (typeof accountType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+
+    let address = normalizedAddress;
+    if (accountType === AccountType.VARIANT) {
+      address = await this.providerManager.addressToBase(networkId, address);
+    }
+
+    const a = await this.dbApi.addAccountToWallet('watching', {
+      id: `watching--${coinType}--${address}`,
+      name: name || '',
+      type: accountType,
+      path: '',
+      coinType,
+      pub: '', // TODO: only address is supported for now.
+      address,
+    });
     return this.getAccount(a.id, networkId);
   }
 
@@ -486,7 +530,7 @@ class Engine {
     // Rename an account. Raise an error if account doesn't exist.
     // Nothing happens if name is not changed.
     const a = await this.dbApi.setAccountName(accountId, name);
-    return fromDBAccountToAccount(a);
+    return this.buildReturnedAccount(a);
   }
 
   @backgroundMethod()
@@ -573,9 +617,11 @@ class Engine {
       return undefined;
     }
     const dbAccount = await this.dbApi.getAccount(accountId);
-    const [balance] = await this.providerManager.getBalances(
+    const [balance] = await this.providerManager.proxyGetBalances(
       networkId,
-      buildGetBalanceRequest(dbAccount, [tokenIdOnNetwork], false),
+      dbAccount,
+      [tokenIdOnNetwork],
+      false,
     );
     if (typeof balance === 'undefined') {
       return undefined;
@@ -680,10 +726,11 @@ class Engine {
     // For account model networks, return the estimated gas usage.
     // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
     // TODO: validate to parameter.
-    const [network, account] = await Promise.all([
+    const [network, dbAccount] = await Promise.all([
       this.getNetwork(networkId),
-      this.getAccount(accountId, networkId),
+      this.dbApi.getAccount(accountId),
     ]);
+
     // Below properties are used to avoid redundant network requests.
     const payload = extra || {};
     payload.nonce = 1;
@@ -691,7 +738,7 @@ class Engine {
     return (
       await this.providerManager.preSend(
         network,
-        account,
+        dbAccount,
         to,
         new BigNumber(value),
         tokenIdOnNetwork,
@@ -724,18 +771,19 @@ class Engine {
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; success: boolean }> {
-    const [credential, network, account] = await Promise.all([
+    const [credential, network, dbAccount] = await Promise.all([
       this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
       this.getNetwork(networkId),
-      this.getAccount(accountId, networkId),
+      this.dbApi.getAccount(accountId),
     ]);
+
     try {
       const { txid, rawTx, success } =
         await this.providerManager.simpleTransfer(
           credential.seed,
           password,
           network,
-          account,
+          dbAccount,
           to,
           new BigNumber(value),
           tokenIdOnNetwork,
@@ -772,17 +820,17 @@ class Engine {
     messages: Array<Message>,
     _ref?: string,
   ): Promise<Array<string>> {
-    const [credential, network, account] = await Promise.all([
+    const [credential, network, dbAccount] = await Promise.all([
       this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
       this.getNetwork(networkId),
-      this.getAccount(accountId, networkId),
+      this.dbApi.getAccount(accountId),
     ]);
     // TODO: address check needed?
     const signatures = await this.providerManager.signMessages(
       credential.seed,
       password,
       network,
-      account,
+      dbAccount,
       messages,
     );
     // TODO: add history
@@ -1024,17 +1072,12 @@ class Engine {
       return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
-    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+    if (dbAccount.type !== AccountType.SIMPLE) {
       return { data: null, error: false, errorMessage: null, errorCode: null };
     }
     const chainId = network.id.split(SEPERATOR)[1];
 
-    return getTxHistories(
-      chainId,
-      (dbAccount as DBSimpleAccount).address,
-      pageNumber,
-      pageSize,
-    );
+    return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
   }
 
   async getErc20TxHistories(
@@ -1057,14 +1100,14 @@ class Engine {
       return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
-    if (dbAccount.type !== ACCOUNT_TYPE_SIMPLE) {
+    if (dbAccount.type !== AccountType.SIMPLE) {
       return { data: null, error: false, errorMessage: null, errorCode: null };
     }
 
     const chainId = network.id.split(SEPERATOR)[1];
     return getErc20TransferHistories(
       chainId,
-      (dbAccount as DBSimpleAccount).address,
+      dbAccount.address,
       contract,
       pageNumber,
       pageSize,

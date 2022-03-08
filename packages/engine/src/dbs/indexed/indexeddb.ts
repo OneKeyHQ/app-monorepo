@@ -14,11 +14,7 @@ import {
 } from '../../errors';
 import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
-import {
-  ACCOUNT_TYPE_SIMPLE,
-  DBAccount,
-  DBSimpleAccount,
-} from '../../types/account';
+import { AccountType, DBAccount, DBVariantAccount } from '../../types/account';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -1061,10 +1057,10 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  getAccount(accountId: string): Promise<DBAccount | undefined> {
+  getAccount(accountId: string): Promise<DBAccount> {
     return this.ready.then(
       (db) =>
-        new Promise((resolve, _reject) => {
+        new Promise((resolve, reject) => {
           const request: IDBRequest = db
             .transaction([ACCOUNT_STORE_NAME])
             .objectStore(ACCOUNT_STORE_NAME)
@@ -1073,7 +1069,9 @@ class IndexedDBApi implements DBAPI {
             if (typeof request.result !== 'undefined') {
               resolve(request.result);
             } else {
-              resolve(undefined);
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
             }
           };
         }),
@@ -1217,7 +1215,7 @@ class IndexedDBApi implements DBAPI {
 
   addAccountAddress(
     accountId: string,
-    _networkId: string,
+    networkId: string,
     address: string,
   ): Promise<DBAccount> {
     return this.ready.then(
@@ -1235,11 +1233,22 @@ class IndexedDBApi implements DBAPI {
               );
               return;
             }
-            if (account.type !== ACCOUNT_TYPE_SIMPLE) {
-              reject(new NotImplemented());
-              return;
+            switch (account.type) {
+              case AccountType.SIMPLE:
+                account.address = address;
+                break;
+              case AccountType.VARIANT:
+                if (
+                  typeof (account as DBVariantAccount).addresses === 'undefined'
+                ) {
+                  (account as DBVariantAccount).addresses = {};
+                }
+                (account as DBVariantAccount).addresses[networkId] = address;
+                break;
+              default:
+                reject(new NotImplemented());
+                return;
             }
-            (account as DBSimpleAccount).address = address;
             accountStore.put(account);
             resolve(account);
           };

@@ -17,7 +17,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
@@ -198,9 +198,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 
             <IconButton
               onPress={() => {
-                openBlockBrowser.openAddressDetails(
-                  (account as SimpleAccount).address,
-                );
+                openBlockBrowser.openAddressDetails(account?.address);
               }}
               ml={3}
               p={2}

@@ -1,9 +1,6 @@
 import { TypedUseSelectorHook, useSelector } from 'react-redux';
 
-import type {
-  Account,
-  SimpleAccount,
-} from '@onekeyhq/engine/src/types/account';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { appDispatch, appSelector } from '../store';
@@ -63,7 +60,7 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
       (s) => s.general,
     );
 
-    const activeAccountInfo = activeAccount as SimpleAccount;
+    const activeAccountInfo = activeAccount;
     const networkImpl = activeNetwork?.network?.impl || '';
     const networkId = activeNetwork?.network?.id || '';
     const accountAddress = activeAccountInfo?.address || '';

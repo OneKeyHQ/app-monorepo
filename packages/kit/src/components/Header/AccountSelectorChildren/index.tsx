@@ -21,10 +21,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
-import type {
-  Account as AccountEngineType,
-  SimpleAccount,
-} from '@onekeyhq/engine/src/types/account';
+import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -313,7 +310,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                   <Box flex={1}>
                     <Account
                       hiddenAvatar
-                      address={(item as SimpleAccount)?.address ?? ''}
+                      address={item?.address ?? ''}
                       name={item.name}
                     />
                   </Box>

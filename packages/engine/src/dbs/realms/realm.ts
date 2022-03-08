@@ -13,7 +13,7 @@ import {
 } from '../../errors';
 import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
-import { ACCOUNT_TYPE_SIMPLE, DBAccount } from '../../types/account';
+import { AccountType, DBAccount } from '../../types/account';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -76,7 +76,7 @@ class RealmDB implements DBAPI {
         CredentialSchema,
         HistoryEntrySchema,
       ],
-      schemaVersion: 1,
+      schemaVersion: 2,
     })
       .then((realm) => {
         if (update || realm.empty) {
@@ -1069,7 +1069,7 @@ class RealmDB implements DBAPI {
    */
   addAccountAddress(
     accountId: string,
-    _networkId: string,
+    networkId: string,
     address: string,
   ): Promise<DBAccount> {
     try {
@@ -1082,15 +1082,19 @@ class RealmDB implements DBAPI {
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
       }
-      if (account.type === ACCOUNT_TYPE_SIMPLE) {
-        this.realm!.write(() => {
-          account.address = address;
-        });
-      } else {
-        /* this.realm!.write(() => {
-          account.addresses!.add(address);
-        }); */
-        throw new NotImplemented();
+      switch (account.type) {
+        case AccountType.SIMPLE:
+          this.realm!.write(() => {
+            account.address = address;
+          });
+          break;
+        case AccountType.VARIANT:
+          this.realm!.write(() => {
+            account.addresses![networkId] = address;
+          });
+          break;
+        default:
+          throw new NotImplemented();
       }
       return Promise.resolve(account.internalObj);
     } catch (error: any) {

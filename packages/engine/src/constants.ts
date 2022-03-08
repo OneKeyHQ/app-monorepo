@@ -15,12 +15,16 @@ const COINTYPE_NEAR = '397';
 const IMPL_STC = 'stc';
 const COINTYPE_STC = '101010';
 
+const IMPL_CFX = 'cfx';
+const COINTYPE_CFX = '503';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_SOL,
   IMPL_ALGO,
   IMPL_NEAR,
   IMPL_STC,
+  IMPL_CFX,
 ]);
 
 export {
@@ -35,5 +39,7 @@ export {
   COINTYPE_NEAR,
   IMPL_STC,
   COINTYPE_STC,
+  IMPL_CFX,
+  COINTYPE_CFX,
   SUPPORTED_IMPLS,
 };

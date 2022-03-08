@@ -8,11 +8,13 @@ import bs58check from 'bs58check';
 
 import {
   COINTYPE_ALGO,
+  COINTYPE_CFX,
   COINTYPE_ETH,
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
   IMPL_ALGO,
+  IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
@@ -30,6 +32,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_ALGO]: [44],
   [IMPL_NEAR]: [44],
   [IMPL_STC]: [44],
+  [IMPL_CFX]: [44],
 };
 
 const curveMap: Record<string, Array<CurveName>> = {
@@ -38,6 +41,7 @@ const curveMap: Record<string, Array<CurveName>> = {
   [IMPL_ALGO]: ['ed25519'],
   [IMPL_NEAR]: ['ed25519'],
   [IMPL_STC]: ['ed25519'],
+  [IMPL_CFX]: ['secp256k1'],
 };
 
 // derive path template by coin types.
@@ -49,6 +53,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_NEAR]: `m/44'/${COINTYPE_NEAR}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_SOL]: `m/44'/${COINTYPE_SOL}'/${INCREMENT_LEVEL_TAG}'/0'`,
   [COINTYPE_STC]: `m/44'/${COINTYPE_STC}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,
+  [COINTYPE_CFX]: `m/44'/${COINTYPE_CFX}'/0'/0/${INCREMENT_LEVEL_TAG}`,
 };
 
 function getDerivationPaths(
