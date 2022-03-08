@@ -25,7 +25,8 @@ class NfcCommand {
         const val MODE = "statusMode"
         const val SELECT_CARD_ID = "select_card_id"
         const val VERIFY_SUCCESS = 100
-        const val INTERRUPT_STATUS = 1000
+        const val RESET_INTERRUPT_STATUS = 1001
+        const val GET_RETRY_NUM_INTERRUPT_STATUS = 1002
         const val RESET_PIN_SUCCESS = -1
         const val CHANGE_PIN_SUCCESS = -10
         const val CHANGE_PIN_ERROR = -100
@@ -286,13 +287,13 @@ class NfcCommand {
 
         fun getRetryCount(isoDep: IsoDep): Int {
             if (!selectIssuerSd(isoDep)) {
-                return INTERRUPT_STATUS
+                return GET_RETRY_NUM_INTERRUPT_STATUS
             }
             val getRetryMaxNumCommand =
                 GPChannelNatives.nativeGPCBuildAPDU(0x80, 0xCB, 0x80, 0x00, "DFFF028102")
             val retryMaxNum = send(isoDep, getRetryMaxNumCommand)
             if (retryMaxNum.isNullOrEmpty() || !retryMaxNum.endsWith(STATUS_SUCCESS)) {
-                return INTERRUPT_STATUS
+                return GET_RETRY_NUM_INTERRUPT_STATUS
             }
             Log.d(LITE_TAG, "getRetryNum String-->${retryMaxNum}")
             val leftRetryNum = retryMaxNum[1].digitToInt(16)
@@ -314,10 +315,10 @@ class NfcCommand {
         fun resetCommand(isoDep: IsoDep): Int {
             val selected = selectIssuerSd(isoDep)
             if (!selected) {
-                return INTERRUPT_STATUS
+                return RESET_INTERRUPT_STATUS
             }
             if (openSecureChannelFailed(isoDep)) {
-                return INTERRUPT_STATUS
+                return RESET_INTERRUPT_STATUS
             }
             val clearStatus =
                 GPChannelNatives.nativeGPCBuildSafeAPDU(0x80, 0xCB, 0x80, 0x00, "DFFE028205")
@@ -325,7 +326,7 @@ class NfcCommand {
             return if (res?.endsWith(STATUS_SUCCESS) == true) {
                 RESET_PIN_SUCCESS
             } else {
-                INTERRUPT_STATUS
+                RESET_INTERRUPT_STATUS
             }
         }
 

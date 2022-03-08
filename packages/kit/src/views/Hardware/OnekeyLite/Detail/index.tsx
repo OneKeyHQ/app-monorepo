@@ -19,6 +19,7 @@ import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import {
   ModalRoutes,
   ModalScreenProps,
@@ -162,43 +163,6 @@ const OnekeyLiteDetail: React.FC = () => {
     });
   };
 
-  const startBackupModal = (
-    inputPwd: string,
-    backupData: string,
-    callBack: () => void,
-  ) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
-      params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
-        params: {
-          pwd: inputPwd,
-          backupData,
-          onRetry: () => {
-            callBack?.();
-          },
-        },
-      },
-    });
-  };
-
-  const startBackupPinVerifyModal = (backupData: string) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
-      params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
-        params: {
-          callBack: (inputPwd) => {
-            startBackupModal(inputPwd, backupData, () => {
-              startBackupPinVerifyModal(backupData);
-            });
-            return true;
-          },
-        },
-      },
-    });
-  };
-
   const startChangePinInputPinModal = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.OnekeyLiteChangePinInputPin,
@@ -242,10 +206,18 @@ const OnekeyLiteDetail: React.FC = () => {
     if (controlledWallets.length) {
       return (
         <Select
-          onChange={() => {
-            startBackupPinVerifyModal(
-              'space raise engine dumb aware purse arrive three polar slam sell bottom',
-            );
+          onChange={(walletId) => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.BackupWallet,
+              params: {
+                screen:
+                  BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
+                params: {
+                  walletId,
+                  backupType: 'OnekeyLite',
+                },
+              },
+            });
           }}
           title={intl.formatMessage({ id: 'title_select_wallet' })}
           footer={null}

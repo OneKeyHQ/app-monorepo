@@ -18,6 +18,7 @@ export enum ModalRoutes {
   WatchedAccount = 'WatchAccount',
   CreateWallet = 'CreateWallet',
   BackupWallet = 'BackupWallet',
+  ManagerWallet = 'ManagerWallet',
   WalletViewMnemonics = 'WalletViewMnemonics',
   Send = 'Send',
   Receive = 'Receive',
@@ -44,6 +45,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.WatchedAccount]: NavigatorScreenParams<SubModalRoutesParams.WatchedAccountRoutesParams>;
   [ModalRoutes.CreateWallet]: NavigatorScreenParams<SubModalRoutesParams.CreateWalletRoutesParams>;
   [ModalRoutes.BackupWallet]: NavigatorScreenParams<SubModalRoutesParams.BackupWalletRoutesParams>;
+  [ModalRoutes.ManagerWallet]: NavigatorScreenParams<SubModalRoutesParams.ManagerWalletRoutesParams>;
   [ModalRoutes.WalletViewMnemonics]: NavigatorScreenParams<SubModalRoutesParams.BackupWalletRoutesParams>;
   [ModalRoutes.Receive]: NavigatorScreenParams<SubModalRoutesParams.ReceiveTokenRoutesParams>;
   [ModalRoutes.TransactionDetail]: NavigatorScreenParams<SubModalRoutesParams.TransactionDetailRoutesParams>;
