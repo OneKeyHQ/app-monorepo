@@ -22,9 +22,13 @@ export const walletSlice = createSlice({
         w.id === action.payload.id ? action.payload : w,
       );
     },
+    removeWalletById(state, action: PayloadAction<string>) {
+      state.wallets = state.wallets.filter((w) => w.id !== action.payload);
+    },
   },
 });
 
-export const { updateWallets, updateWallet } = walletSlice.actions;
+export const { updateWallets, updateWallet, removeWalletById } =
+  walletSlice.actions;
 
 export default walletSlice.reducer;
