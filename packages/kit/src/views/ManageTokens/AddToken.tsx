@@ -5,12 +5,14 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   Icon,
   Image,
   KeyboardDismissView,
   Modal,
   Typography,
 } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
@@ -142,20 +144,29 @@ export const AddToken: FC = () => {
                 flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
-                my="4"
+                mb="4"
               >
                 <Image
                   src={logoURI}
                   alt="logoURI"
-                  size="8"
+                  size="56px"
                   borderRadius="full"
-                  fallbackElement={<Icon name="QuestionMarkOutline" />}
+                  fallbackElement={
+                    <Center
+                      w="56px"
+                      h="56px"
+                      rounded="full"
+                      bgColor="surface-neutral-default"
+                    >
+                      <Icon size={32} name="QuestionMarkOutline" />
+                    </Center>
+                  }
                 />
                 <Typography.Heading mt="2">
                   {name}({symbol})
                 </Typography.Heading>
               </Box>
-              <Box bg="surface-default" borderRadius="12" mt="3" mb="3">
+              <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
                 {items.map((item, index) => (
                   <Box
                     display="flex"
@@ -171,12 +182,19 @@ export const AddToken: FC = () => {
                     borderTopColor="divider"
                     borderTopWidth={index !== 0 ? '1' : undefined}
                   >
-                    <Typography.Body1 color="text-subdued">
+                    <Text
+                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                      color="text-subdued"
+                    >
                       {item.label}
-                    </Typography.Body1>
-                    <Typography.Body1 maxW="56" textAlign="right">
+                    </Text>
+                    <Text
+                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                      maxW="56"
+                      textAlign="right"
+                    >
                       {item.value}
-                    </Typography.Body1>
+                    </Text>
                   </Box>
                 ))}
               </Box>
