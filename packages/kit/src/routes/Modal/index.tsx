@@ -68,6 +68,11 @@ import ManageNetworkModal, {
   ManageNetworkModalRoutes,
   ManageNetworkRoutesParams,
 } from './ManageNetwork';
+import {
+  ManagerWalletModalStack as ManagerWalletModal,
+  ManagerWalletModalRoutes,
+  ManagerWalletRoutesParams,
+} from './ManagerWallet';
 import ManageTokenModal, {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
@@ -191,6 +196,10 @@ const modalStackScreenList = [
     component: CreateWalletModalStack,
   },
   {
+    name: ModalRoutes.ManagerWallet,
+    component: ManagerWalletModal,
+  },
+  {
     name: ModalRoutes.EnableLocalAuthentication,
     component: EnableLocalAuthenticationModal,
   },
@@ -212,6 +221,7 @@ export type ModalTypes = {
   [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
   [BackupWalletModalRoutes.BackupWalletModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
+  [ManagerWalletModalRoutes.ManagerWalletModal]: NavigatorScreenParams<ManagerWalletRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
   [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;
