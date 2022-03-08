@@ -831,7 +831,9 @@ class RealmDB implements DBAPI {
       );
       this.realm!.write(() => {
         // associate accounts will automatically keep track the deletion ????
-        this.realm!.delete(wallet.accounts);
+        if (wallet.accounts!.length !== 0) {
+          this.realm!.delete(Array.from(wallet.accounts!));
+        }
         this.realm!.delete(wallet);
         if (typeof credential !== 'undefined') {
           this.realm!.delete(credential);
