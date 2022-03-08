@@ -191,17 +191,6 @@ export const SubmitRequest: FC = () => {
                 (i) => i.filename === imagename,
               );
               if (imageIndex < 0) return prev;
-              console.log([
-                ...prev.slice(0, imageIndex),
-                {
-                  ...prev[imageIndex],
-                  loading: false,
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  token: responseJson.data.upload.token,
-                },
-                ...prev.slice(imageIndex + 1),
-              ]);
-
               return [
                 ...prev.slice(0, imageIndex),
                 {

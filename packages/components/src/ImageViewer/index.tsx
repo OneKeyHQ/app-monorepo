@@ -20,6 +20,7 @@ import {
 import uuid from 'react-native-uuid';
 
 import { Icon, Select } from '@onekeyhq/components';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 
 type ImageViewerProps = {
   visible: boolean;
@@ -40,6 +41,8 @@ const ImageViewer: FC<ImageViewerProps> = ({
   const [innerVisible, setInnerVisible] = useState(outerVisible);
   const visible = outerVisible ?? innerVisible;
   const intl = useIntl();
+  const toast = useToast();
+
   const screenWidth = useWindowDimensions().width;
   const screenHeight = useWindowDimensions().height;
   const [imageSize, setImageSize] = useState<ImageSize>({
@@ -64,8 +67,8 @@ const ImageViewer: FC<ImageViewerProps> = ({
       const imagePath = `${FileSystem.documentDirectory}${imageName}`;
       FileSystem.downloadAsync(imageUri, imagePath)
         .then(({ uri }) => {
-          console.log('Finished downloading to ', uri);
           MediaLibrary.saveToLibraryAsync(uri);
+          toast.info(intl.formatMessage({ id: 'msg__image_saved' }));
         })
         .catch((error) => {
           console.error(error);
@@ -73,14 +76,13 @@ const ImageViewer: FC<ImageViewerProps> = ({
     } else {
       console.log('You did not allow permissions to camera');
     }
-  }, [imageUri]);
+  }, [imageUri, intl, toast]);
 
   const onChange = (value: string) => {
     setTimeout(() => {
       switch (value) {
         case 'save':
           handleSave();
-
           break;
         case 'share':
           break;
