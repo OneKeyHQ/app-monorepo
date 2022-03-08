@@ -165,7 +165,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
         footerButtonProps={{
           primaryActionProps: {
             type: 'destructive',
-            children: intl.formatMessage({ id: 'action__retry' }),
+            children: intl.formatMessage({ id: 'action__i_got_it' }),
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
@@ -192,7 +192,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
         footerButtonProps={{
           primaryActionProps: {
             type: 'destructive',
-            children: intl.formatMessage({ id: 'action__retry' }),
+            children: intl.formatMessage({ id: 'action__overwrite' }),
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
@@ -227,7 +227,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
         footerButtonProps={{
           primaryActionProps: {
             type: 'destructive',
-            children: intl.formatMessage({ id: 'action__retry' }),
+            children: intl.formatMessage({ id: 'action__i_got_it' }),
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();

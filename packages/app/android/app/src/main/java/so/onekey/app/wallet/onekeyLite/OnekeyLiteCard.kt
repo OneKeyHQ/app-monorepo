@@ -206,9 +206,18 @@ object OnekeyLiteCard {
         if (verifyPin != NfcCommand.VERIFY_SUCCESS) {
             if (overwrite) {
                 when (verifyPin) {
-                    NfcCommand.INTERRUPT_STATUS -> {
+                    NfcCommand.RESET_INTERRUPT_STATUS -> {
                         // Reset 卡片错误,已经锁定
                         throw NFCExceptions.CardLockException()
+                    }
+                    NfcCommand.GET_RETRY_NUM_INTERRUPT_STATUS -> {
+                        // 密码错误
+                        cardState.pinRetryCount = cardState.pinRetryCount - 1
+                        if (cardState.pinRetryCount <= 0) {
+                            throw NFCExceptions.CardLockException()
+                        } else {
+                            throw NFCExceptions.PasswordWrongException()
+                        }
                     }
                     NfcCommand.RESET_PIN_SUCCESS -> {
                         // Reset 卡片成功
@@ -239,9 +248,18 @@ object OnekeyLiteCard {
         Log.d("verifyPinBackupRequest", "getMnemonicWithPin ${verifyPin}")
         if (verifyPin != NfcCommand.VERIFY_SUCCESS) {
             when (verifyPin) {
-                NfcCommand.INTERRUPT_STATUS -> {
+                NfcCommand.RESET_INTERRUPT_STATUS -> {
                     // Reset 卡片错误,已经锁定
                     throw NFCExceptions.CardLockException()
+                }
+                NfcCommand.GET_RETRY_NUM_INTERRUPT_STATUS -> {
+                    // 密码错误
+                    cardState.pinRetryCount = cardState.pinRetryCount - 1
+                    if (cardState.pinRetryCount <= 0) {
+                        throw NFCExceptions.CardLockException()
+                    } else {
+                        throw NFCExceptions.PasswordWrongException()
+                    }
                 }
                 NfcCommand.RESET_PIN_SUCCESS -> {
                     // Reset 卡片成功
@@ -271,17 +289,25 @@ object OnekeyLiteCard {
             throw NFCExceptions.NotInitializedException()
         }
 
-        val result = changePinRequest(isoDep, oldPwd, newPwd)
-        when (result) {
+        when (val result = changePinRequest(isoDep, oldPwd, newPwd)) {
+            NfcCommand.RESET_INTERRUPT_STATUS -> {
+                // Reset 卡片错误,已经锁定
+                throw NFCExceptions.CardLockException()
+            }
+            NfcCommand.GET_RETRY_NUM_INTERRUPT_STATUS -> {
+                // 密码错误
+                cardState.pinRetryCount = cardState.pinRetryCount - 1
+                if (cardState.pinRetryCount <= 0) {
+                    throw NFCExceptions.CardLockException()
+                } else {
+                    throw NFCExceptions.PasswordWrongException()
+                }
+            }
             NfcCommand.CHANGE_PIN_SUCCESS -> {
                 return true
             }
             NfcCommand.CHANGE_PIN_ERROR -> {
                 return false
-            }
-            NfcCommand.INTERRUPT_STATUS -> {
-                // Reset 卡片错误,已经锁定
-                throw NFCExceptions.CardLockException()
             }
             NfcCommand.RESET_PIN_SUCCESS -> {
                 // Reset 卡片成功

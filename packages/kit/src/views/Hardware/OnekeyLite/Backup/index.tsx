@@ -14,6 +14,9 @@ import {
 import { ButtonType } from '@onekeyhq/components/src/Button';
 
 import { useNavigation } from '../../../..';
+import engine from '../../../../engine/EngineProvider';
+import { useAppDispatch } from '../../../../hooks/redux';
+import { updateWallet } from '../../../../store/reducers/wallet';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 import { OnekeyLiteStackNavigationProp } from '../navigation';
@@ -27,7 +30,9 @@ type RouteProps = RouteProp<
 const Backup: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { pwd, backupData, onRetry } = useRoute<RouteProps>().params;
+  const dispatch = useAppDispatch();
+  const { walletId, pwd, backupData, onRetry, onSuccess } =
+    useRoute<RouteProps>().params;
 
   const [pinRetryCount, setPinRetryCount] = useState('');
   const [title] = useState('Onekey Lite');
@@ -81,11 +86,18 @@ const Backup: FC = () => {
     OnekeyLite.setMnemonic(
       backupData,
       pwd,
-      (error: CallbackError, data: boolean | null, state: CardInfo) => {
+      async (error: CallbackError, data: boolean | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
           console.log('NFC read data:', data);
           stateNfcComplete();
+          if (walletId) {
+            const wallet = await engine.confirmHDWalletBackuped(walletId);
+            if (!wallet || wallet?.backuped === false) return;
+
+            dispatch(updateWallet(wallet));
+          }
+          onSuccess?.();
         } else if (error) {
           console.log('NFC read error', error);
 
