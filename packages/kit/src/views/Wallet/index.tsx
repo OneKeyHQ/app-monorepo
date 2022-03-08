@@ -1,5 +1,6 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
+import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -30,6 +31,8 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+
+import OfflineView from '../Offline';
 
 import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
@@ -68,6 +71,14 @@ const Home: FC = () => {
   const { wallet, account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setOffline(state.type === NetInfoStateType.none);
+    });
+    return unsubscribe;
+  }, []);
+
   if (!wallet) {
     return (
       <Box flex="1" justifyContent="center" bg="background-default">
@@ -99,6 +110,7 @@ const Home: FC = () => {
             {intl.formatMessage({ id: 'action__create_wallet' })}
           </Button>
         </Box>
+        <OfflineView offline={offline} />
       </Box>
     );
   }
@@ -154,74 +166,78 @@ const Home: FC = () => {
             {intl.formatMessage({ id: 'action__create_account' })}
           </Button>
         </Box>
+        <OfflineView offline={offline} />
       </Box>
     );
   }
 
   return (
-    <Tabs.Container
-      renderHeader={AccountInfo}
-      headerHeight={
-        isVerticalLayout
-          ? FIXED_VERTICAL_HEADER_HEIGHT
-          : FIXED_HORIZONTAL_HEDER_HEIGHT
-      }
-      containerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
-        width: '100%',
-        marginHorizontal: 'auto',
-        backgroundColor: tabbarBgColor,
-      }}
-      headerContainerStyle={{
-        shadowOffset: { width: 0, height: 0 },
-        shadowColor: 'transparent',
-        elevation: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: borderDefault,
-      }}
-      renderTabBar={(props) => (
-        <MaterialTabBar
-          {...props}
-          activeColor={activeLabelColor}
-          inactiveColor={labelColor}
-          labelStyle={{
-            ...(Body2StrongProps as TextStyle),
-          }}
-          indicatorStyle={{ backgroundColor: indicatorColor }}
-          style={{
-            backgroundColor: tabbarBgColor,
-          }}
-          contentContainerStyle={{ maxWidth: MAX_PAGE_CONTAINER_WIDTH }}
-          tabStyle={{ backgroundColor: tabbarBgColor }}
-        />
-      )}
-    >
-      <Tabs.Tab
-        name={TabEnum.Tokens}
-        label={intl.formatMessage({ id: 'asset__tokens' })}
+    <>
+      <Tabs.Container
+        renderHeader={AccountInfo}
+        headerHeight={
+          isVerticalLayout
+            ? FIXED_VERTICAL_HEADER_HEIGHT
+            : FIXED_HORIZONTAL_HEDER_HEIGHT
+        }
+        containerStyle={{
+          maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
+          width: '100%',
+          marginHorizontal: 'auto',
+          backgroundColor: tabbarBgColor,
+        }}
+        headerContainerStyle={{
+          shadowOffset: { width: 0, height: 0 },
+          shadowColor: 'transparent',
+          elevation: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: borderDefault,
+        }}
+        renderTabBar={(props) => (
+          <MaterialTabBar
+            {...props}
+            activeColor={activeLabelColor}
+            inactiveColor={labelColor}
+            labelStyle={{
+              ...(Body2StrongProps as TextStyle),
+            }}
+            indicatorStyle={{ backgroundColor: indicatorColor }}
+            style={{
+              backgroundColor: tabbarBgColor,
+            }}
+            contentContainerStyle={{ maxWidth: MAX_PAGE_CONTAINER_WIDTH }}
+            tabStyle={{ backgroundColor: tabbarBgColor }}
+          />
+        )}
       >
-        <AssetsList />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={TabEnum.Collectibles}
-        label={intl.formatMessage({ id: 'asset__collectibles' })}
-      >
-        <CollectiblesList
-          address={(account as SimpleAccount)?.address}
-          network={network?.network}
-        />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={TabEnum.History}
-        label={intl.formatMessage({ id: 'transaction__history' })}
-      >
-        <HistoricalRecord
-          accountId={account?.id}
-          networkId={network?.network?.id}
-          isTab
-        />
-      </Tabs.Tab>
-    </Tabs.Container>
+        <Tabs.Tab
+          name={TabEnum.Tokens}
+          label={intl.formatMessage({ id: 'asset__tokens' })}
+        >
+          <AssetsList />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={TabEnum.Collectibles}
+          label={intl.formatMessage({ id: 'asset__collectibles' })}
+        >
+          <CollectiblesList
+            address={(account as SimpleAccount)?.address}
+            network={network?.network}
+          />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={TabEnum.History}
+          label={intl.formatMessage({ id: 'transaction__history' })}
+        >
+          <HistoricalRecord
+            accountId={account?.id}
+            networkId={network?.network?.id}
+            isTab
+          />
+        </Tabs.Tab>
+      </Tabs.Container>
+      <OfflineView offline={offline} />
+    </>
   );
 };
 

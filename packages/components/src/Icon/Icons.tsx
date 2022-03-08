@@ -487,7 +487,7 @@ import VolumeUpSolid from "./react/solid/VolumeUp";
 import WifiSolid from "./react/solid/Wifi";
 import ZoomInSolid from "./react/solid/ZoomIn";
 import ZoomOutSolid from "./react/solid/ZoomOut";
-
+import OfficeSolid from "./react/solid/Offline";
 export type ICON_NAMES =
   | "BrandLogoIllus"
   | "CrownBadgeIllus"
@@ -975,7 +975,8 @@ export type ICON_NAMES =
   | "VolumeUpSolid"
   | "WifiSolid"
   | "ZoomInSolid"
-  | "ZoomOutSolid";
+  | "ZoomOutSolid" 
+  | "OfficeSolid";
 
 export default {
   BrandLogoIllus: BrandLogoIllus,
@@ -1465,4 +1466,5 @@ export default {
   WifiSolid: WifiSolid,
   ZoomInSolid: ZoomInSolid,
   ZoomOutSolid: ZoomOutSolid,
+  OfficeSolid: OfficeSolid,
 };
