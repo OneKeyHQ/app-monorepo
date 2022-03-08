@@ -20,6 +20,10 @@ export type AmountFiatBalance = {
   balance: BigNumber.Value | undefined;
 };
 
+function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+  return value !== null && value !== undefined;
+}
+
 export function getTransferNFTList(transaction: Transaction | null): string[] {
   if (
     transaction?.tokenType === TokenType.ERC721 &&
@@ -30,8 +34,11 @@ export function getTransferNFTList(transaction: Transaction | null): string[] {
     const tokenEvents = transaction?.tokenEvent?.filter(
       (event) => event.tokenType === TokenType.ERC721,
     );
-    const sss = tokenEvents?.map((event) => event.tokenLogoUrl);
-    return sss ?? [];
+    const nftImages = tokenEvents
+      ?.map((event) => event.tokenLogoUrl)
+      .filter(notEmpty);
+
+    return nftImages ?? [];
   }
   return [];
 }

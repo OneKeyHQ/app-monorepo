@@ -9,7 +9,6 @@ import {
   Box,
   Button,
   Container,
-  HStack,
   Icon,
   Modal,
   Pressable,
