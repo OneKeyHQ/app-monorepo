@@ -199,9 +199,19 @@ const TransactionDetails: FC = () => {
           value={`${txInfo?.type === TransactionType.Transfer ? '-' : ''}${`${
             amount.amount ?? '-'
           } ${amount.unit ?? ''}`}`}
-          custom={list.map((item) => (
-            <NFTView src={item} key={item} size={24} />
-          ))}
+          custom={
+            <Box flexDirection="row" justifyContent="flex-end" flexWrap="wrap">
+              {list.map((item) => (
+                <Box m={1}>
+                  <NFTView
+                    src={item}
+                    key={item}
+                    size={list.length > 2 ? '84px' : '96px'}
+                  />
+                </Box>
+              ))}
+            </Box>
+          }
         />
       );
     },

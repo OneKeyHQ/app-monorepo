@@ -5,6 +5,8 @@ import {
   BlockTransactionWithLogEvents,
   HistoryDetailList,
   LogEvent,
+  NftDetail,
+  NftMetadata,
   TokenType,
   Transaction,
   TransactionType,
@@ -55,6 +57,7 @@ function nativeTransferEvent(
     tokenName: '',
     tokenSymbol: '',
     tokenDecimals: 0,
+    tokenId: '',
     transferType,
     tokenType: TokenType.native,
     balance: 0,
@@ -80,6 +83,7 @@ function transferLogToTransferEvent(transfer: Transfer): TransferEvent {
     tokenName: transfer.contractName,
     tokenSymbol: transfer.contractTickerSymbol,
     tokenDecimals: transfer.contractDecimals,
+    tokenId: transfer.tokenId,
     transferType:
       transfer.transferType === 'IN'
         ? TransactionType.Receive
@@ -119,9 +123,36 @@ function erc20TransferEventAdapter(user: string, log: LogEvent): TransferEvent {
     fromAddressLabel: '',
     toAddressLabel: '',
     eventLength: 0,
+    tokenId: '',
   };
 
   return transferEvent;
+}
+
+function getNftDetail(
+  chainId: string,
+  contractAddress: string,
+  tokenId: string,
+): Promise<NftMetadata | null> {
+  const request = `https://api.covalenthq.com/v1/${chainId}/tokens/${contractAddress}/nft_metadata/${tokenId}/`;
+
+  return axios
+    .get<NftDetail>(request, {
+      params: {
+        'key': COVALENT_API_KEY,
+      },
+    })
+    .then((response) => {
+      if (response.data.error === false) {
+        const { data: rawData } = response.data;
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const data = camelcase(rawData, { deep: true });
+
+        return data.items[0];
+      }
+      return null;
+    });
 }
 
 function eventAdapter(
@@ -135,11 +166,13 @@ function eventAdapter(
   tokenType: TokenType;
   type: TransactionType;
   events: Array<TransferEvent> | null;
+  nftToken: Array<{ contractAddress: string; tokenId: string }>;
 } {
   const transferEvent: TransferEvent[] = [];
   let type = TransactionType.ContractExecution;
   let tokenType = TokenType.native;
   let isSwap = false;
+  const nftToken = [];
   if (logs !== undefined) {
     for (let i = 0; i < logs.length; i += 1) {
       const log = logs[i];
@@ -167,6 +200,11 @@ function eventAdapter(
             if (event.topics.length === 4) {
               tokenType = TokenType.ERC721;
               event.tokenType = TokenType.ERC721;
+              event.tokenId = parseInt(log.rawLogTopics[3], 16).toString();
+              nftToken.push({
+                contractAddress: log.senderAddress,
+                tokenId: parseInt(log.rawLogTopics[3], 16).toString(),
+              });
             }
             break;
           case SwapEventTopic:
@@ -229,13 +267,14 @@ function eventAdapter(
     }
   }
 
-  return { tokenType, type, events: transferEvent };
+  return { tokenType, type, events: transferEvent, nftToken };
 }
 
-function txAdapter(
+async function txAdapter(
+  chainId: string,
   user: string,
   tx: BlockTransactionWithLogEvents,
-): Transaction {
+): Promise<Transaction> {
   const txDetail: Transaction = {
     blockSignedAt: tx.blockSignedAt,
     blockHeight: tx.blockHeight,
@@ -272,6 +311,32 @@ function txAdapter(
     txDetail.tokenEvent = adapter.events;
   }
 
+  const metadata = await Promise.all(
+    adapter.nftToken.map((token) =>
+      getNftDetail(chainId, token.contractAddress, token.tokenId),
+    ),
+  );
+
+  if (txDetail.tokenEvent && txDetail.tokenEvent.length > 0) {
+    for (let i = 0; i < txDetail.tokenEvent.length; i += 1) {
+      if (txDetail.tokenEvent[i].tokenType === TokenType.ERC721) {
+        for (let k = 0; k < metadata.length; k += 1) {
+          if (
+            txDetail.tokenEvent[i].tokenAddress ===
+              metadata[k]?.contractAddress &&
+            txDetail.tokenEvent[i].tokenId === metadata[k]?.nftData[0].tokenId
+          ) {
+            txDetail.tokenEvent[i].tokenName =
+              metadata[k]?.nftData[0].externalData.name;
+            txDetail.tokenEvent[i].tokenLogoUrl =
+              metadata[k]?.nftData[0].externalData.image;
+            break;
+          }
+        }
+      }
+    }
+  }
+
   return txDetail;
 }
 
@@ -290,18 +355,17 @@ function getTxHistories(
         'key': COVALENT_API_KEY,
       },
     })
-    .then((response) => {
+    .then(async (response) => {
       if (response.data.error === false) {
         const { data: rawData } = response.data;
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const data = camelcase(rawData, { deep: true });
 
         const txs: Array<Transaction> = [];
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         for (let i = 0; i < data.items.length; i += 1) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          txs.push(txAdapter(data.address, data.items[i]));
+          txs.push(await txAdapter(chainId, data.address, data.items[i]));
         }
 
         const history: HistoryDetailList = {
@@ -345,7 +409,7 @@ function getErc20TransferHistories(
         'contract-address': contract,
       },
     })
-    .then((response) => {
+    .then(async (response) => {
       if (response.data.error === false) {
         const { data: rawData } = response.data;
 
@@ -356,7 +420,7 @@ function getErc20TransferHistories(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         for (let i = 0; i < data.items.length; i += 1) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          txs.push(txAdapter(data.address, data.items[i]));
+          txs.push(await txAdapter(chainId, data.address, data.items[i]));
         }
 
         const history: HistoryDetailList = {
@@ -403,11 +467,11 @@ function getTxDetail(
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const data = camelcase(rawData.items[0], { deep: true });
-        return txAdapter(data.fromAddress, data);
+        return txAdapter(chainId, data.fromAddress, data);
       }
 
       return null;
     });
 }
 
-export { getTxHistories, getErc20TransferHistories, getTxDetail };
+export { getTxHistories, getErc20TransferHistories, getTxDetail, getNftDetail };

@@ -126,8 +126,12 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           }
           if (index === 2) {
             return (
-              <Center width={24} height={24} key={key}>
-                <Icon size={5} name="DotsHorizontalSolid" />
+              <Center width={9} height={24} key={key}>
+                <Icon
+                  size={20}
+                  name="DotsHorizontalSolid"
+                  color="icon-default"
+                />
               </Center>
             );
           }
