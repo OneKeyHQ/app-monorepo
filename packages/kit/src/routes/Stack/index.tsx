@@ -12,13 +12,13 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import { useInterval } from '../../hooks';
 import {
   useAppDispatch,
   useGeneral,
   useSettings,
   useStatus,
 } from '../../hooks/redux';
-import useInterval from '../../hooks/useInterval';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
