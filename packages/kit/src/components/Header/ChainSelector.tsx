@@ -22,6 +22,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import engine from '../../engine/EngineProvider';
+import { useManageNetworks } from '../../hooks';
 import {
   ModalRoutes,
   ModalRoutesParams,
@@ -45,17 +46,17 @@ const ChainSelector: FC = () => {
   const navigation = useNavigation<NavigationProps>();
 
   const dispatch = useAppDispatch();
-  const networks = useAppSelector((s) => s.network.network);
+  const { enabledNetworks } = useManageNetworks();
   const { wallet } = useActiveWalletAccount();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
   const { screenWidth } = useUserDevice();
   const handleActiveChainChange = useCallback(
     async (id) => {
-      if (!networks) return null;
+      if (!enabledNetworks) return null;
 
       let selectedNetwork: Network | null = null;
       let selectedSharedChainName: string | null = null;
-      networks.forEach((network) => {
+      enabledNetworks.forEach((network) => {
         if (network.id === id) {
           selectedNetwork = network;
           selectedSharedChainName = network.impl;
@@ -93,13 +94,13 @@ const ChainSelector: FC = () => {
         );
       }
     },
-    [dispatch, networks, wallet, activeNetwork?.network.impl],
+    [dispatch, enabledNetworks, wallet, activeNetwork?.network.impl],
   );
 
   const options = useMemo(() => {
-    if (!networks) return [];
+    if (!enabledNetworks) return [];
 
-    return networks.map((network) => ({
+    return enabledNetworks.map((network) => ({
       label: network.shortName,
       value: network.id,
       tokenProps: {
@@ -107,7 +108,7 @@ const ChainSelector: FC = () => {
       },
       badge: network.impl === 'evm' ? 'EVM' : undefined,
     }));
-  }, [networks]);
+  }, [enabledNetworks]);
 
   return (
     <Box>
