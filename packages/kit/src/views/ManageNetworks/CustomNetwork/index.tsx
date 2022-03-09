@@ -13,7 +13,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
-import { ManageNetworkModalRoutes, ManageNetworkRoutesParams } from '../types';
+import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 type NetworkValues = {
   name?: string;
@@ -25,10 +25,10 @@ type NetworkValues = {
 
 type NetworkCustomViewProps = NativeStackScreenProps<
   ManageNetworkRoutesParams,
-  ManageNetworkModalRoutes.NetworkCustomViewModal
+  ManageNetworkRoutes.CustomNetwork
 >;
 
-export const NetworkCustomView: FC<NetworkCustomViewProps> = ({ route }) => {
+export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const { defaultValues, isReadOnly } = route.params;
   const intl = useIntl();
   const { control, handleSubmit, reset } = useForm<NetworkValues>({

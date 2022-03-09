@@ -15,10 +15,12 @@ import {
 
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import engine from '../../engine/EngineProvider';
-import { useAppDispatch } from '../../hooks/redux';
+import { useAppDispatch, useStatus } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { useToast } from '../../hooks/useToast';
-import { unlock } from '../../store/reducers/status';
+import { runtimeUnlock } from '../../store/reducers/general';
+import { setEnableAppLock } from '../../store/reducers/settings';
+import { setPasswordCompleted, unlock } from '../../store/reducers/status';
 
 import { PasswordRoutes, PasswordRoutesParams } from './types';
 
@@ -34,8 +36,14 @@ type FieldValues = { password: string };
 
 const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   const intl = useIntl();
-  const { control, handleSubmit, setError } = useForm<FieldValues>({
+  const {
+    control,
+    handleSubmit,
+    setError,
+    formState: { isValid },
+  } = useForm<FieldValues>({
     defaultValues: { password: '' },
+    mode: 'onChange',
   });
   const onSubmit = useCallback(
     async (values: FieldValues) => {
@@ -76,10 +84,20 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             defaultMessage: 'Password',
           })}
           control={control}
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__field_is_required',
+            }),
+          }}
         >
           <Form.PasswordInput />
         </Form.Item>
-        <Button size="xl" onPress={handleSubmit(onSubmit)}>
+        <Button
+          size="xl"
+          type="primary"
+          isDisabled={!isValid}
+          onPress={handleSubmit(onSubmit)}
+        >
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
@@ -100,18 +118,30 @@ type PasswordsFieldValues = {
 
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
+  const { passwordCompleted } = useStatus();
   const toast = useToast();
   const { savePassword } = useLocalAuthentication();
   const dispatch = useAppDispatch();
   const navigation = useNavigation<NavigationProps>();
-  const { control, handleSubmit, getValues } = useForm<PasswordsFieldValues>({
+  const {
+    control,
+    handleSubmit,
+    getValues,
+    formState: { isValid },
+  } = useForm<PasswordsFieldValues>({
     defaultValues: { password: '', confirmPassword: '' },
+    mode: 'onChange',
   });
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
       await engine.updatePassword(oldPassword, values.password);
       await savePassword(values.password);
       dispatch(unlock());
+      dispatch(runtimeUnlock());
+      if (!passwordCompleted) {
+        dispatch(setPasswordCompleted());
+        dispatch(setEnableAppLock(true));
+      }
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
@@ -124,7 +154,15 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
         }),
       );
     },
-    [navigation, toast, intl, dispatch, oldPassword, savePassword],
+    [
+      navigation,
+      toast,
+      intl,
+      dispatch,
+      oldPassword,
+      savePassword,
+      passwordCompleted,
+    ],
   );
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -156,6 +194,15 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
                 id: 'msg__password_validation',
               }),
             },
+            validate: (value) => {
+              const confirmPassword = getValues('confirmPassword');
+              if (!confirmPassword) return undefined;
+              return confirmPassword !== value
+                ? intl.formatMessage({
+                    id: 'msg__password_needs_to_be_the_same',
+                  })
+                : undefined;
+            },
           }}
         >
           <Form.PasswordInput />
@@ -175,17 +222,25 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
                 id: 'msg__password_validation',
               }),
             },
-            validate: (value) =>
-              getValues('password') !== value
+            validate: (value) => {
+              const password = getValues('password');
+              if (!password) return undefined;
+              return password !== value
                 ? intl.formatMessage({
                     id: 'msg__password_needs_to_be_the_same',
                   })
-                : undefined,
+                : undefined;
+            },
           }}
         >
           <Form.PasswordInput />
         </Form.Item>
-        <Button size="xl" onPromise={handleSubmit(onSubmit)}>
+        <Button
+          size="xl"
+          type="primary"
+          isDisabled={!isValid}
+          onPromise={handleSubmit(onSubmit)}
+        >
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
@@ -196,16 +251,23 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   );
 };
 
-export const Password = () => {
+const ChangePassword = () => {
   const [oldPassword, setOldPassword] = useState('');
+  return oldPassword ? (
+    <SetNewPassword oldPassword={oldPassword} />
+  ) : (
+    <EnterPassword onNext={setOldPassword} />
+  );
+};
+
+export const Password = () => {
+  const { passwordCompleted } = useStatus();
+  const [isHasPassword] = useState(passwordCompleted);
+
   return (
     <Modal footer={null}>
       <Box>
-        {oldPassword ? (
-          <SetNewPassword oldPassword={oldPassword} />
-        ) : (
-          <EnterPassword onNext={setOldPassword} />
-        )}
+        {isHasPassword ? <ChangePassword /> : <SetNewPassword oldPassword="" />}
       </Box>
     </Modal>
   );

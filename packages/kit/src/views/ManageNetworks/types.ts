@@ -1,13 +1,13 @@
-export enum ManageNetworkModalRoutes {
-  NetworkListViewModal = 'NetworkListViewModal',
-  NetworkAddViewModal = 'NetworkAddViewModal',
-  NetworkCustomViewModal = 'NetworkCustomView',
+export enum ManageNetworkRoutes {
+  Listing = 'Listing',
+  AddNetwork = 'AddNetwork',
+  CustomNetwork = 'CustomNetwork',
 }
 
 export type ManageNetworkRoutesParams = {
-  [ManageNetworkModalRoutes.NetworkListViewModal]: undefined;
-  [ManageNetworkModalRoutes.NetworkAddViewModal]: undefined;
-  [ManageNetworkModalRoutes.NetworkCustomViewModal]: {
+  [ManageNetworkRoutes.Listing]: undefined;
+  [ManageNetworkRoutes.AddNetwork]: undefined;
+  [ManageNetworkRoutes.CustomNetwork]: {
     defaultValues: {
       name?: string;
       url?: string;

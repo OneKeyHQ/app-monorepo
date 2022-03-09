@@ -20,7 +20,7 @@ type NetworkValues = {
 
 export type NetworkAddViewProps = undefined;
 
-export const NetworkAddView: FC<NetworkAddViewProps> = () => {
+export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const defaultValues = {
     name: '',
@@ -156,4 +156,4 @@ export const NetworkAddView: FC<NetworkAddViewProps> = () => {
   );
 };
 
-export default NetworkAddView;
+export default AddNetwork;

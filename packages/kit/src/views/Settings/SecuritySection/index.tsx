@@ -29,6 +29,8 @@ import {
   RootRoutesParams,
 } from '../../../routes/types';
 import { persistor } from '../../../store';
+import { runtimeUnlock } from '../../../store/reducers/general';
+import { unlock } from '../../../store/reducers/status';
 import { SelectTrigger } from '../SelectTrigger';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -121,6 +123,13 @@ export const SecuritySection = () => {
     },
     [dispatch],
   );
+  const onToggleAppLock = useCallback(() => {
+    dispatch(setEnableAppLock(!enableAppLock));
+    if (!enableAppLock) {
+      dispatch(unlock());
+      dispatch(runtimeUnlock());
+    }
+  }, [enableAppLock, dispatch]);
   return (
     <>
       <Box w="full" mb="4" zIndex={9}>
@@ -210,7 +219,7 @@ export const SecuritySection = () => {
               <Switch
                 labelType="false"
                 isChecked={enableAppLock}
-                onToggle={() => dispatch(setEnableAppLock(!enableAppLock))}
+                onToggle={onToggleAppLock}
               />
             </Box>
           </Box>
@@ -270,7 +279,7 @@ export const SecuritySection = () => {
           primaryActionTranslationId: 'action__delete',
           primaryActionProps: {
             type: 'destructive',
-            isDisabled: input !== 'RESET',
+            isDisabled: input.toUpperCase() !== 'RESET',
             onPromise: onReset,
           },
         }}

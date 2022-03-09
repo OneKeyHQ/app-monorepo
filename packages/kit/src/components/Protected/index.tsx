@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
 
@@ -8,23 +8,33 @@ import Setup from './Setup';
 import Validation from './Validation';
 
 type ProtectedProps = {
-  children: (password: string) => React.ReactNode;
+  children: (
+    password: string,
+    isLocalAuthentication?: boolean,
+  ) => React.ReactNode;
 };
 
 const Protected: FC<ProtectedProps> = ({ children }) => {
-  const [value, setValue] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { passwordCompleted } = useStatus();
-  if (value) {
+  const [hasPassword] = useState(passwordCompleted);
+
+  const onOk = useCallback((text: string, is?: boolean) => {
+    setLocalAuthentication(is);
+    setPassword(text);
+  }, []);
+  if (password) {
     return (
       <Box w="full" h="full">
-        {children(value)}
+        {children(password, isLocalAuthentication)}
       </Box>
     );
   }
-  if (passwordCompleted) {
-    return <Validation onOk={setValue} />;
+  if (hasPassword) {
+    return <Validation onOk={onOk} />;
   }
-  return <Setup onOk={setValue} />;
+  return <Setup onOk={onOk} />;
 };
 
 export default Protected;

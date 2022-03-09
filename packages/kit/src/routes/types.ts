@@ -37,6 +37,7 @@ export enum ModalRoutes {
   ManageToken = 'ManageToken',
   Collectibles = 'Collectibles',
   EnableLocalAuthentication = ' EnableLocalAuthentication',
+  ManageNetwork = 'ManageNetwork',
 }
 
 export type ModalRoutesParams = {
@@ -64,6 +65,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.ManageToken]: NavigatorScreenParams<SubModalRoutesParams.ManageTokenRoutesParams>;
   [ModalRoutes.Collectibles]: NavigatorScreenParams<SubModalRoutesParams.CollectiblesRoutesParams>;
   [ModalRoutes.EnableLocalAuthentication]: NavigatorScreenParams<SubModalRoutesParams.EnableLocalAuthenticationRoutesParams>;
+  [ModalRoutes.ManageNetwork]: NavigatorScreenParams<SubModalRoutesParams.ManageNetworkRoutesParams>;
 };
 /** Modal */
 

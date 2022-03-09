@@ -116,7 +116,12 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   useEffect(() => {
     async function doQuery() {
       const trimedAddress = debouncedAddress.trim();
-      if (trimedAddress.length === 42 && activeAccount && activeNetwork) {
+      if (
+        trimedAddress.length === 42 &&
+        !accountTokensSet.has(trimedAddress.toLowerCase()) &&
+        activeAccount &&
+        activeNetwork
+      ) {
         let preResult;
         setSearching(true);
         try {
@@ -136,7 +141,14 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       }
     }
     doQuery();
-  }, [address, activeAccount, activeNetwork, onSearch, debouncedAddress]);
+  }, [
+    address,
+    activeAccount,
+    activeNetwork,
+    onSearch,
+    debouncedAddress,
+    accountTokensSet,
+  ]);
 
   return (
     <Modal
