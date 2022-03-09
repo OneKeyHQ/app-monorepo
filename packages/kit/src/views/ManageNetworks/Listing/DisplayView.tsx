@@ -10,7 +10,6 @@ import {
   FlatList,
   Icon,
   Image,
-  Typography,
 } from '@onekeyhq/components';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
