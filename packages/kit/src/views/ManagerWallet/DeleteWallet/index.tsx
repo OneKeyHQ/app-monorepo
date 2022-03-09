@@ -4,9 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 
 import engine from '../../../engine/EngineProvider';
 import { useToast } from '../../../hooks/useToast';
+import { removeWalletById } from '../../../store/reducers/wallet';
 
 type ManagerWalletDeleteDialogProps = {
   walletId: string;
@@ -21,6 +23,8 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
+  const dispatch = useAppDispatch();
+
   const [isLoading, setIsLoading] = React.useState(false);
 
   return (
@@ -50,6 +54,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
             .getWallet(walletId)
             .then(async (wallet) => {
               await engine.removeWallet(walletId, password);
+              dispatch(removeWalletById(walletId));
               toast.info(
                 intl.formatMessage(
                   { id: 'msg__wallet_deleted' },
