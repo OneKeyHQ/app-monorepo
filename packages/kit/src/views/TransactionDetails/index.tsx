@@ -8,6 +8,7 @@ import { IntlShape, useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   Container,
   Icon,
   Modal,
@@ -16,6 +17,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import {
@@ -105,9 +107,33 @@ const TransactionDetails: FC = () => {
     state: TxStatus = TxStatus.Pending,
   ): ICON_NAMES => {
     const stringKeys: Record<TxStatus, ICON_NAMES> = {
-      'Pending': 'TxStatusWarningCircleIllus',
-      'Confirmed': 'TxStatusSuccessCircleIllus',
-      'Failed': 'TxStatusFailureCircleIllus',
+      'Pending': 'DotsCircleHorizontalOutline',
+      'Confirmed': 'CheckCircleOutline',
+      'Failed': 'CloseCircleOutline',
+      // 'dropped': 'TxStatusFailureCircleIllus',
+    };
+    return stringKeys[state];
+  };
+
+  const getTransactionStatusIconColor = (
+    state: TxStatus = TxStatus.Pending,
+  ): keyof ThemeValues => {
+    const stringKeys: Record<TxStatus, keyof ThemeValues> = {
+      'Pending': 'icon-warning',
+      'Confirmed': 'icon-success',
+      'Failed': 'icon-critical',
+      // 'dropped': 'TxStatusFailureCircleIllus',
+    };
+    return stringKeys[state];
+  };
+
+  const getTransactionStatusIconContainerColor = (
+    state: TxStatus = TxStatus.Pending,
+  ): string => {
+    const stringKeys: Record<TxStatus, string> = {
+      'Pending': 'surface-warning-default',
+      'Confirmed': 'surface-success-default',
+      'Failed': 'surface-critical-default',
       // 'dropped': 'TxStatusFailureCircleIllus',
     };
     return stringKeys[state];
@@ -380,11 +406,24 @@ const TransactionDetails: FC = () => {
       scrollViewProps={{
         pt: 4,
         children: (
-          <Box flexDirection="column" p={0.5} alignItems="center" mb={6}>
-            <Icon
-              name={getTransactionStatusIcon(txInfo?.successful)}
-              size={56}
-            />
+          <Box
+            flexDirection="column"
+            p={0.5}
+            alignItems="center"
+            mb={{ base: 4, md: 0 }}
+          >
+            <Center
+              rounded="full"
+              size="56px"
+              bgColor={getTransactionStatusIconContainerColor(
+                txInfo?.successful,
+              )}
+            >
+              <Icon
+                color={getTransactionStatusIconColor(txInfo?.successful)}
+                name={getTransactionStatusIcon(txInfo?.successful)}
+              />
+            </Center>
             <Typography.Heading
               mt={2}
               color={getTransactionStatusColor(txInfo?.successful)}
@@ -485,7 +524,6 @@ const TransactionDetails: FC = () => {
             <Button
               w="100%"
               mt={6}
-              mb={6}
               size="lg"
               onPress={() => {
                 openBlockBrowser.openTransactionDetails(txInfo?.txHash);
