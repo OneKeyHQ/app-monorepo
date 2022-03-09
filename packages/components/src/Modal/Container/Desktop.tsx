@@ -136,7 +136,6 @@ const DesktopModal: FC<ModalProps> = ({
               {!hidePrimaryAction && (
                 <Button
                   type="primary"
-                  minW="120px"
                   onPress={() => {
                     onPrimaryActionPress?.({ onClose, close });
                   }}
@@ -149,7 +148,6 @@ const DesktopModal: FC<ModalProps> = ({
               )}
               {!hideSecondaryAction && (
                 <Button
-                  minW="120px"
                   onPress={() => {
                     onSecondaryActionPress?.({ close });
                     onClose?.();

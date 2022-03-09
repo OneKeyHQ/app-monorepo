@@ -2,6 +2,7 @@ import React, { FC, useState } from 'react';
 
 import {
   Box,
+  Center,
   Divider,
   IconButton,
   Image,
@@ -22,16 +23,16 @@ export const EditableView: FC = () => {
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
-      p="4"
+      p={4}
     >
       <Box display="flex" flexDirection="row" alignItems="center">
-        <IconButton
-          mr="2"
-          type="plain"
-          name="MenuOutline"
-          iconSize={16}
-          onPressIn={() => drag()}
-        />
+        <Center w={6} h={6} mr={3}>
+          <IconButton
+            type="plain"
+            name="MenuOutline"
+            onPressIn={() => drag()}
+          />
+        </Center>
         <Box display="flex" flexDirection="row" alignItems="center">
           <Image
             size={{ base: 8, md: 6 }}

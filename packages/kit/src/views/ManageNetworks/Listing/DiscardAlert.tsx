@@ -41,11 +41,8 @@ export const DiscardAlert: FC<DiscardAlertProps> = ({
         secondaryActionTranslationId: 'action__cancel',
         primaryActionProps: {
           type: 'primary',
-          size: 'xl',
         },
-        secondaryActionProps: {
-          size: 'xl',
-        },
+        secondaryActionProps: {},
       }}
       onClose={onClose}
     />
