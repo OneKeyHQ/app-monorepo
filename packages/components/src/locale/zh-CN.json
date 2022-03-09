@@ -241,7 +241,7 @@
   "dialog__delete_wallet_desc": "这将永久性地删除您的数据。确保您在删除之前已完成备份。",
   "dialog__discard_changes_desc": "您是否确认放弃未保存的更改？",
   "dialog__discard_changes_title": "放弃更改",
-  "dialog__manual_backup_successful_desc": "您可以通过助记词恢复您的钱包。",
+  "dialog__manual_backup_successful_desc": "您可以通过助记词恢复您的钱包",
   "dialog__manual_backup_successful_title": "手动备份成功",
   "dialog__remove_account_desc": "该账户将会被抹除。",
   "dialog__remove_network_desc": "“ {0} ” 将从您的网络列表中移除。",

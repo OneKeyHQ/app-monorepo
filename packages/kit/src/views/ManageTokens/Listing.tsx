@@ -98,10 +98,18 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     }
                   />
                   <Box ml="3">
-                    <Typography.Body1Strong maxW="56" numberOfLines={2}>
-                      {item.symbol}({item.name})
-                    </Typography.Body1Strong>
-                    <Typography.Body2 maxW="56" numberOfLines={1}>
+                    <Text
+                      maxW={56}
+                      numberOfLines={2}
+                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    >
+                      {item.symbol} ({item.name})
+                    </Text>
+                    <Typography.Body2
+                      maxW="56"
+                      numberOfLines={1}
+                      color="text-subdued"
+                    >
                       <FormatBalance
                         balance={item?.balance ?? '0'}
                         suffix={item.symbol}
