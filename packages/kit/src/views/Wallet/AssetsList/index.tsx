@@ -108,7 +108,7 @@ const AssetsList = () => {
       >
         <Box w="100%" flexDirection="row" alignItems="center">
           <Token size={8} src={item.logoURI} />
-          <Box ml={3} mr={3} flexDirection="column" flex={1}>
+          <Box mx={3} flexDirection="column" flex={1}>
             <FormatBalance
               balance={item.balance}
               suffix={item.symbol}
@@ -131,7 +131,7 @@ const AssetsList = () => {
             />
           </Box>
           {!isSmallScreen && (
-            <Box ml={3} mr={20} flexDirection="row" flex={1}>
+            <Box mr={3} flexDirection="row" flex={1}>
               <Icon size={20} name="ActivityOutline" />
               <FormatCurrency
                 numbers={[item.balance, prices?.[mapKey]]}
@@ -141,7 +141,11 @@ const AssetsList = () => {
               />
             </Box>
           )}
-          {item.tokenIdOnNetwork && <Icon size={20} name="ChevronRightSolid" />}
+          {item.tokenIdOnNetwork ? (
+            <Icon size={20} name="ChevronRightSolid" />
+          ) : (
+            <Box w={5} />
+          )}
         </Box>
       </Pressable.Item>
     );
