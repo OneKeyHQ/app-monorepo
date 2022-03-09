@@ -19,6 +19,7 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import { FormatBalance } from '../../components/Format';
@@ -62,7 +63,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
               defaultMessage: 'MY TOKENS',
             })}
           </Typography.Subheading>
-          <Box mt="3" mb="3">
+          <Box mt="2" mb="6">
             {tokens.map((item, index) => (
               <Box
                 key={item.tokenIdOnNetwork}
@@ -85,24 +86,38 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     alt="logoURI"
                     size="8"
                     borderRadius="full"
-                    fallbackElement={<Icon name="QuestionMarkOutline" />}
+                    fallbackElement={
+                      <Center
+                        w={8}
+                        h={8}
+                        rounded="full"
+                        bgColor="surface-neutral-default"
+                      >
+                        <Icon size={20} name="QuestionMarkOutline" />
+                      </Center>
+                    }
                   />
                   <Box ml="3">
-                    <Typography.Body1Strong maxW="56" numberOfLines={2}>
+                    <Text
+                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                      maxW="56"
+                      numberOfLines={2}
+                    >
                       {item.name}({item.symbol})
-                    </Typography.Body1Strong>
-                    <Typography.Body1 numberOfLines={1}>
+                    </Text>
+                    <Typography.Body2 numberOfLines={1} color="text-subdued">
                       <FormatBalance
                         balance={item?.balance ?? '0'}
                         suffix={item.symbol}
                         formatOptions={{ fixed: 6 }}
                       />
-                    </Typography.Body1>
+                    </Typography.Body2>
                   </Box>
                 </Box>
                 <IconButton
                   name="TrashSolid"
                   type="plain"
+                  circle
                   onPress={() => onDelToken?.(item)}
                 />
               </Box>
@@ -111,7 +126,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         </Box>
       ) : null}
       {topTokens.length ? (
-        <Typography.Subheading color="text-subdued" mt="2" mb="3">
+        <Typography.Subheading color="text-subdued" mb="2">
           {intl.formatMessage({
             id: 'form__top_50_tokens',
             defaultMessage: 'TOP 50 TOKENS',
@@ -277,7 +292,7 @@ export const Listing: FC = () => {
         display="flex"
         flexDirection="row"
         justifyContent="space-between"
-        p="4"
+        p={4}
         alignItems="center"
         bg="surface-default"
         overflow="hidden"
@@ -289,10 +304,20 @@ export const Listing: FC = () => {
             alt="logoURI"
             size="8"
             borderRadius="full"
-            fallbackElement={<Icon name="QuestionMarkOutline" />}
+            fallbackElement={
+              <Center
+                w={8}
+                h={8}
+                rounded="full"
+                bgColor="surface-neutral-default"
+              >
+                <Icon size={20} name="QuestionMarkOutline" />
+              </Center>
+            }
           />
           <Box ml="3">
-            <Typography.Body1Strong
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               maxW="56"
               numberOfLines={2}
               color={
@@ -302,8 +327,8 @@ export const Listing: FC = () => {
               }
             >
               {item.name}({item.symbol})
-            </Typography.Body1Strong>
-            <Typography.Body1
+            </Text>
+            <Typography.Body2
               numberOfLines={1}
               color={
                 accountTokensSet.has(item.tokenIdOnNetwork)
@@ -314,16 +339,19 @@ export const Listing: FC = () => {
               {item?.balance
                 ? `${item.balance} ${item.symbol}`
                 : utils.shortenAddress(item.tokenIdOnNetwork)}
-            </Typography.Body1>
+            </Typography.Body2>
           </Box>
         </Box>
         <Box>
           {accountTokensSet.has(item.tokenIdOnNetwork) ? (
-            <Icon name="CheckSolid" color="interactive-disabled" />
+            <Box p={2}>
+              <Icon name="CheckSolid" color="interactive-disabled" />
+            </Box>
           ) : (
             <IconButton
               name="PlusSolid"
               type="plain"
+              circle
               p="4"
               onPress={() => {
                 navigation.navigate(ManageTokenRoutes.AddToken, {

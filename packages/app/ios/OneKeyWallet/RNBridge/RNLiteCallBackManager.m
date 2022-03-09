@@ -83,12 +83,16 @@
         } else {
           self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
         }
+        break;
       case OKNFCLiteSetMncStatusSNNotMatch:
         self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsDeviceMismatch),@"message":@""},[NSNull null],[NSNull null]]);
+        break;
       case OKNFCLiteSetMncStatusPinNotMatch:
         self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],cardInfo]);
+        break;
       case OKNFCLiteSetMncStatusWiped:
         self.setMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsAutoReset),@"message":@""},[NSNull null],[NSNull null]]);
+        break;
       default:
         break;
     }

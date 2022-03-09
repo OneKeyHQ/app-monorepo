@@ -73,7 +73,8 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         key={i}
                         type="plain"
                         size="xs"
-                        name="ClipboardOutline"
+                        circle
+                        name="ClipboardSolid"
                         onPress={() => handleCopied(onChange)}
                       />
                     );
