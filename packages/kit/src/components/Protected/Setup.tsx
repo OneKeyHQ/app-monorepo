@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,17 +10,24 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
+import { useAppDispatch, useStatus } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
+import { setEnableAppLock } from '../../store/reducers/settings';
+import { setPasswordCompleted } from '../../store/reducers/status';
 
 type FieldValues = {
   password: string;
   confirmPassword: string;
 };
 
-type SetupProps = { onOk?: (text: string) => void };
+type SetupProps = {
+  onOk?: (text: string, isLocalAuthentication?: boolean) => void;
+};
 
 const Setup: FC<SetupProps> = ({ onOk }) => {
   const intl = useIntl();
+  const { boardingCompleted } = useStatus();
+  const dispatch = useAppDispatch();
   const { savePassword } = useLocalAuthentication();
   const {
     control,
@@ -31,10 +38,17 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
     mode: 'onChange',
     defaultValues: { password: '', confirmPassword: '' },
   });
-  const onSubmit = handleSubmit(async (values: FieldValues) => {
-    await savePassword(values.password);
-    onOk?.(values.password);
-  });
+  const onSubmit = useCallback(
+    async (values: FieldValues) => {
+      if (boardingCompleted) {
+        await savePassword(values.password);
+        dispatch(setPasswordCompleted());
+        dispatch(setEnableAppLock(true));
+      }
+      onOk?.(values.password, false);
+    },
+    [onOk, boardingCompleted, dispatch, savePassword],
+  );
 
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -67,6 +81,15 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
                 id: 'msg__password_validation',
               }),
             },
+            validate: (value) => {
+              const confirmPassword = getValues('confirmPassword');
+              if (!confirmPassword) return undefined;
+              return confirmPassword !== value
+                ? intl.formatMessage({
+                    id: 'msg__password_needs_to_be_the_same',
+                  })
+                : undefined;
+            },
           }}
         >
           <Form.PasswordInput />
@@ -87,12 +110,15 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
                 id: 'msg__password_validation',
               }),
             },
-            validate: (value) =>
-              getValues('password') !== value
+            validate: (value) => {
+              const password = getValues('password');
+              if (!password) return undefined;
+              return password !== value
                 ? intl.formatMessage({
                     id: 'msg__password_needs_to_be_the_same',
                   })
-                : undefined,
+                : undefined;
+            },
           }}
         >
           <Form.PasswordInput />
@@ -100,7 +126,7 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
         <Button
           type="primary"
           size="xl"
-          onPress={onSubmit}
+          onPress={handleSubmit(onSubmit)}
           isDisabled={!isValid}
         >
           {intl.formatMessage({
