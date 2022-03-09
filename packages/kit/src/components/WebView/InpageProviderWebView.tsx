@@ -1,12 +1,16 @@
 import React, {
   FC,
   forwardRef,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
 } from 'react';
 
-import { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import {
+  IElectronWebView,
+  InpageProviderWebViewProps,
+} from '@onekeyfe/cross-inpage-provider-types';
 import {
   DesktopWebView,
   IWebViewWrapperRef,
@@ -14,7 +18,9 @@ import {
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
+import { useIntl } from 'react-intl';
 
+import { Button, Center, Icon, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // @ts-ignore
@@ -28,9 +34,12 @@ const isApp = isNative;
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
-    { src = '', onSrcChange, receiveHandler }: InpageProviderWebViewProps,
+    { src: url = '', onSrcChange, receiveHandler }: InpageProviderWebViewProps,
     ref: any,
   ) => {
+    const intl = useIntl();
+    const [src, setSrc] = useState(url);
+    const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [progress, setProgress] = useState(5);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
     const isRenderAsIframe = isWeb || isExtension;
@@ -55,6 +64,69 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       isRenderAsIframe ? iframeWebviewRef.current : webviewRef.current,
     );
 
+    useEffect(() => {
+      const webview = webviewRef.current?.innerRef;
+
+      if (!webview || !isDesktop) {
+        return;
+      }
+
+      try {
+        const electronWebView = webview as IElectronWebView;
+        const handleMessage = () => {
+          setDesktopLoadError(true);
+        };
+
+        electronWebView.addEventListener('did-fail-load', handleMessage);
+        return () => {
+          electronWebView.removeEventListener('did-fail-load', handleMessage);
+        };
+      } catch (error) {
+        console.error(error);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [webviewRef.current, webviewRef.current?.innerRef]);
+
+    const onRefresh = () => {
+      try {
+        const polyfillUrl = new URL(url);
+        polyfillUrl.searchParams.set(
+          'onekey-browser-refresh',
+          Math.random().toString(),
+        );
+
+        setSrc(polyfillUrl.toString());
+        setDesktopLoadError(false);
+      } catch (error) {
+        console.warn(error);
+      }
+    };
+
+    type ErrorViewProps = {
+      error?: string | undefined;
+    };
+    const ErrorView: FC<ErrorViewProps> = () => (
+      <Center w="full" h="full" bg="background-default">
+        <Icon name="StatusOfflineOutline" size={48} />
+        <Typography.DisplayMedium mt={3}>
+          {intl.formatMessage({ id: 'title__no_connection' })}
+        </Typography.DisplayMedium>
+        <Typography.Body1 mt={2} color="text-subdued">
+          {intl.formatMessage({ id: 'title__no_connection_desc' })}
+        </Typography.Body1>
+
+        <Button
+          mt={6}
+          size="lg"
+          type="primary"
+          leftIconName="RefreshOutline"
+          onPress={onRefresh}
+        >
+          {intl.formatMessage({ id: 'action__refresh' })}
+        </Button>
+      </Center>
+    );
+
     return (
       <Box flex={1}>
         {isApp && progress < 100 && (
@@ -74,20 +146,24 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           />
         )}
         <Box flex={1}>
-          {isDesktop && (
-            <DesktopWebView
-              ref={setWebViewRef}
-              src={src}
-              onSrcChange={onSrcChange}
-              receiveHandler={receiveHandler}
-            />
-          )}
+          {isDesktop &&
+            (desktopLoadError ? (
+              <ErrorView />
+            ) : (
+              <DesktopWebView
+                ref={setWebViewRef}
+                src={src}
+                onSrcChange={onSrcChange}
+                receiveHandler={receiveHandler}
+              />
+            ))}
           {isApp && (
             <NativeWebView
               ref={setWebViewRef}
               src={src}
               onSrcChange={onSrcChange}
               receiveHandler={receiveHandler}
+              renderError={(error) => <ErrorView error={error} />}
               injectedJavaScriptBeforeContentLoaded={injectedNativeCode}
               onLoadProgress={({ nativeEvent }) => {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
