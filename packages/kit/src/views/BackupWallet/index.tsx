@@ -21,6 +21,7 @@ import {
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
+import { useToast } from '../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { BackupType } from './types';
@@ -75,7 +76,8 @@ const BackupItem: FC<BackupItemProps> = ({
 BackupItem.defaultProps = BackupItemDefaultProps;
 
 const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
-  const init = useIntl();
+  const intl = useIntl();
+  const toast = useToast();
 
   const navigation = useNavigation();
   const hasSupportCloud = Platform.OS === 'ios';
@@ -96,7 +98,7 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
 
   return (
     <Modal
-      header={init.formatMessage({ id: 'action__backup' })}
+      header={intl.formatMessage({ id: 'action__backup' })}
       footer={null}
       scrollViewProps={{
         children: (
@@ -104,23 +106,26 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
             {hasSupportCloud && (
               <BackupItem
                 iconName="CloudOutline"
-                title={init.formatMessage({ id: 'backup__icloud_backup' })}
-                describe={init.formatMessage({
+                title={intl.formatMessage({ id: 'backup__icloud_backup' })}
+                describe={intl.formatMessage({
                   id: 'backup__icloud_backup_desc',
                 })}
-                badge={init.formatMessage({ id: 'badge__coming_soon' })}
-                onPress={() => onManualBackup('iCloud')}
+                badge={intl.formatMessage({ id: 'badge__coming_soon' })}
+                onPress={() => {
+                  // onManualBackup('iCloud');
+                  toast.info(intl.formatMessage({ id: 'badge__coming_soon' }));
+                }}
               />
             )}
 
             {hasSupportNFC && (
               <BackupItem
                 iconName="OnekeyLiteOutline"
-                title={init.formatMessage({ id: 'backup__onekey_lite_backup' })}
-                describe={init.formatMessage({
+                title={intl.formatMessage({ id: 'backup__onekey_lite_backup' })}
+                describe={intl.formatMessage({
                   id: 'backup__onekey_lite_backup_desc',
                 })}
-                // badge={init.formatMessage({ id: 'badge__backed_up' })}
+                // badge={intl.formatMessage({ id: 'badge__backed_up' })}
                 badgeType="success"
                 onPress={() => onManualBackup('OnekeyLite')}
               />
@@ -128,8 +133,8 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
 
             <BackupItem
               iconName="DocumentTextOutline"
-              title={init.formatMessage({ id: 'backup__manual_backup' })}
-              describe={init.formatMessage({
+              title={intl.formatMessage({ id: 'backup__manual_backup' })}
+              describe={intl.formatMessage({
                 id: 'backup__manual_backup_desc',
               })}
               onPress={() => onManualBackup('Manual')}

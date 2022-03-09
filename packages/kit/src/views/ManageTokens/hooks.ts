@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import engine from '../../engine/EngineProvider';
-import { delay } from '../../utils/helper';
 
 import type { ValuedToken } from '../../store/reducers/general';
 
@@ -24,11 +23,8 @@ export const useSearchTokens = (
       }
       setLoading(true);
       setTokens([]);
-      const start = Date.now();
       try {
         const tokens = await engine.searchTokens(networkid, terms);
-        const duration = Date.now() - start;
-        await delay(duration > 1000 ? 1000 : 1000 - duration);
         setTokens(tokens);
       } finally {
         setLoading(false);

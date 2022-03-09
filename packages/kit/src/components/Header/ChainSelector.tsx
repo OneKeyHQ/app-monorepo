@@ -19,23 +19,26 @@ import {
   useAppDispatch,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  changeActiveAccount,
-  changeActiveNetwork,
-} from '@onekeyhq/kit/src/store/reducers/general';
-import {
-  ManageNetworkModalRoutes,
-  ManageNetworkRoutesParams,
-} from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import engine from '../../engine/EngineProvider';
+import {
+  ModalRoutes,
+  ModalRoutesParams,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../routes/types';
+import {
+  changeActiveAccount,
+  changeActiveNetwork,
+} from '../../store/reducers/general';
+import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
-  ManageNetworkRoutesParams,
-  ManageNetworkModalRoutes.NetworkListViewModal
+  RootRoutesParams,
+  RootRoutes.Root
 >;
 const ChainSelector: FC = () => {
   const intl = useIntl();
@@ -116,14 +119,17 @@ const ChainSelector: FC = () => {
         title={intl.formatMessage({ id: 'network__networks' })}
         options={options}
         isTriggerPlain
-        footer={null}
-        // footerText={intl.formatMessage({ id: 'action__customize_network' })}
-        // footerIcon="PencilSolid"
-        // onPressFooter={() =>
-        //   setTimeout(() => {
-        //     navigation.navigate(ManageNetworkModalRoutes.NetworkListViewModal);
-        //   }, 200)
-        // }
+        // footer={null}
+        footerText={intl.formatMessage({ id: 'action__customize_network' })}
+        footerIcon="PencilSolid"
+        onPressFooter={() =>
+          setTimeout(() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageNetwork,
+              params: { screen: ManageNetworkRoutes.Listing },
+            });
+          }, 200)
+        }
         renderTrigger={(activeOption, isHovered, visible) => (
           <HStack
             p={2}

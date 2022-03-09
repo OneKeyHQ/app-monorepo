@@ -10,7 +10,7 @@ import { DiscardAlert } from './DiscardAlert';
 import { DisplayView } from './DisplayView';
 import { EditableView } from './EditableView';
 
-export const NetworkListView: FC = () => {
+export const Listing: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const [alertOpened, setAlertOpened] = useState(false);
@@ -76,4 +76,4 @@ export const NetworkListView: FC = () => {
   );
 };
 
-export default NetworkListView;
+export default Listing;

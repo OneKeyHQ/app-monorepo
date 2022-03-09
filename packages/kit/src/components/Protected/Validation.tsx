@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,7 +17,9 @@ import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 type FieldValues = { password: string };
 
-type ValidationProps = { onOk?: (text: string) => void };
+type ValidationProps = {
+  onOk?: (text: string, isLocalAuthentication?: boolean) => void;
+};
 
 const Validation: FC<ValidationProps> = ({ onOk }) => {
   const intl = useIntl();
@@ -28,13 +30,20 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     const isOk = await engine.verifyMasterPassword(values.password);
     if (isOk) {
-      onOk?.(values.password);
+      onOk?.(values.password, false);
     } else {
       setError('password', {
         message: intl.formatMessage({ id: 'msg__wrong_password' }),
       });
     }
   });
+
+  const onLocalAuthenticationOk = useCallback(
+    (text: string) => {
+      onOk?.(text, true);
+    },
+    [onOk],
+  );
 
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -78,7 +87,7 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
       </Form>
       {enableLocalAuthentication && (
         <Center mt="8">
-          <LocalAuthenticationButton onOk={onOk} />
+          <LocalAuthenticationButton onOk={onLocalAuthenticationOk} />
         </Center>
       )}
     </KeyboardDismissView>

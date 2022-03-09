@@ -64,19 +64,13 @@ import ImportAccountModal, {
   ImportAccountModalRoutes,
   ImportAccountRoutesParams,
 } from './ImportAccount';
-import ManageNetworkModal, {
-  ManageNetworkModalRoutes,
-  ManageNetworkRoutesParams,
-} from './ManageNetwork';
+import ManageNetworkModal from './ManageNetwork';
 import {
   ManagerWalletModalStack as ManagerWalletModal,
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from './ManagerWallet';
-import ManageTokenModal, {
-  ManageTokenRoutes,
-  ManageTokenRoutesParams,
-} from './ManageToken';
+import ManageTokenModal from './ManageToken';
 import PasswordModal, {
   PasswordRoutes,
   PasswordRoutesParams,
@@ -203,12 +197,15 @@ const modalStackScreenList = [
     name: ModalRoutes.EnableLocalAuthentication,
     component: EnableLocalAuthenticationModal,
   },
+  {
+    name: ModalRoutes.ManageNetwork,
+    component: ManageNetworkModal,
+  },
 ];
 
 // ModalTypes will be delete later, don't update it
 export type ModalTypes = {
   [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
-  [ManageNetworkModalRoutes.NetworkListViewModal]: NavigatorScreenParams<ManageNetworkRoutesParams>;
   [ModalNavigatorRoutes.ReceiveTokenNavigator]: NavigatorScreenParams<ReceiveTokenRoutesParams>;
   [ModalNavigatorRoutes.SendNavigator]: NavigatorScreenParams<SendRoutesParams>;
   [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
