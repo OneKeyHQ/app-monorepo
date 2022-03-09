@@ -258,7 +258,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
             <Address color="text-subdued" text={transaction.toAddress} />
           </Box>
         )} */}
-        <Box>
+        <Box flex={1}>
           <Address color="text-subdued" text={transaction.toAddress} />
         </Box>
         {displayAmount() ? amountInfo() : <Box minW="156px" />}
@@ -268,18 +268,14 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
 
   return (
     <Box flexDirection="row">
-      <Box mt={1.5}>
-        <Box
-          borderRadius="full"
-          h="32px"
-          w="32px"
-          bg="surface-neutral-default"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon size={18} name={getTransactionTypeIcon(transaction.type)} />
-        </Box>
-      </Box>
+      <Center
+        mt={{ base: 1.5, md: 1 }}
+        rounded="full"
+        size={8}
+        bg="surface-neutral-default"
+      >
+        <Icon size={20} name={getTransactionTypeIcon(transaction.type)} />
+      </Center>
 
       <Box flexDirection="column" flex={1} ml={3}>
         {ItemInfo}
