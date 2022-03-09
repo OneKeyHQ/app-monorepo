@@ -101,9 +101,9 @@ const Alert: FC<AlertProps> = ({
       <Column w="100%">
         <Row space={2} alignItems="center" justifyContent="space-between">
           <Row space="12px" flex="1">
-            <Box padding="2px">
+            <Box>
               <Icon
-                size={16}
+                size={20}
                 name={alertTypeProps.iconName}
                 color={alertTypeProps.iconColor}
               />

@@ -4,7 +4,9 @@ import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Button, Modal, Typography } from '@onekeyhq/components';
+import { Alert, Box, Button, Modal, VStack } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import { Text } from '@onekeyhq/components/src/Typography';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
@@ -21,12 +23,19 @@ type RouteProps = RouteProp<
 
 const Mnemonic: FC<{ index: number; word: string }> = ({ index, word }) => (
   <Box flexDirection="row" mt={1} mb={1}>
-    <Typography.Body1Strong minW={8} color="text-subdued">
+    <Text
+      minW={8}
+      color="text-subdued"
+      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+    >
       {`${index}.`}
-    </Typography.Body1Strong>
-    <Typography.DisplaySmall color="text-default">
+    </Text>
+    <Text
+      color="text-default"
+      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+    >
       {word}
-    </Typography.DisplaySmall>
+    </Text>
   </Box>
 );
 
@@ -60,6 +69,8 @@ const BackupShowMnemonicsView: FC = () => {
     () => mnemonicArray?.slice(halfWayThough, mnemonicArray?.length ?? 0),
     [halfWayThough, mnemonicArray],
   );
+
+  const isSmallScreen = useIsVerticalLayout();
 
   return (
     <Modal
@@ -102,17 +113,18 @@ const BackupShowMnemonicsView: FC = () => {
               flexDirection="row"
               bg="surface-default"
               borderRadius="12px"
+              w="full"
             >
-              <Box flex={1}>
+              <VStack space={2} flex={1}>
                 {arrayLeftHalf?.map((word, index) => (
                   <Mnemonic index={index + 1} word={word} />
                 ))}
-              </Box>
-              <Box flex={1}>
+              </VStack>
+              <VStack space={2} flex={1} ml={6}>
                 {arrayRightHalf?.map((word, index) => (
                   <Mnemonic index={index + halfWayThough + 1} word={word} />
                 ))}
-              </Box>
+              </VStack>
             </Box>
 
             <Button
@@ -122,6 +134,7 @@ const BackupShowMnemonicsView: FC = () => {
               type="plain"
               leftIconName="DuplicateSolid"
               mt={6}
+              size={isSmallScreen ? 'lg' : 'base'}
             >
               {intl.formatMessage({ id: 'action__copy_to_clipboard' })}
             </Button>

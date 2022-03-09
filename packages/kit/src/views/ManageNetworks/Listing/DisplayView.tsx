@@ -10,8 +10,9 @@ import {
   FlatList,
   Icon,
   Image,
-  Typography,
 } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import { Text } from '@onekeyhq/components/src/Typography';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import {
   ManageNetworkRoutes,
@@ -30,6 +31,7 @@ type NavigationProps = NativeStackNavigationProp<
 export const DisplayView: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const networks = useAppSelector((s) => s.network.network);
+  const isSmallScreen = useIsVerticalLayout();
   const renderItem = ({ item }: { item: Network }) => (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -44,8 +46,7 @@ export const DisplayView: FC = () => {
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
-        py={4}
-        px={{ base: 4, md: 6 }}
+        p={4}
       >
         <Box display="flex" flexDirection="row" alignItems="center">
           <Image
@@ -53,14 +54,17 @@ export const DisplayView: FC = () => {
             source={{ uri: item.logoURI }}
             mr="3"
           />
-          <Typography.Body1Strong mr="3">
+          <Text mr="3" typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {item.shortName}
-          </Typography.Body1Strong>
+          </Text>
           <Badge size="sm" title={item.impl.toUpperCase()} />
         </Box>
         <Box display="flex" flexDirection="row" alignItems="center">
-          <Box mr="1">
-            <Icon size={24} name="LockClosedOutline" />
+          <Box mr={3}>
+            <Icon
+              size={isSmallScreen ? 24 : 20}
+              name={isSmallScreen ? 'LockClosedOutline' : 'LockClosedSolid'}
+            />
           </Box>
           <Icon size={20} name="ChevronRightSolid" />
         </Box>

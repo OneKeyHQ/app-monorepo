@@ -50,7 +50,7 @@ const BackupWalletWarningView: FC = () => {
       </Typography.DisplayMedium>
 
       <Box flexDirection="row" mt={6}>
-        <Box mt={1}>
+        <Box>
           <Icon size={24} name="CloseCircleOutline" color="icon-critical" />
         </Box>
 
@@ -61,7 +61,7 @@ const BackupWalletWarningView: FC = () => {
         </Typography.Body1>
       </Box>
       <Box flexDirection="row" mt={4}>
-        <Box mt={1}>
+        <Box>
           <Icon size={24} name="CloseCircleOutline" color="icon-critical" />
         </Box>
 
