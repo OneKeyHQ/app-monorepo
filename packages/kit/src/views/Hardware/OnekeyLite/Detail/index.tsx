@@ -49,6 +49,8 @@ const OnekeyLiteDetail: React.FC = () => {
 
   const { wallet } = useActiveWalletAccount();
 
+  const [selectBackupWalletVisible, setSelectBackupWalletVisible] =
+    useState(false);
   const [resetDialogVisible, setResetDialogVisible] = useState<boolean>(false);
   const [resetAllow, setResetAllow] = useState<boolean | null>(null);
   const [resetValidationInput, setResetValidationInput] = useState('');
@@ -76,7 +78,6 @@ const OnekeyLiteDetail: React.FC = () => {
 
   useEffect(() => {
     const menuOptions: SelectItem<OptionType>[] = [];
-
     menuOptions.push({
       label: intl.formatMessage({
         id: 'action__restore_with_onekey_lite',
@@ -205,44 +206,16 @@ const OnekeyLiteDetail: React.FC = () => {
   const renderOptions = useMemo(() => {
     if (controlledWallets.length) {
       return (
-        <Select
-          onChange={(walletId) => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.BackupWallet,
-              params: {
-                screen:
-                  BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
-                params: {
-                  walletId,
-                  backupType: 'OnekeyLite',
-                },
-              },
-            });
+        <Button
+          onPress={() => {
+            setSelectBackupWalletVisible(true);
           }}
-          title={intl.formatMessage({ id: 'title_select_wallet' })}
-          footer={null}
-          activatable={false}
-          dropdownPosition="right"
-          containerProps={{
-            zIndex: 5,
-          }}
-          options={controlledWallets.map((_wallet) => ({
-            label: _wallet.name,
-            description: intl.formatMessage(
-              { id: 'form__str_accounts' },
-              { count: _wallet.accounts.length.toString() },
-            ),
-            value: _wallet.id,
-            tokenProps: {
-              address: _wallet.id,
-            },
-          }))}
-          renderTrigger={() => (
-            <Button pointerEvents="none" size="lg" m={4} type="primary">
-              {intl.formatMessage({ id: 'action__back_up_to_onekey_lite' })}
-            </Button>
-          )}
-        />
+          size="lg"
+          m={4}
+          type="primary"
+        >
+          {intl.formatMessage({ id: 'action__back_up_to_onekey_lite' })}
+        </Button>
       );
     }
     return (
@@ -262,53 +235,92 @@ const OnekeyLiteDetail: React.FC = () => {
   }, [controlledWallets.length, intl]);
 
   return (
-    <Box flexDirection="column" flex={1}>
-      <Box flex={1}>
-        <WebView src={url} />
-      </Box>
+    <>
+      <Box flexDirection="column" flex={1}>
+        <Box flex={1}>
+          <WebView src={url} />
+        </Box>
 
-      <Box bg="surface-subdued" pb={Platform.OS === 'ios' ? 4 : 0}>
-        {renderOptions}
+        <Box bg="surface-subdued" pb={Platform.OS === 'ios' ? 4 : 0}>
+          {renderOptions}
+        </Box>
+        <Dialog
+          visible={resetDialogVisible}
+          footerMoreView={
+            <Box mb={3}>
+              <Input
+                w="full"
+                value={resetValidationInput}
+                isInvalid={resetAllow != null ? !resetAllow : false}
+                onChangeText={setResetValidationInput}
+              />
+            </Box>
+          }
+          contentProps={{
+            iconType: 'danger',
+            title: intl.formatMessage({ id: 'action__reset_onekey_lite' }),
+            content: intl.formatMessage({
+              id: 'modal__reset_onekey_lite_desc',
+            }),
+          }}
+          footerButtonProps={{
+            onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
+              onClose?.();
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OnekeyLiteReset,
+                params: {
+                  screen: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+                },
+              });
+            },
+            primaryActionTranslationId: 'action__delete',
+            primaryActionProps: {
+              isDisabled: !resetAllow,
+              type: 'destructive',
+            },
+          }}
+          onClose={() => {
+            setResetDialogVisible(false);
+            setResetValidationInput('');
+          }}
+        />
       </Box>
-      <Dialog
-        visible={resetDialogVisible}
-        footerMoreView={
-          <Box mb={3}>
-            <Input
-              w="full"
-              value={resetValidationInput}
-              isInvalid={resetAllow != null ? !resetAllow : false}
-              onChangeText={setResetValidationInput}
-            />
-          </Box>
-        }
-        contentProps={{
-          iconType: 'danger',
-          title: intl.formatMessage({ id: 'action__reset_onekey_lite' }),
-          content: intl.formatMessage({ id: 'modal__reset_onekey_lite_desc' }),
-        }}
-        footerButtonProps={{
-          onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
-            onClose?.();
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyLiteReset,
+      <Select
+        visible={selectBackupWalletVisible}
+        onVisibleChange={setSelectBackupWalletVisible}
+        onChange={(walletId) => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.BackupWallet,
+            params: {
+              screen: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
               params: {
-                screen: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
+                walletId,
+                backupType: 'OnekeyLite',
               },
-            });
-          },
-          primaryActionTranslationId: 'action__delete',
-          primaryActionProps: {
-            isDisabled: !resetAllow,
-            type: 'destructive',
-          },
+            },
+          });
         }}
-        onClose={() => {
-          setResetDialogVisible(false);
-          setResetValidationInput('');
+        title={intl.formatMessage({ id: 'title_select_wallet' })}
+        footer={null}
+        activatable={false}
+        dropdownPosition="right"
+        containerProps={{
+          zIndex: 5,
         }}
+        options={controlledWallets.map((_wallet) => ({
+          label: _wallet.name,
+          description: intl.formatMessage(
+            { id: 'form__str_accounts' },
+            { count: _wallet.accounts.length.toString() },
+          ),
+          value: _wallet.id,
+          tokenProps: {
+            address: _wallet.id,
+          },
+        }))}
+        renderTrigger={() => <Box />}
       />
-    </Box>
+    </>
   );
 };
 

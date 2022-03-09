@@ -70,6 +70,8 @@ export type SelectProps<T = string> = {
   onModalHide?: () => void;
   isTriggerPlain?: boolean;
   activatable?: boolean;
+  visible?: boolean | undefined;
+  onVisibleChange?: (visible: boolean) => void;
 };
 
 export type ChildProps<T> = Pick<
@@ -99,6 +101,8 @@ const defaultProps = {
   dropdownPosition: 'center',
   isTriggerPlain: false,
   activatable: true,
+  visible: undefined,
+  onVisibleChange: null,
 } as const;
 
 function Select<T = string>({
@@ -120,13 +124,17 @@ function Select<T = string>({
   isTriggerPlain,
   activatable,
   dropdownPosition,
+  visible: selectVisible,
+  onVisibleChange,
 }: SelectProps<T>) {
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
   const isSmallScreen = useIsVerticalLayout();
   const toggleVisible = useCallback(() => {
-    setVisible((v) => !v);
-  }, []);
+    const newVisible = !(selectVisible === undefined ? visible : selectVisible);
+    setVisible(newVisible);
+    onVisibleChange?.(newVisible);
+  }, [onVisibleChange, selectVisible, visible]);
 
   const [innerValue, setInnerValue] = useState<T | undefined>(defaultValue);
   const currentActiveValue = value ?? innerValue;
@@ -167,7 +175,7 @@ function Select<T = string>({
 
   const container = useMemo(() => {
     const childContainerProps = {
-      visible,
+      visible: selectVisible === undefined ? visible : selectVisible,
       options,
       toggleVisible,
       dropdownProps,
@@ -189,6 +197,7 @@ function Select<T = string>({
     }
     return <Desktop<T> {...childContainerProps} />;
   }, [
+    selectVisible,
     visible,
     size,
     toggleVisible,
