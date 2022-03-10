@@ -17,13 +17,52 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+
+import { OnekeyLiteModalRoutes } from '../../../routes';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 const RestoreWalletModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const startRestoreModal = (inputPwd: string, callBack: () => void) => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
+      params: {
+        screen: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,
+        params: {
+          pwd: inputPwd,
+          onRetry: () => {
+            callBack?.();
+          },
+        },
+      },
+    });
+  };
+
+  const startRestorePinVerifyModal = () => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLite,
+      params: {
+        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+        params: {
+          callBack: (inputPwd) => {
+            startRestoreModal(inputPwd, () => {
+              console.log('restartRestorePinVerifyModal');
+              startRestorePinVerifyModal();
+            });
+            return true;
+          },
+        },
+      },
+    });
+  };
 
   const content = (
     <Center>
@@ -63,7 +102,9 @@ const RestoreWalletModal: FC = () => {
           flexDirection="row"
           alignItems="center"
           justifyContent="space-between"
-          onPress={() => {}}
+          onPress={() => {
+            startRestorePinVerifyModal();
+          }}
         >
           <HStack space={3} alignItems="center" flex="1">
             <Icon name="OnekeyLiteOutline" />
@@ -73,12 +114,7 @@ const RestoreWalletModal: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          {/* <Icon name="ChevronRightOutline" /> */}
-          <Badge
-            title={intl.formatMessage({ id: 'badge__coming_soon' })}
-            size="sm"
-            type="default"
-          />
+          <Icon name="ChevronRightOutline" />
         </PressableItem>
         {/* Restore with Recovery Seed */}
         <PressableItem

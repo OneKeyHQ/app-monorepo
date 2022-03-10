@@ -116,10 +116,15 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   const formatDate = useFormatDate();
   const { useFormatCurrencyDisplay } = useFormatAmount();
 
-  const renderNFTImages = useCallback(
-    () => (
+  const renderNFTImages = useCallback(() => {
+    const nftList = getTransferNFTList(transaction);
+    if (nftList.length === 0) {
+      return null;
+    }
+
+    return (
       <HStack space={2} mt={2}>
-        {getTransferNFTList(transaction).map((nft, index) => {
+        {nftList.map((nft, index) => {
           const key = `${nft}${index}`;
           if (index < 2) {
             return <NFTView src={nft} key={key} size={24} />;
@@ -138,9 +143,8 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           return null;
         })}
       </HStack>
-    ),
-    [transaction],
-  );
+    );
+  }, [transaction]);
 
   // 转账、收款、合约执行 展示余额
   const displayAmount = useCallback(() => {

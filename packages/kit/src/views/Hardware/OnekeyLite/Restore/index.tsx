@@ -12,14 +12,26 @@ import {
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
+import { useNavigation } from '@onekeyhq/kit/src';
+import engine from '@onekeyhq/kit/src/engine/EngineProvider';
+import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
+import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import {
+  ModalScreenProps,
+  TabRoutes,
+  TabRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
+import { addWallet } from '@onekeyhq/kit/src/store/reducers/wallet';
 
-import { useNavigation } from '../../../..';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 import { OnekeyLiteStackNavigationProp } from '../navigation';
 import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
 
 type NavigationProps = OnekeyLiteStackNavigationProp;
+
+type TabNavigationProps = ModalScreenProps<TabRoutesParams>;
 
 type RouteProps = RouteProp<
   OnekeyLiteRoutesParams,
@@ -29,6 +41,11 @@ type RouteProps = RouteProp<
 const Restore: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
+  const dispatch = useAppDispatch();
+  const toast = useToast();
+
+  const { showVerify } = useLocalAuthenticationModal();
   const { pwd, onRetry } = useRoute<RouteProps>().params;
   const [pinRetryCount, setPinRetryCount] = useState('');
 
@@ -46,6 +63,10 @@ const Restore: FC = () => {
   );
   const [operateType, setOperateType] = useState<OperateType>('guide');
   const [errorCode, setErrorCode] = useState(0);
+
+  const goBackHome = () => {
+    tabNavigation.navigate(TabRoutes.Home);
+  };
 
   const stateNfcSearch = () => {
     setActionPressStyle('basic');
@@ -67,11 +88,11 @@ const Restore: FC = () => {
 
   const stateNfcComplete = () => {
     setActionPressStyle('primary');
-    setActionPressContent(intl.formatMessage({ id: 'action__i_got_it' }));
+    setActionPressContent(intl.formatMessage({ id: 'action__go_to_view' }));
     setActionState(intl.formatMessage({ id: 'title__recovery_completed' }));
     setActionDescription(
       intl.formatMessage({
-        id: 'title__recovery_completed_desc',
+        id: 'content__you_can_use_it_as_a_new_onekey_lite',
       }),
     );
     setOperateType('complete');
@@ -86,7 +107,26 @@ const Restore: FC = () => {
         console.log('state', state);
         if (data) {
           console.log('NFC read data:', data);
-          stateNfcComplete();
+          showVerify(
+            '',
+            async (requestId, password) => {
+              try {
+                const result = await engine.createHDWallet(
+                  password,
+                  data.trim(),
+                );
+                dispatch(addWallet(result));
+                stateNfcComplete();
+              } catch (e) {
+                console.log('error', e);
+                toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+                navigation.goBack();
+              }
+            },
+            () => {
+              navigation.goBack();
+            },
+          );
         } else if (error) {
           console.log('NFC read error', error);
 
@@ -112,6 +152,10 @@ const Restore: FC = () => {
         if (Platform.OS === 'ios') return;
         OnekeyLite.cancel();
         navigation.goBack();
+        break;
+
+      case 'complete':
+        goBackHome();
         break;
 
       default:
