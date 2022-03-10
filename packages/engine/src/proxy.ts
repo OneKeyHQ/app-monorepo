@@ -729,14 +729,7 @@ class ProviderController extends BaseProviderController {
     transactions: Array<string>,
     overwriteParams?: string,
     autoBroadcast = true,
-  ): Promise<
-    Array<{
-      txid: string;
-      rawTx: string;
-      success: boolean;
-      txMeta: Partial<HistoryEntryMeta>;
-    }>
-  > {
+  ): Promise<Array<{ txid: string; rawTx: string; success: boolean }>> {
     const ret = [];
     switch (network.impl) {
       case IMPL_EVM: {
@@ -825,12 +818,7 @@ class ProviderController extends BaseProviderController {
             success = false;
           }
         }
-        const txMeta = {
-          contract: tx.data.length > 0 ? tx.to : '',
-          target: tx.data.length > 0 ? '' : tx.to,
-          value: tx.value.toString(),
-        };
-        ret.push({ txid, rawTx, success, txMeta });
+        ret.push({ txid, rawTx, success });
         break;
       }
       // TODO: other networks
