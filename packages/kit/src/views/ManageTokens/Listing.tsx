@@ -24,8 +24,8 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import { FormatBalance } from '../../components/Format';
 import engine from '../../engine/EngineProvider';
+import { useDebounce } from '../../hooks';
 import { useGeneral } from '../../hooks/redux';
-import useDebounce from '../../hooks/useDebounce';
 import { useManageTokens } from '../../hooks/useManageTokens';
 
 import { useSearchTokens } from './hooks';
@@ -98,10 +98,18 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                     }
                   />
                   <Box ml="3">
-                    <Typography.Body1Strong maxW="56" numberOfLines={2}>
-                      {item.symbol}({item.name})
-                    </Typography.Body1Strong>
-                    <Typography.Body2 maxW="56" numberOfLines={1}>
+                    <Text
+                      maxW={56}
+                      numberOfLines={2}
+                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    >
+                      {item.symbol} ({item.name})
+                    </Text>
+                    <Typography.Body2
+                      maxW="56"
+                      numberOfLines={1}
+                      color="text-subdued"
+                    >
                       <FormatBalance
                         balance={item?.balance ?? '0'}
                         suffix={item.symbol}

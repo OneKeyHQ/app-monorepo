@@ -47,7 +47,7 @@ const EngineApp: FC = ({ children }) => {
 
   useEffect(() => {
     async function main() {
-      const networksFromBE = await engine.listNetworks();
+      const networksFromBE = await engine.listNetworks(false);
       dispatch(updateNetworkMap(networksFromBE));
     }
     main();

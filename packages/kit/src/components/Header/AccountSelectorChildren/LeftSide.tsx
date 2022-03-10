@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/core';
 
 import {
   Box,
+  Center,
+  Divider,
   HStack,
   Icon,
   IconButton,
@@ -100,7 +102,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
   return (
     <VStack borderRightWidth={1} borderRightColor="border-subdued">
       <ScrollView>
-        <VStack space={6} py={2}>
+        <VStack py={2}>
           {/* APP Wallet */}
           <VStack space={2}>
             {wallets
@@ -115,6 +117,12 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   emoji="🌈"
                 />
               ))}
+
+            {wallets.some((wallet) => wallet.type === 'hd') && (
+              <Center pt={2} pb={4}>
+                <Divider bgColor="border-default" w={6} />
+              </Center>
+            )}
           </VStack>
           {/* Hardware Wallet */}
           {/* <VStack space={2}>
@@ -125,6 +133,9 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
               walletType="hd"
               deviceIconUrl={MiniDeviceIcon}
             />
+            <Center pt={2} pb={4}>
+              <Divider bgColor="border-default" w={6} />
+            </Center>
           </VStack> */}
           {/* Imported or watched wallet */}
           <VStack space={2}>

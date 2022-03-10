@@ -12,8 +12,8 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import engine from '../../engine/EngineProvider';
+import { useDebounce } from '../../hooks';
 import { useGeneral } from '../../hooks/redux';
-import useDebounce from '../../hooks/useDebounce';
 import { useManageTokens } from '../../hooks/useManageTokens';
 import { useToast } from '../../hooks/useToast';
 

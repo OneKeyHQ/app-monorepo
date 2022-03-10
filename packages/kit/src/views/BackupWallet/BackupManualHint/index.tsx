@@ -45,7 +45,7 @@ const BackupWalletManualHintView: FC = () => {
       }}
     >
       <Box justifyContent="space-between" flex={1}>
-        <Box>
+        <Box mb={8}>
           <Typography.DisplayMedium>
             {intl.formatMessage({ id: 'backup__manual_backup_what_it_is' })}
           </Typography.DisplayMedium>
@@ -56,7 +56,7 @@ const BackupWalletManualHintView: FC = () => {
             })}
           </Typography.Body1>
           <Box flexDirection="row" mt={4}>
-            <Box mt={1}>
+            <Box>
               <Icon size={24} name="CheckCircleOutline" color="icon-success" />
             </Box>
 
@@ -67,7 +67,7 @@ const BackupWalletManualHintView: FC = () => {
             </Typography.Body1>
           </Box>
           <Box flexDirection="row" mt={4}>
-            <Box mt={1}>
+            <Box>
               <Icon size={24} name="CheckCircleOutline" color="icon-success" />
             </Box>
 

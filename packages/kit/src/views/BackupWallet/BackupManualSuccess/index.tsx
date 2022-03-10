@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Button, Center, Icon, Modal, Typography } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
@@ -21,6 +22,7 @@ const BackupWalletManualSuccessView: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { walletId } = useRoute<RouteProps>().params;
+  const isSmallScreen = useIsVerticalLayout();
 
   return (
     <Modal
@@ -32,26 +34,24 @@ const BackupWalletManualSuccessView: FC = () => {
         }
       }}
     >
-      <Center flex={1}>
-        <Icon
-          name="CheckCircleSolid"
-          size={56}
-          color="surface-success-default"
-        />
+      <Center flex={1} maxW="320px" mx="auto">
+        <Center p={4} rounded="full" bgColor="surface-success-default">
+          <Icon name="CheckOutline" size={24} color="icon-success" />
+        </Center>
 
-        <Typography.DisplayMedium mt={6}>
+        <Typography.DisplayMedium mt={6} textAlign="center">
           {intl.formatMessage({ id: 'dialog__manual_backup_successful_title' })}
         </Typography.DisplayMedium>
 
-        <Typography.Body1 mt={2} color="text-subdued">
+        <Typography.Body1 mt={2} mb={6} color="text-subdued" textAlign="center">
           {intl.formatMessage({ id: 'dialog__manual_backup_successful_desc' })}
         </Typography.Body1>
 
         {!!walletId && (
           <Button
             type="plain"
-            mt={6}
-            leftIconName="EyeOffSolid"
+            leftIconName="EyeSolid"
+            size={isSmallScreen ? 'lg' : 'base'}
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.WalletViewMnemonics,
