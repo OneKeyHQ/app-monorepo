@@ -1,10 +1,11 @@
-/* eslint-disable camelcase */
-
+/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase */
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
@@ -13,11 +14,48 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
+// eslint-disable-next-line import/no-cycle
+import {
+  DappApproveModalRoutes,
+  DappConnectionModalRoutes,
+  DappMulticallModalRoutes,
+  DappSendModalRoutes,
+} from '../../routes';
+import { ModalRoutes } from '../../routes/types';
 import { backgroundClass, permissionRequired } from '../decorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
+
+/**
+ * @type Transaction
+ *
+ * Transaction representation
+ * @property chainId - Network ID as per EIP-155
+ * @property data - Data to pass with this transaction
+ * @property from - Address to send this transaction from
+ * @property gas - Gas to send with this transaction
+ * @property gasPrice - Price of gas with this transaction
+ * @property gasUsed -  Gas used in the transaction
+ * @property nonce - Unique number to prevent replay attacks
+ * @property to - Address to send this transaction to
+ * @property value - Value associated with this transaction
+ */
+export interface Transaction {
+  chainId?: number;
+  data?: string;
+  from: string;
+  gas?: string;
+  gasPrice?: string;
+  gasUsed?: string;
+  nonce?: string;
+  to?: string;
+  value?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  estimatedBaseFee?: string;
+}
 
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
@@ -41,17 +79,170 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   // ----------------------------------------------
-
+  /**
+   * Depends on the data we have, show contract call or send confirm modal to the user
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Multicall.tsx").default} contract modal
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/SendConfirm.tsx").default} send modal
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Approve.tsx").default} approve modal
+   *
+   * Example:
+   * const result = await ethereum.request({
+   *    method: 'eth_sendTransaction',
+   *    params: [
+   *      {
+   *        from: accounts[0],
+   *        to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
+   *        value: '0x0',
+   *        gasLimit: '0x5028',
+   *        gasPrice: '0x2540be400',
+   *        type: '0x0',
+   *      },
+   *    ],
+   *  });
+   */
   @permissionRequired()
-  eth_sendTransaction() {
+  async eth_sendTransaction(
+    request: IJsBridgeMessagePayload,
+    transaction: Transaction,
+  ) {
     if (platformEnv.isExtension) {
       // return extUtils.openApprovalWindow();
     }
-    return Promise.resolve({ txid: '111110000' });
+
+    debugLogger.backgroundApi('eth_sendTransaction', request, transaction);
+    // Parse transaction
+    // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
+    //   transaction;
+
+    const isContractAddress = true;
+    if (isContractAddress) {
+      const isApproval = true;
+
+      if (isApproval) {
+        // Approval modal
+        return this.backgroundApi.serviceDapp?.openApprovalModal({
+          request,
+          screens: [
+            ModalRoutes.DappApproveModal,
+            DappApproveModalRoutes.ApproveModal,
+          ],
+        });
+      }
+
+      // Contract modal
+      return this.backgroundApi.serviceDapp?.openApprovalModal({
+        request,
+        screens: [
+          ModalRoutes.DappMulticallModal,
+          DappMulticallModalRoutes.MulticallModal,
+        ],
+      });
+    }
+
+    // Send transaction confirm modal
+    return this.backgroundApi.serviceDapp?.openApprovalModal({
+      request,
+      screens: [
+        ModalRoutes.DappSendConfirmModal,
+        DappSendModalRoutes.SendConfirmModal,
+      ],
+    });
+  }
+
+  /**
+   * Add token to user wallet
+   * const result = await ethereum.request({
+   *   method: 'wallet_watchAsset',
+   *   params: {
+   *     type: 'ERC20',
+   *     options: {
+   *       address: contract.address,
+   *       symbol: _tokenSymbol,
+   *       decimals: _decimalUnits,
+   *       image: 'https://metamask.github.io/test-dapp/metamask-fox.svg',
+   *     },
+   *   },
+   * });
+   */
+  @permissionRequired()
+  wallet_watchAsset() {
+    return true;
   }
 
   async wallet_getDebugLoggerSettings() {
     const result = (await debugLogger.debug?.load()) || '';
+    return result;
+  }
+
+  // No gonna do in this schedule but this method allow us to open ConnectionModal when connected account has cached
+  // Select permitted accounts, update permissions and return accounts as result to DApp
+  async wallet_requestPermissions(
+    request: IJsBridgeMessagePayload,
+    permissions: Record<string, unknown>,
+  ) {
+    type Permission = {
+      caveats: {
+        type: string;
+        value: string[];
+      }[];
+      // timestamp
+      date: number;
+      // Like a uuid
+      id: string;
+      // origin of the request
+      invoker?: string;
+      parentCapability: string;
+    };
+
+    const permissionRes =
+      await this.backgroundApi.serviceDapp?.openApprovalModal({
+        request,
+        screens: [
+          ModalRoutes.DappConnectionModal,
+          DappConnectionModalRoutes.ConnectionModal,
+        ],
+      });
+
+    // [{
+    //   caveats: [
+    //     {
+    //       type: 'restrictReturnedAccounts';
+    //       value: ['0x53cc3979c8f2670aded85285fc3f06e525cfac74'];
+    //     },
+    //   ];
+    //   date: 1646656119592;
+    //   id: '1OQIHTvV4BgyAu4lISL9I';
+    //   invoker: 'http://localhost:9011';
+    //   parentCapability: 'eth_accounts';
+    // }]
+    const result: Permission[] = Object.keys(permissions).map(
+      (permissionName) => {
+        if (permissionName === 'eth_accounts') {
+          return {
+            caveats: [
+              {
+                type: 'restrictReturnedAccounts',
+                value: permissionRes as string[],
+              },
+            ],
+            date: Date.now(),
+            // TODO: Use new uuid?
+            id: request.id?.toString() ?? (uuid.v4() as string),
+            invoker: request.origin,
+            parentCapability: permissionName,
+          };
+        }
+        // other permissions
+        return {
+          caveats: [],
+          date: Date.now(),
+          id: request.id?.toString() ?? (uuid.v4() as string),
+          invoker: request.origin,
+          parentCapability: permissionName,
+        };
+      },
+    );
+
     return result;
   }
 
@@ -84,6 +275,35 @@ class ProviderApiEthereum extends ProviderApiBase {
       return [];
     }
     return accounts.map((account) => account.address);
+  }
+  /** Sign transaction
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
+   */
+  eth_signTransaction(req: IJsBridgeMessagePayload, ...params: string[]) {
+    if (params[1].length === 66 || params[1].length === 67) {
+      // const rawSignature = await addUnapprovedMessage({
+      //   data: params[1]
+      //   from: params[0]
+      // // dapp metadata
+      //   ...{
+      //     url, title, icon
+      //   },
+      //   origin: req.origin
+      // })
+      // return signature
+      throw new Error('eth_signTransaction not supported yet');
+    }
+    throw web3Errors.rpc.invalidParams(
+      'eth_sign requires 32 byte message hash',
+    );
+  }
+
+  /** Sign unapproved message
+   * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
+   * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
+   */
+  eth_sign() {
+    throw new Error('eth_sign not supported yet');
   }
 
   eth_chainId() {
@@ -123,6 +343,31 @@ class ProviderApiEthereum extends ProviderApiBase {
   eth_subscription() {
     // TODO
     return {};
+  }
+
+  /**
+   * Add new chain to wallet and switch to it, we also need a request modal UI
+   * req: IJsBridgeMessagePayload,
+    {
+      chainId,
+      chainName = null,
+      blockExplorerUrls = null,
+      nativeCurrency = null,
+      rpcUrls,
+    },
+   */
+  wallet_addEthereumChain() {
+    // TODO
+    return false;
+  }
+
+  /**
+   * Add switch to a chain, we also need a request modal UI
+   * req: IJsBridgeMessagePayload, { chainId }
+   */
+  wallet_switchEthereumChain() {
+    // TODO
+    return false;
   }
 
   // ----------------------------------------------

@@ -10,7 +10,10 @@ import createStackNavigator from './createStackNavigator';
 export { DappConnectionModalRoutes };
 
 export type DappConnectionRoutesParams = {
-  [DappConnectionModalRoutes.ConnectionModal]: undefined;
+  [DappConnectionModalRoutes.ConnectionModal]: {
+    origin: string;
+    callback: (agree: boolean) => void;
+  };
 };
 
 const DappConnectionModalNavigator =
