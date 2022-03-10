@@ -1,6 +1,5 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
@@ -27,34 +26,31 @@ type NetworkValues = {
   id: string;
 };
 
-type NetworkCustomViewProps = NativeStackScreenProps<
+type PresetNetwokProps = NativeStackScreenProps<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.CustomNetwork
+  ManageNetworkRoutes.PresetNetwork
 >;
 
-export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
-  const { name, rpcURL, symbol, exploreUrl, id } = route.params;
+export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
+  const { name, rpcURL, chainId, symbol, exploreUrl, id } = route.params;
   const intl = useIntl();
-  const navigation = useNavigation();
   const { info } = useToast();
+  const [rpcUrls, setRpcUrls] = useState<string[]>([]);
   const { serviceNetwork } = backgroundApiProxy;
-  const { control, handleSubmit } = useForm<NetworkValues>({
-    defaultValues: { name, rpcURL, symbol, exploreUrl, id },
+  const { control, handleSubmit, reset } = useForm<NetworkValues>({
+    defaultValues: { name, rpcURL, chainId, symbol, exploreUrl, id },
   });
-  const [removeOpend, setRemoveOpened] = useState(false);
+  const [resetOpened, setResetOpened] = useState(false);
 
-  const onShowRemoveModal = useCallback(() => {
-    setRemoveOpened(true);
+  const onButtonPress = useCallback(() => {
+    setResetOpened(true);
   }, []);
 
-  const onRemove = useCallback(async () => {
-    await serviceNetwork.deleteNetwork(id);
-    setRemoveOpened(false);
-    info(intl.formatMessage({ id: 'transaction__success' }));
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  }, [serviceNetwork, id, info, intl, navigation]);
+  useEffect(() => {
+    serviceNetwork.getPresetRpcEndpoints(id).then((urls: string[]) => {
+      setRpcUrls(urls);
+    });
+  }, [serviceNetwork, id]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
@@ -69,7 +65,9 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
       <Modal
         header={name}
         height="560px"
-        primaryActionProps={{ onPromise: handleSubmit(onSubmit) }}
+        primaryActionProps={{
+          onPromise: handleSubmit(onSubmit),
+        }}
         primaryActionTranslationId="action__save"
         hideSecondaryAction
         scrollViewProps={{
@@ -84,7 +82,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                   })}
                   control={control}
                 >
-                  <Form.Input />
+                  <Form.Input isDisabled />
                 </Form.Item>
                 <Form.Item
                   name="rpcURL"
@@ -95,7 +93,18 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                   })}
                   formControlProps={{ zIndex: 10 }}
                 >
-                  <Form.Input />
+                  <Form.Select
+                    title={intl.formatMessage({
+                      id: 'content__preset_rpc',
+                      defaultMessage: 'Preset PRC URLs',
+                    })}
+                    footer={null}
+                    containerProps={{
+                      zIndex: 999,
+                      padding: 0,
+                    }}
+                    options={rpcUrls.map((url) => ({ label: url, value: url }))}
+                  />
                 </Form.Item>
                 <Form.Item
                   name="chainId"
@@ -105,7 +114,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                   })}
                   control={control}
                 >
-                  <Form.Input placeholder="chain id" />
+                  <Form.Input placeholder="chain id" isDisabled />
                 </Form.Item>
                 <Form.Item
                   name="symbol"
@@ -123,7 +132,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                   }
                   control={control}
                 >
-                  <Form.Input placeholder="ETH" />
+                  <Form.Input placeholder="ETH" isDisabled />
                 </Form.Item>
                 <Form.Item
                   name="exploreUrl"
@@ -141,17 +150,12 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                   }
                   control={control}
                 >
-                  <Form.Input />
+                  <Form.Input isDisabled />
                 </Form.Item>
-                <Button
-                  w="full"
-                  size="lg"
-                  type="outline"
-                  onPress={onShowRemoveModal}
-                >
+                <Button w="full" size="lg" onPress={onButtonPress}>
                   {intl.formatMessage({
-                    id: 'action__remove',
-                    defaultMessage: 'Remove',
+                    id: 'action__reset',
+                    defaultMessage: 'Reset',
                   })}
                 </Button>
               </Form>
@@ -160,33 +164,37 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
         }}
       />
       <Dialog
-        visible={removeOpend}
+        visible={resetOpened}
         contentProps={{
-          iconType: 'danger',
+          iconType: 'info',
           title: intl.formatMessage({
-            id: 'dialog__remove_network_title',
-            defaultMessage: 'Remove Network',
+            id: 'dialog__reset_network_title',
+            defaultMessage: 'Reset Network',
           }),
           content: intl.formatMessage(
             {
-              id: 'dialog__remove_network_desc',
-              defaultMessage: '“{0}” will be removed from your networks list.',
+              id: 'dialog__reset_network_desc',
+              defaultMessage:
+                'Ethereum Mainnet will be revert to the default config',
             },
             { 0: 'Ethereum Mainnet' },
           ),
         }}
         footerButtonProps={{
-          primaryActionTranslationId: 'action__remove',
+          onPrimaryActionPress: ({ onClose }) => {
+            reset(route.params);
+            onClose?.();
+          },
+          primaryActionTranslationId: 'action__reset',
           primaryActionProps: {
-            type: 'destructive',
+            type: 'primary',
             size: 'lg',
-            onPromise: onRemove,
           },
           secondaryActionProps: {
             size: 'lg',
           },
         }}
-        onClose={() => setRemoveOpened(false)}
+        onClose={() => setResetOpened(false)}
       />
     </>
   );

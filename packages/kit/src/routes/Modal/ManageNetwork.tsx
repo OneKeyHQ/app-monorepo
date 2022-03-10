@@ -4,6 +4,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import { AddNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/AddNetwork';
 import { CustomNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/CustomNetwork';
 import { Listing } from '@onekeyhq/kit/src/views/ManageNetworks/Listing';
+import { PresetNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/PresetNetwork';
 import {
   ManageNetworkRoutes,
   ManageNetworkRoutesParams,
@@ -26,6 +27,10 @@ const modalRoutes = [
   {
     name: ManageNetworkRoutes.CustomNetwork,
     component: CustomNetwork,
+  },
+  {
+    name: ManageNetworkRoutes.PresetNetwork,
+    component: PresetNetwork,
   },
 ];
 
