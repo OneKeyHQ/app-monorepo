@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';

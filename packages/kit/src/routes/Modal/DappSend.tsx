@@ -1,10 +1,10 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import SendConfirm from '@onekeyhq/kit/src/views/DappModals/SendConfirm';
 import TransactionEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum DappSendModalRoutes {
   SendConfirmModal = 'SendConfirmModal',

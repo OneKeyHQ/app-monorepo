@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { BackupWalletView } from '@onekeyhq/kit/src/views/BackupWallet';
 import BackupAuthorityWalletVerifyView from '@onekeyhq/kit/src/views/BackupWallet/BackupAuthorityVerify/index';
@@ -51,6 +49,8 @@ export type BackupWalletRoutesParams = {
     walletId: string | null;
   };
 };
+
+import createStackNavigator from './createStackNavigator';
 
 const BackupWalletNavigator = createStackNavigator<BackupWalletRoutesParams>();
 

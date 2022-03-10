@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyLiteChangePin from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/ChangePin';
 import {
@@ -13,6 +11,8 @@ import {
   OnekeyLiteChangePinModalRoutes,
   OnekeyLiteChangePinRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
+
+import createStackNavigator from './createStackNavigator';
 
 const OnekeyLitePinNavigator =
   createStackNavigator<OnekeyLiteChangePinRoutesParams>();

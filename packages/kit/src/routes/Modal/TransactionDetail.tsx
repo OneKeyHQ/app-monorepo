@@ -1,10 +1,10 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { Transaction } from '@onekeyhq/engine/src/types/covalent';
 import TransactionDetails from '@onekeyhq/kit/src/views/TransactionDetails';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum TransactionDetailModalRoutes {
   TransactionDetailModal = 'TransactionDetailModal',

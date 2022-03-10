@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ImportedAccount from '@onekeyhq/kit/src/views/Account/ImportedAccount';
 import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
@@ -18,6 +16,8 @@ import RestoreHardwareWalletDescription from '@onekeyhq/kit/src/views/CreateWall
 import SetupHardware from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupHardware';
 import SetupNewDevice from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupNewDevice';
 import SetupSuccess from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupSuccess';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum CreateWalletModalRoutes {
   CreateWalletModal = 'CreateWalletModal',
