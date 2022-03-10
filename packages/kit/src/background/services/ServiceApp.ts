@@ -15,8 +15,8 @@ import ServiceBase from './ServiceBase';
 class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async resetApp() {
-    const { engine, dispatch } = this.backgroundApi;
-    await this.backgroundApi.persistor.purge();
+    const { engine, dispatch, persistor } = this.backgroundApi;
+    await persistor.purge();
     await engine.resetApp();
     dispatch({ type: 'LOGOUT', payload: undefined });
     await delay(300);
