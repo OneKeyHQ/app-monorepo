@@ -467,6 +467,7 @@ class Engine {
     return fromDBAccountToAccount(a);
   }
 
+  @backgroundMethod()
   private async getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
@@ -498,6 +499,7 @@ class Engine {
     return this.dbApi.addToken({ ...toAdd, ...tokenInfo, ...{ id: tokenId } });
   }
 
+  @backgroundMethod()
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
     // Add an token to account.
     if (
@@ -518,6 +520,7 @@ class Engine {
     return this.dbApi.removeTokenFromAccount(accountId, tokenId);
   }
 
+  @backgroundMethod()
   async preAddToken(
     accountId: string,
     networkId: string,
@@ -585,10 +588,12 @@ class Engine {
     );
   }
 
+  @backgroundMethod()
   getTopTokensOnNetwork(networkId: string, limit = 50): Array<Token> {
     return getPresetTokensOnNetwork(networkId).slice(0, limit);
   }
 
+  @backgroundMethod()
   async searchTokens(
     networkId: string,
     searchTerm: string,
@@ -628,6 +633,7 @@ class Engine {
     );
   }
 
+  @backgroundMethod()
   async prepareTransfer(
     networkId: string,
     accountId: string,
@@ -671,6 +677,7 @@ class Engine {
     return ret as Array<EIP1559Fee>;
   }
 
+  @backgroundMethod()
   async transfer(
     password: string,
     networkId: string,
@@ -1013,11 +1020,13 @@ class Engine {
     throw new NotImplemented();
   }
 
+  @backgroundMethod()
   updatePassword(oldPassword: string, newPassword: string): Promise<void> {
     // Update global password.
     return this.dbApi.updatePassword(oldPassword, newPassword);
   }
 
+  @backgroundMethod()
   async isMasterPasswordSet(): Promise<boolean> {
     const context = await this.dbApi.getContext();
     return (
@@ -1026,6 +1035,7 @@ class Engine {
     );
   }
 
+  @backgroundMethod()
   async verifyMasterPassword(password: string): Promise<boolean> {
     const context = await this.dbApi.getContext();
     if (
