@@ -49,7 +49,7 @@ const RadioBoxGroup: FC<RadioBoxGroupProps> = ({
 }) => (
   <Box w="full" flex={1} {...props} p={4}>
     {children &&
-      children.map((child) => {
+      children.map((child, index) => {
         const { value: childValue, children: childChildren } = child.props;
 
         return React.cloneElement(
@@ -57,6 +57,7 @@ const RadioBoxGroup: FC<RadioBoxGroupProps> = ({
           {
             ...child.props,
             ...radioProps,
+            key: `RadioBox-${index}`,
             isChecked: value === childValue,
             onChange: (checkedValue: IRadioValue) => {
               if (onChange) onChange(checkedValue);

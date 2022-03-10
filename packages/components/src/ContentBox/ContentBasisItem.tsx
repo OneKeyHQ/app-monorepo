@@ -1,22 +1,38 @@
 import React, { FC } from 'react';
 
+import { ColorType } from 'native-base/lib/typescript/components/types';
+
 import Box from '../Box';
 import Divider from '../Divider';
+import Icon from '../Icon';
+import PressableItem from '../Pressable/PressableItem';
 import Typography, { Text } from '../Typography';
 
 import { ContentItemBaseProps } from './Container';
 
 export type ContentItemProps = {
   title: string;
-  value?: string;
-  describe?: string | string[] | null;
+  titleColor?: ColorType | null;
+  describe?: string;
+  describeColor?: ColorType | null;
+  subDescribe?: string | string[] | null;
+  hasArrow?: boolean;
   custom?: React.ReactNode | null;
+  onPress?: (() => void) | null;
 } & ContentItemBaseProps;
 
-const ContentItem: FC<ContentItemProps> = ({
+const defaultProps = {
+  hasArrow: false,
+  valueColor: null,
+} as const;
+
+const Item: FC<ContentItemProps> = ({
   title,
-  value,
+  titleColor,
   describe,
+  describeColor,
+  subDescribe,
+  hasArrow,
   hasDivider,
   children,
   custom,
@@ -32,7 +48,7 @@ const ContentItem: FC<ContentItemProps> = ({
     >
       <Text
         h="100%"
-        color="text-subdued"
+        color={titleColor ?? 'text-subdued'}
         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
       >
         {title}
@@ -45,22 +61,23 @@ const ContentItem: FC<ContentItemProps> = ({
         alignItems="flex-end"
       >
         {!!children && children}
-        {!!value && (
+        {!!describe && (
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             w="100%"
-            color="text-default"
+            color={describeColor ?? 'text-default'}
             textAlign="right"
           >
-            {value}
+            {describe}
           </Text>
         )}
-        {!!describe &&
-          describe.length > 0 &&
-          (describe instanceof Array ? (
-            describe.map((describeItem) => (
+        {!!subDescribe &&
+          subDescribe.length > 0 &&
+          (subDescribe instanceof Array ? (
+            subDescribe.map((describeItem, index) => (
               <>
                 <Typography.Body2
+                  key={`${describeItem}-${index}`}
                   w="100%"
                   color="text-subdued"
                   textAlign="right"
@@ -80,9 +97,26 @@ const ContentItem: FC<ContentItemProps> = ({
           </Box>
         )}
       </Box>
+      {hasArrow && (
+        <Box ml={3}>
+          <Icon name="ChevronRightSolid" size={20} />
+        </Box>
+      )}
     </Box>
     {hasDivider && <Divider />}
   </Box>
 );
 
+const ContentItem: FC<ContentItemProps> = ({ onPress, ...props }) => {
+  if (onPress) {
+    return (
+      <PressableItem px={0} py={0} onPress={onPress}>
+        <Item {...props} />
+      </PressableItem>
+    );
+  }
+  return <Item {...props} />;
+};
+
+ContentItem.defaultProps = defaultProps;
 export default ContentItem;

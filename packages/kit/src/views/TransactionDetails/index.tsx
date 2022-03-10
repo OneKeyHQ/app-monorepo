@@ -178,8 +178,8 @@ const TransactionDetails: FC = () => {
         return (
           <Container.Item
             title={intl.formatMessage({ id: titleKey })}
-            value={accountName}
-            describe={address}
+            describe={accountName}
+            subDescribe={address}
           />
         );
       }
@@ -187,7 +187,7 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
-          value={address}
+          describe={address}
         />
       );
     },
@@ -222,9 +222,9 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
-          value={`${txInfo?.type === TransactionType.Transfer ? '-' : ''}${`${
-            amount.amount ?? '-'
-          } ${amount.unit ?? ''}`}`}
+          describe={`${
+            txInfo?.type === TransactionType.Transfer ? '-' : ''
+          }${`${amount.amount ?? '-'} ${amount.unit ?? ''}`}`}
           custom={
             <Box flexDirection="row" justifyContent="flex-end" flexWrap="wrap">
               {list.map((item) => (
@@ -289,10 +289,10 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: 'content__total' })}
-          value={`${`${transferAmount.amount ?? '-'} ${
+          describe={`${`${transferAmount.amount ?? '-'} ${
             transferAmount.unit ?? ''
           }`} + ${`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}`}
-          describe={`${totalErc20AmountFiat.amount ?? '-'} ${
+          subDescribe={`${totalErc20AmountFiat.amount ?? '-'} ${
             totalErc20AmountFiat.unit ?? ''
           }`}
         />
@@ -312,8 +312,10 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__total' })}
-        value={`${transferAmount.amount ?? '-'} ${transferAmount.unit ?? ''}`}
-        describe={`${totalAmountFiat.amount ?? '-'} ${
+        describe={`${transferAmount.amount ?? '-'} ${
+          transferAmount.unit ?? ''
+        }`}
+        subDescribe={`${totalAmountFiat.amount ?? '-'} ${
           totalAmountFiat.unit ?? ''
         }`}
       />
@@ -349,7 +351,7 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__fee' })}
-        value={`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}
+        describe={`${feeAmount.amount ?? '-'} ${feeAmount.unit ?? ''}`}
       />
     );
   }, [
@@ -382,7 +384,7 @@ const TransactionDetails: FC = () => {
     return (
       <Container.Item
         title={intl.formatMessage({ id: 'content__gas_price' })}
-        value={`${`${Amount.amount ?? '-'} ${Amount.unit ?? ''}`} (${`${
+        describe={`${`${Amount.amount ?? '-'} ${Amount.unit ?? ''}`} (${`${
           feeAmount.amount ?? '-'
         } ${feeAmount.unit ?? ''}`})`}
       />
@@ -460,20 +462,20 @@ const TransactionDetails: FC = () => {
               {txInfo?.type === TransactionType.Swap && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__send' })}
-                  value={`-${getSwapTransfer(txInfo, network?.network)}`}
+                  describe={`-${getSwapTransfer(txInfo, network?.network)}`}
                 />
               )}
 
               {txInfo?.type === TransactionType.Swap && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__receive' })}
-                  value={`${getSwapReceive(txInfo, network?.network)}`}
+                  describe={`${getSwapReceive(txInfo, network?.network)}`}
                 />
               )}
 
               <Container.Item
                 title={intl.formatMessage({ id: 'form__trading_time' })}
-                value={formatDate.formatDate(txInfo?.blockSignedAt ?? '')}
+                describe={formatDate.formatDate(txInfo?.blockSignedAt ?? '')}
               />
 
               {renderTransactionFee}
@@ -487,13 +489,13 @@ const TransactionDetails: FC = () => {
             <Container.Box mt={2}>
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_limit' })}
-                value={txInfo?.gasOffered.toString()}
+                describe={txInfo?.gasOffered.toString()}
               />
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_used' })}
-                value={`${txInfo?.gasSpent?.toString() ?? ''}(${new BigNumber(
-                  txInfo?.gasSpent ?? 0,
-                )
+                describe={`${
+                  txInfo?.gasSpent?.toString() ?? ''
+                }(${new BigNumber(txInfo?.gasSpent ?? 0)
                   .dividedBy(new BigNumber(txInfo?.gasOffered ?? 0))
                   .decimalPlaces(2)
                   .multipliedBy(100)
