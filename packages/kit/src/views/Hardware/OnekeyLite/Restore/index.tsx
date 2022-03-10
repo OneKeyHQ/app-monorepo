@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
 import { useNavigation } from '@onekeyhq/kit/src';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
@@ -24,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { addWallet } from '@onekeyhq/kit/src/store/reducers/wallet';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 import { OnekeyLiteStackNavigationProp } from '../navigation';
@@ -111,7 +111,7 @@ const Restore: FC = () => {
             '',
             async (requestId, password) => {
               try {
-                const result = await engine.createHDWallet(
+                const result = await backgroundApiProxy.engine.createHDWallet(
                   password,
                   data.trim(),
                 );
