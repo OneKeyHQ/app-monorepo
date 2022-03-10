@@ -13,6 +13,7 @@ const DrawerStackNavigator = () => (
   <DrawerStack.Navigator
     screenOptions={{
       headerShown: false,
+      drawerType: 'front',
     }}
     drawerContent={(props) => <AccountSelectorMobile {...props} />}
   >
