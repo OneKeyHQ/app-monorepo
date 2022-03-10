@@ -913,6 +913,7 @@ class Engine {
     }
   }
 
+  @backgroundMethod()
   async signMessage(
     password: string,
     networkId: string,
@@ -935,6 +936,39 @@ class Engine {
     );
     // TODO: add history
     return signatures;
+  }
+
+  @backgroundMethod()
+  async signTransaction(
+    password: string,
+    networkId: string,
+    accountId: string,
+    transactions: Array<string>,
+    overwriteParams?: string,
+    _ref?: string,
+    autoBroadcast = true,
+  ): Promise<Array<string>> {
+    const [credential, network, dbAccount] = await Promise.all([
+      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+      this.getNetwork(networkId),
+      this.dbApi.getAccount(accountId),
+    ]);
+    try {
+      const txsWithStatus = await this.providerManager.signTransactions(
+        credential.seed,
+        password,
+        network,
+        dbAccount,
+        transactions,
+        overwriteParams,
+        autoBroadcast,
+      );
+      // TODO: add history
+      return txsWithStatus.map((tx) => (autoBroadcast ? tx.txid : tx.rawTx));
+    } catch (e) {
+      const { message } = e as { message: string };
+      throw new FailedToTransfer(message);
+    }
   }
 
   // TODO: sign & broadcast.
