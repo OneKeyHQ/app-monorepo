@@ -16,12 +16,10 @@ import {
 import { Network } from '@onekeyhq/engine/src/types/network';
 import {
   useActiveWalletAccount,
-  useAppDispatch,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import engine from '../../engine/EngineProvider';
 import { useManageNetworks } from '../../hooks';
 import {
   ModalRoutes,
@@ -29,10 +27,6 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../routes/types';
-import {
-  changeActiveAccount,
-  changeActiveNetwork,
-} from '../../store/reducers/general';
 import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -45,7 +39,7 @@ const ChainSelector: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { wallet } = useActiveWalletAccount();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
@@ -63,38 +57,34 @@ const ChainSelector: FC = () => {
         }
       });
       if (selectedNetwork && selectedSharedChainName) {
-        dispatch(
-          // backgroundApiProxy.changeChain(chainIdHex);
-          changeActiveNetwork({
-            network: selectedNetwork,
-            sharedChainName: selectedSharedChainName,
-          }),
-        );
+        backgroundApiProxy.serviceNetwork.changeActiveNetwork({
+          network: selectedNetwork,
+          sharedChainName: selectedSharedChainName,
+        });
 
         // @ts-expect-error
         if (activeNetwork?.network.impl === selectedNetwork?.impl) return;
         if (!wallet) return;
         const currentWalletAccounts = wallet.accounts;
         if (!currentWalletAccounts || !currentWalletAccounts?.length) {
-          dispatch(
-            changeActiveAccount({
-              account: null,
-              wallet,
-            }),
-          );
+          backgroundApiProxy.serviceAccount.changeActiveAccount({
+            account: null,
+            wallet,
+          });
           return;
         }
-        const accounts = await engine.getAccounts(currentWalletAccounts, id);
-        const targetAccount = accounts[0];
-        dispatch(
-          changeActiveAccount({
-            account: targetAccount,
-            wallet,
-          }),
+        const accounts = await backgroundApiProxy.engine.getAccounts(
+          currentWalletAccounts,
+          id,
         );
+        const targetAccount = accounts[0];
+        backgroundApiProxy.serviceAccount.changeActiveAccount({
+          account: targetAccount,
+          wallet,
+        });
       }
     },
-    [dispatch, enabledNetworks, wallet, activeNetwork?.network.impl],
+    [enabledNetworks, wallet, activeNetwork?.network.impl],
   );
 
   const options = useMemo(() => {

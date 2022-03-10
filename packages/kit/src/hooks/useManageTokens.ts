@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import engine from '../engine/EngineProvider';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import {
   ValuedToken,
   changeActiveOwnedToken,
@@ -10,12 +10,12 @@ import {
   updateTokensPrice,
 } from '../store/reducers/general';
 
-import { useAppDispatch, useAppSelector } from './redux';
+import { useAppSelector } from './redux';
 
 export const useManageTokens = () => {
   const { activeAccount, activeNetwork, tokens, ownedTokens, tokensPrice } =
     useAppSelector((s) => s.general);
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
 
   const prices = useMemo(() => {
     if (!activeNetwork) {
@@ -62,7 +62,7 @@ export const useManageTokens = () => {
     if (activeAccount && activeNetwork) {
       const networkId = activeNetwork.network.id;
       const accountId = activeAccount.id;
-      engine.getTokens(networkId, accountId).then((list) => {
+      backgroundApiProxy.engine.getTokens(networkId, accountId).then((list) => {
         if (
           networkId !== activeNetwork.network.id ||
           accountId !== activeAccount.id
@@ -80,7 +80,7 @@ export const useManageTokens = () => {
           .filter((i) => i.tokenIdOnNetwork)
           .map((token) => token.tokenIdOnNetwork);
 
-        engine
+        backgroundApiProxy.engine
           .getPrices(activeNetwork.network.id, addressList, true)
           .then((priceData) => {
             if (networkId !== activeNetwork.network.id) {
@@ -89,7 +89,7 @@ export const useManageTokens = () => {
             dispatch(updateTokensPrice(priceData));
           });
 
-        engine
+        backgroundApiProxy.engine
           .getAccountBalance(accountId, networkId, addressList, true)
           .then((balanceData) => {
             if (
@@ -117,7 +117,10 @@ export const useManageTokens = () => {
     if (activeAccount && activeNetwork) {
       dispatch(
         changeActiveTokens(
-          engine.getTopTokensOnNetwork(activeNetwork.network.id, 50),
+          backgroundApiProxy.engine.getTopTokensOnNetwork(
+            activeNetwork.network.id,
+            50,
+          ),
         ),
       );
     }

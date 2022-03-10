@@ -31,6 +31,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import OfflineView from '../Offline';
 
@@ -51,6 +52,15 @@ enum TabEnum {
   Collectibles = 'Collectibles',
   History = 'History',
 }
+
+// offline check url, CORS error in firefox
+// fix ERROR: internetReachability.ts:71 HEAD net::ERR_ABORTED 404 (Not Found)
+NetInfo.configure({
+  reachabilityUrl:
+    platformEnv.isExtension || platformEnv.isDesktop
+      ? 'https://defi.onekey.so/onestep/v1/test'
+      : undefined,
+});
 
 const Home: FC = () => {
   const intl = useIntl();

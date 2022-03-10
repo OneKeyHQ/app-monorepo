@@ -117,20 +117,29 @@ const Me = () => {
               <Icon name="ChevronRightOutline" size={12} />
             </Pressable>
             {platformEnv.isDev && (
-              <>
+              <VStack space="3">
                 <Pressable
                   {...pressableProps}
                   onPress={() => {
-                    backgroundApiProxy.dispatchAction(
-                      dappClearSiteConnection(),
-                    );
+                    backgroundApiProxy.dispatch(dappClearSiteConnection());
+                    backgroundApiProxy.serviceAccount.notifyAccountsChanged();
                   }}
                 >
                   <Typography.Body1>
                     断开 Dapp 连接 ({connections.length})
                   </Typography.Body1>
                 </Pressable>
-              </>
+                <Pressable
+                  {...pressableProps}
+                  onPress={() => {
+                    navigation.push(HomeRoutes.Dev, {
+                      screen: StackRoutes.ComponentLogger,
+                    });
+                  }}
+                >
+                  <Typography.Body1>Logger 设置</Typography.Body1>
+                </Pressable>
+              </VStack>
             )}
             {/* <Pressable
             p="4"

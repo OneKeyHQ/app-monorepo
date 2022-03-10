@@ -17,7 +17,6 @@ import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/Foot
 import { SelectItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import WebView from '@onekeyhq/kit/src/components/WebView';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import {
@@ -26,6 +25,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   OnekeyLiteChangePinModalRoutes,
   OnekeyLiteChangePinRoutesParams,
@@ -68,7 +68,7 @@ const OnekeyLiteDetail: React.FC = () => {
     async function main() {
       if (!wallet) return;
 
-      const wallets = (await engine.getWallets()).filter(
+      const wallets = (await backgroundApiProxy.engine.getWallets()).filter(
         (_wallet) => _wallet.type === 'hd' || _wallet.type === 'imported',
       );
       setControlledWallets(wallets);

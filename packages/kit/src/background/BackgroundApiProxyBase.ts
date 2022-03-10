@@ -1,12 +1,40 @@
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-
+/* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
-import { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
+import { ensureSerializable, throwMethodNotFound } from './utils';
+
+import type { IAppSelector, IPersistor, IStore } from '../store';
+import type { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type {
+  IInjectedProviderNamesStrings,
+  IJsBridgeMessagePayload,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
+  appSelector = {} as IAppSelector;
+
+  persistor = {} as IPersistor;
+
+  store = {} as IStore;
+
+  bridge = {} as JsBridgeBase;
+
+  providers = {};
+
+  // TODO add custom eslint rule to force method name match
+  dispatch = (action: any) => {
+    this.callBackgroundSync('dispatch', action);
+  };
+
+  getState = (): Promise<{ state: any; bootstrapped: boolean }> =>
+    this.callBackground('getState');
+
+  sendForProvider(providerName: IInjectedProviderNamesStrings): any {
+    return this.backgroundApi?.sendForProvider(providerName);
+  }
+
   connectBridge(bridge: JsBridgeBase) {
     this.backgroundApi?.connectBridge(bridge);
   }
@@ -26,16 +54,27 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   }
 
   // init in NON-Ext UI env
-  private backgroundApi?: IBackgroundApi;
+  private readonly backgroundApi?: IBackgroundApi | null = null;
 
   callBackgroundMethod(
     sync = true,
     method: string,
     ...params: Array<any>
   ): any {
+    ensureSerializable(params);
+    let [serviceName, methodName] = method.split('.');
+    if (!methodName) {
+      methodName = serviceName;
+      serviceName = '';
+    }
+    if (serviceName === 'ROOT') {
+      serviceName = '';
+    }
+    const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
     if (platformEnv.isExtension && isExtensionUi()) {
       const data = {
-        method: `${INTERNAL_METHOD_PREFIX}${method}`,
+        service: serviceName,
+        method: backgroundMethodName,
         params,
       };
       if (sync) {
@@ -52,14 +91,18 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
       if (!this.backgroundApi) {
         throw new Error('backgroundApi not found in non-ext env');
       }
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
-      return this.backgroundApi[method].call(this.backgroundApi, ...params);
+      const serviceApi = serviceName
+        ? (this.backgroundApi as any)[serviceName]
+        : this.backgroundApi;
+      if (serviceApi[backgroundMethodName]) {
+        return serviceApi[backgroundMethodName].call(serviceApi, ...params);
+      }
+      throwMethodNotFound(serviceName, backgroundMethodName);
     }
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {
-    return this.callBackgroundMethod(true, method, ...params);
+    this.callBackgroundMethod(true, method, ...params);
   }
 
   callBackground(method: string, ...params: Array<any>): any {

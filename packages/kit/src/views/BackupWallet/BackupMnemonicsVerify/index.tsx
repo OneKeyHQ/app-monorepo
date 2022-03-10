@@ -5,14 +5,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
-import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
-import engine from '../../../engine/EngineProvider';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { updateWallet } from '../../../store/reducers/wallet';
 
@@ -31,7 +30,7 @@ const BackupMnemonicsVerifyView: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { mnemonics, walletId } = useRoute<RouteProps>().params;
 
   const { control, handleSubmit } = useForm<MnemonicsVerifyValues>({
@@ -62,7 +61,9 @@ const BackupMnemonicsVerifyView: FC = () => {
           mnemonics[pickNumbers[1]].toLowerCase() &&
         word3.trim().toLowerCase() === mnemonics[pickNumbers[2]].toLowerCase()
       ) {
-        const wallet = await engine.confirmHDWalletBackuped(walletId);
+        const wallet = await backgroundApiProxy.engine.confirmHDWalletBackuped(
+          walletId,
+        );
         if (!wallet || wallet?.backuped === false)
           throw new Error("Wallet isn't backuped");
 

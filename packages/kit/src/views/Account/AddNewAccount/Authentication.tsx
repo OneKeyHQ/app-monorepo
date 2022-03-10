@@ -5,19 +5,16 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  changeActiveAccount,
-  changeActiveNetwork,
-} from '@onekeyhq/kit/src/store/reducers/general';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
-type EnableLocalAuthenticationProps = {
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+export type EnableLocalAuthenticationProps = {
   password: string;
   walletId: string;
   name: string;
@@ -35,7 +32,7 @@ const HDAccountAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
   name,
   password,
 }) => {
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation();
 
   const wallets = useAppSelector((s) => s.wallet.wallets);
@@ -51,7 +48,7 @@ const HDAccountAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
   );
 
   const createHDAccount = useCallback(async () => {
-    const account = await engine.addHDAccount(
+    const account = await backgroundApiProxy.engine.addHDAccount(
       password,
       walletId,
       network,
@@ -69,19 +66,15 @@ const HDAccountAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
       dispatch(setRefreshTS());
 
       setTimeout(() => {
-        dispatch(
-          changeActiveAccount({
-            account,
-            wallet,
-          }),
-        );
+        backgroundApiProxy.serviceAccount.changeActiveAccount({
+          account,
+          wallet,
+        });
         if (selectedNetwork) {
-          dispatch(
-            changeActiveNetwork({
-              network: selectedNetwork,
-              sharedChainName: selectedNetwork.impl,
-            }),
-          );
+          backgroundApiProxy.serviceNetwork.changeActiveNetwork({
+            network: selectedNetwork,
+            sharedChainName: selectedNetwork.impl,
+          });
         }
       }, 50);
 

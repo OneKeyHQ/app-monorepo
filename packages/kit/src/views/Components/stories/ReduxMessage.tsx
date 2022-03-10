@@ -2,7 +2,8 @@ import React from 'react';
 
 import { Box, Button, Center, Typography } from '@onekeyhq/components';
 
-import { useAppDispatch, useAppSelector } from '../../../hooks/redux';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../hooks/redux';
 import {
   decrement,
   increment,
@@ -12,7 +13,7 @@ import {
 } from '../../../store/reducers/counter';
 
 const ReduxMessage = () => {
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const count = useAppSelector(selectCount);
 
   return (
@@ -29,6 +30,7 @@ const ReduxMessage = () => {
       <Button
         onPress={async () => {
           console.log('async action start!');
+          // eslint-disable-next-line @typescript-eslint/await-thenable
           await dispatch(incrementAsync(10));
           console.log('async action done!');
         }}

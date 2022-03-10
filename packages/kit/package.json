@@ -7,7 +7,6 @@
     "@onekeyfe/connect": "8.7.0-extended",
     "@onekeyhq/components": "*",
     "@reduxjs/toolkit": "^1.6.2",
-    "axios": "^0.24.0",
     "date-fns": "^2.27.0",
     "expo-barcode-scanner": "^11.2.0",
     "expo-clipboard": "2.0.3",
@@ -19,6 +18,8 @@
     "react-native-uuid": "^2.0.1",
     "react-redux": "^7.2.6",
     "redux-persist": "^6.0.0",
+    "redux-logger": "^3.0.6",
+    "@types/redux-logger": "^3.0.9",
     "swr": "^1.1.2"
   },
   "devDependencies": {},

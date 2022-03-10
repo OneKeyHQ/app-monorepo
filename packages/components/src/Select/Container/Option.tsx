@@ -36,21 +36,24 @@ function RenderSingleOption<T>({
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
-  const isSmallScreen = useIsVerticalLayout();
-  const Leading = () => (
-    <>
-      {!!option.tokenProps && (
-        <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
-      )}
-      {!!option.iconProps && (
-        <Icon
-          color={option.destructive ? 'icon-critical' : 'icon-default'}
-          size={isSmallScreen ? 24 : 20}
-          {...option.iconProps}
-        />
-      )}
-    </>
-  );
+  const Leading = () => {
+    // hooks only available in React component
+    const isSmallScreen = useIsVerticalLayout();
+    return (
+      <>
+        {!!option.tokenProps && (
+          <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
+        )}
+        {!!option.iconProps && (
+          <Icon
+            color={option.destructive ? 'icon-critical' : 'icon-default'}
+            size={isSmallScreen ? 24 : 20}
+            {...option.iconProps}
+          />
+        )}
+      </>
+    );
+  };
   const OptionText = () => (
     <Box flex={1}>
       <HStack alignItems="center">
@@ -77,13 +80,17 @@ function RenderSingleOption<T>({
       )}
     </Box>
   );
-  const SelectedIndicator = () => (
-    <NBIcon
-      as={isSmallScreen ? CheckOUtline : CheckSolid}
-      size={{ base: '6', md: '5' }}
-      color="interactive-default"
-    />
-  );
+  const SelectedIndicator = () => {
+    // hooks only available in React component
+    const isSmallScreen = useIsVerticalLayout();
+    return (
+      <NBIcon
+        as={isSmallScreen ? CheckOUtline : CheckSolid}
+        size={{ base: '6', md: '5' }}
+        color="interactive-default"
+      />
+    );
+  };
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable

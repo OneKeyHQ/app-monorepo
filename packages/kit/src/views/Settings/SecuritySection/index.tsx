@@ -13,13 +13,13 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
-import { useAppDispatch, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
-import engine from '../../../engine/EngineProvider';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
 import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
 import { PasswordRoutes } from '../../../routes/Modal/Password';
@@ -28,7 +28,6 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../routes/types';
-import { persistor } from '../../../store';
 import { runtimeUnlock } from '../../../store/reducers/general';
 import { unlock } from '../../../store/reducers/status';
 import { SelectTrigger } from '../SelectTrigger';
@@ -42,7 +41,7 @@ type NavigationProps = NativeStackNavigationProp<
 
 export const SecuritySection = () => {
   const intl = useIntl();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { enableAppLock, enableLocalAuthentication, appLockDuration } =
     useSettings();
   const { isOk } = useLocalAuthentication();
@@ -112,11 +111,9 @@ export const SecuritySection = () => {
     setShowResetModal(true);
   }, []);
   const onReset = useCallback(async () => {
-    persistor.purge();
-    dispatch({ type: 'LOGOUT', payload: undefined });
-    await engine.resetApp();
+    await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
-  }, [dispatch]);
+  }, []);
   const onSetAppLockDuration = useCallback(
     (value: number) => {
       dispatch(setAppLockDuration(value));

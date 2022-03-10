@@ -22,8 +22,8 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
-import engine from '../../engine/EngineProvider';
 import { useDebounce } from '../../hooks';
 import { useGeneral } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
@@ -265,7 +265,10 @@ export const Listing: FC = () => {
 
   const onDelete = useCallback(async () => {
     if (activeAccount && toDeletedToken) {
-      await engine.removeTokenFromAccount(activeAccount.id, toDeletedToken?.id);
+      await backgroundApiProxy.engine.removeTokenFromAccount(
+        activeAccount.id,
+        toDeletedToken?.id,
+      );
     }
     onToggleDeleteDialog(undefined);
     updateTokens();

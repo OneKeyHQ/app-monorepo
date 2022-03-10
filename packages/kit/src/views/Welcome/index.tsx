@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 
 import logo from '../../../assets/logo.png';
-import { useAppDispatch } from '../../hooks/redux';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../hooks/useHelpLink';
 import { CreateWalletModalRoutes } from '../../routes/Modal/CreateWallet';
 import {
@@ -42,7 +42,7 @@ const Welcome = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const onSkip = useCallback(() => {
     dispatch(setBoardingCompleted());
   }, [dispatch]);

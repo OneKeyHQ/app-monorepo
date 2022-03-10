@@ -31,7 +31,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import engine from '../../../engine/EngineProvider';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import TransactionRecord from '../../Components/transactionRecord';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
@@ -90,7 +90,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     async function loadAccount() {
       if (!accountId) return;
 
-      const accounts = await engine.getAccounts([accountId]);
+      const accounts = await backgroundApiProxy.engine.getAccounts([accountId]);
       if (accounts && accounts.length > 0) {
         setAccount(accounts[0]);
       }
@@ -98,7 +98,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     async function loadNetwork() {
       if (!networkId) return;
 
-      const localNetwork = await engine.getNetwork(networkId);
+      const localNetwork = await backgroundApiProxy.engine.getNetwork(
+        networkId,
+      );
       if (localNetwork) {
         setNetwork(localNetwork);
       }
@@ -117,7 +119,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     section,
   }) => (
     <Pressable.Item
-      key={item.txHash}
+      key={`${item.txHash}-${index}`}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
       mb={index === section.data.length - 1 ? 6 : undefined}
@@ -140,7 +142,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 
   const renderSectionHeader: SectionListProps<Transaction>['renderSectionHeader'] =
     ({ section: { title, data } }) => (
-      <Box pb={2} flexDirection="row">
+      <Box key="section-header" pb={2} flexDirection="row">
         <Box flexDirection="row" alignItems="center">
           <Typography.Subheading color="text-subdued">
             {title}
@@ -156,7 +158,8 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
 
   const header = useMemo(
     () => (
-      <>
+      // Warning: Each child in a list should have a unique "key" prop.
+      <Box key="header">
         <Box>{headerView}</Box>
         <Box
           flexDirection="row"
@@ -208,7 +211,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             />
           </Box>
         </Box>
-      </>
+      </Box>
     ),
     [
       account,
@@ -256,9 +259,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     renderSectionHeader,
     ListHeaderComponent: header,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
-    ListFooterComponent: () => <Box h="20px" />,
-    ItemSeparatorComponent: () => <Divider />,
-    keyExtractor: (_: Transaction, index: number) => index.toString(),
+    ListFooterComponent: () => <Box key="footer" h="20px" />,
+    ItemSeparatorComponent: () => <Divider key="separator" />,
+    keyExtractor: (_: Transaction, index: number) => {
+      const key = index.toString();
+      return key;
+    },
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
     onEndReached: handleScrollToEnd,

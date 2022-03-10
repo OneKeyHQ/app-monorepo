@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
 
-import { Box, CheckBox, ScrollView, Typography } from '@onekeyhq/components';
+import { useNavigation } from '@react-navigation/core';
+
+import {
+  Box,
+  Button,
+  CheckBox,
+  ScrollView,
+  Typography,
+} from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 function DebugLoggerSettings() {
@@ -63,11 +71,15 @@ function InjectedSettings() {
   );
 }
 
-const LoggerGallery = () => (
-  <ScrollView p={4} flex="1" bg="background-hovered">
-    <DebugLoggerSettings />
-    <InjectedSettings />
-  </ScrollView>
-);
+const LoggerGallery = () => {
+  const navigation = useNavigation();
+  return (
+    <ScrollView p={4} flex="1" bg="background-hovered">
+      <DebugLoggerSettings />
+      <InjectedSettings />
+      <Button onPress={() => navigation.goBack()}>Home</Button>
+    </ScrollView>
+  );
+};
 
 export default LoggerGallery;

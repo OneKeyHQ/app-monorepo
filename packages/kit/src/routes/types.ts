@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 import * as SubModalRoutesParams from './Modal/types';
+import { ModalRoutes, RootRoutes } from './routesEnum';
 
 import type { StackBasicRoutesParams } from './Dev';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -11,34 +12,7 @@ import type {
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
 
-/** Modal */
-export enum ModalRoutes {
-  CreateAccount = 'CreateAccount',
-  ImportAccount = 'ImportAccount',
-  WatchedAccount = 'WatchAccount',
-  CreateWallet = 'CreateWallet',
-  BackupWallet = 'BackupWallet',
-  ManagerWallet = 'ManagerWallet',
-  WalletViewMnemonics = 'WalletViewMnemonics',
-  Send = 'Send',
-  Receive = 'Receive',
-  SubmitRequest = 'SubmitRequest',
-  HistoryRequest = 'HistoryRequest',
-  TransactionDetail = 'TransactionDetail',
-  OnekeyLite = 'OnekeyLite',
-  OnekeyLiteReset = 'OnekeyLiteReset',
-  OnekeyLiteChangePinInputPin = 'OnekeyLiteChangePinInputPin',
-  DappApproveModal = 'DappApproveModal',
-  DappSendConfirmModal = 'DappSendConfirmModal',
-  DappMulticallModal = 'DappMulticallModal',
-  DappSignatureModal = 'DappSignatureModal',
-  DappConnectionModal = 'DappConnectionModal',
-  Password = 'Password',
-  ManageToken = 'ManageToken',
-  Collectibles = 'Collectibles',
-  EnableLocalAuthentication = ' EnableLocalAuthentication',
-  ManageNetwork = 'ManageNetwork',
-}
+export { ModalRoutes };
 
 export type ModalRoutesParams = {
   [ModalRoutes.CreateAccount]: NavigatorScreenParams<SubModalRoutesParams.CreateAccountRoutesParams>;
@@ -112,11 +86,8 @@ export type HomeRoutesParams = {
 /** HomeStack */
 
 /** Root */
-export enum RootRoutes {
-  Root = 'root',
-  Modal = 'modal',
-  Tab = 'tab',
-}
+
+export { RootRoutes };
 
 /** Root */
 

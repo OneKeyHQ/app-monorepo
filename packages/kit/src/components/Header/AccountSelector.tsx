@@ -46,8 +46,13 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     if (isVerticalLayout) {
       return null;
     }
-    return <AccountSelectorDesktop visible={visible} />;
-  }, [visible, isVerticalLayout]);
+    return (
+      <AccountSelectorDesktop
+        visible={visible}
+        toggleVisible={handleToggleVisible}
+      />
+    );
+  }, [isVerticalLayout, visible, handleToggleVisible]);
 
   return (
     <Box

@@ -7,22 +7,19 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-// import engine from '../engine/EngineProvider';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getActiveWalletAccount } from '../hooks/redux';
-import { DappConnectionModalRoutes } from '../routes';
-import { ModalRoutes } from '../routes/types';
-import extUtils from '../utils/extUtils';
+import { getActiveWalletAccount } from '../../hooks/redux';
+import { backgroundClass, permissionRequired } from '../decorators';
 
-import { permissionRequired } from './decorators';
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
 
+@backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
@@ -48,7 +45,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @permissionRequired()
   eth_sendTransaction() {
     if (platformEnv.isExtension) {
-      return extUtils.openApprovalWindow();
+      // return extUtils.openApprovalWindow();
     }
     return Promise.resolve({ txid: '111110000' });
   }
@@ -66,12 +63,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       return accounts;
     }
 
-    await this.backgroundApi.dappService?.openApprovalModal({
+    await this.backgroundApi.serviceDapp.openConnectionApprovalModal({
       request,
-      screens: [
-        ModalRoutes.DappConnectionModal,
-        DappConnectionModalRoutes.ConnectionModal,
-      ],
     });
     return this.eth_accounts(request);
 
@@ -84,7 +77,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   eth_accounts(request: IJsBridgeMessagePayload) {
-    const accounts = this.backgroundApi.dappService?.getConnectedAccounts({
+    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
     });
     if (!accounts) {
@@ -135,13 +128,14 @@ class ProviderApiEthereum extends ProviderApiBase {
   // ----------------------------------------------
 
   protected async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    console.log('MOCK CHAIN RPC CALL:', request);
-    return Promise.resolve({});
-    // const networkId = `${IMPL_EVM}--${this._getCurrentChainId()}`;
-    // const result = await engine.proxyRPCCall(networkId, request);
-    // return { id: request.id, jsonrpc: request.jsonrpc || '2.0', result };
-    // TODO use metamask error object
-    // throw new Error(`provider method=${request.method} NOT SUPPORTED yet!`);
+    const { networkId } = getActiveWalletAccount();
+    // TODO error if networkId empty, or networkImpl not EVM
+    const result = await this.backgroundApi.engine.proxyRPCCall(
+      networkId,
+      request,
+    );
+    // console.log('rpcCall request:', request, { networkId, result });
+    return result;
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {

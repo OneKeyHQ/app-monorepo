@@ -16,9 +16,8 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import engine from '../../engine/EngineProvider';
-import { useAppDispatch } from '../../hooks/redux';
 import { runtimeUnlock } from '../../store/reducers/general';
 import { unlock } from '../../store/reducers/status';
 
@@ -46,7 +45,7 @@ const UnlockButton: FC<UnlockButtonProps> = ({ onOk, onForget }) => {
 
 const Unlock = () => {
   const intl = useIntl();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const {
     control,
     handleSubmit,
@@ -61,7 +60,9 @@ const Unlock = () => {
   const py = isSmall ? '16' : undefined;
   const onUnlock = useCallback(
     async (values: FieldValues) => {
-      const isOk = await engine.verifyMasterPassword(values.password);
+      const isOk = await backgroundApiProxy.engine.verifyMasterPassword(
+        values.password,
+      );
       if (isOk) {
         dispatch(unlock());
         dispatch(runtimeUnlock());

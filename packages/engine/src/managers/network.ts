@@ -118,6 +118,11 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
 }
 
 function getImplFromNetworkId(networkId: string): string {
+  if (!networkId) {
+    throw new OneKeyInternalError(
+      'getImplFromNetworkId ERROR: networkId required',
+    );
+  }
   const [impl, chainId] = networkId.split(SEPERATOR);
   if (impl && chainId) {
     return impl;

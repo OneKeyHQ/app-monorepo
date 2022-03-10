@@ -1,16 +1,58 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import axios from 'axios';
 import * as SplashScreen from 'expo-splash-screen';
 import { Provider as ReduxProvider } from 'react-redux';
-import { PersistGate } from 'redux-persist/integration/react';
 import { SWRConfig } from 'swr';
 
-import store, { persistor } from '../store';
+import { Box } from '@onekeyhq/components';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { waitForDataLoaded } from '../background/utils';
+import store from '../store';
 
 import EngineApp from './EngineProvider';
 import NavigationApp from './NavigationProvider';
 import ThemeApp from './ThemeProvider';
+
+function WaitBackgroundReady({
+  loading,
+  children,
+}: {
+  loading?: any;
+  children: any;
+}): any {
+  const [ready, setReady] = useState(false);
+  const loadingView =
+    loading ??
+    (process.env.NODE_ENV !== 'production' && <Box>Loading background...</Box>);
+  useEffect(() => {
+    (async () => {
+      await waitForDataLoaded({
+        logName: 'WaitBackgroundReady',
+        data: async () => {
+          const result = await backgroundApiProxy.getState();
+
+          if (result && result.bootstrapped && debugLogger.debug) {
+            store.dispatch({
+              // TODO use consts
+              type: 'REPLACE_WHOLE_STATE',
+              payload: result.state,
+              $isDispatchFromBackground: true,
+            });
+
+            return true;
+          }
+          return false;
+        },
+      });
+      setReady(true);
+    })();
+  }, []);
+
+  return ready ? children : loadingView;
+}
 
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => {
@@ -33,13 +75,14 @@ const KitProvider: FC = () => {
       }}
     >
       <ReduxProvider store={store}>
-        <PersistGate loading={null} persistor={persistor}>
-          <ThemeApp>
+        <ThemeApp>
+          {/* <PersistGate loading={null} persistor={persistor}></PersistGate> */}
+          <WaitBackgroundReady loading={undefined}>
             <EngineApp>
               <NavigationApp />
             </EngineApp>
-          </ThemeApp>
-        </PersistGate>
+          </WaitBackgroundReady>
+        </ThemeApp>
       </ReduxProvider>
     </SWRConfig>
   );

@@ -1,51 +1,68 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
+import type { Engine } from '@onekeyhq/engine';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
-import { IBackgroundApi } from './IBackgroundApi';
-import {
-  PromiseContainerCallbackCreate,
-  PromiseContainerReject,
-  PromiseContainerResolve,
-} from './PromiseContainer';
+
+import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceAccount from './services/ServiceAccount';
+import type ServiceApp from './services/ServiceApp';
+import type ServiceCronJob from './services/ServiceCronJob';
+import type ServiceDapp from './services/ServiceDapp';
+import type ServiceNetwork from './services/ServiceNetwork';
+import type ServiceOnboarding from './services/ServiceOnboarding';
+import type ServicePromise from './services/ServicePromise';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
   implements IBackgroundApi
 {
-  // TODO add custom eslint rule to force method name match
-  dispatchAction(action: any) {
-    return this.callBackgroundSync('dispatchAction', action);
+  _proxyServiceCache = {} as any;
+
+  engine = this._createProxyService('engine') as Engine;
+
+  servicePromise = this._createProxyService('servicePromise') as ServicePromise;
+
+  serviceDapp = this._createProxyService('serviceDapp') as ServiceDapp;
+
+  serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
+
+  serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
+
+  serviceApp = this._createProxyService('serviceApp') as ServiceApp;
+
+  serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
+
+  serviceOnboarding = this._createProxyService(
+    'serviceOnboarding',
+  ) as ServiceOnboarding;
+
+  _createProxyService(name = 'ROOT') {
+    const NOOP = new Proxy(
+      {},
+      {
+        get: (target, prop) => {
+          if (typeof prop === 'string') {
+            const key = `${name}.${prop}`;
+            if (!this._proxyServiceCache[key]) {
+              this._proxyServiceCache[key] = (...args: any) => {
+                debugLogger.backgroundApi('Proxy method call', key, ...args);
+                return this.callBackground(key, ...args);
+              };
+            }
+            return this._proxyServiceCache[key];
+          }
+          return (target as any)[prop];
+        },
+      },
+    );
+    return NOOP;
   }
 
-  getStoreState(): Promise<any> {
-    return this.callBackground('getStoreState');
-  }
+  // ----------------------------------------------
 
-  changeAccounts(address: string): void {
-    return this.callBackgroundSync('changeAccounts', address);
-  }
-
-  changeChain(chainId: string, networkVersion?: string): void {
-    return this.callBackgroundSync('changeChain', chainId, networkVersion);
-  }
-
-  notifyAccountsChanged(): void {
-    return this.callBackground('notifyAccountsChanged');
-  }
-
-  notifyChainChanged(): void {
-    return this.callBackground('notifyChainChanged');
-  }
-
-  createPromiseCallback(params: PromiseContainerCallbackCreate): number {
-    return this.callBackground('createPromiseCallback', params);
-  }
-
-  rejectPromiseCallback(params: PromiseContainerReject): void {
-    return this.callBackground('rejectPromiseCallback', params);
-  }
-
-  resolvePromiseCallback(params: PromiseContainerResolve): void {
-    return this.callBackground('resolvePromiseCallback', params);
+  listNetworks(...args: any) {
+    return this.callBackground('listNetworks', ...args);
   }
 }
 

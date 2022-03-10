@@ -11,7 +11,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
-import engine from '../../engine/EngineProvider';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
@@ -28,7 +28,9 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
     defaultValues: { password: '' },
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
-    const isOk = await engine.verifyMasterPassword(values.password);
+    const isOk = await backgroundApiProxy.engine.verifyMasterPassword(
+      values.password,
+    );
     if (isOk) {
       onOk?.(values.password, false);
     } else {

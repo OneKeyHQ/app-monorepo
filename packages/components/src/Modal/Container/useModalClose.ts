@@ -9,11 +9,18 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
   const navigation = useNavigation();
 
   const close = useCallback(() => {
-    if (!navigation.canGoBack() && platformEnv.isDesktop) {
+    if (
+      !navigation.canGoBack() &&
+      (platformEnv.isDesktop || platformEnv.isExtension)
+    ) {
       console.error('navigation can not go back.');
       // navigate() not working
       navigation.navigate(RootRoutes.Root);
-      window.location.href = '/';
+      window.location.href = '#/';
+      // standalone window reload will cause approve promise fail
+      if (!platformEnv.isExtensionUiStandaloneWindow) {
+        window.location.reload();
+      }
     }
     if (onClose) {
       onClose();

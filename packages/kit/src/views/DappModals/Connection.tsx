@@ -18,7 +18,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
-import { dappSaveSiteConnection } from '../../store/reducers/dapp';
 
 import { DescriptionList, DescriptionListItem } from './DescriptionList';
 import RugConfirmDialog from './RugConfirmDialog';
@@ -75,13 +74,21 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const { account, network } = useActiveWalletAccount();
+  const { account, networkImpl, accountAddress } = useActiveWalletAccount();
   const accountInfo = account as SimpleAccount | null;
   const { origin, data, scope, id } = useDappParams();
   const computedIsRug = isRug(origin);
 
+  // TODO move to DappService
   const getResolveData = useCallback(() => {
-    const address = accountInfo?.address || '';
+    // throw web3Errors.provider.unauthorized();
+    // throw new Error('Testing: some error occur in approval.');
+    if (!networkImpl || !accountAddress) {
+      throw new Error(
+        'Wallet or account not selected, you should create or import one.',
+      );
+    }
+    const address = accountAddress;
     let accounts: string | string[] | { accounts: string[] } = [address].filter(
       Boolean,
     );
@@ -97,21 +104,20 @@ const Connection = () => {
     if (scope === 'solana') {
       accounts = address;
     }
-    backgroundApiProxy.dispatchAction(
-      dappSaveSiteConnection({
-        site: {
-          origin,
-        },
-        networkImpl: network?.network?.impl || '',
-        address,
-      }),
-    );
+    backgroundApiProxy.serviceDapp.saveConnectedAccounts({
+      site: {
+        origin,
+      },
+      networkImpl,
+      address,
+    });
     return accounts;
-  }, [accountInfo, network?.network?.impl, origin, scope]);
+  }, [accountAddress, networkImpl, origin, scope]);
 
   const dappApprove = useDappApproveAction({
     id,
     getResolveData,
+    closeOnError: true,
   });
 
   const [permissionValues, setPermissionValues] = React.useState(
@@ -202,8 +208,9 @@ const Connection = () => {
                   value={permissionValues}
                   accessibilityLabel="choose numbers"
                 >
-                  {MockData.permissions.map((permission) => (
+                  {MockData.permissions.map((permission, index) => (
                     <CheckBox
+                      key={index}
                       value={permission.type}
                       isChecked={permission.required}
                       isDisabled={permission.required}

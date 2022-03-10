@@ -2,6 +2,7 @@ import React, { isValidElement } from 'react';
 
 import Box from '../../Box';
 import Button from '../../Button';
+import useClickDocumentClose from '../../hooks/useClickDocumentClose';
 import IconButton from '../../IconButton';
 import PresenceTransition from '../../PresenceTransition';
 import ScrollView from '../../ScrollView';
@@ -28,6 +29,12 @@ function Desktop<T>({
   dropdownPosition,
   activatable,
 }: ChildProps<T>) {
+  const { domId } = useClickDocumentClose({
+    name: 'SelectDesktop',
+    visible,
+    toggleVisible,
+  });
+
   return (
     <PresenceTransition
       visible={visible}
@@ -41,6 +48,7 @@ function Desktop<T>({
       }}
     >
       <Box
+        nativeID={domId}
         zIndex={999}
         position="absolute"
         width="full"

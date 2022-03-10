@@ -8,6 +8,25 @@ import { PayloadAction } from '@reduxjs/toolkit';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function syncWholeStoreState() {
+  backgroundApiProxy
+    .getState()
+    .then(({ state, bootstrapped }: { state: any; bootstrapped: boolean }) => {
+      console.log('Sync full state from background', bootstrapped, state);
+      // close window if background redux not ready yet.
+      if (!bootstrapped) {
+        window.close();
+      }
+      store.dispatch({
+        // TODO use consts
+        type: 'REPLACE_WHOLE_STATE',
+        payload: state,
+        $isDispatchFromBackground: true,
+      });
+    });
+}
+
 function init() {
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {
     console.log('jsBridgeReceiveHandler Ext-UI', payload);
@@ -20,14 +39,8 @@ function init() {
   window.extJsBridgeUiToBg = bridgeSetup.ui.createUiJsBridge({
     receiveHandler: jsBridgeReceiveHandler,
     onPortConnect() {
-      backgroundApiProxy.getStoreState().then((state: any) => {
-        console.log('state from background', state);
-        store.dispatch({
-          // TODO use consts
-          type: 'REPLACE_WHOLE_STATE',
-          payload: state,
-        });
-      });
+      // use <WaitBackgroundReady /> instead
+      // syncWholeStoreState();
     },
   });
 }

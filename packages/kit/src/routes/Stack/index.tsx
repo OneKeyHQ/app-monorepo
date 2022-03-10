@@ -12,13 +12,9 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useInterval } from '../../hooks';
-import {
-  useAppDispatch,
-  useGeneral,
-  useSettings,
-  useStatus,
-} from '../../hooks/redux';
+import { useGeneral, useSettings, useStatus } from '../../hooks/redux';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
@@ -91,7 +87,7 @@ const Dashboard = () => {
 };
 
 const MainScreen = () => {
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { appLockDuration, enableAppLock } = useSettings();
   const { lastActivity, isUnlock, passwordCompleted } = useStatus();
   const { isRuntimeUnlock } = useGeneral();

@@ -11,7 +11,8 @@ import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useAppDispatch, useStatus } from '../../hooks/redux';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useStatus } from '../../hooks/redux';
 import { setSupportFaceId } from '../../store/reducers/status';
 import ModalStackNavigator from '../Modal';
 import OnboardingScreen from '../Onboarding';
@@ -23,7 +24,7 @@ const RootStack = createStackNavigator();
 const App = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
 
   if (Platform.OS === 'ios') {
     KeyboardManager.setEnable(true);
