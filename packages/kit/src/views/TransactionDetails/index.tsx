@@ -33,8 +33,8 @@ import {
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { formatBalanceDisplay, useFormatAmount } from '../../components/Format';
-import engine from '../../engine/EngineProvider';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useToast } from '../../hooks/useToast';
 import { copyToClipboard } from '../../utils/ClipboardUtils';
@@ -90,12 +90,12 @@ const TransactionDetails: FC = () => {
   useEffect(() => {
     async function getAccounts() {
       const accountIds: string[] = [];
-      (await engine.getWallets()).forEach((_wallet) => {
+      (await backgroundApiProxy.engine.getWallets()).forEach((_wallet) => {
         _wallet.accounts.forEach((_account) => {
           accountIds.push(_account);
         });
       });
-      setAccounts(await engine.getAccounts(accountIds));
+      setAccounts(await backgroundApiProxy.engine.getAccounts(accountIds));
     }
     getAccounts();
     console.log(`Account: ${JSON.stringify(account)}`);

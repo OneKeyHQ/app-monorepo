@@ -9,20 +9,23 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 import { isFunction } from 'lodash';
+import cloneDeep from 'lodash/cloneDeep';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { INTERNAL_METHOD_PREFIX } from './decorators';
-import { IBackgroundApiBridge } from './IBackgroundApi';
-import PromiseContainer from './PromiseContainer';
-import ProviderApiBase from './ProviderApiBase';
-import ProviderApiEthereum from './ProviderApiEthereum';
-import ProviderApiPrivate from './ProviderApiPrivate';
+import store, { appSelector, persistor } from '../store';
 
-function throwMethodNotFound(method: string) {
-  throw new Error(`dapp provider method not support (method=${method})`);
-}
+import {
+  INTERNAL_METHOD_PREFIX,
+  backgroundClass,
+  backgroundMethod,
+  bindThis,
+} from './decorators';
+import { IBackgroundApiBridge } from './IBackgroundApi';
+import { createBackgroundProviders } from './providers/backgroundProviders';
+import ProviderApiBase from './providers/ProviderApiBase';
+import { ensureSerializable, throwMethodNotFound } from './utils';
 
 function isPrivateAllowedOrigin(origin?: string) {
   return (
@@ -45,25 +48,80 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
     extensionUrl.startsWith(origin)
   );
 }
+
+@backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
-  promiseContainer: PromiseContainer = new PromiseContainer();
+  constructor() {
+    this._initBackgroundPersistor();
+  }
+
+  persistor = persistor;
+
+  store = store;
+
+  appSelector = appSelector;
 
   bridge: JsBridgeBase | null = null;
 
   bridgeExtBg: JsBridgeExtBackground | null = null;
 
-  providers: Record<string, ProviderApiBase> = {
-    [IInjectedProviderNames.$private]: new ProviderApiPrivate({
-      backgroundApi: this,
-    }),
-    [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
-      backgroundApi: this,
-    }),
-    // near
-    // conflux
-    // solana
-    // sollet
+  providers: Record<string, ProviderApiBase> = createBackgroundProviders({
+    backgroundApi: this,
+  });
+
+  // @ts-ignore
+  _persistorUnsubscribe: () => void;
+
+  _handlePersistorState = () => {
+    const persistorState = this.persistor.getState();
+    if (persistorState.bootstrapped) {
+      // TODO dispatch persistorState.bootstrapped
+      // this.dispatch('persistor/bootstrapped');
+      if (this._persistorUnsubscribe) {
+        this._persistorUnsubscribe();
+      }
+    }
   };
+
+  _initBackgroundPersistor() {
+    this._persistorUnsubscribe = this.persistor.subscribe(
+      this._handlePersistorState,
+    );
+  }
+
+  // dispatchAction
+  @bindThis()
+  @backgroundMethod()
+  dispatch(action: any) {
+    if (isFunction(action)) {
+      throw new Error(
+        'backgroundApi.dispatch ERROR:  async action is NOT allowed.',
+      );
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    action.$isDispatchFromBackground = true;
+
+    // * update background store
+    // TODO init store from constructor
+    this.store.dispatch(action);
+    // * broadcast action
+    ensureSerializable(action);
+    this.bridgeExtBg?.requestToAllUi({
+      // TODO use consts
+      method: 'dispatchActionBroadcast',
+      params: action,
+    } as IJsonRpcRequest);
+    // * TODO auto sync full state to UI when ui mount
+  }
+
+  // getStoreState
+  @bindThis()
+  @backgroundMethod()
+  getState(): Promise<{ state: any; bootstrapped: boolean }> {
+    const state = cloneDeep(this.store.getState());
+    const { bootstrapped } = this.persistor.getState();
+    return Promise.resolve({ state, bootstrapped });
+  }
 
   connectBridge(bridge: JsBridgeBase) {
     if (platformEnv.isExtension) {
@@ -103,6 +161,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const result = (await provider.handleMethods(
       payload,
     )) as IJsonRpcResponse<any>;
+    ensureSerializable(result);
+    // TODO non rpc result return in some chain provider
     return this.rpcResult(result);
   }
 
@@ -166,18 +226,20 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   // eslint-disable-next-line @typescript-eslint/require-await
   async handleInternalMethods(payload: IJsBridgeMessagePayload): Promise<any> {
     const { method, params } = (payload.data ?? {}) as IJsonRpcRequest;
+    const serviceName = (payload.data as { service?: string })?.service || '';
     const paramsArr = [].concat(params as any);
 
     /* eslint-disable  */
-    // @ts-ignore
-    const methodFunc = this[method];
+    const serviceApi = serviceName ? (this as any)[serviceName] : this;
+    const methodFunc = serviceApi[method];
     if (methodFunc) {
-      // @ts-ignore
-      return methodFunc.call(this, ...paramsArr);
+      const result = await methodFunc.call(serviceApi, ...paramsArr);
+      ensureSerializable(result);
+      return result;
     }
     /* eslint-enable  */
 
-    throwMethodNotFound(method);
+    throwMethodNotFound(serviceName, method);
   }
 
   sendForProviderMaps: Record<string, any> = {};
@@ -202,8 +264,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return;
     }
     if (platformEnv.isExtension) {
-      // TODO scope
       // send to all dapp sites content-script
+
+      // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
       this.bridgeExtBg?.requestToAllCS(scope, data);
     } else {
       // console.log('sendMessagesToInjectedBridge', { data, scope });
@@ -211,7 +274,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         // eslint-disable-next-line no-param-reassign
         data = await data({ origin: this.bridge.remoteInfo.origin });
       }
-      this.bridge.requestSync({ data, scope });
+      ensureSerializable(data);
+      this.bridge.requestSync({ scope, data });
     }
   };
 }

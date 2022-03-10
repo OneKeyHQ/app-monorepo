@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Action,
   Dispatch,
@@ -21,9 +20,14 @@ import {
 } from 'redux-persist';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage, {
+  mockStorage,
+} from '@onekeyhq/shared/src/storage/appStorage';
 
 import { IBackgroundApi } from '../background/IBackgroundApi';
+import { ensureBackgroundObject } from '../background/utils';
 
+import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
@@ -54,7 +58,9 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
   };
   return function (state = {}, action: PayloadAction): any {
     switch (action.type) {
+      // sync background redux to ui redux
       case 'REPLACE_WHOLE_STATE':
+        // return reducers(state, action);
         higherState.state = action.payload as any;
         return higherState.state;
       case 'LOGOUT':
@@ -68,8 +74,10 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
 const persistConfig = {
   key: 'ONEKEY_WALLET',
   version: 1,
-  storage: AsyncStorage,
-  whitelist: ['settings', 'status', 'dapp'],
+  // AsyncStorage not working in ext background (localStorage not available)
+  storage: platformEnv.isExtensionUi ? mockStorage : appStorage,
+  whitelist: ['settings', 'status', 'dapp', 'general'],
+  throttle: platformEnv.isExtension ? 1000 : 0, // default=0
 };
 
 export function makeStore() {
@@ -84,14 +92,15 @@ export function makeStore() {
         serializableCheck: {
           ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
         },
-      }),
+      }).concat(middlewares),
   });
   const persistor = persistStore(store);
   return { store, persistor };
 }
 
 const { store, persistor: persistorStore } = makeStore();
-export const persistor = persistorStore;
+
+export const persistor = ensureBackgroundObject(persistorStore);
 
 export type IAppState = ReturnType<typeof store.getState>;
 
@@ -115,12 +124,16 @@ export async function appDispatch(
   }
 
   if (!backgroundDispatch) {
-    backgroundDispatch = bgApi.dispatchAction.bind(bgApi);
+    backgroundDispatch = bgApi.dispatch.bind(bgApi);
   }
 
   if (isFunction(action)) {
     const asyncAction = action as (dispatch: Dispatch) => Promise<unknown>;
     await asyncAction(backgroundDispatch as Dispatch);
+    console.error(
+      'dispatch async action is NOT allowed, please use backgroundApi instead',
+      action,
+    );
   } else if (backgroundDispatch) {
     backgroundDispatch(action);
   }
@@ -129,6 +142,7 @@ export async function appDispatch(
 export function appSelector(selector: (state: IAppState) => any): any {
   return selector(store.getState());
 }
+export type IAppSelector = typeof appSelector;
 
 if (platformEnv.isDev) {
   // @ts-ignore
@@ -142,8 +156,14 @@ if (platformEnv.isDev) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     s.counter.value = parseFloat(Date.now().toString().slice(5));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    global.$$appDispatch({ payload: s, type: 'REPLACE_WHOLE_STATE' });
+    global.$$appDispatch({
+      type: 'REPLACE_WHOLE_STATE',
+      payload: s,
+      $isDispatchFromBackground: true,
+    });
   };
 }
 
+export type IStore = typeof store;
+export type IPersistor = typeof persistorStore;
 export default store;

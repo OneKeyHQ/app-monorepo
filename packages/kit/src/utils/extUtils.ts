@@ -1,13 +1,19 @@
 type OpenUrlRouteInfo = {
-  route: string;
-  hash?: string;
+  routes: string | string[];
+  params?: any;
 };
 
 function buildExtRouteUrl(
   htmlFile: string,
-  { route, hash = '' }: OpenUrlRouteInfo,
+  { routes, params = {} }: OpenUrlRouteInfo,
 ) {
-  return chrome.runtime.getURL(`/${htmlFile}?route=${route}#${hash}`);
+  /*
+  http://localhost:3001/#/modal/DappConnectionModal/ConnectionModal?id=0&origin=https%3A%2F%2Fmetamask.github.io&scope=ethereum&data=%7B%22method%22%3A%22eth_requestAccounts%22%2C%22jsonrpc%22%3A%222.0%22%7D
+   */
+  // eslint-disable-next-line no-param-reassign
+  routes = ([] as string[]).concat(routes).join('/');
+  const paramsStr = new URLSearchParams(params).toString();
+  return chrome.runtime.getURL(`/${htmlFile}#/${routes}?${paramsStr}`);
 }
 
 function openUrl(url: string) {
@@ -38,18 +44,9 @@ function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
   });
 }
 
-// TODO open only single approval window
-function openApprovalWindow() {
-  return openStandaloneWindow({
-    route: 'component/approval',
-    hash: 'approval-window',
-  });
-}
-
 export default {
   openUrl,
   openUrlInTab,
   openExpandTab,
   openStandaloneWindow,
-  openApprovalWindow,
 };

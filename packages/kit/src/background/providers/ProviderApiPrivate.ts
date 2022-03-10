@@ -10,12 +10,14 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import extUtils from '../utils/extUtils';
+import extUtils from '../../utils/extUtils';
+import { backgroundClass } from '../decorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
 } from './ProviderApiBase';
 
+@backgroundClass()
 class ProviderApiPrivate extends ProviderApiBase {
   public providerName = IInjectedProviderNames.$private;
 
@@ -32,7 +34,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       extUtils.openUrlInTab(url);
     }
     if (platformEnv.isDesktop || platformEnv.isNative) {
-      const bridge = this.bridge as JsBridgeDesktopHost;
+      const bridge = this.backgroundApi.bridge as JsBridgeDesktopHost;
       const webview = bridge.webviewWrapper as IWebViewWrapperRef;
       webview.loadURL(url);
     }

@@ -1,5 +1,4 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { Dispatch } from 'redux';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -37,7 +36,7 @@ export const generalSlice = createSlice({
   name: 'general',
   initialState,
   reducers: {
-    $changeActiveAccount(
+    changeActiveAccount(
       state,
       action: PayloadAction<{ account: Account | null; wallet: Wallet | null }>,
     ) {
@@ -45,7 +44,7 @@ export const generalSlice = createSlice({
       state.activeAccount = account;
       state.activeWallet = wallet;
     },
-    $changeActiveNetwork(
+    changeActiveNetwork(
       state,
       action: PayloadAction<NonNullable<GeneralInitialState['activeNetwork']>>,
     ) {
@@ -94,23 +93,7 @@ export const {
   updateTokensPrice,
 } = generalSlice.actions;
 
-const { $changeActiveAccount, $changeActiveNetwork } = generalSlice.actions;
-
-export const changeActiveAccount =
-  (state: { account: Account | null; wallet: Wallet | null }) =>
-  async (dispatch: Dispatch) => {
-    dispatch($changeActiveAccount(state));
-    // use global var to avoid cycle-deps
-    global.$backgroundApiProxy.notifyAccountsChanged();
-    return Promise.resolve();
-  };
-
-export const changeActiveNetwork =
-  (state: NonNullable<GeneralInitialState['activeNetwork']>) =>
-  async (dispatch: Dispatch) => {
-    dispatch($changeActiveNetwork(state));
-    global.$backgroundApiProxy.notifyChainChanged();
-    return Promise.resolve();
-  };
+export const { changeActiveAccount, changeActiveNetwork } =
+  generalSlice.actions;
 
 export default generalSlice.reducer;

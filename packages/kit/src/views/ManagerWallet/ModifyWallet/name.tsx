@@ -24,7 +24,7 @@ import {
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 
-import engine from '../../../engine/EngineProvider';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks/useToast';
 import { updateWallet } from '../../../store/reducers/wallet';
 
@@ -40,6 +40,7 @@ const ModifyWalletNameViewModal: FC = () => {
   const toast = useToast();
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
+  const { engine } = backgroundApiProxy;
 
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [wallet, setWallet] = useState<Wallet>();
@@ -52,7 +53,7 @@ const ModifyWalletNameViewModal: FC = () => {
       setWallets($wallets);
       setWallet($wallets.find((w) => w.id === walletId));
     });
-  }, [walletId]);
+  }, [engine, walletId]);
 
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { name: '' },

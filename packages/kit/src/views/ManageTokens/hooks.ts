@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import engine from '../../engine/EngineProvider';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { ValuedToken } from '../../store/reducers/general';
 
@@ -24,7 +24,10 @@ export const useSearchTokens = (
       setLoading(true);
       setTokens([]);
       try {
-        const tokens = await engine.searchTokens(networkid, terms);
+        const tokens = await backgroundApiProxy.engine.searchTokens(
+          networkid,
+          terms,
+        );
         setTokens(tokens);
       } finally {
         setLoading(false);

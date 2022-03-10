@@ -4,22 +4,19 @@ import { useIntl } from 'react-intl';
 
 import { Box, Select, Typography } from '@onekeyhq/components';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
-import {
-  useAppDispatch,
-  useAppSelector,
-  useSettings,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setLocale,
   setSelectedFiatMoneySymbol,
   setTheme,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SelectTrigger } from '../SelectTrigger';
 
 export const GenaralSection = () => {
   const intl = useIntl();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { theme, locale, selectedFiatMoneySymbol } = useSettings();
 
   const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);

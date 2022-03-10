@@ -5,18 +5,15 @@ import { useIntl } from 'react-intl';
 
 import { Box, Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
-import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  changeActiveAccount,
-  changeActiveNetwork,
-} from '@onekeyhq/kit/src/store/reducers/general';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setBoardingCompleted } from '@onekeyhq/kit/src/store/reducers/status';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -33,11 +30,18 @@ type WatchedAccountFormValues = {
 const WatchedAccount: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const { control, handleSubmit } = useForm<WatchedAccountFormValues>();
+  const { control, handleSubmit } = useForm<WatchedAccountFormValues>({
+    defaultValues: {
+      address:
+        process.env.NODE_ENV !== 'production'
+          ? '0x76f3f64cb3cd19debee51436df630a342b736c24'
+          : '',
+    },
+  });
   const wallets = useAppSelector((s) => s.wallet.wallets);
   const networks = useAppSelector((s) => s.network.network);
   const navigation = useNavigation<NavigationProps>();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
 
   const defaultWalletName = useMemo(() => {
     const walletList = wallets.filter((wallet) => wallet.type === 'watching');
@@ -51,7 +55,7 @@ const WatchedAccount: FC = () => {
     try {
       const walletList = wallets.filter((wallet) => wallet.type === 'watching');
       const wallet = walletList[0];
-      const createdAccount = await engine.addWatchingAccount(
+      const createdAccount = await backgroundApiProxy.engine.addWatchingAccount(
         data.network,
         data.address,
         data.name || defaultWalletName,
@@ -68,19 +72,15 @@ const WatchedAccount: FC = () => {
       dispatch(setBoardingCompleted());
 
       setTimeout(() => {
-        dispatch(
-          changeActiveAccount({
-            account: createdAccount,
-            wallet,
-          }),
-        );
+        backgroundApiProxy.serviceAccount.changeActiveAccount({
+          account: createdAccount,
+          wallet,
+        });
         if (selectedNetwork) {
-          dispatch(
-            changeActiveNetwork({
-              network: selectedNetwork,
-              sharedChainName: selectedNetwork.impl,
-            }),
-          );
+          backgroundApiProxy.serviceNetwork.changeActiveNetwork({
+            network: selectedNetwork,
+            sharedChainName: selectedNetwork.impl,
+          });
         }
       }, 50);
 

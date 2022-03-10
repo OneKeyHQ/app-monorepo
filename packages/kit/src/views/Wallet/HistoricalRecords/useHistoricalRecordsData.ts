@@ -6,8 +6,8 @@ import useSWRInfinite from 'swr/infinite';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
 
 export type TransactionGroup = { title: string; data: Transaction[] };
@@ -92,7 +92,7 @@ export const useHistoricalRecordsData = ({
   const assetsSwr = useSWRInfinite(getKey, async (params) => {
     let history;
     if (params.tokenId) {
-      history = await engine.getErc20TxHistories(
+      history = await backgroundApiProxy.engine.getErc20TxHistories(
         params.networkId,
         params.accountId,
         params.tokenId,
@@ -100,7 +100,7 @@ export const useHistoricalRecordsData = ({
         params.pageSize,
       );
     } else {
-      history = await engine.getTxHistories(
+      history = await backgroundApiProxy.engine.getTxHistories(
         params.networkId,
         params.accountId,
         params.pageNumber,

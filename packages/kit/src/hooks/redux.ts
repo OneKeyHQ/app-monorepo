@@ -11,7 +11,12 @@ import { appDispatch, appSelector } from '../store';
 import type { IAppState } from '../store';
 import type { Network } from '../store/reducers/network';
 
-export const useAppDispatch = () => appDispatch;
+export const useAppDispatch = () => {
+  console.error(
+    '`useAppDispatch()` is deprecated. use `const { dispatch } = backgroundApiProxy;` instead.',
+  );
+  return appDispatch;
+};
 export const useAppSelector: TypedUseSelectorHook<IAppState> = useSelector;
 
 export type ISelectorBuilder = (selector: typeof useAppSelector) => unknown;

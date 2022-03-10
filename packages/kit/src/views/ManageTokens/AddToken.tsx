@@ -15,7 +15,7 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import engine from '../../engine/EngineProvider';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useGeneral } from '../../hooks/redux';
 import { useToast } from '../../hooks/useToast';
 
@@ -48,7 +48,7 @@ export const AddToken: FC = () => {
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {
-        const res = await engine.preAddToken(
+        const res = await backgroundApiProxy.engine.preAddToken(
           activeAccount?.id,
           activeNetwork.network.id,
           address,
@@ -108,7 +108,10 @@ export const AddToken: FC = () => {
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
       if (token) {
-        await engine.addTokenToAccount(activeAccount?.id, token.id);
+        await backgroundApiProxy.engine.addTokenToAccount(
+          activeAccount?.id,
+          token.id,
+        );
         info(
           intl.formatMessage({
             id: 'msg__token_added',

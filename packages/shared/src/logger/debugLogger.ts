@@ -44,14 +44,15 @@ export type IDebugLogger = {
 
 // https://github.com/debug-js/debug
 const debugLogger: IDebugLogger = {
+  debug: null,
   http: noop,
   jsBridge: noop,
   webview: noop,
   desktopInjected: noop,
   ethereum: noop,
-  backgroundApi: noop,
   extContentScripts: noop,
   extInjected: noop,
+  backgroundApi: noop,
 };
 
 async function initLoggerAsync() {

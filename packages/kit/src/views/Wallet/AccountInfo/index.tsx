@@ -132,7 +132,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
       {platformEnv.isExtensionUiPopup && (
         <IconButton
           onPress={() => {
-            extUtils.openExpandTab({ route: '' });
+            extUtils.openExpandTab({ routes: '' });
           }}
           ml={4}
           name="ArrowsExpandOutline"

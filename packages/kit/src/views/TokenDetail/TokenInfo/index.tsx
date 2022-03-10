@@ -125,7 +125,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         {platformEnv.isExtensionUiPopup && (
           <IconButton
             onPress={() => {
-              extUtils.openExpandTab({ route: '/' });
+              extUtils.openExpandTab({ routes: '' });
             }}
             ml={4}
             name="ArrowsExpandOutline"

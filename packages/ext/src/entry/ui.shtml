@@ -16,5 +16,14 @@
 
 <body class="onekey-body">
 <div id="root"></div>
+<style>
+  /* hack z-index */
+  .css-view-1dbjc4n-0000, .css-1dbjc4n-0000 {
+    z-index: auto;
+  }
+  #animatedComponent-0000 {
+    z-index: 9999 !important;
+  }
+</style>
 </body>
 </html>

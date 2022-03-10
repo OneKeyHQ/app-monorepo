@@ -4,21 +4,16 @@ import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
 import { Box } from '@onekeyhq/components';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
-  useAppDispatch,
   useAppSelector,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { updateFiatMoneyMap } from '@onekeyhq/kit/src/store/reducers/fiatMoney';
-import {
-  changeActiveAccount,
-  changeActiveNetwork,
-} from '@onekeyhq/kit/src/store/reducers/general';
-import { updateNetworkMap } from '@onekeyhq/kit/src/store/reducers/network';
 import { setAutoRefreshTimeStamp } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 const EngineApp: FC = ({ children }) => {
   const networks = useAppSelector((s) => s.network.network);
@@ -26,10 +21,10 @@ const EngineApp: FC = ({ children }) => {
   const { refreshTimeStamp } = useSettings();
   const { account } = useActiveWalletAccount();
 
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
 
   const handleFiatMoneyUpdate = useCallback(async () => {
-    const fiatMoney = await engine.listFiats();
+    const fiatMoney = await backgroundApiProxy.engine.listFiats();
     dispatch(updateFiatMoneyMap(fiatMoney));
   }, [dispatch]);
 
@@ -47,16 +42,20 @@ const EngineApp: FC = ({ children }) => {
 
   useEffect(() => {
     async function main() {
-      const networksFromBE = await engine.listNetworks(false);
-      dispatch(updateNetworkMap(networksFromBE));
+      await backgroundApiProxy.serviceApp.initNetworks();
     }
     main();
   }, [dispatch]);
 
   useEffect(() => {
     async function main() {
-      const walletsFromBE = await engine.getWallets();
+      const walletsFromBE = await backgroundApiProxy.engine.getWallets();
       dispatch(updateWallets(walletsFromBE));
+
+      // waiting activeNetwork loaded
+      if (!activeNetwork) {
+        return;
+      }
 
       if (account) return;
       const hasAccountsWallet = walletsFromBE.find(
@@ -64,38 +63,33 @@ const EngineApp: FC = ({ children }) => {
       );
 
       if (hasAccountsWallet) {
-        engine
+        backgroundApiProxy.engine
           .getAccounts(hasAccountsWallet.accounts, activeNetwork?.network.id)
           .then((accountDetailList) => {
-            dispatch(
-              changeActiveAccount({
-                account: accountDetailList?.[0] ?? null,
-                wallet: hasAccountsWallet,
-              }),
-            );
+            backgroundApiProxy.serviceAccount.changeActiveAccount({
+              account: accountDetailList?.[0] ?? null,
+              wallet: hasAccountsWallet,
+            });
           });
       } else {
         // none wallet, return the first wallet or none
         const wallet = walletsFromBE.find((w) => w.type !== 'watching') ?? null;
         const accountId = wallet?.accounts?.[0];
         if (accountId) {
-          engine
+          backgroundApiProxy.engine
             .getAccounts([accountId], activeNetwork?.network.id)
             .then(([activeAccount]) => {
-              dispatch(
-                changeActiveAccount({
-                  account: activeAccount,
-                  wallet,
-                }),
-              );
+              backgroundApiProxy.serviceAccount.changeActiveAccount({
+                account: activeAccount,
+                wallet,
+              });
             });
         } else {
-          dispatch(
-            changeActiveAccount({
-              account: null,
-              wallet,
-            }),
-          );
+          // TODO async actions to backgroundApi
+          backgroundApiProxy.serviceAccount.changeActiveAccount({
+            account: null,
+            wallet,
+          });
         }
       }
     }
@@ -107,7 +101,10 @@ const EngineApp: FC = ({ children }) => {
     if (activeNetwork?.network) return;
     const sharedChainName = networks[0].impl;
     const defaultNetwork = networks[0];
-    dispatch(changeActiveNetwork({ network: defaultNetwork, sharedChainName }));
+    backgroundApiProxy.serviceNetwork.changeActiveNetwork({
+      network: defaultNetwork,
+      sharedChainName,
+    });
   }, [dispatch, networks, activeNetwork]);
 
   return (

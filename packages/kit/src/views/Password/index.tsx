@@ -13,9 +13,9 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import engine from '../../engine/EngineProvider';
-import { useAppDispatch, useStatus } from '../../hooks/redux';
+import { useStatus } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { useToast } from '../../hooks/useToast';
 import { runtimeUnlock } from '../../store/reducers/general';
@@ -47,7 +47,9 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   });
   const onSubmit = useCallback(
     async (values: FieldValues) => {
-      const isOK = await engine.verifyMasterPassword(values.password);
+      const isOK = await backgroundApiProxy.engine.verifyMasterPassword(
+        values.password,
+      );
       if (isOK) {
         onNext?.(values.password);
       } else {
@@ -121,7 +123,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const { passwordCompleted } = useStatus();
   const toast = useToast();
   const { savePassword } = useLocalAuthentication();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps>();
   const {
     control,
@@ -134,7 +136,10 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   });
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
-      await engine.updatePassword(oldPassword, values.password);
+      await backgroundApiProxy.engine.updatePassword(
+        oldPassword,
+        values.password,
+      );
       await savePassword(values.password);
       dispatch(unlock());
       dispatch(runtimeUnlock());

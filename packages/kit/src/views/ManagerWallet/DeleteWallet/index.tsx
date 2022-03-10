@@ -6,7 +6,7 @@ import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 
-import engine from '../../../engine/EngineProvider';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks/useToast';
 import { removeWalletById } from '../../../store/reducers/wallet';
 
@@ -50,11 +50,12 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
         onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
           setIsLoading(true);
 
-          engine
+          backgroundApiProxy.engine
             .getWallet(walletId)
             .then(async (wallet) => {
-              await engine.removeWallet(walletId, password);
+              await backgroundApiProxy.engine.removeWallet(walletId, password);
               dispatch(removeWalletById(walletId));
+
               toast.info(
                 intl.formatMessage(
                   { id: 'msg__wallet_deleted' },

@@ -28,10 +28,8 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import engine from '@onekeyhq/kit/src/engine/EngineProvider';
 import {
   useActiveWalletAccount,
-  useAppDispatch,
   useAppSelector,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
@@ -48,7 +46,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { changeActiveAccount } from '@onekeyhq/kit/src/store/reducers/general';
 
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
@@ -86,7 +83,7 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 
 const AccountSelectorChildren: FC = () => {
   const intl = useIntl();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const status = useDrawerStatus();
   const isOpen = status === 'open';
   const isVerticalLayout = useIsVerticalLayout();
@@ -206,7 +203,7 @@ const AccountSelectorChildren: FC = () => {
   useEffect(() => {
     async function main() {
       if (!activeWallet) return;
-      const accounts = await engine.getAccounts(
+      const accounts = await backgroundApiProxy.engine.getAccounts(
         activeWallet.accounts,
         activeNetwork?.network?.id,
       );
@@ -236,13 +233,10 @@ const AccountSelectorChildren: FC = () => {
             <Pressable
               zIndex={99}
               onPress={() => {
-                dispatch(
-                  // backgroundApiProxy.changeAccounts(item.address);
-                  changeActiveAccount({
-                    account: item,
-                    wallet: activeWallet,
-                  }),
-                );
+                backgroundApiProxy.serviceAccount.changeActiveAccount({
+                  account: item,
+                  wallet: activeWallet,
+                });
                 setTimeout(() => {
                   navigation.dispatch(DrawerActions.closeDrawer());
                 }, 10);

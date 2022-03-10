@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import engine from '../../engine/EngineProvider';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../hooks';
 import { useGeneral } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
@@ -72,13 +72,16 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
       if (activeNetwork && activeAccount) {
-        const preResult = await engine.preAddToken(
+        const preResult = await backgroundApiProxy.engine.preAddToken(
           activeAccount.id,
           activeNetwork.network.id,
           data.address,
         );
         if (preResult) {
-          engine.addTokenToAccount(activeAccount.id, preResult[1].id);
+          await backgroundApiProxy.engine.addTokenToAccount(
+            activeAccount.id,
+            preResult[1].id,
+          );
           info(
             intl.formatMessage({
               id: 'msg__token_added',
@@ -125,7 +128,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         let preResult;
         setSearching(true);
         try {
-          preResult = await engine.preAddToken(
+          preResult = await backgroundApiProxy.engine.preAddToken(
             activeAccount.id,
             activeNetwork.network.id,
             trimedAddress,

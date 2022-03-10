@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { OnekeyLiteModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekeyLite';
 
-import engine from '../../../engine/EngineProvider';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { BackupType } from '../types';
@@ -79,7 +79,7 @@ const BackupWalletAuthorityVerifyDone: FC<
       if (!password && !backupType) return;
 
       try {
-        const mnemonic = await engine.revealHDWalletMnemonic(
+        const mnemonic = await backgroundApiProxy.engine.revealHDWalletMnemonic(
           walletId,
           password,
         );

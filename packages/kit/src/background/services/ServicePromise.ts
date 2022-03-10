@@ -1,5 +1,9 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
+import { backgroundClass, backgroundMethod } from '../decorators';
+
+import ServiceBase from './ServiceBase';
+
 export type PromiseContainerCallbackCreate = {
   resolve: (value: unknown) => void;
   reject: (value: unknown) => void;
@@ -22,8 +26,10 @@ export type PromiseContainerReject = {
 
 let latestId = -1;
 
-export default class PromiseContainer {
-  constructor() {
+@backgroundClass()
+class ServicePromise extends ServiceBase {
+  constructor({ backgroundApi }: { backgroundApi: any }) {
+    super({ backgroundApi });
     //  this.callbacksExpireTimeout = config.timeout ?? this.callbacksExpireTimeout;
     this._rejectExpiredCallbacks();
   }
@@ -61,6 +67,7 @@ export default class PromiseContainer {
     return latestId;
   }
 
+  @backgroundMethod()
   rejectCallback({ id, error }: PromiseContainerReject) {
     this._processCallback({
       method: 'reject',
@@ -69,6 +76,7 @@ export default class PromiseContainer {
     });
   }
 
+  @backgroundMethod()
   resolveCallback({ id, data }: PromiseContainerResolve) {
     this._processCallback({
       method: 'resolve',
@@ -134,3 +142,5 @@ export default class PromiseContainer {
     }, this.callbacksExpireTimeout);
   }
 }
+
+export default ServicePromise;

@@ -65,16 +65,16 @@ function WebView({
     // Native App needs instance notify
     if (platformEnv.isNative) {
       debugLogger.webview('webview notify changed events1', src);
-      backgroundApiProxy.notifyAccountsChanged();
-      backgroundApiProxy.notifyChainChanged();
+      backgroundApiProxy.serviceAccount.notifyAccountsChanged();
+      backgroundApiProxy.serviceNetwork.notifyChainChanged();
     }
 
     // Desktop needs timeout wait for webview DOM ready
     //  FIX: Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
     const timer = setTimeout(() => {
       debugLogger.webview('webview notify changed events2', src);
-      backgroundApiProxy.notifyAccountsChanged();
-      backgroundApiProxy.notifyChainChanged();
+      backgroundApiProxy.serviceAccount.notifyAccountsChanged();
+      backgroundApiProxy.serviceNetwork.notifyChainChanged();
     }, 1500);
 
     const onMessage = (event: IJsBridgeMessagePayload) => {
@@ -132,7 +132,6 @@ function WebView({
                 onChange={(value) => {
                   setName(`${Date.now()}`);
                   const chainId = value;
-                  backgroundApiProxy.changeChain(chainId);
                 }}
                 options={['0x1', '0x2', '0x3', '0x4', '0x5', '0x2a'].map(
                   (id) => ({
@@ -150,7 +149,6 @@ function WebView({
                 onChange={(value) => {
                   // TODO only notify to Dapp when isConnected?
                   const selectedAddress = value;
-                  backgroundApiProxy.changeAccounts(selectedAddress);
                 }}
                 options={[].map((address: string) => ({
                   value: address,
