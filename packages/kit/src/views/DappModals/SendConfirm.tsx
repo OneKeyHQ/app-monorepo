@@ -318,6 +318,8 @@ const Send = () => {
     wallet,
   ]);
 
+  const dappApprove = useDappApproveAction({ id });
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
