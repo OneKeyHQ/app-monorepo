@@ -44,6 +44,7 @@ type Account = SimpleAccount | MulAddrAccount;
 type ImportableHDAccount = {
   index: number;
   path: string;
+  displayAddress: string;
   mainBalance: string;
 };
 

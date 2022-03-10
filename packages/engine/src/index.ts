@@ -332,13 +332,13 @@ class Engine {
       purpose,
       dbNetwork.curve,
     );
-    const requests = await Promise.all(
-      xpubs.map(async (xpub) =>
-        buildGetBalanceRequestsRaw(
-          await this.providerManager.addressFromXpub(networkId, xpub),
-          [],
-        ),
+    const addresses = await Promise.all(
+      xpubs.map((xpub) =>
+        this.providerManager.addressFromXpub(networkId, xpub),
       ),
+    );
+    const requests = addresses.map((address) =>
+      buildGetBalanceRequestsRaw(address, []),
     );
     const balances = await this.providerManager.getBalances(
       networkId,
@@ -347,6 +347,7 @@ class Engine {
     return balances.map((balance, index) => ({
       index: start + index,
       path: paths[index],
+      displayAddress: addresses[index],
       mainBalance:
         typeof balance === 'undefined'
           ? '0'
