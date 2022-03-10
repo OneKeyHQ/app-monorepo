@@ -18,6 +18,8 @@ import {
 
 const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
 
+const NOBODY = '0x0000000000000000000000000000000000000000';
+
 const TransferEventTopic =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const SwapEventTopic =
@@ -179,13 +181,19 @@ function eventAdapter(
       let event: TransferEvent;
       if (log.rawLogTopics.length !== 0) {
         switch (log.rawLogTopics[0]) {
-          case TransferEventTopic:
-            if (
-              log.rawLogTopics[1].replace('000000000000000000000000', '') !==
-                user &&
-              log.rawLogTopics[2].replace('000000000000000000000000', '') !==
-                user
-            ) {
+          case TransferEventTopic: {
+            const eventFrom = log.rawLogTopics[1].replace(
+              '000000000000000000000000',
+              '',
+            );
+            const eventTo = log.rawLogTopics[2].replace(
+              '000000000000000000000000',
+              '',
+            );
+            if (eventFrom !== user && eventTo !== user) {
+              break;
+            }
+            if (eventFrom === NOBODY || eventTo === NOBODY) {
               break;
             }
 
@@ -207,6 +215,7 @@ function eventAdapter(
               });
             }
             break;
+          }
           case SwapEventTopic:
             isSwap = true;
             break;
