@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
+import { Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 
@@ -37,7 +38,7 @@ const NavigationApp = () => {
     <NavigationContainer
       ref={navigationRef}
       theme={navigationTheme}
-      linking={linking}
+      linking={['ios', 'android'].includes(Platform.OS) ? linking : undefined}
     >
       <Navigator />
     </NavigationContainer>

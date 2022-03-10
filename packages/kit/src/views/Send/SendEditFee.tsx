@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { Column, Row } from 'native-base';
 import { Control } from 'react-hook-form';
@@ -15,6 +15,8 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import { useGas } from '@onekeyhq/kit/src/hooks';
 
 type FeeValues = {
   maxPriorityFee: string;
@@ -92,39 +94,76 @@ const StandardFee = ({
 }: {
   value: string;
   onChange: (v: string) => void;
-}) => (
-  <RadioFee
-    padding="0px"
-    mt={5}
-    items={[
-      {
-        value: '1',
-        title: 'Fast',
-        titleSecond: '30 sec',
-        describe: '64.61 GWEI',
-        describeSecond: 'Max Fee: 127 GWEI',
-      },
-      {
-        value: '2',
-        title: 'Normal',
-        titleSecond: '5 min',
-        describe: '64.61 GWEI',
-        describeSecond: 'Max Fee: 127 GWEI',
-      },
-      {
-        value: '3',
-        title: 'Slow',
-        titleSecond: '10 min',
-        describe: '64.61 GWEI',
-        describeSecond: 'Max Fee: 127 GWEI',
-      },
-    ]}
-    defaultValue="1"
-    name="standard fee group"
-    value={value}
-    onChange={onChange}
-  />
-);
+}) => {
+  const { data: gasList } = useGas();
+  const intl = useIntl();
+
+  const gasItems = useMemo(() => {
+    if (!gasList) return [];
+    const isEIP1559Fee = gasList?.every((gas) => typeof gas === 'object');
+    if (isEIP1559Fee) {
+      const [slow, normal, fast] = gasList as EIP1559Fee[];
+      return [
+        {
+          value: '0',
+          title: intl.formatMessage({ id: 'content__fast' }),
+          titleSecond: '-',
+          describe: `${slow.maxFeePerGas} GWEI`,
+          describeSecond: 'Max Fee: 127 GWEI',
+        },
+        {
+          value: '1',
+          title: intl.formatMessage({ id: 'content__normal' }),
+          titleSecond: '-',
+          describe: `${normal.maxFeePerGas} GWEI`,
+          describeSecond: 'Max Fee: 127 GWEI',
+        },
+        {
+          value: '2',
+          title: intl.formatMessage({ id: 'content__slow' }),
+          titleSecond: '-',
+          describe: `${fast.maxFeePerGas} GWEI`,
+          describeSecond: 'Max Fee: 127 GWEI',
+        },
+      ];
+    }
+    if (gasList.length === 1) {
+      const normal = gasList[0] as string;
+      return [
+        {
+          value: '1',
+          title: intl.formatMessage({ id: 'content__normal' }),
+          titleSecond: '-',
+          describe: `${normal}`,
+          describeSecond: '-',
+        },
+      ];
+    }
+
+    if (gasList.length === 1) {
+      return gasList.map((gas, index) => ({
+        value: index.toString(),
+        title: intl.formatMessage({ id: 'content__normal' }),
+        titleSecond: '-',
+        describe: gas as string,
+        describeSecond: '-',
+      }));
+    }
+    return [];
+  }, [gasList, intl]);
+
+  return (
+    <RadioFee
+      padding="0px"
+      mt={5}
+      items={gasItems}
+      defaultValue="1"
+      name="standard fee group"
+      value={value}
+      onChange={onChange}
+    />
+  );
+};
 
 const EditFeeTabs = ({
   onChange,
@@ -155,6 +194,7 @@ const EditFeeTabs = ({
 const TransactionEditFee = ({ ...rest }) => {
   const { trigger } = rest;
   const intl = useIntl();
+
   const [feeType, setFeeType] = useState<FeeType>(FeeType.standard);
   const [radioValue, setValue] = useState('1');
 

@@ -10,6 +10,8 @@ import BackupShowMnemonicsView from '@onekeyhq/kit/src/views/BackupWallet/Backup
 import BackupWalletWarningView from '@onekeyhq/kit/src/views/BackupWallet/BackupWarning/index';
 import { BackupType } from '@onekeyhq/kit/src/views/BackupWallet/types';
 
+import createStackNavigator from './createStackNavigator';
+
 export enum BackupWalletModalRoutes {
   BackupWalletModal = 'BackupWalletModal',
   BackupWalletAuthorityVerifyModal = 'BackupWalletAuthorityVerifyModal',
@@ -49,8 +51,6 @@ export type BackupWalletRoutesParams = {
     walletId: string | null;
   };
 };
-
-import createStackNavigator from './createStackNavigator';
 
 const BackupWalletNavigator = createStackNavigator<BackupWalletRoutesParams>();
 

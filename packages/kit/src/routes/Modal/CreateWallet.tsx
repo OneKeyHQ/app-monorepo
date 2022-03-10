@@ -41,7 +41,9 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateWalletModal]: undefined;
   [CreateWalletModalRoutes.ConnectHardwareModal]: undefined;
   [CreateWalletModalRoutes.AppWalletModal]: undefined;
-  [CreateWalletModalRoutes.AppWalletDoneModal]: undefined;
+  [CreateWalletModalRoutes.AppWalletDoneModal]:
+    | { mnemonic?: string }
+    | undefined;
   [CreateWalletModalRoutes.RestoreWalletModal]: undefined;
   [CreateWalletModalRoutes.RestoreFromMnemonicModal]: undefined;
   [CreateWalletModalRoutes.SetupSuccessModal]?: { deviceName?: string };

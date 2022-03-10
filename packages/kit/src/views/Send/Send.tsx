@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Column, Row } from 'native-base';
@@ -7,22 +7,23 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Divider,
   Form,
   Icon,
-  IconButton,
   Modal,
   Pressable,
-  Select,
-  Stack,
   Text,
   Typography,
   useForm,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { SelectItem } from '@onekeyhq/components/src/Select';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 
-import { SendRoutes, SendRoutesParams } from './types';
+import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
+
+import { SendParams, SendRoutes, SendRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -32,77 +33,102 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 type TransactionValues = {
-  username: string;
-  email: string;
-  description: string;
-  agreement: boolean;
-  isDev: boolean;
-  options: string;
-};
-
-type AssetType = {
+  value: string;
+  to: string;
+  gasPrice: string;
   token: string;
-  name: string;
-  balance: string;
 };
-const AssetMockData: AssetType[] = [
-  {
-    token: 'eth',
-    name: 'ETH',
-    balance: '2.11014',
-  },
-  {
-    token: 'usdt',
-    name: 'USDT',
-    balance: '2.11014',
-  },
-  {
-    token: 'btc',
-    name: 'BTC',
-    balance: '2.11014',
-  },
-];
 
-function selectOptionData() {
-  const options = [];
-  for (let index = 0; index < AssetMockData.length; index += 1) {
-    const asset = AssetMockData[index];
-    options.push({
-      label: asset.name,
-      value: asset,
-      description: `Balance:${asset.balance}`,
-      tokenProps: {
-        chain: asset.token,
-      },
-    });
-  }
-
-  return options;
-}
+type Option = SelectItem<string>;
 
 const Transaction = () => {
   const navigation = useNavigation<NavigationProps>();
   const { control, handleSubmit } = useForm<TransactionValues>();
-  const onSubmit = handleSubmit((data) => console.log(data));
+
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-
-  const labelAddon = (
-    <Stack direction="row" space="2">
-      <IconButton type="plain" size="xs" name="BookOpenSolid" />
-      <IconButton type="plain" size="xs" name="ClipboardSolid" />
-      <IconButton type="plain" size="xs" name="ScanSolid" />
-    </Stack>
-  );
+  const { account } = useActiveWalletAccount();
+  const { activeNetwork } = useGeneral();
+  const { nativeToken, accountTokens } = useManageTokens();
+  const [selectOption, setSelectOption] = useState<Option>({} as Option);
 
   const isSmallScreen = useIsVerticalLayout();
+
+  const options = useMemo(
+    () =>
+      accountTokens.map((token) => ({
+        label: token?.symbol ?? '-',
+        value: token?.id,
+        description: `${intl.formatMessage({ id: 'content__balance' })} ${
+          token?.balance ?? ''
+        }`,
+        tokenProps: {
+          src: token?.logoURI,
+        },
+      })),
+    [accountTokens, intl],
+  );
+
+  const getGasLimit = useCallback(async (sendParams: SendParams) => {
+    const gasLimit = await backgroundApiProxy.engine.prepareTransfer(
+      sendParams.network.id,
+      sendParams.account.id,
+      sendParams.to,
+      sendParams.value,
+      sendParams.token.idOnNetwork,
+    );
+    return gasLimit;
+  }, []);
+
+  const onSubmit = handleSubmit(async (data) => {
+    const tokenConfig =
+      accountTokens.find((token) => token.id === data.token) ?? nativeToken;
+    console.log(account, tokenConfig);
+    if (!account || !tokenConfig) return;
+
+    const params = {
+      to: data.to,
+      account: {
+        id: account.id,
+        name: account.name,
+        address: (account as { address: string }).address,
+      },
+      network: {
+        id: activeNetwork?.network.id ?? '',
+        name: activeNetwork?.network.name ?? '',
+      },
+      value: data.value,
+      token: {
+        idOnNetwork: tokenConfig.tokenIdOnNetwork,
+        logoURI: tokenConfig.logoURI,
+        name: tokenConfig.name,
+        symbol: tokenConfig.symbol,
+      },
+      gasPrice: '5',
+      gasLimit: '21000',
+    };
+
+    try {
+      const gasLimit = await getGasLimit(params);
+
+      params.gasLimit = gasLimit;
+    } catch (e) {
+      console.log(e);
+    }
+
+    navigation.navigate(SendRoutes.SendConfirm, params);
+  });
+
+  useEffect(() => {
+    if (Array.isArray(options) && options?.length) setSelectOption(options[0]);
+  }, [options]);
 
   return (
     <Modal
       hidePrimaryAction
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
-      headerDescription="Ethereum"
+      headerDescription={activeNetwork?.network.name ?? ''}
       height="576px"
       footer={
         <Column>
@@ -120,18 +146,15 @@ const Transaction = () => {
                 {intl.formatMessage({ id: 'content__total' })}
               </Typography.Body2>
               <Typography.Body1Strong>0 ETH</Typography.Body1Strong>
-              <Typography.Caption color="text-subdued">
+              {/* <Typography.Caption color="text-subdued">
                 3 min
-              </Typography.Caption>
+              </Typography.Caption> */}
             </Column>
             <Button
               type="primary"
               size={isSmallScreen ? 'xl' : 'base'}
               isDisabled={false}
-              onPress={() => {
-                onSubmit();
-                navigation.navigate(SendRoutes.SendConfirm);
-              }}
+              onPromise={onSubmit}
             >
               {intl.formatMessage({ id: 'action__continue' })}
             </Button>
@@ -144,9 +167,9 @@ const Transaction = () => {
             <Form>
               <Form.Item
                 label={intl.formatMessage({ id: 'action__send' })}
-                labelAddon={labelAddon}
+                labelAddon={['paste']}
                 control={control}
-                name="description"
+                name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
                   required: intl.formatMessage({ id: 'form__address_invalid' }),
@@ -158,7 +181,7 @@ const Transaction = () => {
                   borderRadius="12px"
                 />
               </Form.Item>
-              <Box zIndex={999}>
+              {/* <Box zIndex={999}>
                 <Typography.Body2Strong mb="4px">
                   {intl.formatMessage({ id: 'content__asset' })}
                 </Typography.Body2Strong>
@@ -167,16 +190,33 @@ const Transaction = () => {
                     w: 'full',
                   }}
                   headerShown={false}
-                  defaultValue={AssetMockData[0]}
-                  options={selectOptionData()}
+                  onChange={(_, item) => setSelectOption(item)}
+                  value={selectOption?.value}
+                  options={options}
                   footer={null}
                 />
-              </Box>
+              </Box> */}
+              <Form.Item
+                control={control}
+                name="token"
+                label={intl.formatMessage({ id: 'content__asset' })}
+                formControlProps={{ zIndex: 10 }}
+              >
+                <Form.Select
+                  containerProps={{
+                    w: 'full',
+                  }}
+                  headerShown={false}
+                  options={options}
+                  defaultValue={nativeToken?.id}
+                  footer={null}
+                />
+              </Form.Item>
               <Form.Item
                 formControlProps={{ width: 'full' }}
                 label={intl.formatMessage({ id: 'content__amount' })}
                 control={control}
-                name="username"
+                name="value"
                 defaultValue=""
                 rules={{
                   required: intl.formatMessage({ id: 'form__amount_invalid' }),
@@ -188,16 +228,16 @@ const Transaction = () => {
                   rightCustomElement={
                     <>
                       <Typography.Body2 mr={4} color="text-subdued">
-                        ETH
+                        {selectOption?.label ?? '-'}
                       </Typography.Body2>
-                      <Divider
+                      {/* <Divider
                         orientation="vertical"
                         bg="border-subdued"
                         h={5}
                       />
                       <Button type="plain">
                         {intl.formatMessage({ id: 'action__max' })}
-                      </Button>
+                      </Button> */}
                     </>
                   }
                 />
@@ -231,12 +271,12 @@ const Transaction = () => {
                         >
                           Normal (64.11 Gwei)
                         </Text>
-                        <Typography.Body2 color="text-subdued">
+                        {/* <Typography.Body2 color="text-subdued">
                           0.001694 ETH ~ 0.001977 ETH
-                        </Typography.Body2>
-                        <Typography.Body2 color="text-subdued">
+                        </Typography.Body2> */}
+                        {/* <Typography.Body2 color="text-subdued">
                           3 min
-                        </Typography.Body2>
+                        </Typography.Body2> */}
                       </Column>
                       <Icon size={20} name="PencilSolid" />
                     </Row>

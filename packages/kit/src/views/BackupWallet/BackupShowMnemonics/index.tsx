@@ -117,12 +117,20 @@ const BackupShowMnemonicsView: FC = () => {
             >
               <VStack space={2} flex={1}>
                 {arrayLeftHalf?.map((word, index) => (
-                  <Mnemonic index={index + 1} word={word} />
+                  <Mnemonic
+                    index={index + 1}
+                    word={word}
+                    key={`${word}${index}`}
+                  />
                 ))}
               </VStack>
               <VStack space={2} flex={1} ml={6}>
                 {arrayRightHalf?.map((word, index) => (
-                  <Mnemonic index={index + halfWayThough + 1} word={word} />
+                  <Mnemonic
+                    index={index + halfWayThough + 1}
+                    word={word}
+                    key={`${word}${index}`}
+                  />
                 ))}
               </VStack>
             </Box>

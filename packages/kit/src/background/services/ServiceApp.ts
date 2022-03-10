@@ -38,9 +38,15 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHDWallet({ password }: { password: string }) {
+  async createHDWallet({
+    password,
+    mnemonic,
+  }: {
+    password: string;
+    mnemonic?: string;
+  }) {
     const { dispatch, engine, serviceAccount } = this.backgroundApi;
-    const wallet = await engine.createHDWallet(password);
+    const wallet = await engine.createHDWallet(password, mnemonic);
     const walletsFromBE = await engine.getWallets();
     dispatch(updateWallets(walletsFromBE));
     dispatch(setBoardingCompleted());
