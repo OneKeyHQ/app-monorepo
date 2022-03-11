@@ -1,23 +1,17 @@
-import { useCallback } from 'react';
+import { makeSelector } from './redux';
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { updateNetworkMap } from '../store/reducers/network';
+import type { Network } from '../store/reducers/network';
 
-import { useAppSelector } from './redux';
-
-export const useManageNetworks = () => {
-  const { dispatch, engine } = backgroundApiProxy;
-  const allNetworks = useAppSelector((s) => s.network.network) ?? [];
-  const updateNetworks = useCallback(
-    async (networks: [string, boolean][]) => {
-      const res = await engine.updateNetworkList(networks);
-      dispatch(updateNetworkMap(res));
-    },
-    [dispatch, engine],
-  );
-  return {
-    allNetworks,
-    enabledNetworks: allNetworks.filter((network) => network.enabled),
-    updateNetworks,
-  };
+export type IManageNetworks = {
+  allNetworks: Network[];
+  enabledNetworks: Network[];
 };
+export const { use: useManageNetworks, get: getManageNetworks } =
+  makeSelector<IManageNetworks>((selector) => {
+    const allNetworks = selector((s) => s.network.network) ?? [];
+    const enabledNetworks = allNetworks.filter((network) => network.enabled);
+    return {
+      allNetworks,
+      enabledNetworks,
+    };
+  });

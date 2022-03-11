@@ -2,6 +2,7 @@ import {
   GeneralInitialState,
   changeActiveNetwork,
 } from '../../store/reducers/general';
+import { updateNetworkMap } from '../../store/reducers/network';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
@@ -26,6 +27,13 @@ class ServiceNetwork extends ServiceBase {
         });
       },
     );
+  }
+
+  @backgroundMethod()
+  async updateNetworks(networks: [string, boolean][]) {
+    const { engine, dispatch } = this.backgroundApi;
+    const res = await engine.updateNetworkList(networks);
+    dispatch(updateNetworkMap(res));
   }
 }
 

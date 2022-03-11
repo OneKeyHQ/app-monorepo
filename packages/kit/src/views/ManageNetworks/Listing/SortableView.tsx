@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../hooks';
 
 type SortableViewProps = {
@@ -78,7 +79,8 @@ type RenderItemProps = { item: Network; drag: () => void };
 export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const intl = useIntl();
   const { size } = useUserDevice();
-  const { allNetworks, updateNetworks } = useManageNetworks();
+  const { serviceNetwork } = backgroundApiProxy;
+  const { allNetworks } = useManageNetworks();
   const [list, setList] = useState<Network[]>(allNetworks ?? []);
 
   const [networksIdMap] = useState<Record<string, boolean>>(() => {
@@ -109,9 +111,11 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   );
 
   const onPromise = useCallback(async () => {
-    await updateNetworks(list.map((item) => [item.id, networksIdMap[item.id]]));
+    await serviceNetwork.updateNetworks(
+      list.map((item) => [item.id, networksIdMap[item.id]]),
+    );
     onPress?.();
-  }, [networksIdMap, updateNetworks, list, onPress]);
+  }, [serviceNetwork, list, onPress, networksIdMap]);
 
   const onClose = useCallback(() => false, []);
 
