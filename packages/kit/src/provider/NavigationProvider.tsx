@@ -38,7 +38,8 @@ const NavigationApp = () => {
     <NavigationContainer
       ref={navigationRef}
       theme={navigationTheme}
-      linking={['ios', 'android'].includes(Platform.OS) ? linking : undefined}
+      linking={linking}
+      // linking={['ios', 'android'].includes(Platform.OS) ? linking : undefined}
     >
       <Navigator />
     </NavigationContainer>
