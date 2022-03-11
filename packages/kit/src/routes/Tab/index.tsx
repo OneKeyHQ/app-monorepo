@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { memo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -24,24 +25,24 @@ export const tabRoutes = [
     tabBarIcon: () => 'HomeOutline',
     translationId: 'title__home',
   },
-  {
-    name: TabRoutes.Swap,
-    component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalOutline',
-    translationId: 'title__swap',
-  },
-  {
-    name: TabRoutes.Portfolio,
-    component: PortfolioScreen,
-    tabBarIcon: () => 'TrendingUpOutline',
-    translationId: 'title__portfolio',
-  },
-  {
-    name: TabRoutes.Discover,
-    component: DiscoverScreen,
-    tabBarIcon: () => 'CompassOutline',
-    translationId: 'title__explore',
-  },
+  // {
+  //   name: TabRoutes.Swap,
+  //   component: SwapScreen,
+  //   tabBarIcon: () => 'SwitchHorizontalOutline',
+  //   translationId: 'title__swap',
+  // },
+  // {
+  //   name: TabRoutes.Portfolio,
+  //   component: PortfolioScreen,
+  //   tabBarIcon: () => 'TrendingUpOutline',
+  //   translationId: 'title__portfolio',
+  // },
+  // {
+  //   name: TabRoutes.Discover,
+  //   component: DiscoverScreen,
+  //   tabBarIcon: () => 'CompassOutline',
+  //   translationId: 'title__explore',
+  // },
   {
     name: TabRoutes.Me,
     component: MeScreen,

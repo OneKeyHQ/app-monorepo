@@ -29,7 +29,7 @@ const ImportWalletModal: FC = () => {
     <Center>
       <VStack space={4} w="full">
         {/* Import a Single-Chain Wallet */}
-        <PressableItem
+        {/* <PressableItem
           borderRadius="12px"
           px={4}
           onPress={() => {
@@ -55,7 +55,7 @@ const ImportWalletModal: FC = () => {
               })}
             </Typography.Body2>
           </VStack>
-        </PressableItem>
+        </PressableItem> */}
 
         {/* Watch a Public Address */}
         <PressableItem
