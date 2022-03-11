@@ -1,10 +1,10 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import CollectibleDetail from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectibleDetailModal';
 import Collection from '@onekeyhq/kit/src/views/Wallet/Collectibles/CollectionModal';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum CollectiblesModalRoutes {
   CollectionModal = 'CollectionModal',

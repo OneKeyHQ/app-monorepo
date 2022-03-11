@@ -1,13 +1,13 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyLiteReset from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Reset';
 import {
   OnekeyLiteResetModalRoutes,
   OnekeyLiteResetRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
+
+import createStackNavigator from './createStackNavigator';
 
 const OnekeyLiteResetNavigator =
   createStackNavigator<OnekeyLiteResetRoutesParams>();

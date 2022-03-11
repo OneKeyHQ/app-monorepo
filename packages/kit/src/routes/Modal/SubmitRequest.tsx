@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { SubmitRequest } from '@onekeyhq/kit/src/views/Help/Request/SubmitRequest';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum SubmitRequestRoutes {
   SubmitRequestModal = 'SubmitRequestModal',

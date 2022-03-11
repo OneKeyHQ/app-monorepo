@@ -1,12 +1,12 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Approve from '@onekeyhq/kit/src/views/DappModals/Approve';
 import ContractData from '@onekeyhq/kit/src/views/DappModals/ContractData';
 import SpendLimitAmount from '@onekeyhq/kit/src/views/DappModals/SpendLimitAmount';
 import TransactionEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum DappApproveModalRoutes {
   ApproveModal = 'ApproveModal',

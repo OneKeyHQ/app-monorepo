@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { AddToken, CustomToken, Listing } from '../../views/ManageTokens';
@@ -9,6 +7,8 @@ import {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from '../../views/ManageTokens/types';
+
+import createStackNavigator from './createStackNavigator';
 
 const ManageTokenNavigator = createStackNavigator<ManageTokenRoutesParams>();
 
