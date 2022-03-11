@@ -276,22 +276,25 @@ class RealmDB implements DBAPI {
    */
   updateNetworkList(networks: [string, boolean][]): Promise<void> {
     try {
-      const size = this.realm!.objects<NetworkSchema>('Network').length;
-      if (networks.length !== size) {
-        return Promise.reject(
-          new OneKeyInternalError(
-            `Network list length not match, expected ${size} but got ${networks.length}`,
-          ),
-        );
-      }
+      const statuses = new Map<string, [number, boolean]>();
+      networks.forEach((element, index) =>
+        statuses.set(element[0], [index, element[1]]),
+      );
+      const existing = this.realm!.objects<NetworkSchema>('Network').map(
+        (n) => n.id,
+      );
       this.realm!.write(() => {
-        networks.forEach(([id, enabled], position) => {
+        existing.forEach((id) => {
+          const status = statuses.get(id);
+          if (typeof status === 'undefined') {
+            return;
+          }
           this.realm!.create(
             'Network',
             {
               id,
-              enabled,
-              position,
+              enabled: status[1],
+              position: status[0],
             },
             Realm.UpdateMode.Modified,
           );
