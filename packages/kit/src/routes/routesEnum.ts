@@ -6,6 +6,7 @@ export enum ModalRoutes {
   CreateWallet = 'CreateWallet',
   BackupWallet = 'BackupWallet',
   ManagerWallet = 'ManagerWallet',
+  ManagerAccount = 'ManagerAccount',
   WalletViewMnemonics = 'WalletViewMnemonics',
   Send = 'Send',
   Receive = 'Receive',

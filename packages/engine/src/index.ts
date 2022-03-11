@@ -142,6 +142,7 @@ class Engine {
     return this.dbApi.getWallets();
   }
 
+  @backgroundMethod()
   async getWallet(walletId: string): Promise<Wallet> {
     // Return a single wallet.
     const wallet = await this.dbApi.getWallet(walletId);
@@ -151,6 +152,7 @@ class Engine {
     throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
   }
 
+  @backgroundMethod()
   createHDWallet(
     password: string,
     mnemonic?: string,
@@ -173,6 +175,7 @@ class Engine {
     return this.dbApi.createHDWallet(password, rs, name);
   }
 
+  @backgroundMethod()
   removeWallet(walletId: string, password: string): Promise<void> {
     // Remove a wallet, raise an error if trying to remove the imported or watching wallet.
     if (!walletCanBeRemoved(walletId)) {
@@ -181,6 +184,7 @@ class Engine {
     return this.dbApi.removeWallet(walletId, password);
   }
 
+  @backgroundMethod()
   setWalletName(walletId: string, name: string): Promise<Wallet> {
     // Rename a wallet, raise an error if trying to rename the imported or watching wallet.
     if (!walletNameCanBeUpdated(walletId)) {
@@ -191,6 +195,7 @@ class Engine {
     return this.dbApi.setWalletName(walletId, name);
   }
 
+  @backgroundMethod()
   async revealHDWalletMnemonic(
     walletId: string,
     password: string,
@@ -203,6 +208,7 @@ class Engine {
     return mnemonicFromEntropy(credential.entropy, password);
   }
 
+  @backgroundMethod()
   confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
     // Confirm that the wallet seed is backed up. Raise an error if wallet isn't HD, doesn't exist. Nothing happens if the wallet is already backed up before this call.
     if (!walletIsHD(walletId)) {
@@ -250,6 +256,7 @@ class Engine {
     return ret;
   }
 
+  @backgroundMethod()
   async getAccount(accountId: string, networkId: string): Promise<Account> {
     // Get account by id. Raise an error if account doesn't exist.
     // Token ids are included.
@@ -365,6 +372,7 @@ class Engine {
     }));
   }
 
+  @backgroundMethod()
   async addHDAccount(
     password: string,
     walletId: string,
@@ -451,6 +459,7 @@ class Engine {
     return this.getAccount(a.id, networkId);
   }
 
+  @backgroundMethod()
   removeAccount(accountId: string, password: string): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
     return this.dbApi.removeAccount(
@@ -460,6 +469,7 @@ class Engine {
     );
   }
 
+  @backgroundMethod()
   async setAccountName(accountId: string, name: string): Promise<Account> {
     // Rename an account. Raise an error if account doesn't exist.
     // Nothing happens if name is not changed.
@@ -498,6 +508,7 @@ class Engine {
     return this.dbApi.addToken({ ...toAdd, ...tokenInfo, ...{ id: tokenId } });
   }
 
+  @backgroundMethod()
   addTokenToAccount(accountId: string, tokenId: string): Promise<Token> {
     // Add an token to account.
     if (
@@ -518,6 +529,7 @@ class Engine {
     return this.dbApi.removeTokenFromAccount(accountId, tokenId);
   }
 
+  @backgroundMethod()
   async preAddToken(
     accountId: string,
     networkId: string,
