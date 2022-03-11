@@ -10,10 +10,7 @@ export enum DappConnectionModalRoutes {
 }
 
 export type DappConnectionRoutesParams = {
-  [DappConnectionModalRoutes.ConnectionModal]: {
-    origin: string;
-    callback: (agree: boolean) => void;
-  };
+  [DappConnectionModalRoutes.ConnectionModal]: undefined;
 };
 
 const DappConnectionModalNavigator =
