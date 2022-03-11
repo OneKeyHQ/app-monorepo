@@ -141,28 +141,30 @@ const Me = () => {
                 </Pressable>
               </VStack>
             )}
-            {/* <Pressable
-            p="4"
-            bg="surface-default"
-            borderRadius="12px"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            onPress={() => {
-              navigation.navigate(HomeRoutes.Dev, {
-                screen: StackRoutes.Developer,
-                params: {
-                  ts: new Date().getTime(),
-                },
-              });
-            }}
-          >
-            <HStack space="4">
-              <Icon name="DesktopComputerSolid" />
-              <Typography.Body1>Developer</Typography.Body1>
-            </HStack>
-            <Icon name="ChevronRightOutline" size={12} />
-          </Pressable> */}
+            {platformEnv.isDev && (
+              <Pressable
+                p="4"
+                bg="surface-default"
+                borderRadius="12px"
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                onPress={() => {
+                  navigation.navigate(HomeRoutes.Dev, {
+                    screen: StackRoutes.Developer,
+                    params: {
+                      ts: new Date().getTime(),
+                    },
+                  });
+                }}
+              >
+                <HStack space="4">
+                  <Icon name="DesktopComputerSolid" />
+                  <Typography.Body1>Developer</Typography.Body1>
+                </HStack>
+                <Icon name="ChevronRightOutline" size={12} />
+              </Pressable>
+            )}
           </VStack>
           <HStack justifyContent="flex-end">
             <HelpSelector />

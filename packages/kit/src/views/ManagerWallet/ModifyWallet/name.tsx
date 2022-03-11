@@ -9,16 +9,14 @@ import {
   Button,
   Center,
   Form,
-  Icon,
-  Image,
   KeyboardDismissView,
   Modal,
   Pressable,
+  Typography,
   ZStack,
   useForm,
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
@@ -38,9 +36,9 @@ type RouteProps = RouteProp<
 const ModifyWalletNameViewModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const dispatch = useAppDispatch();
+
   const navigation = useNavigation();
-  const { engine } = backgroundApiProxy;
+  const { engine, dispatch } = backgroundApiProxy;
 
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [wallet, setWallet] = useState<Wallet>();
@@ -88,9 +86,9 @@ const ModifyWalletNameViewModal: FC = () => {
     () => (
       <Center>
         <Pressable
-          onPress={() => {
-            toast.info(intl.formatMessage({ id: 'msg__coming_soon' }));
-          }}
+        // onPress={() => {
+        //   toast.info(intl.formatMessage({ id: 'msg__coming_soon' }));
+        // }}
         >
           <ZStack width="68px" height="68px">
             <Box
@@ -99,13 +97,23 @@ const ModifyWalletNameViewModal: FC = () => {
               justifyContent="center"
               alignItems="center"
             >
-              <Image
+              <Box
+                w="56px"
+                h="56px"
+                bg="#FFF7D7"
+                borderRadius="lg"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Typography.DisplayLarge>🌈</Typography.DisplayLarge>
+              </Box>
+              {/* <Image
                 src="https://i.pinimg.com/236x/4e/80/3b/4e803ba3e1dc26104ad9917f301a04c6.jpg"
                 width="56px"
                 height="56px"
-              />
+              /> */}
             </Box>
-            <Box
+            {/* <Box
               width="full"
               height="full"
               justifyContent="flex-end"
@@ -120,12 +128,12 @@ const ModifyWalletNameViewModal: FC = () => {
               >
                 <Icon name="PencilSolid" size={16} />
               </Box>
-            </Box>
+            </Box> */}
           </ZStack>
         </Pressable>
       </Center>
     ),
-    [intl, toast],
+    [],
   );
 
   return (

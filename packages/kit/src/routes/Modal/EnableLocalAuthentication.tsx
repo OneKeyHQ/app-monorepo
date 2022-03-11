@@ -1,13 +1,13 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import EnableLocalAuthentication from '@onekeyhq/kit/src/views/EnableLocalAuthentication';
 import {
   EnableLocalAuthenticationRoutes,
   EnableLocalAuthenticationRoutesParams,
 } from '@onekeyhq/kit/src/views/EnableLocalAuthentication/types';
+
+import createStackNavigator from './createStackNavigator';
 
 const EnableLocalAuthenticationNavigator =
   createStackNavigator<EnableLocalAuthenticationRoutesParams>();

@@ -5,13 +5,14 @@ import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
   props: Omit<ControllerProps<TFieldValues>, 'render'>,
 ) {
   const intl = useIntl();
-  const networks = useAppSelector((s) => s.network.network);
+  const { enabledNetworks: networks } = useManageNetworks();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
   const defaultNetworkId = activeNetwork?.network?.id;
 
