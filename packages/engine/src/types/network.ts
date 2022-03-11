@@ -35,6 +35,7 @@ type EvmExtraInfo = {
 };
 
 type BlockExplorer = {
+  name: string;
   address: string;
   block: string;
   transaction: string;
