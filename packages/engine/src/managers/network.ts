@@ -113,7 +113,7 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
     tokenDisplayDecimals: 4,
     // extra info for dapp interactions
     extraInfo,
-    blockExplorerURL: blockExplorerURL as BlockExplorer,
+    blockExplorerURL: { name, ...blockExplorerURL } as BlockExplorer,
   };
 }
 
