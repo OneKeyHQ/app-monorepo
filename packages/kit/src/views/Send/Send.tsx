@@ -1,6 +1,8 @@
+/* eslint-disable no-nested-ternary */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -16,11 +18,14 @@ import {
   useForm,
   useIsVerticalLayout,
   useSafeAreaInsets,
+  useToast,
 } from '@onekeyhq/components';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useGas } from '@onekeyhq/kit/src/hooks';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 
+import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
 import { SendParams, SendRoutes, SendRoutesParams } from './types';
@@ -43,30 +48,54 @@ type Option = SelectItem<string>;
 
 const Transaction = () => {
   const navigation = useNavigation<NavigationProps>();
-  const { control, handleSubmit } = useForm<TransactionValues>();
+  const { control, handleSubmit, watch } = useForm<TransactionValues>({
+    mode: 'onSubmit',
+  });
+
+  const toast = useToast();
 
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { account } = useActiveWalletAccount();
   const { activeNetwork } = useGeneral();
   const { nativeToken, accountTokens } = useManageTokens();
+  const { data: gasList } = useGas();
   const [selectOption, setSelectOption] = useState<Option>({} as Option);
-
+  const [inputValue, setInputValue] = useState<string>();
   const isSmallScreen = useIsVerticalLayout();
 
   const options = useMemo(
     () =>
-      accountTokens.map((token) => ({
-        label: token?.symbol ?? '-',
-        value: token?.id,
-        description: `${intl.formatMessage({ id: 'content__balance' })} ${
-          token?.balance ?? ''
-        }`,
-        tokenProps: {
-          src: token?.logoURI,
-        },
-      })),
-    [accountTokens, intl],
+      accountTokens.map((token) => {
+        const decimal = token.tokenIdOnNetwork
+          ? activeNetwork?.network.tokenDisplayDecimals
+          : activeNetwork?.network.nativeDisplayDecimals;
+        return {
+          label: token?.symbol ?? '-',
+          value: token?.id,
+          description: (
+            <>
+              {`${intl.formatMessage({ id: 'content__balance' })}`}
+              &nbsp;&nbsp;
+              <FormatBalance
+                balance={token?.balance}
+                formatOptions={{
+                  fixed: decimal ?? 4,
+                }}
+              />
+            </>
+          ),
+          tokenProps: {
+            src: token?.logoURI,
+          },
+        };
+      }),
+    [
+      accountTokens,
+      intl,
+      activeNetwork?.network.nativeDisplayDecimals,
+      activeNetwork?.network.tokenDisplayDecimals,
+    ],
   );
 
   const getGasLimit = useCallback(async (sendParams: SendParams) => {
@@ -80,11 +109,31 @@ const Transaction = () => {
     return gasLimit;
   }, []);
 
+  const gasPrice = gasList?.[1] ?? gasList?.[0] ?? '';
+  const gasPriceFee = gasPrice
+    ? typeof gasPrice === 'string'
+      ? gasPrice
+      : gasPrice.maxFeePerGas
+    : null;
+
+  useEffect(() => {
+    const subscription = watch((value, { name, type }) => {
+      if (type === 'change' && name === 'token') {
+        const option = options.find((o) => o.value === value.token);
+        if (option) setSelectOption(option);
+      }
+      if (type === 'change' && name === 'value') {
+        setInputValue(value.value);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, options]);
+
   const onSubmit = handleSubmit(async (data) => {
     const tokenConfig =
       accountTokens.find((token) => token.id === data.token) ?? nativeToken;
-    console.log(account, tokenConfig);
-    if (!account || !tokenConfig) return;
+
+    if (!account || !tokenConfig || !gasPriceFee) return;
 
     const params = {
       to: data.to,
@@ -104,7 +153,7 @@ const Transaction = () => {
         name: tokenConfig.name,
         symbol: tokenConfig.symbol,
       },
-      gasPrice: '5',
+      gasPrice: gasPriceFee ?? '5',
       gasLimit: '21000',
     };
 
@@ -112,11 +161,13 @@ const Transaction = () => {
       const gasLimit = await getGasLimit(params);
 
       params.gasLimit = gasLimit;
+      navigation.navigate(SendRoutes.SendConfirm, params);
     } catch (e) {
-      console.log(e);
+      const error = e as { key?: string; message?: string };
+      toast.show({
+        title: error?.key || error?.message || '',
+      });
     }
-
-    navigation.navigate(SendRoutes.SendConfirm, params);
   });
 
   useEffect(() => {
@@ -145,7 +196,10 @@ const Transaction = () => {
               <Typography.Body2 color="text-subdued">
                 {intl.formatMessage({ id: 'content__total' })}
               </Typography.Body2>
-              <Typography.Body1Strong>0 ETH</Typography.Body1Strong>
+              <Typography.Body1Strong>
+                {inputValue ?? '-'}&nbsp;&nbsp;
+                {selectOption.label}
+              </Typography.Body1Strong>
               {/* <Typography.Caption color="text-subdued">
                 3 min
               </Typography.Caption> */}
@@ -210,6 +264,9 @@ const Transaction = () => {
                   options={options}
                   defaultValue={nativeToken?.id}
                   footer={null}
+                  onChange={(item) => {
+                    console.log(item);
+                  }}
                 />
               </Form.Item>
               <Form.Item
@@ -220,11 +277,27 @@ const Transaction = () => {
                 defaultValue=""
                 rules={{
                   required: intl.formatMessage({ id: 'form__amount_invalid' }),
+                  validate: (value) => {
+                    const token = accountTokens.find(
+                      (accountToken) => accountToken.id === selectOption.value,
+                    );
+                    if (!token) return undefined;
+                    const inputBN = new BigNumber(value);
+                    const balanceBN = new BigNumber(token?.balance ?? '');
+                    if (inputBN.isNaN() || balanceBN.isNaN()) {
+                      return intl.formatMessage({ id: 'form__amount_invalid' });
+                    }
+                    if (balanceBN.isLessThan(inputBN)) {
+                      return intl.formatMessage({ id: 'form__amount_invalid' });
+                    }
+                    return undefined;
+                  },
                 }}
-                helpText="0 USD"
+                // helpText="0 USD"
               >
                 <Form.Input
                   w="100%"
+                  keyboardType="numeric"
                   rightCustomElement={
                     <>
                       <Typography.Body2 mr={4} color="text-subdued">
@@ -266,11 +339,24 @@ const Transaction = () => {
                       paddingY="8px"
                     >
                       <Column>
-                        <Text
-                          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                        >
-                          Normal (64.11 Gwei)
-                        </Text>
+                        <FormatBalance
+                          suffix="Gwei"
+                          formatOptions={{
+                            fixed: 4,
+                          }}
+                          balance={gasPriceFee ?? ''}
+                          render={(ele) => (
+                            <Text
+                              typography={{
+                                sm: 'Body1Strong',
+                                md: 'Body2Strong',
+                              }}
+                            >
+                              {ele}
+                            </Text>
+                          )}
+                        />
+
                         {/* <Typography.Body2 color="text-subdued">
                           0.001694 ETH ~ 0.001977 ETH
                         </Typography.Body2> */}

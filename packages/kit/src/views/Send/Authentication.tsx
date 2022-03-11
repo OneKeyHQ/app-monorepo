@@ -2,8 +2,9 @@
 import React, { FC, useCallback, useEffect } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 
@@ -28,8 +29,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
   sendParams,
   password,
 }) => {
-  const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation();
+  const toast = useToast();
+  const intl = useIntl();
+  const { dispatch } = backgroundApiProxy;
 
   const createTransfer = useCallback(async () => {
     const transferResult = await backgroundApiProxy.engine.transfer(
@@ -48,11 +51,21 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
 
   useEffect(() => {
     async function main() {
-      const result = await createTransfer();
-      console.log('-----result', result);
-
-      if (navigation.canGoBack()) {
-        navigation.getParent()?.goBack?.();
+      try {
+        const result = await createTransfer();
+        if (result?.success) {
+          toast.show({
+            title: intl.formatMessage({ id: 'transaction__success' }),
+          });
+          if (navigation.canGoBack()) {
+            navigation.getParent()?.goBack?.();
+          }
+        }
+      } catch (e) {
+        const error = e as { key?: string; message?: string };
+        toast.show({
+          title: error?.key ?? error?.message ?? '',
+        });
       }
     }
     main();
