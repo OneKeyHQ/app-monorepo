@@ -318,6 +318,11 @@ class ProviderController extends BaseProviderController {
     return super.requireChainImpl(IMPL_MAPPINGS[impl] || impl);
   }
 
+  async getEVMChainId(url: string): Promise<string> {
+    const client = new Geth(url);
+    return parseInt(await client.rpc.call('eth_chainId', []), 16).toString();
+  }
+
   addressFromXpub(networkId: string, xpub: Buffer): Promise<string> {
     return this.addressFromPub(networkId, xpub.slice(-33).toString('hex'));
   }
