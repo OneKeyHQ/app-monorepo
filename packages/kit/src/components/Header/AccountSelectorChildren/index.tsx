@@ -47,6 +47,11 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
+import useAccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
+import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount';
+
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
 
@@ -89,6 +94,11 @@ const AccountSelectorChildren: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { activeNetwork } = useAppSelector((s) => s.general);
+  const { showVerify } = useLocalAuthenticationModal();
+  const { show: showRemoveAccountDialog, RemoveAccountDialog } =
+    useRemoveAccountDialog();
+  const { show: showAccountModifyNameDialog, AccountModifyNameDialog } =
+    useAccountModifyNameDialog();
 
   const { account: currentSelectedAccount, wallet: defaultSelectedWallet } =
     useActiveWalletAccount();
@@ -98,9 +108,56 @@ const AccountSelectorChildren: FC = () => {
   );
 
   const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
-  const handleChange = useCallback(() => {
-    // TODO:
-  }, []);
+  const handleChange = useCallback(
+    (item: AccountEngineType, value) => {
+      switch (value) {
+        case 'rename':
+          showAccountModifyNameDialog(
+            item.id,
+            activeNetwork?.network.id ?? '',
+            () => {
+              console.log('account modify name', item.id);
+            },
+          );
+
+          break;
+        case 'detail':
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManagerAccount,
+            params: {
+              screen: ManagerAccountModalRoutes.ManagerAccountModal,
+              params: {
+                walletId: selectedWallet?.id ?? '',
+                accountId: item.id,
+                networkId: activeNetwork?.network.id ?? '',
+              },
+            },
+          });
+          break;
+        case 'remove':
+          showVerify(
+            (pwd) => {
+              showRemoveAccountDialog(item.id, pwd, () => {
+                console.log('remove account', item.id);
+              });
+            },
+            () => {},
+          );
+          break;
+
+        default:
+          break;
+      }
+    },
+    [
+      activeNetwork?.network.id,
+      navigation,
+      selectedWallet?.id,
+      showAccountModifyNameDialog,
+      showRemoveAccountDialog,
+      showVerify,
+    ],
+  );
 
   function renderSideAction(
     type: AccountType | undefined,
@@ -110,7 +167,7 @@ const AccountSelectorChildren: FC = () => {
       return (
         <Select
           dropdownPosition="left"
-          onChange={onChange}
+          onChange={(v) => onChange(v)}
           activatable={false}
           options={[
             {
@@ -261,7 +318,9 @@ const AccountSelectorChildren: FC = () => {
                       name={item.name}
                     />
                   </Box>
-                  {renderSideAction(selectedWallet?.type, handleChange)}
+                  {renderSideAction(selectedWallet?.type, (v) =>
+                    handleChange(item, v),
+                  )}
                 </HStack>
               )}
             </Pressable>
@@ -319,6 +378,8 @@ const AccountSelectorChildren: FC = () => {
           }
         />
       </VStack>
+      {RemoveAccountDialog}
+      {AccountModifyNameDialog}
     </>
   );
 };

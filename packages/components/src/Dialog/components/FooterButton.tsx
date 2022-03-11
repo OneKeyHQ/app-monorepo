@@ -18,6 +18,7 @@ export type FooterButtonProps = {
   hideSecondaryAction?: boolean;
   primaryActionProps?: ComponentProps<typeof Button>;
   secondaryActionProps?: ComponentProps<typeof Button>;
+  marginTop?: number;
 };
 
 const FooterButton: FC<FooterButtonProps> = ({
@@ -30,10 +31,11 @@ const FooterButton: FC<FooterButtonProps> = ({
   buttonSize,
   primaryActionProps,
   secondaryActionProps,
+  marginTop,
 }) => {
   const intl = useIntl();
   return (
-    <Box flexDirection="row" w="full" mt={2}>
+    <Box flexDirection="row" w="full" mt={marginTop ?? 2}>
       <HStack space="4" w="full">
         {!hideSecondaryAction && (
           <Button

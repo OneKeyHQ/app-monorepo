@@ -108,8 +108,7 @@ const Restore: FC = () => {
         if (data) {
           console.log('NFC read data:', data);
           showVerify(
-            '',
-            async (requestId, password) => {
+            async (password) => {
               try {
                 const result = await backgroundApiProxy.engine.createHDWallet(
                   password,

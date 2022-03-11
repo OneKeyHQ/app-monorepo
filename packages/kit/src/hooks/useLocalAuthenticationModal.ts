@@ -7,16 +7,16 @@ export default function useLocalAuthenticationModal() {
   const navigation = useNavigation();
 
   const showVerify = (
-    requestId: string,
-    onSuccess: (requestId: string, password: string) => void,
+    onSuccess: (password: string, requestId: string) => void,
     onCancel: () => void,
+    requestId?: string | null,
   ) => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManagerWallet,
       params: {
         screen: ManagerWalletModalRoutes.ManagerWalletAuthorityVerifyModal,
         params: {
-          requestId,
+          requestId: requestId ?? '',
           onSuccess,
           onCancel,
         },
