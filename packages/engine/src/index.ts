@@ -829,11 +829,6 @@ class Engine {
   }
 
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
-    if (impl !== IMPL_EVM) {
-      throw new OneKeyInternalError(
-        `addNetwork: unsupported implementation ${impl} specified`,
-      );
-    }
     if (params.rpcURL === '') {
       throw new OneKeyInternalError(
         'addNetwork: empty value is not allowed for RPC URL.',
@@ -848,7 +843,28 @@ class Engine {
         throw new OneKeyInternalError('addNetwork invalid URL');
       }
     }
-    const dbObj = await this.dbApi.addNetwork(getEVMNetworkToCreate(params));
+
+    let networkId: string | undefined;
+    switch (impl) {
+      case IMPL_EVM: {
+        try {
+          networkId = await this.providerManager.getEVMChainId(params.rpcURL);
+        } catch (e) {
+          console.error(e);
+        }
+        break;
+      }
+      default:
+        throw new OneKeyInternalError(
+          `addNetwork: unsupported implementation ${impl} specified`,
+        );
+    }
+    if (typeof networkId === 'undefined') {
+      throw new OneKeyInternalError('addNetwork: failed to get network id.');
+    }
+    const dbObj = await this.dbApi.addNetwork(
+      getEVMNetworkToCreate(`${impl}--${networkId}`, params),
+    );
     return fromDBNetworkToNetwork(dbObj);
   }
 
