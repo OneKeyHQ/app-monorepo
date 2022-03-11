@@ -1,8 +1,11 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import AddNewAccountModal from '@onekeyhq/kit/src/views/Account/AddNewAccount';
 import CreateAccountAuthenticationModal from '@onekeyhq/kit/src/views/Account/AddNewAccount/Authentication';
+import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccounts';
+import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
 import RecoveryAccountModal from '@onekeyhq/kit/src/views/Account/ImportedAccount';
 
 import createStackNavigator from './createStackNavigator';
@@ -11,16 +14,33 @@ export enum CreateAccountModalRoutes {
   CreateAccountForm = 'CreateAccountForm',
   CreateAccountAuthentication = 'CreateAccountAuthentication',
   RecoveryAccountForm = 'RecoveryAccountForm',
+  RecoverAccountsList = 'RecoverAccountList',
+  RecoverAccountsConfirm = 'RecoverAccountsConfirm',
+  RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
 }
 
 export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: { walletId: string };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
-    walletId: string;
-    name: string;
-    network: string;
+    onDone: (password: string) => void;
   };
   [CreateAccountModalRoutes.RecoveryAccountForm]: undefined;
+  [CreateAccountModalRoutes.RecoverAccountsList]: {
+    walletId: string;
+    network: string;
+    password: string;
+  };
+  [CreateAccountModalRoutes.RecoverAccountsConfirm]: {
+    accounts: (ImportableHDAccount & {
+      selected: boolean;
+      isDisabled: boolean;
+    })[];
+    walletId: string;
+    network: string;
+  };
+  [CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication]: {
+    onDone: (password: string) => void;
+  };
 };
 
 const CreateAccountNavigator =
@@ -38,6 +58,18 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.RecoveryAccountForm,
     component: RecoveryAccountModal,
+  },
+  {
+    name: CreateAccountModalRoutes.RecoverAccountsList,
+    component: RecoverAccounts,
+  },
+  {
+    name: CreateAccountModalRoutes.RecoverAccountsConfirm,
+    component: RecoverConfirm,
+  },
+  {
+    name: CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication,
+    component: CreateAccountAuthenticationModal,
   },
 ];
 
