@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import { Box, Container, Modal, Typography } from '@onekeyhq/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   ManagerAccountModalRoutes,
   ManagerAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import useAccountModifyNameDialog from '../ModifyAccount';
@@ -74,7 +74,7 @@ const ManagerAccountModal: FC = () => {
               alignItems="center"
               mb={{ base: 4, md: 0 }}
             >
-              <Typography.Subheading mt={6} w="100%" color="text-subdued">
+              <Typography.Subheading w="100%" color="text-subdued">
                 {intl.formatMessage({ id: 'content__info' })}
               </Typography.Subheading>
               <Container.Box mt={2}>
