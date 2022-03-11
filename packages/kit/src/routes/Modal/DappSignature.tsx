@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Signature from '@onekeyhq/kit/src/views/DappModals/Signature';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum DappSignatureModalRoutes {
   SignatureModal = 'SignatureModal',

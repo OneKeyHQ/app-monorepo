@@ -41,11 +41,8 @@ const EngineApp: FC = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    async function main() {
-      await backgroundApiProxy.serviceApp.initNetworks();
-    }
-    main();
-  }, [dispatch]);
+    backgroundApiProxy.serviceApp.initNetworks();
+  }, []);
 
   useEffect(() => {
     async function main() {

@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { AddNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/AddNetwork';
 import { CustomNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/CustomNetwork';
@@ -10,6 +8,8 @@ import {
   ManageNetworkRoutes,
   ManageNetworkRoutesParams,
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
+
+import createStackNavigator from './createStackNavigator';
 
 const ManageNetworkNavigator =
   createStackNavigator<ManageNetworkRoutesParams>();

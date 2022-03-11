@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { BackupWalletView } from '@onekeyhq/kit/src/views/BackupWallet';
 import BackupAuthorityWalletVerifyView from '@onekeyhq/kit/src/views/BackupWallet/BackupAuthorityVerify/index';
@@ -11,6 +9,8 @@ import BackupMnemonicsVerifyView from '@onekeyhq/kit/src/views/BackupWallet/Back
 import BackupShowMnemonicsView from '@onekeyhq/kit/src/views/BackupWallet/BackupShowMnemonics';
 import BackupWalletWarningView from '@onekeyhq/kit/src/views/BackupWallet/BackupWarning/index';
 import { BackupType } from '@onekeyhq/kit/src/views/BackupWallet/types';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum BackupWalletModalRoutes {
   BackupWalletModal = 'BackupWalletModal',

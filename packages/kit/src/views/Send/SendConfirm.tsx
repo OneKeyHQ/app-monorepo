@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import {
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -16,21 +21,13 @@ import {
   utils,
 } from '@onekeyhq/components';
 
-const MockData = {
-  token: {
-    name: 'ETH',
-    chain: 'Ethereum',
-    url: '',
-  },
-  fromAddress: '0x4d16878c270x4d16878c270x4',
-  toAddress: '0x4d16878c270x4d16878c270x40x4d16878c270x4d16878c270x4',
-  detail: {
-    amount: '1.0532145',
-    token: 'ETH',
-    fee: '20000',
-    total: '21,000 (100%)',
-  },
-};
+import { SendRoutes, SendRoutesParams } from './types';
+
+type NavigationProps = NavigationProp<
+  SendRoutesParams,
+  SendRoutes.SendAuthentication
+>;
+type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 const renderTitleDetailView = (title: string, detail: string) => (
   <Row justifyContent="space-between" space="16px" padding="16px">
@@ -54,7 +51,17 @@ const renderTitleDetailView = (title: string, detail: string) => (
 const TransactionConfirm = () => {
   const cardBgColor = useThemeValue('surface-default');
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
+  const route = useRoute<RouteProps>();
+  const { params } = route;
+
+  const handleNavigation = useCallback(
+    () =>
+      Promise.resolve(
+        navigation.navigate(SendRoutes.SendAuthentication, params),
+      ),
+    [navigation, params],
+  );
 
   return (
     <Modal
@@ -64,14 +71,19 @@ const TransactionConfirm = () => {
         navigation.getParent()?.goBack();
       }}
       header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
-      headerDescription={`To:${utils.shortenAddress(MockData.toAddress)}`}
+      headerDescription={`${intl.formatMessage({
+        id: 'content__to',
+      })}:${utils.shortenAddress(params.to)}`}
+      primaryActionProps={{
+        onPromise: handleNavigation,
+      }}
       scrollViewProps={{
         children: (
           <Column flex="1">
             <Center>
-              <Token chain={MockData.token.chain} size="56px" />
+              <Token src={params.token.logoURI} size="56px" />
               <Typography.Heading mt="8px">
-                {`${MockData.token.name}(${MockData.token.chain})`}
+                {`${params.token.symbol}(${params.token.name})`}
               </Typography.Heading>
             </Center>
             <Column bg={cardBgColor} borderRadius="12px" mt="24px">
@@ -85,10 +97,10 @@ const TransactionConfirm = () => {
                 </Text>
                 <Column alignItems="flex-end" w="auto" flex={1}>
                   <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                    ETH #1
+                    {params.account.name}
                   </Text>
                   <Typography.Body2 textAlign="right" color="text-subdued">
-                    {MockData.fromAddress}
+                    {params.account.address}
                   </Typography.Body2>
                 </Column>
               </Row>
@@ -107,7 +119,7 @@ const TransactionConfirm = () => {
                   flex={1}
                   noOfLines={3}
                 >
-                  {MockData.toAddress}
+                  {params.to}
                 </Text>
               </Row>
             </Column>
@@ -120,14 +132,14 @@ const TransactionConfirm = () => {
             <Column bg={cardBgColor} borderRadius="12px" mt="2">
               {renderTitleDetailView(
                 intl.formatMessage({ id: 'content__amount' }),
-                MockData.detail.amount,
+                params.value,
               )}
               <Divider />
               {renderTitleDetailView(
                 `${intl.formatMessage({
                   id: 'content__fee',
                 })}(${intl.formatMessage({ id: 'content__estimated' })})`,
-                MockData.detail.fee,
+                params.gasPrice,
               )}
               <Divider />
               {renderTitleDetailView(
@@ -136,7 +148,7 @@ const TransactionConfirm = () => {
                 })}(${intl.formatMessage({
                   id: 'content__amount',
                 })} + ${intl.formatMessage({ id: 'content__fee' })})`,
-                MockData.detail.total,
+                '21000',
               )}
             </Column>
           </Column>

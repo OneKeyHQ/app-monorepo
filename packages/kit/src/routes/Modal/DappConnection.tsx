@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 
 import { DappConnectionModalRoutes } from '../routesEnum';
+
+import createStackNavigator from './createStackNavigator';
 
 export { DappConnectionModalRoutes };
 

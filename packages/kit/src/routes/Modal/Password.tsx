@@ -1,13 +1,13 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { Password } from '@onekeyhq/kit/src/views/Password';
 import {
   PasswordRoutes,
   PasswordRoutesParams,
 } from '@onekeyhq/kit/src/views/Password/types';
+
+import createStackNavigator from './createStackNavigator';
 
 const PasswordNavigator = createStackNavigator<PasswordRoutesParams>();
 
