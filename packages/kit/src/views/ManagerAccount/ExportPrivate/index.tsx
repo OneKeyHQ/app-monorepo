@@ -68,7 +68,6 @@ const ExportPrivateViewModal = () => {
           <Column flex={1}>
             <Box alignItems="center">
               <Box
-                mt="16px"
                 padding="16px"
                 borderWidth="1px"
                 borderRadius="12px"
