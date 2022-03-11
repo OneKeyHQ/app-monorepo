@@ -12,8 +12,9 @@ import {
   Icon,
   Image,
   Modal,
+  Text,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -36,7 +37,7 @@ type ListViewProps = {
 
 export const ListView: FC<ListViewProps> = ({ onPress }) => {
   const intl = useIntl();
-  const { size } = useUserDevice();
+  const isSmallScreen = useIsVerticalLayout();
 
   const navigation = useNavigation<NavigationProps>();
   const { enabledNetworks } = useManageNetworks();
@@ -49,13 +50,17 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => {
-            navigation.navigate(ManageNetworkRoutes.CustomNetwork, {
-              defaultValues: {
+            if (network.preset) {
+              navigation.navigate(ManageNetworkRoutes.PresetNetwork, {
                 ...network,
                 exploreUrl: network.blockExplorerURL.address,
-              },
-              isReadOnly: network.preset,
-            });
+              });
+            } else {
+              navigation.navigate(ManageNetworkRoutes.CustomNetwork, {
+                ...network,
+                exploreUrl: network.blockExplorerURL.address,
+              });
+            }
           }}
         >
           <Box
@@ -69,28 +74,54 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
             borderBottomRadius={enabledNetworks.length - 1 === index ? '12' : 0}
           >
             <Box display="flex" flexDirection="row" alignItems="center">
-              <Image
-                alt="logoURI"
-                size={{ base: 8, md: 6 }}
-                source={{ uri: network.logoURI }}
+              {network.preset ? (
+                <Image
+                  alt="logoURI"
+                  size={{ base: 8, md: 6 }}
+                  source={{ uri: network.logoURI }}
+                  mr="3"
+                />
+              ) : (
+                <Box
+                  mr="3"
+                  borderRadius="full"
+                  w={{ base: '8', md: '6' }}
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                  bg="decorative-surface-one"
+                >
+                  <Typography.DisplaySmall>
+                    {network.name[0].toUpperCase()}
+                  </Typography.DisplaySmall>
+                </Box>
+              )}
+              <Text
                 mr="3"
-              />
-              <Typography.Body1Strong mr="3">
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              >
                 {network.shortName}
-              </Typography.Body1Strong>
+              </Text>
               <Badge size="sm" title={network.impl.toUpperCase()} />
             </Box>
             <Box display="flex" flexDirection="row" alignItems="center">
-              <Box mr="1">
-                <Icon size={24} name="LockClosedOutline" />
-              </Box>
+              {network.preset ? (
+                <Box mr={3}>
+                  <Icon
+                    size={isSmallScreen ? 24 : 20}
+                    name={
+                      isSmallScreen ? 'LockClosedOutline' : 'LockClosedSolid'
+                    }
+                  />
+                </Box>
+              ) : null}
               <Icon size={20} name="ChevronRightSolid" />
             </Box>
           </Box>
         </TouchableOpacity>
       );
     },
-    [enabledNetworks.length, navigation],
+    [enabledNetworks.length, navigation, isSmallScreen],
   );
 
   return (
@@ -101,7 +132,7 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
       secondaryActionProps={{
         type: 'basic',
         onPress,
-        w: size === 'SMALL' ? 'full' : undefined,
+        w: isSmallScreen ? 'full' : undefined,
       }}
       secondaryActionTranslationId="action__edit"
       flatListProps={{

@@ -828,6 +828,7 @@ class Engine {
       .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }
 
+  @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
     if (params.rpcURL === '') {
       throw new OneKeyInternalError(
@@ -874,6 +875,7 @@ class Engine {
     return fromDBNetworkToNetwork(dbObj);
   }
 
+  @backgroundMethod()
   async updateNetworkList(
     networks: Array<[string, boolean]>,
   ): Promise<Array<Network>> {
@@ -881,6 +883,7 @@ class Engine {
     return this.listNetworks(false);
   }
 
+  @backgroundMethod()
   async updateNetwork(
     networkId: string,
     params: UpdateNetworkParams,
@@ -914,6 +917,7 @@ class Engine {
     return fromDBNetworkToNetwork(dbObj);
   }
 
+  @backgroundMethod()
   deleteNetwork(networkId: string): Promise<void> {
     if (networkIsPreset(networkId)) {
       throw new OneKeyInternalError('Preset network cannot be deleted.');
@@ -921,6 +925,7 @@ class Engine {
     return this.dbApi.deleteNetwork(networkId);
   }
 
+  @backgroundMethod()
   async getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
     const network = await this.dbApi.getNetwork(networkId);

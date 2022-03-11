@@ -1,5 +1,6 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,15 +9,17 @@ import {
   IconButton,
   Image,
   Modal,
-  SortableList,
   Switch,
   Typography,
-  useUserDevice,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks/redux';
+
+import { DiscardAlert } from './DiscardAlert';
 
 type SortableViewProps = {
   onPress: () => void;
@@ -78,10 +81,29 @@ type RenderItemProps = { item: Network; drag: () => void };
 
 export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const intl = useIntl();
-  const { size } = useUserDevice();
+  const navigation = useNavigation();
   const { serviceNetwork } = backgroundApiProxy;
+  const refData = useRef({ isDiscard: false });
+  const ref = useRef<any>();
+  const isSmallScreen = useIsVerticalLayout();
+  const [visible, setVisible] = useState(false);
+  const { network: activeNetwork } = useActiveWalletAccount();
   const { allNetworks } = useManageNetworks();
-  const [list, setList] = useState<Network[]>(allNetworks ?? []);
+  const [list, setList] = useState<Network[]>(
+    (allNetworks ?? []).filter((i) => i.id !== activeNetwork?.network.id),
+  );
+
+  const [initialData] = useState(() =>
+    JSON.stringify(list.map((i) => [i.id, i.enabled])),
+  );
+
+  useEffect(() => {
+    setTimeout(() => {
+      // hack, delay forceUpdate...
+      // eslint-disable-next-line
+      ref.current?.forceUpdate();
+    }, 500);
+  }, [ref]);
 
   const [networksIdMap] = useState<Record<string, boolean>>(() => {
     const result: Record<string, boolean> = {};
@@ -101,6 +123,7 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const renderItem = useCallback(
     ({ item, drag }: RenderItemProps) => (
       <ItemRow
+        key={item.id}
         network={item}
         initialValue={networksIdMap[item.id]}
         onDrag={drag}
@@ -108,43 +131,77 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
       />
     ),
     [onChange, networksIdMap],
-  );
+  ) as any;
 
   const onPromise = useCallback(async () => {
-    await serviceNetwork.updateNetworks(
+    const data = JSON.stringify(
       list.map((item) => [item.id, networksIdMap[item.id]]),
     );
+    if (initialData !== data) {
+      await serviceNetwork.updateNetworks(
+        list.map((item) => [item.id, networksIdMap[item.id]]),
+      );
+    }
     onPress?.();
-  }, [serviceNetwork, list, onPress, networksIdMap]);
+  }, [networksIdMap, list, onPress, initialData, serviceNetwork]);
 
-  const onClose = useCallback(() => false, []);
+  const onBeforeRemove = useCallback(
+    (e) => {
+      const data = JSON.stringify(
+        list.map((item) => [item.id, networksIdMap[item.id]]),
+      );
+      if (initialData === data || refData.current.isDiscard) {
+        return;
+      }
+      // eslint-disable-next-line
+      e.preventDefault();
+      setVisible(true);
+    },
+    [networksIdMap, list, initialData, refData],
+  );
+
+  const onDiscard = useCallback(() => {
+    refData.current.isDiscard = true;
+    setVisible(false);
+    navigation.goBack();
+  }, [navigation]);
+
+  useEffect(() => {
+    navigation.addListener('beforeRemove', onBeforeRemove);
+    return () => {
+      navigation.removeListener('beforeRemove', onBeforeRemove);
+    };
+  }, [onBeforeRemove, navigation]);
 
   return (
-    <Modal
-      header={intl.formatMessage({ id: 'action__customize_network' })}
-      height="560px"
-      hidePrimaryAction
-      onClose={onClose}
-      secondaryActionProps={{
-        type: 'primary',
-        onPromise,
-        w: size === 'SMALL' ? 'full' : undefined,
-      }}
-      secondaryActionTranslationId="action__done"
-      scrollViewProps={{
-        children: (
-          <Box bg="surface-default" borderRadius="12">
-            <SortableList.Container
-              keyExtractor={({ id }) => id}
-              data={list}
-              onDragEnd={({ data }) => setList(data)}
-              renderItem={renderItem}
-              ItemSeparatorComponent={() => <Divider />}
-            />
-          </Box>
-        ),
-      }}
-    />
+    <>
+      <Modal
+        header={intl.formatMessage({ id: 'action__customize_network' })}
+        height="560px"
+        hidePrimaryAction
+        secondaryActionProps={{
+          type: 'primary',
+          onPromise,
+          w: isSmallScreen ? 'full' : undefined,
+        }}
+        secondaryActionTranslationId="action__done"
+        sortableListProps={{
+          ref,
+          data: list,
+          // eslint-disable-next-line
+          keyExtractor: ({ id }: any) => id,
+          renderItem,
+          // eslint-disable-next-line
+          onDragEnd: ({ data }: any) => setList(data),
+          ItemSeparatorComponent: () => <Divider />,
+        }}
+      />
+      <DiscardAlert
+        visible={visible}
+        onConfirm={onDiscard}
+        onClose={() => setVisible(false)}
+      />
+    </>
   );
 };
 

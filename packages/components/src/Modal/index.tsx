@@ -16,6 +16,7 @@ import FlatList from '../FlatList';
 import { useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
+import SortableList from '../SortableList';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
@@ -47,6 +48,7 @@ export type ModalProps = {
   scrollViewProps?: ComponentProps<typeof ScrollView>;
   flatListProps?: ComponentProps<typeof FlatList>;
   sectionListProps?: ComponentProps<typeof SectionList>;
+  sortableListProps?: ComponentProps<typeof SortableList.Container>;
   staticChildrenProps?: ComponentProps<typeof Box>;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   height?: number | string;
@@ -66,6 +68,7 @@ const Modal: FC<ModalProps> = ({
   flatListProps,
   scrollViewProps,
   staticChildrenProps,
+  sortableListProps,
   header,
   ...rest
 }) => {
@@ -126,6 +129,24 @@ const Modal: FC<ModalProps> = ({
       );
     }
 
+    if (sortableListProps) {
+      return (
+        <Box flex="1">
+          <Box h="full">
+            <SortableList.Container
+              style={{ height: '100%' }}
+              containerStyle={{ height: '100%' }}
+              contentContainerStyle={{
+                paddingBottom: 24,
+                paddingTop: 24,
+              }}
+              {...sortableListProps}
+            />
+          </Box>
+        </Box>
+      );
+    }
+
     if (staticChildrenProps) {
       return <Box {...staticChildrenProps}>{rest.children}</Box>;
     }
@@ -140,6 +161,7 @@ const Modal: FC<ModalProps> = ({
     flatListProps,
     scrollViewProps,
     staticChildrenProps,
+    sortableListProps,
     rest.children,
     header,
   ]);
