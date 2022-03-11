@@ -768,7 +768,7 @@ class PriceController {
   ): Promise<Record<string, BigNumber>> {
     const ret: Record<string, BigNumber> = {};
 
-    const channels = (getPresetNetworks()[networkId].prices || []).reduce(
+    const channels = (getPresetNetworks()[networkId]?.prices || []).reduce(
       (obj, item) => ({ ...obj, [item.channel]: item }),
       {},
     );
