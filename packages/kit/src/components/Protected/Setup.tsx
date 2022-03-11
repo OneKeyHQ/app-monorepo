@@ -10,7 +10,8 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
-import { useAppDispatch, useStatus } from '../../hooks/redux';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useStatus } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { setEnableAppLock } from '../../store/reducers/settings';
 import { setPasswordCompleted } from '../../store/reducers/status';
@@ -27,7 +28,7 @@ type SetupProps = {
 const Setup: FC<SetupProps> = ({ onOk }) => {
   const intl = useIntl();
   const { boardingCompleted } = useStatus();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { savePassword } = useLocalAuthentication();
   const {
     control,

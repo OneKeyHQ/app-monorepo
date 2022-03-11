@@ -327,6 +327,7 @@ class Engine {
     return ret;
   }
 
+  @backgroundMethod()
   async searchHDAccounts(
     walletId: string,
     networkId: string,
@@ -828,12 +829,8 @@ class Engine {
       .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }
 
+  @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
-    if (impl !== IMPL_EVM) {
-      throw new OneKeyInternalError(
-        `addNetwork: unsupported implementation ${impl} specified`,
-      );
-    }
     if (params.rpcURL === '') {
       throw new OneKeyInternalError(
         'addNetwork: empty value is not allowed for RPC URL.',
@@ -848,7 +845,28 @@ class Engine {
         throw new OneKeyInternalError('addNetwork invalid URL');
       }
     }
-    const dbObj = await this.dbApi.addNetwork(getEVMNetworkToCreate(params));
+
+    let networkId: string | undefined;
+    switch (impl) {
+      case IMPL_EVM: {
+        try {
+          networkId = await this.providerManager.getEVMChainId(params.rpcURL);
+        } catch (e) {
+          console.error(e);
+        }
+        break;
+      }
+      default:
+        throw new OneKeyInternalError(
+          `addNetwork: unsupported implementation ${impl} specified`,
+        );
+    }
+    if (typeof networkId === 'undefined') {
+      throw new OneKeyInternalError('addNetwork: failed to get network id.');
+    }
+    const dbObj = await this.dbApi.addNetwork(
+      getEVMNetworkToCreate(`${impl}--${networkId}`, params),
+    );
     return fromDBNetworkToNetwork(dbObj);
   }
 
@@ -858,6 +876,7 @@ class Engine {
     return fromDBNetworkToNetwork(dbObj);
   }
 
+  @backgroundMethod()
   async updateNetworkList(
     networks: Array<[string, boolean]>,
   ): Promise<Array<Network>> {
@@ -865,6 +884,7 @@ class Engine {
     return this.listNetworks(false);
   }
 
+  @backgroundMethod()
   async updateNetwork(
     networkId: string,
     params: UpdateNetworkParams,
@@ -898,6 +918,7 @@ class Engine {
     return fromDBNetworkToNetwork(dbObj);
   }
 
+  @backgroundMethod()
   deleteNetwork(networkId: string): Promise<void> {
     if (networkIsPreset(networkId)) {
       throw new OneKeyInternalError('Preset network cannot be deleted.');
@@ -905,6 +926,7 @@ class Engine {
     return this.dbApi.deleteNetwork(networkId);
   }
 
+  @backgroundMethod()
   async getRPCEndpoints(networkId: string): Promise<Array<string>> {
     // List preset/saved rpc endpoints of a network.
     const network = await this.dbApi.getNetwork(networkId);

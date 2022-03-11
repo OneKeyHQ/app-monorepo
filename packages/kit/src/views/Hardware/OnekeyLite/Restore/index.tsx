@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
 import { useNavigation } from '@onekeyhq/kit/src';
-import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
@@ -42,7 +41,7 @@ const Restore: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const toast = useToast();
 
   const { showVerify } = useLocalAuthenticationModal();
