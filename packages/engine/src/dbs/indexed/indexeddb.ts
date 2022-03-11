@@ -1131,6 +1131,7 @@ class IndexedDBApi implements DBAPI {
               WALLET_STORE_NAME,
               ACCOUNT_STORE_NAME,
               TOKEN_BINDING_STORE_NAME,
+              HISTORY_STORE_NAME,
             ],
             'readwrite',
           );
