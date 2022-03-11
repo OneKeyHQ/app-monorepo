@@ -25,6 +25,7 @@ const DesktopModal: FC<ModalProps> = ({
   secondaryActionTranslationId,
   hideSecondaryAction,
   hidePrimaryAction,
+  onBackActionPress,
   onPrimaryActionPress,
   onSecondaryActionPress,
   header,
@@ -96,6 +97,10 @@ const DesktopModal: FC<ModalProps> = ({
               type="plain"
               circle
               onPress={() => {
+                if (onBackActionPress) {
+                  onBackActionPress();
+                  return;
+                }
                 if (navigation.canGoBack()) {
                   navigation.goBack();
                 }

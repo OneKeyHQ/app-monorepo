@@ -28,6 +28,7 @@ export type ModalProps = {
   closeable?: boolean;
   primaryActionTranslationId?: string;
   secondaryActionTranslationId?: string;
+  onBackActionPress?: () => void;
   onPrimaryActionPress?: ({
     onClose,
     close,

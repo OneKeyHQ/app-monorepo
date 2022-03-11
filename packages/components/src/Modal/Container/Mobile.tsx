@@ -29,6 +29,7 @@ const MobileModal: FC<ModalProps> = ({
   secondaryActionTranslationId,
   hideSecondaryAction,
   hidePrimaryAction,
+  onBackActionPress,
   onPrimaryActionPress,
   onSecondaryActionPress,
   header,
@@ -67,6 +68,10 @@ const MobileModal: FC<ModalProps> = ({
             type="plain"
             circle
             onPress={() => {
+              if (onBackActionPress) {
+                onBackActionPress();
+                return;
+              }
               if (navigation.canGoBack()) {
                 navigation.goBack();
               }
