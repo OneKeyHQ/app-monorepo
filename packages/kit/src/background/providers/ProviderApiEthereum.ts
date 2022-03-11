@@ -14,14 +14,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
-// eslint-disable-next-line import/no-cycle
-import {
-  DappApproveModalRoutes,
-  DappConnectionModalRoutes,
-  DappMulticallModalRoutes,
-  DappSendModalRoutes,
-} from '../../routes';
-import { ModalRoutes } from '../../routes/types';
 import { backgroundClass, permissionRequired } from '../decorators';
 
 import ProviderApiBase, {
@@ -114,39 +106,21 @@ class ProviderApiEthereum extends ProviderApiBase {
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    const isContractAddress = true;
+    const isContractAddress = false;
     if (isContractAddress) {
-      const isApproval = true;
+      const isApproval = false;
 
       if (isApproval) {
         // Approval modal
-        return this.backgroundApi.serviceDapp?.openApprovalModal({
-          request,
-          screens: [
-            ModalRoutes.DappApproveModal,
-            DappApproveModalRoutes.ApproveModal,
-          ],
-        });
+        return this.backgroundApi.serviceDapp?.openApprovalModal(request);
       }
 
       // Contract modal
-      return this.backgroundApi.serviceDapp?.openApprovalModal({
-        request,
-        screens: [
-          ModalRoutes.DappMulticallModal,
-          DappMulticallModalRoutes.MulticallModal,
-        ],
-      });
+      return this.backgroundApi.serviceDapp?.openMulticallModal(request);
     }
 
     // Send transaction confirm modal
-    return this.backgroundApi.serviceDapp?.openApprovalModal({
-      request,
-      screens: [
-        ModalRoutes.DappSendConfirmModal,
-        DappSendModalRoutes.SendConfirmModal,
-      ],
-    });
+    return this.backgroundApi.serviceDapp?.openSendConfirmModal(request);
   }
 
   /**
@@ -174,7 +148,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     return result;
   }
 
-  // No gonna do in this schedule but this method allow us to open ConnectionModal when connected account has cached
+  // Not gonna do in this schedule but this method allow us to open ConnectionModal when connected account has cached
   // Select permitted accounts, update permissions and return accounts as result to DApp
   async wallet_requestPermissions(
     request: IJsBridgeMessagePayload,
@@ -195,26 +169,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
 
     const permissionRes =
-      await this.backgroundApi.serviceDapp?.openApprovalModal({
+      await this.backgroundApi.serviceDapp?.openConnectionApprovalModal(
         request,
-        screens: [
-          ModalRoutes.DappConnectionModal,
-          DappConnectionModalRoutes.ConnectionModal,
-        ],
-      });
+      );
 
-    // [{
-    //   caveats: [
-    //     {
-    //       type: 'restrictReturnedAccounts';
-    //       value: ['0x53cc3979c8f2670aded85285fc3f06e525cfac74'];
-    //     },
-    //   ];
-    //   date: 1646656119592;
-    //   id: '1OQIHTvV4BgyAu4lISL9I';
-    //   invoker: 'http://localhost:9011';
-    //   parentCapability: 'eth_accounts';
-    // }]
     const result: Permission[] = Object.keys(permissions).map(
       (permissionName) => {
         if (permissionName === 'eth_accounts') {
@@ -254,9 +212,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       return accounts;
     }
 
-    await this.backgroundApi.serviceDapp.openConnectionApprovalModal({
-      request,
-    });
+    await this.backgroundApi.serviceDapp.openConnectionApprovalModal(request);
     return this.eth_accounts(request);
 
     // TODO show approval confirmation, skip in whitelist domain

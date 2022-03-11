@@ -3,17 +3,14 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 
-import { DappConnectionModalRoutes } from '../routesEnum';
-
 import createStackNavigator from './createStackNavigator';
 
-export { DappConnectionModalRoutes };
+export enum DappConnectionModalRoutes {
+  ConnectionModal = 'ConnectionModal',
+}
 
 export type DappConnectionRoutesParams = {
-  [DappConnectionModalRoutes.ConnectionModal]: {
-    origin: string;
-    callback: (agree: boolean) => void;
-  };
+  [DappConnectionModalRoutes.ConnectionModal]: undefined;
 };
 
 const DappConnectionModalNavigator =
