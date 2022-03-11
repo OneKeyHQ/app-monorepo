@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Center, Form, Modal, useForm } from '@onekeyhq/components';
@@ -23,7 +24,7 @@ const RestoreFromMnemonicModal: FC = () => {
 
   const handleRestore = handleSubmit((data) => {
     navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal, {
-      mnemonic: data.mnemonic,
+      mnemonic: trim(data.mnemonic),
     });
     reset?.();
   });

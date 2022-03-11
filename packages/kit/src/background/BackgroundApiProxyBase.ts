@@ -70,7 +70,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     if (serviceName === 'ROOT') {
       serviceName = '';
     }
-    const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
+    let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
     if (platformEnv.isExtension && isExtensionUi()) {
       const data = {
         service: serviceName,
@@ -88,6 +88,13 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
         });
       }
     } else {
+      // some third party modules call native object methods, so we should NOT rename method
+      //    react-native/node_modules/pretty-format
+      //    expo/node_modules/pretty-format
+      const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
+      if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
+        backgroundMethodName = methodName;
+      }
       if (!this.backgroundApi) {
         throw new Error('backgroundApi not found in non-ext env');
       }
@@ -97,7 +104,9 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
       if (serviceApi[backgroundMethodName]) {
         return serviceApi[backgroundMethodName].call(serviceApi, ...params);
       }
-      throwMethodNotFound(serviceName, backgroundMethodName);
+      if (!IGNORE_METHODS.includes(backgroundMethodName)) {
+        throwMethodNotFound(serviceName, backgroundMethodName);
+      }
     }
   }
 

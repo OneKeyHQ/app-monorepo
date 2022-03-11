@@ -327,6 +327,7 @@ class Engine {
     return ret;
   }
 
+  @backgroundMethod()
   async searchHDAccounts(
     walletId: string,
     networkId: string,
