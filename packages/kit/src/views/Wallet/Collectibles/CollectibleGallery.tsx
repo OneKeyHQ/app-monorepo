@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
+import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
 
 import { CollectibleView, SelectedAsset } from './types';
 
@@ -137,7 +138,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     if (!isSupported) {
       return (
         <Empty
-          icon="HandOutline"
+          imageUrl={IconNFT}
           title={intl.formatMessage({ id: 'empty__not_supported' })}
           subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
         />
@@ -150,6 +151,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       </Center>
     ) : (
       <Empty
+        imageUrl={IconNFT}
         title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
         subTitle={intl.formatMessage({
           id: 'asset__collectibles_empty_desc',
