@@ -8,7 +8,7 @@ import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useAppDispatch, useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -37,7 +37,7 @@ type RouteProps = RouteProp<
 
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
-  const dispatch = useAppDispatch();
+  const { dispatch } = backgroundApiProxy;
   const { control, handleSubmit, getValues } = useForm<PrivateKeyFormValues>({
     defaultValues: { name: '' },
   });

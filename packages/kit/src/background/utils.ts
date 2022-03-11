@@ -64,13 +64,17 @@ export function ensureSerializable(obj: any) {
 }
 
 export function throwMethodNotFound(...methods: string[]) {
+  const msg = `DApp Provider or Background method not support (method=${methods.join(
+    '.',
+  )})`;
+  if (platformEnv.isNative) {
+    // throw new Error() won't print error object in iOS/Android,
+    //    so we print it manually
+    console.error(msg);
+  }
   // @backgroundMethod() in background internal methods
   // @providerMethod() in background provider methods
-  throw new Error(
-    `DApp Provider or Background method not support (method=${methods.join(
-      '.',
-    )})`,
-  );
+  throw new Error(msg);
 }
 
 export function warningIfNotRunInBackground({

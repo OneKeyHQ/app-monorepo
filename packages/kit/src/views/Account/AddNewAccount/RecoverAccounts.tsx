@@ -163,7 +163,7 @@ const RecoverAccounts: FC = () => {
         }}
       />
     ),
-    [flatListData],
+    [checkBoxOnChange, flatListData.length],
   );
 
   useEffect(() => {
