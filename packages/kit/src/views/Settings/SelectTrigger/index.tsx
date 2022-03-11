@@ -34,7 +34,9 @@ export function SelectTrigger<T>({
       zIndex={99}
       {...borderProps}
     >
-      <Typography.Body1>{title}</Typography.Body1>
+      <Typography.Body1 flex="1" numberOfLines={1} mr="3">
+        {title}
+      </Typography.Body1>
       <Box display="flex" flexDirection="row" alignItems="center" mr="1">
         <Box>
           {isSmallScreen ? (
