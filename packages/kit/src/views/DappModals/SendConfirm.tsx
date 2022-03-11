@@ -11,6 +11,7 @@ import {
   Empty,
   Icon,
   Modal,
+  Spinner,
   Token,
   Typography,
 } from '@onekeyhq/components';
@@ -41,7 +42,7 @@ type SendConfirmParams = {
   from: string;
   to: string;
   value: string;
-  gasLimit: string;
+  gas: string;
   gasPrice: string;
   data: string;
 };
@@ -53,14 +54,24 @@ const Send = () => {
   const { id, scope, origin, ...params } = useDappParams();
   const sendConfirmData =
     (params.data.params as SendConfirmParams[])?.[0] ?? {};
-  const { from, to, value, gasLimit, gasPrice } = sendConfirmData;
-  const { account } = useActiveWalletAccount();
+  const { from, to, value, gas, gasPrice } = sendConfirmData;
+  const { account, wallet } = useActiveWalletAccount();
   const { nativeToken } = useManageTokens();
 
+  const token = {
+    logoUrl: nativeToken?.logoURI,
+    name: nativeToken?.name,
+    symbol: nativeToken?.symbol ?? 'ETH',
+    decimal: nativeToken?.decimals ?? 18,
+  };
+
+  const isInvalidParams = !from || !to || !value;
+  const isSameFromAccount =
+    from.toString() === (account as SimpleAccount)?.address;
+  const isWatchAccount = wallet?.type === 'watching';
+
   const getResolveData = useCallback(() => {
-    // fake hash
-    const transactionHash =
-      '0xf9b3000d2e6630b1b9935505b1baf03900790b4e59278dc3e621b77604489f91';
+    const transactionHash = '0x';
     // data format may be different in different chain
     if (scope === 'ethereum') {
       return transactionHash;
@@ -79,20 +90,33 @@ const Send = () => {
     getResolveData,
   });
 
-  const token = {
-    logoUrl: nativeToken?.logoURI,
-    name: nativeToken?.name,
-    symbol: nativeToken?.symbol ?? 'ETH',
-    decimal: nativeToken?.decimals ?? 18,
-  };
-
-  const isInvalidParams = !from || !to || !value;
-  const isSameFromAccount =
-    from.toString() === (account as SimpleAccount)?.address;
-
   const content = useMemo(() => {
-    // Validations
+    if (!wallet || !account) {
+      return (
+        <Center flex={1}>
+          <Spinner size="lg" />
+        </Center>
+      );
+    }
+
+    if (isWatchAccount) {
+      return (
+        <Empty
+          icon={
+            <Icon
+              name="CloseCircleOutline"
+              color="action-critical-default"
+              size={64}
+            />
+          }
+          title="Error on sending transaction"
+          subTitle="Watch account are not allowed to send transaction"
+        />
+      );
+    }
+
     if (isInvalidParams) {
+      // Validations
       return (
         <Empty
           icon={
@@ -133,7 +157,7 @@ const Send = () => {
         formatOptions={{ unit: token.decimal }}
       />
     );
-    const fee = new BigNumber(gasLimit).multipliedBy(gasPrice);
+    const fee = new BigNumber(gas).multipliedBy(gasPrice);
     const feeNode = (
       <FormatBalance
         balance={fee}
@@ -234,13 +258,14 @@ const Send = () => {
       </Column>
     );
   }, [
-    account?.name,
+    account,
     from,
-    gasLimit,
+    gas,
     gasPrice,
     intl,
     isInvalidParams,
     isSameFromAccount,
+    isWatchAccount,
     navigation,
     to,
     token.decimal,
@@ -248,6 +273,7 @@ const Send = () => {
     token.name,
     token.symbol,
     value,
+    wallet,
   ]);
 
   return (
@@ -259,7 +285,7 @@ const Send = () => {
       primaryActionTranslationId="action__confirm"
       secondaryActionTranslationId="action__reject"
       primaryActionProps={{
-        isDisabled: isInvalidParams || !isSameFromAccount,
+        isDisabled: isInvalidParams || !isSameFromAccount || isWatchAccount,
       }}
       onPrimaryActionPress={({ close }) => {
         dappApprove.resolve({ close });
