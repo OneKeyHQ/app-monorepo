@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ContractData from '@onekeyhq/kit/src/views/DappModals/ContractData';
 import Multicall from '@onekeyhq/kit/src/views/DappModals/Multicall';
 import TransactionEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum DappMulticallModalRoutes {
   MulticallModal = 'MulticallModal',

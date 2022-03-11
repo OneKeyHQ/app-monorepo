@@ -1,5 +1,6 @@
 import React, {
   ComponentProps,
+  ReactElement,
   ReactNode,
   useCallback,
   useMemo,
@@ -23,7 +24,7 @@ import Mobile from './Container/Mobile';
 
 export type SelectItem<T = string> = {
   label: string;
-  description?: string;
+  description?: string | ReactElement<any, any>;
   value: T;
   tokenProps?: ComponentProps<typeof Token>;
   iconProps?: ComponentProps<typeof Icon>;

@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum WatchedAccountModalRoutes {
   WatchedAccountModal = 'WatchedAccountForm',

@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import AddNewAccountModal from '@onekeyhq/kit/src/views/Account/AddNewAccount';
 import CreateAccountAuthenticationModal from '@onekeyhq/kit/src/views/Account/AddNewAccount/Authentication';
 import RecoveryAccountModal from '@onekeyhq/kit/src/views/Account/ImportedAccount';
+
+import createStackNavigator from './createStackNavigator';
 
 export enum CreateAccountModalRoutes {
   CreateAccountForm = 'CreateAccountForm',

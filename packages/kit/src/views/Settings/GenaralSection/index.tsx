@@ -93,6 +93,8 @@ export const GenaralSection = () => {
               onChange={(l) => dispatch(setLocale(l as 'zh-CN'))}
               options={[
                 { label: 'English', value: 'en-US' },
+                { label: '简体中文', value: 'zh-CN' },
+                { label: '繁體中文', value: 'zh-HK' },
                 { label: 'Deutsch', value: 'de' },
                 { label: 'Español', value: 'es' },
                 { label: 'Filipino', value: 'fil-PH' },
@@ -105,8 +107,6 @@ export const GenaralSection = () => {
                 { label: 'Italiano', value: 'it-IT' },
                 { label: 'Монгол', value: 'mn-MN' },
                 { label: 'Українська', value: 'uk-UA' },
-                { label: '简体中文', value: 'zh-CN' },
-                { label: '繁體中文', value: 'zh-HK' },
               ]}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"

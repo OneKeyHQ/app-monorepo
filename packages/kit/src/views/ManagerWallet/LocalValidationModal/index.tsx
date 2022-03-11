@@ -30,8 +30,8 @@ const ManagerWalletLocalValidationView: FC = () => {
       if (inputPwd) return;
 
       setInputPwd(password);
-      onSuccess(requestId, password);
       navigation.goBack();
+      onSuccess(password, requestId);
     }, [password]);
 
     return (

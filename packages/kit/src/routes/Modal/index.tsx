@@ -66,6 +66,11 @@ import ImportAccountModal, {
 } from './ImportAccount';
 import ManageNetworkModal from './ManageNetwork';
 import {
+  ManagerAccountModalStack as ManagerAccountModal,
+  ManagerAccountModalRoutes,
+  ManagerAccountRoutesParams,
+} from './ManagerAccount';
+import {
   ManagerWalletModalStack as ManagerWalletModal,
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
@@ -194,6 +199,10 @@ const modalStackScreenList = [
     component: ManagerWalletModal,
   },
   {
+    name: ModalRoutes.ManagerAccount,
+    component: ManagerAccountModal,
+  },
+  {
     name: ModalRoutes.EnableLocalAuthentication,
     component: EnableLocalAuthenticationModal,
   },
@@ -219,6 +228,7 @@ export type ModalTypes = {
   [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
   [BackupWalletModalRoutes.BackupWalletModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [ManagerWalletModalRoutes.ManagerWalletModal]: NavigatorScreenParams<ManagerWalletRoutesParams>;
+  [ManagerAccountModalRoutes.ManagerAccountModal]: NavigatorScreenParams<ManagerAccountRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
   [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;

@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyLiteBackup from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Backup';
 import OnekeyLitePinCode from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/PinCode';
@@ -10,6 +8,8 @@ import {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
+
+import createStackNavigator from './createStackNavigator';
 
 const OnekeyLiteNavigator = createStackNavigator<OnekeyLiteRoutesParams>();
 

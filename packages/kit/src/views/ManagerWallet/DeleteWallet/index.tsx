@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
-import { useAppDispatch } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks/useToast';
@@ -23,7 +22,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const dispatch = useAppDispatch();
+  const { dispatch, engine } = backgroundApiProxy;
 
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -50,10 +49,10 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
         onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
           setIsLoading(true);
 
-          backgroundApiProxy.engine
+          engine
             .getWallet(walletId)
             .then(async (wallet) => {
-              await backgroundApiProxy.engine.removeWallet(walletId, password);
+              await engine.removeWallet(walletId, password);
               dispatch(removeWalletById(walletId));
 
               toast.info(
