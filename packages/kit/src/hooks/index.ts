@@ -4,3 +4,5 @@ export { useInterval } from './useInterval';
 export { useLocalAuthentication } from './useLocalAuthentication';
 export { useDebounce } from './useDebounce';
 export { useGas } from './useGas';
+export { useToast } from './useToast';
+export { useHelpLink } from './useHelpLink';

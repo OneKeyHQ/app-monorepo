@@ -1,5 +1,6 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,30 +11,48 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useToast } from '../../../hooks';
+
 type NetworkValues = {
-  name?: string;
-  url?: string;
+  name: string;
+  rpcURL: string;
   chainId?: string;
   symbol?: string;
-  exploreUrl?: string;
+  explorerURL?: string;
 };
 
 export type NetworkAddViewProps = undefined;
 
 export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
+  const navigation = useNavigation();
+  const { info } = useToast();
+  const { serviceNetwork } = backgroundApiProxy;
   const defaultValues = {
     name: '',
-    url: '',
+    rpcURL: '',
     chainId: '',
     symbol: '',
-    exploreUrl: '',
+    explorerURL: '',
   };
   const { control, handleSubmit } = useForm<NetworkValues>({
     defaultValues,
   });
 
-  const onSubmit = handleSubmit((data) => console.log(data));
+  const onSubmit = useCallback(
+    async (data: NetworkValues) => {
+      await serviceNetwork.addNetwork('evm', {
+        name: data.name,
+        rpcURL: data.rpcURL,
+        symbol: data.symbol,
+        explorerURL: data.explorerURL,
+      });
+      info(intl.formatMessage({ id: 'transaction__success' }));
+      navigation.goBack();
+    },
+    [intl, info, serviceNetwork, navigation],
+  );
 
   return (
     <>
@@ -41,9 +60,9 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
         header="Add Network"
         hidePrimaryAction
         secondaryActionTranslationId="action__save"
-        secondaryActionProps={{ type: 'primary' }}
-        onSecondaryActionPress={() => {
-          onSubmit();
+        secondaryActionProps={{
+          type: 'primary',
+          onPromise: handleSubmit(onSubmit),
         }}
         scrollViewProps={{
           children: (
@@ -59,57 +78,32 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                   rules={{
                     required: {
                       value: true,
-                      message: 'network name can not be empty',
+                      message: intl.formatMessage({
+                        id: 'form__field_is_required',
+                      }),
                     },
                   }}
                 >
                   <Form.Input />
                 </Form.Item>
                 <Form.Item
-                  name="url"
+                  name="rpcURL"
                   control={control}
                   label={intl.formatMessage({
                     id: 'form__rpc_url',
                     defaultMessage: 'RPC URL',
                   })}
-                  defaultValue="https://rpc.onekey.so/eth"
                   formControlProps={{ zIndex: 10 }}
+                  rules={{
+                    required: {
+                      value: true,
+                      message: intl.formatMessage({
+                        id: 'form__field_is_required',
+                      }),
+                    },
+                  }}
                 >
-                  <Form.Select
-                    title={intl.formatMessage({
-                      id: 'content__preset_rpc',
-                      defaultMessage: 'Preset PRC URLs',
-                    })}
-                    footer={null}
-                    containerProps={{
-                      zIndex: 999,
-                      padding: 0,
-                    }}
-                    options={[
-                      {
-                        label: 'https://google.com',
-                        value: 'https://google.com',
-                      },
-                      {
-                        label: 'https://rpc.onekey.so/eth',
-                        value: 'https://rpc.onekey.so/eth',
-                      },
-                      {
-                        label: 'https://baidu.com',
-                        value: 'https://baidu.com',
-                      },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="chainId"
-                  label={intl.formatMessage({
-                    id: 'form__chain_id',
-                    defaultMessage: 'Chain ID',
-                  })}
-                  control={control}
-                >
-                  <Form.Input placeholder="chain id" />
+                  <Form.Input />
                 </Form.Item>
                 <Form.Item
                   name="symbol"
@@ -130,7 +124,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                   <Form.Input placeholder="ETH" />
                 </Form.Item>
                 <Form.Item
-                  name="exploreUrl"
+                  name="explorerURL"
                   label={intl.formatMessage({
                     id: 'form__blockchain_explorer_url',
                     defaultMessage: 'Blockchain Explore URL',
