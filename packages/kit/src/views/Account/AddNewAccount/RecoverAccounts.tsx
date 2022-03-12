@@ -140,17 +140,20 @@ const RecoverAccounts: FC = () => {
     [getActiveAccount, network, password, walletId],
   );
 
-  const checkBoxOnChange = (isSelected: boolean, item: FlatDataType) => {
-    flatListData.map((i) => {
-      if (i.path === item.path) {
-        i.selected = isSelected;
-      }
-      return i;
-    });
-    setIsVaild(
-      flatListData.filter((i) => !i.isDisabled && i.selected).length > 0,
-    );
-  };
+  const checkBoxOnChange = useCallback(
+    (isSelected: boolean, item: FlatDataType) => {
+      flatListData.map((i) => {
+        if (i.path === item.path) {
+          i.selected = isSelected;
+        }
+        return i;
+      });
+      setIsVaild(
+        flatListData.filter((i) => !i.isDisabled && i.selected).length > 0,
+      );
+    },
+    [flatListData],
+  );
 
   const renderItem: ListRenderItem<FlatDataType> = useCallback(
     ({ item, index }) => (

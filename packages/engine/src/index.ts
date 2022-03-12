@@ -600,8 +600,11 @@ class Engine {
   }
 
   @backgroundMethod()
-  getTopTokensOnNetwork(networkId: string, limit = 50): Array<Token> {
-    return getPresetTokensOnNetwork(networkId).slice(0, limit);
+  async getTopTokensOnNetwork(
+    networkId: string,
+    limit = 50,
+  ): Promise<Array<Token>> {
+    return Promise.resolve(getPresetTokensOnNetwork(networkId).slice(0, limit));
   }
 
   @backgroundMethod()
