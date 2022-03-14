@@ -8,8 +8,9 @@ import React, {
   useState,
 } from 'react';
 
-import { Modal, Pressable } from 'native-base';
+import { Pressable } from 'native-base';
 import { Keyboard } from 'react-native';
+import Modal from 'react-native-modal';
 
 import Box from '../Box';
 import { ButtonSize } from '../Button';
@@ -75,11 +76,12 @@ const Dialog: FC<DialogProps> = ({
   const container = useMemo(
     () => (
       <Modal
-        bg="#00000066"
-        animationPreset="fade"
-        isOpen={!!visible}
         avoidKeyboard
-        onClose={() => {
+        backdropColor="rgba(0, 0, 0, 0.6)"
+        animationOut="fadeOut"
+        animationIn="fadeIn"
+        isVisible={!!visible}
+        onModalHide={() => {
           if (canceledOnTouchOutside) handleClose();
         }}
         {...props}
