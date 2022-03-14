@@ -275,6 +275,7 @@ export const SecuritySection = () => {
         </Box>
       </Box>
       <Dialog
+        hasFormInsideDialog
         visible={showResetModal}
         onClose={() => setShowResetModal(false)}
         footerButtonProps={{

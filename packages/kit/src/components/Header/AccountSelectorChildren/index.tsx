@@ -273,11 +273,11 @@ const AccountSelectorChildren: FC = () => {
   return (
     <>
       <LeftSide
-        selectedWallet={selectedWallet}
+        selectedWallet={activeWallet}
         setSelectedWallet={setSelectedWallet}
       />
       <VStack flex={1}>
-        <RightHeader selectedWallet={selectedWallet} />
+        <RightHeader selectedWallet={activeWallet} />
         <FlatList
           px={2}
           contentContainerStyle={{
@@ -318,7 +318,7 @@ const AccountSelectorChildren: FC = () => {
                       name={item.name}
                     />
                   </Box>
-                  {renderSideAction(selectedWallet?.type, (v) =>
+                  {renderSideAction(activeWallet?.type, (v) =>
                     handleChange(item, v),
                   )}
                 </HStack>
@@ -329,8 +329,8 @@ const AccountSelectorChildren: FC = () => {
             <Pressable
               mt={2}
               onPress={() => {
-                if (!selectedWallet) return;
-                if (selectedWallet?.type === 'imported') {
+                if (!activeWallet) return;
+                if (activeWallet?.type === 'imported') {
                   return navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.ImportAccount,
                     params: {
@@ -338,7 +338,7 @@ const AccountSelectorChildren: FC = () => {
                     },
                   });
                 }
-                if (selectedWallet?.type === 'watching') {
+                if (activeWallet?.type === 'watching') {
                   return navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.WatchedAccount,
                     params: {
@@ -352,7 +352,7 @@ const AccountSelectorChildren: FC = () => {
                   params: {
                     screen: CreateAccountModalRoutes.CreateAccountForm,
                     params: {
-                      walletId: selectedWallet.id,
+                      walletId: activeWallet.id,
                     },
                   },
                 });

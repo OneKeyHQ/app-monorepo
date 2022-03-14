@@ -6,8 +6,10 @@ import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useToast } from '../../../hooks/useToast';
-import { removeWalletById } from '../../../store/reducers/wallet';
+import { changeActiveAccount } from '../../../store/reducers/general';
+import { setRefreshTS } from '../../../store/reducers/settings';
 
 type ManagerWalletDeleteDialogProps = {
   walletId: string;
@@ -22,6 +24,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
+  const { wallet: activeWallet } = useActiveWalletAccount();
   const { dispatch, engine } = backgroundApiProxy;
 
   const [isLoading, setIsLoading] = React.useState(false);
@@ -53,8 +56,10 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
             .getWallet(walletId)
             .then(async (wallet) => {
               await engine.removeWallet(walletId, password);
-              dispatch(removeWalletById(walletId));
-
+              if (activeWallet?.id === walletId) {
+                dispatch(changeActiveAccount({ account: null, wallet: null }));
+              }
+              dispatch(setRefreshTS());
               toast.info(
                 intl.formatMessage(
                   { id: 'msg__wallet_deleted' },
