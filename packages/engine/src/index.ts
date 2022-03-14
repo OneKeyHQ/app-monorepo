@@ -67,6 +67,7 @@ import {
 import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
+  HistoryEntryMeta,
   HistoryEntryStatus,
   HistoryEntryType,
 } from './types/history';
@@ -919,7 +920,7 @@ class Engine {
     networkId: string,
     accountId: string,
     messages: Array<Message>,
-    _ref?: string,
+    ref?: string,
   ): Promise<Array<string>> {
     const [credential, network, dbAccount] = await Promise.all([
       this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
@@ -934,7 +935,19 @@ class Engine {
       dbAccount,
       messages,
     );
-    // TODO: add history
+    const now = Date.now();
+    await Promise.all(
+      signatures.map((signature, index) =>
+        this.dbApi.addHistoryEntry(
+          `${networkId}--m-${now}-${index}`,
+          networkId,
+          accountId,
+          HistoryEntryType.SIGN,
+          HistoryEntryStatus.SIGNED,
+          { message: JSON.stringify(messages[index]), ref: ref || '' },
+        ),
+      ),
+    );
     return signatures;
   }
 
@@ -953,6 +966,7 @@ class Engine {
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
+    const ret: Array<string> = [];
     try {
       const txsWithStatus = await this.providerManager.signTransactions(
         credential.seed,
@@ -963,12 +977,26 @@ class Engine {
         overwriteParams,
         autoBroadcast,
       );
-      // TODO: add history
-      return txsWithStatus.map((tx) => (autoBroadcast ? tx.txid : tx.rawTx));
+      txsWithStatus.forEach(async (tx) => {
+        ret.push(autoBroadcast ? tx.txid : tx.rawTx);
+        const meta = { ...tx.txMeta, rawTx: tx.rawTx };
+        await this.dbApi.addHistoryEntry(
+          `${networkId}--${tx.txid}`,
+          networkId,
+          accountId,
+          HistoryEntryType.TRANSACTION,
+          autoBroadcast
+            ? HistoryEntryStatus.PENDING
+            : HistoryEntryStatus.SIGNED,
+          meta as HistoryEntryMeta,
+        );
+      });
     } catch (e) {
       const { message } = e as { message: string };
       throw new FailedToTransfer(message);
     }
+
+    return Promise.resolve(ret);
   }
 
   // TODO: sign & broadcast.

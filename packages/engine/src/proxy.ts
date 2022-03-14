@@ -63,7 +63,7 @@ import {
   DBVariantAccount,
 } from './types/account';
 import { CredentialSelector, CredentialType } from './types/credential';
-import { HistoryEntryStatus } from './types/history';
+import { HistoryEntryMeta, HistoryEntryStatus } from './types/history';
 import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
@@ -709,7 +709,14 @@ class ProviderController extends BaseProviderController {
     transactions: Array<string>,
     overwriteParams?: string,
     autoBroadcast = true,
-  ): Promise<Array<{ txid: string; rawTx: string; success: boolean }>> {
+  ): Promise<
+    Array<{
+      txid: string;
+      rawTx: string;
+      success: boolean;
+      txMeta: Partial<HistoryEntryMeta>;
+    }>
+  > {
     const ret = [];
     switch (network.impl) {
       case IMPL_EVM: {
@@ -797,7 +804,12 @@ class ProviderController extends BaseProviderController {
             console.error(e);
           }
         }
-        ret.push({ txid, rawTx, success });
+        const txMeta = {
+          contract: tx.data.length > 0 ? tx.to : '',
+          target: tx.data.length > 0 ? '' : tx.to,
+          value: tx.value.toString(),
+        };
+        ret.push({ txid, rawTx, success, txMeta });
         break;
       }
       // TODO: other networks
