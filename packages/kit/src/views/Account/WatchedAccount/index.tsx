@@ -32,10 +32,7 @@ const WatchedAccount: FC = () => {
   const toast = useToast();
   const { control, handleSubmit } = useForm<WatchedAccountFormValues>({
     defaultValues: {
-      address:
-        process.env.NODE_ENV !== 'production'
-          ? '0x76f3f64cb3cd19debee51436df630a342b736c24'
-          : '',
+      address: '',
     },
   });
   const wallets = useAppSelector((s) => s.wallet.wallets);

@@ -12,6 +12,7 @@ import {
   WrongPassword,
 } from '../../errors';
 import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
+import { getPath } from '../../managers/derivation';
 import { ACCOUNT_TYPE_SIMPLE, DBAccount } from '../../types/account';
 import {
   HistoryEntry,
@@ -642,14 +643,13 @@ class RealmDB implements DBAPI {
         } else if (wallet.type === WALLET_TYPE_HD) {
           const pathComponents = account.path.split('/');
           const category = `${pathComponents[1]}/${pathComponents[2]}`;
+          const purpose = pathComponents[1].slice(0, -1);
+          const coinType = pathComponents[2].slice(0, -1);
           let nextId = wallet.nextAccountIds![category] || 0;
           while (
             wallet.accounts!.filtered(
               'id == $0',
-              `${walletId}--${pathComponents
-                .slice(0, -1)
-                .concat([nextId.toString()])
-                .join('/')}`,
+              `${walletId}--${getPath(purpose, coinType, nextId)}`,
             )?.length > 0
           ) {
             nextId += 1;

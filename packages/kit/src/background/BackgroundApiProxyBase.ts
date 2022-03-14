@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
+
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
-import { ensureSerializable, throwMethodNotFound } from './utils';
+import {
+  ensurePromiseObject,
+  ensureSerializable,
+  throwMethodNotFound,
+} from './utils';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
@@ -102,7 +107,15 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
         ? (this.backgroundApi as any)[serviceName]
         : this.backgroundApi;
       if (serviceApi[backgroundMethodName]) {
-        return serviceApi[backgroundMethodName].call(serviceApi, ...params);
+        const result = serviceApi[backgroundMethodName].call(
+          serviceApi,
+          ...params,
+        );
+        ensurePromiseObject(result, {
+          serviceName,
+          methodName,
+        });
+        return result;
       }
       if (!IGNORE_METHODS.includes(backgroundMethodName)) {
         throwMethodNotFound(serviceName, backgroundMethodName);

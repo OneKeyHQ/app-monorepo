@@ -114,7 +114,10 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                   })}
                   control={control}
                 >
-                  <Form.Input placeholder="chain id" isDisabled />
+                  <Form.Input
+                    placeholder={intl.formatMessage({ id: 'form__chain_id' })}
+                    isDisabled
+                  />
                 </Form.Item>
                 <Form.Item
                   name="symbol"
@@ -174,10 +177,9 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
           content: intl.formatMessage(
             {
               id: 'dialog__reset_network_desc',
-              defaultMessage:
-                'Ethereum Mainnet will be revert to the default config',
+              defaultMessage: '{0} will be revert to the default config',
             },
-            { 0: 'Ethereum Mainnet' },
+            { 0: name },
           ),
         }}
         footerButtonProps={{

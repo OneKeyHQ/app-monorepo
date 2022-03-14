@@ -12,7 +12,7 @@ type NetworkBase = HasName & {
 };
 
 type PresetNetwork = NetworkBase & {
-  chainId?: number;
+  chainId?: string;
   shortName: string;
   isTestnet?: boolean;
   presetRpcURLs: Array<string>;

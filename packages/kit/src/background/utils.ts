@@ -13,6 +13,15 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+export function throwCrossError(msg: string, ...args: any) {
+  if (platformEnv.isNative) {
+    // `throw new Error()` won't print error object in iOS/Android,
+    //    so we print it manually by `console.error()`
+    console.error(msg, ...args);
+  }
+  throw new Error(msg);
+}
+
 export function toPlainErrorObject(error: {
   name?: any;
   code?: any;
@@ -63,18 +72,36 @@ export function ensureSerializable(obj: any) {
   }
 }
 
+export function ensurePromiseObject(
+  obj: any,
+  {
+    serviceName,
+    methodName,
+  }: {
+    serviceName: string;
+    methodName: string;
+  },
+) {
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    obj !== undefined &&
+    !(obj instanceof Promise)
+  ) {
+    throwCrossError(
+      `${
+        serviceName ? `${serviceName}.` : ''
+      }${methodName}() should be async or Promise method.`,
+    );
+  }
+}
+
 export function throwMethodNotFound(...methods: string[]) {
   const msg = `DApp Provider or Background method not support (method=${methods.join(
     '.',
   )})`;
-  if (platformEnv.isNative) {
-    // throw new Error() won't print error object in iOS/Android,
-    //    so we print it manually
-    console.error(msg);
-  }
   // @backgroundMethod() in background internal methods
   // @providerMethod() in background provider methods
-  throw new Error(msg);
+  throwCrossError(msg);
 }
 
 export function warningIfNotRunInBackground({

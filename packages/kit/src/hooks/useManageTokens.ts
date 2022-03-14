@@ -113,17 +113,17 @@ export const useManageTokens = () => {
     }
   }, [activeAccount, activeNetwork, dispatch, accountTokens.length]);
 
+  // TODO move to background Service
   const updateTokens = useCallback(() => {
-    if (activeAccount && activeNetwork) {
-      dispatch(
-        changeActiveTokens(
-          backgroundApiProxy.engine.getTopTokensOnNetwork(
-            activeNetwork.network.id,
-            50,
-          ),
-        ),
-      );
-    }
+    (async () => {
+      if (activeAccount && activeNetwork) {
+        const topTokens = await backgroundApiProxy.engine.getTopTokensOnNetwork(
+          activeNetwork.network.id,
+          50,
+        );
+        dispatch(changeActiveTokens(topTokens));
+      }
+    })();
   }, [activeAccount, activeNetwork, dispatch]);
 
   return {
