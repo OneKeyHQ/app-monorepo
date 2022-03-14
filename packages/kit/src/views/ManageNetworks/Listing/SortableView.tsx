@@ -16,7 +16,7 @@ import {
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks } from '../../../hooks';
+import { useManageNetworks, useToast } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 
 import { DiscardAlert } from './DiscardAlert';
@@ -81,6 +81,7 @@ type RenderItemProps = { item: Network; drag: () => void };
 
 export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const intl = useIntl();
+  const { text } = useToast();
   const navigation = useNavigation();
   const { serviceNetwork } = backgroundApiProxy;
   const refData = useRef({ isDiscard: false });
@@ -141,9 +142,10 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
       await serviceNetwork.updateNetworks(
         list.map((item) => [item.id, networksIdMap[item.id]]),
       );
+      text('msg__change_saved');
     }
     onPress?.();
-  }, [networksIdMap, list, onPress, initialData, serviceNetwork]);
+  }, [networksIdMap, list, onPress, initialData, serviceNetwork, text]);
 
   const onBeforeRemove = useCallback(
     (e) => {

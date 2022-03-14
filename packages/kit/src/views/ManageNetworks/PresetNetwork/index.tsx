@@ -34,13 +34,16 @@ type PresetNetwokProps = NativeStackScreenProps<
 export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const { name, rpcURL, chainId, symbol, exploreUrl, id } = route.params;
   const intl = useIntl();
-  const { info } = useToast();
+  const { text } = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
   const { serviceNetwork } = backgroundApiProxy;
-  const { control, handleSubmit, reset } = useForm<NetworkValues>({
+  const { control, handleSubmit, reset, watch } = useForm<NetworkValues>({
+    mode: 'onChange',
     defaultValues: { name, rpcURL, chainId, symbol, exploreUrl, id },
   });
   const [resetOpened, setResetOpened] = useState(false);
+
+  const watchedRpcURL = watch('rpcURL');
 
   const onButtonPress = useCallback(() => {
     setResetOpened(true);
@@ -55,9 +58,9 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
-      info(intl.formatMessage({ id: 'transaction__success' }));
+      text('transaction__success');
     },
-    [serviceNetwork, id, info, intl],
+    [serviceNetwork, id, text],
   );
 
   return (
@@ -67,6 +70,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
         height="560px"
         primaryActionProps={{
           onPromise: handleSubmit(onSubmit),
+          isDisabled: watchedRpcURL === rpcURL,
         }}
         primaryActionTranslationId="action__save"
         hideSecondaryAction
@@ -155,7 +159,12 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                 >
                   <Form.Input isDisabled />
                 </Form.Item>
-                <Button w="full" size="lg" onPress={onButtonPress}>
+                <Button
+                  w="full"
+                  size="lg"
+                  onPress={onButtonPress}
+                  isDisabled={watchedRpcURL === rpcURL}
+                >
                   {intl.formatMessage({
                     id: 'action__reset',
                     defaultMessage: 'Reset',
