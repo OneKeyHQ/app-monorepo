@@ -31,7 +31,6 @@ export function SelectTrigger<T>({
       alignItems="center"
       px="4"
       py="3.5"
-      zIndex={99}
       {...borderProps}
     >
       <Typography.Body1 flex="1" numberOfLines={1} mr="3">
