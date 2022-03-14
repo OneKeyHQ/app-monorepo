@@ -311,9 +311,11 @@ const AccountSelectorChildren: FC = () => {
                   }
                   space={4}
                   borderRadius="xl"
+                  alignItems="center"
                 >
                   <Box flex={1}>
                     <Account
+                      hiddenAvatar
                       address={(item as SimpleAccount)?.address ?? ''}
                       name={item.name}
                     />

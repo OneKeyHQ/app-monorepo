@@ -7,12 +7,9 @@ import {
   Center,
   Divider,
   HStack,
-  Icon,
   IconButton,
-  Image,
   Pressable,
   ScrollView,
-  Typography,
   VStack,
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -27,23 +24,20 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import WalletAvatar from '../WalletAvatar';
+
 import type { AccountType } from './index';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type WalletItemProps = {
   isSelected?: boolean;
-  decorationColor?: string;
   walletType?: AccountType;
-  emoji?: string;
-  deviceIconUrl?: string;
-} & ComponentProps<typeof Pressable>;
+} & ComponentProps<typeof Pressable> &
+  ComponentProps<typeof WalletAvatar>;
 
 const WalletItem: FC<WalletItemProps> = ({
   isSelected,
-  decorationColor,
   walletType,
-  emoji,
-  deviceIconUrl,
   ...rest
 }) => (
   <Pressable {...rest}>
@@ -62,23 +56,7 @@ const WalletItem: FC<WalletItemProps> = ({
               : 'transparent'
           }
         />
-        <Box
-          w={12}
-          h={12}
-          bg={decorationColor}
-          borderRadius={isSelected ? 'xl' : 'full'}
-          alignItems="center"
-          justifyContent="center"
-        >
-          {walletType === 'hd' && (
-            <Typography.DisplayLarge>{emoji && emoji}</Typography.DisplayLarge>
-          )}
-          {walletType === 'hw' && (
-            <Image width="22px" height="32px" source={{ uri: deviceIconUrl }} />
-          )}
-          {walletType === 'imported' && <Icon name="SaveOutline" />}
-          {walletType === 'watching' && <Icon name="EyeOutline" />}
-        </Box>
+        <WalletAvatar {...rest} circular={isSelected} />
       </HStack>
     )}
   </Pressable>
@@ -112,9 +90,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   key={wallet.id}
                   onPress={() => setSelectedWallet(wallet)}
                   isSelected={selectedWallet?.id === wallet.id}
-                  decorationColor="#FFF7D7"
-                  walletType="hd"
-                  emoji="🌈"
+                  avatarBgColor="#55A9D9"
                 />
               ))}
 
@@ -152,7 +128,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   key={wallet.id}
                   onPress={() => setSelectedWallet(wallet)}
                   isSelected={selectedWallet?.id === wallet.id}
-                  walletType="watching"
+                  walletImage="watched"
                 />
               ))}
           </VStack>
