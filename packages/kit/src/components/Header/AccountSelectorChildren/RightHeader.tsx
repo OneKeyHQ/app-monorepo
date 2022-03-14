@@ -120,7 +120,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
 
   return (
     <>
-      <HStack zIndex={99} py={3} px={4} space={4} alignItems="center">
+      <HStack py={3} px={4} space={4} alignItems="center">
         <VStack flex={1}>
           <HeaderTitle selectedWallet={selectedWallet} />
           <Typography.Caption color="text-subdued">

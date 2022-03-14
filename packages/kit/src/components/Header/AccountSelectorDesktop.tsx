@@ -53,7 +53,6 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
     >
       <Box
         nativeID={domId}
-        // zIndex={999}
         left={toPxPositionValue(position.left)}
         right={toPxPositionValue(position.right)}
         top={toPxPositionValue(position.top)}

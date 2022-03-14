@@ -282,12 +282,10 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           contentContainerStyle={{
             paddingBottom: 16,
           }}
-          zIndex={2}
           data={activeAccounts}
           keyExtractor={(_, index) => index.toString()}
           renderItem={({ item }) => (
             <Pressable
-              zIndex={99}
               onPress={() => {
                 backgroundApiProxy.serviceAccount.changeActiveAccount({
                   account: item,

@@ -61,7 +61,6 @@ function Desktop<T>({
     >
       <Box
         nativeID={domId}
-        // zIndex={999}
         position="absolute"
         width="full"
         left={toPxPositionValue(position.left)}

@@ -68,7 +68,6 @@ const DesktopModal: FC<ModalProps> = ({
       justifyContent="center"
       alignItems="center"
       bg="rgba(0, 0, 0, 0.6)"
-      zIndex={99}
     >
       <Box
         width={modalSizing(size)}
@@ -76,7 +75,6 @@ const DesktopModal: FC<ModalProps> = ({
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"
-        zIndex={999}
       >
         <Box
           pt={4}
