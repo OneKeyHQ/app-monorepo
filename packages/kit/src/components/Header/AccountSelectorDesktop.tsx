@@ -23,7 +23,7 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
   toggleVisible,
   triggerEle,
 }) => {
-  const translateY = 3;
+  const translateY = 4;
   const { domId } = useClickDocumentClose({
     name: 'AccountSelectorDesktop',
     visible,
