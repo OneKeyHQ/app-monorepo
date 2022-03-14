@@ -59,7 +59,7 @@ NetInfo.configure({
   reachabilityUrl:
     platformEnv.isExtension || platformEnv.isDesktop
       ? 'https://defi.onekey.so/onestep/v1/test'
-      : undefined,
+      : '',
 });
 
 const Home: FC = () => {

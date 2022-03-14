@@ -25,7 +25,11 @@ import {
 import { IBackgroundApiBridge } from './IBackgroundApi';
 import { createBackgroundProviders } from './providers/backgroundProviders';
 import ProviderApiBase from './providers/ProviderApiBase';
-import { ensureSerializable, throwMethodNotFound } from './utils';
+import {
+  ensurePromiseObject,
+  ensureSerializable,
+  throwMethodNotFound,
+} from './utils';
 
 function isPrivateAllowedOrigin(origin?: string) {
   return (
@@ -233,7 +237,12 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const serviceApi = serviceName ? (this as any)[serviceName] : this;
     const methodFunc = serviceApi[method];
     if (methodFunc) {
-      const result = await methodFunc.call(serviceApi, ...paramsArr);
+      const resultPromise = methodFunc.call(serviceApi, ...paramsArr);
+      ensurePromiseObject(resultPromise, {
+        serviceName,
+        methodName: method,
+      });
+      const result = await resultPromise;
       ensureSerializable(result);
       return result;
     }

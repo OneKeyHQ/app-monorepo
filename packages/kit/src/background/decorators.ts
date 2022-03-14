@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions */
-import { warningIfNotRunInBackground } from './utils';
+import { throwCrossError, warningIfNotRunInBackground } from './utils';
 
 const INTERNAL_METHOD_PREFIX = 'internal_';
 
@@ -37,6 +37,12 @@ function backgroundMethod() {
     methodName: string,
     descriptor: PropertyDescriptor,
   ) {
+    if (typeof descriptor.value !== 'function') {
+      throwCrossError(
+        '@backgroundMethod() only available for method or function.',
+        methodName,
+      );
+    }
     target[`${INTERNAL_METHOD_PREFIX}${methodName}`] = descriptor.value;
     return descriptor;
   };
