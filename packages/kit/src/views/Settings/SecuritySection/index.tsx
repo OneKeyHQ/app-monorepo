@@ -154,7 +154,7 @@ export const SecuritySection = () => {
               });
             }}
           >
-            <Typography.Body1>
+            <Typography.Body1 flex="1" numberOfLines={1} mr="3">
               {intl.formatMessage({
                 id: 'form__change_password',
                 defaultMessage: 'Change Password',
@@ -174,7 +174,7 @@ export const SecuritySection = () => {
               borderBottomWidth="1"
               borderBottomColor="divider"
             >
-              <Typography.Body1>
+              <Typography.Body1 flex="1" numberOfLines={1} mr="3">
                 {intl.formatMessage({
                   id: 'form__face_id',
                   defaultMessage: 'Face ID',
@@ -206,7 +206,7 @@ export const SecuritySection = () => {
             borderBottomWidth="1"
             borderBottomColor="divider"
           >
-            <Typography.Body1>
+            <Typography.Body1 flex="1" numberOfLines={1} mr="3">
               {intl.formatMessage({
                 id: 'form__app_lock',
                 defaultMessage: 'App Lock',
@@ -257,7 +257,12 @@ export const SecuritySection = () => {
             p="4"
             onPress={onOpenResetModal}
           >
-            <Typography.Body1 color="text-critical">
+            <Typography.Body1
+              color="text-critical"
+              flex="1"
+              numberOfLines={1}
+              mr="3"
+            >
               {intl.formatMessage({
                 id: 'form__reset_app',
                 defaultMessage: 'Reset App',

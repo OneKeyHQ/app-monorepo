@@ -53,7 +53,8 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
             if (network.preset) {
               navigation.navigate(ManageNetworkRoutes.PresetNetwork, {
                 ...network,
-                exploreUrl: network.blockExplorerURL.address,
+                exploreUrl: network.blockExplorerURL.name,
+                chainId: String(+network.extraInfo.chainId ?? ''),
               });
             } else {
               navigation.navigate(ManageNetworkRoutes.CustomNetwork, {

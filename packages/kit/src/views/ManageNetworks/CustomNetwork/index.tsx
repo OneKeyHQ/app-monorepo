@@ -172,7 +172,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
               id: 'dialog__remove_network_desc',
               defaultMessage: '“{0}” will be removed from your networks list.',
             },
-            { 0: 'Ethereum Mainnet' },
+            { 0: name },
           ),
         }}
         footerButtonProps={{

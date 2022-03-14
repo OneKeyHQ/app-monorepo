@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
+
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
-import { ensureSerializable, throwMethodNotFound } from './utils';
+import {
+  ensurePromiseObject,
+  ensureSerializable,
+  throwMethodNotFound,
+} from './utils';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
@@ -70,7 +75,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     if (serviceName === 'ROOT') {
       serviceName = '';
     }
-    const backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
+    let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
     if (platformEnv.isExtension && isExtensionUi()) {
       const data = {
         service: serviceName,
@@ -88,6 +93,13 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
         });
       }
     } else {
+      // some third party modules call native object methods, so we should NOT rename method
+      //    react-native/node_modules/pretty-format
+      //    expo/node_modules/pretty-format
+      const IGNORE_METHODS = ['hasOwnProperty', 'toJSON'];
+      if (platformEnv.isNative && IGNORE_METHODS.includes(methodName)) {
+        backgroundMethodName = methodName;
+      }
       if (!this.backgroundApi) {
         throw new Error('backgroundApi not found in non-ext env');
       }
@@ -95,9 +107,19 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
         ? (this.backgroundApi as any)[serviceName]
         : this.backgroundApi;
       if (serviceApi[backgroundMethodName]) {
-        return serviceApi[backgroundMethodName].call(serviceApi, ...params);
+        const result = serviceApi[backgroundMethodName].call(
+          serviceApi,
+          ...params,
+        );
+        ensurePromiseObject(result, {
+          serviceName,
+          methodName,
+        });
+        return result;
       }
-      throwMethodNotFound(serviceName, backgroundMethodName);
+      if (!IGNORE_METHODS.includes(backgroundMethodName)) {
+        throwMethodNotFound(serviceName, backgroundMethodName);
+      }
     }
   }
 
