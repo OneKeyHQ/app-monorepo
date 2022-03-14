@@ -13,7 +13,10 @@ import {
   BaseProvider,
   ClientFilter,
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import { Algod } from '@onekeyfe/blockchain-libs/dist/provider/chains/algo/algod';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
+import { NearCli } from '@onekeyfe/blockchain-libs/dist/provider/chains/near/nearcli';
+import { Solana } from '@onekeyfe/blockchain-libs/dist/provider/chains/sol/solana';
 import {
   ExtendedKey,
   N,
@@ -684,4 +687,37 @@ class PriceController {
   }
 }
 
-export { fromDBNetworkToChainInfo, ProviderController, PriceController };
+async function getRPCStatus(
+  url: string,
+  impl: string,
+): Promise<{ responseTime: number; latestBlock: number }> {
+  let client: BaseClient;
+  switch (impl) {
+    case IMPL_ALGO:
+      client = new Algod(url);
+      break;
+    case IMPL_EVM:
+      client = new Geth(url);
+      break;
+    case IMPL_NEAR:
+      client = new NearCli(url);
+      break;
+    case IMPL_SOL:
+      client = new Solana(url);
+      break;
+    default:
+      throw new NotImplemented(
+        `Adding network for implemetation ${impl} is not supported.`,
+      );
+  }
+  const start = performance.now();
+  const latestBlock = (await client.getInfo()).bestBlockNumber;
+  return { responseTime: Math.floor(performance.now() - start), latestBlock };
+}
+
+export {
+  fromDBNetworkToChainInfo,
+  ProviderController,
+  PriceController,
+  getRPCStatus,
+};

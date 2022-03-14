@@ -56,6 +56,7 @@ import {
   PriceController,
   ProviderController,
   fromDBNetworkToChainInfo,
+  getRPCStatus,
 } from './proxy';
 import {
   ACCOUNT_TYPE_SIMPLE,
@@ -882,6 +883,18 @@ class Engine {
   }
 
   @backgroundMethod()
+  getRPCEndpointStatus(
+    rpcURL: string,
+    impl: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    if (rpcURL.length === 0) {
+      throw new OneKeyInternalError('Empty RPC URL.');
+    }
+
+    return getRPCStatus(rpcURL, impl);
+  }
+
+  @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
     if (params.rpcURL === '') {
       throw new OneKeyInternalError(
@@ -1061,9 +1074,6 @@ class Engine {
   proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
     return this.providerManager.proxyRPCCall(networkId, request);
   }
-
-  // TODO: RPC interactions.
-  // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
   @backgroundMethod()
   async getPrices(
