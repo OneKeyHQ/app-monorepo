@@ -17,7 +17,7 @@ type EmptyProps = {
   // HACK: to let icon has the ICON_NAMES lookup and supports ReactNode
   icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
-  imageUrl?: string;
+  imageUrl?: number;
   handleAction?: () => void;
 };
 
@@ -56,7 +56,7 @@ const Empty: FC<EmptyProps> = ({
         {!!icon && renderIcon(icon)}
         {!!imageUrl && (
           <Box mb={3}>
-            <Image size="100px" src={imageUrl} />
+            <Image size="100px" source={imageUrl} />
           </Box>
         )}
         <Text typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}>
