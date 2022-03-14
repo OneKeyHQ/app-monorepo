@@ -23,7 +23,7 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
   toggleVisible,
   triggerEle,
 }) => {
-  const translateY = 8;
+  const translateY = 3;
   const { domId } = useClickDocumentClose({
     name: 'AccountSelectorDesktop',
     visible,
@@ -36,6 +36,7 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
     dropdownPosition: 'left',
     translateY,
     autoAdjust: false,
+    setPositionOnlyMounted: true,
   });
   const status = useDrawerStatus();
   const isOpen = status === 'open';

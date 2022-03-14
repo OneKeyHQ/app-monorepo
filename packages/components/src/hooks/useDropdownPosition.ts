@@ -51,6 +51,7 @@ function useDropdownPosition({
   dropdownPosition = 'left', // 'center' | 'left' | 'right'
   translateY = 0,
   autoAdjust = true,
+  setPositionOnlyMounted = false,
 }: any) {
   const [position, setPosition] = useState<ISelectorContentPosition>({
     left: undefined,
@@ -69,7 +70,7 @@ function useDropdownPosition({
     if (triggerEle && visible) {
       const pos = getDomElementPosition(triggerEle);
 
-      if (isPositionNotReady) {
+      if (!setPositionOnlyMounted || isPositionNotReady) {
         if (dropdownPosition === 'right') {
           setPosition({
             left: undefined,

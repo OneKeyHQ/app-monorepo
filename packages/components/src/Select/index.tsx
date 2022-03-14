@@ -75,6 +75,8 @@ export type SelectProps<T = string> = {
   visible?: boolean | undefined;
   onVisibleChange?: (visible: boolean) => void;
   triggerEle?: HTMLElement | null;
+  setPositionOnlyMounted?: boolean;
+  positionTranslateY?: number;
 };
 
 export type ChildProps<T> = Pick<
@@ -94,6 +96,8 @@ export type ChildProps<T> = Pick<
   | 'activatable'
   | 'dropdownPosition'
   | 'triggerEle'
+  | 'setPositionOnlyMounted'
+  | 'positionTranslateY'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -130,6 +134,8 @@ function Select<T = string>({
   dropdownPosition,
   visible: selectVisible,
   onVisibleChange,
+  setPositionOnlyMounted,
+  positionTranslateY,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
@@ -196,6 +202,8 @@ function Select<T = string>({
       dropdownPosition,
       onPressFooter: handlePressFooter,
       triggerEle: triggerRef?.current,
+      setPositionOnlyMounted,
+      positionTranslateY,
     };
 
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -205,21 +213,23 @@ function Select<T = string>({
   }, [
     selectVisible,
     visible,
-    size,
-    toggleVisible,
     options,
-    handleChange,
+    toggleVisible,
     dropdownProps,
     title,
     footer,
     footerText,
     footerIcon,
-    handlePressFooter,
     activeOption,
     renderItem,
     headerShown,
+    handleChange,
     activatable,
     dropdownPosition,
+    handlePressFooter,
+    setPositionOnlyMounted,
+    positionTranslateY,
+    size,
   ]);
 
   return (

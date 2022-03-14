@@ -31,8 +31,10 @@ function Desktop<T>({
   dropdownPosition,
   activatable,
   triggerEle,
+  setPositionOnlyMounted,
+  positionTranslateY = 2,
 }: ChildProps<T>) {
-  const translateY = 8;
+  const translateY = positionTranslateY;
 
   const { domId } = useClickDocumentClose({
     name: 'SelectDesktop',
@@ -45,6 +47,7 @@ function Desktop<T>({
     visible,
     dropdownPosition,
     translateY,
+    setPositionOnlyMounted,
   });
 
   const content = (
