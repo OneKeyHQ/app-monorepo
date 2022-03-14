@@ -26,6 +26,8 @@ type SortableViewProps = {
 };
 
 type ItemRowProps = {
+  index: number;
+  total: number;
   initialValue: boolean;
   network: Network;
   onDrag: () => void;
@@ -33,6 +35,8 @@ type ItemRowProps = {
 };
 
 const ItemRow: FC<ItemRowProps> = ({
+  index,
+  total,
   initialValue,
   network,
   onDrag,
@@ -45,11 +49,14 @@ const ItemRow: FC<ItemRowProps> = ({
   }, [onChange, isChecked, network.id]);
   return (
     <Box
+      bg="surface-default"
       display="flex"
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
       p="4"
+      borderTopRadius={index === 0 ? '12' : 0}
+      borderBottomRadius={total - 1 === index ? '12' : 0}
     >
       <Box display="flex" flexDirection="row" alignItems="center">
         <IconButton
@@ -77,7 +84,7 @@ const ItemRow: FC<ItemRowProps> = ({
 };
 
 // eslint-disable-next-line
-type RenderItemProps = { item: Network; drag: () => void };
+type RenderItemProps = { item: Network; index: number; drag: () => void };
 
 export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const intl = useIntl();
@@ -122,16 +129,18 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   );
 
   const renderItem = useCallback(
-    ({ item, drag }: RenderItemProps) => (
+    ({ item, drag, index }: RenderItemProps) => (
       <ItemRow
+        index={index}
         key={item.id}
+        total={list.length}
         network={item}
         initialValue={networksIdMap[item.id]}
         onDrag={drag}
         onChange={onChange}
       />
     ),
-    [onChange, networksIdMap],
+    [onChange, networksIdMap, list.length],
   ) as any;
 
   const onPromise = useCallback(async () => {
@@ -196,6 +205,12 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
           // eslint-disable-next-line
           onDragEnd: ({ data }: any) => setList(data),
           ItemSeparatorComponent: () => <Divider />,
+          contentContainerStyle: {
+            paddingBottom: 24,
+            paddingTop: 24,
+            paddingLeft: 24,
+            paddingRight: 24,
+          },
         }}
       />
       <DiscardAlert

@@ -34,12 +34,11 @@ export function useToast() {
     [toast],
   );
   const text = useCallback(
-    (id: string, options?: Options) => {
+    (id: string, options?: Options) =>
       toast.show({
         render: () => <Toast title={intl.formatMessage({ id })} />,
         placement: options?.placement,
-      });
-    },
+      }) as string,
     [toast, intl],
   );
 

@@ -27,7 +27,7 @@ export type NetworkAddViewProps = undefined;
 export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { info } = useToast();
+  const { text } = useToast();
   const { serviceNetwork } = backgroundApiProxy;
   const defaultValues = {
     name: '',
@@ -48,10 +48,10 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
         symbol: data.symbol,
         explorerURL: data.explorerURL,
       });
-      info(intl.formatMessage({ id: 'transaction__success' }));
+      text('msg__network_added');
       navigation.goBack();
     },
-    [intl, info, serviceNetwork, navigation],
+    [text, serviceNetwork, navigation],
   );
 
   return (
@@ -82,6 +82,12 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                         id: 'form__field_is_required',
                       }),
                     },
+                    maxLength: {
+                      value: 30,
+                      message: intl.formatMessage({
+                        id: 'form__network_name_invalid',
+                      }),
+                    },
                   }}
                 >
                   <Form.Input />
@@ -99,6 +105,12 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                       value: true,
                       message: intl.formatMessage({
                         id: 'form__field_is_required',
+                      }),
+                    },
+                    pattern: {
+                      value: /^https?:\/\//,
+                      message: intl.formatMessage({
+                        id: 'form__rpc_url_wrong_format',
                       }),
                     },
                   }}
@@ -120,6 +132,20 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     </Typography.Body2>
                   }
                   control={control}
+                  rules={{
+                    required: {
+                      value: true,
+                      message: intl.formatMessage({
+                        id: 'form__field_is_required',
+                      }),
+                    },
+                    maxLength: {
+                      value: 15,
+                      message: intl.formatMessage({
+                        id: 'form__symbol_invalid',
+                      }),
+                    },
+                  }}
                 >
                   <Form.Input placeholder="ETH" />
                 </Form.Item>
