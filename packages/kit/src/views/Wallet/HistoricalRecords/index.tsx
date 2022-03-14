@@ -10,7 +10,6 @@ import {
   Center,
   Divider,
   Empty,
-  Icon,
   IconButton,
   Pressable,
   SectionList,
