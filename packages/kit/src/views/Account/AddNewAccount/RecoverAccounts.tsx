@@ -22,6 +22,7 @@ import type {
   Account,
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
+import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -219,7 +220,7 @@ const RecoverAccounts: FC = () => {
         ListEmptyComponent: (
           <Box flex={1} alignItems="center" justifyContent="center">
             <Empty
-              icon="UserCircleSolid"
+              imageUrl={IconAccount}
               title={intl.formatMessage({
                 id: 'empty__no_account_title',
               })}
