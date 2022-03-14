@@ -5,6 +5,7 @@ import Button from '../Button';
 import Center from '../Center';
 import Icon from '../Icon';
 import { ICON_NAMES } from '../Icon/Icons';
+import Image from '../Image';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text } from '../Typography';
 
@@ -16,6 +17,7 @@ type EmptyProps = {
   // HACK: to let icon has the ICON_NAMES lookup and supports ReactNode
   icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
+  imageUrl?: number;
   handleAction?: () => void;
 };
 
@@ -38,6 +40,7 @@ const Empty: FC<EmptyProps> = ({
   subTitle,
   icon,
   actionTitle,
+  imageUrl,
   handleAction,
 }) => {
   const isSmallScreen = useIsVerticalLayout();
@@ -50,7 +53,12 @@ const Empty: FC<EmptyProps> = ({
       justifyContent="center"
     >
       <Center width="320px" py="4">
-        {renderIcon(icon)}
+        {!!icon && renderIcon(icon)}
+        {!!imageUrl && (
+          <Box mb={3}>
+            <Image size="100px" source={imageUrl} />
+          </Box>
+        )}
         <Text typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}>
           {title}
         </Text>

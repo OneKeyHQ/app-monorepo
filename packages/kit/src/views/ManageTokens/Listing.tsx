@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { Token } from '@onekeyhq/engine/src/types/token';
+import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
@@ -203,6 +204,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   }
   return terms.length > 0 ? (
     <Empty
+      imageUrl={IconSearch}
       title={intl.formatMessage({
         id: 'content__no_results',
         defaultMessage: 'No Result',

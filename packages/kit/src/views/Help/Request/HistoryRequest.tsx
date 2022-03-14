@@ -15,6 +15,8 @@ import {
   Spinner,
   Text,
 } from '@onekeyhq/components';
+import IconRequest from '@onekeyhq/kit/assets/3d_request.png';
+import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
@@ -73,7 +75,7 @@ export const HistoryRequest: FC = () => {
     if (error) {
       return (
         <Empty
-          icon="StatusOfflineSolid"
+          imageUrl={IconWifi}
           title={intl.formatMessage({ id: 'title__no_connection' })}
           subTitle={intl.formatMessage({
             id: 'title__no_connection_desc',
@@ -91,6 +93,7 @@ export const HistoryRequest: FC = () => {
 
     return (
       <Empty
+        imageUrl={IconRequest}
         title={intl.formatMessage({ id: 'title__no_request_history' })}
         subTitle={intl.formatMessage({
           id: 'title__no_request_history_desc',

@@ -10,7 +10,6 @@ import {
   Center,
   Divider,
   Empty,
-  Icon,
   IconButton,
   Pressable,
   SectionList,
@@ -21,6 +20,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import { useAnimation } from '@onekeyhq/kit/src/hooks/useAnimation';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
@@ -227,7 +227,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const renderEmpty = () => (
     <Box pb={2} pt={2} flexDirection="row" alignItems="center">
       <Empty
-        icon={<Icon name="DatabaseOutline" size={48} />}
+        imageUrl={IconHistory}
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
         subTitle={intl.formatMessage({
           id: 'transaction__history_empty_desc',

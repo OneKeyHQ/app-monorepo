@@ -17,6 +17,8 @@ import {
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
+import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
+import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -93,7 +95,7 @@ const Home: FC = () => {
     return (
       <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
-          icon="WalletOutline"
+          imageUrl={IconWallet}
           title={intl.formatMessage({ id: 'empty__no_wallet_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_wallet_desc' })}
         />
@@ -129,7 +131,7 @@ const Home: FC = () => {
     return (
       <Box flex="1" justifyContent="center" bg="background-default">
         <Empty
-          icon="WalletOutline"
+          imageUrl={IconAccount}
           title={intl.formatMessage({ id: 'empty__no_account_title' })}
           subTitle={intl.formatMessage({ id: 'empty__no_account_desc' })}
         />
