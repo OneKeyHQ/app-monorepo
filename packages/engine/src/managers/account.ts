@@ -47,7 +47,7 @@ function getHDAccountToAdd(
   impl: string,
   walletId: string,
   path: string,
-  xpub: Buffer,
+  pub: string,
   name?: string,
 ): DBAccount {
   const coinType = implToCoinTypes[impl];
@@ -60,7 +60,7 @@ function getHDAccountToAdd(
     type: 'simple',
     path,
     coinType,
-    pub: xpub.slice(45).toString('hex'),
+    pub,
     address: '',
   };
 }

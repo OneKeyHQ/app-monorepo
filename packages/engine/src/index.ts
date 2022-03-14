@@ -13,7 +13,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 
-import { IMPL_EVM, IMPL_SOL, SEPERATOR } from './constants';
+import { IMPL_EVM, IMPL_SOL, SEPERATOR, SUPPORTED_IMPLS } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import {
@@ -341,18 +341,20 @@ class Engine {
       this.dbApi.getCredential(walletId, password),
       this.dbApi.getNetwork(networkId),
     ]);
-    const { paths, xpubs } = getXpubs(
+    const outputFormat = 'pub';
+    const accountInfos = getXpubs(
       getImplFromNetworkId(networkId),
       credential.seed,
       password,
+      outputFormat,
       start,
       limit,
       purpose,
       dbNetwork.curve,
     );
     const addresses = await Promise.all(
-      xpubs.map((xpub) =>
-        this.providerManager.addressFromXpub(networkId, xpub),
+      accountInfos.map((accountInfo) =>
+        this.providerManager.addressFromPub(networkId, accountInfo.info),
       ),
     );
     const requests = addresses.map((address) =>
@@ -364,7 +366,7 @@ class Engine {
     );
     return balances.map((balance, index) => ({
       index: start + index,
-      path: paths[index],
+      path: accountInfos[index].path,
       displayAddress: addresses[index],
       mainBalance:
         typeof balance === 'undefined'
@@ -411,10 +413,12 @@ class Engine {
       this.dbApi.getCredential(walletId, password),
       this.dbApi.getNetwork(networkId),
     ]);
-    const { paths, xpubs } = getXpubs(
+    const outputFormat = 'pub';
+    const [accountInfo] = getXpubs(
       getImplFromNetworkId(networkId),
       credential.seed,
       password,
+      outputFormat,
       usedIndex,
       1,
       usedPurpose,
@@ -423,7 +427,13 @@ class Engine {
     return this.dbApi
       .addAccountToWallet(
         walletId,
-        getHDAccountToAdd(impl, walletId, paths[0], xpubs[0], name),
+        getHDAccountToAdd(
+          impl,
+          walletId,
+          accountInfo.path,
+          accountInfo.info,
+          name,
+        ),
       )
       .then((a: DBAccount) => this.getAccount(a.id, networkId));
   }
@@ -507,7 +517,17 @@ class Engine {
     if (typeof tokenInfo === 'undefined') {
       return noThisToken;
     }
-    return this.dbApi.addToken({ ...toAdd, ...tokenInfo, ...{ id: tokenId } });
+    const overwrite: Partial<Token> = {
+      id: tokenId,
+      decimals: tokenInfo.decimals,
+    };
+    if (toAdd.decimals === -1 || getImplFromNetworkId(networkId) !== IMPL_SOL) {
+      // If the token is not preset or it is not on solana, use the name and
+      // symbol retrieved from the network.
+      overwrite.name = tokenInfo.name;
+      overwrite.symbol = tokenInfo.symbol;
+    }
+    return this.dbApi.addToken({ ...toAdd, ...overwrite });
   }
 
   @backgroundMethod()
@@ -822,12 +842,11 @@ class Engine {
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
-    const supportedImpls = new Set([IMPL_EVM, IMPL_SOL]);
     return networks
       .filter(
         (dbNetwork) =>
           (enabledOnly ? dbNetwork.enabled : true) &&
-          supportedImpls.has(dbNetwork.impl),
+          SUPPORTED_IMPLS.has(dbNetwork.impl),
       )
       .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }
