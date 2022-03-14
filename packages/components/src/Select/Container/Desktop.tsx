@@ -1,9 +1,11 @@
-import React, { isValidElement } from 'react';
+import React, { Fragment, isValidElement } from 'react';
 
 import Box from '../../Box';
 import Button from '../../Button';
 import useClickDocumentClose from '../../hooks/useClickDocumentClose';
+import { useDropdownPosition } from '../../hooks/useDropdownPosition';
 import IconButton from '../../IconButton';
+import { OverlayContainer } from '../../OverlayContainer';
 import PresenceTransition from '../../PresenceTransition';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
@@ -28,20 +30,30 @@ function Desktop<T>({
   headerShown,
   dropdownPosition,
   activatable,
+  triggerEle,
 }: ChildProps<T>) {
+  const translateY = 8;
+
   const { domId } = useClickDocumentClose({
     name: 'SelectDesktop',
     visible,
     toggleVisible,
   });
+  const { position, toPxPositionValue } = useDropdownPosition({
+    triggerEle,
+    domId,
+    visible,
+    dropdownPosition,
+    translateY,
+  });
 
-  return (
+  const content = (
     <PresenceTransition
       visible={visible}
       initial={{ opacity: 0, translateY: 0 }}
       animate={{
         opacity: 1,
-        translateY: 8,
+        translateY,
         transition: {
           duration: 150,
         },
@@ -49,11 +61,13 @@ function Desktop<T>({
     >
       <Box
         nativeID={domId}
-        zIndex={999}
+        // zIndex={999}
         position="absolute"
         width="full"
-        right={dropdownPosition === 'right' ? '0' : ''}
-        left={dropdownPosition === 'left' ? '0' : ''}
+        left={toPxPositionValue(position.left)}
+        right={toPxPositionValue(position.right)}
+        top={toPxPositionValue(position.top)}
+        bottom={toPxPositionValue(position.bottom)}
         maxHeight="480px"
         borderRadius="12"
         bg="surface-subdued"
@@ -111,6 +125,8 @@ function Desktop<T>({
       </Box>
     </PresenceTransition>
   );
+  // return content
+  return <OverlayContainer>{content}</OverlayContainer>;
 }
 
 export default Desktop;

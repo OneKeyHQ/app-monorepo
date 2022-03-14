@@ -4,6 +4,7 @@ import React, {
   ReactNode,
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -73,6 +74,7 @@ export type SelectProps<T = string> = {
   activatable?: boolean;
   visible?: boolean | undefined;
   onVisibleChange?: (visible: boolean) => void;
+  triggerEle?: HTMLElement | null;
 };
 
 export type ChildProps<T> = Pick<
@@ -91,6 +93,7 @@ export type ChildProps<T> = Pick<
   | 'isTriggerPlain'
   | 'activatable'
   | 'dropdownPosition'
+  | 'triggerEle'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -128,6 +131,7 @@ function Select<T = string>({
   visible: selectVisible,
   onVisibleChange,
 }: SelectProps<T>) {
+  const triggerRef = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
   const isSmallScreen = useIsVerticalLayout();
@@ -191,6 +195,7 @@ function Select<T = string>({
       activatable,
       dropdownPosition,
       onPressFooter: handlePressFooter,
+      triggerEle: triggerRef?.current,
     };
 
     if (['SMALL', 'NORMAL'].includes(size)) {
@@ -218,7 +223,7 @@ function Select<T = string>({
   ]);
 
   return (
-    <Box position="relative" {...containerProps}>
+    <Box ref={triggerRef} position="relative" {...containerProps}>
       <Pressable onPress={toggleVisible} {...triggerProps}>
         {({ isHovered, isFocused, isPressed }) =>
           renderTrigger?.(
