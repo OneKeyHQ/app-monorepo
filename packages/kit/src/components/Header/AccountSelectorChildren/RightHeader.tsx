@@ -67,7 +67,7 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   } else if (selectedWallet?.type === 'watching') {
     title = intl.formatMessage({ id: 'wallet__watched_accounts' });
   }
-  return <Typography.Body1Strong>{title}</Typography.Body1Strong>;
+  return <Typography.Body1Strong key={title}>{title}</Typography.Body1Strong>;
 };
 
 type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;

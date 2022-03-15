@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import Address from '../Address';
 import Avatar from '../Avatar';
@@ -36,6 +36,7 @@ export type AccountProps = {
    * 不展示地址
    */
   notShowAddress?: boolean;
+  containerProps?: ComponentProps<typeof Box>;
 };
 
 const defaultProps = {
@@ -61,6 +62,7 @@ const Account: FC<AccountProps> = ({
   avatarSize,
   priorityAmount,
   notShowAddress,
+  containerProps = {},
 }) => {
   let avatarSizeNumber = getIconSize(avatarSize);
   let avatarMarginRight = 3;
@@ -90,7 +92,12 @@ const Account: FC<AccountProps> = ({
   }
 
   return (
-    <Box alignItems="center" flexDirection="row" justifyContent="center">
+    <Box
+      alignItems="center"
+      flexDirection="row"
+      justifyContent="flex-start"
+      {...containerProps}
+    >
       {!hiddenAvatar && (
         <Box justifyContent={avatarAlign} mr={avatarMarginRight}>
           <Avatar
@@ -107,7 +114,7 @@ const Account: FC<AccountProps> = ({
         hasPrimaryAddress ||
         hasSecondAddress
       ) && (
-        <Box flex={1}>
+        <Box>
           {!!(primaryContent || hasPrimaryAddress) &&
             (hasPrimaryAddress ? (
               <Address typography="Body2Strong" text={address} short />
