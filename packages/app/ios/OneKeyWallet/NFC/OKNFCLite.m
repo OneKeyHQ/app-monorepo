@@ -674,7 +674,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
 - (void)tagReaderSession:(NFCTagReaderSession *)session didInvalidateWithError:(NSError *)error {
     NSLog(@"OKNFC tagReaderSession didInvalidateWithError %@", error);
-    if (error.code == 200) {
+    if (error.code == 200 || error.code == 6) {
       switch (self.sessionType) {
           case OKNFCLiteSessionTypeGetInfo:
           case OKNFCLiteSessionTypeUpdateInfo:{
