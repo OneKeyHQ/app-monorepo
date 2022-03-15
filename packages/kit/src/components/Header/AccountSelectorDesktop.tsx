@@ -1,31 +1,52 @@
 import React, { FC } from 'react';
 
-import { Box, PresenceTransition } from '@onekeyhq/components';
+import { useDrawerStatus } from '@react-navigation/drawer';
+
+import {
+  Box,
+  OverlayContainer,
+  PresenceTransition,
+} from '@onekeyhq/components';
 import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocumentClose';
+import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
 
 type ChildDropdownProps = {
   visible: boolean;
   toggleVisible?: (...args: any) => any;
+  triggerEle?: HTMLElement | null;
 };
 
 const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
   visible,
   toggleVisible,
+  triggerEle,
 }) => {
+  const translateY = 4;
   const { domId } = useClickDocumentClose({
     name: 'AccountSelectorDesktop',
     visible,
     toggleVisible,
   });
-  return (
+  const { position, toPxPositionValue } = useDropdownPosition({
+    triggerEle,
+    domId,
+    visible,
+    dropdownPosition: 'left',
+    translateY,
+    autoAdjust: false,
+    setPositionOnlyMounted: true,
+  });
+  const status = useDrawerStatus();
+  const isOpen = status === 'open';
+  const content = (
     <PresenceTransition
       visible={visible}
       initial={{ opacity: 0, translateY: 0 }}
       animate={{
         opacity: 1,
-        translateY: 8,
+        translateY,
         transition: {
           duration: 150,
         },
@@ -33,7 +54,10 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
     >
       <Box
         nativeID={domId}
-        zIndex={999}
+        left={toPxPositionValue(position.left)}
+        right={toPxPositionValue(position.right)}
+        top={toPxPositionValue(position.top)}
+        bottom={toPxPositionValue(position.bottom)}
         position="absolute"
         width="320px"
         height="564px"
@@ -44,10 +68,13 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
         flexDirection="row"
         shadow="depth.3"
       >
-        <AccountSelectorChildren />
+        <AccountSelectorChildren isOpen={isOpen} />
       </Box>
     </PresenceTransition>
   );
+  // return content;
+  //    Error: Couldn't find a drawer. Is your component inside a drawer navigator?
+  return <OverlayContainer>{content}</OverlayContainer>;
 };
 
 export default AccountSelectorDesktop;

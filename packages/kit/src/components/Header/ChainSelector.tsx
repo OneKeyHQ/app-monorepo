@@ -103,6 +103,8 @@ const ChainSelector: FC = () => {
   return (
     <Box>
       <Select
+        setPositionOnlyMounted
+        positionTranslateY={8}
         dropdownPosition="right"
         dropdownProps={{ w: '64' }}
         value={activeNetwork ? activeNetwork?.network?.id : undefined}

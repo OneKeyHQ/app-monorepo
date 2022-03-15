@@ -36,7 +36,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const { name, rpcURL, symbol, exploreUrl, id } = route.params;
   const intl = useIntl();
   const navigation = useNavigation();
-  const { info } = useToast();
+  const { text } = useToast();
   const { serviceNetwork } = backgroundApiProxy;
   const { control, handleSubmit } = useForm<NetworkValues>({
     defaultValues: { name, rpcURL, symbol, exploreUrl, id },
@@ -50,18 +50,18 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const onRemove = useCallback(async () => {
     await serviceNetwork.deleteNetwork(id);
     setRemoveOpened(false);
-    info(intl.formatMessage({ id: 'transaction__success' }));
+    text('transaction__success');
     if (navigation.canGoBack()) {
       navigation.goBack();
     }
-  }, [serviceNetwork, id, info, intl, navigation]);
+  }, [serviceNetwork, id, text, navigation]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
-      info(intl.formatMessage({ id: 'transaction__success' }));
+      text('transaction__success');
     },
-    [serviceNetwork, id, info, intl],
+    [serviceNetwork, id, text],
   );
 
   return (
