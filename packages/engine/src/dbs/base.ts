@@ -79,6 +79,7 @@ interface DBAPI {
   createHDWallet(
     password: string,
     rs: RevealableSeed,
+    backuped: boolean,
     name?: string,
   ): Promise<Wallet>;
   removeWallet(walletId: string, password: string): Promise<void>;

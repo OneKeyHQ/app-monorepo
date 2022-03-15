@@ -735,6 +735,7 @@ class RealmDB implements DBAPI {
   createHDWallet(
     password: string,
     rs: RevealableSeed,
+    backuped: boolean,
     name?: string,
   ): Promise<Wallet> {
     let context: ContextSchema | undefined;
@@ -761,6 +762,7 @@ class RealmDB implements DBAPI {
           id: walletId,
           name: name || `HD Wallet ${context!.nextHD}`,
           type: WALLET_TYPE_HD,
+          backuped,
         });
         this.realm!.create('Credential', {
           id: walletId,
