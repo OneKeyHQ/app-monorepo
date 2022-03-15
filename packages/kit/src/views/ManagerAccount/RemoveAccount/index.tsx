@@ -5,34 +5,52 @@ import { useIntl } from 'react-intl';
 import { Dialog } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useToast } from '../../../hooks/useToast';
 
 export default function useRemoveAccountDialog() {
   const intl = useIntl();
   const toast = useToast();
-  const { engine } = backgroundApiProxy;
-
+  const { engine, serviceApp } = backgroundApiProxy;
+  const { account: activeAccount } = useActiveWalletAccount();
   const successCall = useRef<() => void>();
 
   const [visible, setVisible] = React.useState(false);
   const [accountId, setAccountId] = React.useState('');
+  const [walletId, setWalletId] = React.useState('');
   const [password, setPassword] = React.useState('');
 
   const onSubmit = useCallback(() => {
     if (!accountId || !password) return;
     engine
       .removeAccount(accountId, password)
-      .then(() => {
+      .then(async () => {
         toast.info(intl.formatMessage({ id: 'msg__removed' }));
         setVisible(false);
+
+        if (activeAccount?.id === accountId) {
+          await serviceApp.autoChangeAccount({ walletId });
+        }
         successCall?.current?.();
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error(e);
+
         toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
       });
-  }, [accountId, engine, intl, password, toast]);
+  }, [
+    accountId,
+    activeAccount?.id,
+    engine,
+    intl,
+    password,
+    serviceApp,
+    toast,
+    walletId,
+  ]);
 
   const show = (
+    $walletId: string,
     $accountId: string,
     $password: string,
     call?: (() => void) | undefined,
@@ -40,6 +58,7 @@ export default function useRemoveAccountDialog() {
     successCall.current = call;
     setAccountId($accountId);
     setPassword($password);
+    setWalletId($walletId);
     setVisible(true);
   };
 

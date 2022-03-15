@@ -1,3 +1,7 @@
+import { Account } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
+import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+
 import { runtimeUnlock } from '../../store/reducers/general';
 import { updateNetworkMap } from '../../store/reducers/network';
 import {
@@ -5,7 +9,7 @@ import {
   setPasswordCompleted,
   unlock,
 } from '../../store/reducers/status';
-import { updateWallets } from '../../store/reducers/wallet';
+import { updateWallet, updateWallets } from '../../store/reducers/wallet';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { delay } from '../utils';
 
@@ -61,6 +65,55 @@ class ServiceApp extends ServiceBase {
     dispatch(runtimeUnlock());
     serviceAccount.changeActiveAccount({
       account: null,
+      wallet,
+    });
+  }
+
+  @backgroundMethod()
+  async autoChangeWallet() {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const walletsFromBE = await engine.getWallets();
+    dispatch(updateWallets(walletsFromBE));
+
+    const { network }: { network: Network } = appSelector(
+      (s) => s.general.activeNetwork,
+    );
+    let wallet: Wallet | null =
+      walletsFromBE.find(($wallet) => $wallet.accounts.length > 0) ?? null;
+
+    let account: Account | null = null;
+    if (wallet) {
+      account = await engine.getAccount(wallet.accounts[0], network.id);
+    } else if (walletsFromBE.length > 0) {
+      const $wallet = walletsFromBE[0];
+      wallet = $wallet;
+    }
+
+    serviceAccount.changeActiveAccount({
+      account,
+      wallet,
+    });
+  }
+
+  @backgroundMethod()
+  async autoChangeAccount({ walletId }: { walletId: string }) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const wallet: Wallet | null = await engine.getWallet(walletId);
+    dispatch(updateWallet(wallet));
+
+    const { network }: { network: Network } = appSelector(
+      (s) => s.general.activeNetwork,
+    );
+
+    let account: Account | null = null;
+    if (wallet && network && wallet.accounts.length > 0) {
+      account = await engine.getAccount(wallet.accounts[0], network.id);
+    }
+
+    serviceAccount.changeActiveAccount({
+      account,
       wallet,
     });
   }
