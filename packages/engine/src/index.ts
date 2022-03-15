@@ -56,6 +56,7 @@ import {
   PriceController,
   ProviderController,
   fromDBNetworkToChainInfo,
+  getRPCStatus,
 } from './proxy';
 import {
   ACCOUNT_TYPE_SIMPLE,
@@ -852,6 +853,48 @@ class Engine {
   }
 
   @backgroundMethod()
+  async preAddNetwork(
+    rpcURL: string,
+    impl = IMPL_EVM,
+  ): Promise<{ chainId: string; existingNetwork: Network | undefined }> {
+    if (rpcURL.length === 0) {
+      throw new OneKeyInternalError('Empty RPC URL.');
+    }
+
+    let chainId = '';
+    let existingNetwork: Network | undefined;
+
+    switch (impl) {
+      case IMPL_EVM:
+        chainId = await this.providerManager.getEVMChainId(rpcURL);
+        try {
+          existingNetwork = await this.getNetwork(`${IMPL_EVM}--${chainId}`);
+        } catch (e) {
+          console.debug(e);
+        }
+        break;
+      default:
+        throw new NotImplemented(
+          `Adding network for implemetation ${impl} is not supported.`,
+        );
+    }
+
+    return { chainId, existingNetwork };
+  }
+
+  @backgroundMethod()
+  getRPCEndpointStatus(
+    rpcURL: string,
+    impl: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    if (rpcURL.length === 0) {
+      throw new OneKeyInternalError('Empty RPC URL.');
+    }
+
+    return getRPCStatus(rpcURL, impl);
+  }
+
+  @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams): Promise<Network> {
     if (params.rpcURL === '') {
       throw new OneKeyInternalError(
@@ -1032,9 +1075,6 @@ class Engine {
   proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
     return this.providerManager.proxyRPCCall(networkId, request);
   }
-
-  // TODO: RPC interactions.
-  // getRPCEndpointStatus(networkId: string, rpcURL?: string);
 
   @backgroundMethod()
   async getPrices(
