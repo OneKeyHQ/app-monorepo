@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
+import { DrawerActions, TabActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -64,6 +65,8 @@ const Restore: FC = () => {
 
   const goBackHome = () => {
     tabNavigation.navigate(TabRoutes.Home);
+    tabNavigation.dispatch(TabActions.jumpTo(TabRoutes.Home, {}));
+    tabNavigation.dispatch(DrawerActions.openDrawer());
   };
 
   const stateNfcSearch = () => {
@@ -106,7 +109,7 @@ const Restore: FC = () => {
         if (data) {
           showVerify(
             async (password) => {
-              console.log('NFC read data:', data);
+              // console.log('NFC read data:', data);
               try {
                 await serviceApp.createHDWallet({
                   password,
