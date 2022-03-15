@@ -49,8 +49,15 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
   const [visibleIosHint, setVisibleIosHint] = useState(false);
   const [lottieConnectingIcon, setLottieConnectingIcon] =
     useState<any>(lottieNFCConnecting);
+  const [lottieAutoPlay, setLottieAutoPlay] = useState<boolean>(
+    Platform.OS !== 'ios',
+  );
+  const [lottieLoopPlay, setLottieLoopPlay] = useState<boolean>(true);
 
   useEffect(() => {
+    setLottieAutoPlay(operateType !== 'guide');
+    setLottieLoopPlay(operateType !== 'complete');
+
     if (operateType === 'guide') {
       setLottieConnectingIcon(lottieNFCConnecting);
       if (Platform.OS === 'ios') {
@@ -131,8 +138,8 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
                 >
                   <LottieView
                     source={lottieConnectingIcon}
-                    autoPlay={operateType !== 'guide'}
-                    loop={operateType !== 'complete'}
+                    autoPlay={lottieAutoPlay}
+                    loop={lottieLoopPlay}
                   />
                 </ZStack>
                 <Box mt="202px">
@@ -147,6 +154,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
         <Box
           w="100%"
           h="212px"
+          zIndex={99999}
           bg="action-secondary-default"
           display="none"
           style={{ position: 'absolute' }}
