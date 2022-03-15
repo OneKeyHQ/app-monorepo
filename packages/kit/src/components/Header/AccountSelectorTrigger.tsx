@@ -24,6 +24,8 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import WalletAvatar from './WalletAvatar';
+
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type Props = {
   visible: boolean;
@@ -80,8 +82,10 @@ const AccountSelectorTrigger: FC<Props> = ({
               : 'transparent'
           }
         >
-          <Box flex={1} minW="144px">
+          <Box flex={1} minW="144px" flexDirection="row" alignItems="center">
+            <WalletAvatar size="sm" mr={3} />
             <Account
+              hiddenAvatar
               address={address}
               name={isVerticalLayout ? undefined : name}
             />

@@ -12,7 +12,6 @@ import {
   KeyboardDismissView,
   Modal,
   Pressable,
-  Typography,
   ZStack,
   useForm,
 } from '@onekeyhq/components';
@@ -24,6 +23,7 @@ import {
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import WalletAvatar from '../../../components/Header/WalletAvatar';
 import { useToast } from '../../../hooks/useToast';
 import { updateWallet } from '../../../store/reducers/wallet';
 
@@ -101,16 +101,11 @@ const ModifyWalletNameViewModal: FC = () => {
               justifyContent="center"
               alignItems="center"
             >
-              <Box
-                w="56px"
-                h="56px"
-                bg="#FFF7D7"
-                borderRadius="lg"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Typography.DisplayLarge>🌈</Typography.DisplayLarge>
-              </Box>
+              <WalletAvatar
+                avatarBgColor="#55A9D9"
+                walletImage="🤑"
+                size="xl"
+              />
               {/* <Image
                 src="https://i.pinimg.com/236x/4e/80/3b/4e803ba3e1dc26104ad9917f301a04c6.jpg"
                 width="56px"
