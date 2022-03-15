@@ -131,9 +131,14 @@ const ManagerAccountModal: FC = () => {
                   onPress={() => {
                     showVerify(
                       (pwd) => {
-                        showRemoveAccountDialog(accountId, pwd, () => {
-                          if (navigation.canGoBack()) navigation.goBack();
-                        });
+                        showRemoveAccountDialog(
+                          walletId,
+                          accountId,
+                          pwd,
+                          () => {
+                            if (navigation.canGoBack()) navigation.goBack();
+                          },
+                        );
                       },
                       () => {},
                     );

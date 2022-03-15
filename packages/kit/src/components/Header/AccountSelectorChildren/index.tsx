@@ -85,7 +85,6 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 
 const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const intl = useIntl();
-  const { dispatch } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   // const navigation = useNavigation<NavigationProps['navigation']>();
   const navigation = useAppNavigation();
@@ -105,10 +104,12 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
 
   const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
 
-  const activeWallet = useMemo(
-    () => wallets.find((wallet) => wallet.id === selectedWallet?.id) ?? null,
-    [selectedWallet?.id, wallets],
-  );
+  const activeWallet = useMemo(() => {
+    const wallet =
+      wallets.find((_wallet) => _wallet.id === selectedWallet?.id) ?? null;
+    if (!wallet) setSelectedWallet(defaultSelectedWallet);
+    return wallet;
+  }, [defaultSelectedWallet, selectedWallet?.id, wallets]);
 
   const refreshAccounts = useCallback(() => {
     async function main() {
@@ -153,10 +154,15 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         case 'remove':
           showVerify(
             (pwd) => {
-              showRemoveAccountDialog(item.id, pwd, () => {
-                refreshAccounts();
-                console.log('remove account', item.id);
-              });
+              showRemoveAccountDialog(
+                selectedWallet?.id ?? '',
+                item.id,
+                pwd,
+                () => {
+                  refreshAccounts();
+                  console.log('remove account', item.id);
+                },
+              );
             },
             () => {},
           );
