@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -129,6 +129,8 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
     control,
     handleSubmit,
     getValues,
+    setValue,
+    watch,
     formState: { isValid },
   } = useForm<PasswordsFieldValues>({
     defaultValues: { password: '', confirmPassword: '' },
@@ -169,6 +171,24 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       passwordCompleted,
     ],
   );
+
+  const watchedPassword = watch(['password', 'confirmPassword']);
+
+  useEffect(() => {
+    const normalize = (text: string) =>
+      text
+        .split('')
+        .filter((chat) => chat.charCodeAt(0) >= 32 && chat.charCodeAt(0) <= 126)
+        .join('');
+    const [password, confirmPassword] = watchedPassword.map(normalize);
+    if (password !== watchedPassword[0]) {
+      setValue('password', password);
+    }
+    if (confirmPassword !== watchedPassword[1]) {
+      setValue('confirmPassword', confirmPassword);
+    }
+  }, [watchedPassword, setValue]);
+
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
       <Typography.DisplayLarge textAlign="center" mb={2}>
@@ -199,6 +219,12 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
                 id: 'msg__password_validation',
               }),
             },
+            maxLength: {
+              value: 24,
+              message: intl.formatMessage({
+                id: 'msg__password_validation',
+              }),
+            },
             validate: (value) => {
               const confirmPassword = getValues('confirmPassword');
               if (!confirmPassword) return undefined;
@@ -223,6 +249,12 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
             required: intl.formatMessage({ id: 'form__field_is_required' }),
             minLength: {
               value: 8,
+              message: intl.formatMessage({
+                id: 'msg__password_validation',
+              }),
+            },
+            maxLength: {
+              value: 24,
               message: intl.formatMessage({
                 id: 'msg__password_validation',
               }),

@@ -13,7 +13,7 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
@@ -44,6 +44,7 @@ export const SecuritySection = () => {
   const { dispatch } = backgroundApiProxy;
   const { enableAppLock, enableLocalAuthentication, appLockDuration } =
     useSettings();
+  const { passwordCompleted } = useStatus();
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();
   const [showResetModal, setShowResetModal] = useState(false);
@@ -156,8 +157,9 @@ export const SecuritySection = () => {
           >
             <Typography.Body1 flex="1" numberOfLines={1} mr="3">
               {intl.formatMessage({
-                id: 'form__change_password',
-                defaultMessage: 'Change Password',
+                id: passwordCompleted
+                  ? 'form__change_password'
+                  : 'title__set_password',
               })}
             </Typography.Body1>
             <Box>
