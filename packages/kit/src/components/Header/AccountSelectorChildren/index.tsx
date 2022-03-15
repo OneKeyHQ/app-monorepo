@@ -104,6 +104,25 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   );
 
   const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
+
+  const activeWallet = useMemo(
+    () => wallets.find((wallet) => wallet.id === selectedWallet?.id) ?? null,
+    [selectedWallet?.id, wallets],
+  );
+
+  const refreshAccounts = useCallback(() => {
+    async function main() {
+      if (!activeWallet) return;
+      const accounts = await backgroundApiProxy.engine.getAccounts(
+        activeWallet.accounts,
+        activeNetwork?.network?.id,
+      );
+
+      setActiveAccounts(accounts);
+    }
+    main();
+  }, [activeNetwork?.network?.id, activeWallet]);
+
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
       switch (value) {
@@ -112,6 +131,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
             item.id,
             activeNetwork?.network.id ?? '',
             () => {
+              refreshAccounts();
               console.log('account modify name', item.id);
             },
           );
@@ -134,6 +154,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           showVerify(
             (pwd) => {
               showRemoveAccountDialog(item.id, pwd, () => {
+                refreshAccounts();
                 console.log('remove account', item.id);
               });
             },
@@ -148,6 +169,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     [
       activeNetwork?.network.id,
       navigation,
+      refreshAccounts,
       selectedWallet?.id,
       showAccountModifyNameDialog,
       showRemoveAccountDialog,
@@ -248,23 +270,9 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     }
   }, [isOpen, defaultSelectedWallet]);
 
-  const activeWallet = useMemo(
-    () => wallets.find((wallet) => wallet.id === selectedWallet?.id) ?? null,
-    [selectedWallet?.id, wallets],
-  );
-
   useEffect(() => {
-    async function main() {
-      if (!activeWallet) return;
-      const accounts = await backgroundApiProxy.engine.getAccounts(
-        activeWallet.accounts,
-        activeNetwork?.network?.id,
-      );
-
-      setActiveAccounts(accounts);
-    }
-    main();
-  }, [activeWallet, activeNetwork, wallets]);
+    refreshAccounts();
+  }, [refreshAccounts]);
 
   return (
     <>

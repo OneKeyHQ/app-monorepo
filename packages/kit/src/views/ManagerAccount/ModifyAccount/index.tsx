@@ -80,7 +80,7 @@ export default function useAccountModifyNameDialog() {
   const AccountModifyNameDialog = useMemo(
     () =>
       visible && (
-        <Dialog visible={visible}>
+        <Dialog visible={visible} hasFormInsideDialog>
           <Form>
             <Form.Item
               name="name"
