@@ -15,6 +15,7 @@ import { ButtonType } from '@onekeyhq/components/src/Button';
 
 import { useNavigation } from '../../../..';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useToast } from '../../../../hooks';
 import { updateWallet } from '../../../../store/reducers/wallet';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
@@ -28,6 +29,7 @@ type RouteProps = RouteProp<
 >;
 const Backup: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
   const { walletId, pwd, backupData, onRetry, onSuccess } =
@@ -80,6 +82,12 @@ const Backup: FC = () => {
   };
 
   const startNfcScan = (overwrite = false) => {
+    if (backupData.trim() === '') {
+      toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+      navigation.goBack();
+      return;
+    }
+
     stateNfcSearch();
     OnekeyLite.cancel();
     OnekeyLite.setMnemonic(

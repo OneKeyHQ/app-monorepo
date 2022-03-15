@@ -56,6 +56,9 @@ export default function useRemoveAccountDialog() {
             }),
           }}
           footerButtonProps={{
+            primaryActionProps: {
+              type: 'destructive',
+            },
             primaryActionTranslationId: 'action__remove',
             onPrimaryActionPress: () => {
               onSubmit();
