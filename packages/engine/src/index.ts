@@ -134,6 +134,20 @@ class Engine {
   }
 
   @backgroundMethod()
+  mnemonicToEntropy(mnemonic: string): Promise<string> {
+    return Promise.resolve(
+      bip39.mnemonicToEntropy(mnemonic, bip39.wordlists.english),
+    );
+  }
+
+  @backgroundMethod()
+  entropyToMnemonic(entropy: string): Promise<string> {
+    return Promise.resolve(
+      bip39.entropyToMnemonic(entropy, bip39.wordlists.english),
+    );
+  }
+
+  @backgroundMethod()
   getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
     return this.dbApi.getWallets();
