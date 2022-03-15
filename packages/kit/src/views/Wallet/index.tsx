@@ -16,7 +16,6 @@ import {
   Tabs,
 } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
-import type { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import IconWallet from '@onekeyhq/kit/assets/3d_wallet.png';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
@@ -233,7 +232,7 @@ const Home: FC = () => {
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
           <CollectiblesList
-            address={(account as SimpleAccount)?.address}
+            address={account?.address}
             network={network?.network}
           />
         </Tabs.Tab>

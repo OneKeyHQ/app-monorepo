@@ -1,11 +1,12 @@
 import { HasName } from './base';
 import { Token } from './token';
 
-const ACCOUNT_TYPE_SIMPLE = 'simple';
-const ACCOUNT_TYPE_MULADDR = 'muladdr';
-// TODO: ACCOUNT_TYPE_MULVARIANT for cfx/cosmos/polkadot
-
-type AccountType = 'simple' | 'muladdr';
+enum AccountType {
+  SIMPLE = 'simple',
+  MULADDR = 'muladdr',
+  VARIANT = 'variant',
+}
+// TODO: ACCOUNT_TYPE_MULVARIANT for cosmos/polkadot
 
 type DBBaseAccount = HasName & {
   type: AccountType;
@@ -20,26 +21,22 @@ type DBSimpleAccount = DBBaseAccount & {
 
 type DBMulAddrAccount = DBBaseAccount & {
   xpub: string;
+  address: string; // Display/selected address
   addresses: Record<string, string>;
 };
 
-type DBAccount = DBSimpleAccount | DBMulAddrAccount;
-
-type BaseAccount = DBBaseAccount & {
-  tokens: Array<Token>;
+type DBVariantAccount = DBBaseAccount & {
+  pub: string;
+  address: string; // Base address
+  addresses: Record<string, string>; // Network -> address
 };
 
-type SimpleAccount = BaseAccount & {
-  pub: string;
+type DBAccount = DBSimpleAccount | DBMulAddrAccount | DBVariantAccount;
+
+type Account = DBBaseAccount & {
+  tokens: Array<Token>;
   address: string;
 };
-
-type MulAddrAccount = BaseAccount & {
-  xpub: string;
-  addresses: Record<string, string>; // Address => relative path
-};
-
-type Account = SimpleAccount | MulAddrAccount;
 
 type ImportableHDAccount = {
   index: number;
@@ -48,14 +45,12 @@ type ImportableHDAccount = {
   mainBalance: string;
 };
 
-export { ACCOUNT_TYPE_SIMPLE, ACCOUNT_TYPE_MULADDR };
+export { AccountType };
 export type {
-  AccountType,
   DBSimpleAccount,
   DBMulAddrAccount,
+  DBVariantAccount,
   DBAccount,
-  SimpleAccount,
-  MulAddrAccount,
   Account,
   ImportableHDAccount,
 };
