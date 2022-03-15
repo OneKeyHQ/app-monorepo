@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-unused-vars */
 import React, { FC, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -26,6 +27,8 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
@@ -71,7 +74,9 @@ type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
 
 const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  // const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation = useAppNavigation();
+
   const isVerticalLayout = useIsVerticalLayout();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
 
@@ -115,7 +120,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
 
   return (
     <>
-      <HStack zIndex={99} py={3} px={4} space={4} alignItems="center">
+      <HStack py={3} px={4} space={4} alignItems="center">
         <VStack flex={1}>
           <HeaderTitle selectedWallet={selectedWallet} />
           <Typography.Caption color="text-subdued">
