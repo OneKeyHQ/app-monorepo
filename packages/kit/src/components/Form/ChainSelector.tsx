@@ -62,14 +62,12 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
         );
       }}
       defaultValue={defaultNetworkId as any}
-      formControlProps={{ zIndex: 10 }}
       {...props}
     >
       <Form.Select
         title={intl.formatMessage({ id: 'network__network' })}
         footer={null}
         containerProps={{
-          zIndex: 999,
           padding: 0,
         }}
         triggerProps={{

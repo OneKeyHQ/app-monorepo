@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -31,6 +32,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation();
   const isDrawerOpen = useDrawerStatus() === 'open';
+  const triggerRef = useRef<HTMLElement>(null);
 
   const handleToggleVisible = useCallback(() => {
     // @ts-expect-error
@@ -48,6 +50,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     }
     return (
       <AccountSelectorDesktop
+        triggerEle={triggerRef?.current}
         visible={visible}
         toggleVisible={handleToggleVisible}
       />
@@ -56,6 +59,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
 
   return (
     <Box
+      ref={triggerRef}
       position="relative"
       alignItems="flex-start"
       h="56px"

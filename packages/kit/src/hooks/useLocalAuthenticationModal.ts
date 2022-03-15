@@ -1,10 +1,11 @@
-import { useNavigation } from '@react-navigation/core';
-
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
+import useAppNavigation from './useAppNavigation';
+
 export default function useLocalAuthenticationModal() {
-  const navigation = useNavigation();
+  // const navigation = useNavigation();
+  const navigation = useAppNavigation();
 
   const showVerify = (
     onSuccess: (password: string, requestId: string) => void,
