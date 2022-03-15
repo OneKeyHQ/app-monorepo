@@ -56,6 +56,10 @@ RCT_EXPORT_METHOD(reset:(RCTResponseSenderBlock)callback)
 }
 
 + (BOOL)checkSDKVaild:(RCTResponseSenderBlock)callback {
+  if (![NFCNDEFReaderSession readingAvailable]) {
+    callback(@[@{@"code":@(NFCLiteExceptionsNotNFCPermission),@"message":@""},[NSNull null],[NSNull null]]);
+    return NO;
+  }
   if ([NFCConfig envFor:@"LITE_CERT"].length > 0 && [NFCConfig envFor:@"NFCSK"].length > 0) {
     return YES;
   }
