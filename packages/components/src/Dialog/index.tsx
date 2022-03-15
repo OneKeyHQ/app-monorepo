@@ -8,8 +8,9 @@ import React, {
   useState,
 } from 'react';
 
-import { Modal, Pressable } from 'native-base';
-import { Keyboard } from 'react-native';
+import { Modal as NBModal, Pressable } from 'native-base';
+import { Keyboard, Platform } from 'react-native';
+import Modal from 'react-native-modal';
 
 import Box from '../Box';
 import { ButtonSize } from '../Button';
@@ -20,6 +21,48 @@ import DialogCommon from './components';
 const defaultProps = {
   canceledOnTouchOutside: false,
 } as const;
+
+type OuterContainerProps = {
+  isVisible?: boolean;
+  onClose?: () => void;
+  hasFormInsideDialog?: boolean;
+};
+
+const Outer: FC<OuterContainerProps> = ({
+  isVisible,
+  onClose,
+  children,
+  hasFormInsideDialog,
+  ...rest
+}) => {
+  if (Platform.OS === 'web' || !hasFormInsideDialog) {
+    return (
+      <NBModal
+        isOpen={isVisible}
+        onClose={onClose}
+        bg="#00000066"
+        animationPreset="fade"
+        {...rest}
+      >
+        {children}
+      </NBModal>
+    );
+  }
+
+  return (
+    <Modal
+      backdropColor="rgba(0, 0, 0, 0.6)"
+      animationOut="fadeOut"
+      animationIn="fadeIn"
+      isVisible={isVisible}
+      onModalHide={onClose}
+      style={{ marginHorizontal: 0 }}
+      {...rest}
+    >
+      {children}
+    </Modal>
+  );
+};
 
 export type DialogProps = {
   trigger?: ReactElement<any>;
@@ -36,6 +79,7 @@ export type DialogProps = {
   footerMoreView?: React.ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
+  hasFormInsideDialog?: boolean;
 };
 
 const Dialog: FC<DialogProps> = ({
@@ -46,6 +90,7 @@ const Dialog: FC<DialogProps> = ({
   canceledOnTouchOutside,
   footerMoreView,
   onClose,
+  hasFormInsideDialog,
   ...props
 }) => {
   const { size } = useUserDevice();
@@ -74,11 +119,9 @@ const Dialog: FC<DialogProps> = ({
 
   const container = useMemo(
     () => (
-      <Modal
-        bg="#00000066"
-        animationPreset="fade"
-        isOpen={!!visible}
-        avoidKeyboard
+      <Outer
+        hasFormInsideDialog={hasFormInsideDialog}
+        isVisible={!!visible}
         onClose={() => {
           if (canceledOnTouchOutside) handleClose();
         }}
@@ -122,9 +165,10 @@ const Dialog: FC<DialogProps> = ({
             )}
           </Box>
         </Pressable>
-      </Modal>
+      </Outer>
     ),
     [
+      hasFormInsideDialog,
       visible,
       props,
       contentProps,

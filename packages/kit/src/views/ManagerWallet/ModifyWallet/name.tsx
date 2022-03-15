@@ -20,6 +20,7 @@ import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/Header/WalletAvatar';
@@ -72,6 +73,9 @@ const ModifyWalletNameViewModal: FC = () => {
     const changedWallet = await engine.setWalletName(walletId, values.name);
     if (changedWallet) {
       dispatch(updateWallet(changedWallet));
+
+      setTimeout(() => dispatch(setRefreshTS()));
+
       toast.info(intl.formatMessage({ id: 'msg__change_saved' }));
       navigation.getParent()?.goBack();
     } else {

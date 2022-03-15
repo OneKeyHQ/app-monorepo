@@ -783,7 +783,7 @@ class RealmDB implements DBAPI {
           new OneKeyInternalError('Wallet creation failed.'),
         );
       }
-      console.log('wallet created==', wallet);
+
       return Promise.resolve(wallet.internalObj);
     } catch (error: any) {
       console.error(error);
