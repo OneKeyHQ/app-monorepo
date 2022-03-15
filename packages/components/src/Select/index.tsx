@@ -142,6 +142,10 @@ function Select<T = string>({
   const { size } = useUserDevice();
   const isSmallScreen = useIsVerticalLayout();
   const toggleVisible = useCallback(() => {
+    // if (platformEnv.isBrowser) {
+    //   const event = new Event('click');
+    //   window.dispatchEvent(event);
+    // }
     const newVisible = !(selectVisible === undefined ? visible : selectVisible);
     setVisible(newVisible);
     onVisibleChange?.(newVisible);

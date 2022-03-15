@@ -59,7 +59,7 @@ function useDropdownPosition({
     right: undefined,
     bottom: undefined,
   });
-  // TODO window resize reset position to null
+  // TODO reset position to undefined after window resize
   const isPositionNotReady = isNil(position.left) && isNil(position.top);
 
   useEffect(() => {
@@ -71,6 +71,7 @@ function useDropdownPosition({
       const pos = getDomElementPosition(triggerEle);
 
       if (!setPositionOnlyMounted || isPositionNotReady) {
+        // TODO supports dropdownPosition==='center'
         if (dropdownPosition === 'right') {
           setPosition({
             left: undefined,
@@ -138,6 +139,7 @@ function useDropdownPosition({
     domId,
     dropdownPosition,
     isPositionNotReady,
+    setPositionOnlyMounted,
     translateY,
     triggerEle,
     visible,
