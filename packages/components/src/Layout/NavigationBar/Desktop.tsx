@@ -33,7 +33,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
     >
       <VStack flex={1}>
         {/* AccountSelector */}
-        <Box py={1} px={4} zIndex={999} w="full">
+        <Box py={1} px={4} w="full">
           {firstOptions?.tabBarBackground?.()}
         </Box>
         {/* Scrollable area */}

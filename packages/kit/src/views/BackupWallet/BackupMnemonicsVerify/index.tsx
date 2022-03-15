@@ -10,6 +10,7 @@ import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
@@ -68,6 +69,7 @@ const BackupMnemonicsVerifyView: FC = () => {
           throw new Error("Wallet isn't backuped");
 
         dispatch(updateWallet(wallet));
+        dispatch(setRefreshTS());
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.BackupWallet,
           params: {
@@ -127,6 +129,7 @@ const BackupMnemonicsVerifyView: FC = () => {
                 <Form.Item
                   name={generateFormKey(index)}
                   control={control}
+                  key={value + index}
                   rules={{
                     required: intl.formatMessage({
                       id: 'form__field_is_required',

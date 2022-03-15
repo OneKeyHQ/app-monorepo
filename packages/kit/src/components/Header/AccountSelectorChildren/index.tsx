@@ -3,7 +3,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { useDrawerStatus } from '@react-navigation/drawer';
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -47,6 +46,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
 import useAccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
@@ -86,13 +86,12 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
-const AccountSelectorChildren: FC = () => {
+const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const status = useDrawerStatus();
-  const isOpen = status === 'open';
   const isVerticalLayout = useIsVerticalLayout();
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  // const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation = useAppNavigation();
   const { activeNetwork } = useAppSelector((s) => s.general);
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
@@ -273,22 +272,20 @@ const AccountSelectorChildren: FC = () => {
   return (
     <>
       <LeftSide
-        selectedWallet={selectedWallet}
+        selectedWallet={activeWallet}
         setSelectedWallet={setSelectedWallet}
       />
       <VStack flex={1}>
-        <RightHeader selectedWallet={selectedWallet} />
+        <RightHeader selectedWallet={activeWallet} />
         <FlatList
           px={2}
           contentContainerStyle={{
             paddingBottom: 16,
           }}
-          zIndex={2}
           data={activeAccounts}
           keyExtractor={(_, index) => index.toString()}
           renderItem={({ item }) => (
             <Pressable
-              zIndex={99}
               onPress={() => {
                 backgroundApiProxy.serviceAccount.changeActiveAccount({
                   account: item,
@@ -318,7 +315,7 @@ const AccountSelectorChildren: FC = () => {
                       name={item.name}
                     />
                   </Box>
-                  {renderSideAction(selectedWallet?.type, (v) =>
+                  {renderSideAction(activeWallet?.type, (v) =>
                     handleChange(item, v),
                   )}
                 </HStack>
@@ -329,8 +326,8 @@ const AccountSelectorChildren: FC = () => {
             <Pressable
               mt={2}
               onPress={() => {
-                if (!selectedWallet) return;
-                if (selectedWallet?.type === 'imported') {
+                if (!activeWallet) return;
+                if (activeWallet?.type === 'imported') {
                   return navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.ImportAccount,
                     params: {
@@ -338,7 +335,7 @@ const AccountSelectorChildren: FC = () => {
                     },
                   });
                 }
-                if (selectedWallet?.type === 'watching') {
+                if (activeWallet?.type === 'watching') {
                   return navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.WatchedAccount,
                     params: {
@@ -352,7 +349,7 @@ const AccountSelectorChildren: FC = () => {
                   params: {
                     screen: CreateAccountModalRoutes.CreateAccountForm,
                     params: {
-                      walletId: selectedWallet.id,
+                      walletId: activeWallet.id,
                     },
                   },
                 });

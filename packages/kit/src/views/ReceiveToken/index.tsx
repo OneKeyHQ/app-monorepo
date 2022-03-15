@@ -48,7 +48,7 @@ const ReceiveToken = () => {
         children: (
           <Column flex={1}>
             <Box alignItems="center">
-              <Box w="160px" alignItems="center">
+              <Box alignItems="center">
                 <Account
                   avatarSize="sm"
                   name={name}

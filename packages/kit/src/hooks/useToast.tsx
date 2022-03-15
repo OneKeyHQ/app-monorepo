@@ -1,5 +1,7 @@
 import React, { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast, useToast as useBaseToast } from '@onekeyhq/components';
 import { ToastProps } from '@onekeyhq/components/src/Toast';
 
@@ -15,6 +17,7 @@ type Options = {
 
 export function useToast() {
   const toast = useBaseToast();
+  const intl = useIntl();
   const info = useCallback(
     (text: string, options?: Options) =>
       toast.show({
@@ -30,5 +33,14 @@ export function useToast() {
       }) as string,
     [toast],
   );
-  return { ...toast, info, show };
+  const text = useCallback(
+    (id: string, options?: Options) =>
+      toast.show({
+        render: () => <Toast title={intl.formatMessage({ id })} />,
+        placement: options?.placement,
+      }) as string,
+    [toast, intl],
+  );
+
+  return { ...toast, info, show, text };
 }

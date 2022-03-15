@@ -1,6 +1,10 @@
 import React, { FC, useEffect, useMemo } from 'react';
 
-import { RouteProp, useNavigation } from '@react-navigation/core';
+import {
+  DrawerActions,
+  RouteProp,
+  useNavigation,
+} from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 
@@ -35,6 +39,7 @@ const ManagerWalletDialogAuthorityVerifyViewDone: FC<
             walletId={walletId}
             password={password}
             onDialogClose={() => {
+              navigation?.dispatch?.(DrawerActions?.closeDrawer?.());
               navigation?.getParent()?.goBack();
             }}
           />

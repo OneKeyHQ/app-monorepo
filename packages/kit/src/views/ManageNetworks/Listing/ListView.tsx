@@ -52,14 +52,20 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
           onPress={() => {
             if (network.preset) {
               navigation.navigate(ManageNetworkRoutes.PresetNetwork, {
-                ...network,
+                id: network.id,
+                name: network.name,
+                rpcURL: network.rpcURL,
+                symbol: network.symbol,
                 exploreUrl: network.blockExplorerURL.name,
                 chainId: String(+network.extraInfo.chainId ?? ''),
               });
             } else {
               navigation.navigate(ManageNetworkRoutes.CustomNetwork, {
-                ...network,
-                exploreUrl: network.blockExplorerURL.address,
+                id: network.id,
+                name: network.name,
+                rpcURL: network.rpcURL,
+                symbol: network.symbol,
+                exploreUrl: network.blockExplorerURL.name,
               });
             }
           }}

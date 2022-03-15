@@ -25,13 +25,9 @@ export const walletSlice = createSlice({
     addWallet(state, action: PayloadAction<BaseWallet>) {
       state.wallets.push(action.payload);
     },
-    removeWalletById(state, action: PayloadAction<string>) {
-      state.wallets = state.wallets.filter((w) => w.id !== action.payload);
-    },
   },
 });
 
-export const { updateWallets, updateWallet, removeWalletById, addWallet } =
-  walletSlice.actions;
+export const { updateWallets, updateWallet, addWallet } = walletSlice.actions;
 
 export default walletSlice.reducer;

@@ -1071,6 +1071,7 @@ class Engine {
     );
   }
 
+  @backgroundMethod()
   proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
     return this.providerManager.proxyRPCCall(networkId, request);
   }
