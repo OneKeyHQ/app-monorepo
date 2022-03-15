@@ -4,6 +4,10 @@
 
 import { Buffer } from 'buffer';
 
+import {
+  encode as toCfxAddress,
+  decode as toEthAddress,
+} from '@conflux-dev/conflux-address-js';
 import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
@@ -27,6 +31,7 @@ import {
 import { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
 import {
   TransactionStatus,
+  TxInput,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import {
@@ -38,15 +43,22 @@ import BigNumber from 'bignumber.js';
 
 import {
   IMPL_ALGO,
+  IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
+  IMPL_STC,
   SEPERATOR,
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
-import { Account, SimpleAccount } from './types/account';
+import {
+  AccountType,
+  DBAccount,
+  DBSimpleAccount,
+  DBVariantAccount,
+} from './types/account';
 import { HistoryEntryStatus } from './types/history';
 import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
@@ -59,6 +71,8 @@ const IMPL_MAPPINGS: Record<string, string> = {
   [IMPL_SOL]: 'sol',
   [IMPL_ALGO]: 'algo',
   [IMPL_NEAR]: 'near',
+  [IMPL_STC]: 'stc',
+  [IMPL_CFX]: 'cfx',
 };
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -86,6 +100,14 @@ const IMPL_PROPERTIES: Record<string, ImplProperty> = {
     defaultCurve: 'ed25519',
     clientProvider: 'NearCli',
   },
+  [IMPL_STC]: {
+    defaultCurve: 'ed25519',
+    clientProvider: 'StcClient',
+  },
+  [IMPL_CFX]: {
+    defaultCurve: 'secp256k1',
+    clientProvider: 'Conflux',
+  },
 };
 
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
@@ -100,6 +122,10 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     const EIP1559Enabled =
       chainId === 1 || chainId === 3 || chainId === 4 || chainId === 5;
     implOptions = { ...implOptions, chainId, EIP1559Enabled };
+  }
+  if (dbNetwork.impl === IMPL_STC || dbNetwork.impl === IMPL_CFX) {
+    const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
+    implOptions = { ...implOptions, chainId };
   }
   return {
     code: dbNetwork.id,
@@ -121,7 +147,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
 
 function fillUnsignedTx(
   network: Network,
-  account: Account,
+  dbAccount: DBAccount,
   to: string,
   value: BigNumber,
   tokenIdOnNetwork?: string,
@@ -151,14 +177,17 @@ function fillUnsignedTx(
     ).shiftedBy(network.feeDecimals);
     payload.EIP1559Enabled = true;
   }
+  const input: TxInput = {
+    address: dbAccount.address,
+    value: valueOnChain,
+    tokenAddress: tokenIdOnNetwork,
+  };
+  if (network.impl === IMPL_STC) {
+    input.publicKey = (dbAccount as DBSimpleAccount).pub;
+  }
+
   return {
-    inputs: [
-      {
-        address: (account as SimpleAccount).address,
-        value: valueOnChain,
-        tokenAddress: tokenIdOnNetwork,
-      },
-    ],
+    inputs: [input],
     outputs: [
       {
         address: to,
@@ -263,7 +292,7 @@ class ProviderController extends BaseProviderController {
     networkId: string,
     seed: Buffer,
     password: string,
-    account: Account,
+    dbAccount: DBAccount,
   ): { [p: string]: ISigner } {
     const provider = this.providers[networkId];
     if (typeof provider === 'undefined') {
@@ -273,7 +302,7 @@ class ProviderController extends BaseProviderController {
     const implProperties = IMPL_PROPERTIES[chainInfo.impl];
     const curve = chainInfo.curve || implProperties.defaultCurve;
 
-    const pathComponents = account.path.split('/');
+    const pathComponents = dbAccount.path.split('/');
     const relPath = pathComponents.pop() as string;
     const { extendedKey } = batchGetPrivateKeys(
       curve,
@@ -284,11 +313,7 @@ class ProviderController extends BaseProviderController {
     )[0];
 
     return {
-      [(account as SimpleAccount).address]: new Signer(
-        extendedKey,
-        password,
-        curve as Curve,
-      ),
+      [dbAccount.address]: new Signer(extendedKey, password, curve as Curve),
     };
   }
 
@@ -361,17 +386,87 @@ class ProviderController extends BaseProviderController {
     );
   }
 
+  addressFromBase(networkId: string, baseAddress: string): Promise<string> {
+    const [impl, chainId] = networkId.split(SEPERATOR);
+    switch (impl) {
+      case IMPL_CFX:
+        return Promise.resolve(toCfxAddress(baseAddress, parseInt(chainId)));
+      default:
+        throw new NotImplemented();
+    }
+  }
+
+  addressToBase(networkId: string, address: string): Promise<string> {
+    const [impl] = networkId.split(SEPERATOR);
+    switch (impl) {
+      case IMPL_CFX:
+        return Promise.resolve(
+          `0x${toEthAddress(address).hexAddress.toString('hex')}`,
+        );
+      default:
+        throw new NotImplemented();
+    }
+  }
+
+  private async selectAccountAddress(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<string> {
+    let address;
+    switch (dbAccount.type) {
+      case AccountType.SIMPLE:
+        address = dbAccount.address;
+        break;
+      case AccountType.VARIANT:
+        address = ((dbAccount as DBVariantAccount).addresses || {})[networkId];
+        if (typeof address === 'undefined') {
+          address = await this.addressFromBase(networkId, dbAccount.address);
+        }
+        break;
+      default:
+        throw new NotImplemented();
+    }
+    return Promise.resolve(address);
+  }
+
+  async proxyGetBalances(
+    networkId: string,
+    target: Array<string> | DBAccount,
+    tokenIds: Array<string>,
+    withMain = true,
+  ): Promise<Array<BigNumber | undefined>> {
+    if (Array.isArray(target)) {
+      // TODO: switch by network id.
+      return this.getBalances(
+        networkId,
+        target.map((address) => ({ address, coin: {} })),
+      );
+    }
+
+    const address = await this.selectAccountAddress(networkId, target);
+    return this.getBalances(
+      networkId,
+      (withMain ? [{ address, coin: {} }] : []).concat(
+        tokenIds.map((tokenId) => ({
+          address,
+          coin: { tokenAddress: tokenId },
+        })),
+      ),
+    );
+  }
+
   async preSend(
     network: Network,
-    account: Account,
+    dbAccount: DBAccount,
     to: string,
     value: BigNumber,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<BigNumber> {
+    dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
-      fillUnsignedTx(network, account, to, value, tokenIdOnNetwork, extra),
+      fillUnsignedTx(network, dbAccount, to, value, tokenIdOnNetwork, extra),
     );
     if (typeof unsignedTx.feeLimit === 'undefined') {
       throw new OneKeyInternalError('Failed to estimate gas limit.');
@@ -383,20 +478,21 @@ class ProviderController extends BaseProviderController {
     seed: Buffer,
     password: string,
     network: Network,
-    account: Account,
+    dbAccount: DBAccount,
     to: string,
     value: BigNumber,
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; rawTx: string; success: boolean }> {
+    dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
-      fillUnsignedTx(network, account, to, value, tokenIdOnNetwork, extra),
+      fillUnsignedTx(network, dbAccount, to, value, tokenIdOnNetwork, extra),
     );
     const { txid, rawTx } = await this.signTransaction(
       network.id,
       unsignedTx,
-      this.getSigners(network.id, seed, password, account),
+      this.getSigners(network.id, seed, password, dbAccount),
     );
     return {
       txid,
@@ -544,7 +640,7 @@ class ProviderController extends BaseProviderController {
     seed: Buffer,
     password: string,
     network: Network,
-    account: Account,
+    dbAccount: DBAccount,
     messages: Array<Message>,
   ): Promise<Array<string>> {
     if (network.impl !== IMPL_EVM) {
@@ -553,9 +649,10 @@ class ProviderController extends BaseProviderController {
         `Message signing not support on ${network.name}`,
       );
     }
+    dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const defaultType = ETHMessageTypes.PERSONAL_SIGN;
     const [signer] = Object.values(
-      this.getSigners(network.id, seed, password, account),
+      this.getSigners(network.id, seed, password, dbAccount),
     );
     return Promise.all(
       messages.map((message) => {

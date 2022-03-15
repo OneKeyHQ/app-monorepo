@@ -12,7 +12,6 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 import {
   FormatBalance,
   FormatCurrency,
@@ -120,7 +119,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             params: {
               screen: ReceiveTokenRoutes.ReceiveToken,
               params: {
-                address: (account as SimpleAccount).address,
+                address: account.address,
                 name: account.name,
               },
             },

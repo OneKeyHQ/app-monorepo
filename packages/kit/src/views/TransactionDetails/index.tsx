@@ -19,7 +19,7 @@ import {
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { Account, SimpleAccount } from '@onekeyhq/engine/src/types/account';
+import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   TokenType,
   Transaction,
@@ -161,7 +161,7 @@ const TransactionDetails: FC = () => {
   const renderAddress = useCallback(
     (titleKey: string, address: string, networkLabel: string | null = null) => {
       const filterAccounts = accounts.filter(
-        (_account) => (_account as SimpleAccount).address === address,
+        (_account) => _account.address === address,
       );
 
       let accountName: string | null = null;

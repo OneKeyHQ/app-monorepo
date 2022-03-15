@@ -12,7 +12,6 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
@@ -75,7 +74,7 @@ const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const { account, networkImpl, accountAddress } = useActiveWalletAccount();
-  const accountInfo = account as SimpleAccount | null;
+  const accountInfo = account;
   const { origin, data, scope, id } = useDappParams();
   const computedIsRug = isRug(origin);
 

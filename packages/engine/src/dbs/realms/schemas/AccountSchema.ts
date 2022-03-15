@@ -21,7 +21,7 @@ class AccountSchema extends Realm.Object {
 
   public address?: string;
 
-  public addresses?: Realm.Set<string>;
+  public addresses?: Realm.Dictionary<string>;
 
   public tokens?: Realm.Set<TokenSchema>;
 
@@ -39,7 +39,7 @@ class AccountSchema extends Realm.Object {
       pub: 'string?',
       xpub: 'string?',
       address: 'string?',
-      addresses: { type: 'string<>', default: [] },
+      addresses: { type: 'dictionary', default: {}, objectType: 'string' },
       tokens: { type: 'Token<>', default: [] },
       assignee: {
         type: 'linkingObjects',

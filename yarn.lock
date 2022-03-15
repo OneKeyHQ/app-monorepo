@@ -1606,6 +1606,13 @@
   dependencies:
     jsbi "^3.1.4"
 
+"@conflux-dev/conflux-address-js@^1.3.13":
+  version "1.3.13"
+  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
+  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
+  dependencies:
+    jsbi "^3.1.4"
+
 "@date-io/core@^2.11.0":
   version "2.11.0"
   resolved "https://registry.yarnpkg.com/@date-io/core/-/core-2.11.0.tgz#28580cda1c8228ab2c7ed6aee673ef0495f913e6"
@@ -2916,10 +2923,10 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@^0.0.24":
-  version "0.0.24"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.24.tgz#36b08020af47edab9e7b40513ce29815f445c3be"
-  integrity sha512-ShhJtUoFEBTmsuaLe38sCETpojIbjlfYsYEEIpq/KbhHbOcO47vU5RATrFazh8v0dULmS37vF2rBjachNJ4l/g==
+"@onekeyfe/blockchain-libs@^0.0.25":
+  version "0.0.25"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.25.tgz#9404b40bae49a4c0e5aeea15c26962b48b1d4562"
+  integrity sha512-p4tlp5e/3gSiHQAKZzpnAJHwRp59HIifgypURgSSuAaDofCPCUE7iXQ1mqwie6oVG6qMooaDQ6XmNUm/f4ZLgQ==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@ethersproject/abi" "^5.4.1"
@@ -2935,6 +2942,7 @@
     bignumber.js "^9.0.1"
     bip39 "^3.0.4"
     bitcoinjs-lib "^6.0.1"
+    bitcoinjs-message "^2.2.0"
     bs58 "^4.0.1"
     cosmjs-types "^0.4.0"
     cross-fetch "^3.1.4"
@@ -6641,7 +6649,7 @@ bech32@0.0.3:
   resolved "https://registry.yarnpkg.com/bech32/-/bech32-0.0.3.tgz#736747c4a6531c5d8937d0400498de30e93b2f9c"
   integrity sha512-O+K1w8P/aAOLcYwwQ4sbiPYZ51ZIW95lnS4/6nE8Aib/z+OOddQIIPdu2qi94qGDp4HhYy/wJotttXKkak1lXg==
 
-bech32@^1.1.4:
+bech32@^1.1.3, bech32@^1.1.4:
   version "1.1.4"
   resolved "https://registry.yarnpkg.com/bech32/-/bech32-1.1.4.tgz#e38c9f37bf179b8eb16ae3a772b40c356d4832e9"
   integrity sha512-s0IrSOzLlbvX7yp4WBfPITzpAU8sqQcpsmwXDiKwrG4r491vwCO/XpejasRNl0piBMe/DvP4Tz0mIS/X1DPJBQ==
@@ -6732,6 +6740,18 @@ bitcoinjs-lib@^6.0.1:
     typeforce "^1.11.3"
     varuint-bitcoin "^1.1.2"
     wif "^2.0.1"
+
+bitcoinjs-message@^2.2.0:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/bitcoinjs-message/-/bitcoinjs-message-2.2.0.tgz#8116ec7f447f9889e23030fc15c5286a6ae5503b"
+  integrity sha512-103Wy3xg8Y9o+pdhGP4M3/mtQQuUWs6sPuOp1mYphSUoSMHjHTlkj32K4zxU8qMH0Ckv23emfkGlFWtoWZ7YFA==
+  dependencies:
+    bech32 "^1.1.3"
+    bs58check "^2.1.2"
+    buffer-equals "^1.0.3"
+    create-hash "^1.1.2"
+    secp256k1 "^3.0.1"
+    varuint-bitcoin "^1.0.1"
 
 bl@^1.0.0:
   version "1.2.3"
@@ -7090,6 +7110,11 @@ buffer-equal@1.0.0, buffer-equal@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/buffer-equal/-/buffer-equal-1.0.0.tgz#59616b498304d556abd466966b22eeda3eca5fbe"
   integrity sha1-WWFrSYME1Var1GaWayLu2j7KX74=
+
+buffer-equals@^1.0.3:
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/buffer-equals/-/buffer-equals-1.0.4.tgz#0353b54fd07fd9564170671ae6f66b9cf10d27f5"
+  integrity sha1-A1O1T9B/2VZBcGca5vZrnPENJ/U=
 
 buffer-fill@^1.0.0:
   version "1.0.0"
@@ -21631,7 +21656,7 @@ value-or-function@^3.0.0:
   resolved "https://registry.yarnpkg.com/value-or-function/-/value-or-function-3.0.0.tgz#1c243a50b595c1be54a754bfece8563b9ff8d813"
   integrity sha1-HCQ6ULWVwb5Up1S/7OhWO5/42BM=
 
-varuint-bitcoin@^1.0.4, varuint-bitcoin@^1.1.2:
+varuint-bitcoin@^1.0.1, varuint-bitcoin@^1.0.4, varuint-bitcoin@^1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/varuint-bitcoin/-/varuint-bitcoin-1.1.2.tgz#e76c138249d06138b480d4c5b40ef53693e24e92"
   integrity sha512-4EVb+w4rx+YfVM32HQX42AbbT7/1f5zwAYhIujKXKk8NQK+JfRVl3pqT3hjNn/L+RstigmGGKVwHA/P0wgITZw==
