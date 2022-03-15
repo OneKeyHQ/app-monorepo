@@ -173,7 +173,8 @@ class Engine {
     ) {
       throw new OneKeyInternalError('Invalid mnemonic.');
     }
-    return this.dbApi.createHDWallet(password, rs, name);
+    const backuped = usedMnemonic === mnemonic;
+    return this.dbApi.createHDWallet(password, rs, backuped, name);
   }
 
   @backgroundMethod()

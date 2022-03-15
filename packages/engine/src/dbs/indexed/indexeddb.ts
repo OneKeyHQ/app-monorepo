@@ -681,6 +681,7 @@ class IndexedDBApi implements DBAPI {
   createHDWallet(
     password: string,
     rs: RevealableSeed,
+    backuped: boolean,
     name?: string,
   ): Promise<Wallet> {
     let ret: Wallet;
@@ -712,7 +713,7 @@ class IndexedDBApi implements DBAPI {
               id: walletId,
               name: name || `HD Wallet ${context.nextHD}`,
               type: WALLET_TYPE_HD,
-              backuped: false,
+              backuped,
               accounts: [],
               nextAccountIds: {},
             };
