@@ -3,7 +3,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { useDrawerStatus } from '@react-navigation/drawer';
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -47,6 +46,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
 import useAccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
@@ -86,13 +86,12 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
-const AccountSelectorChildren: FC = () => {
+const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const status = useDrawerStatus();
-  const isOpen = status === 'open';
   const isVerticalLayout = useIsVerticalLayout();
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  // const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation = useAppNavigation();
   const { activeNetwork } = useAppSelector((s) => s.general);
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
@@ -283,12 +282,10 @@ const AccountSelectorChildren: FC = () => {
           contentContainerStyle={{
             paddingBottom: 16,
           }}
-          zIndex={2}
           data={activeAccounts}
           keyExtractor={(_, index) => index.toString()}
           renderItem={({ item }) => (
             <Pressable
-              zIndex={99}
               onPress={() => {
                 backgroundApiProxy.serviceAccount.changeActiveAccount({
                   account: item,

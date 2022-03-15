@@ -22,7 +22,7 @@ export const GenaralSection = () => {
   const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
 
   return (
-    <Box w="full" mb="4" zIndex={10}>
+    <Box w="full" mb="4">
       <Box p="2">
         <Typography.Subheading>
           {intl.formatMessage({
@@ -33,7 +33,7 @@ export const GenaralSection = () => {
       </Box>
       <Box borderRadius="12" bg="surface-default" shadow="depth.2">
         <Box>
-          <Box w="full" zIndex={99}>
+          <Box w="full">
             <Select<ThemeVariant | 'system'>
               title={intl.formatMessage({
                 id: 'form__theme',
@@ -80,7 +80,7 @@ export const GenaralSection = () => {
               )}
             />
           </Box>
-          <Box w="full" zIndex={98}>
+          <Box w="full">
             <Select
               title={intl.formatMessage({
                 id: 'form__language',
@@ -121,7 +121,7 @@ export const GenaralSection = () => {
               )}
             />
           </Box>
-          <Box w="full" zIndex={97}>
+          <Box w="full">
             <Select<string>
               title={intl.formatMessage({
                 id: 'form__fiat_currency',

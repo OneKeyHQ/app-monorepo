@@ -45,7 +45,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       borderColor={borderColor}
       borderWidth="0"
       borderBottomWidth={StyleSheet.hairlineWidth}
-      zIndex={999}
     >
       {headerLeftNode ? (
         <HStack

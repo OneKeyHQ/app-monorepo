@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import axios from 'axios';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,6 +10,7 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  Spinner,
   Typography,
   useForm,
 } from '@onekeyhq/components';
@@ -31,16 +33,44 @@ type PresetNetwokProps = NativeStackScreenProps<
   ManageNetworkRoutes.PresetNetwork
 >;
 
+function getColor(value: number) {
+  if (value <= 300) {
+    return 'text-success';
+  }
+  if (value <= 1000) {
+    return 'text-warning';
+  }
+  return 'text-critical';
+}
+
+async function measure(url: string): Promise<number> {
+  const start = Date.now();
+  await axios.post(url, {
+    id: Date.now,
+    method: 'net_version',
+    jsonrpc: '2.0',
+    params: [],
+  });
+  const end = Date.now();
+  return end - start;
+}
+
 export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const { name, rpcURL, chainId, symbol, exploreUrl, id } = route.params;
   const intl = useIntl();
-  const { info } = useToast();
+  const { text } = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
+  const [networkStatus, setNetworkStatus] = useState<Record<string, number>>(
+    {},
+  );
   const { serviceNetwork } = backgroundApiProxy;
-  const { control, handleSubmit, reset } = useForm<NetworkValues>({
+  const { control, handleSubmit, reset, watch } = useForm<NetworkValues>({
+    mode: 'onChange',
     defaultValues: { name, rpcURL, chainId, symbol, exploreUrl, id },
   });
   const [resetOpened, setResetOpened] = useState(false);
+
+  const watchedRpcURL = watch('rpcURL');
 
   const onButtonPress = useCallback(() => {
     setResetOpened(true);
@@ -55,10 +85,42 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
-      info(intl.formatMessage({ id: 'transaction__success' }));
+      text('transaction__success');
     },
-    [serviceNetwork, id, info, intl],
+    [serviceNetwork, id, text],
   );
+
+  useEffect(() => {
+    rpcUrls.forEach((url) => {
+      measure(url).then((value) =>
+        setNetworkStatus((prev) => ({ ...prev, [url]: value })),
+      );
+    });
+  }, [rpcUrls]);
+
+  const options = useMemo<
+    { value: string; label: string; trailing?: React.ReactNode }[]
+  >(
+    () =>
+      rpcUrls.map((url) => ({
+        value: url,
+        label: url,
+        trailing: networkStatus[url] ? (
+          <Typography.Body2Strong color={getColor(networkStatus[url])}>
+            {networkStatus[url]}ms
+          </Typography.Body2Strong>
+        ) : (
+          <Spinner size="sm" />
+        ),
+      })),
+    [rpcUrls, networkStatus],
+  );
+
+  const onReset = useCallback(() => {
+    reset(route.params);
+    setResetOpened(false);
+    text('msg__network_reset');
+  }, [route.params, text, reset]);
 
   return (
     <>
@@ -67,6 +129,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
         height="560px"
         primaryActionProps={{
           onPromise: handleSubmit(onSubmit),
+          isDisabled: watchedRpcURL === rpcURL,
         }}
         primaryActionTranslationId="action__save"
         hideSecondaryAction
@@ -92,6 +155,14 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     defaultMessage: 'RPC URL',
                   })}
                   formControlProps={{ zIndex: 10 }}
+                  helpText={
+                    watchedRpcURL && networkStatus[watchedRpcURL]
+                      ? intl.formatMessage(
+                          { id: 'form__rpc_url_spped' },
+                          { value: networkStatus[watchedRpcURL] },
+                        )
+                      : intl.formatMessage({ id: 'form__rpc_url_connecting' })
+                  }
                 >
                   <Form.Select
                     title={intl.formatMessage({
@@ -103,7 +174,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                       zIndex: 999,
                       padding: 0,
                     }}
-                    options={rpcUrls.map((url) => ({ label: url, value: url }))}
+                    options={options}
                   />
                 </Form.Item>
                 <Form.Item
@@ -155,7 +226,12 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                 >
                   <Form.Input isDisabled />
                 </Form.Item>
-                <Button w="full" size="lg" onPress={onButtonPress}>
+                <Button
+                  w="full"
+                  size="lg"
+                  onPress={onButtonPress}
+                  isDisabled={watchedRpcURL === rpcURL}
+                >
                   {intl.formatMessage({
                     id: 'action__reset',
                     defaultMessage: 'Reset',
@@ -183,10 +259,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
           ),
         }}
         footerButtonProps={{
-          onPrimaryActionPress: ({ onClose }) => {
-            reset(route.params);
-            onClose?.();
-          },
+          onPrimaryActionPress: onReset,
           primaryActionTranslationId: 'action__reset',
           primaryActionProps: {
             type: 'primary',

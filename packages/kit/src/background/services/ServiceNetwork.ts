@@ -1,3 +1,5 @@
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+
 import {
   AddNetworkParams,
   UpdateNetworkParams,
@@ -75,6 +77,12 @@ class ServiceNetwork extends ServiceBase {
     const { engine } = this.backgroundApi;
     await engine.deleteNetwork(networkId);
     this.fetchNetworks();
+  }
+
+  @backgroundMethod()
+  async rpcCall(networkId: string, request: IJsonRpcRequest) {
+    const { engine } = this.backgroundApi;
+    return engine.proxyRPCCall(networkId, request);
   }
 }
 
