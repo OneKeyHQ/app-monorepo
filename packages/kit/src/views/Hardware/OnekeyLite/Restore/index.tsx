@@ -20,7 +20,6 @@ import {
   TabRoutes,
   TabRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { addWallet } from '@onekeyhq/kit/src/store/reducers/wallet';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
@@ -41,7 +40,7 @@ const Restore: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
-  const { dispatch } = backgroundApiProxy;
+  const { serviceApp } = backgroundApiProxy;
   const toast = useToast();
 
   const { showVerify } = useLocalAuthenticationModal();
@@ -105,15 +104,15 @@ const Restore: FC = () => {
       (error: CallbackError, data: string | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
-          console.log('NFC read data:', data);
           showVerify(
             async (password) => {
+              console.log('NFC read data:', data);
               try {
-                const result = await backgroundApiProxy.engine.createHDWallet(
+                await serviceApp.createHDWallet({
                   password,
-                  data.trim(),
-                );
-                dispatch(addWallet(result));
+                  mnemonic: data.trim(),
+                });
+
                 stateNfcComplete();
               } catch (e) {
                 console.log('error', e);

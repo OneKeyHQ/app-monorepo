@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-unused-vars */
 import React, { ComponentProps, FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -24,6 +25,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import WalletAvatar from '../WalletAvatar';
 
 import type { AccountType } from './index';
@@ -68,14 +70,15 @@ const WalletItemDefaultProps = {
 } as const;
 
 WalletItem.defaultProps = WalletItemDefaultProps;
-
 type LeftSideProps = {
   selectedWallet?: Wallet | null;
   setSelectedWallet: (v: Wallet) => void;
 };
 
 const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  // const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation = useAppNavigation();
+
   const wallets = useAppSelector((s) => s.wallet.wallets);
   return (
     <VStack borderRightWidth={1} borderRightColor="border-subdued">

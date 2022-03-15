@@ -129,7 +129,7 @@ export const SecuritySection = () => {
   }, [enableAppLock, dispatch]);
   return (
     <>
-      <Box w="full" mb="4" zIndex={9}>
+      <Box w="full" mb="4">
         <Box p="2">
           <Typography.Subheading>
             {intl.formatMessage({
@@ -221,7 +221,7 @@ export const SecuritySection = () => {
             </Box>
           </Box>
           {enableAppLock ? (
-            <Box w="full" zIndex={95}>
+            <Box w="full">
               <Select<number>
                 title={intl.formatMessage({
                   id: 'form__app_lock_timer',

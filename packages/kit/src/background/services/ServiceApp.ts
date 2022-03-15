@@ -15,12 +15,18 @@ import ServiceBase from './ServiceBase';
 class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async resetApp() {
-    const { engine, dispatch, persistor } = this.backgroundApi;
+    const { engine, dispatch, persistor, serviceNetwork, serviceAccount } =
+      this.backgroundApi;
+    // Stop auto-save first
+    persistor.pause();
     await persistor.purge();
     await engine.resetApp();
     dispatch({ type: 'LOGOUT', payload: undefined });
     await delay(300);
     await this.initNetworks();
+    await delay(300);
+    serviceNetwork.notifyChainChanged();
+    serviceAccount.notifyAccountsChanged();
   }
 
   @backgroundMethod()
