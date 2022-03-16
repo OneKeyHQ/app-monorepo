@@ -19,6 +19,9 @@ class WrongPassword extends OneKeyError {
 class AccountAlreadyExists extends OneKeyError {
   key = 'msg__engine__account_already_exists';
 }
+class OneKeyHardwareError extends OneKeyError {
+  key = 'onekey_error_hardware';
+}
 
 class TooManyWatchingAccounts extends OneKeyError {
   key = 'msg__engine_too_many_watching_accounts';
@@ -40,4 +43,5 @@ export {
   TooManyWatchingAccounts,
   FailedToTransfer,
   InvalidAddress,
+  OneKeyHardwareError,
 };

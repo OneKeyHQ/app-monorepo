@@ -21,6 +21,8 @@ import {
   IMPL_STC,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
+import * as OneKeyHardware from '../hardware';
+import { CredentialSelector, CredentialType } from '../types/credential';
 
 import { implToCoinTypes } from './impl';
 
@@ -89,16 +91,15 @@ function getPath(purpose: string, coinType: string, index: number) {
   return `${prefix}/${relPaths[0]}`;
 }
 
-function getXpubs(
+async function getXpubs(
   impl: string,
-  seed: Buffer,
-  password: string,
-  outputFormat: 'xpub' | 'pub',
+  credential: CredentialSelector,
+  outputFormat: 'xpub' | 'pub' | 'address',
   start = 0,
   limit = 10,
   purpose?: number,
   curve?: string,
-): Array<{ path: string; info: string }> {
+): Promise<Array<{ path: string; info: string }>> {
   const usedCurve = (curve || (curveMap[impl] || [])[0]) as CurveName;
   if (
     typeof usedCurve === 'undefined' ||
@@ -131,34 +132,55 @@ function getXpubs(
     limit,
   );
 
-  const ret: Array<{ path: string; info: string }> = [];
-  batchGetPublicKeys(usedCurve, seed, password, prefix, relPaths).forEach(
-    ({ path, parentFingerPrint, extendedKey }) => {
-      if (outputFormat === 'pub') {
-        const info = extendedKey.key.toString('hex');
-        ret.push({ path, info });
-      } else if (outputFormat === 'xpub') {
-        const lastIndexStr = path.split('/').slice(-1)[0];
-        const lastIndex = lastIndexStr.endsWith("'")
-          ? parseInt(lastIndexStr.slice(0, -1)) + 2 ** 31
-          : parseInt(lastIndexStr);
-        const verionBytes =
-          versionBytesMap[impl] || Buffer.from('0488b21e', 'hex');
-        const info = bs58check.encode(
-          Buffer.concat([
-            verionBytes,
-            Buffer.from([depth]),
-            parentFingerPrint,
-            Buffer.from(lastIndex.toString(16).padStart(8, '0'), 'hex'),
-            extendedKey.chainCode,
-            extendedKey.key,
-          ]),
+  switch (credential.type) {
+    case CredentialType.SOFTWARE:
+      return batchGetPublicKeys(
+        usedCurve,
+        credential.seed,
+        credential.password,
+        prefix,
+        relPaths,
+      ).map(({ path, parentFingerPrint, extendedKey }) => {
+        let info = '';
+        if (outputFormat === 'pub') {
+          info = extendedKey.key.toString('hex');
+        }
+        if (outputFormat === 'xpub') {
+          const lastIndexStr = path.split('/').slice(-1)[0];
+          const lastIndex = lastIndexStr.endsWith("'")
+            ? parseInt(lastIndexStr.slice(0, -1)) + 2 ** 31
+            : parseInt(lastIndexStr);
+          const verionBytes =
+            versionBytesMap[impl] || Buffer.from('0488b21e', 'hex');
+          info = bs58check.encode(
+            Buffer.concat([
+              verionBytes,
+              Buffer.from([depth]),
+              parentFingerPrint,
+              Buffer.from(lastIndex.toString(16).padStart(8, '0'), 'hex'),
+              extendedKey.chainCode,
+              extendedKey.key,
+            ]),
+          );
+        }
+        if (info.length === 0) {
+          throw new OneKeyInternalError('Unable to get public key');
+        }
+        return { path, info };
+      });
+    case CredentialType.HARDWARE: {
+      const paths = relPaths.map((relPath) => `${prefix}/${relPath}`);
+      const ret = await OneKeyHardware.getXpubs(impl, paths, outputFormat);
+      if (ret.length !== paths.length) {
+        throw new OneKeyInternalError(
+          `Hardware methods not supported for ${impl}`,
         );
-        ret.push({ path, info });
       }
-    },
-  );
-  return ret;
+      return ret;
+    }
+    default:
+      throw new OneKeyInternalError('Incorrect credential selector.');
+  }
 }
 
 function getDefaultPurpose(impl: string): number {

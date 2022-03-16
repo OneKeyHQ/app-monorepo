@@ -14,6 +14,7 @@ import {
 import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { AccountType, DBAccount } from '../../types/account';
+import { Device } from '../../types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -45,6 +46,7 @@ import {
   AccountSchema,
   ContextSchema,
   CredentialSchema,
+  DeviceSchema,
   HistoryEntrySchema,
   NetworkSchema,
   TokenSchema,
@@ -52,6 +54,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
+const SCHEMA_VERSION = 3;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -75,8 +78,9 @@ class RealmDB implements DBAPI {
         ContextSchema,
         CredentialSchema,
         HistoryEntrySchema,
+        DeviceSchema,
       ],
-      schemaVersion: 2,
+      schemaVersion: SCHEMA_VERSION,
     })
       .then((realm) => {
         if (update || realm.empty) {
@@ -640,7 +644,10 @@ class RealmDB implements DBAPI {
             return Promise.reject(new TooManyWatchingAccounts());
           }
           wallet.nextAccountIds!.global += 1;
-        } else if (wallet.type === WALLET_TYPE_HD) {
+        } else if (
+          wallet.type === WALLET_TYPE_HD ||
+          wallet.type === WALLET_TYPE_HW
+        ) {
           const pathComponents = account.path.split('/');
           const category = `${pathComponents[1]}/${pathComponents[2]}`;
           const purpose = pathComponents[1].slice(0, -1);
@@ -787,6 +794,47 @@ class RealmDB implements DBAPI {
       }
 
       return Promise.resolve(wallet.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  /**
+   * add a new hw wallet
+   * @param id the id of the hardware device
+   * @param name the name of the wallet
+   */
+  addHWWallet(id: string, name: string): Promise<Wallet> {
+    try {
+      const foundDevice = this.realm!.objectForPrimaryKey<DeviceSchema>(
+        'Device',
+        id,
+      );
+      if (typeof foundDevice === 'undefined') {
+        throw new OneKeyInternalError(`Device ${id} not found.`);
+      }
+      const walletId = `hw-${id}`;
+      let wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+        'Wallet',
+        walletId,
+      );
+      if (typeof wallet === 'undefined') {
+        this.realm!.write(() => {
+          wallet = this.realm!.create('Wallet', {
+            id: walletId,
+            name,
+            type: WALLET_TYPE_HW,
+            backuped: true,
+            associatedDevice: foundDevice,
+          });
+        });
+      } else {
+        throw new OneKeyInternalError(
+          `Hardware Wallet ${walletId} already exists.`,
+        );
+      }
+      return Promise.resolve(wallet!.internalObj);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1203,6 +1251,64 @@ class RealmDB implements DBAPI {
       return Promise.reject(new OneKeyInternalError(error));
     }
     return Promise.resolve(ret);
+  }
+
+  /**
+   * insert or update a device record in the database
+   * @param id
+   * @param name
+   * @param mac
+   * @param features
+   * @returns
+   */
+  upsertDevice(
+    id: string,
+    name: string,
+    mac: string,
+    features: string,
+  ): Promise<void> {
+    try {
+      const foundDevice = this.realm!.objectForPrimaryKey<DeviceSchema>(
+        'Device',
+        id,
+      );
+      const now = Date.now();
+      if (typeof foundDevice === 'undefined') {
+        this.realm!.write(() => {
+          this.realm!.create('Device', {
+            id,
+            name,
+            mac,
+            features,
+            createdAt: now,
+            updatedAt: now,
+          });
+        });
+      } else {
+        this.realm!.write(() => {
+          foundDevice.features = features;
+          foundDevice.updatedAt = now;
+        });
+      }
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  /**
+   * get all local devices
+   * @returns
+   */
+  getDevices(): Promise<Array<Device>> {
+    try {
+      const devices = this.realm!.objects<DeviceSchema>('Device');
+      return Promise.resolve(devices.map((device) => device.internalObj));
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
   }
 }
 export { RealmDB };

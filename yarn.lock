@@ -2996,6 +2996,35 @@
     url-join "^4.0.1"
     whatwg-fetch "^3.5.0"
 
+"@onekeyfe/connect@^8.7.5-extended":
+  version "8.7.5-extended"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/connect/-/connect-8.7.5-extended.tgz#f2c2e28528cc26cbedc9eed251261cf5592fa3d5"
+  integrity sha512-HpSl6QKoNcPw9LYfl0KSsUVl1zVY7UXMAHQ1sBXgIivgE85EQWRZzlm0qUHiVi5rM6cez3LyMqBgIHt0lhAq9A==
+  dependencies:
+    "@babel/runtime" "^7.12.5"
+    "@onekeyfe/blockchain-link" "1.0.19"
+    "@onekeyfe/link" "1.7.5"
+    "@onekeyfe/rollout" "1.0.6"
+    "@sentry/browser" "^6.4.0"
+    "@sentry/integrations" "^6.4.0"
+    "@sentry/tracing" "^6.4.0"
+    "@trezor/utxo-lib" "^0.1.2"
+    base58-js "^1.0.0"
+    bchaddrjs "0.4.9"
+    bignumber.js "^9.0.1"
+    bowser "^2.11.0"
+    eth-sig-util "3.0.1"
+    events "^3.2.0"
+    hd-wallet "9.1.0"
+    keccak "^3.0.1"
+    node-fetch "^2.6.1"
+    parse-uri "^1.0.3"
+    patch-package "^6.2.2"
+    postinstall-postinstall "^2.1.0"
+    tiny-worker "^2.3.0"
+    url-join "^4.0.1"
+    whatwg-fetch "^3.5.0"
+
 "@onekeyfe/cross-inpage-provider-core@^0.0.7-alpha.3":
   version "0.0.7-alpha.3"
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-core/-/cross-inpage-provider-core-0.0.7-alpha.3.tgz#0ef4809a27f8ce818570e683e2f82b0a7d5fcbee"
