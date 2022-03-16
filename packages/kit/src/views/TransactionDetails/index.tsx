@@ -226,7 +226,12 @@ const TransactionDetails: FC = () => {
             txInfo?.type === TransactionType.Transfer ? '-' : ''
           }${`${amount.amount ?? '-'} ${amount.unit ?? ''}`}`}
           custom={
-            <Box flexDirection="row" justifyContent="flex-end" flexWrap="wrap">
+            <Box
+              flexDirection="row"
+              mt={list.length > 0 ? 2 : 0}
+              justifyContent="flex-end"
+              flexWrap="wrap"
+            >
               {list.map((item) => (
                 <Box m={1}>
                   <NFTView

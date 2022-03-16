@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
@@ -182,6 +183,86 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                     : 'ShieldCheckSolid',
                 },
                 trailing: renderBackupState,
+              },
+              {
+                label: intl.formatMessage({ id: 'action__delete_wallet' }),
+                value: 'remove',
+                iconProps: {
+                  name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+                },
+                destructive: true,
+              },
+            ]}
+            headerShown={false}
+            footer={null}
+            containerProps={{ width: 'auto' }}
+            dropdownProps={{
+              width: 248,
+            }}
+            renderTrigger={(activeOption, isHovered, visible) => (
+              <CustomSelectTrigger
+                isTriggerHovered={isHovered}
+                isSelectVisible={visible}
+              />
+            )}
+          />
+        ) : null}
+        {['hw'].includes(selectedWallet?.type ?? '') ? (
+          <Select
+            onChange={(_value) => {
+              switch (_value) {
+                case 'rename':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManagerWallet,
+                    params: {
+                      screen:
+                        ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
+                      params: {
+                        walletId: selectedWallet?.id ?? '',
+                      },
+                    },
+                  });
+                  break;
+                case 'details':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.OnekeyHardware,
+                    params: {
+                      screen:
+                        OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+                      params: {
+                        walletId: selectedWallet?.id ?? '',
+                      },
+                    },
+                  });
+                  break;
+                case 'remove':
+                  onDeleteWallet();
+                  break;
+
+                default:
+                  break;
+              }
+            }}
+            dropdownPosition="left"
+            activatable={false}
+            options={[
+              {
+                label: intl.formatMessage({ id: 'action__edit' }),
+                value: 'rename',
+                iconProps: {
+                  name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+                },
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'action__view_device_details',
+                }),
+                value: 'details',
+                iconProps: {
+                  name: isVerticalLayout
+                    ? 'DocumentTextOutline'
+                    : 'DocumentTextSolid',
+                },
               },
               {
                 label: intl.formatMessage({ id: 'action__delete_wallet' }),
