@@ -47,7 +47,7 @@ const RecoverConfirm: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const addHDAccount = useCallback(
-    (password: string, item: FlatDataType) => {
+    (password: string, item: FlatDataType, index) => {
       const name = `Account #${item.index}`;
       setTimeout(
         async () =>
@@ -55,10 +55,10 @@ const RecoverConfirm: FC = () => {
             password,
             walletId,
             network,
-            undefined,
+            item.index,
             name,
           ),
-        item.index * 1000,
+        index * 1000,
       );
     },
     [network, walletId],
@@ -67,7 +67,7 @@ const RecoverConfirm: FC = () => {
   const authenticationDone = async (password: string) => {
     const selectAccount = flatListData.filter((i) => i.selected);
     await Promise.all(
-      selectAccount.map((item) => addHDAccount(password, item)),
+      selectAccount.map((item, index) => addHDAccount(password, item, index)),
     );
 
     dispatch(setRefreshTS());
