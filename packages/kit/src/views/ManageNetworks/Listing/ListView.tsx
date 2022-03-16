@@ -57,7 +57,8 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
                 rpcURL: network.rpcURL,
                 symbol: network.symbol,
                 exploreUrl: network.blockExplorerURL.name,
-                chainId: String(+network.extraInfo.chainId ?? ''),
+                chainId: String(+(network.extraInfo?.chainId ?? '')),
+                impl: network.impl,
               });
             } else {
               navigation.navigate(ManageNetworkRoutes.CustomNetwork, {
@@ -66,6 +67,7 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
                 rpcURL: network.rpcURL,
                 symbol: network.symbol,
                 exploreUrl: network.blockExplorerURL.name,
+                chainId: String(+(network.extraInfo?.chainId ?? '')),
               });
             }
           }}

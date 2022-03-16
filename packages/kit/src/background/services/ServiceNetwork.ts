@@ -84,6 +84,18 @@ class ServiceNetwork extends ServiceBase {
     const { engine } = this.backgroundApi;
     return engine.proxyRPCCall(networkId, request);
   }
+
+  @backgroundMethod()
+  async preAddNetwork(rpcURL: string) {
+    const { engine } = this.backgroundApi;
+    return engine.preAddNetwork(rpcURL);
+  }
+
+  @backgroundMethod()
+  async getRPCEndpointStatus(rpcURL: string, impl: string) {
+    const { engine } = this.backgroundApi;
+    return engine.getRPCEndpointStatus(rpcURL, impl);
+  }
 }
 
 export default ServiceNetwork;

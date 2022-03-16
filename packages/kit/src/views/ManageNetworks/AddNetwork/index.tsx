@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useToast } from '../../../hooks';
+import { useDebounce, useToast } from '../../../hooks';
 
 type NetworkValues = {
   name: string;
@@ -24,10 +24,14 @@ type NetworkValues = {
 
 export type NetworkAddViewProps = undefined;
 
+const URITester =
+  /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/;
+
 export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { text } = useToast();
+  const [hintText, setHintText] = useState('');
   const { serviceNetwork } = backgroundApiProxy;
   const defaultValues = {
     name: '',
@@ -36,9 +40,45 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
     symbol: '',
     explorerURL: '',
   };
-  const { control, handleSubmit } = useForm<NetworkValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    setError,
+    formState: { isValid },
+  } = useForm<NetworkValues>({
     defaultValues,
+    mode: 'onChange',
   });
+
+  const watchedRpcURL = useDebounce(watch('rpcURL'), 1000);
+
+  useEffect(() => {
+    const url = watchedRpcURL?.trim();
+    if (url && URITester.test(url)) {
+      setHintText(intl.formatMessage({ id: 'form__rpc_url_connecting' }));
+      serviceNetwork
+        .preAddNetwork(url)
+        .then(({ chainId, existingNetwork }) => {
+          setValue('chainId', chainId);
+          if (existingNetwork) {
+            setHintText('');
+            setError('rpcURL', {
+              message: intl.formatMessage(
+                { id: 'form__rpc_url_invalid_exist' },
+                { name: existingNetwork.name },
+              ),
+            });
+          } else {
+            setHintText(intl.formatMessage({ id: 'form__rpc_url_fetched' }));
+          }
+        })
+        .catch(() => {
+          setHintText(intl.formatMessage({ id: 'form__rpc_fetched_failed' }));
+        });
+    }
+  }, [watchedRpcURL, intl, setValue, setError, serviceNetwork]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
@@ -57,11 +97,12 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   return (
     <>
       <Modal
-        header="Add Network"
+        header={intl.formatMessage({ id: 'action__add_network' })}
         hidePrimaryAction
         secondaryActionTranslationId="action__save"
         secondaryActionProps={{
           type: 'primary',
+          isDisabled: !isValid,
           onPromise: handleSubmit(onSubmit),
         }}
         scrollViewProps={{
@@ -99,6 +140,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     id: 'form__rpc_url',
                     defaultMessage: 'RPC URL',
                   })}
+                  helpText={hintText}
                   formControlProps={{ zIndex: 10 }}
                   rules={{
                     required: {
@@ -118,6 +160,16 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                   <Form.Input />
                 </Form.Item>
                 <Form.Item
+                  name="chainId"
+                  control={control}
+                  label={intl.formatMessage({
+                    id: 'form__chain_id',
+                    defaultMessage: 'Chain ID',
+                  })}
+                >
+                  <Form.Input isDisabled />
+                </Form.Item>
+                <Form.Item
                   name="symbol"
                   label={intl.formatMessage({
                     id: 'form__symbol',
@@ -133,12 +185,6 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                   }
                   control={control}
                   rules={{
-                    required: {
-                      value: true,
-                      message: intl.formatMessage({
-                        id: 'form__field_is_required',
-                      }),
-                    },
                     maxLength: {
                       value: 15,
                       message: intl.formatMessage({
@@ -164,6 +210,14 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     </Typography.Body2>
                   }
                   control={control}
+                  rules={{
+                    pattern: {
+                      value: /https?:\/\//,
+                      message: intl.formatMessage({
+                        id: 'form__blockchain_explorer_url_invalid',
+                      }),
+                    },
+                  }}
                 >
                   <Form.Input />
                 </Form.Item>
