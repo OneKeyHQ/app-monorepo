@@ -23,5 +23,6 @@ export type ManageNetworkRoutesParams = {
     chainId?: string;
     symbol?: string;
     exploreUrl?: string;
+    impl?: string;
   };
 };

@@ -1,7 +1,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import axios from 'axios';
 import { useIntl } from 'react-intl';
 
 import {
@@ -43,20 +42,14 @@ function getColor(value: number) {
   return 'text-critical';
 }
 
-async function measure(url: string): Promise<number> {
-  const start = Date.now();
-  await axios.post(url, {
-    id: Date.now,
-    method: 'net_version',
-    jsonrpc: '2.0',
-    params: [],
-  });
-  const end = Date.now();
-  return end - start;
+async function measure(url: string, impl = 'evm'): Promise<number> {
+  const { responseTime } =
+    await backgroundApiProxy.serviceNetwork.getRPCEndpointStatus(url, impl);
+  return responseTime;
 }
 
 export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
-  const { name, rpcURL, chainId, symbol, exploreUrl, id } = route.params;
+  const { name, rpcURL, chainId, symbol, exploreUrl, id, impl } = route.params;
   const intl = useIntl();
   const { text } = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
@@ -85,18 +78,18 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
-      text('transaction__success');
+      text('msg__change_saved');
     },
     [serviceNetwork, id, text],
   );
 
   useEffect(() => {
     rpcUrls.forEach((url) => {
-      measure(url).then((value) =>
+      measure(url, impl).then((value) =>
         setNetworkStatus((prev) => ({ ...prev, [url]: value })),
       );
     });
-  }, [rpcUrls]);
+  }, [rpcUrls, impl]);
 
   const options = useMemo<
     { value: string; label: string; trailing?: React.ReactNode }[]
@@ -177,19 +170,21 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     options={options}
                   />
                 </Form.Item>
-                <Form.Item
-                  name="chainId"
-                  label={intl.formatMessage({
-                    id: 'form__chain_id',
-                    defaultMessage: 'Chain ID',
-                  })}
-                  control={control}
-                >
-                  <Form.Input
-                    placeholder={intl.formatMessage({ id: 'form__chain_id' })}
-                    isDisabled
-                  />
-                </Form.Item>
+                {impl === 'evm' ? (
+                  <Form.Item
+                    name="chainId"
+                    label={intl.formatMessage({
+                      id: 'form__chain_id',
+                      defaultMessage: 'Chain ID',
+                    })}
+                    control={control}
+                  >
+                    <Form.Input
+                      placeholder={intl.formatMessage({ id: 'form__chain_id' })}
+                      isDisabled
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item
                   name="symbol"
                   label={intl.formatMessage({
