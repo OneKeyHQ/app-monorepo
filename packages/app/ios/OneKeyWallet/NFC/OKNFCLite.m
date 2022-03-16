@@ -602,20 +602,7 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
         }
 
         /// https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/10551684/Lite
-        NSString *payload = responseData.toHexString;
-        NSString *meta = [payload substringFromIndex:payload.length - 8].lowercaseString;
-        NSString *dataStr = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
-
-        if ([meta ok_match:@"^ffff[a-f0-9]{4}$"]) {
-            NSString *encoded_mnemonic = [payload substringToIndex:payload.length - 8];
-            mnc = encoded_mnemonic;
-//            mnc = [kPyCommandsManager callInterface:kInterface_decode_mnemonics parameter:@{@"encoded_mnemonics": encoded_mnemonic}];
-//            if (![OKMnemonic isValidMnemonic:mnc] && [OKMnemonic isValidMnemonic:dataStr]) {
-//                mnc = dataStr;
-//            }
-        } else {
-            mnc = dataStr;
-        }
+        mnc = responseData.toHexString;
 
         dispatch_semaphore_signal(sema);
     }];

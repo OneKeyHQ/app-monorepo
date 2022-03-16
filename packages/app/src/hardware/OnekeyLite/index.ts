@@ -1,6 +1,6 @@
-import { Buffer } from 'buffer';
-
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { Callback, CallbackError, CardInfo } from './types';
 
@@ -25,28 +25,37 @@ class OnekeyLite {
     this.UiEventEmitter = new NativeEventEmitter(OKLiteManager);
   }
 
-  encodeMnemonic(
+  async encodeMnemonic(
     version: string,
     language: string,
-    mnemonic: string[],
-  ): string {
-    const enMnemonic = mnemonic.reduce((pre, cur) => `${pre} ${cur}`);
-    return Buffer.from(enMnemonic, 'utf8').toString('hex');
-    // const meta = LiteFlag.TAG + LiteFlag.VERSION + LiteFlag.LANGUAGE;
-    // const enMnemonic = ''; // mnemonic to index
-    // return enMnemonic + meta;
+    mnemonic: string,
+  ): Promise<string> {
+    const meta = LiteFlag.TAG + version + language;
+    const enMnemonic = await backgroundApiProxy.engine.mnemonicToEntropy(
+      mnemonic.trim(),
+    ); // mnemonic to index
+    return enMnemonic + meta;
   }
 
-  decodeMnemonic(payload: string): string {
+  async decodeMnemonic(payload: string): Promise<string> {
+    if (payload.length <= 8)
+      return Buffer.from(payload, 'hex').toString().trim();
+
     const meta = payload.slice(-8);
+
     const regexp = new RegExp('^ffff[a-f0-9]{4}$');
     if (regexp.test(meta)) {
       // const version = meta.slice(4, 6);
       const enMnemonic = payload.slice(0, -8);
-      // deMnemonic = ''; // mnemonic to index
-      return enMnemonic;
+
+      const deMnemonic = await backgroundApiProxy.engine.entropyToMnemonic(
+        enMnemonic,
+      ); // mnemonic to index
+
+      return deMnemonic.trim();
     }
-    return Buffer.from(payload, 'hex').toString();
+    // 兼容旧版本
+    return Buffer.from(payload, 'hex').toString().trim();
   }
 
   addConnectListener(listener: (event: NfcConnectUiState) => void) {
@@ -79,35 +88,25 @@ class OnekeyLite {
   }
 
   setMnemonic(
-    mnemonic: string | string[],
+    mnemonic: string,
     pwd: string,
     result: Callback<boolean>,
     overwrite = false,
   ) {
-    let mnemonicArray: string[];
-    if (typeof mnemonic === 'string') {
-      mnemonicArray = mnemonic.trim().split('\\s+');
-    } else {
-      mnemonicArray = mnemonic;
-    }
-
-    const payload = this.encodeMnemonic(
-      LiteFlag.VERSION,
-      LiteFlag.LANGUAGE,
-      mnemonicArray,
+    this.encodeMnemonic(LiteFlag.VERSION, LiteFlag.LANGUAGE, mnemonic).then(
+      (payload) => OKLiteManager.setMnemonic(payload, pwd, overwrite, result),
     );
-    OKLiteManager.setMnemonic(payload, pwd, overwrite, result);
   }
 
   getMnemonicWithPin(pwd: string, result: Callback<string>) {
     OKLiteManager.getMnemonicWithPin(
       pwd,
-      (
+      async (
         error: CallbackError | null,
         data: string | null,
         state: CardInfo | null,
       ) => {
-        result(error, data ? this.decodeMnemonic(data) : null, state);
+        result(error, data ? await this.decodeMnemonic(data) : null, state);
       },
     );
   }
