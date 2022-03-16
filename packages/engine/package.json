@@ -24,7 +24,7 @@
     "@conflux-dev/conflux-address-js": "^1.3.13",
     "@onekeyfe/blockchain-libs": "^0.0.25",
     "@onekeyfe/connect": "^8.7.5-extended",
-    "@onekeyfe/default-token-list": "1.3.0",
+    "@onekeyfe/default-token-list": "1.4.0",
     "@onekeyfe/network-list": "1.3.5",
     "bignumber.js": "^9.0.1",
     "bip39": "^3.0.4",
