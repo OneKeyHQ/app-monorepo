@@ -4,6 +4,7 @@ import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -20,8 +21,10 @@ import {
   FailedToTransfer,
   InvalidAddress,
   NotImplemented,
+  OneKeyHardwareError,
   OneKeyInternalError,
 } from './errors';
+import * as OneKeyHardware from './hardware';
 import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
@@ -61,6 +64,7 @@ import {
   DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
+import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
   HistoryEntryStatus,
@@ -74,7 +78,7 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { WALLET_TYPE_HD, Wallet } from './types/wallet';
+import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 
 @backgroundClass()
 class Engine {
@@ -185,6 +189,20 @@ class Engine {
     }
     const backuped = usedMnemonic === mnemonic;
     return this.dbApi.createHDWallet(password, rs, backuped, name);
+  }
+
+  @backgroundMethod()
+  async createHWWallet(name?: string): Promise<Wallet> {
+    const features = await OneKeyHardware.getFeatures();
+    if (!features.initialized) {
+      throw new OneKeyHardwareError('Hardware wallet not initialized.');
+    }
+    const id = features.onekey_serial ?? features.serial_no ?? '';
+    if (id.length === 0) {
+      throw new OneKeyInternalError('Bad device identity.');
+    }
+    const walletName = name ?? features.ble_name ?? `OneKey ${id.slice(-4)}`;
+    return this.dbApi.addHWWallet(id, walletName);
   }
 
   @backgroundMethod()
@@ -365,24 +383,46 @@ class Engine {
     purpose?: number,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
-    const [credential, dbNetwork] = await Promise.all([
-      this.dbApi.getCredential(walletId, password),
+    const [wallet, dbNetwork] = await Promise.all([
+      this.dbApi.getWallet(walletId),
       this.dbApi.getNetwork(networkId),
     ]);
-    const outputFormat = 'pub';
-    const accountInfos = getXpubs(
-      getImplFromNetworkId(networkId),
-      credential.seed,
-      password,
-      outputFormat,
+    if (typeof wallet === 'undefined') {
+      throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
+    }
+
+    const { impl } = dbNetwork;
+    let credential: CredentialSelector;
+    let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
+
+    if (wallet.type === WALLET_TYPE_HD) {
+      credential = {
+        type: CredentialType.SOFTWARE,
+        seed: (await this.dbApi.getCredential(wallet.id, password)).seed,
+        password,
+      };
+    } else if (wallet.type === WALLET_TYPE_HW) {
+      credential = { type: CredentialType.HARDWARE };
+      outputFormat = 'address';
+    } else {
+      throw new OneKeyInternalError('Incorrect wallet selector.');
+    }
+
+    const accountInfos = await getXpubs(
+      impl,
+      credential,
+      outputFormat as 'xpub' | 'pub' | 'address',
       start,
       limit,
       purpose,
       dbNetwork.curve,
     );
+
     const addresses = await Promise.all(
       accountInfos.map((accountInfo) =>
-        this.providerManager.addressFromPub(networkId, accountInfo.info),
+        outputFormat === 'pub'
+          ? this.providerManager.addressFromPub(networkId, accountInfo.info)
+          : Promise.resolve(accountInfo.info),
       ),
     );
     const balances = await this.providerManager.proxyGetBalances(
@@ -417,67 +457,76 @@ class Engine {
     //   b. is not an HD account;
     // 2. password is wrong;
     // 3. account already exists;
-    const wallet = await this.dbApi.getWallet(walletId);
+    const [wallet, dbNetwork] = await Promise.all([
+      this.dbApi.getWallet(walletId),
+      this.dbApi.getNetwork(networkId),
+    ]);
     if (typeof wallet === 'undefined') {
-      return Promise.reject(
-        new OneKeyInternalError(`Wallet ${walletId} not found.`),
-      );
-    }
-    if (wallet.type !== WALLET_TYPE_HD) {
-      return Promise.reject(
-        new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`),
-      );
+      throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
     }
 
-    const impl = getImplFromNetworkId(networkId);
+    const { impl } = dbNetwork;
+    const coinType = implToCoinTypes[impl];
+    if (typeof coinType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
     const usedPurpose = purpose || getDefaultPurpose(impl);
     const usedIndex =
       index ||
       wallet.nextAccountIds[`${usedPurpose}'/${implToCoinTypes[impl]}'`] ||
       0;
-    const [credential, dbNetwork] = await Promise.all([
-      this.dbApi.getCredential(walletId, password),
-      this.dbApi.getNetwork(networkId),
-    ]);
-    const outputFormat = 'pub';
-    const [accountInfo] = getXpubs(
-      getImplFromNetworkId(networkId),
-      credential.seed,
-      password,
-      outputFormat,
+    let credential: CredentialSelector;
+    let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
+
+    if (wallet.type === WALLET_TYPE_HD) {
+      credential = {
+        type: CredentialType.SOFTWARE,
+        seed: (await this.dbApi.getCredential(wallet.id, password)).seed,
+        password,
+      };
+    } else if (wallet.type === WALLET_TYPE_HW) {
+      credential = { type: CredentialType.HARDWARE };
+      outputFormat = 'address';
+    } else {
+      throw new OneKeyInternalError('Incorrect wallet selector.');
+    }
+
+    const [accountInfo] = await getXpubs(
+      impl,
+      credential,
+      outputFormat as 'xpub' | 'pub' | 'address',
       usedIndex,
       1,
-      usedPurpose,
+      purpose,
       dbNetwork.curve,
     );
-    const coinType = implToCoinTypes[impl];
-    if (typeof coinType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
+
     const accountType = implToAccountType[impl];
     if (typeof accountType === 'undefined') {
       throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
     }
+
     let address = '';
-    if (accountType === AccountType.VARIANT) {
+    if (accountType === AccountType.VARIANT && outputFormat === 'pub') {
       address = await this.providerManager.addressFromPub(
         networkId,
         accountInfo.info,
       );
       address = await this.providerManager.addressToBase(networkId, address);
+    } else if (outputFormat === 'address') {
+      address = accountInfo.info;
     }
 
-    return this.dbApi
-      .addAccountToWallet(walletId, {
-        id: `${walletId}--${accountInfo.path}`,
-        name: name || '',
-        type: accountType,
-        path: accountInfo.path,
-        coinType,
-        pub: accountInfo.info,
-        address,
-      })
-      .then((a: DBAccount) => this.getAccount(a.id, networkId));
+    const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
+      id: `${wallet.id}--${accountInfo.path}`,
+      name: name || `Account #${usedIndex + 1}`,
+      type: accountType,
+      path: accountInfo.path,
+      coinType,
+      pub: outputFormat === 'pub' ? accountInfo.info : '',
+      address,
+    });
+    return this.getAccount(id, networkId);
   }
 
   addImportedAccount(
@@ -786,19 +835,35 @@ class Engine {
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; success: boolean }> {
-    const [credential, network, dbAccount] = await Promise.all([
-      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+    const [network, dbAccount] = await Promise.all([
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
+    let credential: CredentialSelector;
+    if (dbAccount.id.startsWith('hd')) {
+      credential = {
+        type: CredentialType.SOFTWARE,
+        seed: (
+          await this.dbApi.getCredential(
+            getWalletIdFromAccountId(accountId),
+            password,
+          )
+        ).seed,
+        password,
+      };
+    } else if (dbAccount.id.startsWith('hw')) {
+      credential = { type: CredentialType.HARDWARE };
+    } else {
+      // TODO: imported account
+      throw new OneKeyInternalError('Incorrect account selector.');
+    }
 
     try {
       const { txid, rawTx, success } =
         await this.providerManager.simpleTransfer(
-          credential.seed,
-          password,
           network,
           dbAccount,
+          credential,
           to,
           new BigNumber(value),
           tokenIdOnNetwork,
@@ -823,6 +888,7 @@ class Engine {
       );
       return { txid, success };
     } catch (e) {
+      console.error(e);
       const { message } = e as { message: string };
       throw new FailedToTransfer(message);
     }
@@ -1206,6 +1272,23 @@ class Engine {
     await this.dbApi.reset();
     this.dbApi = new DbApi() as DBAPI;
     return Promise.resolve();
+  }
+
+  /**
+   * store device info
+   * @param features
+   * @param mac the identifier of the device(mac address if android, uuid if ios)
+   * @returns
+   */
+  @backgroundMethod()
+  upsertDevice(features: Features, mac: string): Promise<void> {
+    const id = features.onekey_serial ?? features.serial_no ?? '';
+    if (id.length === 0 || mac.length === 0) {
+      throw new OneKeyInternalError('Bad device identity.');
+    }
+    const name =
+      features.ble_name ?? features.label ?? `OneKey ${id.slice(-4)}`;
+    return this.dbApi.upsertDevice(id, name, mac, JSON.stringify(features));
   }
 }
 

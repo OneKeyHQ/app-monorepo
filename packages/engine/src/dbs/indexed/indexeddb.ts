@@ -15,6 +15,7 @@ import {
 import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { AccountType, DBAccount, DBVariantAccount } from '../../types/account';
+import { Device } from '../../types/device';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -51,7 +52,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -61,10 +62,9 @@ const NETWORK_STORE_NAME = 'networks';
 const TOKEN_STORE_NAME = 'tokens';
 const TOKEN_BINDING_STORE_NAME = 'token_bindings';
 const HISTORY_STORE_NAME = 'history';
+const DEVICE_STORE_NAME = 'devices';
 
-function initDb(request: IDBOpenDBRequest) {
-  const db: IDBDatabase = request.result;
-
+function initDb(db: IDBDatabase) {
   db.createObjectStore(CONTEXT_STORE_NAME, { keyPath: 'id' });
   db.createObjectStore(CREDENTIAL_STORE_NAME, { keyPath: 'id' });
 
@@ -130,8 +130,15 @@ class IndexedDBApi implements DBAPI {
         reject(new OneKeyInternalError('Failed to open DB.'));
       };
 
-      request.onupgradeneeded = () => {
-        initDb(request);
+      request.onupgradeneeded = (versionChangedEvent) => {
+        const db: IDBDatabase = request.result;
+        const oldVersion = versionChangedEvent.oldVersion || 0;
+        if (oldVersion < 1) {
+          initDb(db);
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore(DEVICE_STORE_NAME, { keyPath: 'id' });
+        }
       };
 
       request.onsuccess = (_event) => {
@@ -729,6 +736,55 @@ class IndexedDBApi implements DBAPI {
               context.nextHD += 1;
               contextStore.put(context);
             }
+          };
+        }),
+    );
+  }
+
+  addHWWallet(id: string, name: string): Promise<Wallet> {
+    let ret: Wallet;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [WALLET_STORE_NAME, DEVICE_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to add HW Wallet.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const getDeviceRequest = transaction
+            .objectStore(DEVICE_STORE_NAME)
+            .get(id);
+          getDeviceRequest.onsuccess = (_devent) => {
+            const device = getDeviceRequest.result as Device;
+            if (typeof device === 'undefined') {
+              throw new OneKeyInternalError(`Device ${id} not found.`);
+            }
+            const walletId = `hw-${id}`;
+            const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+            const getWalletRequest = walletStore.get(walletId);
+            getWalletRequest.onsuccess = (_wevent) => {
+              if (typeof getWalletRequest.result !== 'undefined') {
+                throw new OneKeyInternalError(
+                  `Hardware wallet ${walletId} already exists.`,
+                );
+              }
+              ret = {
+                id: walletId,
+                name: name || `HW Wallet of ${id}`,
+                type: WALLET_TYPE_HW,
+                backuped: true,
+                accounts: [],
+                nextAccountIds: {},
+                associatedDevice: id,
+              };
+              walletStore.add(ret);
+            };
           };
         }),
     );
@@ -1387,6 +1443,62 @@ class IndexedDBApi implements DBAPI {
                 cursor.continue();
               }
             }
+          };
+        }),
+    );
+  }
+
+  upsertDevice(
+    id: string,
+    name: string,
+    mac: string,
+    features: string,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([DEVICE_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to upsert device.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve();
+          };
+
+          const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
+          const request = deviceStore.get(id);
+          request.onsuccess = (_event) => {
+            const device = request.result as Device;
+            const now = Date.now();
+            if (typeof device === 'undefined') {
+              deviceStore.add({
+                id,
+                name,
+                mac,
+                features,
+                createdAt: now,
+                updatedAt: now,
+              });
+            } else {
+              device.features = features;
+              device.updatedAt = now;
+              deviceStore.put(device);
+            }
+          };
+        }),
+    );
+  }
+
+  getDevices(): Promise<Array<Device>> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request = db
+            .transaction([DEVICE_STORE_NAME])
+            .objectStore(DEVICE_STORE_NAME)
+            .getAll();
+          request.onsuccess = (_event) => {
+            resolve(request.result);
           };
         }),
     );
