@@ -27,6 +27,15 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_CFX,
 ]);
 
+const PRODUCTION_IMPLS = new Set([IMPL_EVM]);
+
+function getSupportedImpls() {
+  if (process.env.NODE_ENV === 'production') {
+    return PRODUCTION_IMPLS;
+  }
+  return SUPPORTED_IMPLS;
+}
+
 export {
   SEPERATOR,
   IMPL_EVM,
@@ -41,5 +50,5 @@ export {
   COINTYPE_STC,
   IMPL_CFX,
   COINTYPE_CFX,
-  SUPPORTED_IMPLS,
+  getSupportedImpls,
 };

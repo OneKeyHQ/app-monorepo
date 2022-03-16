@@ -14,7 +14,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 
-import { IMPL_EVM, IMPL_SOL, SEPERATOR, SUPPORTED_IMPLS } from './constants';
+import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
 import { DbApi } from './dbs';
 import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import {
@@ -113,7 +113,10 @@ class Engine {
 
       let position = dbNetworks.length ?? 0;
       for (const network of presetNetworksList) {
-        if (!dbNetworkSet.has(network.id)) {
+        if (
+          getSupportedImpls().has(network.impl) &&
+          !dbNetworkSet.has(network.id)
+        ) {
           await this.dbApi.addNetwork({
             id: network.id,
             name: network.name,
@@ -976,7 +979,7 @@ class Engine {
       .filter(
         (dbNetwork) =>
           (enabledOnly ? dbNetwork.enabled : true) &&
-          SUPPORTED_IMPLS.has(dbNetwork.impl),
+          getSupportedImpls().has(dbNetwork.impl),
       )
       .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
   }
