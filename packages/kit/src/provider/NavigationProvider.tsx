@@ -45,4 +45,6 @@ const NavigationApp = () => {
   );
 };
 
+NavigationApp.displayName = 'NavigationApp';
+
 export default NavigationApp;

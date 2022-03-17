@@ -3,7 +3,9 @@ import { useRoute } from '@react-navigation/core';
 
 import { IDappCallParams } from '../background/IBackgroundApi';
 
-function useDappParams() {
+type Params<T> = Record<string, T> | Array<T> | T;
+
+function useDappParams<T>() {
   const route = useRoute();
   const params = route.params as IDappCallParams;
   let data: IJsonRpcRequest = {
@@ -17,7 +19,10 @@ function useDappParams() {
   }
   return {
     ...params,
-    data,
+    data: {
+      ...data,
+      params: data.params as Params<T>,
+    },
   };
 }
 

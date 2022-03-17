@@ -27,8 +27,11 @@ export enum ModalRoutes {
   EnableLocalAuthentication = ' EnableLocalAuthentication',
   ManageNetwork = 'ManageNetwork',
 }
-export enum DappConnectionModalRoutes {
+export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
+  ApproveModal = 'ApproveModal',
+  MulticallModal = 'MulticallModal',
+  SendConfirmModal = 'SendConfirmModal',
 }
 export enum RootRoutes {
   Root = 'root',
