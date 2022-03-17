@@ -797,6 +797,13 @@ class Engine {
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
+    let token: Token | undefined;
+    if (typeof tokenIdOnNetwork !== 'undefined') {
+      token = await this.getOrAddToken(networkId, tokenIdOnNetwork);
+      if (typeof token === 'undefined') {
+        throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
+      }
+    }
 
     // Below properties are used to avoid redundant network requests.
     const payload = extra || {};
@@ -808,7 +815,7 @@ class Engine {
         dbAccount,
         to,
         new BigNumber(value),
-        tokenIdOnNetwork,
+        token,
         payload,
       )
     ).toFixed();
@@ -842,6 +849,14 @@ class Engine {
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
+    let token: Token | undefined;
+    if (typeof tokenIdOnNetwork !== 'undefined') {
+      token = await this.getOrAddToken(networkId, tokenIdOnNetwork);
+      if (typeof token === 'undefined') {
+        throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
+      }
+    }
+
     let credential: CredentialSelector;
     if (dbAccount.id.startsWith('hd')) {
       credential = {
@@ -869,7 +884,7 @@ class Engine {
           credential,
           to,
           new BigNumber(value),
-          tokenIdOnNetwork,
+          token,
           {
             ...extra,
             feeLimit: new BigNumber(gasLimit),
