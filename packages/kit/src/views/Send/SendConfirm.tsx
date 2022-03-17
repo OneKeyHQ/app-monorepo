@@ -99,7 +99,11 @@ const TransactionConfirm = () => {
                   <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
                     {params.account.name}
                   </Text>
-                  <Typography.Body2 textAlign="right" color="text-subdued">
+                  <Typography.Body2
+                    textAlign="right"
+                    color="text-subdued"
+                    numberOfLines={3}
+                  >
                     {params.account.address}
                   </Typography.Body2>
                 </Column>

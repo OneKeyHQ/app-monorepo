@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
@@ -28,30 +29,10 @@ type Permission = {
 };
 
 const MockData = {
-  account: {
-    address: '0x4d16878c270x4d16878c270x4',
-    name: 'ETH #1',
-  },
-  // target: {
-  //   avatar:
-  //     'https://raw.githubusercontent.com/Uniswap/interface/main/public/images/512x512_App_Icon.png',
-  //   name: 'Uniswap',
-  //   link: 'app.uniswap.org',
-  // },
-  target: {
-    avatar:
-      'https://raw.githubusercontent.com/pancakeswap/pancake-frontend/develop/public/logo.png',
-    name: 'Pancakeswap',
-    link: 'pancakeswap.finance',
-  },
   permissions: [
     {
       type: 'view-addresses',
       required: true,
-    },
-    {
-      type: 'A fake permission',
-      required: false,
     },
   ] as Permission[],
 };
@@ -74,8 +55,8 @@ const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const { account, networkImpl, accountAddress } = useActiveWalletAccount();
-  const accountInfo = account;
-  const { origin, data, scope, id } = useDappParams();
+  const accountInfo = account as DBSimpleAccount | null;
+  const { origin, scope, id } = useDappParams();
   const computedIsRug = isRug(origin);
 
   // TODO move to DappService
@@ -134,9 +115,7 @@ const Connection = () => {
       <RugConfirmDialog
         visible={rugConfirmDialogVisible}
         onCancel={() => setRugConfirmDialogVisible(false)}
-        onConfirm={() => {
-          // Do something
-        }}
+        onConfirm={() => setRugConfirmDialogVisible(false)}
       />
       {/* Main Modal */}
       <Modal
@@ -159,16 +138,14 @@ const Connection = () => {
             // Add padding to escape the footer
             <Column flex="1" pb="20" space={6}>
               <Center>
-                <Token src={MockData.target.avatar} size="56px" />
-                <Typography.Heading mt="8px">
-                  {data?.method}:{id}
-                </Typography.Heading>
+                <Token size="56px" />
+                <Typography.Heading mt="8px">{origin}</Typography.Heading>
               </Center>
               <DescriptionList>
                 {/* Account */}
                 <DescriptionListItem
                   title={intl.formatMessage({
-                    id: 'content__account_lowercase',
+                    id: 'form__account',
                   })}
                   detail={
                     <Column alignItems="flex-end" w="auto" flex={1}>
@@ -177,7 +154,11 @@ const Connection = () => {
                       >
                         {accountInfo?.name}
                       </Text>
-                      <Typography.Body2 textAlign="right" color="text-subdued">
+                      <Typography.Body2
+                        textAlign="right"
+                        color="text-subdued"
+                        numberOfLines={3}
+                      >
                         {accountInfo?.address}
                       </Typography.Body2>
                     </Column>

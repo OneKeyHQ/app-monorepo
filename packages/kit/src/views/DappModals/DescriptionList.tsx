@@ -64,21 +64,24 @@ export const DescriptionListItem = ({
 }: PressableItemProps & DescriptionListItemProps) => {
   const detailContent = useMemo(() => {
     const key = (detail as React.ReactElement)?.key || 'detail';
+    const textProps: React.ComponentProps<typeof Text> = {
+      key,
+      textAlign: 'right',
+      typography: { sm: 'Body1Strong', md: 'Body2Strong' },
+      flex: 1,
+      numberOfLines: detailNumberOfLines,
+    };
+
     if (React.isValidElement(detail)) {
-      return React.cloneElement(detail, { ...detail.props, key });
+      return React.cloneElement(detail, {
+        // For Format component
+        render: (text: string) => <Text {...textProps}>{text}</Text>,
+        ...detail.props,
+        key,
+      });
     }
     if (typeof detail === 'string') {
-      return (
-        <Text
-          key={key}
-          textAlign="right"
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          flex={1}
-          numberOfLines={detailNumberOfLines}
-        >
-          {detail}
-        </Text>
-      );
+      return <Text {...textProps}>{detail}</Text>;
     }
     return null;
   }, [detail, detailNumberOfLines]);

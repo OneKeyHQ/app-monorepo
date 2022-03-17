@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
 import {
-  DappConnectionModalRoutes,
+  DappModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../routes/routesEnum';
@@ -19,6 +19,10 @@ import { IDappCallParams } from '../IBackgroundApi';
 import { ensureSerializable } from '../utils';
 
 import ServiceBase from './ServiceBase';
+
+type CommonRequestParams = {
+  request: IJsBridgeMessagePayload;
+};
 
 @backgroundClass()
 class ServiceDapp extends ServiceBase {
@@ -44,21 +48,41 @@ class ServiceDapp extends ServiceBase {
     this.backgroundApi.dispatch(dappSaveSiteConnection(payload));
   }
 
-  openConnectionApprovalModal({
-    request,
-  }: {
-    request: IJsBridgeMessagePayload;
-  }) {
-    return this.openApprovalModal({
+  openConnectionApprovalModal(request: CommonRequestParams['request']) {
+    return this.openModal({
       request,
       screens: [
         ModalRoutes.DappConnectionModal,
-        DappConnectionModalRoutes.ConnectionModal,
+        DappModalRoutes.ConnectionModal,
       ],
     });
   }
 
-  async openApprovalModal({
+  openApprovalModal(request: CommonRequestParams['request']) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.DappApproveModal, DappModalRoutes.ApproveModal],
+    });
+  }
+
+  openSendConfirmModal(request: CommonRequestParams['request']) {
+    return this.openModal({
+      request,
+      screens: [
+        ModalRoutes.DappSendConfirmModal,
+        DappModalRoutes.SendConfirmModal,
+      ],
+    });
+  }
+
+  openMulticallModal(request: CommonRequestParams['request']) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.DappMulticallModal, DappModalRoutes.MulticallModal],
+    });
+  }
+
+  async openModal({
     request,
     screens = [],
   }: {
