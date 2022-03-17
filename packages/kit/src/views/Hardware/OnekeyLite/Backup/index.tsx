@@ -91,7 +91,7 @@ const Backup: FC = () => {
     stateNfcSearch();
     OnekeyLite.cancel();
     OnekeyLite.setMnemonic(
-      backupData.trim(),
+      backupData,
       pwd,
       async (error: CallbackError, data: boolean | null, state: CardInfo) => {
         console.log('state', state);

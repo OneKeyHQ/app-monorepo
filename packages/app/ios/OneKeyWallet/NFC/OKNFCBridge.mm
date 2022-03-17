@@ -249,13 +249,7 @@ static NSString *LITE_CERT = [NFCConfig envFor:@"LITE_CERT"];
 + (NFCISO7816APDU *)importMnemonic:(NSString *)mnemonic {
 
     /// https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/10551684/Lite
-//    NSString *encode_mnemonics = [kPyCommandsManager callInterface:kInterface_encode_mnemonics parameter:@{@"mnemonics": mnemonic}];
-    NSString *encode_mnemonics = mnemonic;
-    NSString *version = @"01";
-    NSString *lang = @"00";
-    NSString *meta = [NSString stringWithFormat:@"ffff%@%@", version, lang];
-    NSString *payload = [encode_mnemonics stringByAppendingString:meta];
-    return [OKNFCBridge buildAPDUWithStr:[@"0x803B0000XX" stringByAppendingString:payload]];
+    return [OKNFCBridge buildAPDUWithStr:[@"0x803B0000XX" stringByAppendingString:mnemonic]];
 }
 
 + (NFCISO7816APDU *)exportMnemonic {
