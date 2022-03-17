@@ -64,6 +64,7 @@ import { CredentialSelector, CredentialType } from './types/credential';
 import { HistoryEntryStatus } from './types/history';
 import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
+import { Token } from './types/token';
 
 const CGK_BATCH_SIZE = 100;
 
@@ -152,10 +153,18 @@ function fillUnsignedTx(
   dbAccount: DBAccount,
   to: string,
   value: BigNumber,
-  tokenIdOnNetwork?: string,
+  token?: Token,
   extra?: { [key: string]: any },
 ): UnsignedTx {
-  const valueOnChain = value.shiftedBy(network.decimals);
+  let valueOnChain = value;
+  let tokenIdOnNetwork: string | undefined;
+  if (typeof token !== 'undefined') {
+    valueOnChain = valueOnChain.shiftedBy(token.decimals);
+    tokenIdOnNetwork = token.tokenIdOnNetwork;
+  } else {
+    valueOnChain = valueOnChain.shiftedBy(network.decimals);
+  }
+
   const { type, nonce, feeLimit, feePricePerUnit, ...payload } = extra as {
     type: string;
     nonce: number;
@@ -462,13 +471,13 @@ class ProviderController extends BaseProviderController {
     dbAccount: DBAccount,
     to: string,
     value: BigNumber,
-    tokenIdOnNetwork?: string,
+    token?: Token,
     extra?: { [key: string]: any },
   ): Promise<BigNumber> {
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
-      fillUnsignedTx(network, dbAccount, to, value, tokenIdOnNetwork, extra),
+      fillUnsignedTx(network, dbAccount, to, value, token, extra),
     );
     if (typeof unsignedTx.feeLimit === 'undefined') {
       throw new OneKeyInternalError('Failed to estimate gas limit.');
@@ -482,13 +491,13 @@ class ProviderController extends BaseProviderController {
     credential: CredentialSelector,
     to: string,
     value: BigNumber,
-    tokenIdOnNetwork?: string,
+    token?: Token,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; rawTx: string; success: boolean }> {
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
-      fillUnsignedTx(network, dbAccount, to, value, tokenIdOnNetwork, extra),
+      fillUnsignedTx(network, dbAccount, to, value, token, extra),
     );
     let txid: string;
     let rawTx: string;
