@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   HStack,
   Icon,
+  Input,
   Pressable,
   Typography,
   VStack,
@@ -22,6 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
+import { getClipboard } from '../../utils/ClipboardUtils';
 import HelpSelector from '../Help/HelpSelector';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -33,6 +36,7 @@ type NavigationProps = CompositeNavigationProp<
 >;
 
 const Me = () => {
+  const [uri, setUri] = useState('');
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const connections = useAppSelector((s) => s.dapp.connections);
@@ -138,6 +142,35 @@ const Me = () => {
                   }}
                 >
                   <Typography.Body1>Logger 设置</Typography.Body1>
+                </Pressable>
+                <HStack>
+                  <Input
+                    value={uri}
+                    onChangeText={(t) => setUri(t)}
+                    placeholder="uri"
+                    clearButtonMode="always"
+                    clearTextOnFocus
+                  />
+                </HStack>
+                <Pressable
+                  {...pressableProps}
+                  onPress={async () => {
+                    const connectUri = (await getClipboard()) || '';
+                    setUri(connectUri);
+                    await backgroundApiProxy.walletConnect.connect({
+                      uri: connectUri,
+                    });
+                  }}
+                >
+                  <Typography.Body1>连接 WalletConnect</Typography.Body1>
+                </Pressable>
+                <Pressable
+                  {...pressableProps}
+                  onPress={async () => {
+                    await backgroundApiProxy.walletConnect.disconnect();
+                  }}
+                >
+                  <Typography.Body1>断开 WalletConnect</Typography.Body1>
                 </Pressable>
               </VStack>
             )}

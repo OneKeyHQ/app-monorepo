@@ -30,6 +30,7 @@ class ServiceAccount extends ServiceBase {
         });
       },
     );
+    this.backgroundApi.walletConnect.notifySessionChanged();
   }
 }
 

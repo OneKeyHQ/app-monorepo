@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase */
+/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars */
+
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
@@ -205,9 +206,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    // debugLogger.backgroundApi('eth_requestAccounts', request);
+    debugLogger.backgroundApi(
+      'ProviderApiEthereum.eth_requestAccounts',
+      request,
+    );
 
-    const accounts = this.eth_accounts(request);
+    const accounts = await this.eth_accounts(request);
     if (accounts && accounts.length) {
       return accounts;
     }
@@ -223,14 +227,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this.eth_accounts(request);
   }
 
-  eth_accounts(request: IJsBridgeMessagePayload) {
+  async eth_accounts(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
     });
     if (!accounts) {
-      return [];
+      return Promise.resolve([]);
     }
-    return accounts.map((account) => account.address);
+    const accountAddresses = accounts.map((account) => account.address);
+    return Promise.resolve(accountAddresses);
   }
   /** Sign transaction
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
@@ -259,17 +264,17 @@ class ProviderApiEthereum extends ProviderApiBase {
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
    */
   eth_sign() {
-    throw new Error('eth_sign not supported yet');
+    throw web3Errors.rpc.methodNotSupported();
   }
 
-  eth_chainId() {
+  async eth_chainId() {
     const networkExtraInfo = this._getCurrentNetworkExtraInfo();
-    return networkExtraInfo.chainId;
+    return Promise.resolve(networkExtraInfo.chainId);
   }
 
-  net_version() {
+  async net_version() {
     const networkExtraInfo = this._getCurrentNetworkExtraInfo();
-    return networkExtraInfo.networkVersion;
+    return Promise.resolve(networkExtraInfo.networkVersion);
   }
 
   // TODO @publicMethod()
@@ -328,14 +333,14 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // ----------------------------------------------
 
-  protected async rpcCall(request: IJsonRpcRequest): Promise<any> {
+  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyRPCCall(
       networkId,
       request,
     );
-    // console.log('rpcCall request:', request, { networkId, result });
+    console.log('rpcCall request:', request, { networkId, result });
     return result;
   }
 
@@ -369,6 +374,11 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  personal_sign(message: string): Promise<string> {
+    throw web3Errors.rpc.methodNotFound();
+  }
 
   // ----------------------------------------------
 
