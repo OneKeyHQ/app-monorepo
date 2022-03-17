@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +25,8 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+
+import { DiscardAlert } from './DiscardAlert';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -59,6 +68,8 @@ async function measure(url: string, impl = 'evm'): Promise<number> {
 export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const { name, rpcURL, chainId, symbol, exploreUrl, id, impl } = route.params;
   const intl = useIntl();
+  const [visible, setVisible] = useState(false);
+  const refData = useRef({ preventRemove: false });
   const navigation = useNavigation<NavigationProps>();
   const { text } = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
@@ -66,10 +77,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     {},
   );
   const { serviceNetwork } = backgroundApiProxy;
-  const { control, handleSubmit, reset, watch } = useForm<NetworkValues>({
-    mode: 'onChange',
-    defaultValues: { name, rpcURL, chainId, symbol, exploreUrl, id },
-  });
+  const { control, handleSubmit, reset, watch, getValues } =
+    useForm<NetworkValues>({
+      mode: 'onChange',
+      defaultValues: { name, rpcURL, chainId, symbol, exploreUrl, id },
+    });
   const [resetOpened, setResetOpened] = useState(false);
 
   const watchedRpcURL = watch('rpcURL');
@@ -88,11 +100,12 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
       text('msg__change_saved');
+      refData.current.preventRemove = true;
       if (navigation.canGoBack()) {
         navigation.goBack();
       }
     },
-    [serviceNetwork, id, text, navigation],
+    [serviceNetwork, id, text, navigation, refData],
   );
 
   useEffect(() => {
@@ -127,6 +140,30 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     text('msg__network_reset');
     navigation.popToTop();
   }, [route.params, text, reset, navigation]);
+
+  const onBeforeRemove = useCallback(
+    (e) => {
+      if (getValues('rpcURL') !== rpcURL && !refData.current.preventRemove) {
+        // eslint-disable-next-line
+        e.preventDefault();
+        setVisible(true);
+      }
+    },
+    [refData, getValues, rpcURL],
+  );
+
+  const onDiscard = useCallback(() => {
+    refData.current.preventRemove = true;
+    setVisible(false);
+    navigation.goBack();
+  }, [navigation]);
+
+  useEffect(() => {
+    navigation.addListener('beforeRemove', onBeforeRemove);
+    return () => {
+      navigation.removeListener('beforeRemove', onBeforeRemove);
+    };
+  }, [onBeforeRemove, navigation]);
 
   return (
     <>
@@ -181,7 +218,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                       padding: 0,
                     }}
                     options={options}
-                    dropdownProps={{ width: '337x' }}
+                    dropdownProps={{ width: '337px' }}
                     dropdownPosition="right"
                   />
                 </Form.Item>
@@ -280,6 +317,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
           },
         }}
         onClose={() => setResetOpened(false)}
+      />
+      <DiscardAlert
+        visible={visible}
+        onConfirm={onDiscard}
+        onClose={() => setVisible(false)}
       />
     </>
   );

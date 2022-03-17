@@ -100,12 +100,13 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
                   mr="3"
                   borderRadius="full"
                   w={{ base: '8', md: '6' }}
+                  h={{ base: '8', md: '6' }}
                   display="flex"
                   justifyContent="center"
                   alignItems="center"
                   bg="decorative-surface-one"
                 >
-                  <Typography.DisplaySmall>
+                  <Typography.DisplaySmall numberOfLines={1}>
                     {network.name.trim()[0].toUpperCase()}
                   </Typography.DisplaySmall>
                 </Box>
@@ -114,7 +115,8 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
                 mr="3"
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 numberOfLines={1}
-                ellipsizeMode="clip"
+                maxW="48"
+                isTruncated
               >
                 {network.shortName}
               </Text>
@@ -154,8 +156,11 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
       flatListProps={{
         px: '0',
         mx: '6',
-        my: '4',
-        contentContainerStyle: {},
+        // my: '4',
+        contentContainerStyle: {
+          paddingTop: 24,
+          paddingBottom: 24,
+        },
         data: enabledNetworks,
         showsVerticalScrollIndicator: false,
         ItemSeparatorComponent: () => <Divider />,

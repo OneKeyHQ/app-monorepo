@@ -9,7 +9,11 @@ export function useLocalAuthentication() {
 
   useEffect(() => {
     LocalAuthentication.hasHardwareAsync().then((supported) => {
-      setOk(['ios', 'android'].includes(Platform.OS) && supported);
+      LocalAuthentication.isEnrolledAsync().then((isEnrolled) => {
+        setOk(
+          ['ios', 'android'].includes(Platform.OS) && supported && isEnrolled,
+        );
+      });
     });
   }, []);
 
