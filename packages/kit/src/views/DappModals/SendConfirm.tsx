@@ -17,8 +17,8 @@ import {
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { SimpleAccount } from '@onekeyhq/engine/src/types/account';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -55,40 +55,81 @@ const Send = () => {
   const sendConfirmData =
     (params.data.params as SendConfirmParams[])?.[0] ?? {};
   const { from, to, value, gas, gasPrice } = sendConfirmData;
-  const { account, wallet } = useActiveWalletAccount();
+  const { account, wallet, network } = useActiveWalletAccount();
+
   const { nativeToken } = useManageTokens();
 
   const token = {
-    logoUrl: nativeToken?.logoURI,
+    logoURI: nativeToken?.logoURI,
     name: nativeToken?.name,
     symbol: nativeToken?.symbol ?? 'ETH',
     decimal: nativeToken?.decimals ?? 18,
+    tokenIdOnNetwork: nativeToken?.tokenIdOnNetwork,
   };
 
   const isInvalidParams = !from || !to || !value;
-  const isSameFromAccount =
-    from.toString() === (account as SimpleAccount)?.address;
-  const isWatchAccount = wallet?.type === 'watching';
+  const isSameFromAccount = !!account && from.toString() === account?.address;
+  const isWatchAccount = !!wallet && wallet.type === 'watching';
 
-  const getResolveData = useCallback(() => {
-    const transactionHash = '0x';
-    // data format may be different in different chain
-    if (scope === 'ethereum') {
-      return transactionHash;
+  const handleSendConfirm = useCallback(async () => {
+    // Required params
+    if (isInvalidParams || !account) {
+      return;
     }
-    if (scope === 'near') {
-      return transactionHash;
-    }
-    if (scope === 'solana') {
-      return transactionHash;
-    }
-    return transactionHash;
-  }, [scope]);
 
-  const dappApprove = useDappApproveAction({
+    const sendParams = {
+      id,
+      to,
+      value,
+      account: {
+        id: account.id,
+        name: account.name,
+        address: (account as { address: string }).address,
+      },
+      network: {
+        id: network?.network.id ?? '',
+        name: network?.network.name ?? '',
+      },
+      token: {
+        idOnNetwork: token.tokenIdOnNetwork,
+        logoURI: token.logoURI,
+        name: token.name,
+        symbol: token.symbol,
+      },
+      gasPrice: gasPrice ?? '5',
+      gasLimit: gas ?? '21000',
+    };
+
+    try {
+      const gasLimit = await backgroundApiProxy.engine.prepareTransfer(
+        sendParams.network.id,
+        sendParams.account.id,
+        sendParams.to,
+        sendParams.value,
+        sendParams.token.idOnNetwork,
+      );
+      sendParams.gasLimit = gasLimit;
+      navigation.navigate(DappSendModalRoutes.SendConfirmAuthModal, sendParams);
+    } catch (e) {
+      const error = e as { key?: string; message?: string };
+      throw new Error(error?.key ?? error?.message ?? 'Unknown error');
+    }
+  }, [
+    account,
+    gas,
+    gasPrice,
     id,
-    getResolveData,
-  });
+    isInvalidParams,
+    navigation,
+    network?.network.id,
+    network?.network.name,
+    to,
+    token.logoURI,
+    token.name,
+    token.symbol,
+    token.tokenIdOnNetwork,
+    value,
+  ]);
 
   const content = useMemo(() => {
     if (!wallet || !account) {
@@ -176,7 +217,7 @@ const Send = () => {
     return (
       <Column flex="1" space={6}>
         <Center>
-          <Token src={token.logoUrl} size="56px" />
+          <Token src={token.logoURI} size="56px" />
           <Typography.Heading mt="8px">
             {token.symbol}&nbsp;
             {!!token.name && `(${token.name})`}
@@ -269,7 +310,7 @@ const Send = () => {
     navigation,
     to,
     token.decimal,
-    token.logoUrl,
+    token.logoURI,
     token.name,
     token.symbol,
     value,
@@ -286,11 +327,9 @@ const Send = () => {
       secondaryActionTranslationId="action__reject"
       primaryActionProps={{
         isDisabled: isInvalidParams || !isSameFromAccount || isWatchAccount,
+        onPromise: handleSendConfirm,
       }}
-      onPrimaryActionPress={({ close }) => {
-        dappApprove.resolve({ close });
-      }}
-      onSecondaryActionPress={dappApprove.reject}
+      onSecondaryActionPress={useDappApproveAction({ id }).reject}
       scrollViewProps={{
         children: content,
       }}

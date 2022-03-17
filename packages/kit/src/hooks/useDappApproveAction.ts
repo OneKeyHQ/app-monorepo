@@ -13,20 +13,21 @@ function useDappApproveAction({
   closeOnError,
 }: {
   id: number | string;
-  getResolveData: () => Promise<any> | any;
+  // Case of rejection only
+  getResolveData?: () => Promise<any> | any;
   closeOnError?: boolean;
 }) {
   const isExt = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve
   const reject = useCallback(
-    ({ close = () => null }: { close?: () => void } = {}) => {
+    ({ close }: { close?: () => void } = {}) => {
       const error = rejectError || web3Errors.provider.userRejectedRequest();
       backgroundApiProxy.servicePromise.rejectCallback({
         id,
         error: toPlainErrorObject(error),
       });
-      close();
+      close?.();
       if (isExt) {
         // timeout wait reject done.
         setTimeout(() => window.close(), 0);
@@ -36,16 +37,16 @@ function useDappApproveAction({
   );
 
   const resolve = useCallback(
-    async ({ close }: { close: () => void }) => {
+    async ({ close }: { close?: () => void } = {}) => {
       try {
         setRejectError(null);
         // throw new Error('simulate something is wrong');
-        const data = await getResolveData();
+        const data = await getResolveData?.();
         backgroundApiProxy.servicePromise.resolveCallback({
           id,
           data,
         });
-        close();
+        close?.();
       } catch (error) {
         console.error('getResolveData ERROR:', error);
         setRejectError(error as Error);
