@@ -49,23 +49,23 @@ const BackupWalletWarningView: FC = () => {
         {intl.formatMessage({ id: 'backup__manual_backup_warning_heading' })}
       </Typography.DisplayMedium>
 
-      <Box flexDirection="row" mt={6}>
-        <Box>
+      <Box flexDirection="row" mt={6} w="100%">
+        <Box mt={1}>
           <Icon size={24} name="CloseCircleOutline" color="icon-critical" />
         </Box>
 
-        <Typography.Body1 ml={2}>
+        <Typography.Body1 ml={2} flex={1}>
           {intl.formatMessage({
             id: 'backup__manual_backup_warning_never_share',
           })}
         </Typography.Body1>
       </Box>
-      <Box flexDirection="row" mt={4}>
-        <Box>
+      <Box flexDirection="row" mt={4} w="100%">
+        <Box mt={1}>
           <Icon size={24} name="CloseCircleOutline" color="icon-critical" />
         </Box>
 
-        <Typography.Body1 ml={2}>
+        <Typography.Body1 ml={2} flex={1}>
           {intl.formatMessage({
             id: 'backup__manual_backup_warning_never_ask',
           })}
