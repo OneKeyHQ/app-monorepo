@@ -82,7 +82,12 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
             borderTopRadius={index === 0 ? '12' : 0}
             borderBottomRadius={enabledNetworks.length - 1 === index ? '12' : 0}
           >
-            <Box display="flex" flexDirection="row" alignItems="center">
+            <Box
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+              flex="1"
+            >
               {network.preset ? (
                 <Image
                   alt="logoURI"
@@ -101,13 +106,15 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
                   bg="decorative-surface-one"
                 >
                   <Typography.DisplaySmall>
-                    {network.name[0].toUpperCase()}
+                    {network.name.trim()[0].toUpperCase()}
                   </Typography.DisplaySmall>
                 </Box>
               )}
               <Text
                 mr="3"
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                numberOfLines={1}
+                ellipsizeMode="clip"
               >
                 {network.shortName}
               </Text>

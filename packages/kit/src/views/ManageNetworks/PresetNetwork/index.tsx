@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
@@ -17,6 +18,13 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.PresetNetwork
+>;
 
 type NetworkValues = {
   name?: string;
@@ -51,6 +59,7 @@ async function measure(url: string, impl = 'evm'): Promise<number> {
 export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const { name, rpcURL, chainId, symbol, exploreUrl, id, impl } = route.params;
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const { text } = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
   const [networkStatus, setNetworkStatus] = useState<Record<string, number>>(
@@ -79,8 +88,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
       text('msg__change_saved');
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
     },
-    [serviceNetwork, id, text],
+    [serviceNetwork, id, text, navigation],
   );
 
   useEffect(() => {
@@ -113,7 +125,8 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     reset(route.params);
     setResetOpened(false);
     text('msg__network_reset');
-  }, [route.params, text, reset]);
+    navigation.popToTop();
+  }, [route.params, text, reset, navigation]);
 
   return (
     <>
@@ -168,6 +181,8 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                       padding: 0,
                     }}
                     options={options}
+                    dropdownProps={{ width: '337x' }}
+                    dropdownPosition="right"
                   />
                 </Form.Item>
                 {impl === 'evm' ? (
