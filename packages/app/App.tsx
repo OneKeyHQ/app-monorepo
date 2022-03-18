@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/first, import/order
+/* eslint-disable @typescript-eslint/no-unused-vars, import/first, import/order */
 import './shim';
 
 import React, { FC } from 'react';
