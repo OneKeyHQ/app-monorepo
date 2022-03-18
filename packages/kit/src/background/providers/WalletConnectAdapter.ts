@@ -25,6 +25,8 @@ import type {
 const DEFAULT_WALLET_CONNECT_STORAGE_KEY = 'onekey@walletconnect';
 
 // TODO save to redux
+// TODO replace console.log to debugLogger
+// TODO iOS\android\ext test
 class WalletConnectSessionStorage implements ISessionStorage {
   constructor(storageId = DEFAULT_WALLET_CONNECT_STORAGE_KEY) {
     this.storageId = storageId;

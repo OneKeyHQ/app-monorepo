@@ -54,8 +54,8 @@ export interface Transaction {
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
-  _getCurrentUnlockState() {
-    return true;
+  async _getCurrentUnlockState() {
+    return Promise.resolve(true);
   }
 
   _getCurrentNetworkExtraInfo(): EvmExtraInfo {
@@ -282,10 +282,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     // pass debugLoggerSettings to dapp injected provider
     const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
     return {
-      accounts: this.eth_accounts(request),
-      chainId: this.eth_chainId(),
-      networkVersion: this.net_version(),
-      isUnlocked: this._getCurrentUnlockState(),
+      accounts: await this.eth_accounts(request),
+      chainId: await this.eth_chainId(),
+      networkVersion: await this.net_version(),
+      isUnlocked: await this._getCurrentUnlockState(),
       debugLoggerSettings,
     };
   }
@@ -345,10 +345,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = ({ origin }: { origin: string }) => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'metamask_accountsChanged',
-        params: this.eth_accounts({ origin }),
+        params: await this.eth_accounts({ origin }),
       };
       return result;
     };
@@ -357,12 +357,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = () => {
+    const data = async () => {
       const result = {
         method: 'metamask_chainChanged',
         params: {
-          chainId: this.eth_chainId(),
-          networkVersion: this.net_version(),
+          chainId: await this.eth_chainId(),
+          networkVersion: await this.net_version(),
         },
       };
       return result;

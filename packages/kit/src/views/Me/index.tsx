@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -124,7 +125,9 @@ const Me = () => {
               <VStack space="3">
                 <Pressable
                   {...pressableProps}
-                  onPress={() => {
+                  onPress={async () => {
+                    // TODO define service method
+                    await backgroundApiProxy.walletConnect.disconnect();
                     backgroundApiProxy.dispatch(dappClearSiteConnection());
                     backgroundApiProxy.serviceAccount.notifyAccountsChanged();
                   }}
@@ -136,7 +139,7 @@ const Me = () => {
                 <Pressable
                   {...pressableProps}
                   onPress={() => {
-                    navigation.push(HomeRoutes.Dev, {
+                    navigation.navigate(HomeRoutes.Dev, {
                       screen: StackRoutes.ComponentLogger,
                     });
                   }}
@@ -147,7 +150,7 @@ const Me = () => {
                   <Input
                     value={uri}
                     onChangeText={(t) => setUri(t)}
-                    placeholder="uri"
+                    placeholder="WalletConnect QrCode scan uri"
                     clearButtonMode="always"
                     clearTextOnFocus
                   />

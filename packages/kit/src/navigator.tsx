@@ -3,7 +3,6 @@ import React from 'react';
 
 import { NavigationContainerRef } from '@react-navigation/native';
 
-import useAutoRedirectToRoute from './hooks/useAutoRedirectToRoute';
 import RootStack from './routes/Root';
 import { RootRoutesParams } from './routes/types';
 
@@ -14,11 +13,9 @@ declare global {
   var $navigationRef: typeof navigationRef;
 }
 
+// update navigationRef.current at <NavigationContainer />
 global.$navigationRef = navigationRef;
 
-const Navigator = () => {
-  useAutoRedirectToRoute();
-  return <RootStack />;
-};
+const Navigator = () => <RootStack />;
 
 export default Navigator;
