@@ -3060,10 +3060,10 @@
   resolved "https://registry.yarnpkg.com/@onekeyfe/cross-inpage-provider-types/-/cross-inpage-provider-types-0.0.7-alpha.3.tgz#9d3c9aa93fc8db884b04941112b8abc24e0717ca"
   integrity sha512-puw4BuWQsuZKktjgiTLWCNXjjojgYdVNm5+rpUgQixR3HynHBCQG9tNOdxHCGHqer5yc9HJ8sTbU2ZMH+YHnNw==
 
-"@onekeyfe/default-token-list@1.3.0":
-  version "1.3.0"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.3.0.tgz#943f08d101ced343c548fa19acc1986137a2b7b2"
-  integrity sha512-PB9Wa2ilbLyPauge25zq9u5U70DS29zD3tNkI7+shvrkUC6RqTU9AD0ossTeLlBh/EN7gUsFldJMUsCdvQ9OTA==
+"@onekeyfe/default-token-list@1.4.0":
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/default-token-list/-/default-token-list-1.4.0.tgz#ea02445ad01f0f5fcb53de33097a908bb25a2baa"
+  integrity sha512-ea7hw/kGARHVnTa3BgbGRrSgh/vhxy5y0pnw+OuPHU/uLdFlmUm4ptyzZZg1THFM7E/MHen/m1fcTfoMihxWTw==
 
 "@onekeyfe/desktop-bridge-injected@^0.0.7-alpha.3":
   version "0.0.7-alpha.3"
