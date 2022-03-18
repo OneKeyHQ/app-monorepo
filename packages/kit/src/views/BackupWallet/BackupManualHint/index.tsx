@@ -55,23 +55,23 @@ const BackupWalletManualHintView: FC = () => {
               id: 'backup__manual_backup_advice_title',
             })}
           </Typography.Body1>
-          <Box flexDirection="row" mt={4}>
-            <Box>
+          <Box flexDirection="row" mt={4} w="100%">
+            <Box mt={1}>
               <Icon size={24} name="CheckCircleOutline" color="icon-success" />
             </Box>
 
-            <Typography.Body1 ml={2}>
+            <Typography.Body1 ml={2} flex={1}>
               {intl.formatMessage({
                 id: 'backup__manual_backup_advice_write_on_paper',
               })}
             </Typography.Body1>
           </Box>
-          <Box flexDirection="row" mt={4}>
-            <Box>
+          <Box flexDirection="row" mt={4} w="100%">
+            <Box mt={1}>
               <Icon size={24} name="CheckCircleOutline" color="icon-success" />
             </Box>
 
-            <Typography.Body1 ml={2}>
+            <Typography.Body1 ml={2} flex={1}>
               {intl.formatMessage({
                 id: 'backup__manual_backup_advice_write_sync',
               })}

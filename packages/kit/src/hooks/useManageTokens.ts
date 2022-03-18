@@ -70,11 +70,7 @@ export const useManageTokens = () => {
           return;
         }
         if (accountTokens.length === 0) {
-          dispatch(
-            changeActiveOwnedToken(
-              list.map((item) => ({ ...item, balance: '0' })),
-            ),
-          );
+          dispatch(changeActiveOwnedToken(list.map((item) => ({ ...item }))));
         }
         const addressList = list
           .filter((i) => i.tokenIdOnNetwork)

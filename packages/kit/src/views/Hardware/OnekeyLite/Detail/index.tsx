@@ -210,7 +210,7 @@ const OnekeyLiteDetail: React.FC = () => {
           onPress={() => {
             setSelectBackupWalletVisible(true);
           }}
-          size="lg"
+          size="xl"
           m={4}
           type="primary"
         >
@@ -220,7 +220,7 @@ const OnekeyLiteDetail: React.FC = () => {
     }
     return (
       <Button
-        size="lg"
+        size="xl"
         m={4}
         type="primary"
         onPress={() => {

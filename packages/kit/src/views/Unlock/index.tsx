@@ -125,7 +125,7 @@ const Unlock = () => {
                 size="xl"
                 isDisabled={!isValid}
                 type="primary"
-                onPress={handleSubmit(onUnlock)}
+                onPromise={handleSubmit(onUnlock)}
               >
                 {intl.formatMessage({
                   id: 'action__unlock',
