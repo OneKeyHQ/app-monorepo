@@ -99,7 +99,7 @@ export default function useAccountModifyNameDialog() {
                 },
               }}
             >
-              <Form.Input placeholder={account?.name ?? ''} />
+              <Form.Input autoFocus placeholder={account?.name ?? ''} />
             </Form.Item>
             <DialogCommon.FooterButton
               marginTop={0}
