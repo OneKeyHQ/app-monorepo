@@ -48,7 +48,7 @@ const Index = () => {
       data={componentsRoute}
       bg="background-hovered"
       ListHeaderComponent={() => (
-        <Button onPress={navigationGoBack}>Go back to HOME</Button>
+        <Button onPress={navigationGoBack}>Back to HOME</Button>
       )}
       renderItem={({ item, index }) => (
         <Pressable

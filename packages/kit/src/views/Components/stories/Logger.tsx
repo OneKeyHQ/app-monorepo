@@ -51,7 +51,7 @@ function DebugLoggerSettings() {
           </CheckBox>
         ))}
       </CheckBox.Group>
-      <Box _text={{ color: 'text-default' }}>{savedStr}</Box>
+      <Box _text={{ color: 'text-default' }}>{`config = ${savedStr}`}</Box>
     </Box>
   );
 }
@@ -74,9 +74,9 @@ function InjectedSettings() {
 const LoggerGallery = () => (
   // const navigation = useNavigation();
   <ScrollView p={4} flex="1" bg="background-hovered">
+    <Button onPress={navigationGoBack}>Back to HOME</Button>
     <DebugLoggerSettings />
     <InjectedSettings />
-    <Button onPress={navigationGoBack}>Home</Button>
   </ScrollView>
 );
 export default LoggerGallery;
