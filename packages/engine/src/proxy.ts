@@ -118,18 +118,19 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   if (typeof implProperties === 'undefined') {
     throw new OneKeyInternalError('Unable to build chain info from dbNetwork.');
   }
-  let implOptions = implProperties.implOptions || {};
-  if (dbNetwork.impl === IMPL_EVM) {
-    const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
-    // EIP1559 is enabled on Ethereum Mainnet, Ropsten, Rinkeby, Görli
-    const EIP1559Enabled =
-      chainId === 1 || chainId === 3 || chainId === 4 || chainId === 5;
-    implOptions = { ...implOptions, chainId, EIP1559Enabled };
+
+  let providerOptions: Record<string, any> = {};
+
+  const presetNetwork = getPresetNetworks()[dbNetwork.id];
+  if (typeof presetNetwork !== 'undefined') {
+    ({ providerOptions } = presetNetwork.extensions || { providerOptions: {} });
   }
-  if (dbNetwork.impl === IMPL_STC || dbNetwork.impl === IMPL_CFX) {
-    const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
-    implOptions = { ...implOptions, chainId };
-  }
+
+  let implOptions = providerOptions || {};
+
+  const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
+  implOptions = { ...implOptions, chainId };
+
   return {
     code: dbNetwork.id,
     feeCode: dbNetwork.id,
