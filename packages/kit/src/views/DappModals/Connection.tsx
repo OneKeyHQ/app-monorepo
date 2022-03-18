@@ -132,7 +132,7 @@ const Connection = () => {
         }}
         onSecondaryActionPress={dappApprove.reject}
         // TODO onClose may trigger many times
-        onClose={() => dappApprove.reject({ close: () => null })}
+        onClose={dappApprove.reject}
         scrollViewProps={{
           children: (
             // Add padding to escape the footer

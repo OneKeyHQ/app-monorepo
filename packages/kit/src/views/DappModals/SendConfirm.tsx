@@ -52,6 +52,7 @@ const Send = () => {
   const navigation = useNavigation<NavigationProps>();
 
   const { id, scope, origin, ...params } = useDappParams();
+  const dappApprove = useDappApproveAction({ id });
   const sendConfirmData =
     (params.data.params as SendConfirmParams[])?.[0] ?? {};
   const { from, to, value, gas, gasPrice } = sendConfirmData;
@@ -329,7 +330,8 @@ const Send = () => {
         isDisabled: isInvalidParams || !isSameFromAccount || isWatchAccount,
         onPromise: handleSendConfirm,
       }}
-      onSecondaryActionPress={useDappApproveAction({ id }).reject}
+      onSecondaryActionPress={dappApprove.reject}
+      onClose={dappApprove.reject}
       scrollViewProps={{
         children: content,
       }}
