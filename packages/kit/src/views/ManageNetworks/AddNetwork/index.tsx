@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -23,6 +23,12 @@ type NetworkValues = {
 };
 
 export type NetworkAddViewProps = undefined;
+export type NetworkRpcURLStatus = {
+  connected: boolean;
+  loading?: boolean;
+  speed?: number;
+  error?: string;
+};
 
 const URITester =
   /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/;
@@ -31,7 +37,11 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { text } = useToast();
-  const [hintText, setHintText] = useState('');
+
+  const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
+    connected: false,
+  });
+
   const { serviceNetwork } = backgroundApiProxy;
   const defaultValues = {
     name: '',
@@ -46,39 +56,58 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
     watch,
     setValue,
     setError,
+    trigger,
     formState: { isValid },
   } = useForm<NetworkValues>({
     defaultValues,
     mode: 'onChange',
   });
 
+  const hintText = useMemo(() => {
+    if (rpcUrlStatus.error) return '';
+    if (rpcUrlStatus.loading) {
+      return intl.formatMessage({ id: 'form__rpc_url_connecting' });
+    }
+    if (rpcUrlStatus.connected) {
+      return intl.formatMessage({ id: 'form__rpc_url_fetched' });
+    }
+  }, [rpcUrlStatus, intl]);
+
   const watchedRpcURL = useDebounce(watch('rpcURL'), 1000);
+  const url = watchedRpcURL?.trim();
 
   useEffect(() => {
-    const url = watchedRpcURL?.trim();
     if (url && URITester.test(url)) {
-      setHintText(intl.formatMessage({ id: 'form__rpc_url_connecting' }));
+      setRpcUrlStatus((prev) => ({ ...prev, connected: false, loading: true }));
       serviceNetwork
         .preAddNetwork(url)
         .then(({ chainId, existingNetwork }) => {
           setValue('chainId', chainId);
           if (existingNetwork) {
-            setHintText('');
-            setError('rpcURL', {
-              message: intl.formatMessage(
+            setRpcUrlStatus({
+              loading: false,
+              connected: true,
+              error: intl.formatMessage(
                 { id: 'form__rpc_url_invalid_exist' },
                 { name: existingNetwork.name },
               ),
             });
-          } else {
-            setHintText(intl.formatMessage({ id: 'form__rpc_url_fetched' }));
+            return;
           }
+          setRpcUrlStatus({ connected: true, loading: false });
         })
         .catch(() => {
-          setHintText(intl.formatMessage({ id: 'form__rpc_fetched_failed' }));
+          setRpcUrlStatus({
+            loading: false,
+            connected: false,
+            error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
+          });
+        })
+        .finally(() => {
+          trigger('rpcURL');
         });
     }
-  }, [watchedRpcURL, intl, setValue, setError, serviceNetwork]);
+  }, [url, intl, setValue, setError, serviceNetwork, trigger]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
@@ -102,7 +131,8 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
         secondaryActionTranslationId="action__save"
         secondaryActionProps={{
           type: 'primary',
-          isDisabled: !isValid,
+          isDisabled:
+            !isValid || !!rpcUrlStatus.error || !rpcUrlStatus.connected,
           onPromise: handleSubmit(onSubmit),
         }}
         scrollViewProps={{
@@ -122,6 +152,13 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                       message: intl.formatMessage({
                         id: 'form__field_is_required',
                       }),
+                    },
+                    validate: (value) => {
+                      if (!value?.trim()) {
+                        return intl.formatMessage({
+                          id: 'form__field_is_required',
+                        });
+                      }
                     },
                     maxLength: {
                       value: 30,
@@ -155,6 +192,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                         id: 'form__rpc_url_wrong_format',
                       }),
                     },
+                    validate: () => rpcUrlStatus.error,
                   }}
                 >
                   <Form.Input />

@@ -658,6 +658,7 @@ class Engine {
     return this.dbApi.addTokenToAccount(accountId, tokenId);
   }
 
+  @backgroundMethod()
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void> {
     // Remove token from an account.
     return this.dbApi.removeTokenFromAccount(accountId, tokenId);

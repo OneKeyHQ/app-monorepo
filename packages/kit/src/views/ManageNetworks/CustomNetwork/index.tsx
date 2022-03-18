@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +18,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useDebounce, useToast } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 type NetworkValues = {
   name?: string;
   rpcURL?: string;
@@ -32,20 +34,42 @@ type NetworkCustomViewProps = NativeStackScreenProps<
   ManageNetworkRoutes.CustomNetwork
 >;
 
+type NavigationProps = NativeStackNavigationProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.CustomNetwork
+>;
+
+export type NetworkRpcURLStatus = {
+  connected: boolean;
+  loading?: boolean;
+  speed?: number;
+  error?: string;
+};
+
 const URITester =
   /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)/;
 
 export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const { name, rpcURL, symbol, exploreUrl, id, chainId } = route.params;
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { text } = useToast();
-  const [hintText, setHintText] = useState('');
+  const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
+    connected: false,
+  });
   const { serviceNetwork } = backgroundApiProxy;
-  const { control, handleSubmit, watch, setError, setValue } =
-    useForm<NetworkValues>({
-      defaultValues: { name, rpcURL, symbol, exploreUrl, id, chainId },
-    });
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setError,
+    setValue,
+    trigger,
+    formState: { isValid },
+  } = useForm<NetworkValues>({
+    defaultValues: { name, rpcURL, symbol, exploreUrl, id, chainId },
+    mode: 'onChange',
+  });
   const [removeOpend, setRemoveOpened] = useState(false);
 
   const onShowRemoveModal = useCallback(() => {
@@ -63,66 +87,72 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
-      await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
+      await serviceNetwork.updateNetwork(id, {
+        rpcURL: data.rpcURL,
+        name: data.name,
+        symbol: data.symbol,
+        explorerURL: data.exploreUrl,
+      });
       text('msg__change_saved');
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
     },
-    [serviceNetwork, id, text],
+    [serviceNetwork, id, text, navigation],
   );
 
+  const hintText = useMemo(() => {
+    if (rpcUrlStatus.error) return '';
+    if (rpcUrlStatus.loading) {
+      return intl.formatMessage({ id: 'form__rpc_url_connecting' });
+    }
+    if (rpcUrlStatus.connected) {
+      return intl.formatMessage({ id: 'form__rpc_url_fetched' });
+    }
+  }, [rpcUrlStatus, intl]);
+
   const watchedRpcURL = useDebounce(watch('rpcURL'), 1000);
+  const url = watchedRpcURL?.trim();
 
   useEffect(() => {
-    const url = watchedRpcURL?.trim();
     if (url && URITester.test(url)) {
-      setHintText(intl.formatMessage({ id: 'form__rpc_url_connecting' }));
+      setRpcUrlStatus((prev) => ({ ...prev, connected: false, loading: true }));
       serviceNetwork
         .preAddNetwork(url)
-        .then(({ chainId: pChainId, existingNetwork }) => {
+        .then(({ chainId: pChainId }) => {
           if (pChainId !== chainId) {
-            setHintText('');
-            setError('rpcURL', { message: '' });
-          }
-          if (existingNetwork && url !== rpcURL) {
-            setHintText('');
-            setError('rpcURL', {
-              message: intl.formatMessage(
-                { id: 'form__rpc_url_invalid_exist' },
-                { name: existingNetwork.name },
-              ),
+            setRpcUrlStatus({
+              loading: false,
+              connected: true,
+              error: intl.formatMessage({ id: 'form__chain_id_invalid' }),
             });
             return;
           }
-          return serviceNetwork
-            .getRPCEndpointStatus(url, 'evm')
-            .then(({ responseTime }) => {
-              setHintText(
-                intl.formatMessage(
-                  { id: 'form__rpc_url_spped' },
-                  { value: responseTime },
-                ),
-              );
-            });
+          setRpcUrlStatus({ connected: true, loading: false });
         })
         .catch(() => {
-          setHintText(intl.formatMessage({ id: 'form__rpc_fetched_failed' }));
+          setRpcUrlStatus({
+            loading: false,
+            connected: false,
+            error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
+          });
+        })
+        .finally(() => {
+          trigger('rpcURL');
         });
     }
-  }, [
-    chainId,
-    rpcURL,
-    watchedRpcURL,
-    intl,
-    setValue,
-    setError,
-    serviceNetwork,
-  ]);
+  }, [url, intl, setValue, setError, serviceNetwork, chainId, trigger]);
 
   return (
     <>
       <Modal
         header={name}
         height="560px"
-        primaryActionProps={{ onPromise: handleSubmit(onSubmit) }}
+        primaryActionProps={{
+          onPromise: handleSubmit(onSubmit),
+          isDisabled:
+            (!isValid && !!rpcUrlStatus.error) || !rpcUrlStatus.connected,
+        }}
         primaryActionTranslationId="action__save"
         hideSecondaryAction
         scrollViewProps={{
@@ -136,6 +166,27 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     defaultMessage: 'Network Name',
                   })}
                   control={control}
+                  rules={{
+                    required: {
+                      value: true,
+                      message: intl.formatMessage({
+                        id: 'form__field_is_required',
+                      }),
+                    },
+                    validate: (value) => {
+                      if (!value?.trim()) {
+                        return intl.formatMessage({
+                          id: 'form__field_is_required',
+                        });
+                      }
+                    },
+                    maxLength: {
+                      value: 30,
+                      message: intl.formatMessage({
+                        id: 'form__network_name_invalid',
+                      }),
+                    },
+                  }}
                 >
                   <Form.Input />
                 </Form.Item>
@@ -147,7 +198,21 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     defaultMessage: 'RPC URL',
                   })}
                   helpText={hintText}
-                  formControlProps={{ zIndex: 10 }}
+                  rules={{
+                    required: {
+                      value: true,
+                      message: intl.formatMessage({
+                        id: 'form__field_is_required',
+                      }),
+                    },
+                    pattern: {
+                      value: /^https?:\/\//,
+                      message: intl.formatMessage({
+                        id: 'form__rpc_url_wrong_format',
+                      }),
+                    },
+                    validate: () => rpcUrlStatus.error,
+                  }}
                 >
                   <Form.Input />
                 </Form.Item>

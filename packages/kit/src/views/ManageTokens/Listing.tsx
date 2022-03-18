@@ -25,9 +25,8 @@ import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
-import { useDebounce } from '../../hooks';
+import { useDebounce, useManageTokens, useToast } from '../../hooks';
 import { useGeneral } from '../../hooks/redux';
-import { useManageTokens } from '../../hooks/useManageTokens';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -228,12 +227,119 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   ) : null;
 };
 
+type ListingTokenProps = {
+  item: ValuedToken;
+  isOwned?: boolean;
+  borderTopRadius?: string;
+  borderBottomRadius?: string;
+};
+
+const ListingToken: FC<ListingTokenProps> = ({
+  item,
+  borderTopRadius,
+  borderBottomRadius,
+  isOwned,
+}) => {
+  const { activeAccount, activeNetwork } = useGeneral();
+  const { text } = useToast();
+  const { updateAccountTokens, updateTokens } = useManageTokens();
+  const onPress = useCallback(async () => {
+    if (activeAccount && activeNetwork) {
+      const res = await backgroundApiProxy.engine.preAddToken(
+        activeAccount?.id,
+        activeNetwork.network.id,
+        item.tokenIdOnNetwork,
+      );
+      if (res?.[1]) {
+        await backgroundApiProxy.engine.addTokenToAccount(
+          activeAccount?.id,
+          res[1].id,
+        );
+        text('msg__token_added');
+      }
+      updateAccountTokens();
+      updateTokens();
+    }
+  }, [
+    activeAccount,
+    activeNetwork,
+    text,
+    updateAccountTokens,
+    updateTokens,
+    item.tokenIdOnNetwork,
+  ]);
+  return (
+    <Box
+      borderTopRadius={borderTopRadius}
+      borderBottomRadius={borderBottomRadius}
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      p={4}
+      alignItems="center"
+      bg="surface-default"
+      overflow="hidden"
+      key={item.tokenIdOnNetwork}
+    >
+      <Box display="flex" alignItems="center" flexDirection="row">
+        <Image
+          source={{ uri: item.logoURI }}
+          alt="logoURI"
+          size="8"
+          borderRadius="full"
+          fallbackElement={
+            <Center
+              w={8}
+              h={8}
+              rounded="full"
+              bgColor="surface-neutral-default"
+            >
+              <Icon size={20} name="QuestionMarkOutline" />
+            </Center>
+          }
+        />
+        <Box ml="3">
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            maxW="56"
+            numberOfLines={2}
+            color={item.balance ? 'text-disabled' : 'text-default'}
+          >
+            {item.symbol}({item.name})
+          </Text>
+          <Typography.Body2
+            numberOfLines={1}
+            color={item.balance ? 'text-disabled' : 'text-subdued'}
+          >
+            {utils.shortenAddress(item.tokenIdOnNetwork)}
+          </Typography.Body2>
+        </Box>
+      </Box>
+      <Box>
+        {isOwned ? (
+          <Box p={2}>
+            <Icon name="CheckSolid" color="interactive-disabled" />
+          </Box>
+        ) : (
+          <IconButton
+            name="PlusSolid"
+            type="plain"
+            circle
+            p="4"
+            onPromise={onPress}
+          />
+        )}
+      </Box>
+    </Box>
+  );
+};
+
 export const Listing: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const {
     accountTokens,
-    accountTokensSet,
+    accountTokensMap,
     allTokens,
     updateTokens,
     updateAccountTokens,
@@ -293,90 +399,16 @@ export const Listing: FC = () => {
 
   const renderItem: ListRenderItem<ValuedToken> = useCallback(
     ({ item, index }) => (
-      <Box
+      <ListingToken
+        item={item}
         borderTopRadius={index === 0 ? '12' : undefined}
         borderBottomRadius={
           index === flatListData.length - 1 ? '12' : undefined
         }
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        p={4}
-        alignItems="center"
-        bg="surface-default"
-        overflow="hidden"
-        key={item.tokenIdOnNetwork}
-      >
-        <Box display="flex" alignItems="center" flexDirection="row">
-          <Image
-            source={{ uri: item.logoURI }}
-            alt="logoURI"
-            size="8"
-            borderRadius="full"
-            fallbackElement={
-              <Center
-                w={8}
-                h={8}
-                rounded="full"
-                bgColor="surface-neutral-default"
-              >
-                <Icon size={20} name="QuestionMarkOutline" />
-              </Center>
-            }
-          />
-          <Box ml="3">
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              maxW="56"
-              numberOfLines={2}
-              color={
-                accountTokensSet.has(item.tokenIdOnNetwork)
-                  ? 'text-disabled'
-                  : 'text-default'
-              }
-            >
-              {item.symbol}({item.name})
-            </Text>
-            <Typography.Body2
-              numberOfLines={1}
-              color={
-                accountTokensSet.has(item.tokenIdOnNetwork)
-                  ? 'text-disabled'
-                  : 'text-subdued'
-              }
-            >
-              {item?.balance
-                ? `${item.balance} ${item.symbol}`
-                : utils.shortenAddress(item.tokenIdOnNetwork)}
-            </Typography.Body2>
-          </Box>
-        </Box>
-        <Box>
-          {accountTokensSet.has(item.tokenIdOnNetwork) ? (
-            <Box p={2}>
-              <Icon name="CheckSolid" color="interactive-disabled" />
-            </Box>
-          ) : (
-            <IconButton
-              name="PlusSolid"
-              type="plain"
-              circle
-              p="4"
-              onPress={() => {
-                navigation.navigate(ManageTokenRoutes.AddToken, {
-                  name: item.name,
-                  symbol: item.symbol,
-                  address: item.tokenIdOnNetwork,
-                  decimal: item.decimals,
-                  logoURI: item.logoURI,
-                });
-              }}
-            />
-          )}
-        </Box>
-      </Box>
+        isOwned={accountTokensMap.has(item.tokenIdOnNetwork)}
+      />
     ),
-    [navigation, flatListData.length, accountTokensSet],
+    [flatListData.length, accountTokensMap],
   );
 
   return (
