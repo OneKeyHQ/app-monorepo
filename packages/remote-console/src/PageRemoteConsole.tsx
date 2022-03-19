@@ -1,29 +1,45 @@
 /* eslint-disable react/destructuring-assignment, react/sort-comp, react/state-in-constructor, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, react/no-access-state-in-setstate, @typescript-eslint/no-unsafe-member-access */
 import React from 'react';
 
-import { Console, Decode, Hook } from 'console-feed';
+import { Console, Hook } from 'console-feed';
+import { replicator } from 'console-feed/lib/Transform';
 import update from 'immutability-helper';
 import Head from 'next/head';
+
+function domParentMatches(n: HTMLElement, selector: string) {
+  let node = n;
+  while (node) {
+    // node.matches() not existing in document element
+    if (node.matches && node.matches(selector)) {
+      return true;
+    }
+    node = node.parentNode as HTMLElement;
+  }
+  return false;
+}
 
 class App extends React.Component {
   state = {
     wsOpen: false,
     isDarkMode: true,
     logs: [
-      {
-        method: 'result',
-        data: ['Result'],
-        timestamp: this.getTimestamp(),
-      },
+      // right arrow icon
       {
         method: 'command',
-        data: ['Command'],
+        data: ['command Sample Message'],
+        timestamp: this.getTimestamp(),
+      },
+      // left arrow icon
+      {
+        method: 'result',
+        data: ['result Sample Message'],
         timestamp: this.getTimestamp(),
       },
     ] as any[],
     // 'log' | 'debug' | 'info' | 'warn' | 'error' | 'table' | 'clear' | 'time' | 'timeEnd' | 'count' | 'assert' | 'command' | 'result'
     filter: [],
     searchKeywords: '',
+    sendText: '',
   };
 
   getNumberStringWithWidth(num: number, width: number) {
@@ -41,17 +57,27 @@ class App extends React.Component {
     return `${h}:${min}:${sec}.${ms}`;
   }
 
+  ws: WebSocket | null = null;
+
+  appendLogs = (logs: any) => {
+    // eslint-disable-next-line no-param-reassign
+    logs = [].concat(logs).filter(Boolean);
+    const logsWithTime = logs.map((log: any) => {
+      log.timestamp = this.getTimestamp();
+      return log;
+    });
+    this.setState((state) => update(state, { logs: { $push: logsWithTime } }));
+  };
+
   componentDidMount() {
-    const appendLogs = (logs: any) => {
-      const decoded = Decode(logs);
-      decoded.timestamp = this.getTimestamp();
-      this.setState((state) => update(state, { logs: { $push: [decoded] } }));
-    };
-    Hook(window.console, appendLogs);
+    Hook(window.console, this.appendLogs);
     const ws = new WebSocket('ws://127.0.0.1:8136');
+    this.ws = ws;
     ws.addEventListener('message', (event) => {
-      const logs = [].concat(JSON.parse(event.data));
-      appendLogs(logs);
+      // const logs = [].concat(JSON.parse(event.data));
+      // const logs = JSON.parse(event.data);
+      const log = replicator.decode(event.data);
+      this.appendLogs(log);
     });
     ws.addEventListener('open', () => this.setState({ wsOpen: true }));
   }
@@ -70,6 +96,20 @@ class App extends React.Component {
     });
   };
 
+  handleClickConsolePanel = ((event: MouseEvent) => {
+    const ele = event.target as HTMLElement;
+    if (
+      ele &&
+      ele.matches &&
+      ele.matches('span') &&
+      domParentMatches(ele, '[data-method=command]')
+    ) {
+      if (ele.innerText) {
+        this.setState({ sendText: ele.innerText.trim() });
+      }
+    }
+  }) as any;
+
   // @ts-ignore
   handleKeywordsChange = ({ target: { value: searchKeywords } }) => {
     this.setState({ searchKeywords });
@@ -77,6 +117,7 @@ class App extends React.Component {
 
   render() {
     const { isDarkMode, wsOpen } = this.state;
+    // @ts-ignore
     return (
       <div
         style={{
@@ -114,7 +155,9 @@ class App extends React.Component {
             }}
           >
             {['ALL', 'log', 'debug', 'info', 'warn', 'error'].map((name) => (
-              <option value={name}>{name}</option>
+              <option value={name} key={name}>
+                {name}
+              </option>
             ))}
           </select>
           <input placeholder="search" onChange={this.handleKeywordsChange} />
@@ -135,12 +178,54 @@ class App extends React.Component {
           )}
         </div>
 
-        <Console
-          logs={this.state.logs}
-          variant={isDarkMode ? 'dark' : 'light'}
-          filter={this.state.filter}
-          searchKeywords={this.state.searchKeywords}
-        />
+        <div
+          role="none"
+          style={{ minHeight: '100%' }}
+          onClick={this.handleClickConsolePanel}
+        >
+          <Console
+            logs={this.state.logs}
+            variant={isDarkMode ? 'dark' : 'light'}
+            filter={this.state.filter}
+            searchKeywords={this.state.searchKeywords}
+          />
+        </div>
+
+        <div
+          style={{
+            position: 'sticky',
+            zIndex: 10,
+            left: 0,
+            bottom: 0,
+            padding: '0 12px',
+          }}
+        >
+          <input
+            value={this.state.sendText}
+            onChange={(e) => this.setState({ sendText: e.target.value || '' })}
+            style={{ width: '100%', fontSize: 16 }}
+            onKeyPress={(event) => {
+              if (event.code === 'Enter') {
+                // Cancel the default action, if needed
+                event.preventDefault();
+                this.setState({
+                  sendText: '',
+                });
+                const customCommand = {
+                  type: 'RemoteConsoleCustomCommand',
+                  // payload: `console.log(${this.state.sendText})`,
+                  payload: `${this.state.sendText}`,
+                };
+                this.appendLogs({
+                  method: 'command',
+                  data: [customCommand.payload],
+                  timestamp: this.getTimestamp(),
+                });
+                this.ws?.send(JSON.stringify(customCommand));
+              }
+            }}
+          />
+        </div>
       </div>
     );
   }

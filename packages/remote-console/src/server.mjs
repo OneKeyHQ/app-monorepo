@@ -13,5 +13,10 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log(`Console server running... \nws://127.0.0.1:${PORT}`);
+const msg = `Remote Console server running... \nws://127.0.0.1:${PORT}`;
+console.log(msg);
 console.log('----------------------------------------------');
+
+export default {
+  msg
+}

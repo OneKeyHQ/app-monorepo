@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import dynamic from 'next/dynamic';
 
-const PageRemoteConsole = dynamic(() => import('./PageRemoteConsole'), {
+const PageRemoteConsole = dynamic(() => import('../src/PageRemoteConsole'), {
   ssr: false,
 });
 
