@@ -9,6 +9,7 @@ import * as cryptoLib from '@walletconnect/iso-crypto';
 import { isWalletConnectSession } from '@walletconnect/utils';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -25,7 +26,6 @@ import type {
 const DEFAULT_WALLET_CONNECT_STORAGE_KEY = 'onekey@walletconnect';
 
 // TODO save to redux
-// TODO replace console.log to debugLogger
 // TODO iOS\android\ext test
 class WalletConnectSessionStorage implements ISessionStorage {
   constructor(storageId = DEFAULT_WALLET_CONNECT_STORAGE_KEY) {
@@ -231,7 +231,11 @@ class WalletConnectAdapter {
 
     // TODO convert url to origin
     const origin = this.getConnectorOrigin(connector);
-    console.log('new WalletConnect() by uri', { origin, network, uri });
+    debugLogger.walletConnect('new WalletConnect() by uri', {
+      origin,
+      network,
+      uri,
+    });
 
     // TODO on('connect') fired on peerId ready or approveSession()?
 
@@ -248,15 +252,20 @@ class WalletConnectAdapter {
       const chainId = await this.getChainIdInteger(connector);
 
       if (connector.connected) {
-        // TODO debugLogger
-        console.log('walletConnect.connect -> updateSession', result);
+        debugLogger.walletConnect(
+          'walletConnect.connect -> updateSession',
+          result,
+        );
         connector.updateSession({ chainId, accounts: result });
       } else {
-        console.log('walletConnect.connect -> approveSession', result);
+        debugLogger.walletConnect(
+          'walletConnect.connect -> approveSession',
+          result,
+        );
         connector.approveSession({ chainId, accounts: result });
       }
     } catch (error) {
-      console.log('walletConnect.connect reject', error);
+      debugLogger.walletConnect('walletConnect.connect reject', error);
       connector.rejectSession(error as any);
     }
   }
@@ -277,7 +286,7 @@ class WalletConnectAdapter {
     if (!connector) {
       return;
     }
-    console.log('unregisterEvents >>>>>> ');
+    debugLogger.walletConnect('unregisterEvents >>>>>> ');
     // https://docs.walletconnect.com/client-api#register-event-subscription
     [
       'connect',
@@ -323,9 +332,9 @@ class WalletConnectAdapter {
     connector.on(
       'session_request',
       this.createEventHandler((error, payload: IJsonRpcRequest) => {
-        console.log('EVENT', 'session_request', payload);
+        debugLogger.walletConnect('EVENT', 'session_request', payload);
         const { peerMeta } = (payload.params as any[])?.[0] || {};
-        console.log('peerMeta', peerMeta);
+        debugLogger.walletConnect('peerMeta', peerMeta);
       }),
     );
 
@@ -333,7 +342,7 @@ class WalletConnectAdapter {
     connector.on(
       'session_update',
       this.createEventHandler((error, payload) => {
-        console.log('EVENT', 'session_update', payload);
+        debugLogger.walletConnect('EVENT', 'session_update', payload);
       }),
     );
 
@@ -341,7 +350,7 @@ class WalletConnectAdapter {
       'call_request',
       this.createEventHandler((error, payload) => {
         // tslint:disable-next-line
-        console.log('EVENT', 'call_request', payload);
+        debugLogger.walletConnect('EVENT', 'call_request', payload);
         // https://docs.walletconnect.com/client-api#send-custom-request
         // await window.$connector.sendCustomRequest({method:'eth_gasPrice'})
         return this.responseCallRequest(
@@ -359,7 +368,7 @@ class WalletConnectAdapter {
     connector.on(
       'connect',
       this.createEventHandler((error, payload) => {
-        console.log('EVENT', 'connect', payload);
+        debugLogger.walletConnect('EVENT', 'connect', payload);
 
         // this.setState({ connected: true });
       }),
@@ -369,7 +378,7 @@ class WalletConnectAdapter {
     connector.on(
       'disconnect',
       this.createEventHandler((error, payload) => {
-        console.log('EVENT', 'disconnect', payload);
+        debugLogger.walletConnect('EVENT', 'disconnect', payload);
         this.disconnect();
       }),
     );

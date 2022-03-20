@@ -36,10 +36,11 @@ export type IDebugLogger = {
   jsBridge: (...args: any[]) => void;
   webview: (...args: any[]) => void;
   ethereum: (...args: any[]) => void; // TODO rename injectedEthereum
-  backgroundApi: (...args: any[]) => void;
   desktopInjected: (...args: any[]) => void;
   extContentScripts: (...args: any[]) => void;
   extInjected: (...args: any[]) => void;
+  backgroundApi: (...args: any[]) => void;
+  walletConnect: (...args: any[]) => void;
 };
 
 // https://github.com/debug-js/debug
@@ -53,6 +54,7 @@ const debugLogger: IDebugLogger = {
   extContentScripts: noop,
   extInjected: noop,
   backgroundApi: noop,
+  walletConnect: noop,
 };
 
 async function initLoggerAsync() {
@@ -69,6 +71,7 @@ async function initLoggerAsync() {
     extContentScripts: debug('extContentScripts'),
     extInjected: debug('extInjected'),
     backgroundApi: debug('backgroundApi'),
+    walletConnect: debug('walletConnect'),
   });
 }
 
