@@ -7,7 +7,7 @@
     "open-browser": "open http://127.0.0.1:3498",
     "build": "next build",
     "start": "next start",
-    "lint": "echo 'lint skipped'",
+    "lint": "next lint",
     "server": "node ./src/server.mjs"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "immutability-helper": "^3.1.1"
   },
   "devDependencies": {
-    "ws": "^8.5.0"
+    "ws": "^8.5.0",
+    "@next/eslint-plugin-next": "^12.1.0"
   }
 }
