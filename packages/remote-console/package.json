@@ -7,7 +7,7 @@
     "open-browser": "open http://127.0.0.1:3498",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "server": "node ./src/server.mjs"
   },
   "dependencies": {
