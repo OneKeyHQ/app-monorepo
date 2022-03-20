@@ -340,7 +340,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkId,
       request,
     );
-    console.log('rpcCall request:', request, { networkId, result });
+    debugLogger.ethereum('BgApi rpcCall:', request, { networkId, result });
     return result;
   }
 
@@ -352,7 +352,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
       return result;
     };
-    // console.log('notifyDappAccountsChanged', data);
+    // debugLogger.ethereum('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
