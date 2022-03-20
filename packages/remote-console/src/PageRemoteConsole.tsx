@@ -154,11 +154,13 @@ class App extends React.Component {
               this.setState({ filter: [f].filter(Boolean) });
             }}
           >
-            {['ALL', 'log', 'debug', 'info', 'warn', 'error'].map((name) => (
-              <option value={name} key={name}>
-                {name}
-              </option>
-            ))}
+            {['ALL', 'log', 'debug', 'info', 'warn', 'error', 'command'].map(
+              (name) => (
+                <option value={name} key={name}>
+                  {name}
+                </option>
+              ),
+            )}
           </select>
           <input placeholder="search" onChange={this.handleKeywordsChange} />
           <label>

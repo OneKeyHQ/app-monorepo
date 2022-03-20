@@ -39,11 +39,17 @@ class WalletConnectSessionStorage implements ISessionStorage {
   async getSession(): Promise<IWalletConnectSession | null> {
     let session = null;
     const jsonStr = (await appStorage.getItem(this.storageId)) as string;
-    // TODO try catch
-    const json = JSON.parse(jsonStr);
-    if (json && isWalletConnectSession(json)) {
-      session = json;
+    if (jsonStr) {
+      try {
+        const json = JSON.parse(jsonStr);
+        if (json && isWalletConnectSession(json)) {
+          session = json;
+        }
+      } catch (error) {
+        console.error('WalletConnectSessionStorage.getSession ERROR:', error);
+      }
     }
+
     return session;
   }
 

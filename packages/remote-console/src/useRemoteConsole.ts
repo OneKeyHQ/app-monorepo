@@ -6,11 +6,16 @@ import { useEffect } from 'react';
 import { Hook, Unhook } from 'console-feed';
 import { replicator } from 'console-feed/lib/Transform';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 function useRemoteConsole() {
+  // Ext is NOT allowed remote-console (like: eval() call)
+  const remoteConsoleEnabled =
+    process.env.NODE_ENV !== 'production' && !platformEnv.isExtension;
   // run once!
   useEffect(() => {
     let ws: WebSocket | null = null;
-    if (process.env.NODE_ENV !== 'production') {
+    if (remoteConsoleEnabled) {
       let serverIp = process.env.REMOTE_CONSOLE_SERVER || '';
       console.log(
         'process.env.REMOTE_CONSOLE_SERVER',
@@ -58,12 +63,12 @@ function useRemoteConsole() {
     }
 
     return () => {
-      if (process.env.NODE_ENV !== 'production') {
+      if (remoteConsoleEnabled) {
         ws?.close();
         Unhook(global.console as any);
       }
     };
-  }, []);
+  }, [remoteConsoleEnabled]);
 }
 
 export default useRemoteConsole;
