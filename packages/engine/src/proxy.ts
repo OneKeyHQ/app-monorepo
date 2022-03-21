@@ -472,6 +472,7 @@ class ProviderController extends BaseProviderController {
     );
     let txid: string;
     let rawTx: string;
+    let success = true;
     switch (credential.type) {
       case CredentialType.SOFTWARE:
         ({ txid, rawTx } = await this.signTransaction(
@@ -495,10 +496,16 @@ class ProviderController extends BaseProviderController {
       default:
         throw new OneKeyInternalError('Incorrect credential selector.');
     }
+    try {
+      txid = await this.broadcastTransaction(network.id, rawTx);
+    } catch (e) {
+      console.error(e);
+      success = false;
+    }
     return {
       txid,
       rawTx,
-      success: await this.broadcastTransaction(network.id, rawTx),
+      success,
     };
   }
 
@@ -763,13 +770,14 @@ class ProviderController extends BaseProviderController {
           ),
         );
         const rawTx = ethTransaction.serialize(unsignedTx, signature);
-        const txid = keccak256(rawTx);
-        let success = false;
+        let txid = keccak256(rawTx);
+        let success = true;
         if (autoBroadcast) {
           try {
-            success = await this.broadcastTransaction(network.id, rawTx);
+            txid = await this.broadcastTransaction(network.id, rawTx);
           } catch (e) {
             console.error(e);
+            success = false;
           }
         }
         const txMeta = {
