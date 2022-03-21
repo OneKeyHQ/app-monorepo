@@ -26,7 +26,7 @@ export function useLocalAuthentication() {
     }
     return LocalAuthentication.authenticateAsync({
       cancelLabel: 'Cancel',
-      promptMessage: 'Face ID',
+      // promptMessage: 'Face ID',
     });
   }, []);
 
