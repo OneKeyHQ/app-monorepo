@@ -15,6 +15,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
+  IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
@@ -129,5 +130,12 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
 
   callBackground(method: string, ...params: Array<any>): any {
     return this.callBackgroundMethod(false, method, ...params);
+  }
+
+  handleProviderMethods(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    payload: IJsBridgeMessagePayload,
+  ): Promise<IJsonRpcResponse<any>> {
+    throw new Error('handleProviderMethods in Proxy is mocked');
   }
 }

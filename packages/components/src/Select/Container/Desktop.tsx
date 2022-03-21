@@ -41,7 +41,7 @@ function Desktop<T>({
     visible,
     toggleVisible,
   });
-  const { position, toPxPositionValue } = useDropdownPosition({
+  const { position, toPxPositionValue, triggerWidth } = useDropdownPosition({
     triggerEle,
     domId,
     visible,
@@ -65,7 +65,7 @@ function Desktop<T>({
       <Box
         nativeID={domId}
         position="absolute"
-        width="full"
+        width={triggerWidth ? toPxPositionValue(triggerWidth) : 'full'}
         left={toPxPositionValue(position.left)}
         right={toPxPositionValue(position.right)}
         top={toPxPositionValue(position.top)}

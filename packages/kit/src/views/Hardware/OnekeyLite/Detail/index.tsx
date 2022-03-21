@@ -194,7 +194,7 @@ const OnekeyLiteDetail: React.FC = () => {
   }, [currentOptionType]);
 
   useEffect(() => {
-    if (resetValidationInput.toLocaleUpperCase() === 'RESET') {
+    if (resetValidationInput.toUpperCase() === 'RESET') {
       setResetAllow(true);
     } else if (resetValidationInput.trim().length === 0) {
       setResetAllow(null);

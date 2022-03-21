@@ -6,6 +6,7 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
 import { Box } from '@onekeyhq/components';
+import useRemoteConsole from '@onekeyhq/remote-console/src/useRemoteConsole';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -56,6 +57,7 @@ function WaitBackgroundReady({
 
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => {
+  useRemoteConsole();
   useEffect(() => {
     async function prepare() {
       await SplashScreen.preventAutoHideAsync();
