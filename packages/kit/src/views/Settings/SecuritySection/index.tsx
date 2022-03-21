@@ -13,6 +13,7 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components/src/Typography';
 import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
@@ -109,9 +110,9 @@ export const SecuritySection = () => {
   }, [enableAppLock, dispatch]);
   return (
     <>
-      <Box w="full" mb="4">
-        <Box p="2">
-          <Typography.Subheading>
+      <Box w="full" mb="6">
+        <Box pb="2">
+          <Typography.Subheading color="text-subdued">
             {intl.formatMessage({
               id: 'form__security_uppercase',
               defaultMessage: 'SECURITY',
@@ -124,7 +125,8 @@ export const SecuritySection = () => {
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
-            p="4"
+            py={4}
+            px={{ base: 4, md: 6 }}
             borderBottomWidth="1"
             borderBottomColor="divider"
             onPress={() => {
@@ -134,15 +136,20 @@ export const SecuritySection = () => {
               });
             }}
           >
-            <Typography.Body1 flex="1" numberOfLines={1} mr="3">
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex="1"
+              numberOfLines={1}
+              mr="3"
+            >
               {intl.formatMessage({
                 id: passwordCompleted
                   ? 'form__change_password'
                   : 'title__set_password',
               })}
-            </Typography.Body1>
+            </Text>
             <Box>
-              <Icon name="ChevronRightOutline" size={14} />
+              <Icon name="ChevronRightSolid" size={20} />
             </Box>
           </Pressable>
           {isOk ? (
@@ -151,16 +158,22 @@ export const SecuritySection = () => {
               flexDirection="row"
               justifyContent="space-between"
               alignItems="center"
-              p="4"
+              py={4}
+              px={{ base: 4, md: 6 }}
               borderBottomWidth="1"
               borderBottomColor="divider"
             >
-              <Typography.Body1 flex="1" numberOfLines={1} mr="3">
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mr="3"
+              >
                 {intl.formatMessage({
                   id: 'form__face_id',
                   defaultMessage: 'Face ID',
                 })}
-              </Typography.Body1>
+              </Text>
               <Box>
                 <Switch
                   labelType="false"
@@ -183,16 +196,22 @@ export const SecuritySection = () => {
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
-            p="4"
+            py={4}
+            px={{ base: 4, md: 6 }}
             borderBottomWidth="1"
             borderBottomColor="divider"
           >
-            <Typography.Body1 flex="1" numberOfLines={1} mr="3">
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex="1"
+              numberOfLines={1}
+              mr="3"
+            >
               {intl.formatMessage({
                 id: 'form__app_lock',
                 defaultMessage: 'App Lock',
               })}
-            </Typography.Body1>
+            </Text>
             <Box>
               <Switch
                 labelType="false"
@@ -235,10 +254,12 @@ export const SecuritySection = () => {
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
-            p="4"
+            py={4}
+            px={{ base: 4, md: 6 }}
             onPress={onOpenResetModal}
           >
-            <Typography.Body1
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               color="text-critical"
               flex="1"
               numberOfLines={1}
@@ -248,9 +269,9 @@ export const SecuritySection = () => {
                 id: 'form__reset_app',
                 defaultMessage: 'Reset App',
               })}
-            </Typography.Body1>
+            </Text>
             <Box>
-              <Icon name="ChevronRightOutline" size={14} />
+              <Icon name="ChevronRightSolid" size={20} />
             </Box>
           </Pressable>
         </Box>
