@@ -407,6 +407,7 @@
   "form__use_removed_api": "Utiliser l'API supprimée",
   "form__use_removed_api_desc": "Lorsqu'un site web tente d'utiliser la fenêtre supprimée.web3 API",
   "form__user_agreement": "Accord de l'utilisateur",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Valeur",
   "form__valued_str": "Valued ≥ {0}",
   "form__version": "Version",
