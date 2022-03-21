@@ -24,8 +24,8 @@ const defaultProps = {
 } as const;
 
 const buildUrl = (src?: string, _chain = '', _address = '') => {
-  const chain = _chain.toLocaleLowerCase();
-  const address = _address.toLocaleLowerCase();
+  const chain = _chain.toLowerCase();
+  const address = _address.toLowerCase();
   if (src) return src;
   if (!chain) return null;
   if (chain && !address) return `${CDN_PREFIX}assets/${chain}/${chain}.png`;

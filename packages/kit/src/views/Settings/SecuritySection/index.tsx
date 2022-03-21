@@ -57,52 +57,31 @@ export const SecuritySection = () => {
         value: 0,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_minute' },
-          { 'form__str_minute': 1 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_minute' }, { 0: 1 }),
         value: 1,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_minute' },
-          { 'form__str_minute': 5 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_minute' }, { 0: 5 }),
         value: 5,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_minute' },
-          { 'form__str_minute': 30 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_minute' }, { 0: 30 }),
         value: 30,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_hour' },
-          { 'form__str_hour': 1 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_hour' }, { 0: 1 }),
         value: 60,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_hour' },
-          { 'form__str_hour': 6 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_hour' }, { 0: 6 }),
         value: 360,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_day' },
-          { 'form__str_day': 1 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_day' }, { 0: 1 }),
         value: 1440,
       },
       {
-        label: intl.formatMessage(
-          { id: 'form__str_day' },
-          { 'form__str_day': 7 },
-        ),
+        label: intl.formatMessage({ id: 'form__str_day' }, { 0: 7 }),
         value: 10080,
       },
     ],
