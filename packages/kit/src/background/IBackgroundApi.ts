@@ -1,8 +1,14 @@
 // import type only here to avoid cycle-deps
+import {
+  IJsBridgeMessagePayload,
+  IJsonRpcResponse,
+} from '@onekeyfe/cross-inpage-provider-types';
+
 import type { Engine } from '@onekeyhq/engine';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
+import type WalletConnectAdapter from './providers/WalletConnectAdapter';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -29,9 +35,13 @@ export interface IBackgroundApiBridge {
 
   providers: Record<string, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
+  handleProviderMethods(
+    payload: IJsBridgeMessagePayload,
+  ): Promise<IJsonRpcResponse<any>>;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
   engine: Engine;
+  walletConnect: WalletConnectAdapter;
   servicePromise: ServicePromise;
   serviceDapp: ServiceDapp;
   serviceAccount: ServiceAccount;

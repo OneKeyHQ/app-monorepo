@@ -3,6 +3,14 @@ require('./env');
 function normalizeConfig(config) {
   config.plugins = [
     ...(config.plugins || []),
+    [
+      // Expose env variable to client-side app code
+      'transform-inline-environment-variables',
+      {
+        // *** ATTENTION: DO NOT expose sensitive variable here ***
+        'include': ['NODE_ENV', 'REMOTE_CONSOLE_SERVER'],
+      },
+    ],
     /*
     support lodash import in Ext background like this:
       import { isFunction } from 'lodash';

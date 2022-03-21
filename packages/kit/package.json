@@ -20,7 +20,8 @@
     "redux-persist": "^6.0.0",
     "redux-logger": "^3.0.6",
     "@types/redux-logger": "^3.0.9",
-    "swr": "^1.1.2"
+    "swr": "^1.1.2",
+    "@walletconnect/client": "^1.7.5"
   },
   "devDependencies": {},
   "scripts": {

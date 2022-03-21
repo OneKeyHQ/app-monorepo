@@ -232,6 +232,7 @@ const Approve = () => {
           setRugConfirmDialogVisible(true);
         }}
         onSecondaryActionPress={dappApprove.reject}
+        onClose={dappApprove.reject}
         scrollViewProps={{
           children: content,
         }}

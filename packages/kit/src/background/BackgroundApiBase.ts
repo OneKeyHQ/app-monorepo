@@ -134,7 +134,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.bridge = bridge;
   }
 
-  protected rpcResult(result: any) {
+  protected rpcResult(result: any): IJsonRpcResponse<any> {
     return {
       id: undefined,
       jsonrpc: '2.0',
@@ -142,7 +142,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     };
   }
 
-  async handleProviderMethods(payload: IJsBridgeMessagePayload) {
+  async handleProviderMethods(
+    payload: IJsBridgeMessagePayload,
+  ): Promise<IJsonRpcResponse<any>> {
     const { scope, origin } = payload;
     const provider: ProviderApiBase | null = this.providers[scope as string];
     if (!provider) {
@@ -162,9 +164,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     //   code: 3881,
     //   message: 'test custom error to dapp',
     // });
-    const result = (await provider.handleMethods(
-      payload,
-    )) as IJsonRpcResponse<any>;
+    const result = await provider.handleMethods(payload);
     ensureSerializable(result);
     // TODO non rpc result return in some chain provider
     return this.rpcResult(result);

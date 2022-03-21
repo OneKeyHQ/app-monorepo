@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase */
+/* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars */
+
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import {
   IInjectedProviderNames,
@@ -53,8 +54,8 @@ export interface Transaction {
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
-  _getCurrentUnlockState() {
-    return true;
+  async _getCurrentUnlockState() {
+    return Promise.resolve(true);
   }
 
   _getCurrentNetworkExtraInfo(): EvmExtraInfo {
@@ -205,9 +206,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    // debugLogger.backgroundApi('eth_requestAccounts', request);
+    debugLogger.backgroundApi(
+      'ProviderApiEthereum.eth_requestAccounts',
+      request,
+    );
 
-    const accounts = this.eth_accounts(request);
+    const accounts = await this.eth_accounts(request);
     if (accounts && accounts.length) {
       return accounts;
     }
@@ -223,14 +227,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this.eth_accounts(request);
   }
 
-  eth_accounts(request: IJsBridgeMessagePayload) {
+  async eth_accounts(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
       origin: request.origin as string,
     });
     if (!accounts) {
-      return [];
+      return Promise.resolve([]);
     }
-    return accounts.map((account) => account.address);
+    const accountAddresses = accounts.map((account) => account.address);
+    return Promise.resolve(accountAddresses);
   }
   /** Sign transaction
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
@@ -259,17 +264,17 @@ class ProviderApiEthereum extends ProviderApiBase {
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
    */
   eth_sign() {
-    throw new Error('eth_sign not supported yet');
+    throw web3Errors.rpc.methodNotSupported();
   }
 
-  eth_chainId() {
+  async eth_chainId() {
     const networkExtraInfo = this._getCurrentNetworkExtraInfo();
-    return networkExtraInfo.chainId;
+    return Promise.resolve(networkExtraInfo.chainId);
   }
 
-  net_version() {
+  async net_version() {
     const networkExtraInfo = this._getCurrentNetworkExtraInfo();
-    return networkExtraInfo.networkVersion;
+    return Promise.resolve(networkExtraInfo.networkVersion);
   }
 
   // TODO @publicMethod()
@@ -277,10 +282,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     // pass debugLoggerSettings to dapp injected provider
     const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
     return {
-      accounts: this.eth_accounts(request),
-      chainId: this.eth_chainId(),
-      networkVersion: this.net_version(),
-      isUnlocked: this._getCurrentUnlockState(),
+      accounts: await this.eth_accounts(request),
+      chainId: await this.eth_chainId(),
+      networkVersion: await this.net_version(),
+      isUnlocked: await this._getCurrentUnlockState(),
       debugLoggerSettings,
     };
   }
@@ -328,36 +333,36 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // ----------------------------------------------
 
-  protected async rpcCall(request: IJsonRpcRequest): Promise<any> {
+  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyRPCCall(
       networkId,
       request,
     );
-    // console.log('rpcCall request:', request, { networkId, result });
+    debugLogger.ethereum('BgApi rpcCall:', request, { networkId, result });
     return result;
   }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = ({ origin }: { origin: string }) => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'metamask_accountsChanged',
-        params: this.eth_accounts({ origin }),
+        params: await this.eth_accounts({ origin }),
       };
       return result;
     };
-    // console.log('notifyDappAccountsChanged', data);
+    // debugLogger.ethereum('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
-    const data = () => {
+    const data = async () => {
       const result = {
         method: 'metamask_chainChanged',
         params: {
-          chainId: this.eth_chainId(),
-          networkVersion: this.net_version(),
+          chainId: await this.eth_chainId(),
+          networkVersion: await this.net_version(),
         },
       };
       return result;
@@ -369,6 +374,11 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  personal_sign(message: string): Promise<string> {
+    throw web3Errors.rpc.methodNotFound();
+  }
 
   // ----------------------------------------------
 
