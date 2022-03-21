@@ -1,5 +1,6 @@
 import Realm from 'realm';
 
+import { NotImplemented } from '../../../errors';
 import {
   HistoryEntry,
   HistoryEntryStatus,
@@ -33,6 +34,9 @@ class HistoryEntrySchema extends Realm.Object {
 
   public ref?: string;
 
+  // Message meta below.
+  public message?: string;
+
   public static schema: Realm.ObjectSchema = {
     name: 'HistoryEntry',
     primaryKey: 'id',
@@ -48,6 +52,7 @@ class HistoryEntrySchema extends Realm.Object {
       target: 'string?',
       value: 'string?',
       rawTx: 'string?',
+      message: 'string?',
       ref: 'string?',
     },
   };
@@ -60,15 +65,27 @@ class HistoryEntrySchema extends Realm.Object {
       type: this.type,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
-      contract: this.contract || '',
-      target: this.target || '',
-      value: this.value || '',
-      rawTx: this.rawTx || '',
     };
     if (this.ref !== null) {
       Object.assign(ret, { ref: this.ref });
     }
-    return ret;
+    switch (this.type) {
+      case HistoryEntryType.TRANSFER:
+        return {
+          ...ret,
+          contract: this.contract || '',
+          target: this.target || '',
+          value: this.value || '',
+          rawTx: this.rawTx || '',
+        };
+      case HistoryEntryType.SIGN:
+        return {
+          ...ret,
+          message: this.message || '',
+        };
+      default:
+        throw new NotImplemented();
+    }
   }
 }
 
