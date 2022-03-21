@@ -8,6 +8,8 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
+import { keccak256 } from '@ethersproject/keccak256';
+import * as ethTransaction from '@ethersproject/transactions';
 import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
@@ -61,7 +63,7 @@ import {
   DBVariantAccount,
 } from './types/account';
 import { CredentialSelector, CredentialType } from './types/credential';
-import { HistoryEntryStatus } from './types/history';
+import { HistoryEntryMeta, HistoryEntryStatus } from './types/history';
 import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
@@ -697,6 +699,124 @@ class ProviderController extends BaseProviderController {
         return this.signMessage(network.id, message, signer);
       }),
     );
+  }
+
+  async signTransactions(
+    seed: Buffer,
+    password: string,
+    network: Network,
+    dbAccount: DBAccount,
+    transactions: Array<string>,
+    overwriteParams?: string,
+    autoBroadcast = true,
+  ): Promise<
+    Array<{
+      txid: string;
+      rawTx: string;
+      success: boolean;
+      txMeta: Partial<HistoryEntryMeta>;
+    }>
+  > {
+    const ret = [];
+    switch (network.impl) {
+      case IMPL_EVM: {
+        if (transactions.length !== 1) {
+          throw new NotImplemented(
+            `Only one single transaction is supported on ${IMPL_EVM}`,
+          );
+        }
+        const tx = ethTransaction.parse(transactions[0]);
+        if (typeof tx.hash !== 'undefined') {
+          throw new OneKeyInternalError('Transaction already signed.');
+        }
+        const unsignedTx = {
+          to: tx.to,
+          nonce: tx.nonce,
+          gasLimit: tx.gasLimit,
+          gasPrice: tx.gasPrice,
+          data: tx.data,
+          value: tx.value,
+          chainId: tx.chainId || parseInt(network.id.split(SEPERATOR)[1]),
+          type: tx.type,
+          accessList: tx.accessList,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+          maxFeePerGas: tx.maxFeePerGas,
+        };
+        if (typeof overwriteParams === 'string' && overwriteParams.length > 2) {
+          const toOverwrite: {
+            gasPrice?: string | BigNumber;
+            maxPriorityFeePerGas?: string | BigNumber;
+            maxFeePerGas?: string | BigNumber;
+          } = JSON.parse(overwriteParams);
+          if (typeof toOverwrite.gasPrice !== 'undefined') {
+            toOverwrite.gasPrice = new BigNumber(
+              toOverwrite.gasPrice,
+            ).shiftedBy(network.feeDecimals);
+          } else if (
+            typeof toOverwrite.maxPriorityFeePerGas !== 'undefined' &&
+            typeof toOverwrite.maxFeePerGas !== 'undefined'
+          ) {
+            toOverwrite.maxPriorityFeePerGas = new BigNumber(
+              toOverwrite.maxPriorityFeePerGas,
+            ).shiftedBy(network.feeDecimals);
+            toOverwrite.maxFeePerGas = new BigNumber(
+              toOverwrite.maxFeePerGas,
+            ).shiftedBy(network.feeDecimals);
+          }
+          Object.assign(unsignedTx, toOverwrite);
+        }
+        if (typeof unsignedTx.nonce === 'undefined') {
+          const [addressInfo] = await this.getAddresses(network.id, [
+            dbAccount.address,
+          ]);
+          if (
+            typeof addressInfo === 'undefined' ||
+            typeof addressInfo.nonce === 'undefined'
+          ) {
+            throw new OneKeyInternalError('Failed to get address nonce');
+          }
+          unsignedTx.nonce = addressInfo.nonce;
+        }
+        if (
+          typeof unsignedTx.maxPriorityFeePerGas !== 'undefined' &&
+          typeof unsignedTx.maxFeePerGas !== 'undefined'
+        ) {
+          delete unsignedTx.gasPrice;
+          unsignedTx.type = 2;
+        } else if (typeof unsignedTx.accessList === 'undefined') {
+          delete unsignedTx.type;
+        }
+        const [signature] = await Object.values(
+          this.getSigners(network.id, seed, password, dbAccount),
+        )[0].sign(
+          Buffer.from(
+            keccak256(ethTransaction.serialize(unsignedTx)).slice(2),
+            'hex',
+          ),
+        );
+        const rawTx = ethTransaction.serialize(unsignedTx, signature);
+        const txid = keccak256(rawTx);
+        let success = false;
+        if (autoBroadcast) {
+          try {
+            success = await this.broadcastTransaction(network.id, rawTx);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        const txMeta = {
+          contract: tx.data.length > 0 ? tx.to : '',
+          target: tx.data.length > 0 ? '' : tx.to,
+          value: tx.value.toString(),
+        };
+        ret.push({ txid, rawTx, success, txMeta });
+        break;
+      }
+      // TODO: other networks
+      default:
+        throw new NotImplemented();
+    }
+    return Promise.resolve(ret);
   }
 }
 
