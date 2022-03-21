@@ -1,9 +1,12 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import {
+  CurveName,
+  batchGetPrivateKeys,
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -31,7 +34,11 @@ import {
 } from './managers/account';
 import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
-import { implToAccountType, implToCoinTypes } from './managers/impl';
+import {
+  getDefaultCurveByCoinType,
+  implToAccountType,
+  implToCoinTypes,
+} from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
@@ -331,6 +338,37 @@ class Engine {
     const account = await this.buildReturnedAccount(dbAccount, networkId);
     account.tokens = await this.dbApi.getTokens(networkId, accountId);
     return account;
+  }
+
+  @backgroundMethod()
+  async getAccountPrivateKey(
+    accountId: string,
+    password: string,
+    // networkId?: string, TODO: different curves on different networks.
+  ): Promise<string> {
+    const walletId = getWalletIdFromAccountId(accountId);
+    if (!walletIsHD(walletId)) {
+      throw new OneKeyInternalError(
+        'Only private key of HD accounts can be exported.',
+      );
+    }
+    const [credential, dbAccount] = await Promise.all([
+      this.dbApi.getCredential(walletId, password),
+      this.dbApi.getAccount(accountId),
+    ]);
+
+    const curve = getDefaultCurveByCoinType(dbAccount.coinType);
+    const pathComponents = dbAccount.path.split('/');
+    const relPath = pathComponents.pop() as string;
+    const { key } = batchGetPrivateKeys(
+      curve as CurveName,
+      credential.seed,
+      password,
+      pathComponents.join('/'),
+      [relPath],
+    )[0].extendedKey;
+
+    return `0x${decrypt(password, key).toString('hex')}`;
   }
 
   @backgroundMethod()

@@ -54,6 +54,7 @@ import {
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import * as OneKeyHardware from './hardware';
+import { getCurveByImpl } from './managers/impl';
 import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import {
@@ -71,53 +72,23 @@ import { Token } from './types/token';
 const CGK_BATCH_SIZE = 100;
 
 // IMPL naming aren't necessarily the same.
-const IMPL_MAPPINGS: Record<string, string> = {
-  [IMPL_EVM]: 'eth',
-  [IMPL_SOL]: 'sol',
-  [IMPL_ALGO]: 'algo',
-  [IMPL_NEAR]: 'near',
-  [IMPL_STC]: 'stc',
-  [IMPL_CFX]: 'cfx',
+const IMPL_MAPPINGS: Record<
+  string,
+  { implName?: string; defaultClient: string }
+> = {
+  [IMPL_EVM]: { implName: 'eth', defaultClient: 'Geth' },
+  [IMPL_SOL]: { defaultClient: 'Solana' },
+  [IMPL_ALGO]: { defaultClient: 'Algod' },
+  [IMPL_NEAR]: { defaultClient: 'NearCli' },
+  [IMPL_STC]: { defaultClient: 'StcClient' },
+  [IMPL_CFX]: { defaultClient: 'Conflux' },
 };
 
 type Curve = 'secp256k1' | 'ed25519';
 
-type ImplProperty = {
-  defaultCurve: Curve;
-  clientProvider: string;
-  implOptions?: { [key: string]: any };
-};
-
-const IMPL_PROPERTIES: Record<string, ImplProperty> = {
-  [IMPL_EVM]: {
-    defaultCurve: 'secp256k1',
-    clientProvider: 'Geth',
-  },
-  [IMPL_SOL]: {
-    defaultCurve: 'ed25519',
-    clientProvider: 'Solana',
-  },
-  [IMPL_ALGO]: {
-    defaultCurve: 'ed25519',
-    clientProvider: 'Algod',
-  },
-  [IMPL_NEAR]: {
-    defaultCurve: 'ed25519',
-    clientProvider: 'NearCli',
-  },
-  [IMPL_STC]: {
-    defaultCurve: 'ed25519',
-    clientProvider: 'StcClient',
-  },
-  [IMPL_CFX]: {
-    defaultCurve: 'secp256k1',
-    clientProvider: 'Conflux',
-  },
-};
-
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
-  const implProperties = IMPL_PROPERTIES[dbNetwork.impl];
-  if (typeof implProperties === 'undefined') {
+  const defaultClient = IMPL_MAPPINGS[dbNetwork.impl]?.defaultClient;
+  if (typeof defaultClient === 'undefined') {
     throw new OneKeyInternalError('Unable to build chain info from dbNetwork.');
   }
 
@@ -137,11 +108,11 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     code: dbNetwork.id,
     feeCode: dbNetwork.id,
     impl: dbNetwork.impl,
-    curve: (dbNetwork.curve as Curve) || implProperties.defaultCurve,
+    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as Curve,
     implOptions,
     clients: [
       {
-        name: implProperties.clientProvider,
+        name: defaultClient,
         args:
           dbNetwork.impl === IMPL_ALGO
             ? [dbNetwork.rpcURL, { url: `${dbNetwork.rpcURL}/idx2` }]
@@ -296,9 +267,8 @@ class ProviderController extends BaseProviderController {
     if (typeof provider === 'undefined') {
       throw new OneKeyInternalError('Provider not found.');
     }
-    const { chainInfo } = this.providers[networkId];
-    const implProperties = IMPL_PROPERTIES[chainInfo.impl];
-    const curve = chainInfo.curve || implProperties.defaultCurve;
+
+    const { curve } = this.providers[networkId].chainInfo;
     return new Verifier(pub, curve as Curve);
   }
 
@@ -312,10 +282,8 @@ class ProviderController extends BaseProviderController {
     if (typeof provider === 'undefined') {
       throw new OneKeyInternalError('Provider not found.');
     }
-    const { chainInfo } = this.providers[networkId];
-    const implProperties = IMPL_PROPERTIES[chainInfo.impl];
-    const curve = chainInfo.curve || implProperties.defaultCurve;
 
+    const { curve } = this.providers[networkId].chainInfo;
     const pathComponents = dbAccount.path.split('/');
     const relPath = pathComponents.pop() as string;
     const { extendedKey } = batchGetPrivateKeys(
@@ -379,7 +347,7 @@ class ProviderController extends BaseProviderController {
   }
 
   requireChainImpl(impl: string): any {
-    return super.requireChainImpl(IMPL_MAPPINGS[impl] || impl);
+    return super.requireChainImpl(IMPL_MAPPINGS[impl]?.implName || impl);
   }
 
   async getEVMChainId(url: string): Promise<string> {
