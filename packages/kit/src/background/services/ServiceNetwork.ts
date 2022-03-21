@@ -34,6 +34,7 @@ class ServiceNetwork extends ServiceBase {
         });
       },
     );
+    this.backgroundApi.walletConnect.notifySessionChanged();
   }
 
   @backgroundMethod()

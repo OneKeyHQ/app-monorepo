@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 
 import { NavigationProp, RouteProp, useRoute } from '@react-navigation/core';
@@ -5,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import {
   Box,
+  Button,
   Center,
   FlatList,
   Pressable,
@@ -14,6 +16,10 @@ import {
   StackBasicRoutesParams,
   StackRoutes,
 } from '@onekeyhq/kit/src/routes/Dev';
+
+import useAppNavigation, {
+  navigationGoBack,
+} from '../../hooks/useAppNavigation';
 
 type StackRoutesType = typeof StackRoutes;
 
@@ -41,6 +47,9 @@ const Index = () => {
     <FlatList
       data={componentsRoute}
       bg="background-hovered"
+      ListHeaderComponent={() => (
+        <Button onPress={navigationGoBack}>Back to HOME</Button>
+      )}
       renderItem={({ item, index }) => (
         <Pressable
           onPress={() => {

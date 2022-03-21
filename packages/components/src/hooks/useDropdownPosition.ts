@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 
@@ -37,7 +37,7 @@ function getDomElementPosition(ele: HTMLElement) {
   };
 }
 
-function toPxPositionValue(num?: number) {
+function toPxPositionValue(num?: number | null) {
   if (isNil(num)) {
     return undefined;
   }
@@ -61,6 +61,7 @@ function useDropdownPosition({
   });
   // TODO reset position to undefined after window resize
   const isPositionNotReady = isNil(position.left) && isNil(position.top);
+  const triggerWidth = useRef<number | null>(null);
 
   useEffect(() => {
     let timer: any = null;
@@ -69,6 +70,7 @@ function useDropdownPosition({
     }
     if (triggerEle && visible) {
       const pos = getDomElementPosition(triggerEle);
+      triggerWidth.current = pos.width;
 
       if (!setPositionOnlyMounted || isPositionNotReady) {
         // TODO supports dropdownPosition==='center'
@@ -147,6 +149,7 @@ function useDropdownPosition({
 
   return {
     position,
+    triggerWidth: triggerWidth.current,
     toPxPositionValue,
   };
 }

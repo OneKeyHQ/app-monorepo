@@ -25,24 +25,31 @@ export const tabRoutes = [
     tabBarIcon: () => 'HomeOutline',
     translationId: 'title__home',
   },
-  // {
-  //   name: TabRoutes.Swap,
-  //   component: SwapScreen,
-  //   tabBarIcon: () => 'SwitchHorizontalOutline',
-  //   translationId: 'title__swap',
-  // },
-  // {
-  //   name: TabRoutes.Portfolio,
-  //   component: PortfolioScreen,
-  //   tabBarIcon: () => 'TrendingUpOutline',
-  //   translationId: 'title__portfolio',
-  // },
-  // {
-  //   name: TabRoutes.Discover,
-  //   component: DiscoverScreen,
-  //   tabBarIcon: () => 'CompassOutline',
-  //   translationId: 'title__explore',
-  // },
+  ...(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      return [
+        {
+          name: TabRoutes.Swap,
+          component: SwapScreen,
+          tabBarIcon: () => 'SwitchHorizontalOutline',
+          translationId: 'title__swap',
+        },
+        {
+          name: TabRoutes.Portfolio,
+          component: PortfolioScreen,
+          tabBarIcon: () => 'TrendingUpOutline',
+          translationId: 'title__portfolio',
+        },
+        {
+          name: TabRoutes.Discover,
+          component: DiscoverScreen,
+          tabBarIcon: () => 'CompassOutline',
+          translationId: 'title__explore',
+        },
+      ];
+    }
+    return [];
+  })(),
   {
     name: TabRoutes.Me,
     component: MeScreen,

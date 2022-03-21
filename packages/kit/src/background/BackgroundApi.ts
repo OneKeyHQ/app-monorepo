@@ -3,6 +3,7 @@ import { Engine } from '@onekeyhq/engine';
 import BackgroundApiBase from './BackgroundApiBase';
 import { backgroundMethod } from './decorators';
 import { IBackgroundApi } from './IBackgroundApi';
+import WalletConnectAdapter from './providers/WalletConnectAdapter';
 import ServiceAccount from './services/ServiceAccount';
 import ServiceApp from './services/ServiceApp';
 import ServiceCronJob from './services/ServiceCronJob';
@@ -13,6 +14,10 @@ import ServicePromise from './services/ServicePromise';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   engine = new Engine();
+
+  walletConnect = new WalletConnectAdapter({
+    backgroundApi: this,
+  });
 
   servicePromise = new ServicePromise({
     backgroundApi: this,
