@@ -64,6 +64,7 @@ class ServicePromise extends ServiceBase {
       reject,
       data,
     };
+    // TODO max callbacks length check, remove first item if overflow
     return latestId;
   }
 

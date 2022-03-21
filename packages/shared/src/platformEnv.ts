@@ -106,7 +106,7 @@ export const isLinux = (): boolean => {
 // MAC APP Store mode
 export const isMAS = (): boolean => !!process.env.IS_MAS;
 
-export const isDev = (): boolean => process.env.NODE_ENV === 'development';
+export const isDev = (): boolean => process.env.NODE_ENV !== 'production';
 
 export const isIOS = (): boolean => Platform.OS === 'ios';
 

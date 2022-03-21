@@ -54,7 +54,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  protected rpcCall(request: IJsonRpcRequest): any {
+  public rpcCall(request: IJsonRpcRequest): any {
     // noop
   }
 }

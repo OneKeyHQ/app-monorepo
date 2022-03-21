@@ -1,0 +1,22 @@
+{
+  "name": "@onekeyhq/remote-console",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "yarn open-browser && next dev -p 3498",
+    "open-browser": "open http://127.0.0.1:3498",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "server": "node ./src/server.mjs"
+  },
+  "dependencies": {
+    "next": "12.1.0",
+    "console-feed": "^3.3.0",
+    "immutability-helper": "^3.1.1"
+  },
+  "devDependencies": {
+    "ws": "^8.5.0",
+    "@next/eslint-plugin-next": "^12.1.0"
+  }
+}
