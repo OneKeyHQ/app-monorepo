@@ -12,6 +12,7 @@ import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
+import CloudBackupGallery from '@onekeyhq/kit/src/views/Components/stories/CloudBackup';
 import DappModalsGallery from '@onekeyhq/kit/src/views/Components/stories/DappModals';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
@@ -53,6 +54,7 @@ export enum StackRoutes {
   Developer = 'developer',
   ComponentApproval = 'component/approval',
   ComponentSearchBar = 'component/searchBar',
+  ComponentCloudBackup = 'component/cloudBackup',
   ComponentTextarea = 'component/textarea',
   ComponentAddress = 'component/address',
   ComponentInput = 'component/input',
@@ -99,6 +101,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.Developer]: { ts: number };
   [StackRoutes.ComponentApproval]: undefined;
   [StackRoutes.ComponentSearchBar]: undefined;
+  [StackRoutes.ComponentCloudBackup]: undefined;
   [StackRoutes.ComponentTextarea]: undefined;
   [StackRoutes.ComponentAddress]: undefined;
   [StackRoutes.ComponentInput]: undefined;
@@ -151,6 +154,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentDappModals, component: DappModalsGallery },
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
+  { name: StackRoutes.ComponentCloudBackup, component: CloudBackupGallery },
   { name: StackRoutes.ComponentToken, component: TokenGallery },
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },

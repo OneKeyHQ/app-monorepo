@@ -107,5 +107,17 @@
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
 	</array>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.so.onekey.wallet</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>One</string>
+			<key>NSUbiquitousContainerName</key>
+			<string>app-name</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

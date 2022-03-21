@@ -50,6 +50,7 @@
     "react-native-confirmation-code-field": "^7.2.0",
     "react-native-crypto": "^2.2.0",
     "react-native-gesture-handler": "~1.10.2",
+    "react-native-cloud-fs": "brunobar79/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8",
     "react-native-keyboard-manager": "^6.5.4-4",
     "react-native-pager-view": "^5.4.9",
     "react-native-randombytes": "^3.6.1",

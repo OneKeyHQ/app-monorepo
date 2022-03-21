@@ -1,5 +1,6 @@
 import { NativeModule } from 'react-native';
 
+import { FilesType } from '../cloudBackup/type';
 import {
   CardInfo,
   Callback as LiteCallback,
@@ -25,8 +26,34 @@ export interface OKLiteManagerInterface extends NativeModule {
   intoSetting: () => void;
 }
 
+export interface RNCloudFsInterface extends NativeModule {
+  getGoogleDriveDocument: (id: string) => Promise<string>;
+  getIcloudDocument: (filename: string) => Promise<string>;
+  fileExists: (
+    options:
+      | { scope: string; targetPath: string }
+      | { fileId: any; scope: string },
+  ) => Promise<boolean>;
+  loginIfNeeded: () => Promise<boolean>;
+  syncCloud: () => Promise<boolean>;
+  deleteFromCloud: (item: any) => Promise;
+  listFiles: (options: {
+    scope: string;
+    targetPath: string;
+  }) => Promise<{ files: FilesType[]; path: string }>;
+  copyToCloud: (options: {
+    mimeType: string;
+    scope: string;
+    sourcePath: { path: string };
+    targetPath: string;
+  }) => Promise;
+  isAvailable: () => Promise<boolean>;
+  logout: () => void;
+}
+
 declare module 'react-native' {
   interface NativeModulesStatic {
     OKLiteManager: OKLiteManagerInterface;
+    RNCloudFs: RNCloudFsInterface;
   }
 }
