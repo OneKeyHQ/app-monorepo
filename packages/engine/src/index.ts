@@ -454,8 +454,7 @@ class Engine {
       impl,
       credential,
       outputFormat as 'xpub' | 'pub' | 'address',
-      start,
-      limit,
+      Array.from(Array(limit).keys()).map((index) => start + index),
       purpose,
       dbNetwork.curve,
     );
@@ -484,14 +483,15 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addHDAccount(
+  async addHDAccounts(
     password: string,
     walletId: string,
     networkId: string,
-    index?: number,
-    name?: string,
+    indexes?: Array<number>,
+    names?: Array<string>,
     purpose?: number,
-  ): Promise<Account> {
+    callback = (_account: Account): Promise<boolean> => Promise.resolve(true),
+  ): Promise<Array<Account>> {
     // And an HD account to wallet. Path and name are auto detected if not specified.
     // Raise an error if:
     // 1. wallet,
@@ -512,11 +512,15 @@ class Engine {
     if (typeof coinType === 'undefined') {
       throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
     }
+    const accountType = implToAccountType[impl];
+    if (typeof accountType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+
     const usedPurpose = purpose || getDefaultPurpose(impl);
-    const usedIndex =
-      index ||
-      wallet.nextAccountIds[`${usedPurpose}'/${implToCoinTypes[impl]}'`] ||
-      0;
+    const usedIndexes = indexes || [
+      wallet.nextAccountIds[`${usedPurpose}'/${implToCoinTypes[impl]}'`] || 0,
+    ];
     let credential: CredentialSelector;
     let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
 
@@ -533,42 +537,48 @@ class Engine {
       throw new OneKeyInternalError('Incorrect wallet selector.');
     }
 
-    const [accountInfo] = await getXpubs(
+    const accountInfos = await getXpubs(
       impl,
       credential,
       outputFormat as 'xpub' | 'pub' | 'address',
-      usedIndex,
-      1,
+      usedIndexes,
       purpose,
       dbNetwork.curve,
     );
+    const ret: Array<Account> = [];
+    let accountIndex = 0;
 
-    const accountType = implToAccountType[impl];
-    if (typeof accountType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    for (const accountInfo of accountInfos) {
+      let address = '';
+      if (accountType === AccountType.VARIANT && outputFormat === 'pub') {
+        address = await this.providerManager.addressFromPub(
+          networkId,
+          accountInfo.info,
+        );
+        address = await this.providerManager.addressToBase(networkId, address);
+      } else if (outputFormat === 'address') {
+        address = accountInfo.info;
+      }
+
+      const accountNum = usedIndexes[accountIndex] + 1;
+      const name = (names || [])[accountIndex] || `Account #${accountNum}`;
+      const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
+        id: `${wallet.id}--${accountInfo.path}`,
+        name,
+        type: accountType,
+        path: accountInfo.path,
+        coinType,
+        pub: outputFormat === 'pub' ? accountInfo.info : '',
+        address,
+      });
+      const account = await this.getAccount(id, networkId);
+      ret.push(account);
+      if ((await callback(account)) === false) {
+        break;
+      }
+      accountIndex += 1;
     }
-
-    let address = '';
-    if (accountType === AccountType.VARIANT && outputFormat === 'pub') {
-      address = await this.providerManager.addressFromPub(
-        networkId,
-        accountInfo.info,
-      );
-      address = await this.providerManager.addressToBase(networkId, address);
-    } else if (outputFormat === 'address') {
-      address = accountInfo.info;
-    }
-
-    const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
-      id: `${wallet.id}--${accountInfo.path}`,
-      name: name || `Account #${usedIndex + 1}`,
-      type: accountType,
-      path: accountInfo.path,
-      coinType,
-      pub: outputFormat === 'pub' ? accountInfo.info : '',
-      address,
-    });
-    return this.getAccount(id, networkId);
+    return ret;
   }
 
   addImportedAccount(
