@@ -211,6 +211,13 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                         id: 'form__rpc_url_wrong_format',
                       }),
                     },
+                    maxLength: {
+                      value: 100,
+                      message: intl.formatMessage(
+                        { id: 'form__validator_max_length' },
+                        { value: 100 },
+                      ),
+                    },
                     validate: () => rpcUrlStatus.error,
                   }}
                 >
@@ -247,6 +254,14 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     </Typography.Body2>
                   }
                   control={control}
+                  rules={{
+                    maxLength: {
+                      value: 15,
+                      message: intl.formatMessage({
+                        id: 'form__symbol_invalid',
+                      }),
+                    },
+                  }}
                 >
                   <Form.Input placeholder="ETH" />
                 </Form.Item>
@@ -265,6 +280,21 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     </Typography.Body2>
                   }
                   control={control}
+                  rules={{
+                    pattern: {
+                      value: /https?:\/\//,
+                      message: intl.formatMessage({
+                        id: 'form__blockchain_explorer_url_invalid',
+                      }),
+                    },
+                    maxLength: {
+                      value: 100,
+                      message: intl.formatMessage(
+                        { id: 'form__validator_max_length' },
+                        { value: 100 },
+                      ),
+                    },
+                  }}
                 >
                   <Form.Input />
                 </Form.Item>

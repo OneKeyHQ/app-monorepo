@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
@@ -34,13 +34,18 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
     navigation.setOptions({ title });
   }, [navigation, account, token, nativeToken]);
 
+  const headerView = useMemo(
+    () => <TokenInfo token={token} network={undefined} />,
+    [token],
+  );
+
   return (
     <Box bg="background-default" flex={1}>
       <HistoricalRecords
         accountId={accountId}
         networkId={networkId}
         tokenId={tokenId}
-        headerView={<TokenInfo token={token} network={undefined} />}
+        headerView={headerView}
       />
     </Box>
   );

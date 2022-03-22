@@ -192,6 +192,13 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                         id: 'form__rpc_url_wrong_format',
                       }),
                     },
+                    maxLength: {
+                      value: 100,
+                      message: intl.formatMessage(
+                        { id: 'form__validator_max_length' },
+                        { value: 100 },
+                      ),
+                    },
                     validate: () => rpcUrlStatus.error,
                   }}
                 >
@@ -254,6 +261,13 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                       message: intl.formatMessage({
                         id: 'form__blockchain_explorer_url_invalid',
                       }),
+                    },
+                    maxLength: {
+                      value: 100,
+                      message: intl.formatMessage(
+                        { id: 'form__validator_max_length' },
+                        { value: 100 },
+                      ),
                     },
                   }}
                 >
