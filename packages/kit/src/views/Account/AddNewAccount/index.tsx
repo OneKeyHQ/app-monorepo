@@ -58,12 +58,12 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     async function main() {
       const network = getValues('network');
       const name = getValues('name');
-      const account = await backgroundApiProxy.engine.addHDAccount(
+      const [account] = await backgroundApiProxy.engine.addHDAccounts(
         password,
         selectedWalletId,
         network,
         undefined,
-        name,
+        [name],
       );
       const wallet = wallets.find((w) => w.id === selectedWalletId) ?? null;
       const selectedNetwork = networks?.find((n) => n.id === network) ?? null;
