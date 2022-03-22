@@ -104,8 +104,6 @@ class Engine {
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
-
-    this.syncPresetNetworks();
   }
 
   async syncPresetNetworks(): Promise<void> {
