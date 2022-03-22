@@ -5,8 +5,9 @@ import {
   batchGetPrivateKeys,
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
+  publicFromPrivate,
 } from '@onekeyfe/blockchain-libs/dist/secret';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { decrypt, encrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -19,7 +20,14 @@ import {
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
 import { DbApi } from './dbs';
-import { DBAPI, DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
+import {
+  DBAPI,
+  DEFAULT_VERIFY_STRING,
+  ExportedPrivateKeyCredential,
+  ExportedSeedCredential,
+  checkPassword,
+  ExportedCredential,
+} from './dbs/base';
 import {
   FailedToTransfer,
   NotImplemented,
@@ -47,6 +55,7 @@ import { getNetworkIdFromTokenId } from './managers/token';
 import {
   walletCanBeRemoved,
   walletIsHD,
+  walletIsImported,
   walletNameCanBeUpdated,
 } from './managers/wallet';
 import {
@@ -264,7 +273,10 @@ class Engine {
     if (!walletIsHD(walletId)) {
       throw new OneKeyInternalError(`Wallet ${walletId} is not an HD wallet.`);
     }
-    const credential = await this.dbApi.getCredential(walletId, password);
+    const credential = (await this.dbApi.getCredential(
+      walletId,
+      password,
+    )) as ExportedSeedCredential;
     return mnemonicFromEntropy(credential.entropy, password);
   }
 
@@ -371,11 +383,12 @@ class Engine {
         'Only private key of HD accounts can be exported.',
       );
     }
-    const [credential, dbAccount] = await Promise.all([
+    const [exportedCredential, dbAccount] = await Promise.all([
       this.dbApi.getCredential(walletId, password),
       this.dbApi.getAccount(accountId),
     ]);
 
+    const credential = exportedCredential as ExportedSeedCredential;
     const curve = getDefaultCurveByCoinType(dbAccount.coinType);
     const pathComponents = dbAccount.path.split('/');
     const relPath = pathComponents.pop() as string;
@@ -457,9 +470,13 @@ class Engine {
     let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
 
     if (wallet.type === WALLET_TYPE_HD) {
+      const { seed } = (await this.dbApi.getCredential(
+        wallet.id,
+        password,
+      )) as ExportedSeedCredential;
       credential = {
         type: CredentialType.SOFTWARE,
-        seed: (await this.dbApi.getCredential(wallet.id, password)).seed,
+        seed,
         password,
       };
     } else if (wallet.type === WALLET_TYPE_HW) {
@@ -547,9 +564,13 @@ class Engine {
     let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
 
     if (wallet.type === WALLET_TYPE_HD) {
+      const { seed } = (await this.dbApi.getCredential(
+        wallet.id,
+        password,
+      )) as ExportedSeedCredential;
       credential = {
         type: CredentialType.SOFTWARE,
-        seed: (await this.dbApi.getCredential(wallet.id, password)).seed,
+        seed,
         password,
       };
     } else if (wallet.type === WALLET_TYPE_HW) {
@@ -603,14 +624,62 @@ class Engine {
     return ret;
   }
 
-  addImportedAccount(
-    password: string,
-    impl: string,
-    credential: string,
+  @backgroundMethod()
+  async addImportedAccount(
+    // password: string,
+    // networkId: string,
+    // credential: string,
+    // name?: string,
   ): Promise<Account> {
+
     // Add an imported account. Raise an error if account already exists, credential is illegal or password is wrong.
-    console.log(`addImportedAccount ${password} ${impl} ${credential}`);
-    throw new NotImplemented();
+
+    let password: string = '11111111';
+    let networkId: string = 'evm--1';
+    let privateKey: string = '04dc8c375dea8be154f4a5afca2129125bd61b29c0c4a9d886e77907a717ae58';
+    let name: string = 'Account #2';
+
+    const impl = getImplFromNetworkId(networkId);
+    if (impl !== IMPL_EVM) {
+      // TODO: support other impls besides EVMs.
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+
+    const coinType = implToCoinTypes[impl];
+    if (typeof coinType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+    const accountType = implToAccountType[impl];
+    if (typeof accountType === 'undefined') {
+      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
+    }
+
+    const encryptedPrivateKey = encrypt(password, Buffer.from(privateKey, 'hex'));
+    const curve = getDefaultCurveByCoinType(coinType) as CurveName;
+    const publicKey = publicFromPrivate(curve, encryptedPrivateKey, password).toString('hex');
+    const accountId = `imported--${coinType}--${publicKey}`;
+    const address = await this.providerManager.addressFromPub(
+      networkId,
+      publicKey,
+    );
+
+    const wallet = await this.dbApi.addImportedAccountCredential(
+      password,
+      encryptedPrivateKey,
+      accountId,
+      name,
+    );
+
+    const a = await this.dbApi.addAccountToWallet('imported', {
+      id: accountId,
+      name: name || '',
+      type: accountType,
+      path: '',
+      coinType,
+      pub: publicKey,
+      address,
+    });
+    return this.getAccount(accountId, networkId);
   }
 
   @backgroundMethod()
@@ -972,21 +1041,27 @@ class Engine {
     ]);
 
     let credential: CredentialSelector;
+    const exportedCredential = await this.dbApi.getCredential(
+      getWalletIdFromAccountId(accountId),
+      password,
+    );
     if (dbAccount.id.startsWith('hd')) {
+      const { seed } = exportedCredential as ExportedSeedCredential;
       credential = {
         type: CredentialType.SOFTWARE,
-        seed: (
-          await this.dbApi.getCredential(
-            getWalletIdFromAccountId(accountId),
-            password,
-          )
-        ).seed,
+        seed,
         password,
       };
     } else if (dbAccount.id.startsWith('hw')) {
       credential = { type: CredentialType.HARDWARE };
+    } else if (dbAccount.id.startsWith('imported')) {
+      const { privateKey } = exportedCredential as ExportedPrivateKeyCredential;
+      credential = {
+        type: CredentialType.PRIVATE_KEY,
+        privateKey,
+        password,
+      };
     } else {
-      // TODO: imported account
       throw new OneKeyInternalError('Incorrect account selector.');
     }
 
@@ -1034,14 +1109,37 @@ class Engine {
     messages: Array<Message>,
     ref?: string,
   ): Promise<Array<string>> {
-    const [credential, network, dbAccount] = await Promise.all([
-      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+
+    let exportedCredential: ExportedCredential;
+    // TODO: address check needed?
+    let credential: CredentialSelector;
+    if (walletIsHD(accountId)) {
+      exportedCredential = await this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password);
+      const { seed } = exportedCredential as ExportedSeedCredential;
+      credential = {
+        type: CredentialType.SOFTWARE,
+        seed,
+        password,
+      };
+    } else if (walletIsImported(accountId)) {
+      exportedCredential = await this.dbApi.getCredential(accountId, password);
+      const { privateKey } = exportedCredential as ExportedPrivateKeyCredential;
+      credential = {
+        type: CredentialType.PRIVATE_KEY,
+        privateKey,
+        password,
+      };
+    } else {
+      throw new OneKeyInternalError('Incorrect account selector.');
+    }
+
+    const [network, dbAccount] = await Promise.all([
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
-    // TODO: address check needed?
+
     const signatures = await this.providerManager.signMessages(
-      credential.seed,
+      credential,
       password,
       network,
       dbAccount,

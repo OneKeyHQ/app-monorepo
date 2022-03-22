@@ -24,15 +24,27 @@ type OneKeyContext = {
   verifyString: string;
 };
 
-type StoredCredential = {
+type StoredSeedCredential = {
   entropy: string;
   seed: string;
 };
 
-type ExportedCredential = {
+type StoredPrivateKeyCredential = {
+  privateKey: string;
+};
+
+type StoredCredential = StoredSeedCredential | StoredPrivateKeyCredential;
+
+type ExportedSeedCredential = {
   entropy: Buffer;
   seed: Buffer;
 };
+
+type ExportedPrivateKeyCredential = {
+  privateKey: Buffer;
+};
+
+type ExportedCredential = ExportedSeedCredential | ExportedPrivateKeyCredential;
 
 const DEFAULT_VERIFY_STRING = 'OneKey';
 const MAIN_CONTEXT = 'mainContext';
@@ -81,6 +93,12 @@ interface DBAPI {
     password: string,
     rs: RevealableSeed,
     backuped: boolean,
+    name?: string,
+  ): Promise<Wallet>;
+  addImportedAccountCredential(
+    password: string,
+    encryptedPrivateKey: Buffer,
+    walletId: string,
     name?: string,
   ): Promise<Wallet>;
   addHWWallet(id: string, name: string): Promise<Wallet>;
@@ -136,5 +154,14 @@ interface DBAPI {
   getDevices(): Promise<Array<Device>>;
 }
 
-export type { DBAPI, OneKeyContext, StoredCredential, ExportedCredential };
+export type {
+  DBAPI,
+  OneKeyContext,
+  StoredCredential,
+  StoredSeedCredential,
+  StoredPrivateKeyCredential,
+  ExportedCredential,
+  ExportedSeedCredential,
+  ExportedPrivateKeyCredential,
+};
 export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, decrypt, MAIN_CONTEXT };

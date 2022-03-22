@@ -38,10 +38,13 @@ import {
   MAIN_CONTEXT,
   OneKeyContext,
   StoredCredential,
+  StoredSeedCredential,
+  StoredPrivateKeyCredential,
   checkPassword,
   decrypt,
   encrypt,
 } from '../base';
+import { walletIsImported } from '../../managers/wallet';
 
 type TokenBinding = {
   accountId: string;
@@ -143,7 +146,7 @@ class IndexedDBApi implements DBAPI {
 
       request.onsuccess = (_event) => {
         const transaction: IDBTransaction = request.result.transaction(
-          [NETWORK_STORE_NAME],
+          [NETWORK_STORE_NAME, WALLET_STORE_NAME],
           'readwrite',
         );
         transaction.onerror = (_tevent) => {
@@ -153,6 +156,15 @@ class IndexedDBApi implements DBAPI {
         transaction.oncomplete = (_tevent) => {
           resolve(request.result);
         };
+
+        // transaction.objectStore(WALLET_STORE_NAME).add({
+        //   id: 'imported',
+        //   name: 'imported',
+        //   type: WALLET_TYPE_IMPORTED,
+        //   backuped: true,
+        //   accounts: [],
+        //   nextAccountIds: { 'global': 1 },
+        // });
       };
     });
   }
@@ -214,25 +226,40 @@ class IndexedDBApi implements DBAPI {
               if (cursor) {
                 const credentialItem: { id: string; credential: string } =
                   cursor.value as { id: string; credential: string };
-                const credentialJSON: StoredCredential = JSON.parse(
-                  credentialItem.credential,
-                );
-                credentialItem.credential = JSON.stringify({
-                  entropy: encrypt(
-                    newPassword,
-                    decrypt(
-                      oldPassword,
-                      Buffer.from(credentialJSON.entropy, 'hex'),
-                    ),
-                  ).toString('hex'),
-                  seed: encrypt(
-                    newPassword,
-                    decrypt(
-                      oldPassword,
-                      Buffer.from(credentialJSON.seed, 'hex'),
-                    ),
-                  ).toString('hex'),
-                });
+
+                if (credentialItem.id.startsWith('imported')) {
+                  const privateKeyCredentialJSON: StoredPrivateKeyCredential = JSON.parse(
+                    credentialItem.credential,
+                  );
+                  credentialItem.credential = JSON.stringify({
+                    privateKey: encrypt(
+                      newPassword,
+                      decrypt(oldPassword, Buffer.from(privateKeyCredentialJSON.privateKey, 'hex')),
+                    ).toString('hex'),
+                  });
+
+                } else {
+                  const credentialJSON: StoredSeedCredential = JSON.parse(
+                    credentialItem.credential,
+                  );
+                  credentialItem.credential = JSON.stringify({
+                    entropy: encrypt(
+                      newPassword,
+                      decrypt(
+                        oldPassword,
+                        Buffer.from(credentialJSON.entropy, 'hex'),
+                      ),
+                    ).toString('hex'),
+                    seed: encrypt(
+                      newPassword,
+                      decrypt(
+                        oldPassword,
+                        Buffer.from(credentialJSON.seed, 'hex'),
+                      ),
+                    ).toString('hex'),
+                  });
+                }
+
                 cursor.update(credentialItem);
                 cursor.continue();
               }
@@ -741,6 +768,47 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  addImportedAccountCredential(
+    password: string,
+    encryptedPrivateKey: Buffer,
+    accountId: string,
+    name?: string,
+  ): Promise<Wallet> {
+    let ret: Wallet;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to add Imported Account.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const contextStore = transaction.objectStore(CONTEXT_STORE_NAME);
+          const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_cevent) => {
+            const context: OneKeyContext =
+              getMainContextRequest.result as OneKeyContext;
+            if (!checkPassword(context, password)) {
+              reject(new WrongPassword());
+              return;
+            }
+            transaction.objectStore(CREDENTIAL_STORE_NAME).add({
+              id: accountId,
+              credential: JSON.stringify({
+                encryptedPrivateKey: encryptedPrivateKey.toString('hex'),
+              }),
+            });
+          };
+        }),
+    );
+  }
+
   addHWWallet(id: string, name: string): Promise<Wallet> {
     let ret: Wallet;
     return this.ready.then(
@@ -911,7 +979,7 @@ class IndexedDBApi implements DBAPI {
   }
 
   getCredential(
-    walletId: string,
+    credentialId: string, // walletId || acountId
     password: string,
   ): Promise<ExportedCredential> {
     return this.ready.then(
@@ -933,28 +1001,34 @@ class IndexedDBApi implements DBAPI {
             }
             const getCredentialRequest = transaction
               .objectStore(CREDENTIAL_STORE_NAME)
-              .get(walletId);
+              .get(credentialId);
             getCredentialRequest.onsuccess = (_creevent) => {
               if (typeof getCredentialRequest.result === 'undefined') {
                 reject(
                   new OneKeyInternalError(
-                    `Cannot find seed of wallet ${walletId}.`,
+                    `Cannot find seed of wallet ${credentialId}.`,
                   ),
                 );
                 return;
               }
-              const credentialJSON: StoredCredential = JSON.parse(
-                (
-                  getCredentialRequest.result as {
-                    id: string;
-                    credential: string;
-                  }
-                ).credential,
-              );
-              resolve({
-                entropy: Buffer.from(credentialJSON.entropy, 'hex'),
-                seed: Buffer.from(credentialJSON.seed, 'hex'),
-              });
+
+              const { credential } = getCredentialRequest.result as {
+                id: string;
+                credential: string;
+              }
+
+              if (walletIsImported(credentialId)) {
+                const privateKeyCredentialJSON = JSON.parse(credential) as StoredPrivateKeyCredential;
+                resolve({
+                  privateKey: Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+                });
+              } else {
+                const seedCredentialJSON = JSON.parse(credential) as StoredSeedCredential;
+                resolve({
+                  entropy: Buffer.from(seedCredentialJSON.entropy, 'hex'),
+                  seed: Buffer.from(seedCredentialJSON.seed, 'hex'),
+                });
+              }
             };
           };
         }),
@@ -1063,6 +1137,8 @@ class IndexedDBApi implements DBAPI {
                 nextId += 1;
               }
               wallet.nextAccountIds[category] = nextId;
+            } else if (wallet.type === WALLET_TYPE_IMPORTED) {
+              wallet.nextAccountIds.global += 1;
             } else {
               // TODO: other wallets.
               reject(new NotImplemented());
