@@ -639,12 +639,15 @@ class Engine {
     return this.buildReturnedAccount(a);
   }
 
-  @backgroundMethod()
   private async getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
+    requireAlreadyAdded = false,
   ): Promise<Token | undefined> {
     let noThisToken: undefined;
+    if (tokenIdOnNetwork.length === 0) {
+      return noThisToken;
+    }
     const { normalizedAddress, isValid } =
       await this.providerManager.verifyTokenAddress(
         networkId,
@@ -659,6 +662,10 @@ class Engine {
     if (typeof token !== 'undefined') {
       // Already exists in db.
       return token;
+    }
+
+    if (requireAlreadyAdded) {
+      throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
     }
 
     const toAdd = getPresetToken(networkId, normalizedAddress);
@@ -837,13 +844,11 @@ class Engine {
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
-    let token: Token | undefined;
-    if (typeof tokenIdOnNetwork !== 'undefined') {
-      token = await this.getOrAddToken(networkId, tokenIdOnNetwork);
-      if (typeof token === 'undefined') {
-        throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
-      }
-    }
+    const token = await this.getOrAddToken(
+      networkId,
+      tokenIdOnNetwork ?? '',
+      true,
+    );
 
     // Below properties are used to avoid redundant network requests.
     const payload = extra || {};
@@ -889,13 +894,11 @@ class Engine {
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
-    let token: Token | undefined;
-    if (typeof tokenIdOnNetwork !== 'undefined') {
-      token = await this.getOrAddToken(networkId, tokenIdOnNetwork);
-      if (typeof token === 'undefined') {
-        throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
-      }
-    }
+    const token = await this.getOrAddToken(
+      networkId,
+      tokenIdOnNetwork ?? '',
+      true,
+    );
 
     let credential: CredentialSelector;
     if (dbAccount.id.startsWith('hd')) {
