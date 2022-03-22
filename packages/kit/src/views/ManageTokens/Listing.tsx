@@ -246,10 +246,9 @@ const ListingToken: FC<ListingTokenProps> = ({
   const { updateAccountTokens, updateTokens } = useManageTokens();
   const onPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
-      let res;
       try {
-        res = await timeout(
-          backgroundApiProxy.engine.preAddToken(
+        await timeout(
+          backgroundApiProxy.engine.quickAddToken(
             activeAccount?.id,
             activeNetwork.network.id,
             item.tokenIdOnNetwork,
@@ -260,15 +259,9 @@ const ListingToken: FC<ListingTokenProps> = ({
         text('msg__failed_to_add_token');
         return;
       }
-      if (res?.[1]) {
-        await backgroundApiProxy.engine.addTokenToAccount(
-          activeAccount?.id,
-          res[1].id,
-        );
-        text('msg__token_added');
-        updateAccountTokens();
-        updateTokens();
-      }
+      text('msg__token_added');
+      updateAccountTokens();
+      updateTokens();
     }
   }, [
     activeAccount,

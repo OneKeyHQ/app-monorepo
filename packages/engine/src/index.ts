@@ -705,6 +705,25 @@ class Engine {
   }
 
   @backgroundMethod()
+  async quickAddToken(
+    accountId: string,
+    networkId: string,
+    tokenIdOnNetwork: string,
+  ): Promise<Token | undefined> {
+    let ret: Token | undefined;
+    const preResult = await this.preAddToken(
+      accountId,
+      networkId,
+      tokenIdOnNetwork,
+      false,
+    );
+    if (typeof preResult !== 'undefined') {
+      ret = await this.addTokenToAccount(accountId, preResult[1].id);
+    }
+    return ret;
+  }
+
+  @backgroundMethod()
   removeTokenFromAccount(accountId: string, tokenId: string): Promise<void> {
     // Remove token from an account.
     return this.dbApi.removeTokenFromAccount(accountId, tokenId);
@@ -715,6 +734,7 @@ class Engine {
     accountId: string,
     networkId: string,
     tokenIdOnNetwork: string,
+    withBalance = true,
   ): Promise<[string | undefined, Token] | undefined> {
     // 1. find local token
     // 2. if not, find token online
@@ -730,6 +750,10 @@ class Engine {
     if (typeof token === 'undefined') {
       return undefined;
     }
+    if (!withBalance) {
+      return [undefined, token];
+    }
+
     const dbAccount = await this.dbApi.getAccount(accountId);
     const [balance] = await this.providerManager.proxyGetBalances(
       networkId,
