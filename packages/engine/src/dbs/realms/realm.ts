@@ -37,6 +37,7 @@ import {
   MAIN_CONTEXT,
   OneKeyContext,
   StoredCredential,
+  StoredSeedCredential,
   checkPassword,
   decrypt,
   encrypt,
@@ -160,7 +161,7 @@ class RealmDB implements DBAPI {
         ).toString('hex');
         const credentials = this.realm!.objects<CredentialSchema>('Credential');
         credentials.forEach((credentialItem) => {
-          const credentialJSON: StoredCredential = JSON.parse(
+          const credentialJSON: StoredSeedCredential = JSON.parse(
             credentialItem.credential,
           );
           credentialItem.credential = JSON.stringify({
@@ -967,7 +968,7 @@ class RealmDB implements DBAPI {
           new OneKeyInternalError(`Credential ${walletId} not found.`),
         );
       }
-      const credentialJSON: StoredCredential = JSON.parse(
+      const credentialJSON: StoredSeedCredential = JSON.parse(
         credential.credential,
       );
       return Promise.resolve({
