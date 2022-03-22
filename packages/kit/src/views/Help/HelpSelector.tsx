@@ -213,10 +213,9 @@ const HelpSelector: FC = () => {
         title={
           isSmallScreen ? intl.formatMessage({ id: 'title__help' }) : undefined
         }
-        dropdownPosition="right"
-        dropdownProps={
-          isSmallScreen ? {} : { minW: '240px', minH: '330px', bottom: '62px' }
-        }
+        dropdownPosition="top-right"
+        dropdownProps={isSmallScreen ? {} : { minW: '240px', height: '320px' }}
+        positionTranslateY={-4}
         headerShown={false}
         options={options}
         isTriggerPlain
