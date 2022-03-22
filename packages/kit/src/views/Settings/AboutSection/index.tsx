@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
 import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components/src/Typography';
 
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useToast } from '../../../hooks/useToast';
@@ -54,9 +55,9 @@ export const AboutSection = () => {
     }
   }, []);
   return (
-    <Box w="full" mb="4">
-      <Box p="2">
-        <Typography.Subheading>
+    <Box w="full" mb="6">
+      <Box pb="2">
+        <Typography.Subheading color="text-subdued">
           {intl.formatMessage({
             id: 'form__about_uppercase',
             defaultMessage: 'ABOUT',
@@ -69,16 +70,17 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
         >
-          <Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__version',
               defaultMessage: 'Version',
             })}
-          </Typography.Body1>
+          </Text>
           <Typography.Body2 color="text-subdued">1.0.0</Typography.Body2>
         </Box>
         <Pressable
@@ -86,19 +88,20 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={onCheckUpdate}
         >
-          <Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__check_for_updates',
               defaultMessage: 'Check for Updates',
             })}
-          </Typography.Body1>
+          </Text>
           <Box>
-            <Icon name="ChevronRightOutline" size={14} />
+            <Icon name="ChevronRightSolid" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -106,7 +109,8 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
@@ -119,14 +123,14 @@ export const AboutSection = () => {
             )
           }
         >
-          <Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__user_agreement',
               defaultMessage: 'User Agreement',
             })}
-          </Typography.Body1>
+          </Text>
           <Box>
-            <Icon name="ChevronRightOutline" size={14} />
+            <Icon name="ChevronRightSolid" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -134,7 +138,8 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
@@ -147,14 +152,14 @@ export const AboutSection = () => {
             )
           }
         >
-          <Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__privacy_policy',
               defaultMessage: 'Privacy Policy',
             })}
-          </Typography.Body1>
+          </Text>
           <Box>
-            <Icon name="ChevronRightOutline" size={14} />
+            <Icon name="ChevronRightSolid" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -162,7 +167,8 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
@@ -174,11 +180,11 @@ export const AboutSection = () => {
             )
           }
         >
-          <Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__website',
             })}
-          </Typography.Body1>
+          </Text>
           <HStack space="2" alignItems="center">
             <Typography.Body2 color="text-success">
               www.onekey.so
@@ -191,12 +197,15 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() => openLinkUrl('https://www.discord.gg/onekey')}
         >
-          <Typography.Body1>Discord</Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            Discord
+          </Text>
           <HStack space="2" alignItems="center">
             <Typography.Body2 color="text-success">
               discord.gg/onekey
@@ -209,10 +218,13 @@ export const AboutSection = () => {
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          p="4"
+          py={4}
+          px={{ base: 4, md: 6 }}
           onPress={() => openLinkUrl('https://www.twitter.com/onekeyhq')}
         >
-          <Typography.Body1>Twitter</Typography.Body1>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            Twitter
+          </Text>
           <HStack space="2" alignItems="center">
             <Typography.Body2 color="text-success">
               twitter.com/onekeyhq

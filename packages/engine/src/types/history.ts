@@ -29,10 +29,16 @@ type HistoryEntryTransactionMeta = {
   ref?: string;
 };
 
-type HistoryEntryTransaction = HistoryEntryBase & HistoryEntryTransactionMeta;
+type HistoryEntryMessageMeta = {
+  message: string;
+  ref?: string;
+};
 
-type HistoryEntryMeta = HistoryEntryTransactionMeta;
-type HistoryEntry = HistoryEntryTransaction;
+type HistoryEntryTransaction = HistoryEntryBase & HistoryEntryTransactionMeta;
+type HistoryEntryMessage = HistoryEntryBase & HistoryEntryMessageMeta;
+
+type HistoryEntryMeta = HistoryEntryTransactionMeta | HistoryEntryMessageMeta;
+type HistoryEntry = HistoryEntryTransaction | HistoryEntryMessage;
 
 export { HistoryEntryType, HistoryEntryStatus };
 export type { HistoryEntry, HistoryEntryMeta };
