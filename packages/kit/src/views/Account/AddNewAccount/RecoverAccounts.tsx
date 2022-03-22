@@ -12,10 +12,12 @@ import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Center,
   CheckBox,
   Divider,
   Empty,
   Modal,
+  Spinner,
   Typography,
 } from '@onekeyhq/components';
 import type {
@@ -90,14 +92,15 @@ const CustomCell: FC<CellProps> = ({ item, index, onChange }) => {
   );
 };
 
+type PageStatusType = 'loading' | 'empty' | 'data';
 const RecoverAccounts: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { password, walletId, network } = route.params;
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  // let currentPage = 0;
   const [flatListData, updateFlatListData] = useState<FlatDataType[]>([]);
   const wallets = useAppSelector((s) => s.wallet.wallets);
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
@@ -127,6 +130,9 @@ const RecoverAccounts: FC = () => {
         start,
         limit,
       );
+      if (currentPage === 0) {
+        setPageStatus(accounts.length > 0 ? 'data' : 'empty');
+      }
       updateFlatListData((prev) => [
         ...prev,
         ...accounts.map((item) => {
@@ -135,10 +141,9 @@ const RecoverAccounts: FC = () => {
           return { ...item, selected: isDisabled, isDisabled };
         }),
       ]);
-
       return accounts;
     },
-    [getActiveAccount, network, password, walletId],
+    [currentPage, getActiveAccount, network, password, walletId],
   );
 
   const checkBoxOnChange = useCallback(
@@ -176,6 +181,7 @@ const RecoverAccounts: FC = () => {
 
   return (
     <Modal
+      height="640px"
       header={intl.formatMessage({ id: 'action__recover_accounts' })}
       headerDescription={`${intl.formatMessage({
         id: 'account__recover_Step_1_of_2',
@@ -211,14 +217,30 @@ const RecoverAccounts: FC = () => {
         isDisabled: !isVaild,
       }}
       hideSecondaryAction
-      flatListProps={{
-        data: flatListData,
-        // @ts-ignore
-        renderItem,
-        ItemSeparatorComponent: () => <Divider />,
-        keyExtractor: (item) => (item as ImportableHDAccount).path,
-        ListEmptyComponent: (
-          <Box flex={1} alignItems="center" justifyContent="center">
+      // @ts-ignore
+      flatListProps={
+        pageStatus === 'data'
+          ? {
+              height: '640px',
+              data: flatListData,
+              // @ts-ignore
+              renderItem,
+              ItemSeparatorComponent: () => <Divider />,
+              keyExtractor: (item) => (item as ImportableHDAccount).path,
+              ListEmptyComponent: (
+                <Box flex={1} alignItems="center" justifyContent="center" />
+              ),
+              onEndReached: () => {
+                setCurrentPage((p) => p + 1);
+              },
+            }
+          : undefined
+      }
+      mt="10px"
+    >
+      {pageStatus !== 'data' ? (
+        <Center h="full" w="full">
+          {pageStatus === 'empty' ? (
             <Empty
               imageUrl={IconAccount}
               title={intl.formatMessage({
@@ -228,14 +250,12 @@ const RecoverAccounts: FC = () => {
                 id: 'empty__no_recoverable_account_desc',
               })}
             />
-          </Box>
-        ),
-        onEndReached: () => {
-          setCurrentPage((p) => p + 1);
-        },
-      }}
-      mt="10px"
-    />
+          ) : (
+            <Spinner size="lg" />
+          )}
+        </Center>
+      ) : null}
+    </Modal>
   );
 };
 

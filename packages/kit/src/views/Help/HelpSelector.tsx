@@ -83,14 +83,14 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__submit_a_request' }),
           value: 'submit_request',
           iconProps: {
-            name: 'AnnotationSolid',
+            name: 'AnnotationOutline',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__s_request_history' }),
           value: 'history',
           iconProps: {
-            name: 'ClockSolid',
+            name: 'ClockOutline',
           },
         },
       ],
@@ -102,21 +102,21 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__help_support' }),
           value: 'support',
           iconProps: {
-            name: 'AnnotationSolid',
+            name: 'AnnotationOutline',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__beginner_guide' }),
           value: 'guide',
           iconProps: {
-            name: 'MapSolid',
+            name: 'MapOutline',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
           value: 'hardware_wallet',
           iconProps: {
-            name: 'BookmarkAltSolid',
+            name: 'BookmarkAltOutline',
           },
         },
       ],
@@ -128,21 +128,21 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'title__official_website' }),
           value: 'website',
           iconProps: {
-            name: 'GlobeAltSolid',
+            name: 'GlobeAltOutline',
           },
         },
         {
           label: intl.formatMessage({ id: 'title__buy_onekey_hardware' }),
           value: 'shop',
           iconProps: {
-            name: 'ShoppingBagSolid',
+            name: 'ShoppingBagOutline',
           },
         },
         {
           label: intl.formatMessage({ id: 'title__client_download' }),
           value: 'download',
           iconProps: {
-            name: 'DownloadSolid',
+            name: 'DownloadOutline',
           },
         },
       ],
@@ -214,7 +214,9 @@ const HelpSelector: FC = () => {
           isSmallScreen ? intl.formatMessage({ id: 'title__help' }) : undefined
         }
         dropdownPosition="right"
-        dropdownProps={isSmallScreen ? {} : { minW: '240px', bottom: '62px' }}
+        dropdownProps={
+          isSmallScreen ? {} : { minW: '240px', minH: '330px', bottom: '62px' }
+        }
         headerShown={false}
         options={options}
         isTriggerPlain
