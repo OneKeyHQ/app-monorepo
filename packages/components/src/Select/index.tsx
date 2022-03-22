@@ -49,7 +49,7 @@ export type IDropdownPosition =
   | 'top-left'
   | 'top-right'
   | 'top-center';
-export type IDropdownProps = ComponentProps<typeof Box>
+export type IDropdownProps = ComponentProps<typeof Box>;
 export type SelectProps<T = string> = {
   title?: string;
   headerShown?: boolean;
