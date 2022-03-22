@@ -733,9 +733,9 @@ class IndexedDBApi implements DBAPI {
                 password,
                 Buffer.from(DEFAULT_VERIFY_STRING),
               ).toString('hex');
-              context.nextHD += 1;
-              contextStore.put(context);
             }
+            context.nextHD += 1;
+            contextStore.put(context);
           };
         }),
     );

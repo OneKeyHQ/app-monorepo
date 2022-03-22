@@ -62,9 +62,8 @@ const Me = () => {
         w="100%"
         marginX="auto"
       >
-        <VStack justifyContent="space-between" flex={1}>
-          <VStack space="3">
-            {/* <Pressable
+        <VStack space="3">
+          {/* <Pressable
             p="4"
             bg="surface-default"
             borderRadius="12px"
@@ -83,130 +82,129 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable> */}
-            <Pressable
-              p="4"
-              bg="surface-default"
-              borderRadius="12px"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="space-between"
-              shadow="depth.2"
-              onPress={() =>
-                navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
-              }
-            >
-              <HStack space="4">
-                <Icon name="CreditCardOutline" />
-                <Typography.Body1>OneKey Lite</Typography.Body1>
-              </HStack>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Pressable>
-            <Pressable
-              p="4"
-              bg="surface-default"
-              borderRadius="12px"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="space-between"
-              onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
-              shadow="depth.2"
-            >
-              <HStack space="4">
-                <Icon name="CogOutline" />
-                <Typography.Body1>
-                  {intl.formatMessage({
-                    id: 'title__settings',
-                    defaultMessage: 'Settings',
-                  })}
-                </Typography.Body1>
-              </HStack>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Pressable>
-            {platformEnv.isDev && (
-              <VStack space="3">
-                <Pressable
-                  {...pressableProps}
-                  onPress={async () => {
-                    // TODO define service method
-                    await backgroundApiProxy.walletConnect.disconnect();
-                    backgroundApiProxy.dispatch(dappClearSiteConnection());
-                    backgroundApiProxy.serviceAccount.notifyAccountsChanged();
-                  }}
-                >
-                  <Typography.Body1>
-                    断开 Dapp 连接 ({connections.length})
-                  </Typography.Body1>
-                </Pressable>
-                <Pressable
-                  {...pressableProps}
-                  onPress={() => {
-                    navigation.navigate(HomeRoutes.Dev, {
-                      screen: StackRoutes.ComponentLogger,
-                    });
-                  }}
-                >
-                  <Typography.Body1>Logger 设置</Typography.Body1>
-                </Pressable>
-                <HStack>
-                  <Input
-                    value={uri}
-                    onChangeText={(t) => setUri(t)}
-                    placeholder="WalletConnect QrCode scan uri"
-                    clearButtonMode="always"
-                    clearTextOnFocus
-                  />
-                </HStack>
-                <Pressable
-                  {...pressableProps}
-                  onPress={async () => {
-                    const connectUri = (await getClipboard()) || '';
-                    setUri(connectUri);
-                    await backgroundApiProxy.walletConnect.connect({
-                      uri: connectUri,
-                    });
-                  }}
-                >
-                  <Typography.Body1>连接 WalletConnect</Typography.Body1>
-                </Pressable>
-                <Pressable
-                  {...pressableProps}
-                  onPress={async () => {
-                    await backgroundApiProxy.walletConnect.disconnect();
-                  }}
-                >
-                  <Typography.Body1>断开 WalletConnect</Typography.Body1>
-                </Pressable>
-              </VStack>
-            )}
-            {platformEnv.isDev && (
+          <Pressable
+            p="4"
+            bg="surface-default"
+            borderRadius="12px"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="space-between"
+            shadow="depth.2"
+            onPress={() =>
+              navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
+            }
+          >
+            <HStack space="4">
+              <Icon name="CreditCardOutline" />
+              <Typography.Body1>OneKey Lite</Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+          <Pressable
+            p="4"
+            bg="surface-default"
+            borderRadius="12px"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="space-between"
+            onPress={() => navigation.navigate(HomeRoutes.SettingsScreen)}
+            shadow="depth.2"
+          >
+            <HStack space="4">
+              <Icon name="CogOutline" />
+              <Typography.Body1>
+                {intl.formatMessage({
+                  id: 'title__settings',
+                  defaultMessage: 'Settings',
+                })}
+              </Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+          {platformEnv.isDev && (
+            <VStack space="3">
               <Pressable
-                p="4"
-                bg="surface-default"
-                borderRadius="12px"
-                flexDirection="row"
-                alignItems="center"
-                justifyContent="space-between"
+                {...pressableProps}
+                onPress={async () => {
+                  // TODO define service method
+                  await backgroundApiProxy.walletConnect.disconnect();
+                  backgroundApiProxy.dispatch(dappClearSiteConnection());
+                  backgroundApiProxy.serviceAccount.notifyAccountsChanged();
+                }}
+              >
+                <Typography.Body1>
+                  断开 Dapp 连接 ({connections.length})
+                </Typography.Body1>
+              </Pressable>
+              <Pressable
+                {...pressableProps}
                 onPress={() => {
                   navigation.navigate(HomeRoutes.Dev, {
-                    screen: StackRoutes.Developer,
-                    params: {
-                      ts: new Date().getTime(),
-                    },
+                    screen: StackRoutes.ComponentLogger,
                   });
                 }}
               >
-                <HStack space="4">
-                  <Icon name="DesktopComputerSolid" />
-                  <Typography.Body1>Developer</Typography.Body1>
-                </HStack>
-                <Icon name="ChevronRightSolid" size={20} />
+                <Typography.Body1>Logger 设置</Typography.Body1>
               </Pressable>
-            )}
-          </VStack>
-          <HStack justifyContent="flex-end">
-            <HelpSelector />
-          </HStack>
+              <HStack>
+                <Input
+                  value={uri}
+                  onChangeText={(t) => setUri(t)}
+                  placeholder="WalletConnect QrCode scan uri"
+                  clearButtonMode="always"
+                  clearTextOnFocus
+                />
+              </HStack>
+              <Pressable
+                {...pressableProps}
+                onPress={async () => {
+                  const connectUri = (await getClipboard()) || '';
+                  setUri(connectUri);
+                  await backgroundApiProxy.walletConnect.connect({
+                    uri: connectUri,
+                  });
+                }}
+              >
+                <Typography.Body1>连接 WalletConnect</Typography.Body1>
+              </Pressable>
+              <Pressable
+                {...pressableProps}
+                onPress={async () => {
+                  await backgroundApiProxy.walletConnect.disconnect();
+                }}
+              >
+                <Typography.Body1>断开 WalletConnect</Typography.Body1>
+              </Pressable>
+            </VStack>
+          )}
+          {platformEnv.isDev && (
+            <Pressable
+              p="4"
+              bg="surface-default"
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() => {
+                navigation.navigate(HomeRoutes.Dev, {
+                  screen: StackRoutes.Developer,
+                  params: {
+                    ts: new Date().getTime(),
+                  },
+                });
+              }}
+            >
+              <HStack space="4">
+                <Icon name="DesktopComputerSolid" />
+                <Typography.Body1>Developer</Typography.Body1>
+              </HStack>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Pressable>
+          )}
         </VStack>
+      </Box>
+      <Box position="absolute" bottom="32px" right="32px">
+        <HelpSelector />
       </Box>
     </Box>
   );

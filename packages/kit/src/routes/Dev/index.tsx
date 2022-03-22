@@ -14,6 +14,7 @@ import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
 import DappModalsGallery from '@onekeyhq/kit/src/views/Components/stories/DappModals';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
+import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
 import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/stories/HeaderTabViewContainer';
@@ -93,6 +94,7 @@ export enum StackRoutes {
   ComponentPinCode = 'component/pincode',
   ComponentRestfulRequest = 'component/restful-request',
   ComponentImageViewer = 'component/imageViewer',
+  ComponentEmojiList = 'component/EmojiList',
 }
 
 export type StackBasicRoutesParams = {
@@ -139,6 +141,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentPinCode]: undefined;
   [StackRoutes.ComponentRestfulRequest]: undefined;
   [StackRoutes.ComponentImageViewer]: undefined;
+  [StackRoutes.ComponentEmojiList]: undefined;
 };
 
 export const stackScreenList = [
@@ -195,6 +198,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentImageViewer,
     component: ImageViewerGallery,
+  },
+  {
+    name: StackRoutes.ComponentEmojiList,
+    component: EmojiGallery,
   },
 ];
 

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { isNil } from 'lodash';
+import { isNil, isString } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IDropdownPosition, IDropdownProps } from '../Select';
 
 export type ISelectorContentPosition = {
   left?: number;
@@ -52,7 +54,17 @@ function useDropdownPosition({
   translateY = 0,
   autoAdjust = true,
   setPositionOnlyMounted = false,
-}: any) {
+  dropdownProps,
+}: {
+  dropdownPosition?: IDropdownPosition;
+  triggerEle?: any;
+  domId?: any;
+  visible?: boolean;
+  translateY?: number;
+  autoAdjust?: boolean;
+  setPositionOnlyMounted?: boolean;
+  dropdownProps?: IDropdownProps;
+}) {
   const [position, setPosition] = useState<ISelectorContentPosition>({
     left: undefined,
     top: undefined,
@@ -69,22 +81,43 @@ function useDropdownPosition({
       return;
     }
     if (triggerEle && visible) {
-      const pos = getDomElementPosition(triggerEle);
-      triggerWidth.current = pos.width;
+      const triggerPosition = getDomElementPosition(triggerEle);
+      triggerWidth.current = triggerPosition.width;
+      let dropdownHeight = 0;
+      if (isString(dropdownProps?.height)) {
+        if (dropdownProps?.height.endsWith('px')) {
+          dropdownHeight = parseInt(dropdownProps?.height ?? '', 10) || 0;
+        }
+      }
 
       if (!setPositionOnlyMounted || isPositionNotReady) {
-        // TODO supports dropdownPosition==='center'
-        if (dropdownPosition === 'right') {
+        if (dropdownPosition === 'top-right') {
           setPosition({
             left: undefined,
-            right: pos.right,
-            top: pos.top + pos.height + (translateY as number),
+            right: triggerPosition.right,
+            top: triggerPosition.top + translateY - dropdownHeight,
+          });
+        } else if (dropdownPosition === 'right') {
+          setPosition({
+            left: undefined,
+            right: triggerPosition.right,
+            top: triggerPosition.top + triggerPosition.height + translateY,
+          });
+        } else if (dropdownPosition === 'left') {
+          setPosition({
+            left: triggerPosition.left,
+            right: undefined,
+            top: triggerPosition.top + triggerPosition.height + translateY,
           });
         } else {
+          console.error(
+            `dropdownPosition not support yet: ${dropdownPosition}`,
+          );
+          // TODO supports dropdownPosition==='center'
           setPosition({
-            left: pos.left,
+            left: triggerPosition.left,
             right: undefined,
-            top: pos.top + pos.height + (translateY as number),
+            top: triggerPosition.top + triggerPosition.height + translateY,
           });
         }
       }
