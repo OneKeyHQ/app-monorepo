@@ -34,8 +34,9 @@ const ExportPrivateViewModal = () => {
   const toast = useToast();
   const borderColor = useThemeValue('border-subdued');
   const route = useRoute<NavigationProps>();
+  const { engine } = backgroundApiProxy;
 
-  const { accountId, networkId } = route.params;
+  const { accountId, networkId, password } = route.params;
 
   const [privateKey, setPrivateKey] = useState('1');
   const [account, setAccount] = useState<AccountEngineType>();
@@ -43,14 +44,14 @@ const ExportPrivateViewModal = () => {
   useEffect(() => {
     if (!accountId || !networkId) return;
 
-    backgroundApiProxy.engine
-      .getAccount(accountId, networkId)
-      .then(($account) => {
-        setAccount($account);
+    engine.getAccount(accountId, networkId).then(($account) => {
+      setAccount($account);
+    });
 
-        setPrivateKey($account.path);
-      });
-  }, [accountId, networkId]);
+    engine.getAccountPrivateKey(accountId, password).then(($privateKey) => {
+      setPrivateKey($privateKey);
+    });
+  }, [accountId, engine, networkId, password]);
 
   const copyDataToClipboard = useCallback(() => {
     copyToClipboard(privateKey);
