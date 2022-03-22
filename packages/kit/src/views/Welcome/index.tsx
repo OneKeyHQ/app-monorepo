@@ -92,7 +92,7 @@ const Welcome = () => {
   }, [intl, onOpenUrl, privacyPolicyUrl]);
 
   return (
-    <Center w="full" h="full" bg="surface-default">
+    <Center w="full" h="full" bg="surface-default" pt="32">
       <Box h="full" w="full" maxW="400px" px={8}>
         <Box
           flex={1}

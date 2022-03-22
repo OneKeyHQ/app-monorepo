@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,8 +6,10 @@ import {
   Box,
   Button,
   Center,
+  Dialog,
   Form,
   Icon,
+  Input,
   KeyboardAvoidingView,
   KeyboardDismissView,
   Typography,
@@ -23,25 +25,74 @@ import { unlock } from '../../store/reducers/status';
 
 type UnlockButtonProps = {
   onOk?: (passowrd: string) => void;
-  onForget?: () => void;
 };
 
 type FieldValues = { password: string };
 
-const UnlockButton: FC<UnlockButtonProps> = ({ onOk, onForget }) => {
+const ForgetPasswordButton = () => {
   const intl = useIntl();
+  const [input, setInput] = useState('');
+  const [visible, setVisible] = useState(false);
+  const onReset = useCallback(async () => {
+    await backgroundApiProxy.serviceApp.resetApp();
+    setVisible(false);
+  }, []);
   return (
-    <Box pb="4">
-      {platformEnv.isExtension ? (
-        <Button leftIconName="ArrowNarrowLeftSolid" onPress={onForget}>
-          {intl.formatMessage({ id: 'action__forget_password' })}
-        </Button>
-      ) : (
-        <LocalAuthenticationButton onOk={onOk} />
-      )}
-    </Box>
+    <>
+      <Button
+        rightIconName="ArrowNarrowRightSolid"
+        type="plain"
+        onPress={() => setVisible(true)}
+      >
+        {intl.formatMessage({ id: 'action__forget_password' })}
+      </Button>
+      <Dialog
+        hasFormInsideDialog
+        visible={visible}
+        onClose={() => setVisible(false)}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__delete',
+          primaryActionProps: {
+            type: 'destructive',
+            isDisabled: input.toUpperCase() !== 'RESET',
+            onPromise: onReset,
+          },
+        }}
+        contentProps={{
+          iconType: 'danger',
+          title: intl.formatMessage({
+            id: 'form__reset_app',
+            defaultMessage: 'Reset App',
+          }),
+          content: intl.formatMessage({
+            id: 'modal__reset_app_desc',
+            defaultMessage:
+              'This will delete all the data you have created at OneKey, enter "RESET" to reset the App',
+          }),
+          input: (
+            <Box w="full" mt="4">
+              <Input
+                w="full"
+                value={input}
+                onChangeText={(text) => setInput(text.trim())}
+              />
+            </Box>
+          ),
+        }}
+      />
+    </>
   );
 };
+
+const UnlockButton: FC<UnlockButtonProps> = ({ onOk }) => (
+  <Box pb="4">
+    {platformEnv.isExtension ? (
+      <ForgetPasswordButton />
+    ) : (
+      <LocalAuthenticationButton onOk={onOk} />
+    )}
+  </Box>
+);
 
 const Unlock = () => {
   const intl = useIntl();

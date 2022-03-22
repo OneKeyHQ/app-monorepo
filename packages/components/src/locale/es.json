@@ -407,6 +407,7 @@
   "form__use_removed_api": "Utilizar la API eliminada",
   "form__use_removed_api_desc": "Cuando un sitio web intenta utilizar la API window.web3 eliminada",
   "form__user_agreement": "Acuerdo de usuario",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Valor",
   "form__valued_str": "Valorado ≥ {0}",
   "form__version": "Versión",

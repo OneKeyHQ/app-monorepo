@@ -264,6 +264,8 @@ const Transaction = () => {
                   options={options}
                   defaultValue={nativeToken?.id}
                   footer={null}
+                  dropdownProps={{ width: '337px' }}
+                  dropdownPosition="right"
                   onChange={(item) => {
                     console.log(item);
                   }}

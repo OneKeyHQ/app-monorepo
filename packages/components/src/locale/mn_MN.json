@@ -407,6 +407,7 @@
   "form__use_removed_api": "Устгасан API ашиглах",
   "form__use_removed_api_desc": "Вэбсайт устгагдсан window.web3 API-г ашиглахыг оролдох үед",
   "form__user_agreement": "Хэрэглэгчийн гэрээ",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Үнэ цэнэ",
   "form__valued_str": "≥ {0} үнэлэгдсэн",
   "form__version": "Хувилбар",
