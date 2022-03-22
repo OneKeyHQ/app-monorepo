@@ -25,8 +25,10 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHelpLink } from '../../hooks/useHelpLink';
+import extUtils from '../../utils/extUtils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -153,12 +155,21 @@ const HelpSelector: FC = () => {
     setTimeout(() => {
       switch (value) {
         case 'submit_request':
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.SubmitRequest,
-            params: {
-              screen: SubmitRequestRoutes.SubmitRequestModal,
-            },
-          });
+          if (platformEnv.isExtensionUiPopup) {
+            extUtils.openExpandTab({
+              routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
+              params: {
+                screen: SubmitRequestRoutes.SubmitRequestModal,
+              },
+            });
+          } else {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.SubmitRequest,
+              params: {
+                screen: SubmitRequestRoutes.SubmitRequestModal,
+              },
+            });
+          }
           break;
         case 'guide':
           openUrl(
