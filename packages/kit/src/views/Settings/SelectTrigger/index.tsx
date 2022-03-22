@@ -1,12 +1,8 @@
 import React from 'react';
 
-import {
-  Box,
-  Icon,
-  Typography,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Icon, Typography } from '@onekeyhq/components';
 import { SelectItem } from '@onekeyhq/components/src/Select';
+import { Text } from '@onekeyhq/components/src/Typography';
 
 type FieldProps<T> = {
   title: string;
@@ -19,7 +15,6 @@ export function SelectTrigger<T>({
   activeOption,
   hideDivider,
 }: FieldProps<T>) {
-  const isSmallScreen = useIsVerticalLayout();
   const borderProps = !hideDivider
     ? { borderBottomWidth: '1', borderBottomColor: 'divider' }
     : undefined;
@@ -29,24 +24,23 @@ export function SelectTrigger<T>({
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
-      px="4"
-      py="3.5"
+      px={{ base: 4, md: 6 }}
+      py={4}
       {...borderProps}
     >
-      <Typography.Body1 flex="1" numberOfLines={1} mr="3">
+      <Text
+        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+        flex="1"
+        numberOfLines={1}
+        mr="3"
+      >
         {title}
-      </Typography.Body1>
-      <Box display="flex" flexDirection="row" alignItems="center" mr="1">
+      </Text>
+      <Box display="flex" flexDirection="row" alignItems="center">
         <Box>
-          {isSmallScreen ? (
-            <Typography.Body1 numberOfLines={1}>
-              {activeOption.label ?? '-'}
-            </Typography.Body1>
-          ) : (
-            <Typography.Body2 numberOfLines={1}>
-              {activeOption.label ?? '-'}
-            </Typography.Body2>
-          )}
+          <Text mr={1} typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            {activeOption.label ?? '-'}
+          </Text>
           {activeOption.description && (
             <Typography.Body2 color="text-subdued">
               {activeOption.description ?? '-'}

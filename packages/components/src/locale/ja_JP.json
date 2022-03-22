@@ -407,6 +407,7 @@
   "form__use_removed_api": "削除されたAPIを使用する",
   "form__use_removed_api_desc": "削除されたwindow.web3 APIをWebサイトが使用しようとした場合",
   "form__user_agreement": "ユーザー規約",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "価値",
   "form__valued_str": "Valued ≧ {0} です。",
   "form__version": "バージョン",

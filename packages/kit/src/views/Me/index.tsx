@@ -56,7 +56,8 @@ const Me = () => {
     <Box bg="background-default" flex="1">
       <Box
         flex="1"
-        p="4"
+        px={{ base: 4, md: 0 }}
+        py={{ base: 6, md: 8 }}
         maxW={MAX_PAGE_CONTAINER_WIDTH}
         w="100%"
         marginX="auto"
@@ -98,7 +99,7 @@ const Me = () => {
                 <Icon name="CreditCardOutline" />
                 <Typography.Body1>OneKey Lite</Typography.Body1>
               </HStack>
-              <Icon name="ChevronRightOutline" size={12} />
+              <Icon name="ChevronRightSolid" size={20} />
             </Pressable>
             <Pressable
               p="4"
@@ -119,7 +120,7 @@ const Me = () => {
                   })}
                 </Typography.Body1>
               </HStack>
-              <Icon name="ChevronRightOutline" size={12} />
+              <Icon name="ChevronRightSolid" size={20} />
             </Pressable>
             {platformEnv.isDev && (
               <VStack space="3">
@@ -198,7 +199,7 @@ const Me = () => {
                   <Icon name="DesktopComputerSolid" />
                   <Typography.Body1>Developer</Typography.Body1>
                 </HStack>
-                <Icon name="ChevronRightOutline" size={12} />
+                <Icon name="ChevronRightSolid" size={20} />
               </Pressable>
             )}
           </VStack>
