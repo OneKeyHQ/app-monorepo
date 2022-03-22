@@ -20,10 +20,10 @@ const COINTYPE_CFX = '503';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
-  IMPL_SOL,
-  IMPL_ALGO,
+  // IMPL_SOL,  // TODO: bigint issue
+  // IMPL_ALGO,  // TODO: bigint issue
   IMPL_NEAR,
-  IMPL_STC,
+  // IMPL_STC,  // TODO: bigint issue
   IMPL_CFX,
 ]);
 

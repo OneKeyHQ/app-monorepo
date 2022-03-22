@@ -11,9 +11,6 @@ if (typeof process === 'undefined') {
   }
 }
 
-// BigInt polyfill
-if (typeof BigInt === 'undefined') global.BigInt = require('big-integer');
-
 // TextEncoder and TextDecoder polyfill for starcoin
 if (typeof TextDecoder === 'undefined') {
   global.TextDecoder = require('text-encoding').TextDecoder;
