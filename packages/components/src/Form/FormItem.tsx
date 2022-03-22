@@ -37,8 +37,12 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormItemProps) {
   const handleCopied = useCallback(async (callback: (c: string) => void) => {
-    const str = await Clipboard.getStringAsync();
-    callback?.(str);
+    try {
+      const str = await Clipboard.getStringAsync();
+      callback?.(str);
+    } catch (e) {
+      callback?.('');
+    }
   }, []);
   return (
     <Controller

@@ -38,7 +38,7 @@ const ExportPrivateViewModal = () => {
 
   const { accountId, networkId, password } = route.params;
 
-  const [privateKey, setPrivateKey] = useState('1');
+  const [privateKey, setPrivateKey] = useState<string>();
   const [account, setAccount] = useState<AccountEngineType>();
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const ExportPrivateViewModal = () => {
   }, [accountId, engine, networkId, password]);
 
   const copyDataToClipboard = useCallback(() => {
-    copyToClipboard(privateKey);
+    copyToClipboard(privateKey ?? '');
     toast.info(intl.formatMessage({ id: 'msg__copied' }));
   }, [toast, privateKey, intl]);
 
@@ -76,7 +76,7 @@ const ExportPrivateViewModal = () => {
                 borderColor={borderColor}
                 width="192px"
               >
-                <QRCode value={privateKey} size={160} />
+                {!!privateKey && <QRCode value={privateKey} size={160} />}
               </Box>
             </Box>
             <Row
