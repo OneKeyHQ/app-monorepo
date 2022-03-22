@@ -1,8 +1,9 @@
 // set default size on ui.shtml
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
-const UI_HTML_DEFAULT_MIN_WIDTH = 375;
+// Chrome extension popups can have a maximum height of 600px and maximum width of 800px
+export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
+export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 
 // TODO auto fix on window.addEventListener('resize', reportWindowSize);
 function popupSizeFix() {
