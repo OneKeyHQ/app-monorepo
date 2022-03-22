@@ -10,7 +10,8 @@ const Discover = () => {
   const { locale } = useLocale();
   let initialUrl = `https://discover.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
   if (platformEnv.isDev) {
-    initialUrl = 'https://metamask.github.io/test-dapp/';
+    // initialUrl = 'https://metamask.github.io/test-dapp/';
+    initialUrl = 'https://example.walletconnect.org/';
   }
   const [url, setUrl] = useState(initialUrl);
   console.log('Discover url changed: ', url);

@@ -1,3 +1,8 @@
+import {
+  UI_HTML_DEFAULT_MIN_HEIGHT,
+  UI_HTML_DEFAULT_MIN_WIDTH,
+} from '../../../ext/src/ui/popupSizeFix';
+
 type OpenUrlRouteInfo = {
   routes: string | string[];
   params?: any;
@@ -37,8 +42,8 @@ function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
     focused: true,
     type: 'popup',
     // init size same to ext ui-popup.html
-    height: 600 + 50, // height including title bar, so should add 50 more
-    width: 375,
+    height: UI_HTML_DEFAULT_MIN_HEIGHT + 50, // height including title bar, so should add 50px more
+    width: UI_HTML_DEFAULT_MIN_WIDTH,
     // check useAutoRedirectToRoute()
     url,
   });
