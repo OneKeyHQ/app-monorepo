@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
-
 import {
   Box,
   Button,
@@ -10,6 +8,8 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { navigationGoBack } from '../../../hooks/useAppNavigation';
 
 function DebugLoggerSettings() {
   const [groupValue, setGroupValue] = React.useState<string[]>([]);
@@ -51,7 +51,7 @@ function DebugLoggerSettings() {
           </CheckBox>
         ))}
       </CheckBox.Group>
-      <Box _text={{ color: 'text-default' }}>{savedStr}</Box>
+      <Box _text={{ color: 'text-default' }}>{`config = ${savedStr}`}</Box>
     </Box>
   );
 }
@@ -71,15 +71,12 @@ function InjectedSettings() {
   );
 }
 
-const LoggerGallery = () => {
-  const navigation = useNavigation();
-  return (
-    <ScrollView p={4} flex="1" bg="background-hovered">
-      <DebugLoggerSettings />
-      <InjectedSettings />
-      <Button onPress={() => navigation.goBack()}>Home</Button>
-    </ScrollView>
-  );
-};
-
+const LoggerGallery = () => (
+  // const navigation = useNavigation();
+  <ScrollView p={4} flex="1" bg="background-hovered">
+    <Button onPress={navigationGoBack}>Back to HOME</Button>
+    <DebugLoggerSettings />
+    <InjectedSettings />
+  </ScrollView>
+);
 export default LoggerGallery;

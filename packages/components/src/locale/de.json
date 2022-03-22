@@ -407,6 +407,7 @@
   "form__use_removed_api": "Entfernte API verwenden",
   "form__use_removed_api_desc": "Wenn eine Website versucht, die entfernte window.web3 API zu verwenden",
   "form__user_agreement": "Benutzervereinbarung",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Wert",
   "form__valued_str": "Bewertet ≥ {0}",
   "form__version": "Version  .",

@@ -30,7 +30,7 @@ abstract class ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void;
 
-  protected abstract rpcCall(request: IJsonRpcRequest): any;
+  public abstract rpcCall(request: IJsonRpcRequest): any;
 
   async handleMethods(payload: IJsBridgeMessagePayload) {
     const { data } = payload;

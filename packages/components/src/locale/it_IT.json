@@ -407,6 +407,7 @@
   "form__use_removed_api": "Utilizzare l'API rimossa",
   "form__use_removed_api_desc": "Quando un sito web cerca di usare l'API window.web3 rimossa",
   "form__user_agreement": "Accordo con l'utente",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Valore",
   "form__valued_str": "Valutato ≥ {0}",
   "form__version": "Versione",

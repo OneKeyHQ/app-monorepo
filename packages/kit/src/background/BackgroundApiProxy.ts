@@ -6,6 +6,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type WalletConnectAdapter from './providers/WalletConnectAdapter';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -21,6 +22,10 @@ class BackgroundApiProxy
   _proxyServiceCache = {} as any;
 
   engine = this._createProxyService('engine') as Engine;
+
+  walletConnect = this._createProxyService(
+    'walletConnect',
+  ) as WalletConnectAdapter;
 
   servicePromise = this._createProxyService('servicePromise') as ServicePromise;
 
