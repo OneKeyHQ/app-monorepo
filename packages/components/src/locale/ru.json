@@ -407,6 +407,7 @@
   "form__use_removed_api": "Использовать удаленный API",
   "form__use_removed_api_desc": "Когда веб-сайт пытается использовать удаленный API window.web3",
   "form__user_agreement": "Пользовательское соглашение",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Значение",
   "form__valued_str": "Valued ≥ {0}",
   "form__version": "Версия",

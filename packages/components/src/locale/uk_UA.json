@@ -407,6 +407,7 @@
   "form__use_removed_api": "Використовуйте видалений API",
   "form__use_removed_api_desc": "Коли веб-сайт намагається використати видалений API window.web3",
   "form__user_agreement": "Угода користувача",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "Значення",
   "form__valued_str": "Значення ≥ {0}",
   "form__version": "Версія",

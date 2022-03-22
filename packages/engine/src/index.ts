@@ -1,9 +1,12 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import {
+  CurveName,
+  batchGetPrivateKeys,
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -31,7 +34,11 @@ import {
 } from './managers/account';
 import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
-import { implToAccountType, implToCoinTypes } from './managers/impl';
+import {
+  getDefaultCurveByCoinType,
+  implToAccountType,
+  implToCoinTypes,
+} from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
@@ -67,6 +74,7 @@ import {
 import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
+  HistoryEntryMeta,
   HistoryEntryStatus,
   HistoryEntryType,
 } from './types/history';
@@ -330,6 +338,37 @@ class Engine {
     const account = await this.buildReturnedAccount(dbAccount, networkId);
     account.tokens = await this.dbApi.getTokens(networkId, accountId);
     return account;
+  }
+
+  @backgroundMethod()
+  async getAccountPrivateKey(
+    accountId: string,
+    password: string,
+    // networkId?: string, TODO: different curves on different networks.
+  ): Promise<string> {
+    const walletId = getWalletIdFromAccountId(accountId);
+    if (!walletIsHD(walletId)) {
+      throw new OneKeyInternalError(
+        'Only private key of HD accounts can be exported.',
+      );
+    }
+    const [credential, dbAccount] = await Promise.all([
+      this.dbApi.getCredential(walletId, password),
+      this.dbApi.getAccount(accountId),
+    ]);
+
+    const curve = getDefaultCurveByCoinType(dbAccount.coinType);
+    const pathComponents = dbAccount.path.split('/');
+    const relPath = pathComponents.pop() as string;
+    const { key } = batchGetPrivateKeys(
+      curve as CurveName,
+      credential.seed,
+      password,
+      pathComponents.join('/'),
+      [relPath],
+    )[0].extendedKey;
+
+    return `0x${decrypt(password, key).toString('hex')}`;
   }
 
   @backgroundMethod()
@@ -913,12 +952,13 @@ class Engine {
     }
   }
 
+  @backgroundMethod()
   async signMessage(
     password: string,
     networkId: string,
     accountId: string,
     messages: Array<Message>,
-    _ref?: string,
+    ref?: string,
   ): Promise<Array<string>> {
     const [credential, network, dbAccount] = await Promise.all([
       this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
@@ -933,8 +973,68 @@ class Engine {
       dbAccount,
       messages,
     );
-    // TODO: add history
+    const now = Date.now();
+    await Promise.all(
+      signatures.map((signature, index) =>
+        this.dbApi.addHistoryEntry(
+          `${networkId}--m-${now}-${index}`,
+          networkId,
+          accountId,
+          HistoryEntryType.SIGN,
+          HistoryEntryStatus.SIGNED,
+          { message: JSON.stringify(messages[index]), ref: ref || '' },
+        ),
+      ),
+    );
     return signatures;
+  }
+
+  @backgroundMethod()
+  async signTransaction(
+    password: string,
+    networkId: string,
+    accountId: string,
+    transactions: Array<string>,
+    overwriteParams?: string,
+    _ref?: string,
+    autoBroadcast = true,
+  ): Promise<Array<string>> {
+    const [credential, network, dbAccount] = await Promise.all([
+      this.dbApi.getCredential(getWalletIdFromAccountId(accountId), password),
+      this.getNetwork(networkId),
+      this.dbApi.getAccount(accountId),
+    ]);
+    const ret: Array<string> = [];
+    try {
+      const txsWithStatus = await this.providerManager.signTransactions(
+        credential.seed,
+        password,
+        network,
+        dbAccount,
+        transactions,
+        overwriteParams,
+        autoBroadcast,
+      );
+      txsWithStatus.forEach(async (tx) => {
+        ret.push(autoBroadcast ? tx.txid : tx.rawTx);
+        const meta = { ...tx.txMeta, rawTx: tx.rawTx };
+        await this.dbApi.addHistoryEntry(
+          `${networkId}--${tx.txid}`,
+          networkId,
+          accountId,
+          HistoryEntryType.TRANSACTION,
+          autoBroadcast
+            ? HistoryEntryStatus.PENDING
+            : HistoryEntryStatus.SIGNED,
+          meta as HistoryEntryMeta,
+        );
+      });
+    } catch (e) {
+      const { message } = e as { message: string };
+      throw new FailedToTransfer(message);
+    }
+
+    return Promise.resolve(ret);
   }
 
   // TODO: sign & broadcast.

@@ -22,12 +22,13 @@ export const Settings = () => {
 
   return (
     <ScrollView
+      px={4}
+      py={{ base: 6, md: 8 }}
       bg="background-default"
       _contentContainerStyle={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: 4,
       }}
     >
       <Box

@@ -22,9 +22,9 @@ export const GenaralSection = () => {
   const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
 
   return (
-    <Box w="full" mb="4">
-      <Box p="2">
-        <Typography.Subheading>
+    <Box w="full" mb="6">
+      <Box pb={2}>
+        <Typography.Subheading color="text-subdued">
           {intl.formatMessage({
             id: 'form__general_uppercase',
             defaultMessage: 'GENERAL',

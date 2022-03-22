@@ -407,6 +407,7 @@
   "form__use_removed_api": "使用已删除的 API",
   "form__use_removed_api_desc": "当网站尝试使用已经删除的 window.web3 API",
   "form__user_agreement": "用户协议",
+  "form__validator_max_length": "最多支持 {value} 个字符。",
   "form__value": "价值",
   "form__valued_str": "折合价值≥ {0}",
   "form__version": "版本",

@@ -1433,9 +1433,11 @@ class IndexedDBApi implements DBAPI {
             const cursor = openCursorRequest.result as IDBCursorWithValue;
             if (cursor) {
               const entry = cursor.value as HistoryEntry;
+              const contractInEntry = (entry as { contract: string }).contract;
               if (
                 typeof contract === 'undefined' ||
-                contract === entry.contract
+                (typeof contractInEntry !== 'undefined' &&
+                  contract === contractInEntry)
               ) {
                 ret.push(cursor.value as HistoryEntry);
               }
