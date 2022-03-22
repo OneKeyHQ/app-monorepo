@@ -1050,7 +1050,7 @@ class Engine {
           networkId,
           accountId,
           HistoryEntryType.TRANSACTION,
-          autoBroadcast
+          autoBroadcast && tx.success
             ? HistoryEntryStatus.PENDING
             : HistoryEntryStatus.SIGNED,
           meta as HistoryEntryMeta,
