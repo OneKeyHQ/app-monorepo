@@ -48,6 +48,7 @@ function Desktop<T>({
     dropdownPosition,
     translateY,
     setPositionOnlyMounted,
+    dropdownProps,
   });
 
   const content = (

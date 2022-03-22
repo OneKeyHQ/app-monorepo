@@ -42,6 +42,14 @@ export type SelectGroupItem<T = string> = {
   options: SelectItem<T>[];
 };
 
+export type IDropdownPosition =
+  | 'center'
+  | 'left'
+  | 'right'
+  | 'top-left'
+  | 'top-right'
+  | 'top-center';
+export type IDropdownProps = ComponentProps<typeof Box>;
 export type SelectProps<T = string> = {
   title?: string;
   headerShown?: boolean;
@@ -50,7 +58,7 @@ export type SelectProps<T = string> = {
   defaultValue?: T;
   containerProps?: ComponentProps<typeof Box>;
   triggerProps?: ComponentProps<typeof Pressable>;
-  dropdownProps?: ComponentProps<typeof Box>;
+  dropdownProps?: IDropdownProps;
   renderTrigger?: (
     activeItem: SelectItem<T>,
     isHovered: boolean,
@@ -63,7 +71,7 @@ export type SelectProps<T = string> = {
     isActive: boolean,
     onChange?: (v: T, item: SelectItem<T>) => void,
   ) => ReactNode;
-  dropdownPosition?: 'center' | 'left' | 'right';
+  dropdownPosition?: IDropdownPosition;
   onChange?: (v: T, item: SelectItem<T>) => void;
   footer?: ReactNode;
   footerText?: string;
