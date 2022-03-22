@@ -26,9 +26,8 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
   useEffect(() => {
     async function main() {
       await serviceApp.createHDWallet({ password, mnemonic });
-      if (navigation.canGoBack()) {
-        navigation.getParent()?.goBack?.();
-      }
+      const inst = navigation.getParent() || navigation;
+      setTimeout(() => inst.goBack(), 100);
     }
     main();
   }, [navigation, password, serviceApp, mnemonic]);

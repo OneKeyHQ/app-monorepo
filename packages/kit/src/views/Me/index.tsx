@@ -82,7 +82,7 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable> */}
-          {['ios', 'android'].includes(Platform.OS) ? (
+          {platformEnv.isNative ? (
             <Pressable
               p="4"
               bg="surface-default"

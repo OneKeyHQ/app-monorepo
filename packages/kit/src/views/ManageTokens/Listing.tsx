@@ -14,6 +14,7 @@ import {
   IconButton,
   Image,
   Modal,
+  Pressable,
   Searchbar,
   Spinner,
   Typography,
@@ -241,6 +242,7 @@ const ListingToken: FC<ListingTokenProps> = ({
   borderBottomRadius,
   isOwned,
 }) => {
+  const navigation = useNavigation<NavigationProps>();
   const { activeAccount, activeNetwork } = useGeneral();
   const { text } = useToast();
   const { updateAccountTokens, updateTokens } = useManageTokens();
@@ -271,8 +273,24 @@ const ListingToken: FC<ListingTokenProps> = ({
     updateTokens,
     item.tokenIdOnNetwork,
   ]);
+  const onDetail = useCallback(() => {
+    const {
+      name,
+      symbol,
+      tokenIdOnNetwork: address,
+      decimals: decimal,
+      logoURI,
+    } = item;
+    navigation.push(ManageTokenRoutes.AddToken, {
+      name,
+      symbol,
+      address,
+      decimal,
+      logoURI,
+    });
+  }, [navigation, item]);
   return (
-    <Box
+    <Pressable
       borderTopRadius={borderTopRadius}
       borderBottomRadius={borderBottomRadius}
       display="flex"
@@ -283,6 +301,7 @@ const ListingToken: FC<ListingTokenProps> = ({
       bg="surface-default"
       overflow="hidden"
       key={item.tokenIdOnNetwork}
+      onPress={onDetail}
     >
       <Box display="flex" alignItems="center" flexDirection="row">
         <Image
@@ -333,7 +352,7 @@ const ListingToken: FC<ListingTokenProps> = ({
           />
         )}
       </Box>
-    </Box>
+    </Pressable>
   );
 };
 
