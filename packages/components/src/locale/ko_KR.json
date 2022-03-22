@@ -407,6 +407,7 @@
   "form__use_removed_api": "제거된 API 사용",
   "form__use_removed_api_desc": "제거된 window.web3 API를 웹사이트에서 사용하려고 할 때",
   "form__user_agreement": "사용자 계약",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "값",
   "form__valued_str": "값 ≥ {0}",
   "form__version": "버전",

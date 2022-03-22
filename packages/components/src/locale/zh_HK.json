@@ -407,6 +407,7 @@
   "form__use_removed_api": "使用已移除的 API",
   "form__use_removed_api_desc": "當網站嘗試使用已移除的 window.web3 API 時",
   "form__user_agreement": "用戶協議",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "價值",
   "form__valued_str": "價值 ≥ {0}",
   "form__version": "版本",

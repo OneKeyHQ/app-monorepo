@@ -407,6 +407,7 @@
   "form__use_removed_api": "ใช้ API ที่ถูกลบออก",
   "form__use_removed_api_desc": "เมื่อเว็บไซต์พยายามใช้ window.web3 API . ที่ถูกลบ",
   "form__user_agreement": "ข้อตกลงการใช้",
+  "form__validator_max_length": "This field must be {value} characters or fewer",
   "form__value": "ค่า",
   "form__valued_str": "มูลค่า ≥ {0}",
   "form__version": "เวอร์ชั่น",

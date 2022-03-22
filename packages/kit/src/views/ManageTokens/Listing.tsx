@@ -27,6 +27,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import { useDebounce, useManageTokens, useToast } from '../../hooks';
 import { useGeneral } from '../../hooks/redux';
+import { timeout } from '../../utils/helper';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -245,20 +246,29 @@ const ListingToken: FC<ListingTokenProps> = ({
   const { updateAccountTokens, updateTokens } = useManageTokens();
   const onPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
-      const res = await backgroundApiProxy.engine.preAddToken(
-        activeAccount?.id,
-        activeNetwork.network.id,
-        item.tokenIdOnNetwork,
-      );
+      let res;
+      try {
+        res = await timeout(
+          backgroundApiProxy.engine.preAddToken(
+            activeAccount?.id,
+            activeNetwork.network.id,
+            item.tokenIdOnNetwork,
+          ),
+          5000,
+        );
+      } catch (e) {
+        text('msg__failed_to_add_token');
+        return;
+      }
       if (res?.[1]) {
         await backgroundApiProxy.engine.addTokenToAccount(
           activeAccount?.id,
           res[1].id,
         );
         text('msg__token_added');
+        updateAccountTokens();
+        updateTokens();
       }
-      updateAccountTokens();
-      updateTokens();
     }
   }, [
     activeAccount,
