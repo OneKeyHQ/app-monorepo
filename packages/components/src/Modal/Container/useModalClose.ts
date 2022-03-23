@@ -9,8 +9,7 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
     if (onClose) {
       onClose();
     }
-    // navigation.getParent()?.goBack?.();
-    navigationGoBack();
+    navigationGoBack({ parentBack: true });
   }, [onClose]);
   return close;
 }

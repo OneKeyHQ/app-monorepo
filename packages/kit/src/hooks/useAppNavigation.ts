@@ -27,11 +27,16 @@ export function navigationGoHomeForceReload() {
   }
 }
 
-export function navigationGoBack() {
+export function navigationGoBack({
+  parentBack = false,
+}: { parentBack?: boolean } = {}) {
   const navigation = getAppNavigation();
   if (navigation.canGoBack()) {
-    navigation.goBack();
-    // navigation.getParent()?.goBack?.();
+    if (parentBack) {
+      navigation.getParent()?.goBack?.();
+    } else {
+      navigation.goBack();
+    }
   } else {
     navigationGoHomeForceReload();
   }
