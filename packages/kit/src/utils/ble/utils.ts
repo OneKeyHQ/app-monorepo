@@ -7,10 +7,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable no-plusplus */
 /* eslint-disable no-bitwise */
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, NativeModules } from 'react-native';
 import { BleManager, ScanMode, Device } from 'react-native-ble-plx';
 import * as Location from 'expo-location';
-
+const { OKPermissionManager } = NativeModules;
 import { Buffer } from 'buffer';
 import state from './state';
 
@@ -114,6 +114,9 @@ class BleUtils {
   async checkPermission() {
     if (Platform.OS === 'ios') {
       return;
+    }
+    if (!OKPermissionManager.isOpenLocation()) {
+      throw new Error('Permission to access location was denied');
     }
     const permissionsStatus =
       await Location.requestForegroundPermissionsAsync();

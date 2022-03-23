@@ -5,6 +5,11 @@ import {
   Callback as LiteCallback,
 } from '../hardware/OnekeyLite/types';
 
+export interface PermissionManagerInterface extends NativeModule {
+  isOpenLocation: () => boolean;
+  openLocationSetting: () => void;
+}
+
 export interface OKLiteManagerInterface extends NativeModule {
   getCardName: (call: LiteCallback<string>) => void;
   getLiteInfo: (call: LiteCallback<CardInfo>) => void;
@@ -28,5 +33,6 @@ export interface OKLiteManagerInterface extends NativeModule {
 declare module 'react-native' {
   interface NativeModulesStatic {
     OKLiteManager: OKLiteManagerInterface;
+    OKPermissionManager: PermissionManagerInterface;
   }
 }
