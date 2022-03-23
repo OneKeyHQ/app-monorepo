@@ -2,7 +2,7 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
-import { runtimeUnlock } from '../../store/reducers/general';
+import { unlock as mUnlock } from '../../store/reducers/data';
 import { updateNetworkMap } from '../../store/reducers/network';
 import {
   setBoardingCompleted,
@@ -62,7 +62,7 @@ class ServiceApp extends ServiceBase {
     dispatch(setBoardingCompleted());
     dispatch(setPasswordCompleted());
     dispatch(unlock());
-    dispatch(runtimeUnlock());
+    dispatch(mUnlock());
     serviceAccount.changeActiveAccount({
       account: null,
       wallet,
