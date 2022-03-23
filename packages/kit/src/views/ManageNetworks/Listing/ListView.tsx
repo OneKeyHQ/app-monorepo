@@ -10,10 +10,8 @@ import {
   Button,
   Divider,
   Icon,
-  Image,
   Modal,
   Text,
-  Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -23,6 +21,8 @@ import {
   ManageNetworkRoutes,
   ManageNetworkRoutesParams,
 } from '../../../routes/Modal/ManageNetwork';
+
+import { NetworkIcon } from './NetworkIcon';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -88,29 +88,7 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
               alignItems="center"
               flex="1"
             >
-              {network.preset ? (
-                <Image
-                  alt="logoURI"
-                  size={{ base: 8, md: 6 }}
-                  source={{ uri: network.logoURI }}
-                  mr="3"
-                />
-              ) : (
-                <Box
-                  mr="3"
-                  borderRadius="full"
-                  w={{ base: '8', md: '6' }}
-                  h={{ base: '8', md: '6' }}
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  bg="decorative-surface-one"
-                >
-                  <Typography.DisplaySmall numberOfLines={1}>
-                    {network.name.trim()[0].toUpperCase()}
-                  </Typography.DisplaySmall>
-                </Box>
-              )}
+              <NetworkIcon network={network} />
               <Text
                 mr="3"
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}

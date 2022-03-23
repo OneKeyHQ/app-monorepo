@@ -18,7 +18,6 @@ export type GeneralInitialState = {
   tokens: Record<string, Record<string, Token[]>>;
   ownedTokens: Record<string, Record<string, ValuedToken[]>>;
   tokensPrice: Record<string, Record<string, string>>;
-  isRuntimeUnlock: boolean;
 };
 
 const initialState: GeneralInitialState = {
@@ -28,8 +27,6 @@ const initialState: GeneralInitialState = {
   tokens: {},
   ownedTokens: {},
   tokensPrice: {},
-  // eslint-disable-next-line
-  isRuntimeUnlock: __DEV__, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
 };
 
 export const generalSlice = createSlice({
@@ -70,9 +67,6 @@ export const generalSlice = createSlice({
           action.payload;
       }
     },
-    runtimeUnlock(state) {
-      state.isRuntimeUnlock = true;
-    },
     updateTokensPrice(state, action: PayloadAction<Record<string, string>>) {
       const { activeNetwork } = state;
       if (activeNetwork) {
@@ -86,12 +80,8 @@ export const generalSlice = createSlice({
   },
 });
 
-export const {
-  changeActiveTokens,
-  changeActiveOwnedToken,
-  runtimeUnlock,
-  updateTokensPrice,
-} = generalSlice.actions;
+export const { changeActiveTokens, changeActiveOwnedToken, updateTokensPrice } =
+  generalSlice.actions;
 
 export const { changeActiveAccount, changeActiveNetwork } =
   generalSlice.actions;

@@ -22,6 +22,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { isNative } from '@onekeyhq/shared/src/platformEnv';
 
 import { OnekeyLiteModalRoutes } from '../../../routes';
 
@@ -94,28 +95,29 @@ const RestoreWalletModal: FC = () => {
           />
           {/* <Icon name="ChevronRightOutline" /> */}
         </PressableItem>
-        {/* Restore with OneKey Lite */}
-        <PressableItem
-          p={4}
-          bg="surface-default"
-          borderRadius="12px"
-          flexDirection="row"
-          alignItems="center"
-          justifyContent="space-between"
-          onPress={() => {
-            startRestorePinVerifyModal();
-          }}
-        >
-          <HStack space={3} alignItems="center" flex="1">
-            <Icon name="OnekeyLiteOutline" />
-            <Typography.Body1 flex="1">
-              {intl.formatMessage({
-                id: 'action__restore_with_onekey_lite',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightOutline" />
-        </PressableItem>
+        {isNative() ? (
+          <PressableItem
+            p={4}
+            bg="surface-default"
+            borderRadius="12px"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="space-between"
+            onPress={() => {
+              startRestorePinVerifyModal();
+            }}
+          >
+            <HStack space={3} alignItems="center" flex="1">
+              <Icon name="OnekeyLiteOutline" />
+              <Typography.Body1 flex="1">
+                {intl.formatMessage({
+                  id: 'action__restore_with_onekey_lite',
+                })}
+              </Typography.Body1>
+            </HStack>
+            <Icon name="ChevronRightOutline" />
+          </PressableItem>
+        ) : null}
         {/* Restore with Recovery Seed */}
         <PressableItem
           p={4}

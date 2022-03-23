@@ -37,6 +37,11 @@ export const useStatus = () => {
   return status;
 };
 
+export const useData = () => {
+  const data = useAppSelector((s) => s.data);
+  return data;
+};
+
 export const useGeneral = () => {
   const general = useAppSelector((s) => s.general);
   return general;

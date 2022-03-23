@@ -11,10 +11,11 @@ import Settings from '@onekeyhq/kit/src/views/Settings';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useInterval } from '../../hooks';
-import { useGeneral, useSettings, useStatus } from '../../hooks/redux';
+import { useData, useSettings, useStatus } from '../../hooks/redux';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
@@ -90,7 +91,7 @@ const MainScreen = () => {
   const { dispatch } = backgroundApiProxy;
   const { appLockDuration, enableAppLock } = useSettings();
   const { lastActivity, isUnlock, passwordCompleted } = useStatus();
-  const { isRuntimeUnlock } = useGeneral();
+  const { isUnlock: isDataUnlock } = useData();
 
   const refresh = useCallback(() => {
     if (AppState.currentState === 'active') {
@@ -122,6 +123,9 @@ const MainScreen = () => {
   );
 
   useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
     const subscription = AppState.addEventListener('change', onChange);
     return () => {
       // @ts-ignore
@@ -129,11 +133,22 @@ const MainScreen = () => {
     };
   }, [dispatch, onChange]);
 
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
+    const isStale = idleDuration >= appLockDuration;
+    if (isStale) {
+      dispatch(lock());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!passwordCompleted || !enableAppLock) {
     return <Dashboard />;
   }
-
-  return isUnlock && isRuntimeUnlock ? <Dashboard /> : <Unlock />;
+  return isUnlock && isDataUnlock ? <Dashboard /> : <Unlock />;
 };
 
 export default MainScreen;
