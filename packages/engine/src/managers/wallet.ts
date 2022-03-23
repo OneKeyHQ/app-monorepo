@@ -2,6 +2,10 @@ function walletIsHD(walletId: string): boolean {
   return walletId.startsWith('hd');
 }
 
+function walletIsHW(walletId: string): boolean {
+  return walletId.startsWith('hw');
+}
+
 function walletIsImported(walletId: string): boolean {
   return walletId.startsWith('imported');
 }
@@ -16,6 +20,7 @@ function walletNameCanBeUpdated(walletId: string): boolean {
 
 export {
   walletIsHD,
+  walletIsHW,
   walletIsImported,
   walletCanBeRemoved,
   walletNameCanBeUpdated,
