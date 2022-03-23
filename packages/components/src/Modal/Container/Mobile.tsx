@@ -8,6 +8,8 @@ import {
 } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
@@ -37,7 +39,7 @@ const MobileModal: FC<ModalProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const index = useNavigationState((state) => state.index);
   const [currentStackIndex, setCurrentStackIndex] = useState(0);
 
@@ -48,7 +50,11 @@ const MobileModal: FC<ModalProps> = ({
   });
 
   return (
-    <Box flex="1" bg="surface-subdued">
+    <Box
+      flex="1"
+      bg="surface-subdued"
+      pt={platformEnv.isAndroid ? `${top}px` : 0}
+    >
       <Box
         pt={1}
         pr={2}

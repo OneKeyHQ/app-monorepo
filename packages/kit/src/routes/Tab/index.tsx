@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -61,15 +61,22 @@ export const tabRoutes = [
 const TabNavigator = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+
+  const renderHeader = useCallback(
+    () => (
+      <LayoutHeader
+        headerLeft={() => (isVerticalLayout ? <AccountSelector /> : null)}
+        headerRight={() => <ChainSelector />}
+      />
+    ),
+    [isVerticalLayout],
+  );
+
   return (
     <Tab.Navigator
       screenOptions={{
-        header: () => (
-          <LayoutHeader
-            headerLeft={() => (isVerticalLayout ? <AccountSelector /> : null)}
-            headerRight={() => <ChainSelector />}
-          />
-        ),
+        lazy: true,
+        header: renderHeader,
       }}
     >
       {tabRoutes.map((tab) => (

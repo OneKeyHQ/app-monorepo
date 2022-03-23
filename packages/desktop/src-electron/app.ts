@@ -39,6 +39,9 @@ async function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     frame: true,
+    resizable: false,
+    width: 1600,
+    height: 900,
     webPreferences: {
       webviewTag: true,
       webSecurity: !isDev,
