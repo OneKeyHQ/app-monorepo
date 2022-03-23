@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { useNavigation } from '@react-navigation/core';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { RootRoutes } from '../routes/routesEnum';
@@ -27,20 +29,10 @@ export function navigationGoHomeForceReload() {
   }
 }
 
-export function navigationGoBack({
-  parentBack = false,
-}: { parentBack?: boolean } = {}) {
+export function navigationGoBack() {
   const navigation = getAppNavigation();
   if (navigation.canGoBack()) {
-    if (parentBack) {
-      if (navigation.getParent()?.canGoBack?.()) {
-        navigation.getParent()?.goBack?.();
-      } else {
-        navigation.goBack();
-      }
-    } else {
-      navigation.goBack();
-    }
+    navigation.goBack();
   } else {
     navigationGoHomeForceReload();
   }
