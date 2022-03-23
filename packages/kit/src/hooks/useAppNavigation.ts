@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { RootRoutes } from '../routes/routesEnum';
@@ -31,7 +32,6 @@ export function navigationGoBack() {
   const navigation = getAppNavigation();
   if (navigation.canGoBack()) {
     navigation.goBack();
-    // navigation.getParent()?.goBack?.();
   } else {
     navigationGoHomeForceReload();
   }
