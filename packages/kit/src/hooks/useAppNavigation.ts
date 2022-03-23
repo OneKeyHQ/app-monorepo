@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { useNavigation } from '@react-navigation/core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
