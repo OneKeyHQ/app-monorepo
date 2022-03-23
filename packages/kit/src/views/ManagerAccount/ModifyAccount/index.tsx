@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,64 +11,45 @@ import { useToast } from '../../../hooks/useToast';
 
 type FieldValues = { name: string };
 
-export default function useAccountModifyNameDialog() {
+export type AccountModifyNameDialogProps = {
+  visible: boolean;
+  account: Account | undefined;
+  onDone: (account: Account) => void;
+  onClose: () => void;
+};
+
+const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
+  visible,
+  account,
+  onDone,
+  onClose,
+}) => {
   const intl = useIntl();
   const toast = useToast();
   const { engine } = backgroundApiProxy;
 
-  const successCall = useRef<() => void>();
-
-  const [visible, setVisible] = React.useState(false);
-  const [accountId, setAccountId] = React.useState('');
-  const [networkId, setNetworkId] = React.useState('');
-
-  const [account, setAccount] = useState<Account>();
   const [isLoading, setIsLoading] = React.useState(false);
 
   const { control, handleSubmit, setError, reset } = useForm<FieldValues>({
     defaultValues: { name: '' },
   });
 
-  const show = (
-    $accountId: string,
-    $networkId: string,
-    call?: (() => void) | undefined,
-  ) => {
-    reset();
-    successCall.current = call;
-    setAccountId($accountId);
-    setNetworkId($networkId);
-    setVisible(true);
-  };
-
   useEffect(() => {
-    if (!accountId || !networkId) return;
-    engine.getAccount(accountId, networkId).then(($account) => {
-      setAccount($account);
-    });
-  }, [accountId, engine, networkId]);
+    if (!visible) {
+      reset();
+    }
+  }, [visible, reset]);
 
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     if (!account) return;
 
     setIsLoading(true);
-    // 判断名字重复
-    // const existsName = wallets.find((w) => w.name === values.name);
-    // if (existsName) {
-    //   setError('name', {
-    //     message: intl.formatMessage({
-    //       id: 'form__account_name_invalid_exists',
-    //     }),
-    //   });
-    //   setIsLoading(false);
-    //   return;
-    // }
 
-    const changedAccount = await engine.setAccountName(accountId, values.name);
+    const changedAccount = await engine.setAccountName(account.id, values.name);
     if (changedAccount) {
       toast.info(intl.formatMessage({ id: 'msg__renamed' }));
-      setVisible(false);
-      successCall?.current?.();
+      onClose();
+      onDone(account);
     } else {
       setError('name', {
         message: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -77,10 +58,10 @@ export default function useAccountModifyNameDialog() {
     setIsLoading(false);
   });
 
-  const AccountModifyNameDialog = useMemo(
-    () =>
-      visible && (
-        <Dialog visible={visible} hasFormInsideDialog>
+  return (
+    <>
+      {visible && (
+        <Dialog visible={visible}>
           <Form>
             <Form.Item
               name="name"
@@ -99,12 +80,16 @@ export default function useAccountModifyNameDialog() {
                 },
               }}
             >
-              <Form.Input autoFocus placeholder={account?.name ?? ''} />
+              <Form.Input
+                autoFocus
+                focusable
+                placeholder={account?.name ?? ''}
+              />
             </Form.Item>
             <DialogCommon.FooterButton
               marginTop={0}
               secondaryActionTranslationId="action__cancel"
-              onSecondaryActionPress={() => setVisible(false)}
+              onSecondaryActionPress={() => onClose()}
               onPrimaryActionPress={() => onSubmit()}
               primaryActionTranslationId="action__rename"
               primaryActionProps={{
@@ -113,9 +98,9 @@ export default function useAccountModifyNameDialog() {
             />
           </Form>
         </Dialog>
-      ),
-    [visible, control, intl, account?.name, isLoading, onSubmit],
+      )}
+    </>
   );
+};
 
-  return { show, AccountModifyNameDialog };
-}
+export default AccountModifyNameDialog;

@@ -46,7 +46,7 @@ import {
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
-import useAccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
+import AccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount';
 
 import LeftSide from './LeftSide';
@@ -92,8 +92,10 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
-  const { show: showAccountModifyNameDialog, AccountModifyNameDialog } =
-    useAccountModifyNameDialog();
+
+  const [modifyNameVisible, setModifyNameVisible] = useState(false);
+  const [modifyNameAccount, setModifyNameAccount] =
+    useState<AccountEngineType>();
 
   const { account: currentSelectedAccount, wallet: defaultSelectedWallet } =
     useActiveWalletAccount();
@@ -128,14 +130,8 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     (item: AccountEngineType, value) => {
       switch (value) {
         case 'rename':
-          showAccountModifyNameDialog(
-            item.id,
-            activeNetwork?.network.id ?? '',
-            () => {
-              refreshAccounts();
-              console.log('account modify name', item.id);
-            },
-          );
+          setModifyNameAccount(item);
+          setModifyNameVisible(true);
 
           break;
         case 'detail':
@@ -177,7 +173,6 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
       navigation,
       refreshAccounts,
       selectedWallet?.id,
-      showAccountModifyNameDialog,
       showRemoveAccountDialog,
       showVerify,
     ],
@@ -389,7 +384,15 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         />
       </VStack>
       {RemoveAccountDialog}
-      {AccountModifyNameDialog}
+      <AccountModifyNameDialog
+        visible={modifyNameVisible}
+        account={modifyNameAccount}
+        onClose={() => setModifyNameVisible(false)}
+        onDone={(account) => {
+          refreshAccounts();
+          console.log('account modify name', account.id);
+        }}
+      />
     </>
   );
 };
