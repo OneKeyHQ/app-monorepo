@@ -333,7 +333,7 @@ PODS:
     - react-native-config/App (= 1.4.5)
   - react-native-config/App (1.4.5):
     - React-Core
-  - react-native-netinfo (7.1.3):
+  - react-native-netinfo (8.2.0):
     - React-Core
   - react-native-pager-view (5.4.9):
     - React-Core
@@ -414,7 +414,7 @@ PODS:
     - React-RCTText
   - RealmJS (10.20.0-beta.0):
     - React
-  - RNCAsyncStorage (1.15.17):
+  - RNCAsyncStorage (1.15.14):
     - React-Core
   - RNGestureHandler (2.1.3):
     - React-Core
@@ -526,7 +526,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
-  - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
+  - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
@@ -669,7 +669,7 @@ EXTERNAL SOURCES:
   RealmJS:
     :path: "../../../node_modules/realm"
   RNCAsyncStorage:
-    :path: "../node_modules/@react-native-async-storage/async-storage"
+    :path: "../../../node_modules/@react-native-async-storage/async-storage"
   RNGestureHandler:
     :path: "../../../node_modules/react-native-gesture-handler"
   RNReanimated:
@@ -731,7 +731,7 @@ SPEC CHECKSUMS:
   React-logger: 933f80c97c633ee8965d609876848148e3fef438
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
-  react-native-netinfo: 42c0965fca99069b92e3f7360ab2d425985e5104
+  react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
   react-native-pager-view: 3ee7d4c7697fb3ef788346e834a60cca97ed8540
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 584dc04881deb49474363f3be89e4ca0e854c057
@@ -750,7 +750,7 @@ SPEC CHECKSUMS:
   ReactCommon: 57b69f6383eafcbd7da625bfa6003810332313c4
   ReactNativeKeyboardManager: f82a63e0982254fb0f6a17ba327fac575a46f1e9
   RealmJS: 6e47a0a9619d19dd238ef635abee5724cb677247
-  RNCAsyncStorage: 6bd5a7ba3dde1c3facba418aa273f449bdc5437a
+  RNCAsyncStorage: ea6b5c280997b2b32a587793163b1f10e580c4f7
   RNGestureHandler: e1099204721a17a89c81fcd1cc2e92143dc040fb
   RNReanimated: b676957fbbf477c5468335268e8fe6fbb0f630e5
   RNScreens: d6da2b9e29cf523832c2542f47bf1287318b1868
