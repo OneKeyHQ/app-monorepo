@@ -264,7 +264,6 @@ const Transaction = () => {
                   options={options}
                   defaultValue={nativeToken?.id}
                   footer={null}
-                  dropdownProps={{ width: '337px' }}
                   dropdownPosition="right"
                   onChange={(item) => {
                     console.log(item);
@@ -342,11 +341,11 @@ const Transaction = () => {
                     >
                       <Column>
                         <FormatBalance
-                          suffix="Gwei"
                           formatOptions={{
                             fixed: 4,
                           }}
                           balance={gasPriceFee ?? ''}
+                          suffix="Gwei"
                           render={(ele) => (
                             <Text
                               typography={{

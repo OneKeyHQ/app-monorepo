@@ -1,17 +1,23 @@
 import { useCallback } from 'react';
 
-import { navigationGoBack } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useNavigation } from '@react-navigation/core';
+
+import { navigationGoHomeForceReload } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
-  // const navigation = useNavigation();
+  const navigation = useNavigation();
 
   const close = useCallback(() => {
     if (onClose) {
       onClose();
     }
-    // navigation.getParent()?.goBack?.();
-    navigationGoBack();
-  }, [onClose]);
+    const parent = navigation.getParent();
+    if (parent?.canGoBack()) {
+      parent?.goBack();
+    } else {
+      navigationGoHomeForceReload();
+    }
+  }, [navigation, onClose]);
   return close;
 }
 
