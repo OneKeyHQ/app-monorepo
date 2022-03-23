@@ -14,7 +14,9 @@ import {
 } from '../../errors';
 import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
+import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount, DBVariantAccount } from '../../types/account';
+import { PrivateKeyCredential } from '../../types/credential';
 import { Device } from '../../types/device';
 import {
   HistoryEntry,
@@ -37,14 +39,12 @@ import {
   ExportedCredential,
   MAIN_CONTEXT,
   OneKeyContext,
-  StoredCredential,
-  StoredSeedCredential,
   StoredPrivateKeyCredential,
+  StoredSeedCredential,
   checkPassword,
   decrypt,
   encrypt,
 } from '../base';
-import { walletIsImported } from '../../managers/wallet';
 
 type TokenBinding = {
   accountId: string;
@@ -129,6 +129,27 @@ class IndexedDBApi implements DBAPI {
       // eslint-disable-next-line  @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const request: IDBOpenDBRequest = indexedDB.open(DB_NAME, DB_VERSION);
 
+      request.onsuccess = (_event) => {
+        const db: IDBDatabase = request.result;
+        const walletStore = db
+          .transaction([WALLET_STORE_NAME], 'readwrite')
+          .objectStore(WALLET_STORE_NAME);
+        const getImportedWalletRequest = walletStore.get('imported');
+        getImportedWalletRequest.onsuccess = (_gevent) => {
+          if (typeof getImportedWalletRequest.result === 'undefined') {
+            walletStore.add({
+              id: 'imported',
+              name: 'imported',
+              type: WALLET_TYPE_IMPORTED,
+              backuped: true,
+              accounts: [],
+              nextAccountIds: { 'global': 1 },
+            });
+          }
+        };
+        resolve(request.result);
+      };
+
       request.onerror = (_event) => {
         reject(new OneKeyInternalError('Failed to open DB.'));
       };
@@ -142,29 +163,6 @@ class IndexedDBApi implements DBAPI {
         if (oldVersion < 2) {
           db.createObjectStore(DEVICE_STORE_NAME, { keyPath: 'id' });
         }
-      };
-
-      request.onsuccess = (_event) => {
-        const transaction: IDBTransaction = request.result.transaction(
-          [NETWORK_STORE_NAME, WALLET_STORE_NAME],
-          'readwrite',
-        );
-        transaction.onerror = (_tevent) => {
-          reject(new OneKeyInternalError('Failed to sync db.'));
-        };
-
-        transaction.oncomplete = (_tevent) => {
-          resolve(request.result);
-        };
-
-        // transaction.objectStore(WALLET_STORE_NAME).add({
-        //   id: 'imported',
-        //   name: 'imported',
-        //   type: WALLET_TYPE_IMPORTED,
-        //   backuped: true,
-        //   accounts: [],
-        //   nextAccountIds: { 'global': 1 },
-        // });
       };
     });
   }
@@ -228,16 +226,17 @@ class IndexedDBApi implements DBAPI {
                   cursor.value as { id: string; credential: string };
 
                 if (credentialItem.id.startsWith('imported')) {
-                  const privateKeyCredentialJSON: StoredPrivateKeyCredential = JSON.parse(
-                    credentialItem.credential,
-                  );
+                  const privateKeyCredentialJSON: StoredPrivateKeyCredential =
+                    JSON.parse(credentialItem.credential);
                   credentialItem.credential = JSON.stringify({
                     privateKey: encrypt(
                       newPassword,
-                      decrypt(oldPassword, Buffer.from(privateKeyCredentialJSON.privateKey, 'hex')),
+                      decrypt(
+                        oldPassword,
+                        Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+                      ),
                     ).toString('hex'),
                   });
-
                 } else {
                   const credentialJSON: StoredSeedCredential = JSON.parse(
                     credentialItem.credential,
@@ -768,47 +767,6 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addImportedAccountCredential(
-    password: string,
-    encryptedPrivateKey: Buffer,
-    accountId: string,
-    name?: string,
-  ): Promise<Wallet> {
-    let ret: Wallet;
-    return this.ready.then(
-      (db) =>
-        new Promise((resolve, reject) => {
-          const transaction: IDBTransaction = db.transaction(
-            [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME],
-            'readwrite',
-          );
-          transaction.onerror = (_tevent) => {
-            reject(new OneKeyInternalError('Failed to add Imported Account.'));
-          };
-          transaction.oncomplete = (_tevent) => {
-            resolve(ret);
-          };
-
-          const contextStore = transaction.objectStore(CONTEXT_STORE_NAME);
-          const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
-          getMainContextRequest.onsuccess = (_cevent) => {
-            const context: OneKeyContext =
-              getMainContextRequest.result as OneKeyContext;
-            if (!checkPassword(context, password)) {
-              reject(new WrongPassword());
-              return;
-            }
-            transaction.objectStore(CREDENTIAL_STORE_NAME).add({
-              id: accountId,
-              credential: JSON.stringify({
-                encryptedPrivateKey: encryptedPrivateKey.toString('hex'),
-              }),
-            });
-          };
-        }),
-    );
-  }
-
   addHWWallet(id: string, name: string): Promise<Wallet> {
     let ret: Wallet;
     return this.ready.then(
@@ -1015,15 +973,22 @@ class IndexedDBApi implements DBAPI {
               const { credential } = getCredentialRequest.result as {
                 id: string;
                 credential: string;
-              }
+              };
 
               if (walletIsImported(credentialId)) {
-                const privateKeyCredentialJSON = JSON.parse(credential) as StoredPrivateKeyCredential;
+                const privateKeyCredentialJSON = JSON.parse(
+                  credential,
+                ) as StoredPrivateKeyCredential;
                 resolve({
-                  privateKey: Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+                  privateKey: Buffer.from(
+                    privateKeyCredentialJSON.privateKey,
+                    'hex',
+                  ),
                 });
               } else {
-                const seedCredentialJSON = JSON.parse(credential) as StoredSeedCredential;
+                const seedCredentialJSON = JSON.parse(
+                  credential,
+                ) as StoredSeedCredential;
                 resolve({
                   entropy: Buffer.from(seedCredentialJSON.entropy, 'hex'),
                   seed: Buffer.from(seedCredentialJSON.seed, 'hex'),
@@ -1079,13 +1044,29 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount> {
+  addAccountToWallet(
+    walletId: string,
+    account: DBAccount,
+    importedCredential?: PrivateKeyCredential,
+  ): Promise<DBAccount> {
+    let addingImported = false;
+    if (walletIsImported(walletId)) {
+      if (typeof importedCredential === 'undefined') {
+        throw new OneKeyInternalError(
+          'Imported credential required for adding imported accounts.',
+        );
+      }
+      addingImported = true;
+    }
+
     let ret: DBAccount;
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
           const transaction: IDBTransaction = db.transaction(
-            [WALLET_STORE_NAME, ACCOUNT_STORE_NAME],
+            [WALLET_STORE_NAME, ACCOUNT_STORE_NAME].concat(
+              addingImported ? [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME] : [],
+            ),
             'readwrite',
           );
           transaction.onerror = (_tevent) => {
@@ -1117,31 +1098,70 @@ class IndexedDBApi implements DBAPI {
 
             wallet.accounts.push(account.id);
 
-            if (wallet.type === WALLET_TYPE_WATCHING) {
-              if (wallet.accounts.length > LIMIT_WATCHING_ACCOUNT_NUM) {
-                reject(new TooManyWatchingAccounts());
+            switch (wallet.type) {
+              case WALLET_TYPE_WATCHING: {
+                if (wallet.accounts.length > LIMIT_WATCHING_ACCOUNT_NUM) {
+                  reject(new TooManyWatchingAccounts());
+                  return;
+                }
+                wallet.nextAccountIds.global += 1;
+                break;
+              }
+              case WALLET_TYPE_HW:
+              // fall through
+              case WALLET_TYPE_HD: {
+                const pathComponents = account.path.split('/');
+                const category = `${pathComponents[1]}/${pathComponents[2]}`;
+                const purpose = pathComponents[1].slice(0, -1);
+                const coinType = pathComponents[2].slice(0, -1);
+                let nextId = wallet.nextAccountIds[category] || 0;
+                while (
+                  wallet.accounts.includes(
+                    `${walletId}--${getPath(purpose, coinType, nextId)}`,
+                  )
+                ) {
+                  nextId += 1;
+                }
+                wallet.nextAccountIds[category] = nextId;
+                break;
+              }
+              case WALLET_TYPE_IMPORTED: {
+                const getMainContextRequest = transaction
+                  .objectStore(CONTEXT_STORE_NAME)
+                  .get(MAIN_CONTEXT);
+                getMainContextRequest.onsuccess = (_cevent) => {
+                  const context: OneKeyContext =
+                    getMainContextRequest.result as OneKeyContext;
+                  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                  if (!checkPassword(context, importedCredential!.password)) {
+                    reject(new WrongPassword());
+                    return;
+                  }
+                  transaction.objectStore(CREDENTIAL_STORE_NAME).add({
+                    id: account.id,
+                    credential: JSON.stringify({
+                      privateKey:
+                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                        importedCredential!.privateKey.toString('hex'),
+                    }),
+                  });
+                  wallet.nextAccountIds.global += 1;
+                  walletStore.put(wallet);
+                  transaction
+                    .objectStore(ACCOUNT_STORE_NAME)
+                    .add(account).onsuccess = (_aevent) => {
+                    ret = account;
+                  };
+                };
+                break;
+              }
+              default:
+                reject(new NotImplemented());
                 return;
-              }
-              wallet.nextAccountIds.global += 1;
-            } else if (wallet.type === WALLET_TYPE_HD) {
-              const pathComponents = account.path.split('/');
-              const category = `${pathComponents[1]}/${pathComponents[2]}`;
-              const purpose = pathComponents[1].slice(0, -1);
-              const coinType = pathComponents[2].slice(0, -1);
-              let nextId = wallet.nextAccountIds[category] || 0;
-              while (
-                wallet.accounts.includes(
-                  `${walletId}--${getPath(purpose, coinType, nextId)}`,
-                )
-              ) {
-                nextId += 1;
-              }
-              wallet.nextAccountIds[category] = nextId;
-            } else if (wallet.type === WALLET_TYPE_IMPORTED) {
-              wallet.nextAccountIds.global += 1;
-            } else {
-              // TODO: other wallets.
-              reject(new NotImplemented());
+            }
+
+            if (addingImported) {
+              // wallet and account should be updated/added if password check passed.
               return;
             }
 
@@ -1223,6 +1243,10 @@ class IndexedDBApi implements DBAPI {
 
     transaction.objectStore(ACCOUNT_STORE_NAME).delete(accountId);
 
+    if (walletIsImported(wallet.id)) {
+      transaction.objectStore(CREDENTIAL_STORE_NAME).delete(accountId);
+    }
+
     const tokenBindingOpenCursorRequest = transaction
       .objectStore(TOKEN_BINDING_STORE_NAME)
       .index('accountId, networkId')
@@ -1253,6 +1277,7 @@ class IndexedDBApi implements DBAPI {
     accountId: string,
     password: string,
   ): Promise<void> {
+    const removingImported = walletIsImported(walletId);
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -1263,7 +1288,7 @@ class IndexedDBApi implements DBAPI {
               ACCOUNT_STORE_NAME,
               TOKEN_BINDING_STORE_NAME,
               HISTORY_STORE_NAME,
-            ],
+            ].concat(removingImported ? [CREDENTIAL_STORE_NAME] : []),
             'readwrite',
           );
           transaction.onerror = (_tevent) => {

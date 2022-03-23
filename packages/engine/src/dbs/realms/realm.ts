@@ -36,7 +36,6 @@ import {
   ExportedCredential,
   MAIN_CONTEXT,
   OneKeyContext,
-  StoredCredential,
   StoredSeedCredential,
   checkPassword,
   decrypt,

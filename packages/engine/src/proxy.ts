@@ -275,7 +275,6 @@ class ProviderController extends BaseProviderController {
   private getSigners(
     networkId: string,
     credential: CredentialSelector,
-    password: string,
     dbAccount: DBAccount,
   ): { [p: string]: ISigner } {
     const provider = this.providers[networkId];
@@ -291,7 +290,7 @@ class ProviderController extends BaseProviderController {
       extendedKey = batchGetPrivateKeys(
         curve,
         credential.seed,
-        password,
+        credential.password,
         pathComponents.join('/'),
         [relPath],
       )[0].extendedKey;
@@ -305,7 +304,11 @@ class ProviderController extends BaseProviderController {
     }
 
     return {
-      [dbAccount.address]: new Signer(extendedKey, password, curve as Curve),
+      [dbAccount.address]: new Signer(
+        extendedKey,
+        credential.password,
+        curve as Curve,
+      ),
     };
   }
 
@@ -484,16 +487,13 @@ class ProviderController extends BaseProviderController {
     let rawTx: string;
     let success = true;
     switch (credential.type) {
-      case CredentialType.SOFTWARE || CredentialType.PRIVATE_KEY:
+      case CredentialType.PRIVATE_KEY:
+      // fall through
+      case CredentialType.SOFTWARE:
         ({ txid, rawTx } = await this.signTransaction(
           network.id,
           unsignedTx,
-          this.getSigners(
-            network.id,
-            credential,
-            credential.password,
-            dbAccount,
-          ),
+          this.getSigners(network.id, credential, dbAccount),
         ));
         break;
       case CredentialType.HARDWARE:
@@ -670,7 +670,7 @@ class ProviderController extends BaseProviderController {
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const defaultType = ETHMessageTypes.PERSONAL_SIGN;
     const [signer] = Object.values(
-      this.getSigners(network.id, credential, password, dbAccount),
+      this.getSigners(network.id, credential, dbAccount),
     );
     return Promise.all(
       messages.map((message) => {
@@ -687,8 +687,7 @@ class ProviderController extends BaseProviderController {
   }
 
   async signTransactions(
-    seed: Buffer,
-    password: string,
+    credential: CredentialSelector,
     network: Network,
     dbAccount: DBAccount,
     transactions: Array<string>,
@@ -772,7 +771,7 @@ class ProviderController extends BaseProviderController {
           delete unsignedTx.type;
         }
         const [signature] = await Object.values(
-          this.getSigners(network.id, seed, password, dbAccount),
+          this.getSigners(network.id, credential, dbAccount),
         )[0].sign(
           Buffer.from(
             keccak256(ethTransaction.serialize(unsignedTx)).slice(2),

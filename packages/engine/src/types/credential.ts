@@ -26,4 +26,4 @@ type CredentialSelector =
   | PrivateKeyCredential;
 
 export { CredentialType };
-export type { CredentialSelector };
+export type { CredentialSelector, PrivateKeyCredential };
