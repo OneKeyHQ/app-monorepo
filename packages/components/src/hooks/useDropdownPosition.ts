@@ -178,6 +178,7 @@ function useDropdownPosition({
     translateY,
     triggerEle,
     visible,
+    dropdownProps?.height,
   ]);
 
   return {

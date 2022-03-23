@@ -207,6 +207,8 @@ const Approve = () => {
         </Column>
       </Column>
     );
+    // :TODO: IMPORTANT
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

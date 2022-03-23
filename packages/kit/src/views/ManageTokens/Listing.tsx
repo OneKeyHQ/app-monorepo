@@ -243,8 +243,9 @@ const ListingToken: FC<ListingTokenProps> = ({
   isOwned,
 }) => {
   const navigation = useNavigation<NavigationProps>();
+  const intl = useIntl();
+  const { info } = useToast();
   const { activeAccount, activeNetwork } = useGeneral();
-  const { text } = useToast();
   const { updateAccountTokens, updateTokens } = useManageTokens();
   const onPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
@@ -258,17 +259,18 @@ const ListingToken: FC<ListingTokenProps> = ({
           5000,
         );
       } catch (e) {
-        text('msg__failed_to_add_token');
+        info(intl.formatMessage({ id: 'msg__failed_to_add_token' }));
         return;
       }
-      text('msg__token_added');
+      info(intl.formatMessage({ id: 'msg__token_added' }));
       updateAccountTokens();
       updateTokens();
     }
   }, [
+    intl,
     activeAccount,
     activeNetwork,
-    text,
+    info,
     updateAccountTokens,
     updateTokens,
     item.tokenIdOnNetwork,

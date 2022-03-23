@@ -19,6 +19,7 @@ import {
   setAppLockDuration,
   setEnableAppLock,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import { reload } from '@onekeyhq/kit/src/utils/helper';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
@@ -94,6 +95,7 @@ export const SecuritySection = () => {
   const onReset = useCallback(async () => {
     await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
+    reload();
   }, []);
   const onSetAppLockDuration = useCallback(
     (value: number) => {

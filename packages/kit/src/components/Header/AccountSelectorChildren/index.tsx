@@ -123,7 +123,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
 
       setActiveAccounts(accounts);
     }
-    main();
+    return main();
   }, [activeNetwork?.network?.id, activeWallet]);
 
   const handleChange = useCallback(
@@ -299,7 +299,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                 });
                 setTimeout(() => {
                   navigation.dispatch(DrawerActions.closeDrawer());
-                }, 10);
+                });
               }}
             >
               {({ isHovered }) => (

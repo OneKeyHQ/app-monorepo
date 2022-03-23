@@ -59,7 +59,7 @@ export default function useRemoveAccountDialog() {
     setAccountId($accountId);
     setPassword($password);
     setWalletId($walletId);
-    setVisible(true);
+    setTimeout(() => setVisible(true), 200);
   };
 
   const RemoveAccountDialog = useMemo(

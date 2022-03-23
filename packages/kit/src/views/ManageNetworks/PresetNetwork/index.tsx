@@ -71,7 +71,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const [visible, setVisible] = useState(false);
   const refData = useRef({ preventRemove: false });
   const navigation = useNavigation<NavigationProps>();
-  const { text } = useToast();
+  const { info } = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
   const [networkStatus, setNetworkStatus] = useState<Record<string, number>>(
     {},
@@ -99,13 +99,13 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
-      text('msg__change_saved');
+      info(intl.formatMessage({ id: 'msg__change_saved' }));
       refData.current.preventRemove = true;
       if (navigation.canGoBack()) {
         navigation.goBack();
       }
     },
-    [serviceNetwork, id, text, navigation, refData],
+    [serviceNetwork, id, info, intl, navigation, refData],
   );
 
   useEffect(() => {
@@ -137,9 +137,9 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const onReset = useCallback(() => {
     reset(route.params);
     setResetOpened(false);
-    text('msg__network_reset');
+    info(intl.formatMessage({ id: 'msg__network_reset' }));
     navigation.popToTop();
-  }, [route.params, text, reset, navigation]);
+  }, [route.params, info, intl, reset, navigation]);
 
   const onBeforeRemove = useCallback(
     (e) => {
