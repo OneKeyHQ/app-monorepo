@@ -46,28 +46,15 @@ const RecoverConfirm: FC = () => {
   const [isVaild, setIsVaild] = useState(true);
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const addHDAccount = useCallback(
-    (password: string, item: FlatDataType, index) => {
-      const name = `Account #${item.index}`;
-      setTimeout(
-        async () =>
-          backgroundApiProxy.engine.addHDAccount(
-            password,
-            walletId,
-            network,
-            item.index,
-            name,
-          ),
-        index * 1000,
-      );
-    },
-    [network, walletId],
-  );
-
   const authenticationDone = async (password: string) => {
-    const selectAccount = flatListData.filter((i) => i.selected);
-    await Promise.all(
-      selectAccount.map((item, index) => addHDAccount(password, item, index)),
+    const selectedIndexes = flatListData
+      .filter((i) => i.selected)
+      .map((i) => i.index);
+    await backgroundApiProxy.engine.addHDAccounts(
+      password,
+      walletId,
+      network,
+      selectedIndexes,
     );
 
     dispatch(setRefreshTS());
@@ -139,7 +126,7 @@ const RecoverConfirm: FC = () => {
       >
         <Box flexDirection="column" flex={1} justifyContent="center" pl="24px">
           <Typography.Body2Strong>
-            {`Account #${item.index}`}
+            {`Account #${item.index + 1}`}
           </Typography.Body2Strong>
           <Address
             typography="Body2"

@@ -61,10 +61,9 @@ const derivationPathTemplates: Record<string, string> = {
 function getDerivationPaths(
   purpose: string,
   coinType: string,
-  start = 0,
-  limit = 10,
+  indexes: Array<number>,
 ): { prefix: string; depth: number; relPaths: Array<string> } {
-  if (start >= 2 ** 31) {
+  if (indexes.some((index) => index >= 2 ** 31)) {
     throw new OneKeyInternalError(
       'Invalid child index, should be less than 2^31.',
     );
@@ -75,10 +74,7 @@ function getDerivationPaths(
     throw new OneKeyInternalError(`Unsupported coinType ${coinType}.`);
   }
   const [prefix, suffix] = template.split(INCREMENT_LEVEL_TAG);
-  const itemCount = start + limit >= 2 ** 31 ? 2 ** 31 - start : limit;
-  const relPaths = Array.from(Array(itemCount).keys()).map(
-    (index) => `${start + index}${suffix}`,
-  );
+  const relPaths = indexes.map((index) => `${index}${suffix}`);
   return {
     prefix: prefix.slice(0, -1).replace(PURPOSE_TAG, purpose),
     depth: template.split('/').length - 1,
@@ -87,7 +83,7 @@ function getDerivationPaths(
 }
 
 function getPath(purpose: string, coinType: string, index: number) {
-  const { prefix, relPaths } = getDerivationPaths(purpose, coinType, index, 1);
+  const { prefix, relPaths } = getDerivationPaths(purpose, coinType, [index]);
   return `${prefix}/${relPaths[0]}`;
 }
 
@@ -95,8 +91,7 @@ async function getXpubs(
   impl: string,
   credential: CredentialSelector,
   outputFormat: 'xpub' | 'pub' | 'address',
-  start = 0,
-  limit = 10,
+  indexes: Array<number>,
   purpose?: number,
   curve?: string,
 ): Promise<Array<{ path: string; info: string }>> {
@@ -128,8 +123,7 @@ async function getXpubs(
   const { prefix, depth, relPaths } = getDerivationPaths(
     usedPurpose.toString(),
     coinType,
-    start,
-    limit,
+    indexes,
   );
 
   switch (credential.type) {
