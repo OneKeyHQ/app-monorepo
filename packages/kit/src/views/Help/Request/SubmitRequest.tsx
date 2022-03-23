@@ -28,8 +28,10 @@ import {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
 } from '@onekeyhq/kit/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../../hooks/redux';
+import { navigationGoBack } from '../../../hooks/useAppNavigation';
 
 import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
 import { ImageModel } from './types';
@@ -347,16 +349,21 @@ export const SubmitRequest: FC = () => {
             toast.show({
               title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
             });
-            navigation.goBack();
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             requestTicketDetail(response.data.data.id, instanceId);
+            setTimeout(
+              () => {
+                navigationGoBack();
+              },
+              platformEnv.isExtension ? 1500 : 0,
+            );
           }
         })
         .catch((error) => {
           console.log(error);
         });
     },
-    [imageArr, instanceId, intl, isHardware, navigation, toast],
+    [imageArr, instanceId, intl, isHardware, toast],
   );
 
   const optionLab = (

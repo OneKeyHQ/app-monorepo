@@ -18,7 +18,7 @@ import LocalAuthenticationButton from '../../components/LocalAuthenticationButto
 import { useStatus } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { useToast } from '../../hooks/useToast';
-import { runtimeUnlock } from '../../store/reducers/general';
+import { unlock as mUnlock } from '../../store/reducers/data';
 import { setEnableAppLock } from '../../store/reducers/settings';
 import { setPasswordCompleted, unlock } from '../../store/reducers/status';
 
@@ -144,7 +144,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       );
       await savePassword(values.password);
       dispatch(unlock());
-      dispatch(runtimeUnlock());
+      dispatch(mUnlock());
       if (!passwordCompleted) {
         dispatch(setPasswordCompleted());
         dispatch(setEnableAppLock(true));

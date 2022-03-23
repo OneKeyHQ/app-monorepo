@@ -7,7 +7,6 @@ import {
   Box,
   Divider,
   IconButton,
-  Image,
   Modal,
   Switch,
   Typography,
@@ -20,6 +19,7 @@ import { useManageNetworks, useToast } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 
 import { DiscardAlert } from './DiscardAlert';
+import { NetworkIcon } from './NetworkIcon';
 
 type SortableViewProps = {
   onPress: () => void;
@@ -67,12 +67,7 @@ const ItemRow: FC<ItemRowProps> = ({
           onPressIn={() => onDrag()}
         />
         <Box display="flex" flexDirection="row" alignItems="center">
-          <Image
-            alt="logoURI"
-            size={{ base: 8, md: 6 }}
-            source={{ uri: network.logoURI }}
-            mr="3"
-          />
+          <NetworkIcon network={network} />
           <Typography.Body1Strong mr="3">
             {network.shortName}
           </Typography.Body1Strong>

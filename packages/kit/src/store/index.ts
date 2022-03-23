@@ -32,6 +32,7 @@ import autoUpdateReducer from './reducers/autoUpdater';
 import chainReducer from './reducers/chain';
 import counter from './reducers/counter';
 import dappReducer from './reducers/dapp';
+import dataReducer from './reducers/data';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
 import networkReducer from './reducers/network';
@@ -49,6 +50,7 @@ const allReducers = combineReducers({
   general: generalReducer,
   fiatMoney: fiatMoneyReducer,
   dapp: dappReducer,
+  data: dataReducer,
   counter,
 });
 

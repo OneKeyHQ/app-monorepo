@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setBoardingCompleted } from '@onekeyhq/kit/src/store/reducers/status';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -126,7 +127,7 @@ const WatchedAccount: FC = () => {
                 <Form.Input placeholder={defaultWalletName} />
               </Form.Item>
               <Form.Item
-                labelAddon={['paste']}
+                labelAddon={platformEnv.isExtension ? [] : ['paste']}
                 name="address"
                 label={intl.formatMessage({ id: 'form__address' })}
                 rules={{

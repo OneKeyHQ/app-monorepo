@@ -24,6 +24,7 @@ import type { SelectItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useGas } from '@onekeyhq/kit/src/hooks';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
@@ -221,7 +222,7 @@ const Transaction = () => {
             <Form>
               <Form.Item
                 label={intl.formatMessage({ id: 'action__send' })}
-                labelAddon={['paste']}
+                labelAddon={platformEnv.isExtension ? [] : ['paste']}
                 control={control}
                 name="to"
                 formControlProps={{ width: 'full' }}
@@ -264,7 +265,6 @@ const Transaction = () => {
                   options={options}
                   defaultValue={nativeToken?.id}
                   footer={null}
-                  dropdownProps={{ width: '337px' }}
                   dropdownPosition="right"
                   onChange={(item) => {
                     console.log(item);
@@ -342,11 +342,11 @@ const Transaction = () => {
                     >
                       <Column>
                         <FormatBalance
-                          suffix="Gwei"
                           formatOptions={{
                             fixed: 4,
                           }}
                           balance={gasPriceFee ?? ''}
+                          suffix="Gwei"
                           render={(ele) => (
                             <Text
                               typography={{
