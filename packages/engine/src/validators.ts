@@ -5,6 +5,7 @@ import { DBAPI } from './dbs/base';
 import * as errors from './errors';
 import * as limits from './limits';
 import { ProviderController } from './proxy';
+import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
 class Validators {
   private readonly dbApi: DBAPI;
@@ -82,6 +83,26 @@ class Validators {
       }
     }
     return Promise.resolve(names);
+  }
+
+  async validateHDWalletNumber(): Promise<void> {
+    const hdWallets = (await this.dbApi.getWallets()).filter((w) =>
+      w.id.startsWith(WALLET_TYPE_HD),
+    );
+    if (hdWallets.length >= limits.HD_WALLET_MAX_NUM) {
+      throw new errors.TooManyHDWallets(limits.HD_WALLET_MAX_NUM);
+    }
+    return Promise.resolve();
+  }
+
+  async validateHWWalletNumber(): Promise<void> {
+    const hwWallets = (await this.dbApi.getWallets()).filter((w) =>
+      w.id.startsWith(WALLET_TYPE_HW),
+    );
+    if (hwWallets.length >= limits.HW_WALLET_MAX_NUM) {
+      throw new errors.TooManyHWWallets(limits.HW_WALLET_MAX_NUM);
+    }
+    return Promise.resolve();
   }
 }
 

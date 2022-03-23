@@ -92,3 +92,11 @@ export class AccountAlreadyExists extends OneKeyError {
 export class TooManyWatchingAccounts extends NumberLimit {
   key = 'msg__engine_too_many_watching_accounts';
 }
+
+export class TooManyHDWallets extends NumberLimit {
+  key = 'msg__engine__too_many_hd_wallets';
+}
+
+export class TooManyHWWallets extends NumberLimit {
+  key = 'msg__engine__too_many_hw_wallets';
+}

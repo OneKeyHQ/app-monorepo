@@ -190,7 +190,10 @@ class Engine {
       await this.validator.validateWalletName(name);
     }
     const usedMnemonic = mnemonic || bip39.generateMnemonic();
-    await this.validator.validateMnemonic(usedMnemonic);
+    await Promise.all([
+      this.validator.validateMnemonic(usedMnemonic),
+      this.validator.validateHDWalletNumber(),
+    ]);
 
     let rs;
     try {
@@ -218,6 +221,7 @@ class Engine {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
+    await this.validator.validateHWWalletNumber();
     const features = await OneKeyHardware.getFeatures();
     if (!features.initialized) {
       throw new OneKeyHardwareError('Hardware wallet not initialized.');
