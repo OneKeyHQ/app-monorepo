@@ -33,7 +33,11 @@ export function navigationGoBack({
   const navigation = getAppNavigation();
   if (navigation.canGoBack()) {
     if (parentBack) {
-      navigation.getParent()?.goBack?.();
+      if (navigation.getParent()?.canGoBack?.()) {
+        navigation.getParent()?.goBack?.();
+      } else {
+        navigation.goBack();
+      }
     } else {
       navigation.goBack();
     }
