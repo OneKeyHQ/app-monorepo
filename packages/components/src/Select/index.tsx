@@ -185,8 +185,8 @@ function Select<T = string>({
   const handleChange = useCallback(
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       setInnerValue(v);
-      onChange?.(v, option);
       toggleVisible();
+      setTimeout(() => onChange?.(v, option), 250);
     },
     [onChange, toggleVisible],
   );
