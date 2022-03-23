@@ -32,6 +32,7 @@ const DesktopModal: FC<ModalProps> = ({
   size,
   height,
   headerDescription,
+  closeAction,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -119,7 +120,7 @@ const DesktopModal: FC<ModalProps> = ({
               name="CloseSolid"
               type="plain"
               circle
-              onPress={close}
+              onPress={closeAction || close}
             />
           )}
         </Box>

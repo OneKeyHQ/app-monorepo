@@ -34,6 +34,7 @@ const MobileModal: FC<ModalProps> = ({
   onSecondaryActionPress,
   header,
   headerDescription,
+  closeAction,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -91,7 +92,7 @@ const MobileModal: FC<ModalProps> = ({
           name="CloseOutline"
           type="plain"
           circle
-          onPress={close}
+          onPress={closeAction || close}
         />
       </Box>
       {children}

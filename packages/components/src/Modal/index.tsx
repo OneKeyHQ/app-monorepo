@@ -27,6 +27,7 @@ export type ModalProps = {
   trigger?: ReactElement<any>;
   visible?: boolean;
   closeable?: boolean;
+  closeAction?: () => void;
   primaryActionTranslationId?: string;
   secondaryActionTranslationId?: string;
   onBackActionPress?: () => void;
