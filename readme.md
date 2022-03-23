@@ -2,7 +2,7 @@
 
 ## 🌍 Environment Configuration
 
-- Install [node.js LTS version (>= 16)](https://nodejs.org/en/)
+- Install [node.js LTS version  (>= 16)](https://nodejs.org/en/)
 - Install [yarn package management tool](https://yarnpkg.com/)
 - Install [git lfs](https://git-lfs.github.com/) (some binaries are required for pulling and updating)
 
