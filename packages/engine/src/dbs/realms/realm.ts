@@ -54,7 +54,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 /**
  * Realm DB API
  * @implements { DBAPI }
