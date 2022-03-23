@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Box,
-  Button,
   HStack,
   Icon,
   Input,
@@ -82,24 +82,26 @@ const Me = () => {
             </HStack>
             <Icon name="ChevronRightOutline" size={12} />
           </Pressable> */}
-          <Pressable
-            p="4"
-            bg="surface-default"
-            borderRadius="12px"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            shadow="depth.2"
-            onPress={() =>
-              navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
-            }
-          >
-            <HStack space="4">
-              <Icon name="CreditCardOutline" />
-              <Typography.Body1>OneKey Lite</Typography.Body1>
-            </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Pressable>
+          {platformEnv.isNative ? (
+            <Pressable
+              p="4"
+              bg="surface-default"
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              shadow="depth.2"
+              onPress={() =>
+                navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail)
+              }
+            >
+              <HStack space="4">
+                <Icon name="CreditCardOutline" />
+                <Typography.Body1>OneKey Lite</Typography.Body1>
+              </HStack>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Pressable>
+          ) : null}
           <Pressable
             p="4"
             bg="surface-default"

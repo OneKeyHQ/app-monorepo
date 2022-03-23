@@ -29,7 +29,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../routes/types';
-import { runtimeUnlock } from '../../../store/reducers/general';
+import { unlock as mUnlock } from '../../../store/reducers/data';
 import { unlock } from '../../../store/reducers/status';
 import { SelectTrigger } from '../SelectTrigger';
 
@@ -105,7 +105,7 @@ export const SecuritySection = () => {
     dispatch(setEnableAppLock(!enableAppLock));
     if (!enableAppLock) {
       dispatch(unlock());
-      dispatch(runtimeUnlock());
+      dispatch(mUnlock());
     }
   }, [enableAppLock, dispatch]);
   return (

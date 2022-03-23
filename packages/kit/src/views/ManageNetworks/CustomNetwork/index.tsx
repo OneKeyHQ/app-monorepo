@@ -16,6 +16,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce, useToast } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -52,6 +53,7 @@ const URITester =
 export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const { name, rpcURL, symbol, exploreUrl, id, chainId } = route.params;
   const intl = useIntl();
+  const { network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const { text } = useToast();
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
@@ -298,17 +300,19 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                 >
                   <Form.Input />
                 </Form.Item>
-                <Button
-                  w="full"
-                  size="lg"
-                  type="outline"
-                  onPress={onShowRemoveModal}
-                >
-                  {intl.formatMessage({
-                    id: 'action__remove',
-                    defaultMessage: 'Remove',
-                  })}
-                </Button>
+                {network?.network.id !== id ? (
+                  <Button
+                    w="full"
+                    size="lg"
+                    type="outline"
+                    onPress={onShowRemoveModal}
+                  >
+                    {intl.formatMessage({
+                      id: 'action__remove',
+                      defaultMessage: 'Remove',
+                    })}
+                  </Button>
+                ) : null}
               </Form>
             </KeyboardDismissView>
           ),

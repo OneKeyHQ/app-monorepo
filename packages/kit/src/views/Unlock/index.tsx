@@ -20,7 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { runtimeUnlock } from '../../store/reducers/general';
+import { unlock as mUnlock } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
 
 type UnlockButtonProps = {
@@ -116,7 +116,7 @@ const Unlock = () => {
       );
       if (isOk) {
         dispatch(unlock());
-        dispatch(runtimeUnlock());
+        dispatch(mUnlock());
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -130,7 +130,7 @@ const Unlock = () => {
   );
   const onOk = useCallback(() => {
     dispatch(unlock());
-    dispatch(runtimeUnlock());
+    dispatch(mUnlock());
   }, [dispatch]);
   return (
     <KeyboardDismissView>
