@@ -36,7 +36,7 @@ const URITester =
 export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { text } = useToast();
+  const { info } = useToast();
 
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
     connected: false,
@@ -117,10 +117,10 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
         symbol: data.symbol,
         explorerURL: data.explorerURL,
       });
-      text('msg__network_added');
+      info(intl.formatMessage({ id: 'msg__network_added' }));
       navigation.goBack();
     },
-    [text, serviceNetwork, navigation],
+    [info, intl, serviceNetwork, navigation],
   );
 
   return (

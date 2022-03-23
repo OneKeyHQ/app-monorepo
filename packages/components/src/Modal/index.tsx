@@ -12,11 +12,11 @@ import React, {
 import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
-// import KeyboardAwareScrollView from '../KeyboardAwareScrollView';
 import { useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import SortableList from '../SortableList';
+import Toast from '../Toast/Custom';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
@@ -204,6 +204,7 @@ const Modal: FC<ModalProps> = ({
     <>
       {triggerNode}
       {modalContainer}
+      <Toast bottomOffset={120} />
     </>
   );
 };
