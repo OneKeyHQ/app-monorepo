@@ -246,7 +246,7 @@ export async function getXpubs(
   try {
     if (paths.length > 1) {
       response = await OneKeyConnect.ethereumGetAddress({
-        bundle: paths.map((path) => ({ path })),
+        bundle: paths.map((path) => ({ path, showOnTrezor: false })),
       });
     } else {
       response = await OneKeyConnect.ethereumGetAddress({ path: paths[0] });

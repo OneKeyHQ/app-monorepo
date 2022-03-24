@@ -104,18 +104,24 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
             )}
           </VStack>
           {/* Hardware Wallet */}
-          {/* <VStack space={2}>
-            <WalletItem
-              onPress={() => setActiveAccountType('hd')}
-              isSelected={activeAccountType === 'hd'}
-              decorationColor="#FFE0DF"
-              walletType="hd"
-              deviceIconUrl={MiniDeviceIcon}
-            />
-            <Center pt={2} pb={4}>
-              <Divider bgColor="border-default" w={6} />
-            </Center>
-          </VStack> */}
+          <VStack space={2}>
+            {wallets
+              .filter((wallet) => wallet.type === 'hw')
+              .map((wallet) => (
+                <WalletItem
+                  onPress={() => setSelectedWallet(wallet)}
+                  isSelected={selectedWallet?.id === wallet.id}
+                  avatarBgColor="#FFE0DF"
+                  walletType="hw"
+                />
+              ))}
+
+            {wallets.some((wallet) => wallet.type === 'hw') && (
+              <Center pt={2} pb={4}>
+                <Divider bgColor="border-default" w={6} />
+              </Center>
+            )}
+          </VStack>
           {/* Imported or watched wallet */}
           <VStack space={2}>
             {/* <WalletItem

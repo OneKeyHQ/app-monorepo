@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -24,10 +25,15 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-
+type RouteProps = RouteProp<
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.SetupHardwareModal
+>;
 const SetupNewDeviceModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const route = useRoute<RouteProps>();
+  const { device } = route?.params;
 
   const content = (
     <Center>
@@ -121,7 +127,10 @@ const SetupNewDeviceModal: FC = () => {
       onPrimaryActionPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
-          params: { screen: CreateWalletModalRoutes.DeviceStatusCheckModal },
+          params: {
+            screen: CreateWalletModalRoutes.DeviceStatusCheckModal,
+            params: { device },
+          },
         });
       }}
       scrollViewProps={{

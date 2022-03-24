@@ -4,18 +4,18 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
-  // Badge,
+  Badge,
   Box,
   Button,
   Center,
   HStack,
   Icon,
-  // Image,
+  Image,
   Modal,
   Typography,
   VStack,
 } from '@onekeyhq/components';
-// import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import {
   CreateWalletModalRoutes,
@@ -81,7 +81,7 @@ const CreateWalletModal: FC = () => {
         </PressableItem>
 
         {/* Hardware Wallet option */}
-        {/* <PressableItem
+        <PressableItem
           borderRadius="12px"
           px={4}
           onPress={() => {
@@ -117,7 +117,7 @@ const CreateWalletModal: FC = () => {
               id: 'content__for_people_who_have_hardware_wallet',
             })}
           </Typography.Caption>
-        </PressableItem> */}
+        </PressableItem>
       </VStack>
     </VStack>
   );

@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -23,10 +24,17 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+type RouteProps = RouteProp<
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.RestoreHardwareWalletModal
+>;
 
 const RestoreHardwareWalletModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const route = useRoute<RouteProps>();
+
+  const { device } = route?.params;
 
   const content = (
     <Center>
@@ -65,6 +73,7 @@ const RestoreHardwareWalletModal: FC = () => {
           params: {
             screen:
               CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal,
+            params: { device },
           },
         });
       }}
