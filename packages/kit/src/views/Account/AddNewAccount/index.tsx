@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -37,6 +38,7 @@ type RouteProps = RouteProp<
 
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
+  const toast = useToast();
   const { dispatch } = backgroundApiProxy;
   const { control, handleSubmit, getValues } = useForm<PrivateKeyFormValues>({
     defaultValues: { name: '' },
@@ -47,46 +49,57 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const wallets = useAppSelector((s) => s.wallet.wallets);
   const networks = useAppSelector((s) => s.network.network);
   const selectedWalletId = route.params.walletId;
+  const wallet = useMemo(
+    () => wallets.find((wallet) => wallet.id === selectedWalletId),
+    [selectedWalletId, wallets],
+  );
+
   const defaultWalletName = useMemo(() => {
-    const wallet = wallets.find((wallet) => wallet.id === selectedWalletId);
     const id = wallet?.nextAccountIds?.global;
     if (!id) return '';
     return `Account #${id}`;
-  }, [wallets, selectedWalletId]);
+  }, [wallet]);
 
-  const authenticationDone = (password: string) => {
-    async function main() {
+  const authenticationDone = useCallback(
+    async (password: string) => {
       const network = getValues('network');
       const name = getValues('name');
-      const [account] = await backgroundApiProxy.engine.addHDAccounts(
-        password,
-        selectedWalletId,
-        network,
-        undefined,
-        [name],
-      );
-      const wallet = wallets.find((w) => w.id === selectedWalletId) ?? null;
-      const selectedNetwork = networks?.find((n) => n.id === network) ?? null;
-      dispatch(setRefreshTS());
-      setTimeout(() => {
+      try {
+        const [account] = await backgroundApiProxy.engine.addHDAccounts(
+          password,
+          selectedWalletId,
+          network,
+          undefined,
+          [name],
+        );
+
+        dispatch(setRefreshTS());
         backgroundApiProxy.serviceAccount.changeActiveAccount({
           account,
-          wallet,
+          wallet: wallet ?? null,
         });
-        if (selectedNetwork) {
-          backgroundApiProxy.serviceNetwork.changeActiveNetwork({
-            network: selectedNetwork,
-            sharedChainName: selectedNetwork.impl,
-          });
-        }
-      }, 50);
+      } catch (e) {
+        const errorKey = (e as { key: string }).key;
+        toast.show({
+          title: intl.formatMessage({ id: errorKey }),
+        });
+      }
+
+      const selectedNetwork = networks?.find((n) => n.id === network) ?? null;
+      if (selectedNetwork) {
+        backgroundApiProxy.serviceNetwork.changeActiveNetwork({
+          network: selectedNetwork,
+          sharedChainName: selectedNetwork.impl,
+        });
+      }
 
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();
       }
-    }
-    main();
-  };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [toast, getValues, selectedWalletId, dispatch, intl, networks],
+  );
 
   const onSubmit = handleSubmit(() => {
     navigation.navigate(RootRoutes.Modal, {

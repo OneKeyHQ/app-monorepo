@@ -40,73 +40,75 @@ const ReceiveToken = () => {
   }, [toast, address, intl]);
 
   return (
-    <Modal
-      footer={null}
-      header={intl.formatMessage({ id: 'action__receive' })}
-      height="auto"
-      scrollViewProps={{
-        children: (
-          <Column flex={1}>
-            <Box alignItems="center">
+    <>
+      <Modal
+        footer={null}
+        header={intl.formatMessage({ id: 'action__receive' })}
+        height="auto"
+        scrollViewProps={{
+          children: (
+            <Column flex={1}>
               <Box alignItems="center">
-                <Account
-                  avatarSize="sm"
-                  name={name}
-                  address={address}
-                  notShowAddress
-                />
-              </Box>
+                <Box alignItems="center">
+                  <Account
+                    avatarSize="sm"
+                    name={name}
+                    address={address}
+                    notShowAddress
+                  />
+                </Box>
 
-              <Box
-                mt="16px"
+                <Box
+                  mt="16px"
+                  padding="16px"
+                  borderWidth="1px"
+                  borderRadius="12px"
+                  bgColor="surface-default"
+                  borderColor={borderColor}
+                  width="192px"
+                >
+                  <QRCode value={address} size={160} />
+                </Box>
+              </Box>
+              <Row
+                justifyContent="space-between"
                 padding="16px"
                 borderWidth="1px"
                 borderRadius="12px"
-                bgColor="surface-default"
                 borderColor={borderColor}
-                width="192px"
+                borderStyle="dashed"
+                mt="24px"
               >
-                <QRCode value={address} size={160} />
-              </Box>
-            </Box>
-            <Row
-              justifyContent="space-between"
-              padding="16px"
-              borderWidth="1px"
-              borderRadius="12px"
-              borderColor={borderColor}
-              borderStyle="dashed"
-              mt="24px"
-            >
-              <Text
-                textAlign="center"
-                typography="Body2"
-                flex={1}
-                noOfLines={3}
-              >
-                {address}
-              </Text>
-            </Row>
-
-            <TouchableOpacity onPress={copyAddressToClipboard}>
-              <Row
-                mt="12px"
-                space="12px"
-                padding="10px"
-                justifyContent="center"
-              >
-                <Icon name="DuplicateSolid" />
-                <Typography.Button1 textAlign="center">
-                  {intl.formatMessage({
-                    id: 'action__copy_address',
-                  })}
-                </Typography.Button1>
+                <Text
+                  textAlign="center"
+                  typography="Body2"
+                  flex={1}
+                  noOfLines={3}
+                >
+                  {address}
+                </Text>
               </Row>
-            </TouchableOpacity>
-          </Column>
-        ),
-      }}
-    />
+
+              <TouchableOpacity onPress={copyAddressToClipboard}>
+                <Row
+                  mt="12px"
+                  space="12px"
+                  padding="10px"
+                  justifyContent="center"
+                >
+                  <Icon name="DuplicateSolid" />
+                  <Typography.Button1 textAlign="center">
+                    {intl.formatMessage({
+                      id: 'action__copy_address',
+                    })}
+                  </Typography.Button1>
+                </Row>
+              </TouchableOpacity>
+            </Column>
+          ),
+        }}
+      />
+    </>
   );
 };
 export default ReceiveToken;

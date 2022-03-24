@@ -18,12 +18,12 @@ import {
   useForm,
   useIsVerticalLayout,
   useSafeAreaInsets,
-  useToast,
 } from '@onekeyhq/components';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useGas } from '@onekeyhq/kit/src/hooks';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../components/Format';

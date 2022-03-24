@@ -55,7 +55,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const intl = useIntl();
   const { network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const { text } = useToast();
+  const { info } = useToast();
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
     connected: false,
   });
@@ -81,11 +81,11 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const onRemove = useCallback(async () => {
     await serviceNetwork.deleteNetwork(id);
     setRemoveOpened(false);
-    text('msg__network_removed');
+    info(intl.formatMessage({ id: 'msg__network_removed' }));
     if (navigation.canGoBack()) {
       navigation.goBack();
     }
-  }, [serviceNetwork, id, text, navigation]);
+  }, [intl, info, serviceNetwork, id, navigation]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
@@ -95,12 +95,12 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
         symbol: data.symbol,
         explorerURL: data.exploreUrl,
       });
-      text('msg__change_saved');
+      info(intl.formatMessage({ id: 'msg__change_saved' }));
       if (navigation.canGoBack()) {
         navigation.goBack();
       }
     },
-    [serviceNetwork, id, text, navigation],
+    [serviceNetwork, id, info, intl, navigation],
   );
 
   const hintText = useMemo(() => {

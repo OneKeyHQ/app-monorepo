@@ -14,7 +14,7 @@ import {
 
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import useAccountModifyNameDialog from '../ModifyAccount';
+import AccountModifyNameDialog from '../ModifyAccount';
 import useRemoveAccountDialog from '../RemoveAccount';
 
 type RouteProps = RouteProp<
@@ -29,8 +29,8 @@ const ManagerAccountModal: FC = () => {
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
-  const { show: showAccountModifyNameDialog, AccountModifyNameDialog } =
-    useAccountModifyNameDialog();
+  const [modifyNameVisible, setModifyNameVisible] = useState(false);
+  const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
   const { walletId, accountId, networkId } = useRoute<RouteProps>().params;
 
   const [wallet, setWallet] = useState<Wallet>();
@@ -85,9 +85,8 @@ const ManagerAccountModal: FC = () => {
                   describe={account?.name}
                   describeColor="text-subdued"
                   onPress={() => {
-                    showAccountModifyNameDialog(accountId, networkId, () => {
-                      refreshAccount();
-                    });
+                    setModifyNameAccount(account);
+                    setModifyNameVisible(true);
                   }}
                 />
               </Container.Box>
@@ -150,7 +149,14 @@ const ManagerAccountModal: FC = () => {
         }}
       />
       {RemoveAccountDialog}
-      {AccountModifyNameDialog}
+      <AccountModifyNameDialog
+        visible={modifyNameVisible}
+        account={modifyNameAccount}
+        onClose={() => setModifyNameVisible(false)}
+        onDone={() => {
+          refreshAccount();
+        }}
+      />
     </>
   );
 };

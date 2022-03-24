@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -49,7 +49,6 @@ const CollectibleDetailModal: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const toast = useToast();
-  const toastId = useRef<string>();
 
   useEffect(() => {
     if (!contractAddress || !tokenId || !!asset) {
@@ -70,8 +69,8 @@ const CollectibleDetailModal: FC = () => {
         console.log(`Error on fetching nft asset ${tokenId}`);
         const error = e as Error | string | null | undefined;
         const message = typeof error === 'string' ? error : error?.message;
-        if (message && !toastId.current) {
-          toastId.current = toast.show({
+        if (message) {
+          toast.show({
             title: message,
           });
         }

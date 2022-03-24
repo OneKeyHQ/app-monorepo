@@ -1,30 +1,17 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 
 import { Column } from 'native-base';
 
-import { Button, Center, Stack, Toast, useToast } from '@onekeyhq/components';
+import { Button, Center, Stack, Toast } from '@onekeyhq/components';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 
 const ToastGallery = () => {
   const toast = useToast();
-  const toastIdRef = useRef<string>();
-
-  const close = useCallback(() => {
-    if (toastIdRef.current) {
-      toast.close(toastIdRef.current);
-    }
-  }, [toast]);
 
   const addToast = useCallback(() => {
-    toastIdRef.current = toast.show({
-      render: () => (
-        <Toast
-          title="Hello world!"
-          status="danger"
-          description="Failure to add 2.3245 BNB to CAKE/WBNB."
-          dismiss
-        />
-      ),
-    }) as string;
+    toast.show({
+      title: 'Hello World',
+    });
   }, [toast]);
 
   return (
@@ -39,12 +26,6 @@ const ToastGallery = () => {
         <Column space={5}>
           <Button type="primary" onPress={addToast}>
             打开 toast
-          </Button>
-          <Button type="primary" onPress={close}>
-            关闭最后一个
-          </Button>
-          <Button type="primary" onPress={toast.closeAll}>
-            关闭所有
           </Button>
         </Column>
         <Column space={5}>

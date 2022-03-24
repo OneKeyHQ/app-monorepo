@@ -83,7 +83,7 @@ type RenderItemProps = { item: Network; index: number; drag: () => void };
 
 export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const intl = useIntl();
-  const { text } = useToast();
+  const { info } = useToast();
   const navigation = useNavigation();
   const { serviceNetwork } = backgroundApiProxy;
   const refData = useRef({ isDiscard: false });
@@ -146,10 +146,10 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
       await serviceNetwork.updateNetworks(
         list.map((item) => [item.id, networksIdMap[item.id]]),
       );
-      text('msg__change_saved');
+      info(intl.formatMessage({ id: 'msg__change_saved' }));
     }
     onPress?.();
-  }, [networksIdMap, list, onPress, initialData, serviceNetwork, text]);
+  }, [networksIdMap, list, onPress, initialData, serviceNetwork, info, intl]);
 
   const onBeforeRemove = useCallback(
     (e) => {
