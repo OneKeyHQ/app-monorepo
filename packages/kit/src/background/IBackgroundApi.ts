@@ -5,6 +5,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { Engine } from '@onekeyhq/engine';
+import type { Validators } from '@onekeyhq/engine/src/validators';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
@@ -41,6 +42,7 @@ export interface IBackgroundApiBridge {
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
   engine: Engine;
+  validator: Validators;
   walletConnect: WalletConnectAdapter;
   servicePromise: ServicePromise;
   serviceDapp: ServiceDapp;
