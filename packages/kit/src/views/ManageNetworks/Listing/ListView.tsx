@@ -151,6 +151,7 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
             leftIconName="PlusOutline"
             type="plain"
             w="full"
+            size={isSmallScreen ? 'lg' : 'base'}
             onPress={() => {
               navigation.navigate(ManageNetworkRoutes.AddNetwork);
             }}

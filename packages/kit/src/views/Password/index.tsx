@@ -81,10 +81,10 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
       <Form mt="8">
         <Form.Item
           name="password"
-          label={intl.formatMessage({
-            id: 'form__password',
-            defaultMessage: 'Password',
-          })}
+          // label={intl.formatMessage({
+          //   id: 'form__password',
+          //   defaultMessage: 'Password',
+          // })}
           control={control}
           rules={{
             required: intl.formatMessage({

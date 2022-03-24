@@ -135,6 +135,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
         bg: 'action-secondary-disabled',
         borderColor: 'border-disabled',
         cursor: 'not-allowed',
+        _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
       shadow={isDisabled || isLoading ? undefined : 'depth.1'}
@@ -195,6 +196,7 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'action-primary-disabled',
         color: 'text-disabled',
         cursor: 'not-allowed',
+        _text: { color: 'text-disabled' },
       }}
       spinner={<Spinner size="sm" />}
       shadow={isDisabled || isLoading ? undefined : 'depth.1'}
@@ -298,6 +300,7 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
         bg: 'action-critical-disabled',
         borderColor: 'action-critical-disabled',
         cursor: 'not-allowed',
+        _text: { color: 'text-disabled' },
       }}
       _text={{
         color: 'text-on-critical',

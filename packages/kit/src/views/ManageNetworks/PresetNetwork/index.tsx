@@ -218,7 +218,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                       padding: 0,
                     }}
                     options={options}
-                    dropdownProps={{ width: '337px' }}
+                    dropdownProps={{ width: '352px' }}
                     dropdownPosition="right"
                   />
                 </Form.Item>

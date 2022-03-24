@@ -44,6 +44,10 @@ import DappSignatureStack, {
   DappSignatureRoutesParams,
 } from './DappSignature';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
+import OnekeyHardwareModal, {
+  OnekeyHardwareModalRoutes,
+  OnekeyHardwareRoutesParams,
+} from './HardwareOnekey';
 import HardwareOnekeyModal, {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
@@ -209,6 +213,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.ManageNetwork,
     component: ManageNetworkModal,
+  },
+  {
+    name: ModalRoutes.OnekeyHardware,
+    component: OnekeyHardwareModal,
   },
 ];
 

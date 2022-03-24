@@ -34,7 +34,7 @@ const SetupSuccessModal: FC = () => {
   const route = useRoute<RouteProps>();
   const isSmallScreen = useIsVerticalLayout();
 
-  const { deviceName = 'Unknown Device' } = route?.params ?? {};
+  const { device } = route?.params;
 
   const content = (
     <>
@@ -69,7 +69,7 @@ const SetupSuccessModal: FC = () => {
 
   return (
     <Modal
-      header={deviceName}
+      header={device.device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__activated' })}
       secondaryActionTranslationId="action__close"
       onSecondaryActionPress={handleCloseSetup}

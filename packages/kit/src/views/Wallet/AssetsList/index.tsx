@@ -125,7 +125,7 @@ const AssetsList = () => {
               numbers={[item.balance, prices?.[mapKey]]}
               render={(ele) => (
                 <Typography.Body2 color="text-subdued">
-                  {!prices?.[mapKey] ? '-' : ele}
+                  {item.balance && prices?.[mapKey] ? ele : '-'}
                 </Typography.Body2>
               )}
             />
@@ -136,7 +136,9 @@ const AssetsList = () => {
               <FormatCurrency
                 numbers={[item.balance, prices?.[mapKey]]}
                 render={(ele) => (
-                  <Typography.Body2Strong ml={3}>{ele}</Typography.Body2Strong>
+                  <Typography.Body2Strong ml={3}>
+                    {item.balance && prices?.[mapKey] ? ele : '-'}
+                  </Typography.Body2Strong>
                 )}
               />
             </Box>

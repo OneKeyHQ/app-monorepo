@@ -193,35 +193,37 @@ export const SecuritySection = () => {
               </Box>
             </Box>
           ) : null}
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            borderBottomWidth="1"
-            borderBottomColor="divider"
-          >
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex="1"
-              numberOfLines={1}
-              mr="3"
+          {passwordCompleted ? (
+            <Box
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              borderBottomWidth="1"
+              borderBottomColor="divider"
             >
-              {intl.formatMessage({
-                id: 'form__app_lock',
-                defaultMessage: 'App Lock',
-              })}
-            </Text>
-            <Box>
-              <Switch
-                labelType="false"
-                isChecked={enableAppLock}
-                onToggle={onToggleAppLock}
-              />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mr="3"
+              >
+                {intl.formatMessage({
+                  id: 'form__app_lock',
+                  defaultMessage: 'App Lock',
+                })}
+              </Text>
+              <Box>
+                <Switch
+                  labelType="false"
+                  isChecked={enableAppLock}
+                  onToggle={onToggleAppLock}
+                />
+              </Box>
             </Box>
-          </Box>
+          ) : null}
           {enableAppLock ? (
             <Box w="full">
               <Select<number>

@@ -3,6 +3,7 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import isOnekeyDevice from '@onekeyhq/app/src/utils/OnekeyHardware';
 import {
   Box,
   Center,
@@ -31,13 +32,16 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import Platform from '@onekeyhq/shared/src/platformEnv';
 
+import bleUtils, { BleDevice } from '../../../utils/ble/utils';
+
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
 
 type DeviceType = 'classic' | 'mini';
-type Device = {
+export type Device = {
   type: DeviceType;
   name: string;
+  device: BleDevice;
 };
 
 const getDeviceIcon = (
@@ -57,8 +61,8 @@ const ConnectHardwareModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [isSearching, setIsSearching] = useState(false);
-  const [isConnectingDevice, setIsConnectingDevice] = useState(false);
-  const [device, setDevice] = useState<Device>();
+  const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
+  const [devices, setDevices] = useState<Device[]>([]);
 
   const isConnectedDeviceActivated = false;
   // Do connect device on desktop
@@ -68,21 +72,20 @@ const ConnectHardwareModal: FC = () => {
     // If connected, check if is activated
     if (isConnectedDeviceActivated) {
       // navigate to setup complete
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.SetupSuccessModal,
-        },
-      });
-      return;
+      // navigation.navigate(RootRoutes.Modal, {
+      //   screen: ModalRoutes.CreateWallet,
+      //   params: {
+      //     screen: CreateWalletModalRoutes.SetupSuccessModal,
+      //   },
+      // });
     }
     // Navigate to setup device
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateWallet,
-      params: {
-        screen: CreateWalletModalRoutes.SetupHardwareModal,
-      },
-    });
+    // navigation.navigate(RootRoutes.Modal, {
+    //   screen: ModalRoutes.CreateWallet,
+    //   params: {
+    //     screen: CreateWalletModalRoutes.SetupHardwareModal,
+    //   },
+    // });
   }, [isConnectedDeviceActivated, navigation]);
   useEffect(() => {
     if (isDevicePlugIn) {
@@ -94,15 +97,68 @@ const ConnectHardwareModal: FC = () => {
     }
   }, [isDevicePlugIn, navigateNext]);
 
-  const handleConnectDevice = useCallback(() => {
+  const handleStopDevice = useCallback(() => {
+    if (!bleUtils) return;
+
+    bleUtils.stopScan();
+  }, []);
+
+  useEffect(() => {
+    console.log('Start scanning');
+
+    return () => {
+      handleStopDevice();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleScanDevice = useCallback(() => {
     // TODO: await to ask bluetooth permission
+    if (!bleUtils) return;
     setIsSearching(true);
-    setTimeout(() => {
-      setDevice({ name: 'K8101', type: 'classic' });
-    }, 1000);
+
+    const scanDevice: Device[] = [];
+
+    bleUtils.startDeviceScan((_device) => {
+      if (_device && isOnekeyDevice(_device)) {
+        if (!scanDevice.find((device) => device.device.id === _device.id)) {
+          scanDevice.push({
+            type: 'classic' as DeviceType,
+            name: _device.name ?? '',
+            device: _device,
+          });
+
+          setDevices([...scanDevice]);
+        }
+      }
+    });
+
     // Then start searching devices
     // Show device options when available
   }, []);
+
+  const handleConnectDeviceWithDevice = (device: Device) => {
+    console.log('Connecting to device', device);
+
+    if (!bleUtils || !device) return;
+
+    // bleUtils.stopScan();
+    // setIsSearching(false);
+
+    setIsConnectingDeviceId(device.device.id);
+    bleUtils.connect(device.device.id).then(() => {
+      setIsConnectingDeviceId('');
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateWallet,
+        params: {
+          screen: CreateWalletModalRoutes.DeviceStatusCheckModal,
+          params: {
+            device,
+          },
+        },
+      });
+    });
+  };
 
   // Mobile Connect Screen
   const renderConnectScreen = () => {
@@ -144,49 +200,44 @@ const ConnectHardwareModal: FC = () => {
           </Typography.Body1>
         </VStack>
 
-        {!!device && (
+        {!!devices && (
           <VStack space={4} w="full">
             <Typography.Body2 color="text-subdued" textAlign="center">
               {intl.formatMessage({ id: 'modal__looking_for_devices_result' })}
             </Typography.Body2>
 
             {/* Fake devices */}
-            <PressableItem
-              p="4"
-              bg="surface-default"
-              borderRadius="12px"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="space-between"
-              onPress={() => {
-                setIsConnectingDevice(true);
-                // Use setTimeout to simulate connection
-                setTimeout(() => {
-                  // Navigate to device status page
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.DeviceStatusCheckModal,
-                    },
-                  });
-                }, 3000);
-              }}
-            >
-              <HStack space={3} alignItems="center">
-                {/* TODO: Different type of icon */}
-                <Image
-                  source={getDeviceIcon(device.type)}
-                  width={6}
-                  height={36}
-                />
-                <Typography.Body1>{device.name}</Typography.Body1>
-              </HStack>
+            {devices.map((device) => (
+              <PressableItem
+                p="4"
+                key={device?.device.id}
+                bg="surface-default"
+                borderRadius="12px"
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                onPress={() => {
+                  handleConnectDeviceWithDevice(device);
+                }}
+              >
+                <HStack space={3} alignItems="center">
+                  {/* TODO: Different type of icon */}
+                  <Image
+                    source={getDeviceIcon(device.type)}
+                    width={6}
+                    height={36}
+                  />
+                  <Typography.Body1>{device.name}</Typography.Body1>
+                </HStack>
 
-              <HStack space={3} alignItems="center">
-                {isConnectingDevice && <Spinner size="sm" />}
-                <Icon name="ChevronRightOutline" />
-              </HStack>
-            </PressableItem>
+                <HStack space={3} alignItems="center">
+                  {isConnectingDeviceId === device.device.id && (
+                    <Spinner size="sm" />
+                  )}
+                  <Icon name="ChevronRightOutline" />
+                </HStack>
+              </PressableItem>
+            ))}
           </VStack>
         )}
       </VStack>
@@ -220,7 +271,7 @@ const ConnectHardwareModal: FC = () => {
       hidePrimaryAction={!Platform.isNative}
       footer={!Platform.isNative || isSearching ? null : undefined}
       primaryActionTranslationId="action__connect_device"
-      onPrimaryActionPress={handleConnectDevice}
+      onPrimaryActionPress={handleScanDevice}
       hideSecondaryAction
     />
   );
