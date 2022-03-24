@@ -2,15 +2,20 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ImportedAccountModal from '@onekeyhq/kit/src/views/Account/ImportedAccount';
+import ImportedAccountAuthentication from '@onekeyhq/kit/src/views/Account/ImportedAccount/Authentication';
 
 import createStackNavigator from './createStackNavigator';
 
 export enum ImportAccountModalRoutes {
   ImportAccountModal = 'ImportedAccountForm',
+  ImportAccountAuthentication = 'ImportAuthentication',
 }
 
 export type ImportAccountRoutesParams = {
   [ImportAccountModalRoutes.ImportAccountModal]: undefined;
+  [ImportAccountModalRoutes.ImportAccountAuthentication]: {
+    onDone: (password: string) => void;
+  };
 };
 
 const ImportAccountNavigator =
@@ -20,6 +25,10 @@ const modalRoutes = [
   {
     name: ImportAccountModalRoutes.ImportAccountModal,
     component: ImportedAccountModal,
+  },
+  {
+    name: ImportAccountModalRoutes.ImportAccountAuthentication,
+    component: ImportedAccountAuthentication,
   },
 ];
 

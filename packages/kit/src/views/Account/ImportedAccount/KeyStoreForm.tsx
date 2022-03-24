@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,6 +15,9 @@ type KeyStoreFormValues = {
 const KeyStoreForm: FC = () => {
   const intl = useIntl();
   const { control } = useForm<KeyStoreFormValues>();
+
+  const handleSubmit = useCallback((cb: () => Promise<void>) => cb(), []);
+
   return (
     <Box
       w="full"
