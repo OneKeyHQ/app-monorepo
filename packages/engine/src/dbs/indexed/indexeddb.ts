@@ -12,7 +12,7 @@ import {
   TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
-import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
+import { WATCHING_ACCOUNT_MAX_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { AccountType, DBAccount, DBVariantAccount } from '../../types/account';
 import { Device } from '../../types/device';
@@ -1044,8 +1044,8 @@ class IndexedDBApi implements DBAPI {
             wallet.accounts.push(account.id);
 
             if (wallet.type === WALLET_TYPE_WATCHING) {
-              if (wallet.accounts.length > LIMIT_WATCHING_ACCOUNT_NUM) {
-                reject(new TooManyWatchingAccounts());
+              if (wallet.accounts.length > WATCHING_ACCOUNT_MAX_NUM) {
+                reject(new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM));
                 return;
               }
               wallet.nextAccountIds.global += 1;
