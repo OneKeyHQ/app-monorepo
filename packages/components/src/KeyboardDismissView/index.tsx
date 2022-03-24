@@ -13,7 +13,13 @@ export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
     }
   }, []);
   return (
-    <Pressable w="full" h="full" {...props} onPress={onPress}>
+    <Pressable
+      w="full"
+      h="full"
+      _focusVisible={{ outlineWidth: 0 }}
+      {...props}
+      onPress={onPress}
+    >
       {children}
     </Pressable>
   );

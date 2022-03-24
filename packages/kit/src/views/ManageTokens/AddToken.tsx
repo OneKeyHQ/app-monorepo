@@ -13,7 +13,6 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useGeneral } from '../../hooks/redux';
@@ -40,7 +39,6 @@ export const AddToken: FC = () => {
   const { activeAccount, activeNetwork } = useGeneral();
   const { info } = useToast();
   const [balance, setBalance] = useState<string | undefined>();
-  const [token, setToken] = useState<Token>();
   const {
     params: { name, symbol, decimal, address, logoURI },
   } = useRoute<RouteProps>();
@@ -55,9 +53,6 @@ export const AddToken: FC = () => {
         );
         if (res?.[0]) {
           setBalance(res?.[0].toString());
-        }
-        if (res?.[1]) {
-          setToken(res?.[1]);
         }
       }
     }
@@ -107,23 +102,22 @@ export const AddToken: FC = () => {
   }, [name, symbol, address, decimal, balance, intl]);
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
-      if (token) {
-        await backgroundApiProxy.engine.addTokenToAccount(
-          activeAccount?.id,
-          token.id,
-        );
-        info(
-          intl.formatMessage({
-            id: 'msg__token_added',
-            defaultMessage: 'Token Added',
-          }),
-        );
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        }
+      await backgroundApiProxy.engine.quickAddToken(
+        activeAccount.id,
+        activeNetwork.network.id,
+        address,
+      );
+      info(
+        intl.formatMessage({
+          id: 'msg__token_added',
+          defaultMessage: 'Token Added',
+        }),
+      );
+      if (navigation.canGoBack()) {
+        navigation.goBack();
       }
     }
-  }, [intl, activeAccount, navigation, activeNetwork, info, token]);
+  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
   return (
     <Modal
       header={intl.formatMessage({
@@ -133,11 +127,8 @@ export const AddToken: FC = () => {
       height="560px"
       primaryActionProps={{
         onPromise: onPrimaryActionPress,
-        isDisabled: !token,
       }}
-      primaryActionTranslationId={
-        !token ? 'action__checking' : 'action__confirm'
-      }
+      primaryActionTranslationId="action__confirm"
       hideSecondaryAction
       scrollViewProps={{
         children: (
