@@ -118,11 +118,16 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
           </VStack> */}
           {/* Imported or watched wallet */}
           <VStack space={2}>
-            {/* <WalletItem
-              onPress={() => setActiveAccountType('imported')}
-              isSelected={activeAccountType === 'imported'}
-              walletType="imported"
-            /> */}
+            {wallets
+              .filter((wallet) => wallet.type === 'imported')
+              .map((wallet) => (
+                <WalletItem
+                  key={wallet.id}
+                  onPress={() => setSelectedWallet(wallet)}
+                  isSelected={selectedWallet?.id === wallet.id}
+                  walletImage="imported"
+                />
+              ))}
 
             {wallets
               .filter((wallet) => wallet.type === 'watching')
