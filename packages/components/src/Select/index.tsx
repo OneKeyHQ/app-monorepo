@@ -292,6 +292,7 @@ function Select<T = string>({
                 flexDirection="row"
                 alignItems="center"
                 mr="1"
+                w="full"
               >
                 {!!activeOption.tokenProps && (
                   <Box mr="3">
@@ -306,13 +307,13 @@ function Select<T = string>({
                     <Icon size={6} {...activeOption.iconProps} />
                   </Box>
                 )}
-                <Box>
+                <Box flex={1}>
                   {isSmallScreen ? (
-                    <Typography.Body1 numberOfLines={1}>
+                    <Typography.Body1 numberOfLines={1} flex={1} isTruncated>
                       {activeOption.label ?? '-'}
                     </Typography.Body1>
                   ) : (
-                    <Typography.Body2 numberOfLines={1}>
+                    <Typography.Body2 numberOfLines={1} flex={1} isTruncated>
                       {activeOption.label ?? '-'}
                     </Typography.Body2>
                   )}
