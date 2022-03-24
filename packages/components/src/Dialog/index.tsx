@@ -13,8 +13,6 @@ import { Keyboard, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 
 import Box from '../Box';
-import { ButtonSize } from '../Button';
-import { useUserDevice } from '../Provider/hooks';
 
 import DialogCommon from './components';
 
@@ -93,7 +91,6 @@ const Dialog: FC<DialogProps> = ({
   hasFormInsideDialog,
   ...props
 }) => {
-  const { size } = useUserDevice();
   const [innerVisible, setInnerVisible] = useState(false);
   const visible = outerVisible ?? innerVisible;
 
@@ -109,13 +106,6 @@ const Dialog: FC<DialogProps> = ({
   const handleOpen = useCallback(() => {
     setInnerVisible((v) => !v);
   }, []);
-
-  const buttonSize = useCallback((): ButtonSize => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
-      return 'lg';
-    }
-    return 'base';
-  }, [size]);
 
   const container = useMemo(
     () => (
@@ -150,7 +140,6 @@ const Dialog: FC<DialogProps> = ({
                 {(!footerButtonProps?.hidePrimaryAction ||
                   !footerButtonProps?.hideSecondaryAction) && (
                   <DialogCommon.FooterButton
-                    buttonSize={buttonSize()}
                     {...footerButtonProps}
                     onSecondaryActionPress={() => {
                       handleClose();
@@ -173,7 +162,6 @@ const Dialog: FC<DialogProps> = ({
       props,
       contentProps,
       footerButtonProps,
-      buttonSize,
       canceledOnTouchOutside,
       footerMoreView,
       handleClose,
