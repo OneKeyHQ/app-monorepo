@@ -51,6 +51,7 @@ const Transaction = () => {
   const navigation = useNavigation<NavigationProps>();
   const { control, handleSubmit, watch } = useForm<TransactionValues>({
     mode: 'onSubmit',
+    reValidateMode: 'onBlur',
   });
 
   const toast = useToast();
@@ -228,6 +229,18 @@ const Transaction = () => {
                 formControlProps={{ width: 'full' }}
                 rules={{
                   required: intl.formatMessage({ id: 'form__address_invalid' }),
+                  validate: async (toAddress) => {
+                    const networkId = activeNetwork?.network.id || '';
+                    if (networkId.length > 0) {
+                      return backgroundApiProxy.validator
+                        .validateAddress(networkId, toAddress)
+                        .then(
+                          () => true,
+                          () =>
+                            intl.formatMessage({ id: 'form__address_invalid' }),
+                        );
+                    }
+                  },
                 }}
                 defaultValue=""
               >

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
 import type { Engine } from '@onekeyhq/engine';
+import type { Validators } from '@onekeyhq/engine/src/validators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
@@ -22,6 +23,8 @@ class BackgroundApiProxy
   _proxyServiceCache = {} as any;
 
   engine = this._createProxyService('engine') as Engine;
+
+  validator = this._createProxyService('validator') as Validators;
 
   walletConnect = this._createProxyService(
     'walletConnect',
