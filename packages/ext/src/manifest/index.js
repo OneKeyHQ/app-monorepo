@@ -10,6 +10,7 @@ if (process.env.EXT_BUILD_BROWSER === 'firefox') {
 }
 
 module.exports = {
+  manifest_version: 3,
   ...sharedManifest,
   ...browserManifest,
 };
