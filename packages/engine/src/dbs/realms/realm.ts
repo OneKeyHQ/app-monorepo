@@ -7,6 +7,7 @@ import Realm from 'realm';
 import {
   AccountAlreadyExists,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
   TooManyWatchingAccounts,
   WrongPassword,
@@ -640,10 +641,8 @@ class RealmDB implements DBAPI {
         });
         wallet.accounts!.add(accountNew as AccountSchema);
         if (wallet.type === WALLET_TYPE_WATCHING) {
-          if (wallet.accounts!.length > WATCHING_ACCOUNT_MAX_NUM) {
-            return Promise.reject(
-              new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM),
-            );
+          if (wallet.accounts!.size > WATCHING_ACCOUNT_MAX_NUM) {
+            throw new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM);
           }
           wallet.nextAccountIds!.global += 1;
         } else if (
@@ -669,6 +668,9 @@ class RealmDB implements DBAPI {
       return Promise.resolve(account);
     } catch (error: any) {
       console.error(error);
+      if (error instanceof OneKeyError) {
+        return Promise.reject(error);
+      }
       return Promise.reject(new OneKeyInternalError(error));
     }
   }
@@ -885,10 +887,7 @@ class RealmDB implements DBAPI {
         walletId,
       );
       this.realm!.write(() => {
-        // associate accounts will automatically keep track the deletion ????
-        if (wallet.accounts!.length !== 0) {
-          this.realm!.delete(Array.from(wallet.accounts!));
-        }
+        this.realm!.delete(Array.from(wallet.accounts!));
         this.realm!.delete(wallet);
         if (typeof credential !== 'undefined') {
           this.realm!.delete(credential);
