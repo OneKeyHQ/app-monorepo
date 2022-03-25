@@ -7,6 +7,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
 import { DBAccount } from '../types/account';
+import { PrivateKeyCredential } from '../types/credential';
 import { Device } from '../types/device';
 import {
   HistoryEntry,
@@ -24,15 +25,27 @@ type OneKeyContext = {
   verifyString: string;
 };
 
-type StoredCredential = {
+type StoredSeedCredential = {
   entropy: string;
   seed: string;
 };
 
-type ExportedCredential = {
+type StoredPrivateKeyCredential = {
+  privateKey: string;
+};
+
+type StoredCredential = StoredSeedCredential | StoredPrivateKeyCredential;
+
+type ExportedSeedCredential = {
   entropy: Buffer;
   seed: Buffer;
 };
+
+type ExportedPrivateKeyCredential = {
+  privateKey: Buffer;
+};
+
+type ExportedCredential = ExportedSeedCredential | ExportedPrivateKeyCredential;
 
 const DEFAULT_VERIFY_STRING = 'OneKey';
 const MAIN_CONTEXT = 'mainContext';
@@ -92,7 +105,11 @@ interface DBAPI {
   ): Promise<ExportedCredential>;
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
 
-  addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount>;
+  addAccountToWallet(
+    walletId: string,
+    account: DBAccount,
+    importedCredential?: PrivateKeyCredential,
+  ): Promise<DBAccount>;
   getAllAccounts(): Promise<Array<DBAccount>>;
   getAccounts(accountIds: Array<string>): Promise<Array<DBAccount>>;
   getAccount(accountId: string): Promise<DBAccount>;
@@ -136,5 +153,14 @@ interface DBAPI {
   getDevices(): Promise<Array<Device>>;
 }
 
-export type { DBAPI, OneKeyContext, StoredCredential, ExportedCredential };
+export type {
+  DBAPI,
+  OneKeyContext,
+  StoredCredential,
+  StoredSeedCredential,
+  StoredPrivateKeyCredential,
+  ExportedCredential,
+  ExportedSeedCredential,
+  ExportedPrivateKeyCredential,
+};
 export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, decrypt, MAIN_CONTEXT };
