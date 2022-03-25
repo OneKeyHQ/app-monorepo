@@ -14,7 +14,9 @@ import {
 } from '../../errors';
 import { WATCHING_ACCOUNT_MAX_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
+import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount } from '../../types/account';
+import { PrivateKeyCredential } from '../../types/credential';
 import { Device } from '../../types/device';
 import {
   HistoryEntry,
@@ -37,7 +39,8 @@ import {
   ExportedCredential,
   MAIN_CONTEXT,
   OneKeyContext,
-  StoredCredential,
+  StoredPrivateKeyCredential,
+  StoredSeedCredential,
   checkPassword,
   decrypt,
   encrypt,
@@ -98,6 +101,7 @@ class RealmDB implements DBAPI {
             }
           });
         }
+        RealmDB.addImportAccountEntry(realm);
         this.realm = realm;
       })
       .catch((error: any) => {
@@ -161,19 +165,36 @@ class RealmDB implements DBAPI {
         ).toString('hex');
         const credentials = this.realm!.objects<CredentialSchema>('Credential');
         credentials.forEach((credentialItem) => {
-          const credentialJSON: StoredCredential = JSON.parse(
-            credentialItem.credential,
-          );
-          credentialItem.credential = JSON.stringify({
-            entropy: encrypt(
-              newPassword,
-              decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
-            ).toString('hex'),
-            seed: encrypt(
-              newPassword,
-              decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
-            ).toString('hex'),
-          });
+          if (credentialItem.id.startsWith('imported')) {
+            const privateKeyCredentialJSON: StoredPrivateKeyCredential =
+              JSON.parse(credentialItem.credential);
+            credentialItem.credential = JSON.stringify({
+              privateKey: encrypt(
+                newPassword,
+                decrypt(
+                  oldPassword,
+                  Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+                ),
+              ).toString('hex'),
+            });
+          } else {
+            const credentialJSON: StoredSeedCredential = JSON.parse(
+              credentialItem.credential,
+            );
+            credentialItem.credential = JSON.stringify({
+              entropy: encrypt(
+                newPassword,
+                decrypt(
+                  oldPassword,
+                  Buffer.from(credentialJSON.entropy, 'hex'),
+                ),
+              ).toString('hex'),
+              seed: encrypt(
+                newPassword,
+                decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
+              ).toString('hex'),
+            });
+          }
         });
       });
       return Promise.resolve();
@@ -609,8 +630,35 @@ class RealmDB implements DBAPI {
    * @throws {OneKeyInternalError}
    * @NOTE: account must be not exit and wallet must be exist already(exclude watching wallet)
    */
-  addAccountToWallet(walletId: string, account: DBAccount): Promise<DBAccount> {
+  addAccountToWallet(
+    walletId: string,
+    account: DBAccount,
+    importedCredential?: PrivateKeyCredential,
+  ): Promise<DBAccount> {
+    let addingImported = false;
+    if (walletIsImported(walletId)) {
+      if (typeof importedCredential === 'undefined') {
+        throw new OneKeyInternalError(
+          'Imported credential required for adding imported accounts.',
+        );
+      }
+      addingImported = true;
+    }
+
     try {
+      if (addingImported) {
+        const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+          'Context',
+          'mainContext',
+        );
+        if (typeof context === 'undefined') {
+          return Promise.reject(new OneKeyInternalError('Context not found.'));
+        }
+        if (!checkPassword(context, importedCredential!.password)) {
+          return Promise.reject(new WrongPassword());
+        }
+      }
+
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
         walletId,
@@ -640,29 +688,44 @@ class RealmDB implements DBAPI {
           address: account.address,
         });
         wallet.accounts!.add(accountNew as AccountSchema);
-        if (wallet.type === WALLET_TYPE_WATCHING) {
-          if (wallet.accounts!.size > WATCHING_ACCOUNT_MAX_NUM) {
-            throw new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM);
+        switch (wallet.type) {
+          case WALLET_TYPE_WATCHING: {
+            if (wallet.accounts!.size > WATCHING_ACCOUNT_MAX_NUM) {
+              throw new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM);
+            }
+            wallet.nextAccountIds!.global += 1;
+            break;
           }
-          wallet.nextAccountIds!.global += 1;
-        } else if (
-          wallet.type === WALLET_TYPE_HD ||
-          wallet.type === WALLET_TYPE_HW
-        ) {
-          const pathComponents = account.path.split('/');
-          const category = `${pathComponents[1]}/${pathComponents[2]}`;
-          const purpose = pathComponents[1].slice(0, -1);
-          const coinType = pathComponents[2].slice(0, -1);
-          let nextId = wallet.nextAccountIds![category] || 0;
-          while (
-            wallet.accounts!.filtered(
-              'id == $0',
-              `${walletId}--${getPath(purpose, coinType, nextId)}`,
-            )?.length > 0
-          ) {
-            nextId += 1;
+          case WALLET_TYPE_HD:
+          case WALLET_TYPE_HW: {
+            const pathComponents = account.path.split('/');
+            const category = `${pathComponents[1]}/${pathComponents[2]}`;
+            const purpose = pathComponents[1].slice(0, -1);
+            const coinType = pathComponents[2].slice(0, -1);
+            let nextId = wallet.nextAccountIds![category] || 0;
+            while (
+              wallet.accounts!.filtered(
+                'id == $0',
+                `${walletId}--${getPath(purpose, coinType, nextId)}`,
+              )?.length > 0
+            ) {
+              nextId += 1;
+            }
+            wallet.nextAccountIds![category] = nextId;
+            break;
           }
-          wallet.nextAccountIds![category] = nextId;
+          case WALLET_TYPE_IMPORTED: {
+            this.realm!.create('Credential', {
+              id: account.id,
+              credential: JSON.stringify({
+                privateKey: importedCredential!.privateKey.toString('hex'),
+              }),
+            });
+            wallet.nextAccountIds!.global += 1;
+            break;
+          }
+          default:
+            return Promise.reject(new NotImplemented());
         }
       });
       return Promise.resolve(account);
@@ -938,14 +1001,14 @@ class RealmDB implements DBAPI {
 
   /**
    * retrieve the stored credential of a wallet
-   * @param walletId
+   * @param credentialId wallet or account id
    * @param password
    * @returns {Promise<ExportedCredential>}
    * @throws {OneKeyInternalError, WrongPassword}
    * @NOTE: this method is only used for hd wallet
    */
   getCredential(
-    walletId: string,
+    credentialId: string,
     password: string,
   ): Promise<ExportedCredential> {
     try {
@@ -961,20 +1024,32 @@ class RealmDB implements DBAPI {
       }
       const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
         'Credential',
-        walletId,
+        credentialId,
       );
       if (typeof credential === 'undefined') {
         return Promise.reject(
-          new OneKeyInternalError(`Credential ${walletId} not found.`),
+          new OneKeyInternalError(`Credential ${credentialId} not found.`),
         );
       }
-      const credentialJSON: StoredCredential = JSON.parse(
-        credential.credential,
-      );
-      return Promise.resolve({
-        entropy: Buffer.from(credentialJSON.entropy, 'hex'),
-        seed: Buffer.from(credentialJSON.seed, 'hex'),
-      });
+
+      let exprotedCredential: ExportedCredential;
+      if (walletIsImported(credentialId)) {
+        const privateKeyCredentialJSON = JSON.parse(
+          credential.credential,
+        ) as StoredPrivateKeyCredential;
+        exprotedCredential = {
+          privateKey: Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+        };
+      } else {
+        const credentialJSON: StoredSeedCredential = JSON.parse(
+          credential.credential,
+        );
+        exprotedCredential = {
+          entropy: Buffer.from(credentialJSON.entropy, 'hex'),
+          seed: Buffer.from(credentialJSON.seed, 'hex'),
+        };
+      }
+      return Promise.resolve(exprotedCredential);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1070,10 +1145,17 @@ class RealmDB implements DBAPI {
       const historyEntries = this.realm!.objects<HistoryEntrySchema>(
         'HistoryEntry',
       ).filtered('accountId == $0', accountId);
+      const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
+        'Credential',
+        accountId,
+      );
       this.realm!.write(() => {
         wallet.accounts!.delete(account);
         this.realm!.delete(account);
         this.realm!.delete(historyEntries);
+        if (walletIsImported(wallet.id) && typeof credential !== 'undefined') {
+          this.realm!.delete(credential);
+        }
       });
       return Promise.resolve();
     } catch (error: any) {
@@ -1309,6 +1391,25 @@ class RealmDB implements DBAPI {
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  private static addImportAccountEntry(realm: Realm): void {
+    const importAccount = realm.objectForPrimaryKey<WalletSchema>(
+      'Wallet',
+      'imported',
+    );
+    if (typeof importAccount === 'undefined') {
+      realm.write(() => {
+        realm.create('Wallet', {
+          id: 'imported',
+          name: 'imported',
+          type: WALLET_TYPE_IMPORTED,
+          backuped: true,
+          accounts: [],
+          nextAccountIds: { 'global': 1 },
+        });
+      });
     }
   }
 }

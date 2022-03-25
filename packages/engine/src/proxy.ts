@@ -274,8 +274,7 @@ class ProviderController extends BaseProviderController {
 
   private getSigners(
     networkId: string,
-    seed: Buffer,
-    password: string,
+    credential: CredentialSelector,
     dbAccount: DBAccount,
   ): { [p: string]: ISigner } {
     const provider = this.providers[networkId];
@@ -284,18 +283,32 @@ class ProviderController extends BaseProviderController {
     }
 
     const { curve } = this.providers[networkId].chainInfo;
-    const pathComponents = dbAccount.path.split('/');
-    const relPath = pathComponents.pop() as string;
-    const { extendedKey } = batchGetPrivateKeys(
-      curve,
-      seed,
-      password,
-      pathComponents.join('/'),
-      [relPath],
-    )[0];
+    let extendedKey: ExtendedKey;
+    if (credential.type === CredentialType.SOFTWARE) {
+      const pathComponents = dbAccount.path.split('/');
+      const relPath = pathComponents.pop() as string;
+      extendedKey = batchGetPrivateKeys(
+        curve,
+        credential.seed,
+        credential.password,
+        pathComponents.join('/'),
+        [relPath],
+      )[0].extendedKey;
+    } else if (credential.type === CredentialType.PRIVATE_KEY) {
+      extendedKey = {
+        key: credential.privateKey,
+        chainCode: Buffer.alloc(0),
+      };
+    } else {
+      throw new OneKeyInternalError('Invalid credential type.');
+    }
 
     return {
-      [dbAccount.address]: new Signer(extendedKey, password, curve as Curve),
+      [dbAccount.address]: new Signer(
+        extendedKey,
+        credential.password,
+        curve as Curve,
+      ),
     };
   }
 
@@ -474,16 +487,13 @@ class ProviderController extends BaseProviderController {
     let rawTx: string;
     let success = true;
     switch (credential.type) {
+      case CredentialType.PRIVATE_KEY:
+      // fall through
       case CredentialType.SOFTWARE:
         ({ txid, rawTx } = await this.signTransaction(
           network.id,
           unsignedTx,
-          this.getSigners(
-            network.id,
-            credential.seed,
-            credential.password,
-            dbAccount,
-          ),
+          this.getSigners(network.id, credential, dbAccount),
         ));
         break;
       case CredentialType.HARDWARE:
@@ -645,7 +655,7 @@ class ProviderController extends BaseProviderController {
   }
 
   async signMessages(
-    seed: Buffer,
+    credential: CredentialSelector,
     password: string,
     network: Network,
     dbAccount: DBAccount,
@@ -660,7 +670,7 @@ class ProviderController extends BaseProviderController {
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const defaultType = ETHMessageTypes.PERSONAL_SIGN;
     const [signer] = Object.values(
-      this.getSigners(network.id, seed, password, dbAccount),
+      this.getSigners(network.id, credential, dbAccount),
     );
     return Promise.all(
       messages.map((message) => {
@@ -677,8 +687,7 @@ class ProviderController extends BaseProviderController {
   }
 
   async signTransactions(
-    seed: Buffer,
-    password: string,
+    credential: CredentialSelector,
     network: Network,
     dbAccount: DBAccount,
     transactions: Array<string>,
@@ -762,7 +771,7 @@ class ProviderController extends BaseProviderController {
           delete unsignedTx.type;
         }
         const [signature] = await Object.values(
-          this.getSigners(network.id, seed, password, dbAccount),
+          this.getSigners(network.id, credential, dbAccount),
         )[0].sign(
           Buffer.from(
             keccak256(ethTransaction.serialize(unsignedTx)).slice(2),
