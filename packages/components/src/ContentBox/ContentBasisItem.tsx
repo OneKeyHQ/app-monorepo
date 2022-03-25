@@ -92,7 +92,7 @@ const Item: FC<ContentItemProps> = ({
             </Typography.Body2>
           ))}
         {!!custom && (
-          <Box w="100%" mt={2} flexDirection="row" justifyContent="flex-end">
+          <Box w="100%" flexDirection="row" justifyContent="flex-end">
             {custom}
           </Box>
         )}

@@ -17,6 +17,7 @@ LogBox.ignoreLogs([
   'console.disableYellowBox',
   'NativeBase:',
   'style attribute preprocessor',
+  'new NativeEventEmitter',
 ]);
 
 console.warn = () => {};

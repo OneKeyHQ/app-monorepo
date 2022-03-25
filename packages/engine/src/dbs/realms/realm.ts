@@ -11,7 +11,7 @@ import {
   TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
-import { LIMIT_WATCHING_ACCOUNT_NUM } from '../../limits';
+import { WATCHING_ACCOUNT_MAX_NUM } from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount } from '../../types/account';
@@ -689,8 +689,10 @@ class RealmDB implements DBAPI {
         wallet.accounts!.add(accountNew as AccountSchema);
         switch (wallet.type) {
           case WALLET_TYPE_WATCHING: {
-            if (wallet.accounts!.length > LIMIT_WATCHING_ACCOUNT_NUM) {
-              return Promise.reject(new TooManyWatchingAccounts());
+            if (wallet.accounts!.length > WATCHING_ACCOUNT_MAX_NUM) {
+              return Promise.reject(
+                new TooManyWatchingAccounts(WATCHING_ACCOUNT_MAX_NUM),
+              );
             }
             wallet.nextAccountIds!.global += 1;
             break;

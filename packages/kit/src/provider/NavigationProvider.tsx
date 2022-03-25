@@ -4,6 +4,7 @@ import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
 
 import { useThemeValue } from '@onekeyhq/components';
+import Toast from '@onekeyhq/components/src/Toast/Custom';
 
 import Navigator, { navigationRef } from '../navigator';
 
@@ -34,14 +35,17 @@ const NavigationApp = () => {
   );
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      theme={navigationTheme}
-      linking={linking}
-      // linking={['ios', 'android'].includes(Platform.OS) ? linking : undefined}
-    >
-      <Navigator />
-    </NavigationContainer>
+    <>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={navigationTheme}
+        linking={linking}
+        // linking={['ios', 'android'].includes(Platform.OS) ? linking : undefined}
+      >
+        <Navigator />
+      </NavigationContainer>
+      <Toast bottomOffset={60} />
+    </>
   );
 };
 

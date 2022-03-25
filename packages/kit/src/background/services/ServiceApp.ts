@@ -67,6 +67,7 @@ class ServiceApp extends ServiceBase {
       account: null,
       wallet,
     });
+    return wallet;
   }
 
   @backgroundMethod()

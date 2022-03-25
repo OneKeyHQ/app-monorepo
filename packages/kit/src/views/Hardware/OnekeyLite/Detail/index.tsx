@@ -183,10 +183,11 @@ const OnekeyLiteDetail: React.FC = () => {
         startChangePinInputPinModal();
         setCurrentOptionType(null);
         break;
-      case 'reset':
+      case 'reset': {
         setResetDialogVisible(true);
         setCurrentOptionType(null);
         break;
+      }
       default:
         break;
     }
@@ -245,6 +246,7 @@ const OnekeyLiteDetail: React.FC = () => {
           {renderOptions}
         </Box>
         <Dialog
+          hasFormInsideDialog
           visible={resetDialogVisible}
           footerMoreView={
             <Box mb={3}>

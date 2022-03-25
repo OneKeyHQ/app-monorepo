@@ -19,6 +19,7 @@ import {
   setAppLockDuration,
   setEnableAppLock,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import { reload } from '@onekeyhq/kit/src/utils/helper';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
@@ -94,6 +95,7 @@ export const SecuritySection = () => {
   const onReset = useCallback(async () => {
     await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
+    reload();
   }, []);
   const onSetAppLockDuration = useCallback(
     (value: number) => {
@@ -191,35 +193,37 @@ export const SecuritySection = () => {
               </Box>
             </Box>
           ) : null}
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            borderBottomWidth="1"
-            borderBottomColor="divider"
-          >
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex="1"
-              numberOfLines={1}
-              mr="3"
+          {passwordCompleted ? (
+            <Box
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              borderBottomWidth="1"
+              borderBottomColor="divider"
             >
-              {intl.formatMessage({
-                id: 'form__app_lock',
-                defaultMessage: 'App Lock',
-              })}
-            </Text>
-            <Box>
-              <Switch
-                labelType="false"
-                isChecked={enableAppLock}
-                onToggle={onToggleAppLock}
-              />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mr="3"
+              >
+                {intl.formatMessage({
+                  id: 'form__app_lock',
+                  defaultMessage: 'App Lock',
+                })}
+              </Text>
+              <Box>
+                <Switch
+                  labelType="false"
+                  isChecked={enableAppLock}
+                  onToggle={onToggleAppLock}
+                />
+              </Box>
             </Box>
-          </Box>
+          ) : null}
           {enableAppLock ? (
             <Box w="full">
               <Select<number>

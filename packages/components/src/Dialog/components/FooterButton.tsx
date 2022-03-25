@@ -1,10 +1,11 @@
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps, FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
 import Button, { ButtonSize } from '../../Button';
 import HStack from '../../HStack';
+import { useUserDevice } from '../../Provider/hooks';
 
 export type OnCloseCallback = { onClose?: (() => void) | undefined };
 
@@ -34,6 +35,17 @@ const FooterButton: FC<FooterButtonProps> = ({
   marginTop,
 }) => {
   const intl = useIntl();
+  const { size } = useUserDevice();
+
+  const defButtonSize = useMemo((): ButtonSize => {
+    if (buttonSize) return buttonSize;
+
+    if (['SMALL', 'NORMAL'].includes(size)) {
+      return 'lg';
+    }
+    return 'base';
+  }, [buttonSize, size]);
+
   return (
     <Box flexDirection="row" w="full" mt={marginTop ?? 2}>
       <HStack space="4" w="full">
@@ -43,7 +55,7 @@ const FooterButton: FC<FooterButtonProps> = ({
             onPress={() => {
               onSecondaryActionPress?.();
             }}
-            size={secondaryActionProps?.size ?? buttonSize}
+            size={secondaryActionProps?.size ?? defButtonSize}
             {...secondaryActionProps}
           >
             {secondaryActionProps?.children ??
@@ -56,7 +68,7 @@ const FooterButton: FC<FooterButtonProps> = ({
           <Button
             flex={1}
             type="primary"
-            size={primaryActionProps?.size ?? buttonSize}
+            size={primaryActionProps?.size ?? defButtonSize}
             {...primaryActionProps}
             onPress={() => onPrimaryActionPress?.({})}
           >

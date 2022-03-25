@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect } from 'react';
 
 import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -20,6 +20,7 @@ import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToast } from '../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
@@ -95,6 +96,15 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
       },
     });
   };
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      if (navigation.canGoBack()) navigation.goBack();
+
+      onManualBackup('Manual');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Modal

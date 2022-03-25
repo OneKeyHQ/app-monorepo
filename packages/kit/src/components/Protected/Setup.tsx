@@ -13,8 +13,9 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useStatus } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
+import { unlock as mUnLock } from '../../store/reducers/data';
 import { setEnableAppLock } from '../../store/reducers/settings';
-import { setPasswordCompleted } from '../../store/reducers/status';
+import { setPasswordCompleted, unlock } from '../../store/reducers/status';
 
 type FieldValues = {
   password: string;
@@ -43,6 +44,8 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
     async (values: FieldValues) => {
       if (boardingCompleted) {
         await savePassword(values.password);
+        dispatch(unlock());
+        dispatch(mUnLock());
         dispatch(setPasswordCompleted());
         dispatch(setEnableAppLock(true));
       }

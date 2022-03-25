@@ -35,7 +35,7 @@ const SetupHardwareModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
 
-  const { deviceName = 'Unknown Device' } = route?.params ?? {};
+  const { device } = route?.params;
 
   const content = (
     <Center>
@@ -47,7 +47,12 @@ const SetupHardwareModal: FC = () => {
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.CreateWallet,
-              params: { screen: CreateWalletModalRoutes.SetupNewDeviceModal },
+              params: {
+                screen: CreateWalletModalRoutes.SetupNewDeviceModal,
+                params: {
+                  device,
+                },
+              },
             });
           }}
         >
@@ -77,6 +82,7 @@ const SetupHardwareModal: FC = () => {
               screen: ModalRoutes.CreateWallet,
               params: {
                 screen: CreateWalletModalRoutes.RestoreHardwareWalletModal,
+                params: { device },
               },
             });
           }}
@@ -111,7 +117,7 @@ const SetupHardwareModal: FC = () => {
 
   return (
     <Modal
-      header={deviceName}
+      header={device.device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__not_actived' })}
       footer={footer}
       scrollViewProps={{

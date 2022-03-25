@@ -12,11 +12,11 @@ import React, {
 import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
-// import KeyboardAwareScrollView from '../KeyboardAwareScrollView';
 import { useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import SortableList from '../SortableList';
+import Toast from '../Toast/Custom';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
@@ -27,6 +27,7 @@ export type ModalProps = {
   trigger?: ReactElement<any>;
   visible?: boolean;
   closeable?: boolean;
+  closeAction?: () => void;
   primaryActionTranslationId?: string;
   secondaryActionTranslationId?: string;
   onBackActionPress?: () => void;
@@ -52,12 +53,14 @@ export type ModalProps = {
   staticChildrenProps?: ComponentProps<typeof Box>;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   height?: number | string;
+  modalHeight?: string | number | 'full';
 };
 
 const defaultProps = {
   closeable: true,
   size: 'xs',
   height: 'auto',
+  modalHeight: 'full',
 } as const;
 
 const Modal: FC<ModalProps> = ({
@@ -70,6 +73,7 @@ const Modal: FC<ModalProps> = ({
   staticChildrenProps,
   sortableListProps,
   header,
+  modalHeight,
   ...rest
 }) => {
   const { size } = useUserDevice();
@@ -169,14 +173,23 @@ const Modal: FC<ModalProps> = ({
   const modalContainer = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
       return (
-        <Mobile
-          header={header}
-          visible={visible}
-          onClose={handleClose}
-          {...rest}
-        >
-          {modalContent}
-        </Mobile>
+        <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
+          <Box
+            height={modalHeight}
+            w="100%"
+            borderTopRadius="24px"
+            overflow="hidden"
+          >
+            <Mobile
+              header={header}
+              visible={visible}
+              onClose={handleClose}
+              {...rest}
+            >
+              {modalContent}
+            </Mobile>
+          </Box>
+        </Box>
       );
     }
 
@@ -190,7 +203,7 @@ const Modal: FC<ModalProps> = ({
         {modalContent}
       </Desktop>
     );
-  }, [size, visible, handleClose, rest, modalContent, header]);
+  }, [size, header, visible, handleClose, rest, modalContent, modalHeight]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;
@@ -204,6 +217,7 @@ const Modal: FC<ModalProps> = ({
     <>
       {triggerNode}
       {modalContainer}
+      <Toast bottomOffset={120} />
     </>
   );
 };

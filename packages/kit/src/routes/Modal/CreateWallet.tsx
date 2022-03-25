@@ -3,13 +3,16 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ImportedAccount from '@onekeyhq/kit/src/views/Account/ImportedAccount';
 import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
+import BackupTips from '@onekeyhq/kit/src/views/BackupTips';
 import CreateWallet from '@onekeyhq/kit/src/views/CreateWallet';
 import AppWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AppWallet';
 import AppWalletDone from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Done';
 import ImportWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/ImportWallet';
 import RestoreFromMnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreFromMnemonic';
 import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreWallet';
-import ConnectHardware from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
+import ConnectHardware, {
+  Device,
+} from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
 import DeviceStatusCheck from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/DeviceStatusCheck';
 import RestoreHardwareWallet from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWallet';
 import RestoreHardwareWalletDescription from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWalletDescription';
@@ -35,6 +38,7 @@ export enum CreateWalletModalRoutes {
   ImportWalletModal = 'ImportWalletModal',
   CreateWatchedAccount = 'CreateWatchedAccount',
   CreateImportedAccount = 'CreateImportedAccount',
+  BackupTipsModal = 'BackupTipsModal',
 }
 
 export type CreateWalletRoutesParams = {
@@ -46,15 +50,20 @@ export type CreateWalletRoutesParams = {
     | undefined;
   [CreateWalletModalRoutes.RestoreWalletModal]: undefined;
   [CreateWalletModalRoutes.RestoreFromMnemonicModal]: undefined;
-  [CreateWalletModalRoutes.SetupSuccessModal]?: { deviceName?: string };
-  [CreateWalletModalRoutes.SetupHardwareModal]?: { deviceName?: string };
-  [CreateWalletModalRoutes.SetupNewDeviceModal]: undefined;
-  [CreateWalletModalRoutes.DeviceStatusCheckModal]: undefined;
-  [CreateWalletModalRoutes.RestoreHardwareWalletModal]: undefined;
-  [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: undefined;
+  [CreateWalletModalRoutes.SetupSuccessModal]: { device: Device };
+  [CreateWalletModalRoutes.SetupHardwareModal]: { device: Device };
+  [CreateWalletModalRoutes.SetupNewDeviceModal]: { device: Device };
+  [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: Device };
+  [CreateWalletModalRoutes.RestoreHardwareWalletModal]: { device: Device };
+  [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: {
+    device: Device;
+  };
   [CreateWalletModalRoutes.ImportWalletModal]: undefined;
   [CreateWalletModalRoutes.CreateImportedAccount]: undefined;
   [CreateWalletModalRoutes.CreateWatchedAccount]: undefined;
+  [CreateWalletModalRoutes.BackupTipsModal]: {
+    walletId: string;
+  };
 };
 
 const CreateWalletNavigator = createStackNavigator<CreateWalletRoutesParams>();
@@ -119,6 +128,10 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.CreateImportedAccount,
     component: ImportedAccount,
+  },
+  {
+    name: CreateWalletModalRoutes.BackupTipsModal,
+    component: BackupTips,
   },
 ];
 

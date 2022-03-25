@@ -32,7 +32,6 @@ import {
 } from './dbs/base';
 import {
   FailedToTransfer,
-  InvalidAddress,
   NotImplemented,
   OneKeyHardwareError,
   OneKeyInternalError,
@@ -99,6 +98,7 @@ import {
 } from './types/network';
 import { Token } from './types/token';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
+import { Validators } from './validators';
 
 @backgroundClass()
 class Engine {
@@ -108,6 +108,8 @@ class Engine {
 
   private priceManager: PriceController;
 
+  readonly validator: Validators;
+
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
     this.priceManager = new PriceController();
@@ -116,6 +118,7 @@ class Engine {
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
+    this.validator = new Validators(this.dbApi, this.providerManager);
   }
 
   async syncPresetNetworks(): Promise<void> {
@@ -226,31 +229,48 @@ class Engine {
   }
 
   @backgroundMethod()
-  createHDWallet(
+  async createHDWallet(
     password: string,
     mnemonic?: string,
     name?: string,
   ): Promise<Wallet> {
     // Create an HD wallet, generate seed if not provided.
+    if (typeof name !== 'undefined' && name.length > 0) {
+      await this.validator.validateWalletName(name);
+    }
     const usedMnemonic = mnemonic || bip39.generateMnemonic();
+    await Promise.all([
+      this.validator.validateMnemonic(usedMnemonic),
+      this.validator.validateHDWalletNumber(),
+    ]);
+
     let rs;
     try {
       rs = revealableSeedFromMnemonic(usedMnemonic, password);
     } catch {
       throw new OneKeyInternalError('Invalid mnemonic.');
     }
+
     if (
-      !bip39.validateMnemonic(usedMnemonic) ||
-      usedMnemonic !== mnemonicFromEntropy(rs.entropyWithLangPrefixed, password)
+      usedMnemonic === mnemonicFromEntropy(rs.entropyWithLangPrefixed, password)
     ) {
-      throw new OneKeyInternalError('Invalid mnemonic.');
+      return this.dbApi.createHDWallet(
+        password,
+        rs,
+        typeof mnemonic !== 'undefined',
+        name,
+      );
     }
-    const backuped = usedMnemonic === mnemonic;
-    return this.dbApi.createHDWallet(password, rs, backuped, name);
+
+    throw new OneKeyInternalError('Invalid mnemonic.');
   }
 
   @backgroundMethod()
   async createHWWallet(name?: string): Promise<Wallet> {
+    if (typeof name !== 'undefined' && name.length > 0) {
+      await this.validator.validateWalletName(name);
+    }
+    await this.validator.validateHWWalletNumber();
     const features = await OneKeyHardware.getFeatures();
     if (!features.initialized) {
       throw new OneKeyHardwareError('Hardware wallet not initialized.');
@@ -273,8 +293,9 @@ class Engine {
   }
 
   @backgroundMethod()
-  setWalletName(walletId: string, name: string): Promise<Wallet> {
+  async setWalletName(walletId: string, name: string): Promise<Wallet> {
     // Rename a wallet, raise an error if trying to rename the imported or watching wallet.
+    await this.validator.validateWalletName(name);
     if (!walletNameCanBeUpdated(walletId)) {
       throw new OneKeyInternalError(
         `Wallet ${walletId}'s name cannot be updated.`,
@@ -570,6 +591,9 @@ class Engine {
     //   b. is not an HD account;
     // 2. password is wrong;
     // 3. account already exists;
+    if (typeof names !== 'undefined') {
+      await this.validator.validateAccountNames(names);
+    }
     const [wallet, dbNetwork] = await Promise.all([
       this.dbApi.getWallet(walletId),
       this.dbApi.getNetwork(networkId),
@@ -723,15 +747,15 @@ class Engine {
   async addWatchingAccount(
     networkId: string,
     target: string,
-    name?: string,
+    name: string,
   ): Promise<Account> {
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
-    const { normalizedAddress, isValid } =
-      await this.providerManager.verifyAddress(networkId, target);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new InvalidAddress();
-    }
+    const [, normalizedAddress] = await Promise.all([
+      this.validator.validateAccountNames([name]),
+      this.validator.validateAddress(networkId, target),
+    ]);
+
     const impl = getImplFromNetworkId(networkId);
     const coinType = implToCoinTypes[impl];
     if (typeof coinType === 'undefined') {
@@ -773,6 +797,7 @@ class Engine {
   async setAccountName(accountId: string, name: string): Promise<Account> {
     // Rename an account. Raise an error if account doesn't exist.
     // Nothing happens if name is not changed.
+    await this.validator.validateAccountNames([name]);
     const a = await this.dbApi.setAccountName(accountId, name);
     return this.buildReturnedAccount(a);
   }
@@ -783,19 +808,8 @@ class Engine {
     requireAlreadyAdded = false,
   ): Promise<Token | undefined> {
     let noThisToken: undefined;
-    if (tokenIdOnNetwork.length === 0) {
-      return noThisToken;
-    }
-    const { normalizedAddress, isValid } =
-      await this.providerManager.verifyTokenAddress(
-        networkId,
-        tokenIdOnNetwork,
-      );
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      return noThisToken;
-    }
 
-    const tokenId = `${networkId}--${normalizedAddress}`;
+    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
     const token = await this.dbApi.getToken(tokenId);
     if (typeof token !== 'undefined') {
       // Already exists in db.
@@ -806,9 +820,9 @@ class Engine {
       throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
     }
 
-    const toAdd = getPresetToken(networkId, normalizedAddress);
+    const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
     const [tokenInfo] = await this.providerManager.getTokenInfos(networkId, [
-      normalizedAddress,
+      tokenIdOnNetwork,
     ]);
     if (typeof tokenInfo === 'undefined') {
       return noThisToken;
@@ -879,12 +893,16 @@ class Engine {
     // 3. get token balance
     // 4. return
     // TODO: logoURI?
+    const normalizedAddress = await this.validator.validateTokenAddress(
+      networkId,
+      tokenIdOnNetwork,
+    );
     if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
       throw new OneKeyInternalError(
         `account ${accountId} and network ${networkId} isn't compatible.`,
       );
     }
-    const token = await this.getOrAddToken(networkId, tokenIdOnNetwork);
+    const token = await this.getOrAddToken(networkId, normalizedAddress);
     if (typeof token === 'undefined') {
       return undefined;
     }
@@ -896,7 +914,7 @@ class Engine {
     const [balance] = await this.providerManager.proxyGetBalances(
       networkId,
       dbAccount,
-      [tokenIdOnNetwork],
+      [normalizedAddress],
       false,
     );
     if (typeof balance === 'undefined') {
@@ -1002,15 +1020,25 @@ class Engine {
     // For account model networks, return the estimated gas usage.
     // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
     // TODO: validate to parameter.
+    let token: Token | undefined;
+    if (
+      typeof tokenIdOnNetwork !== 'undefined' &&
+      tokenIdOnNetwork.length > 0
+    ) {
+      const normalizedAddress = await this.validator.validateTokenAddress(
+        networkId,
+        tokenIdOnNetwork,
+      );
+      token = await this.getOrAddToken(networkId, normalizedAddress, true);
+    }
+    await Promise.all([
+      this.validator.validateAddress(networkId, to),
+      this.validator.validateTransferValue(value),
+    ]);
     const [network, dbAccount] = await Promise.all([
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
-    const token = await this.getOrAddToken(
-      networkId,
-      tokenIdOnNetwork ?? '',
-      true,
-    );
 
     // Below properties are used to avoid redundant network requests.
     const payload = extra || {};
@@ -1052,16 +1080,27 @@ class Engine {
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; success: boolean }> {
+    let token: Token | undefined;
+    if (
+      typeof tokenIdOnNetwork !== 'undefined' &&
+      tokenIdOnNetwork.length > 0
+    ) {
+      const normalizedAddress = await this.validator.validateTokenAddress(
+        networkId,
+        tokenIdOnNetwork,
+      );
+      token = await this.getOrAddToken(networkId, normalizedAddress, true);
+    }
+    await Promise.all([
+      this.validator.validateAddress(networkId, to),
+      this.validator.validateTransferValue(value),
+    ]);
+
     const [credential, network, dbAccount] = await Promise.all([
       this.getCredentialSelectorForAccount(accountId, password),
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
-    const token = await this.getOrAddToken(
-      networkId,
-      tokenIdOnNetwork ?? '',
-      true,
-    );
 
     try {
       const { txid, rawTx, success } =
