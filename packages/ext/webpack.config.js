@@ -13,6 +13,7 @@ const nextWebpack = require('./development/nextWebpack');
 const packageJson = require('./package.json');
 const webpackTools = require('../../development/webpackTools');
 const sourcemapServer = require('./development/sourcemapServer');
+const manifest = require('./src/manifest/index');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
@@ -204,8 +205,26 @@ function createConfig() {
   return webpackConfig;
 }
 
+function enableCodeSplitChunks({ config, name }) {
+  config.optimization.splitChunks = {
+    chunks: 'all',
+    minSize: 0, // 2000000
+    maxSize: 4000000,
+    // auto-gen chunk file name by module name or just increasing number
+    name: name ? `vendors-${name}` : true,
+    // name: (module, chunks, cacheGroupKey) => {
+    //   console.log(cacheGroupKey);
+    //   return 'chunk-abc-';
+    // },
+    hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
+    automaticNameDelimiter: `.`, // ~ => .
+    automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
+  };
+}
+
 // https://webpack.js.org/configuration/configuration-types/#exporting-multiple-configurations
 const multipleEntryConfigs = [
+  // ui build (always code-split)
   {
     config: {
       name: 'ui',
@@ -226,33 +245,40 @@ const multipleEntryConfigs = [
       },
     },
     configUpdater(config) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        minSize: 0, // 2000000
-        maxSize: 4000000,
-        name: false,
-        hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
-        automaticNameDelimiter: '.', // ~ => .
-      };
+      enableCodeSplitChunks({ config, name: 'ui' });
       config.plugins = [...config.plugins, ...pluginsHtml.uiHtml];
       return config;
     },
   },
+  // background build (code-split ONLY manifest v2)
   {
     config: {
-      name: 'background',
+      name: 'bg',
       dependencies: ['ui'],
       entry: {
         'background': path.join(__dirname, 'src/entry/background.ts'),
+      },
+    },
+    configUpdater(config) {
+      // background code split only works in manifest v2
+      if (manifest.manifest_version < 3) {
+        enableCodeSplitChunks({ config, name: 'bg' });
+      }
+      config.plugins = [...config.plugins, ...pluginsHtml.backgroundHtml];
+      return config;
+    },
+  },
+  // content-script build (do NOT code-split)
+  {
+    config: {
+      name: 'cs',
+      dependencies: ['ui', 'bg'],
+      entry: {
         'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
       },
     },
     configUpdater(config) {
-      config.plugins = [
-        ...config.plugins,
-        ...pluginsHtml.backgroundHtml,
-        ...pluginsCopy,
-      ];
+      config.plugins = [...config.plugins, ...pluginsCopy];
       return config;
     },
   },
