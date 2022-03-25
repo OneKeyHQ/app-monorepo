@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -16,8 +15,18 @@ import {
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { useNavigation } from '@onekeyhq/kit/src';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteChangePinRoutesParams,
+  OnekeyLiteResetModalRoutes,
+  OnekeyLiteResetRoutesParams,
+} from '@onekeyhq/kit/src/routes';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import {
   ModalRoutes,
@@ -25,19 +34,9 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  OnekeyLiteChangePinModalRoutes,
-  OnekeyLiteChangePinRoutesParams,
-  OnekeyLiteModalRoutes,
-  OnekeyLiteResetModalRoutes,
-  OnekeyLiteResetRoutesParams,
-  OnekeyLiteRoutesParams,
-} from '../routes';
-
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 
-type NavigationProps = ModalScreenProps<OnekeyLiteRoutesParams> &
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams> &
   ModalScreenProps<OnekeyLiteChangePinRoutesParams> &
   ModalScreenProps<OnekeyLiteResetRoutesParams>;
 
@@ -133,9 +132,9 @@ const OnekeyLiteDetail: React.FC = () => {
 
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
+      screen: ModalRoutes.CreateWallet,
       params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,
+        screen: CreateWalletModalRoutes.OnekeyLiteRestoreModal,
         params: {
           pwd: inputPwd,
           onRetry: () => {
@@ -148,9 +147,9 @@ const OnekeyLiteDetail: React.FC = () => {
 
   const startRestorePinVerifyModal = () => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
+      screen: ModalRoutes.CreateWallet,
       params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+        screen: CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal,
         params: {
           callBack: (inputPwd) => {
             startRestoreModal(inputPwd, () => {
@@ -169,6 +168,15 @@ const OnekeyLiteDetail: React.FC = () => {
       screen: ModalRoutes.OnekeyLiteChangePinInputPin,
       params: {
         screen: OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
+      },
+    });
+  };
+
+  const startResetModal = () => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.OnekeyLiteReset,
+      params: {
+        screen: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
       },
     });
   };
@@ -268,12 +276,9 @@ const OnekeyLiteDetail: React.FC = () => {
           footerButtonProps={{
             onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
               onClose?.();
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.OnekeyLiteReset,
-                params: {
-                  screen: OnekeyLiteResetModalRoutes.OnekeyLiteResetModal,
-                },
-              });
+              setTimeout(() => {
+                startResetModal();
+              }, 500);
             },
             primaryActionTranslationId: 'action__delete',
             primaryActionProps: {

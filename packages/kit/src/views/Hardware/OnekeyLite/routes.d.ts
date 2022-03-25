@@ -1,26 +1,3 @@
-export enum OnekeyLiteModalRoutes {
-  OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
-  OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
-  OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
-}
-
-export type OnekeyLiteRoutesParams = {
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: {
-    callBack: (pwd: string) => boolean;
-  };
-  [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: {
-    pwd: string;
-    onRetry: () => void;
-  };
-  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: {
-    walletId: string | null;
-    pwd: string;
-    backupData: string;
-    onRetry: () => void;
-    onSuccess: () => void;
-  };
-};
-
 // Reset 相关
 export enum OnekeyLiteResetModalRoutes {
   OnekeyLiteResetModal = 'OnekeyLiteResetModal',

@@ -17,14 +17,8 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { isNative } from '@onekeyhq/shared/src/platformEnv';
-
-import { OnekeyLiteModalRoutes } from '../../../routes';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -33,34 +27,22 @@ const RestoreWalletModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const startRestoreModal = (inputPwd: string, callBack: () => void) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
-      params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLiteRestoreModal,
-        params: {
-          pwd: inputPwd,
-          onRetry: () => {
-            callBack?.();
-          },
-        },
+    navigation.navigate(CreateWalletModalRoutes.OnekeyLiteRestoreModal, {
+      pwd: inputPwd,
+      onRetry: () => {
+        callBack?.();
       },
     });
   };
 
   const startRestorePinVerifyModal = () => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
-      params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
-        params: {
-          callBack: (inputPwd) => {
-            startRestoreModal(inputPwd, () => {
-              console.log('restartRestorePinVerifyModal');
-              startRestorePinVerifyModal();
-            });
-            return true;
-          },
-        },
+    navigation.navigate(CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal, {
+      callBack: (inputPwd) => {
+        startRestoreModal(inputPwd, () => {
+          console.log('restartRestorePinVerifyModal');
+          startRestorePinVerifyModal();
+        });
+        return true;
       },
     });
   };

@@ -6,7 +6,6 @@ export type { SubmitRequestModalRoutesParams } from './SubmitRequest';
 export type { HistoryRequestModalRoutesParams } from './HistoryRequest';
 export type { TransactionDetailRoutesParams } from './TransactionDetail';
 export type {
-  OnekeyLiteRoutesParams,
   OnekeyLiteResetRoutesParams,
   OnekeyLiteChangePinRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';

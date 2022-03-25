@@ -11,17 +11,18 @@ import {
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
+import { useNavigation } from '@onekeyhq/kit/src';
+import { OnekeyLiteResetRoutesParams } from '@onekeyhq/kit/src/routes';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { useNavigation } from '../../../..';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
-import { OnekeyLiteResetStackNavigationProp } from '../navigation';
 
-type NavigationProps = OnekeyLiteResetStackNavigationProp;
+type NavigationProps = ModalScreenProps<OnekeyLiteResetRoutesParams>;
 
 const Reset: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const [title] = useState('Onekey Lite');
   const [actionPressStyle, setActionPressStyle] =

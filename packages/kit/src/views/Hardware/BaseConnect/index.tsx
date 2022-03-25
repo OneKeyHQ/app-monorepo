@@ -20,7 +20,12 @@ import lottieNFCTransferData from '@onekeyhq/kit/assets/hardware/lottie_onekey_l
 import lottieNFCTransmittingData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transmitting.json';
 
 export type ConnectType = 'ble' | 'nfc';
-export type OperateType = 'guide' | 'connect' | 'transfer' | 'complete';
+export type OperateType =
+  | 'guide'
+  | 'connect'
+  | 'transfer'
+  | 'complete'
+  | 'done';
 
 export type HardwareConnectViewProps = {
   title: string;
@@ -56,7 +61,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
 
   useEffect(() => {
     setLottieAutoPlay(operateType !== 'guide');
-    setLottieLoopPlay(operateType !== 'complete');
+    setLottieLoopPlay(operateType !== 'complete' && operateType !== 'done');
 
     if (operateType === 'guide') {
       setLottieConnectingIcon(lottieNFCConnecting);
@@ -79,7 +84,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
         setVisibleIosHint(false);
       }
     }
-    if (operateType === 'complete') {
+    if (operateType === 'complete' || operateType === 'done') {
       setLottieConnectingIcon(lottieNFCConnectComplete);
       if (Platform.OS === 'ios') {
         setVisibleIosHint(false);

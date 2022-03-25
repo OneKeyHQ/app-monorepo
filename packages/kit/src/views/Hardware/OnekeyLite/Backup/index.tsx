@@ -12,25 +12,26 @@ import {
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
+import { useNavigation } from '@onekeyhq/kit/src';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useToast } from '@onekeyhq/kit/src/hooks';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
+import { updateWallet } from '@onekeyhq/kit/src/store/reducers/wallet';
 
-import { useNavigation } from '../../../..';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useToast } from '../../../../hooks';
-import { updateWallet } from '../../../../store/reducers/wallet';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
-import { OnekeyLiteStackNavigationProp } from '../navigation';
-import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
 
-type NavigationProps = OnekeyLiteStackNavigationProp;
 type RouteProps = RouteProp<
-  OnekeyLiteRoutesParams,
-  OnekeyLiteModalRoutes.OnekeyLiteBackupModal
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.OnekeyLiteBackupModal
 >;
 const Backup: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
   const { dispatch } = backgroundApiProxy;
   const { walletId, pwd, backupData, onRetry, onSuccess } =
     useRoute<RouteProps>().params;
