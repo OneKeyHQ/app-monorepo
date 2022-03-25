@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-class OneKeyError extends Error {
+export class OneKeyError extends Error {
   info: Record<string, string>;
 
   key = 'onekey_error';
