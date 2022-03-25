@@ -76,6 +76,12 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
                 id: 'msg__password_validation',
               }),
             },
+            maxLength: {
+              value: 24,
+              message: intl.formatMessage({
+                id: 'msg__password_validation',
+              }),
+            },
           }}
         >
           <Form.PasswordInput />
