@@ -223,6 +223,9 @@ object OnekeyLiteCard {
                         // Reset 卡片成功
                         throw NFCExceptions.UpperErrorAutoResetException()
                     }
+                    NfcCommand.INTERRUPT_STATUS -> {
+                        throw NFCExceptions.ConnectionFailException()
+                    }
                     else -> {
                         // 密码错误
                         cardState.pinRetryCount = verifyPin
@@ -264,6 +267,9 @@ object OnekeyLiteCard {
                 NfcCommand.RESET_PIN_SUCCESS -> {
                     // Reset 卡片成功
                     throw NFCExceptions.UpperErrorAutoResetException()
+                }
+                NfcCommand.INTERRUPT_STATUS -> {
+                    throw NFCExceptions.ConnectionFailException()
                 }
                 else -> {
                     // 密码错误
@@ -312,6 +318,9 @@ object OnekeyLiteCard {
             NfcCommand.RESET_PIN_SUCCESS -> {
                 // Reset 卡片成功
                 throw NFCExceptions.UpperErrorAutoResetException()
+            }
+            NfcCommand.INTERRUPT_STATUS -> {
+                throw NFCExceptions.ConnectionFailException()
             }
             else -> {
                 // 密码错误

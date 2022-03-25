@@ -25,6 +25,7 @@ class NfcCommand {
         const val MODE = "statusMode"
         const val SELECT_CARD_ID = "select_card_id"
         const val VERIFY_SUCCESS = 100
+        const val INTERRUPT_STATUS = 1000
         const val RESET_INTERRUPT_STATUS = 1001
         const val GET_RETRY_NUM_INTERRUPT_STATUS = 1002
         const val RESET_PIN_SUCCESS = -1
@@ -186,7 +187,9 @@ class NfcCommand {
             val verify: String? =
                 verifyPinCommand(verifyPin)
             val response = send(isoDep, verify)
-            return if (response?.endsWith(STATUS_SUCCESS) == true) {
+            return if (response == null) {
+                INTERRUPT_STATUS
+            } else if (response.endsWith(STATUS_SUCCESS)) {
                 Log.d(LITE_TAG, "---verify success")
                 VERIFY_SUCCESS
             } else {
