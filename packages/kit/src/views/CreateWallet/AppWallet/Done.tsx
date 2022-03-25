@@ -10,6 +10,9 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../../routes/types';
+
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
   CreateWalletModalRoutes.AppWalletDoneModal
@@ -23,14 +26,26 @@ type DoneProps = {
 const Done: FC<DoneProps> = ({ password, mnemonic }) => {
   const { serviceApp } = backgroundApiProxy;
   const navigation = useNavigation();
+  const appNavigation = useAppNavigation();
   useEffect(() => {
     async function main() {
-      await serviceApp.createHDWallet({ password, mnemonic });
+      const wallet = await serviceApp.createHDWallet({ password, mnemonic });
       const inst = navigation.getParent() || navigation;
-      setTimeout(() => inst.goBack(), 100);
+      setTimeout(() => {
+        inst.goBack();
+        appNavigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateWallet,
+          params: {
+            screen: CreateWalletModalRoutes.BackupTipsModal,
+            params: {
+              walletId: wallet.id,
+            },
+          },
+        });
+      }, 100);
     }
     main();
-  }, [navigation, password, serviceApp, mnemonic]);
+  }, [navigation, password, serviceApp, mnemonic, appNavigation]);
   return (
     <Center h="full" w="full">
       <Spinner size="lg" />
