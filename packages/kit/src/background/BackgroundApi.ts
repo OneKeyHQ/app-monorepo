@@ -15,6 +15,8 @@ import ServicePromise from './services/ServicePromise';
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   engine = new Engine();
 
+  validator = this.engine.validator;
+
   walletConnect = new WalletConnectAdapter({
     backgroundApi: this,
   });

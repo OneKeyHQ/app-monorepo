@@ -5,6 +5,7 @@ import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Center, Form, Modal, useForm } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -19,6 +20,7 @@ const RestoreFromMnemonicModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { reset, handleSubmit, control } = useForm<FieldValues>({
+    reValidateMode: 'onBlur',
     defaultValues: { mnemonic: '' },
   });
 
@@ -40,6 +42,11 @@ const RestoreFromMnemonicModal: FC = () => {
         label={intl.formatMessage({ id: 'action__restore_with_recovery_seed' })}
         rules={{
           required: intl.formatMessage({ id: 'form__field_is_required' }),
+          validate: async (mnemonic) =>
+            backgroundApiProxy.validator.validateMnemonic(mnemonic).then(
+              () => true,
+              () => intl.formatMessage({ id: 'form__recovery_seed_invalid' }),
+            ),
         }}
       >
         <Form.Textarea
