@@ -25,10 +25,11 @@ class Validators {
 
   @backgroundMethod()
   async validateMnemonic(mnemonic: string): Promise<string> {
-    if (!bip39.validateMnemonic(mnemonic)) {
+    const usedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');
+    if (!bip39.validateMnemonic(usedMnemonic)) {
       throw new errors.InvalidMnemonic();
     }
-    return Promise.resolve(mnemonic);
+    return Promise.resolve(usedMnemonic);
   }
 
   @backgroundMethod()
