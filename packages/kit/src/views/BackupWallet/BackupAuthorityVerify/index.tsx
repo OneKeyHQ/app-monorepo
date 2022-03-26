@@ -6,16 +6,16 @@ import { Center } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Modal, Spinner } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { OnekeyLiteModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekeyLite';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useToast } from '../../../hooks/useToast';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { BackupType } from '../types';
 
 type BackupWalletAuthorityVerifyDoneProps = {
@@ -41,9 +41,9 @@ const BackupWalletAuthorityVerifyDone: FC<
     callBack: () => void,
   ) => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
+      screen: ModalRoutes.CreateWallet,
       params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLiteBackupModal,
+        screen: CreateWalletModalRoutes.OnekeyLiteBackupModal,
         params: {
           walletId,
           pwd: inputPwd,
@@ -59,9 +59,9 @@ const BackupWalletAuthorityVerifyDone: FC<
 
   const startBackupPinVerifyModal = (backupData: string) => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyLite,
+      screen: ModalRoutes.CreateWallet,
       params: {
-        screen: OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal,
+        screen: CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal,
         params: {
           callBack: (inputPwd) => {
             startBackupModal(inputPwd, backupData, () => {

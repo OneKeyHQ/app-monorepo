@@ -16,13 +16,10 @@ import { ButtonType } from '@onekeyhq/components/src/Button';
 import { useNavigation } from '../../../..';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
-import { OnekeyLiteStackNavigationProp } from '../navigation';
 import {
   OnekeyLiteChangePinModalRoutes,
   OnekeyLiteChangePinRoutesParams,
 } from '../routes';
-
-type NavigationProps = OnekeyLiteStackNavigationProp;
 
 type RouteProps = RouteProp<
   OnekeyLiteChangePinRoutesParams,
@@ -31,7 +28,7 @@ type RouteProps = RouteProp<
 
 const ChangePin: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
   const { oldPin, newPin, onRetry } = useRoute<RouteProps>().params;
 
   const [pinRetryCount, setPinRetryCount] = useState('');
