@@ -14,39 +14,40 @@ import {
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
 import { useNavigation } from '@onekeyhq/kit/src';
-import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
 import {
   ModalScreenProps,
   TabRoutes,
   TabRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
-import { OnekeyLiteStackNavigationProp } from '../navigation';
-import { OnekeyLiteModalRoutes, OnekeyLiteRoutesParams } from '../routes';
 
-type NavigationProps = OnekeyLiteStackNavigationProp;
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 type TabNavigationProps = ModalScreenProps<TabRoutesParams>;
 
 type RouteProps = RouteProp<
-  OnekeyLiteRoutesParams,
-  OnekeyLiteModalRoutes.OnekeyLiteRestoreModal
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.OnekeyLiteRestoreModal
 >;
 
 const Restore: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
   const { serviceApp } = backgroundApiProxy;
   const toast = useToast();
 
-  const { showVerify } = useLocalAuthenticationModal();
   const { pwd, onRetry } = useRoute<RouteProps>().params;
-  const [pinRetryCount, setPinRetryCount] = useState('');
+  const [pinRetryCount, setPinRetryCount] = useState<string>('');
+  const [restoreData, setRestoreData] = useState<string>();
 
   const [title] = useState('Onekey Lite');
   const [actionPressStyle, setActionPressStyle] =
@@ -89,14 +90,26 @@ const Restore: FC = () => {
 
   const stateNfcComplete = () => {
     setActionPressStyle('primary');
+    setActionPressContent(intl.formatMessage({ id: 'action__continue' }));
+    setActionState(intl.formatMessage({ id: 'title__recovery_completed' }));
+    setActionDescription(
+      intl.formatMessage({
+        id: 'title__backup_completed_desc',
+      }),
+    );
+    setOperateType('complete');
+  };
+
+  const stateNfcDone = () => {
+    setActionPressStyle('primary');
     setActionPressContent(intl.formatMessage({ id: 'action__go_to_view' }));
     setActionState(intl.formatMessage({ id: 'title__recovery_completed' }));
     setActionDescription(
       intl.formatMessage({
-        id: 'content__you_can_use_it_as_a_new_onekey_lite',
+        id: 'title__recovery_completed_desc',
       }),
     );
-    setOperateType('complete');
+    setOperateType('done');
   };
 
   const startNfcScan = () => {
@@ -107,24 +120,28 @@ const Restore: FC = () => {
       (error: CallbackError, data: string | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
-          showVerify(
-            async (password) => {
-              // console.log('NFC read data:', data);
-              try {
-                await serviceApp.createHDWallet({
-                  password,
-                  mnemonic: data.trim(),
-                });
+          setRestoreData(data);
+          stateNfcComplete();
+          navigation.navigate(
+            CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
+            {
+              onSuccess: async (password) => {
+                try {
+                  await serviceApp.createHDWallet({
+                    password,
+                    mnemonic: data.trim(),
+                  });
 
-                stateNfcComplete();
-              } catch (e) {
-                console.log('error', e);
-                toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+                  stateNfcDone();
+                } catch (e) {
+                  console.log('error', e);
+                  toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+                  navigation.goBack();
+                }
+              },
+              onCancel: () => {
                 navigation.goBack();
-              }
-            },
-            () => {
-              navigation.goBack();
+              },
             },
           );
         } else if (error) {
@@ -155,6 +172,32 @@ const Restore: FC = () => {
         break;
 
       case 'complete':
+        if (!restoreData) return;
+        navigation.navigate(
+          CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
+          {
+            onSuccess: async (password) => {
+              try {
+                await serviceApp.createHDWallet({
+                  password,
+                  mnemonic: restoreData.trim(),
+                });
+
+                stateNfcDone();
+              } catch (e) {
+                console.log('error', e);
+                toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+                navigation.goBack();
+              }
+            },
+            onCancel: () => {
+              navigation.goBack();
+            },
+          },
+        );
+        break;
+
+      case 'done':
         goBackHome();
         break;
 

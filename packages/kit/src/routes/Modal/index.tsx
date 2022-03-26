@@ -48,10 +48,6 @@ import OnekeyHardwareModal, {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from './HardwareOnekey';
-import HardwareOnekeyModal, {
-  OnekeyLiteModalRoutes,
-  OnekeyLiteRoutesParams,
-} from './HardwareOnekeyLite';
 import HardwareOnekeyLitePinModal, {
   OnekeyLiteChangePinModalRoutes,
   OnekeyLiteChangePinRoutesParams,
@@ -159,10 +155,6 @@ const modalStackScreenList = [
     component: PasswordModal,
   },
   {
-    name: ModalRoutes.OnekeyLite,
-    component: HardwareOnekeyModal,
-  },
-  {
     name: ModalRoutes.OnekeyLiteReset,
     component: HardwareOnekeyResetModal,
   },
@@ -232,7 +224,6 @@ export type ModalTypes = {
   [PasswordRoutes.PasswordRoutes]: NavigatorScreenParams<PasswordRoutesParams>;
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
-  [OnekeyLiteModalRoutes.OnekeyLitePinCodeVerifyModal]: NavigatorScreenParams<OnekeyLiteRoutesParams>;
   [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
   [BackupWalletModalRoutes.BackupWalletModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [ManagerWalletModalRoutes.ManagerWalletModal]: NavigatorScreenParams<ManagerWalletRoutesParams>;

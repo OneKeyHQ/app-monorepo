@@ -19,6 +19,10 @@ import RestoreHardwareWalletDescription from '@onekeyhq/kit/src/views/CreateWall
 import SetupHardware from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupHardware';
 import SetupNewDevice from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupNewDevice';
 import SetupSuccess from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupSuccess';
+import OnekeyLiteBackup from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Backup';
+import OnekeyLitePinCode from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/PinCode';
+import OnekeyLiteRestore from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Restore';
+import OnekeyLiteRestoreDoneView from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Restore/Done';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -39,6 +43,12 @@ export enum CreateWalletModalRoutes {
   CreateWatchedAccount = 'CreateWatchedAccount',
   CreateImportedAccount = 'CreateImportedAccount',
   BackupTipsModal = 'BackupTipsModal',
+
+  // Onekey Lite backup
+  OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
+  OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
+  OnekeyLiteRestoreDoneModal = 'OnekeyLiteRestoreDoneModal',
+  OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
 }
 
 export type CreateWalletRoutesParams = {
@@ -63,6 +73,26 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateWatchedAccount]: undefined;
   [CreateWalletModalRoutes.BackupTipsModal]: {
     walletId: string;
+  };
+
+  // Onekey Lite backup
+  [CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal]: {
+    callBack: (pwd: string) => boolean;
+  };
+  [CreateWalletModalRoutes.OnekeyLiteRestoreModal]: {
+    pwd: string;
+    onRetry: () => void;
+  };
+  [CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal]: {
+    onSuccess: (password: string) => void;
+    onCancel: () => void;
+  };
+  [CreateWalletModalRoutes.OnekeyLiteBackupModal]: {
+    walletId: string | null;
+    pwd: string;
+    backupData: string;
+    onRetry: () => void;
+    onSuccess: () => void;
   };
 };
 
@@ -132,6 +162,24 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.BackupTipsModal,
     component: BackupTips,
+  },
+
+  // Onekey Lite backup
+  {
+    name: CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal,
+    component: OnekeyLitePinCode,
+  },
+  {
+    name: CreateWalletModalRoutes.OnekeyLiteRestoreModal,
+    component: OnekeyLiteRestore,
+  },
+  {
+    name: CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
+    component: OnekeyLiteRestoreDoneView,
+  },
+  {
+    name: CreateWalletModalRoutes.OnekeyLiteBackupModal,
+    component: OnekeyLiteBackup,
   },
 ];
 

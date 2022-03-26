@@ -13,7 +13,6 @@ export enum ModalRoutes {
   SubmitRequest = 'SubmitRequest',
   HistoryRequest = 'HistoryRequest',
   TransactionDetail = 'TransactionDetail',
-  OnekeyLite = 'OnekeyLite',
   OnekeyLiteReset = 'OnekeyLiteReset',
   OnekeyLiteChangePinInputPin = 'OnekeyLiteChangePinInputPin',
   DappApproveModal = 'DappApproveModal',
