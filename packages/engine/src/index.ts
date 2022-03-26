@@ -238,9 +238,9 @@ class Engine {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
-    const usedMnemonic = mnemonic || bip39.generateMnemonic();
-    await Promise.all([
-      this.validator.validateMnemonic(usedMnemonic),
+
+    const [usedMnemonic] = await Promise.all([
+      this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic()),
       this.validator.validateHDWalletNumber(),
     ]);
 
