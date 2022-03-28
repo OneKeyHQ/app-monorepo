@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import { BrowserWindow, app } from 'electron';
+import { BrowserWindow, app, shell } from 'electron';
 import isDev from 'electron-is-dev';
 
 import Logger, {
@@ -85,6 +85,11 @@ async function createMainWindow() {
     setImmediate(() => {
       browserWindow.focus();
     });
+  });
+
+  browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   // Modules
