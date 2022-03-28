@@ -834,7 +834,7 @@ class RealmDB implements DBAPI {
       this.realm!.write(() => {
         wallet = this.realm!.create('Wallet', {
           id: walletId,
-          name: name || `HD Wallet ${context!.nextHD}`,
+          name: name || `Wallet ${context!.nextHD}`,
           type: WALLET_TYPE_HD,
           backuped,
         });

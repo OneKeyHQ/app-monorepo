@@ -740,7 +740,7 @@ class IndexedDBApi implements DBAPI {
             const walletId = `hd-${context.nextHD}`;
             ret = {
               id: walletId,
-              name: name || `HD Wallet ${context.nextHD}`,
+              name: name || `Wallet ${context.nextHD}`,
               type: WALLET_TYPE_HD,
               backuped,
               accounts: [],
@@ -802,7 +802,7 @@ class IndexedDBApi implements DBAPI {
               }
               ret = {
                 id: walletId,
-                name: name || `HW Wallet of ${id}`,
+                name,
                 type: WALLET_TYPE_HW,
                 backuped: true,
                 accounts: [],
