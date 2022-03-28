@@ -85,6 +85,12 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
                 id: 'msg__password_validation',
               }),
             },
+            maxLength: {
+              value: 24,
+              message: intl.formatMessage({
+                id: 'msg__password_validation',
+              }),
+            },
             validate: (value) => {
               const confirmPassword = getValues('confirmPassword');
               if (!confirmPassword) return undefined;
