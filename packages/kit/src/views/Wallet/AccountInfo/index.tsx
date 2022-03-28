@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useEffect } from 'react';
+import React, { FC, useCallback, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -8,10 +8,14 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Icon,
   IconButton,
+  Pressable,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components/src/Typography';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   FormatBalance,
   FormatCurrency,
@@ -21,6 +25,7 @@ import {
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -28,6 +33,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -36,15 +42,27 @@ import { SendRoutes, SendRoutesParams } from '../../Send/types';
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
 
-export const FIXED_VERTICAL_HEADER_HEIGHT = 222;
-export const FIXED_HORIZONTAL_HEDER_HEIGHT = 190;
+export const FIXED_VERTICAL_HEADER_HEIGHT = 258;
+export const FIXED_HORIZONTAL_HEDER_HEIGHT = 214;
 
 type AccountAmountInfoProps = { isCenter: boolean };
 const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
+  const toast = useToast();
+  const { account } = useActiveWalletAccount();
   const { prices, nativeToken, updateAccountTokens } = useManageTokens();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
   useEffect(updateAccountTokens, [updateAccountTokens]);
+
+  const copyContentToClipboard = useCallback(
+    (address) => {
+      if (!address) return;
+      copyToClipboard(address);
+      toast.info(intl.formatMessage({ id: 'msg__address_copied' }));
+    },
+    [toast, intl],
+  );
+
   return (
     <Box alignItems={isCenter ? 'center' : 'flex-start'}>
       <Typography.Subheading color="text-subdued">
@@ -77,6 +95,27 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           </Typography.Body2>
         )}
       />
+      <Pressable
+        mt={4}
+        onPress={() => copyContentToClipboard(account?.address)}
+      >
+        {({ isHovered }) => (
+          <Box
+            py={{ base: 2, md: 1 }}
+            px={{ base: 3, md: 2 }}
+            rounded="xl"
+            bg={
+              isHovered ? 'surface-neutral-default' : 'surface-neutral-subdued'
+            }
+            flexDirection="row"
+          >
+            <Text typography={{ sm: 'Body2', md: 'CaptionStrong' }} mr={2}>
+              {shortenAddress(account?.address ?? '')}
+            </Text>
+            <Icon name="DuplicateSolid" size={isCenter ? 20 : 16} />
+          </Box>
+        )}
+      </Pressable>
     </Box>
   );
 };

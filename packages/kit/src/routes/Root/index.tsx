@@ -11,10 +11,11 @@ import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useStatus } from '../../hooks/redux';
+import { useSettings, useStatus } from '../../hooks/redux';
 import { setSupportFaceId } from '../../store/reducers/status';
 import ModalStackNavigator from '../Modal';
 import OnboardingScreen from '../Onboarding';
@@ -100,6 +101,24 @@ const App = () => {
 
 const RootStackNavigator = () => {
   const { boardingCompleted } = useStatus();
+  const { version, buildNumber } = useSettings();
+  const { dispatch } = backgroundApiProxy;
+
+  const hasVersionSet = !!process.env.VERSION && !!process.env.BUILD_NUMBER;
+  const versionChanged =
+    process.env.VERSION !== version || process.env.BUILD_NUMBER !== buildNumber;
+  // 用户当前的版本记录在 store 中，settings.version 是当前用户版本。
+  // settings.version -> process.env.VERSION
+  useEffect(() => {
+    if (hasVersionSet && versionChanged && process.env.VERSION)
+      dispatch(
+        updateVersionAndBuildNumber({
+          version: process.env.VERSION,
+          buildNumber: process.env.BUILD_NUMBER,
+        }),
+      );
+  }, [dispatch, hasVersionSet, versionChanged]);
+
   return boardingCompleted ? <App /> : <OnboardingScreen />;
 };
 

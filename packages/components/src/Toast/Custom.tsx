@@ -27,11 +27,14 @@ const CustomToast: FC<Props> = (outerProps) => {
               alignSelf: 'center',
               borderRadius: 12,
               backgroundColor,
+              marginLeft: 0,
+              borderLeftWidth: 0,
             }}
             contentContainerProps={{
               style: {
                 padding: 8,
                 paddingHorizontal: 8,
+                marginLeft: 0,
                 alignSelf: 'center',
               },
             }}
