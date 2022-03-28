@@ -519,6 +519,7 @@
   "msg__token_added": "トークン追加",
   "msg__token_already_existed": "トークンはすでに存在していた!",
   "msg__unknown_error": "不明なエラー",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "コピーされたURL",
   "msg__verification_failure": "検証の失敗",
   "msg__wallet_deleted": "ウォレット \"{0}\" が削除されました。",

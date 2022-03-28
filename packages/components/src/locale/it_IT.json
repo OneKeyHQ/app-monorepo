@@ -519,6 +519,7 @@
   "msg__token_added": "Gettone aggiunto",
   "msg__token_already_existed": "Il gettone esisteva già!",
   "msg__unknown_error": "Un errore sconosciuto",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL copiato",
   "msg__verification_failure": "Fallimento della verifica",
   "msg__wallet_deleted": "Portafoglio \"{0}\" cancellato",

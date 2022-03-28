@@ -519,6 +519,7 @@
   "msg__token_added": "添加了令牌",
   "msg__token_already_existed": "令牌已經存在！",
   "msg__unknown_error": "未知錯誤",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "已復製網址",
   "msg__verification_failure": "驗證失敗",
   "msg__wallet_deleted": "錢包“ {0} ”已刪除",

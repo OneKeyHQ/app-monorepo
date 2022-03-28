@@ -519,6 +519,7 @@
   "msg__token_added": "Token Added",
   "msg__token_already_existed": "Token already existed!",
   "msg__unknown_error": "Một lỗi không xác định",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL copied",
   "msg__verification_failure": "Xác minh không thành công",
   "msg__wallet_deleted": "Wallet \"{0}\" deleted",

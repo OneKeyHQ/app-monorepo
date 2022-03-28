@@ -519,6 +519,7 @@
   "msg__token_added": "Token hinzugefügt",
   "msg__token_already_existed": "Der Token existierte bereits!",
   "msg__unknown_error": "Ein unbekannter Fehler",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL kopiert",
   "msg__verification_failure": "Überprüfungsfehler",
   "msg__wallet_deleted": "Wallet \"{0}\" gelöscht",

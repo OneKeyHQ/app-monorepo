@@ -519,6 +519,7 @@
   "msg__token_added": "토큰 추가됨",
   "msg__token_already_existed": "토큰이 이미 존재했습니다!",
   "msg__unknown_error": "알 수 없는 오류",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "복사된 URL",
   "msg__verification_failure": "확인 실패",
   "msg__wallet_deleted": "지갑 \" {0} \"이(가) 삭제됨",
