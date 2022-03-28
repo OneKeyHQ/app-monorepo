@@ -14,6 +14,7 @@ import {
 } from '../constants';
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
+import { AccountNameInfo } from '../types/network';
 
 enum Curve {
   SECP256K1 = 'secp256k1',
@@ -67,10 +68,38 @@ function getDefaultCurveByCoinType(coinType: string): string {
   return getCurveByImpl(coinTypeToImpl[coinType]);
 }
 
+const defaultAccountNameInfo: Record<
+  string,
+  Record<string, AccountNameInfo>
+> = {
+  [IMPL_EVM]: { default: { prefix: 'ETH', category: `44'/${COINTYPE_ETH}'` } },
+  [IMPL_SOL]: { default: { prefix: 'SOL', category: `44'/${COINTYPE_SOL}'` } },
+  [IMPL_ALGO]: {
+    default: { prefix: 'ALGO', category: `44'/${COINTYPE_ALGO}'` },
+  },
+  [IMPL_NEAR]: {
+    default: { prefix: 'NEAR', category: `44'/${COINTYPE_NEAR}'` },
+  },
+  [IMPL_STC]: { default: { prefix: 'STC', category: `44'/${COINTYPE_STC}'` } },
+  [IMPL_CFX]: { default: { prefix: 'CFX', category: `44'/${COINTYPE_CFX}'` } },
+  // TODO: BTC
+};
+
+function getAccountNameInfoByImpl(
+  impl: string,
+): Record<string, AccountNameInfo> {
+  const ret = defaultAccountNameInfo[impl];
+  if (typeof ret === 'undefined') {
+    throw new NotImplemented(`Implementation ${impl} is not supported.`);
+  }
+  return ret;
+}
+
 export {
   implToCoinTypes,
   implToAccountType,
   isCoinTypeCompatibleWithImpl,
   getCurveByImpl,
   getDefaultCurveByCoinType,
+  getAccountNameInfoByImpl,
 };

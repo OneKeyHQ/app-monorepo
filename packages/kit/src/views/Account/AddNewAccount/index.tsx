@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -40,9 +40,8 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const toast = useToast();
   const { dispatch } = backgroundApiProxy;
-  const { control, handleSubmit, getValues } = useForm<PrivateKeyFormValues>({
-    defaultValues: { name: '' },
-  });
+  const { control, handleSubmit, getValues, setValue, watch } =
+    useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
@@ -53,12 +52,19 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
     [selectedWalletId, wallets],
   );
+  const watchNetwork = watch('network', (networks ?? [])[0].id);
 
-  const defaultWalletName = useMemo(() => {
-    const id = wallet?.nextAccountIds?.global;
-    if (!id) return '';
-    return `Account #${id}`;
-  }, [wallet]);
+  useEffect(() => {
+    const selectedNetwork =
+      networks?.find((n) => n.id === watchNetwork) ?? null;
+    if (selectedNetwork) {
+      const { prefix, category } = selectedNetwork.accountNameInfo.default;
+      if (typeof prefix !== 'undefined') {
+        const id = wallet?.nextAccountIds?.[category] || 0;
+        setValue('name', `${prefix} Account #${id + 1}`);
+      }
+    }
+  }, [wallet, networks, watchNetwork, setValue]);
 
   const authenticationDone = useCallback(
     async (password: string) => {
@@ -141,7 +147,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               label={intl.formatMessage({ id: 'form__account_name' })}
               control={control}
             >
-              <Form.Input placeholder={defaultWalletName} />
+              <Form.Input />
             </Form.Item>
             <Box alignItems="center" mt="6">
               <Typography.Body2>
