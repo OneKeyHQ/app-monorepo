@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 
 import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useToast } from '../../../hooks/useToast';
@@ -25,6 +26,8 @@ export const AboutSection = () => {
   const navigation = useNavigation<NavigationProps>();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+
+  const settings = useSettings();
 
   const onCheckUpdate = useCallback(() => {
     toast.info(
@@ -78,10 +81,12 @@ export const AboutSection = () => {
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__version',
-              defaultMessage: 'Version',
             })}
           </Text>
-          <Typography.Body2 color="text-subdued">1.0.0</Typography.Body2>
+          <Typography.Body2 color="text-subdued">
+            {settings.version}
+            {settings.buildNumber ? `-${settings.buildNumber}` : ''}
+          </Typography.Body2>
         </Box>
         <Pressable
           display="flex"
