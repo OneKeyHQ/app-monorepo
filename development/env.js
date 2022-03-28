@@ -1,8 +1,17 @@
 const path = require('path');
-const result = require('dotenv').config({
-  path: path.resolve(__dirname, '../.env'),
-});
+const dotenv = require('dotenv');
 
-if (result.error) {
-  throw result.error;
+const results = [
+  dotenv.config({
+    path: path.resolve(__dirname, '../.env'),
+  }),
+  dotenv.config({
+    path: path.resolve(__dirname, '../.env.version'),
+  }),
+];
+
+const errorResult = results.find((result) => result.error);
+
+if (errorResult) {
+  throw errorResult.error;
 }

@@ -9,6 +9,7 @@ type SettingsState = {
   theme: ThemeVariant | 'system';
   locale: LocaleSymbol;
   version: string;
+  buildNumber?: string;
   instanceId: string;
   enableAppLock: boolean;
   enableLocalAuthentication: boolean;
@@ -22,6 +23,7 @@ const initialState: SettingsState = {
   theme: 'dark',
   locale: 'zh-CN',
   version: '1.0.0',
+  buildNumber: '2020010101',
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
@@ -35,6 +37,13 @@ export const settingsSlice = createSlice({
   name: 'settings',
   initialState,
   reducers: {
+    updateVersionAndBuildNumber: (
+      state,
+      action: PayloadAction<Pick<SettingsState, 'version' | 'buildNumber'>>,
+    ) => {
+      state.version = action.payload.version;
+      state.buildNumber = action.payload.buildNumber;
+    },
     setTheme: (state, action: PayloadAction<ThemeVariant | 'system'>) => {
       state.theme = action.payload;
     },
@@ -74,6 +83,7 @@ export const {
   setRefreshTS,
   setAppLockDuration,
   setAutoRefreshTimeStamp,
+  updateVersionAndBuildNumber,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -1,4 +1,6 @@
 /* eslint-disable no-template-curly-in-string */
+require('../../development/env');
+
 module.exports = {
   'extraMetadata': {
     'main': 'dist/app.js',
@@ -8,6 +10,7 @@ module.exports = {
   'copyright': 'Copyright © ${author}',
   'asar': true,
   'electronVersion': '15.3.1',
+  'buildVersion': process.env.VERSION,
   'directories': {
     'output': 'build-electron',
   },

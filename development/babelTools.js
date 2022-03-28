@@ -8,7 +8,12 @@ function normalizeConfig(config) {
       'transform-inline-environment-variables',
       {
         // *** ATTENTION: DO NOT expose sensitive variable here ***
-        'include': ['NODE_ENV', 'REMOTE_CONSOLE_SERVER'],
+        'include': [
+          'NODE_ENV',
+          'REMOTE_CONSOLE_SERVER',
+          'VERSION',
+          'BUILD_NUMBER',
+        ],
       },
     ],
     /*

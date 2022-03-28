@@ -1,6 +1,6 @@
 module.exports = {
   'manifest_version': 3,
-  'version': process.env.npm_package_version,
+  'version': process.env.VERSION,
   'name': 'OneKey wallet',
   'description': 'OneKey wallet', // process.env.npm_package_description,
   /*
