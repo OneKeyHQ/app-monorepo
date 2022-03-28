@@ -519,6 +519,7 @@
   "msg__token_added": "Jeton ajouté",
   "msg__token_already_existed": "Le jeton existait déjà !",
   "msg__unknown_error": "Une erreur inconnue",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL copié",
   "msg__verification_failure": "Échec de la vérification",
   "msg__wallet_deleted": "Portefeuille \"{0}\" supprimé",

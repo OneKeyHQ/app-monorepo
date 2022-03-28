@@ -519,6 +519,7 @@
   "msg__token_added": "Añadir token",
   "msg__token_already_existed": "La ficha ya existía.",
   "msg__unknown_error": "Un error desconocido",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL copiada",
   "msg__verification_failure": "Fallo de verificación",
   "msg__wallet_deleted": "Cartera \"{0}\" eliminada",

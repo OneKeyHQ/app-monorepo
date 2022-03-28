@@ -519,6 +519,7 @@
   "msg__token_added": "Токен нэмсэн",
   "msg__token_already_existed": "Токен аль хэдийн байсан!",
   "msg__unknown_error": "Үл мэдэгдэх алдаа",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL хуулсан",
   "msg__verification_failure": "Баталгаажуулалтын алдаа",
   "msg__wallet_deleted": "\" {0} \" түрийвч устгагдсан",

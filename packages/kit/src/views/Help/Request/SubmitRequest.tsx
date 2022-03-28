@@ -34,7 +34,7 @@ import { useSettings } from '../../../hooks/redux';
 import { navigationGoBack } from '../../../hooks/useAppNavigation';
 
 import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
-import { ImageModel } from './types';
+import { ImageModel, TicketType } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -93,7 +93,6 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
   const isSmallScreen = useIsVerticalLayout();
   const modalWidth = isSmallScreen ? width : 400;
   const padding = isSmallScreen ? 16 : 24;
-
   const imageWidth = (modalWidth - padding * 2) / 4;
   return (
     <ZStack
@@ -152,12 +151,9 @@ export const SubmitRequest: FC = () => {
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
   const { instanceId } = useSettings();
-
   const modalWidth = isSmallScreen ? width : 400;
   const padding = isSmallScreen ? 16 : 24;
-
   const imageWidth = (modalWidth - padding * 2) / 4;
-
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
   const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -204,11 +200,25 @@ export const SubmitRequest: FC = () => {
                 ...prev.slice(imageIndex + 1),
               ];
             });
+          } else {
+            updateImageArr((prev) => {
+              const imageIndex = prev.findIndex(
+                (i) => i.filename === imagename,
+              );
+              if (imageIndex < 0) return prev;
+              return [
+                ...prev.slice(0, imageIndex),
+                ...prev.slice(imageIndex + 1),
+              ];
+            });
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__upload_failed' }),
+            });
           }
         },
       );
     }
-  }, [instanceId]);
+  }, [instanceId, intl, toast]);
 
   const imagesList = () => (
     <Row>
@@ -350,13 +360,16 @@ export const SubmitRequest: FC = () => {
               title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
             });
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            requestTicketDetail(response.data.data.id, instanceId);
+            const data = response.data.data as TicketType;
             setTimeout(
               () => {
                 navigationGoBack();
               },
               platformEnv.isExtension ? 1500 : 0,
             );
+            setTimeout(() => {
+              requestTicketDetail(data.id, instanceId);
+            }, 1000);
           }
         })
         .catch((error) => {
@@ -365,7 +378,6 @@ export const SubmitRequest: FC = () => {
     },
     [imageArr, instanceId, intl, isHardware, toast],
   );
-
   const optionLab = (
     <Typography.Body2Strong mb="4px" color="text-subdued">
       {intl.formatMessage({ id: 'form__hint_optional' })}

@@ -519,6 +519,7 @@
   "msg__token_added": "Токен добавлен",
   "msg__token_already_existed": "Жетон уже существовал!",
   "msg__unknown_error": "Неизвестная ошибка",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "Скопированный URL",
   "msg__verification_failure": "Ошибка проверки",
   "msg__wallet_deleted": "Кошелек \"{0}\" удален",

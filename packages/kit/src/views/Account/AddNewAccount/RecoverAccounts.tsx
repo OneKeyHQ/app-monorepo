@@ -227,8 +227,10 @@ const RecoverAccounts: FC = () => {
               renderItem,
               ItemSeparatorComponent: () => <Divider />,
               keyExtractor: (item) => (item as ImportableHDAccount).path,
-              ListEmptyComponent: (
-                <Box flex={1} alignItems="center" justifyContent="center" />
+              ListFooterComponent: () => (
+                <Box pt="20px">
+                  <Spinner size="sm" />
+                </Box>
               ),
               onEndReached: () => {
                 setCurrentPage((p) => p + 1);

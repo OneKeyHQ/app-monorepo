@@ -519,6 +519,7 @@
   "msg__token_added": "Додано токен",
   "msg__token_already_existed": "Токен вже існував!",
   "msg__unknown_error": "Невідома помилка",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL-адресу скопійовано",
   "msg__verification_failure": "Помилка перевірки",
   "msg__wallet_deleted": "Гаманець \" {0} \" видалено",

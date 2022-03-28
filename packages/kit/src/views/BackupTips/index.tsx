@@ -33,6 +33,7 @@ const BackupTips: FC = () => {
   return (
     <>
       <Modal
+        modalHeight="404px"
         footer={null}
         closeAction={() => {
           setVisible(true);

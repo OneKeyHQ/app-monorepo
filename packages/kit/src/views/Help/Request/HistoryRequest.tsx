@@ -1,13 +1,14 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { useIsFocused } from '@react-navigation/native';
-import { Center, Column, Row } from 'native-base';
+import axios from 'axios';
+import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import useSWR from 'swr';
+import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Divider,
   Empty,
   Icon,
   Modal,
@@ -26,7 +27,7 @@ import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 
 import { listUri } from './TicketService';
-import { RequestPayload, TicketType } from './types';
+import { TicketType } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -35,165 +36,176 @@ type NavigationProps = NativeStackNavigationProp<
   HistoryRequestRoutes.TicketDetailModal
 >;
 
+type PageStatusType = 'empty' | 'network' | 'loading' | 'data';
 export const HistoryRequest: FC = () => {
   const intl = useIntl();
-  const isFocused = useIsFocused();
   const { instanceId } = useSettings();
   const { formatDate } = useFormatDate();
 
-  function platformWithField(value: string): string {
-    switch (value) {
-      case 'hardware':
-        return intl.formatMessage({ id: 'form__hardware' });
-      case 'app_on_android':
-        return intl.formatMessage({ id: 'form__app_on_android' });
-      case 'app_on_ios':
-        return intl.formatMessage({ id: 'form__app_on_ios' });
-      case 'app_on_desktop':
-        return intl.formatMessage({ id: 'form__app_on_desktop' });
-      case 'app_on_browser':
-        return intl.formatMessage({ id: 'form__app_on_browser' });
-      default:
-        return value;
-    }
-  }
   const navigation = useNavigation<NavigationProps>();
+  const [historyList, updateHistoryList] = useState<TicketType[]>([]);
+  const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
 
-  const { data, error, mutate } = useSWR<RequestPayload<TicketType[]>>(
-    listUri(instanceId),
-  );
+  const getData = useCallback(() => {
+    setPageStatus('loading');
+    axios
+      .get(listUri(instanceId))
+      .then((response) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (response.data.success) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const data = response.data.data as TicketType[];
+          setPageStatus(data.length > 0 ? 'data' : 'empty');
+          updateHistoryList(data);
+        }
+      })
+      .catch(() => {
+        setPageStatus('network');
+      });
+  }, [instanceId]);
 
-  let isEmpty = true;
-  let historyList: TicketType[] = [];
-
-  if (data) {
-    historyList = data.data;
-    isEmpty = historyList.length === 0;
-  }
-
-  const noData = () => {
-    if (error) {
-      return (
-        <Empty
-          imageUrl={IconWifi}
-          title={intl.formatMessage({ id: 'title__no_connection' })}
-          subTitle={intl.formatMessage({
-            id: 'title__no_connection_desc',
-          })}
-          actionTitle={intl.formatMessage({
-            id: 'action__retry',
-          })}
-          handleAction={() => mutate()}
-        />
-      );
-    }
-    if (!data) {
-      return <Spinner size="sm" />;
-    }
-
-    return (
-      <Empty
-        imageUrl={IconRequest}
-        title={intl.formatMessage({ id: 'title__no_request_history' })}
-        subTitle={intl.formatMessage({
-          id: 'title__no_request_history_desc',
-        })}
-        actionTitle={intl.formatMessage({
-          id: 'form__submit_a_request',
-        })}
-        handleAction={() => {
-          navigation.navigate(HistoryRequestRoutes.SubmitRequestModal);
-        }}
-      />
-    );
+  const SubmitRequestAction = () => {
+    navigation.navigate(HistoryRequestRoutes.SubmitRequestModal);
   };
 
-  useEffect(() => {
-    if (isFocused) {
-      mutate();
+  const noData = () => {
+    switch (pageStatus) {
+      case 'network':
+        return (
+          <Empty
+            imageUrl={IconWifi}
+            title={intl.formatMessage({ id: 'title__no_connection' })}
+            subTitle={intl.formatMessage({
+              id: 'title__no_connection_desc',
+            })}
+            actionTitle={intl.formatMessage({
+              id: 'action__retry',
+            })}
+            handleAction={() => getData()}
+          />
+        );
+      case 'empty':
+        return (
+          <Empty
+            imageUrl={IconRequest}
+            title={intl.formatMessage({ id: 'title__no_request_history' })}
+            subTitle={intl.formatMessage({
+              id: 'title__no_request_history_desc',
+            })}
+            actionTitle={intl.formatMessage({
+              id: 'form__submit_a_request',
+            })}
+            handleAction={SubmitRequestAction}
+          />
+        );
+      case 'loading':
+        return <Spinner size="sm" />;
+      default:
+        return null;
     }
-  }, [isFocused, mutate]);
+  };
+
+  const renderItem: ListRenderItem<TicketType> = useCallback(
+    ({ item }) => {
+      const platformWithField = (value: string) => {
+        switch (value) {
+          case 'hardware':
+            return intl.formatMessage({ id: 'form__hardware' });
+          case 'app_on_android':
+            return intl.formatMessage({ id: 'form__app_on_android' });
+          case 'app_on_ios':
+            return intl.formatMessage({ id: 'form__app_on_ios' });
+          case 'app_on_desktop':
+            return intl.formatMessage({ id: 'form__app_on_desktop' });
+          case 'app_on_browser':
+            return intl.formatMessage({ id: 'form__app_on_browser' });
+          default:
+            return value;
+        }
+      };
+
+      let platform = '';
+      item.custom_fields.forEach((field) => {
+        if (field.id === 360013393195) {
+          platform = field.value;
+        }
+      });
+      return (
+        <Pressable
+          key={item.id}
+          onPress={() => {
+            navigation.navigate(HistoryRequestRoutes.TicketDetailModal, {
+              order: item,
+            });
+          }}
+        >
+          <Row
+            bgColor="surface-default"
+            height="96px"
+            padding="16px"
+            borderRadius="12px"
+          >
+            <Row flex={1} alignItems="center" space="12px">
+              <Column flex={1}>
+                <Text
+                  typography={{
+                    sm: 'Body1Strong',
+                    md: 'Body2Strong',
+                  }}
+                >
+                  {platformWithField(platform)}
+                </Text>
+                <Text typography="Body2" numberOfLines={1} color="text-subdued">
+                  {item.description}
+                </Text>
+                <Text typography="Body2" color="text-subdued">
+                  {formatDate(item.created_at, {
+                    hideYear: true,
+                  })}
+                </Text>
+              </Column>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Row>
+          </Row>
+        </Pressable>
+      );
+    },
+    [formatDate, intl, navigation],
+  );
+
+  useEffect(() => {
+    getData();
+  }, [getData]);
 
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__s_request_history' })}
+      footer={pageStatus === 'data' ? undefined : null}
       hideSecondaryAction
-      hidePrimaryAction={isEmpty}
+      hidePrimaryAction={!(pageStatus === 'data')}
       primaryActionProps={{
         type: 'basic',
       }}
-      onPrimaryActionPress={() => {
-        navigation.navigate(HistoryRequestRoutes.SubmitRequestModal);
-      }}
+      onPrimaryActionPress={SubmitRequestAction}
       primaryActionTranslationId="form__submit_a_request"
-      scrollViewProps={
-        !isEmpty
+      // @ts-ignore
+      flatListProps={
+        pageStatus === 'data'
           ? {
-              children: [
-                <Column space="24px" paddingBottom="40px">
-                  {historyList.map((item) => {
-                    let platform = '';
-                    item.custom_fields.forEach((field) => {
-                      if (field.id === 360013393195) {
-                        platform = field.value;
-                      }
-                    });
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => {
-                          navigation.navigate(
-                            HistoryRequestRoutes.TicketDetailModal,
-                            {
-                              order: item,
-                            },
-                          );
-                        }}
-                      >
-                        <Row
-                          bgColor="surface-default"
-                          height="96px"
-                          padding="16px"
-                          borderRadius="12px"
-                        >
-                          <Row flex={1} alignItems="center" space="12px">
-                            <Column flex={1}>
-                              <Text
-                                typography={{
-                                  sm: 'Body1Strong',
-                                  md: 'Body2Strong',
-                                }}
-                              >
-                                {platformWithField(platform)}
-                              </Text>
-                              <Text
-                                typography="Body2"
-                                numberOfLines={1}
-                                color="text-subdued"
-                              >
-                                {item.description}
-                              </Text>
-                              <Text typography="Body2" color="text-subdued">
-                                {formatDate(item.created_at, {
-                                  hideYear: true,
-                                })}
-                              </Text>
-                            </Column>
-                            <Icon name="ChevronRightSolid" size={20} />
-                          </Row>
-                        </Row>
-                      </Pressable>
-                    );
-                  })}
-                </Column>,
-              ],
+              data: historyList,
+              // @ts-ignore
+              renderItem,
+              ItemSeparatorComponent: () => (
+                <Divider height="24px" bgColor="surface-subdued" />
+              ),
+              keyExtractor: (item) => (item as TicketType).created_at,
             }
           : undefined
       }
     >
-      {isEmpty ? (
-        <Box height="420px">
-          <Center flex={1}>{noData()}</Center>
+      {pageStatus !== 'data' ? (
+        <Box flex={1} alignItems="center" justifyContent="center">
+          {noData()}
         </Box>
       ) : null}
     </Modal>
