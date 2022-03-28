@@ -519,6 +519,7 @@
   "msg__token_added": "Token Added",
   "msg__token_already_existed": "Token already existed!",
   "msg__unknown_error": "Isang hindi kilalang error",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "URL copied",
   "msg__verification_failure": "Pagkabigo sa Pagpapatunay",
   "msg__wallet_deleted": "Wallet \"{0}\" deleted",

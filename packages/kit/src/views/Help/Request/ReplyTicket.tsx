@@ -140,6 +140,20 @@ export const ReplyTicket: FC = () => {
                 ...prev.slice(imageIndex + 1),
               ];
             });
+          } else {
+            updateImageArr((prev) => {
+              const imageIndex = prev.findIndex(
+                (i) => i.filename === imagename,
+              );
+              if (imageIndex < 0) return prev;
+              return [
+                ...prev.slice(0, imageIndex),
+                ...prev.slice(imageIndex + 1),
+              ];
+            });
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__upload_failed' }),
+            });
           }
         },
       );

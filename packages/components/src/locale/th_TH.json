@@ -519,6 +519,7 @@
   "msg__token_added": "เพิ่มโทเค็นแล้ว",
   "msg__token_already_existed": "มีโทเค็นอยู่แล้ว!",
   "msg__unknown_error": "ข้อผิดพลาดที่ไม่รู้จัก",
+  "msg__upload_failed": "Upload failed",
   "msg__url_copied": "คัดลอก URL แล้ว",
   "msg__verification_failure": "การตรวจสอบล้มเหลว",
   "msg__wallet_deleted": "กระเป๋าเงิน \" {0} \" ถูกลบ",
