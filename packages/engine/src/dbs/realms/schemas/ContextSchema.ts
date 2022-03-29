@@ -9,6 +9,8 @@ class ContextSchema extends Realm.Object {
 
   public verifyString!: string;
 
+  public networkOrderChanged?: boolean;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Context',
     primaryKey: 'id',
@@ -16,6 +18,7 @@ class ContextSchema extends Realm.Object {
       id: 'string',
       nextHD: 'int',
       verifyString: 'string',
+      networkOrderChanged: { type: 'bool', default: false },
     },
   };
 
@@ -24,6 +27,7 @@ class ContextSchema extends Realm.Object {
       id: this.id,
       nextHD: this.nextHD,
       verifyString: this.verifyString,
+      networkOrderChanged: this.networkOrderChanged || false,
     };
   }
 }

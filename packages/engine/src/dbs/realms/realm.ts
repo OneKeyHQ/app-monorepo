@@ -64,7 +64,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -108,6 +108,19 @@ class RealmDB implements DBAPI {
           });
         }
         RealmDB.addImportAccountEntry(realm);
+        const context = realm.objectForPrimaryKey<ContextSchema>(
+          'Context',
+          MAIN_CONTEXT,
+        );
+        if (typeof context === 'undefined') {
+          realm.write(() => {
+            realm.create('Context', {
+              id: 'mainContext',
+              verifyString: DEFAULT_VERIFY_STRING,
+              nextHD: 1,
+            });
+          });
+        }
         this.realm = realm;
       })
       .catch((error: any) => {
@@ -149,14 +162,9 @@ class RealmDB implements DBAPI {
         MAIN_CONTEXT,
       );
       if (typeof context === 'undefined') {
-        this.realm!.write(() => {
-          context = this.realm!.create('Context', {
-            id: MAIN_CONTEXT,
-            verifyString: DEFAULT_VERIFY_STRING,
-            nextHD: 1,
-          });
-        });
-      } else if (!checkPassword(context, oldPassword)) {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (!checkPassword(context, oldPassword)) {
         return Promise.reject(new WrongPassword());
       }
 
@@ -307,20 +315,30 @@ class RealmDB implements DBAPI {
    * @throws {OneKeyInternalError}
    * @NOTE: networks must include all networks exist
    */
-  updateNetworkList(networks: [string, boolean][]): Promise<void> {
+  updateNetworkList(
+    networks: [string, boolean][],
+    syncingDefault = false,
+  ): Promise<void> {
     try {
       const statuses = new Map<string, [number, boolean]>();
       networks.forEach((element, index) =>
-        statuses.set(element[0], [index, element[1]]),
+        statuses.set(element[0], [index + 1, element[1]]),
       );
-      const existing = this.realm!.objects<NetworkSchema>('Network').map(
-        (n) => n.id,
+      const existing = this.realm!.objects<NetworkSchema>('Network');
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
       );
       this.realm!.write(() => {
-        existing.forEach((id) => {
+        let orderChanged = false;
+        existing.forEach((network) => {
+          const { id } = network;
           const status = statuses.get(id);
           if (typeof status === 'undefined') {
             return;
+          }
+          if (network.position !== status[0]) {
+            orderChanged = true;
           }
           this.realm!.create(
             'Network',
@@ -332,6 +350,11 @@ class RealmDB implements DBAPI {
             Realm.UpdateMode.Modified,
           );
         });
+        if (orderChanged && !syncingDefault) {
+          if (typeof context !== 'undefined') {
+            context.networkOrderChanged = true;
+          }
+        }
       });
     } catch (error: any) {
       console.error(error);
@@ -655,7 +678,7 @@ class RealmDB implements DBAPI {
       if (addingImported) {
         const context = this.realm!.objectForPrimaryKey<ContextSchema>(
           'Context',
-          'mainContext',
+          MAIN_CONTEXT,
         );
         if (typeof context === 'undefined') {
           return Promise.reject(new OneKeyInternalError('Context not found.'));
@@ -839,20 +862,15 @@ class RealmDB implements DBAPI {
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
-        'mainContext',
+        MAIN_CONTEXT,
       );
       if (typeof context === 'undefined') {
-        this.realm!.write(() => {
-          context = this.realm!.create('Context', {
-            id: 'mainContext',
-            verifyString: DEFAULT_VERIFY_STRING,
-            nextHD: 1,
-          });
-        });
-      } else if (!checkPassword(context, password)) {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (!checkPassword(context, password)) {
         return Promise.reject(new WrongPassword());
       }
-      const walletId = `hd-${context!.nextHD}`;
+      const walletId = `hd-${context.nextHD}`;
       let wallet: WalletSchema | undefined;
       this.realm!.write(() => {
         wallet = this.realm!.create('Wallet', {
@@ -960,7 +978,7 @@ class RealmDB implements DBAPI {
       }
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
-        'mainContext',
+        MAIN_CONTEXT,
       );
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
@@ -1037,7 +1055,7 @@ class RealmDB implements DBAPI {
     try {
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
-        'mainContext',
+        MAIN_CONTEXT,
       );
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
@@ -1156,7 +1174,7 @@ class RealmDB implements DBAPI {
       if (wallet.type in [WALLET_TYPE_HD, WALLET_TYPE_IMPORTED]) {
         const context = this.realm!.objectForPrimaryKey<ContextSchema>(
           'Context',
-          'mainContext',
+          MAIN_CONTEXT,
         );
         if (typeof context === 'undefined') {
           return Promise.reject(new OneKeyInternalError('Context not found.'));
