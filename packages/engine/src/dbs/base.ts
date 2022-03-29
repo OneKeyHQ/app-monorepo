@@ -23,6 +23,7 @@ type OneKeyContext = {
   id: string;
   nextHD: number;
   verifyString: string;
+  networkOrderChanged?: boolean;
 };
 
 type StoredSeedCredential = {
@@ -75,7 +76,10 @@ interface DBAPI {
   listNetworks(): Promise<Array<DBNetwork>>;
   addNetwork(network: DBNetwork): Promise<DBNetwork>;
   getNetwork(networkId: string): Promise<DBNetwork>;
-  updateNetworkList(networks: Array<[string, boolean]>): Promise<void>;
+  updateNetworkList(
+    networks: Array<[string, boolean]>,
+    syncingDefault?: boolean,
+  ): Promise<void>;
   updateNetwork(
     networkId: string,
     params: UpdateNetworkParams,

@@ -367,12 +367,15 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  updateNetworkList(networks: Array<[string, boolean]>): Promise<void> {
+  updateNetworkList(
+    networks: Array<[string, boolean]>,
+    syncingDefault = false,
+  ): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
           const transaction: IDBTransaction = db.transaction(
-            [NETWORK_STORE_NAME],
+            [NETWORK_STORE_NAME, CONTEXT_STORE_NAME],
             'readwrite',
           );
           transaction.onerror = (_tevent) => {
@@ -384,9 +387,10 @@ class IndexedDBApi implements DBAPI {
 
           const statuses = new Map<string, [number, boolean]>();
           networks.forEach((element, index) =>
-            statuses.set(element[0], [index, element[1]]),
+            statuses.set(element[0], [index + 1, element[1]]),
           );
 
+          let orderChanged = false;
           const openCursorRequest: IDBRequest = transaction
             .objectStore(NETWORK_STORE_NAME)
             .openCursor();
@@ -400,6 +404,9 @@ class IndexedDBApi implements DBAPI {
                 false,
               ];
               if (status[0] !== -1) {
+                if (network.position !== status[0]) {
+                  orderChanged = true;
+                }
                 [network.position, network.enabled] = status;
                 cursor.update(network);
               } else {
@@ -408,6 +415,24 @@ class IndexedDBApi implements DBAPI {
                 );
               }
               cursor.continue();
+            } else if (orderChanged && !syncingDefault) {
+              const contextStore = transaction.objectStore(CONTEXT_STORE_NAME);
+              const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
+              getMainContextRequest.onsuccess = (_cevent) => {
+                const context = getMainContextRequest.result as OneKeyContext;
+                if (typeof context === 'undefined') {
+                  // shouldn't happen
+                  console.error('Cannot get main context');
+                  return;
+                }
+                if (
+                  typeof context.networkOrderChanged === 'undefined' ||
+                  !context.networkOrderChanged
+                ) {
+                  context.networkOrderChanged = true;
+                  contextStore.put(context);
+                }
+              };
             }
           };
         }),
