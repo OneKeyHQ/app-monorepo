@@ -27,7 +27,7 @@ const NavigationApp = () => {
       ...DefaultTheme,
       colors: {
         ...DefaultTheme.colors,
-        background: platformEnv.isNative ? bgDefault : 'transparent',
+        background: platformEnv.isAndroid ? bgDefault : 'transparent',
         card: bgColor,
         text: textColor,
       },
