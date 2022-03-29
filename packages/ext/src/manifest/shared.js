@@ -1,8 +1,9 @@
 module.exports = {
   'manifest_version': 3,
   'version': process.env.VERSION,
-  'name': 'OneKey wallet',
-  'description': 'OneKey wallet', // process.env.npm_package_description,
+  'name': 'OneKey: Safe Crypto DeFi Wallet',
+  'description':
+    'Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others',
   /*
   'options_page': 'ui-options.html',
   'chrome_url_overrides': {

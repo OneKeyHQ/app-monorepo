@@ -70,7 +70,11 @@ const EngineApp: FC = ({ children }) => {
           });
       } else {
         // none wallet, return the first wallet or none
-        const wallet = walletsFromBE.find((w) => w.type !== 'watching') ?? null;
+        const wallet =
+          walletsFromBE.find(
+            (w) => w.type !== 'watching' && w.type !== 'imported',
+          ) ?? null;
+
         const accountId = wallet?.accounts?.[0];
         if (accountId) {
           backgroundApiProxy.engine
