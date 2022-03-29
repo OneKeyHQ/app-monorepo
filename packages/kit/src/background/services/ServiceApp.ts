@@ -36,13 +36,8 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async initNetworks() {
     const { engine, dispatch } = this.backgroundApi;
-    let networksFromBE = await engine.listNetworks(false);
-    if (!networksFromBE.length) {
-      // listNetworks() will return empty after resetApp()
-      //    so we should call syncPresetNetworks() here
-      await engine.syncPresetNetworks();
-      networksFromBE = await engine.listNetworks();
-    }
+    await engine.syncPresetNetworks();
+    const networksFromBE = await engine.listNetworks(false);
     dispatch(updateNetworkMap(networksFromBE));
     return networksFromBE;
   }

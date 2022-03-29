@@ -125,37 +125,68 @@ class Engine {
     await syncLatestNetworkList();
 
     try {
+      const defaultNetworkList: Array<[string, boolean]> = [];
       const dbNetworks = await this.dbApi.listNetworks();
-      const dbNetworkSet = new Set(dbNetworks.map((dbNetwork) => dbNetwork.id));
-
-      const presetNetworksList = Object.values(getPresetNetworks()).sort(
-        (a, b) => (a.name > b.name ? 1 : -1),
+      const dbNetworkMap = Object.fromEntries(
+        dbNetworks.map((dbNetwork) => [dbNetwork.id, dbNetwork.enabled]),
       );
 
-      let position = dbNetworks.length ?? 0;
+      const presetNetworksList = Object.values(getPresetNetworks()).sort(
+        (a, b) => {
+          const aPosition =
+            (a.extensions || {}).position || Number.MAX_SAFE_INTEGER;
+          const bPosition =
+            (b.extensions || {}).position || Number.MAX_SAFE_INTEGER;
+          if (aPosition > bPosition) {
+            return 1;
+          }
+          if (aPosition < bPosition) {
+            return -1;
+          }
+          return a.name > b.name ? 1 : -1;
+        },
+      );
+
       for (const network of presetNetworksList) {
-        if (
-          getSupportedImpls().has(network.impl) &&
-          !dbNetworkSet.has(network.id)
-        ) {
-          await this.dbApi.addNetwork({
-            id: network.id,
-            name: network.name,
-            impl: network.impl,
-            symbol: network.symbol,
-            logoURI: network.logoURI,
-            enabled: network.enabled,
-            feeSymbol: network.feeSymbol,
-            decimals: network.decimals,
-            feeDecimals: network.feeDecimals,
-            balance2FeeDecimals: network.balance2FeeDecimals,
-            rpcURL: network.presetRpcURLs[0],
-            position,
-          });
-          position += 1;
-          dbNetworkSet.add(network.id);
+        if (getSupportedImpls().has(network.impl)) {
+          const existingStatus = dbNetworkMap[network.id];
+          if (typeof existingStatus !== 'undefined') {
+            defaultNetworkList.push([network.id, existingStatus]);
+          } else {
+            await this.dbApi.addNetwork({
+              id: network.id,
+              name: network.name,
+              impl: network.impl,
+              symbol: network.symbol,
+              logoURI: network.logoURI,
+              enabled: network.enabled,
+              feeSymbol: network.feeSymbol,
+              decimals: network.decimals,
+              feeDecimals: network.feeDecimals,
+              balance2FeeDecimals: network.balance2FeeDecimals,
+              rpcURL: network.presetRpcURLs[0],
+              position: 0,
+            });
+            dbNetworkMap[network.id] = network.enabled;
+            defaultNetworkList.push([network.id, network.enabled]);
+          }
         }
       }
+
+      const context = await this.dbApi.getContext();
+      if (
+        typeof context !== 'undefined' &&
+        context.networkOrderChanged === true
+      ) {
+        return;
+      }
+      const specifiedNetworks = new Set(defaultNetworkList.map(([id]) => id));
+      dbNetworks.forEach((dbNetwork) => {
+        if (!specifiedNetworks.has(dbNetwork.id)) {
+          defaultNetworkList.push([dbNetwork.id, dbNetwork.enabled]);
+        }
+      });
+      await this.dbApi.updateNetworkList(defaultNetworkList, true);
     } catch (error) {
       console.error(error);
     }
@@ -1379,6 +1410,13 @@ class Engine {
   async updateNetworkList(
     networks: Array<[string, boolean]>,
   ): Promise<Array<Network>> {
+    const networksInDB = await this.dbApi.listNetworks();
+    const specifiedNetworks = new Set(networks.map(([id]) => id));
+    networksInDB.forEach((dbNetwork) => {
+      if (!specifiedNetworks.has(dbNetwork.id)) {
+        networks.push([dbNetwork.id, dbNetwork.enabled]);
+      }
+    });
     await this.dbApi.updateNetworkList(networks);
     return this.listNetworks(false);
   }
