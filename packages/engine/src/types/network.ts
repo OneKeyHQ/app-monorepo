@@ -34,6 +34,11 @@ type EvmExtraInfo = {
   networkVersion: string;
 };
 
+type AccountNameInfo = {
+  prefix: string;
+  category: string;
+};
+
 type BlockExplorer = {
   name: string;
   address: string;
@@ -52,6 +57,8 @@ type Network = NetworkBase & {
   tokenDisplayDecimals: number;
   // extra info for dapp interactions
   extraInfo: EvmExtraInfo | Record<string, any>;
+  // extra info for building up account name
+  accountNameInfo: Record<string, AccountNameInfo>;
   // TODO: rpcURLs
   blockExplorerURL: BlockExplorer;
 };
@@ -85,6 +92,7 @@ export type {
   PresetNetwork,
   Network,
   EvmExtraInfo,
+  AccountNameInfo,
   BlockExplorer,
   AddEVMNetworkParams,
   AddNetworkParams,

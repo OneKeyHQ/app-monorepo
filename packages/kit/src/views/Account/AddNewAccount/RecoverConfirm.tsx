@@ -126,7 +126,7 @@ const RecoverConfirm: FC = () => {
       >
         <Box flexDirection="column" flex={1} justifyContent="center" pl="24px">
           <Typography.Body2Strong>
-            {`Account #${item.index + 1}`}
+            {`${item.defaultName}`}
           </Typography.Body2Strong>
           <Address
             typography="Body2"

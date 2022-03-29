@@ -93,10 +93,27 @@ export class TooManyWatchingAccounts extends NumberLimit {
   key = 'msg__engine_too_many_watching_accounts';
 }
 
+export class TooManyImportedAccounts extends NumberLimit {
+  key = 'msg__engine__too_many_imported_accounts';
+}
+
 export class TooManyHDWallets extends NumberLimit {
   key = 'msg__engine__too_many_hd_wallets';
 }
 
 export class TooManyHWWallets extends NumberLimit {
   key = 'msg__engine__too_many_hw_wallets';
+}
+
+export class TooManyDerivedAccounts extends NumberLimit {
+  key = 'msg__engine__too_many_derived_accounts';
+
+  constructor(limit: number, coinType: number, purpose: number) {
+    super(limit);
+    this.info = {
+      coinType: coinType.toString(),
+      purpose: purpose.toString(),
+      ...this.info,
+    };
+  }
 }

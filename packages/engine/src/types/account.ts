@@ -41,6 +41,7 @@ type Account = DBBaseAccount & {
 type ImportableHDAccount = {
   index: number;
   path: string;
+  defaultName: string;
   displayAddress: string;
   mainBalance: string;
 };
