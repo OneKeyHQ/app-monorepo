@@ -16,7 +16,6 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks, useToast } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 
 import { DiscardAlert } from './DiscardAlert';
 import { NetworkIcon } from './NetworkIcon';
@@ -90,11 +89,8 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
   const ref = useRef<any>();
   const isSmallScreen = useIsVerticalLayout();
   const [visible, setVisible] = useState(false);
-  const { network: activeNetwork } = useActiveWalletAccount();
   const { allNetworks } = useManageNetworks();
-  const [list, setList] = useState<Network[]>(
-    (allNetworks ?? []).filter((i) => i.id !== activeNetwork?.network.id),
-  );
+  const [list, setList] = useState<Network[]>(allNetworks ?? []);
 
   const [initialData] = useState(() =>
     JSON.stringify(list.map((i) => [i.id, i.enabled])),
