@@ -186,14 +186,14 @@ function Select<T = string>({
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       setInnerValue(v);
       toggleVisible();
-      setTimeout(() => onChange?.(v, option), 250);
+      setTimeout(() => onChange?.(v, option), 300);
     },
     [onChange, toggleVisible],
   );
 
   const handlePressFooter = useCallback(() => {
     toggleVisible();
-    onPressFooter?.();
+    setTimeout(() => onPressFooter?.(), 300);
   }, [onPressFooter, toggleVisible]);
 
   const container = useMemo(() => {

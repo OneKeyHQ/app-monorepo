@@ -1529,13 +1529,20 @@ class Engine {
   @backgroundMethod()
   async listFiats(): Promise<Record<string, string>> {
     const ret: Record<string, string> = {};
-    const fiats = await this.priceManager.getFiats(
-      new Set(['usd', 'cny', 'jpy', 'hkd']),
-    );
-    Object.keys(fiats).forEach((f) => {
-      ret[f] = fiats[f].sd(6).toFixed();
-    });
-    return ret;
+    const fiatSymbolList = new Set(['usd', 'cny', 'jpy', 'hkd']);
+    try {
+      const fiats = await this.priceManager.getFiats(fiatSymbolList);
+      Object.keys(fiats).forEach((f) => {
+        ret[f] = fiats[f].sd(6).toFixed();
+      });
+      return ret;
+    } catch (e) {
+      // 获取出错，返回空的列表
+      return Array.from(fiatSymbolList).reduce(
+        (memo, current) => ({ ...memo, [current]: undefined }),
+        {},
+      );
+    }
   }
 
   setFiat(symbol: string): Promise<void> {

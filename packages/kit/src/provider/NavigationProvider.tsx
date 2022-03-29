@@ -5,6 +5,7 @@ import { createURL } from 'expo-linking';
 
 import { useThemeValue } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Navigator, { navigationRef } from '../navigator';
 
@@ -15,7 +16,7 @@ const NavigationApp = () => {
     prefixes: [prefix],
   };
 
-  const [bgColor, textColor] = useThemeValue([
+  const [bgColor, textColor, bgDefault] = useThemeValue([
     'surface-subdued',
     'text-default',
     'background-default',
@@ -26,12 +27,12 @@ const NavigationApp = () => {
       ...DefaultTheme,
       colors: {
         ...DefaultTheme.colors,
-        background: 'transparent',
+        background: platformEnv.isNative ? bgDefault : 'transparent',
         card: bgColor,
         text: textColor,
       },
     }),
-    [bgColor, textColor],
+    [bgColor, textColor, bgDefault],
   );
 
   return (
@@ -39,8 +40,7 @@ const NavigationApp = () => {
       <NavigationContainer
         ref={navigationRef}
         theme={navigationTheme}
-        linking={linking}
-        // linking={['ios', 'android'].includes(Platform.OS) ? linking : undefined}
+        linking={platformEnv.isNative ? linking : undefined}
       >
         <Navigator />
       </NavigationContainer>
