@@ -4,12 +4,12 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
-  Account,
   Box,
   Button,
   HStack,
   Icon,
   Pressable,
+  Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -64,7 +64,7 @@ const AccountSelectorTrigger: FC<Props> = ({
     );
   }
 
-  const { address, name } = account;
+  const { name } = account;
   return (
     <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
       {({ isHovered }) => (
@@ -81,15 +81,19 @@ const AccountSelectorTrigger: FC<Props> = ({
               : 'transparent'
           }
         >
-          <Box flex={1} minW="144px" flexDirection="row" alignItems="center">
+          <Box
+            flex={1}
+            minW="144px"
+            flexDirection="row"
+            alignItems="center"
+            maxW="50%"
+          >
             <WalletAvatar size="sm" mr={3} />
-            <Account
-              hiddenAvatar
-              address={address}
-              name={isVerticalLayout ? undefined : name}
-            />
+            <Typography.Body2Strong isTruncated numberOfLines={1}>
+              {name}
+            </Typography.Body2Strong>
+            <Icon size={20} name="SelectorSolid" />
           </Box>
-          <Icon size={20} name="SelectorSolid" />
         </HStack>
       )}
     </Pressable>

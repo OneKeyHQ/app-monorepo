@@ -48,7 +48,7 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'background': 'build/static/images/icons/background.tiff',
+    'background': 'build/static/images/icons/background.png',
   },
   'nsis': {
     'oneClick': false,

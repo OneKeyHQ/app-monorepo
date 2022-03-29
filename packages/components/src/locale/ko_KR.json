@@ -77,6 +77,7 @@
   "action__ok_im_done": "좋아요. 완료!",
   "action__open_in_browser": "브라우저에서 열려",
   "action__overwrite": "덮어쓰기",
+  "action__paste": "Paste",
   "action__pick_an_emoji": "이모티콘 선택",
   "action__receive": "받다",
   "action__recover": "다시 덮다",

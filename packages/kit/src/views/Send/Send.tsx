@@ -222,7 +222,7 @@ const Transaction = () => {
           <>
             <Form>
               <Form.Item
-                label={intl.formatMessage({ id: 'action__send' })}
+                label={intl.formatMessage({ id: 'content__to' })}
                 labelAddon={platformEnv.isExtension ? [] : ['paste']}
                 control={control}
                 name="to"
