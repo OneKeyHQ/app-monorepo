@@ -8,6 +8,8 @@ import {
   Network,
 } from '../types/network';
 
+import { getAccountNameInfoByImpl } from './impl';
+
 function getEVMNetworkToCreate(
   id: string,
   params: AddEVMNetworkParams,
@@ -113,6 +115,7 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
     tokenDisplayDecimals: 4,
     // extra info for dapp interactions
     extraInfo,
+    accountNameInfo: getAccountNameInfoByImpl(dbNetwork.impl),
     blockExplorerURL: { name, ...blockExplorerURL } as BlockExplorer,
   };
 }

@@ -44,6 +44,7 @@ import {
 import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import {
+  getAccountNameInfoByImpl,
   getDefaultCurveByCoinType,
   implToAccountType,
   implToCoinTypes,
@@ -553,6 +554,9 @@ class Engine {
     }
 
     const { impl } = dbNetwork;
+    const accountPrefix =
+      getAccountNameInfoByImpl(impl)[purpose || 'default'].prefix;
+
     let credential: CredentialSelector;
     let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
 
@@ -597,6 +601,7 @@ class Engine {
     return balances.map((balance, index) => ({
       index: start + index,
       path: accountInfos[index].path,
+      defaultName: `${accountPrefix} Account #${start + index + 1}`,
       displayAddress: addresses[index],
       mainBalance:
         typeof balance === 'undefined'
@@ -642,6 +647,8 @@ class Engine {
     if (typeof accountType === 'undefined') {
       throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
     }
+    const accountPrefix =
+      getAccountNameInfoByImpl(impl)[purpose || 'default'].prefix;
 
     const usedPurpose = purpose || getDefaultPurpose(impl);
     const usedIndexes = indexes || [
@@ -691,7 +698,9 @@ class Engine {
       }
 
       const accountNum = usedIndexes[accountIndex] + 1;
-      const name = (names || [])[accountIndex] || `Account #${accountNum}`;
+      const name =
+        (names || [])[accountIndex] ||
+        `${accountPrefix} Account #${accountNum}`;
       const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
         id: `${wallet.id}--${accountInfo.path}`,
         name,

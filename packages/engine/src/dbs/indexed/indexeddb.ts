@@ -9,10 +9,16 @@ import {
   AccountAlreadyExists,
   NotImplemented,
   OneKeyInternalError,
+  TooManyDerivedAccounts,
+  TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
-import { WATCHING_ACCOUNT_MAX_NUM } from '../../limits';
+import {
+  DERIVED_ACCOUNT_MAX_NUM,
+  IMPORTED_ACCOUNT_MAX_NUM,
+  WATCHING_ACCOUNT_MAX_NUM,
+} from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount, DBVariantAccount } from '../../types/account';
@@ -765,7 +771,7 @@ class IndexedDBApi implements DBAPI {
             const walletId = `hd-${context.nextHD}`;
             ret = {
               id: walletId,
-              name: name || `HD Wallet ${context.nextHD}`,
+              name: name || `Wallet ${context.nextHD}`,
               type: WALLET_TYPE_HD,
               backuped,
               accounts: [],
@@ -827,7 +833,7 @@ class IndexedDBApi implements DBAPI {
               }
               ret = {
                 id: walletId,
-                name: name || `HW Wallet of ${id}`,
+                name,
                 type: WALLET_TYPE_HW,
                 backuped: true,
                 accounts: [],
@@ -1139,6 +1145,23 @@ class IndexedDBApi implements DBAPI {
                 const category = `${pathComponents[1]}/${pathComponents[2]}`;
                 const purpose = pathComponents[1].slice(0, -1);
                 const coinType = pathComponents[2].slice(0, -1);
+
+                // Check account number limit
+                const accountIdPrefix = `${walletId}--m/${category}`;
+                if (
+                  wallet.accounts.filter((id) => id.startsWith(accountIdPrefix))
+                    .length > DERIVED_ACCOUNT_MAX_NUM
+                ) {
+                  reject(
+                    new TooManyDerivedAccounts(
+                      DERIVED_ACCOUNT_MAX_NUM,
+                      parseInt(coinType),
+                      parseInt(purpose),
+                    ),
+                  );
+                  return;
+                }
+
                 let nextId = wallet.nextAccountIds[category] || 0;
                 while (
                   wallet.accounts.includes(
@@ -1155,6 +1178,12 @@ class IndexedDBApi implements DBAPI {
                   .objectStore(CONTEXT_STORE_NAME)
                   .get(MAIN_CONTEXT);
                 getMainContextRequest.onsuccess = (_cevent) => {
+                  if (wallet.accounts.length > IMPORTED_ACCOUNT_MAX_NUM) {
+                    reject(
+                      new TooManyImportedAccounts(IMPORTED_ACCOUNT_MAX_NUM),
+                    );
+                    return;
+                  }
                   const context: OneKeyContext =
                     getMainContextRequest.result as OneKeyContext;
                   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

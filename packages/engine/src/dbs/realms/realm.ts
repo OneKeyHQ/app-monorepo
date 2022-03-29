@@ -9,10 +9,16 @@ import {
   NotImplemented,
   OneKeyError,
   OneKeyInternalError,
+  TooManyDerivedAccounts,
+  TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
 } from '../../errors';
-import { WATCHING_ACCOUNT_MAX_NUM } from '../../limits';
+import {
+  DERIVED_ACCOUNT_MAX_NUM,
+  IMPORTED_ACCOUNT_MAX_NUM,
+  WATCHING_ACCOUNT_MAX_NUM,
+} from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType, DBAccount } from '../../types/account';
@@ -725,6 +731,20 @@ class RealmDB implements DBAPI {
             const category = `${pathComponents[1]}/${pathComponents[2]}`;
             const purpose = pathComponents[1].slice(0, -1);
             const coinType = pathComponents[2].slice(0, -1);
+
+            // Check account number limit
+            const accountIdPrefix = `${walletId}--m/${category}`;
+            if (
+              wallet.accounts!.filtered('id beginsWith $0', accountIdPrefix)
+                ?.length > DERIVED_ACCOUNT_MAX_NUM
+            ) {
+              throw new TooManyDerivedAccounts(
+                DERIVED_ACCOUNT_MAX_NUM,
+                parseInt(coinType),
+                parseInt(purpose),
+              );
+            }
+
             let nextId = wallet.nextAccountIds![category] || 0;
             while (
               wallet.accounts!.filtered(
@@ -738,6 +758,9 @@ class RealmDB implements DBAPI {
             break;
           }
           case WALLET_TYPE_IMPORTED: {
+            if (wallet.accounts!.size > IMPORTED_ACCOUNT_MAX_NUM) {
+              throw new TooManyImportedAccounts(IMPORTED_ACCOUNT_MAX_NUM);
+            }
             this.realm!.create('Credential', {
               id: account.id,
               credential: JSON.stringify({
@@ -852,7 +875,7 @@ class RealmDB implements DBAPI {
       this.realm!.write(() => {
         wallet = this.realm!.create('Wallet', {
           id: walletId,
-          name: name || `HD Wallet ${context!.nextHD}`,
+          name: name || `Wallet ${context!.nextHD}`,
           type: WALLET_TYPE_HD,
           backuped,
         });
