@@ -86,6 +86,7 @@ const BackupTips: FC = () => {
         </Center>
       </Modal>
       <Dialog
+        hasFormInsideDialog
         visible={visible}
         contentProps={{
           iconType: 'danger',
