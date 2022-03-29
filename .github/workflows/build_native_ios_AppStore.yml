@@ -30,11 +30,6 @@ jobs:
           expo-token: ${{ secrets.EXPO_TOKEN }}
           expo-cache: true
 
-      - name: Install Dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'yarn'
-
       - name: Build on EAS
         run: |
           cd packages/app
