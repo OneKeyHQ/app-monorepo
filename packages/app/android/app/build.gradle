@@ -141,13 +141,22 @@ android {
         applicationId 'so.onekey.app.wallet'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+
+        def appConfig = readRootEnv()
+
+        def appVersion = defEnvStr(appConfig.VERSION)
+        def appVersionCode = defEnvStr(appConfig.BUILD_NUMBER).toInteger()
+
+        println "App Version: " + appVersion
+        println "App Version Code: " + appVersionCode
+
+        versionCode appVersionCode
+        versionName appVersion
         vectorDrawables.useSupportLibrary = true
         manifestPlaceholders = [OTAUpdatesEnable: false]
 
         ndk {
-             abiFilters "arm64-v8a"
+            abiFilters "arm64-v8a"
         }
     }
 
@@ -299,6 +308,30 @@ task copyDownloadableDepsToLibs(type: Copy) {
 
 apply from: new File(["node", "--print", "require.resolve('@react-native-community/cli-platform-android/package.json')"].execute(null, rootDir).text.trim(), "../native_modules.gradle");
 applyNativeModulesAppBuildGradle(project)
+
+
+static def defEnvStr(ver) {
+    if (ver.toString() == "[:]" || ver.toString() == ("")) {
+        return "1"
+    }
+    return ver
+}
+
+static def readRootEnv() {
+    // base file path: packages/expo/android/
+    def rootEnvPath = './../../../'
+
+    def props = new Properties()
+    try {
+        new File(rootEnvPath + "/.env.version").withInputStream {
+            stream -> props.load(stream)
+        }
+    } catch (ignore) {
+        // ignore
+    }
+
+    return new ConfigSlurper().parse(props)
+}
 
 
 def isCustomConfigured = false
