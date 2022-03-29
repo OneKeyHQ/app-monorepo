@@ -116,12 +116,10 @@ const ChainSelector: FC = () => {
         footerText={intl.formatMessage({ id: 'action__customize_network' })}
         footerIcon="PencilSolid"
         onPressFooter={() =>
-          setTimeout(() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ManageNetwork,
-              params: { screen: ManageNetworkRoutes.Listing },
-            });
-          }, 200)
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageNetwork,
+            params: { screen: ManageNetworkRoutes.Listing },
+          })
         }
         renderTrigger={(activeOption, isHovered, visible) => (
           <HStack
