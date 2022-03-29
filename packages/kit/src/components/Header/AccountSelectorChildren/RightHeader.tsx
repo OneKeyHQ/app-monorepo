@@ -1,7 +1,6 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
 import React, { FC, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,16 +16,9 @@ import {
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
@@ -74,8 +66,6 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   }
   return <Typography.Body1Strong key={title}>{title}</Typography.Body1Strong>;
 };
-
-type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
 
 const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
