@@ -10,6 +10,7 @@ import OnekeyLite, {
 } from '@onekeyhq/app/src/hardware/OnekeyLite';
 import {
   CallbackError,
+  CardErrors,
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
@@ -150,6 +151,8 @@ const Restore: FC = () => {
           console.log('NFC read error code', error.code, error.message);
           setPinRetryCount(state?.pinRetryCount?.toString() ?? '0');
           setErrorCode(error.code);
+        } else {
+          setErrorCode(CardErrors.ExecFailure);
         }
       },
     );

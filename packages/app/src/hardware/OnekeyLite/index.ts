@@ -2,7 +2,7 @@ import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { Callback, CallbackError, CardInfo } from './types';
+import { Callback, CallbackError, CardErrors, CardInfo } from './types';
 
 const { OKLiteManager } = NativeModules;
 
@@ -37,25 +37,30 @@ class OnekeyLite {
     return enMnemonic + meta;
   }
 
-  async decodeMnemonic(payload: string): Promise<string> {
-    if (payload.length <= 8)
+  async decodeMnemonic(payload: string) {
+    try {
+      if (payload.length <= 8)
+        return Buffer.from(payload, 'hex').toString().trim();
+
+      const meta = payload.slice(-8);
+
+      const regexp = new RegExp('^ffff[a-f0-9]{4}$');
+      if (regexp.test(meta)) {
+        // const version = meta.slice(4, 6);
+        const enMnemonic = payload.slice(0, -8);
+
+        const deMnemonic = await backgroundApiProxy.engine.entropyToMnemonic(
+          enMnemonic,
+        ); // mnemonic to index
+
+        return deMnemonic.trim();
+      }
+      // 兼容旧版本
       return Buffer.from(payload, 'hex').toString().trim();
-
-    const meta = payload.slice(-8);
-
-    const regexp = new RegExp('^ffff[a-f0-9]{4}$');
-    if (regexp.test(meta)) {
-      // const version = meta.slice(4, 6);
-      const enMnemonic = payload.slice(0, -8);
-
-      const deMnemonic = await backgroundApiProxy.engine.entropyToMnemonic(
-        enMnemonic,
-      ); // mnemonic to index
-
-      return deMnemonic.trim();
+    } catch (error) {
+      // 数据解析报错
+      return '';
     }
-    // 兼容旧版本
-    return Buffer.from(payload, 'hex').toString().trim();
   }
 
   addConnectListener(listener: (event: NfcConnectUiState) => void) {
@@ -99,16 +104,20 @@ class OnekeyLite {
   }
 
   getMnemonicWithPin(pwd: string, result: Callback<string>) {
-    OKLiteManager.getMnemonicWithPin(
-      pwd,
-      async (
-        error: CallbackError | null,
-        data: string | null,
-        state: CardInfo | null,
-      ) => {
-        result(error, data ? await this.decodeMnemonic(data) : null, state);
-      },
-    );
+    try {
+      OKLiteManager.getMnemonicWithPin(
+        pwd,
+        async (
+          error: CallbackError | null,
+          data: string | null,
+          state: CardInfo | null,
+        ) => {
+          result(error, data ? await this.decodeMnemonic(data) : null, state);
+        },
+      );
+    } catch (error) {
+      result({ code: CardErrors.ExecFailure, message: null }, null, null);
+    }
   }
 
   changePin(oldPin: string, newPin: string, result: Callback<boolean>) {
