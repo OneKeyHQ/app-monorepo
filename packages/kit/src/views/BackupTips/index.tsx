@@ -70,15 +70,17 @@ const BackupTips: FC = () => {
             width="100%"
             onPress={() => {
               navigation.getParent()?.goBack();
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.BackupWallet,
-                params: {
-                  screen: BackupWalletModalRoutes.BackupWalletModal,
+              setTimeout(() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.BackupWallet,
                   params: {
-                    walletId,
+                    screen: BackupWalletModalRoutes.BackupWalletModal,
+                    params: {
+                      walletId,
+                    },
                   },
-                },
-              });
+                });
+              }, 100);
             }}
           >
             {intl.formatMessage({ id: 'action__back_up_now' })}
