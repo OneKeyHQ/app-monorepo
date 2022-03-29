@@ -85,22 +85,27 @@ const Home: FC = () => {
   const [offline, setOffline] = useState(false);
   const [backupTip, setBackupTip] = useState(true);
   useEffect(() => {
-    if (wallet && !wallet.backuped && backupTip) {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.BackupTipsModal,
-          params: { walletId: wallet.id },
-        },
-      });
-    }
-    setBackupTip(() => false);
+    const t = setTimeout(() => {
+      if (platformEnv.isDev && wallet && !wallet.backuped && backupTip) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateWallet,
+          params: {
+            screen: CreateWalletModalRoutes.BackupTipsModal,
+            params: { walletId: wallet.id },
+          },
+        });
+      }
+      setBackupTip(() => false);
+    }, 2000);
 
     const unsubscribe = NetInfo.addEventListener((state) => {
       setOffline(state.type === NetInfoStateType.none);
     });
-    return unsubscribe;
-  }, [navigation, backupTip, wallet]);
+    return () => {
+      unsubscribe();
+      clearTimeout(t);
+    };
+  }, []);
 
   if (!wallet) {
     return (
