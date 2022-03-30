@@ -55,6 +55,11 @@ export const useIsVerticalLayout = () => {
   return ['SMALL', 'NORMAL'].includes(size);
 };
 
+export const useIsSmallLayout = () => {
+  const { size } = useUserDevice();
+  return ['SMALL'].includes(size);
+};
+
 const customFont = {
   'PlusJakartaSans-Bold': require('./fonts/PlusJakartaSans-Bold.ttf'),
   'PlusJakartaSans-Medium': require('./fonts/PlusJakartaSans-Medium.ttf'),
