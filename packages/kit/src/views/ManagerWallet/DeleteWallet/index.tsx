@@ -55,12 +55,14 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
           isLoading,
         },
         onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
+          if (!walletId) return;
+
           setIsLoading(true);
 
           engine
             .getWallet(walletId)
             .then(async (wallet) => {
-              await engine.removeWallet(walletId, password);
+              await engine.removeWallet(walletId, password ?? '');
               if (activeWallet?.id === walletId) {
                 await serviceApp.autoChangeWallet();
               }
