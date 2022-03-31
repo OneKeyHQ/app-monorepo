@@ -264,7 +264,7 @@ function eventAdapter(
     if (isSwap) {
       type = TransactionType.Swap;
     } else if (value !== '0' || type === TransactionType.ContractExecution) {
-      if (logs.length === 0 && value !== '0') {
+      if (logs.length === 0) {
         if (from === user) {
           type = TransactionType.Transfer;
         } else {
