@@ -1,12 +1,10 @@
-import React, { FC, useCallback } from 'react';
+import React, { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Box,
-  Button,
   Center,
   HStack,
   Icon,
@@ -15,13 +13,14 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
+import img1 from '../../../assets/app_wallet_icon.png';
+import img2 from '../../../assets/hardware_icon.png';
 import { ModalScreenProps, RootRoutesParams } from '../../routes/types';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
@@ -30,32 +29,21 @@ type NavigationProps = ModalScreenProps<RootRoutesParams> &
 const CreateWalletModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const onRestore = useCallback(() => {
-    navigation.navigate(CreateWalletModalRoutes.ImportWalletModal);
-  }, [navigation]);
 
   const content = (
     <VStack space={8} w="full">
-      <Box>
-        <Typography.DisplayLarge textAlign="center">
-          {intl.formatMessage({ id: 'action__create_wallet' })}
-        </Typography.DisplayLarge>
-        <Typography.Body1 mt={2} textAlign="center" color="text-subdued">
-          {intl.formatMessage({ id: 'content__select_wallet_type' })}
-        </Typography.Body1>
-      </Box>
       <VStack space={4}>
         {/* APP Wallet option */}
         <PressableItem
           borderRadius="12px"
           px={4}
           onPress={() => {
-            navigation.navigate(CreateWalletModalRoutes.AppWalletModal);
+            navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal);
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">
             <Center size={12} borderRadius="12px" bg="surface-neutral-default">
-              <Typography.DisplayLarge>🤑</Typography.DisplayLarge>
+              <Image source={img1} width="10" height="10" alt="icon" />
             </Center>
             <Icon name="ChevronRightOutline" size={24} />
           </HStack>
@@ -90,7 +78,7 @@ const CreateWalletModal: FC = () => {
         >
           <HStack justifyContent="space-between" alignItems="center">
             <Center size={12} borderRadius="12px" bg="surface-neutral-default">
-              <Image source={MiniDeviceIcon} width={5} height={30} />
+              <Image source={img2} width="10" height="10" alt="icon" />
             </Center>
             <Badge
               title={intl.formatMessage({ id: 'badge__coming_soon' })}
@@ -122,17 +110,10 @@ const CreateWalletModal: FC = () => {
     </VStack>
   );
 
-  const footer = (
-    <Center pt={2} pb={6}>
-      <Button type="plain" size="xl" onPress={onRestore}>
-        {intl.formatMessage({ id: 'action__i_already_have_a_wallet' })}
-      </Button>
-    </Center>
-  );
-
   return (
     <Modal
-      footer={footer}
+      header={intl.formatMessage({ id: 'action__create_wallet' })}
+      footer={null}
       scrollViewProps={{
         children: content,
       }}

@@ -74,7 +74,7 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>(
           py: 2,
         }}
         options={options}
-        dropdownProps={{ width: '352px' }}
+        dropdownProps={{ width: '352px', maxHeight: '400px' }}
         dropdownPosition="right"
       />
     </Form.Item>

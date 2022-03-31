@@ -55,7 +55,8 @@ const Welcome = () => {
 
   const onRestore = useCallback(() => {
     navigation.navigate(OnboardingRoutes.Modal, {
-      screen: CreateWalletModalRoutes.ImportWalletModal,
+      screen: CreateWalletModalRoutes.AddExistingWalletModal,
+      params: { mode: 'all' },
     });
   }, [navigation]);
 
