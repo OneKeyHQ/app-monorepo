@@ -20,6 +20,12 @@ export const reload = () => {
   if (platformEnv.isNative) {
     return RNRestart.Restart();
   }
+  if (platformEnv.isDesktop) {
+    return window.desktopApi?.reload?.();
+  }
+  if (platformEnv.isExtension) {
+    return chrome.runtime.reload();
+  }
   if (platformEnv.isWeb && typeof window !== 'undefined') {
     return window?.location?.reload?.();
   }
