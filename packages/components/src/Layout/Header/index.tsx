@@ -8,7 +8,6 @@ import {
   useThemeValue,
   useUserDevice,
 } from '../../Provider/hooks';
-import Typography from '../../Typography';
 
 type HeaderProps = {
   headerLeft: () => ReactNode;

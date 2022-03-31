@@ -97,6 +97,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
       <Box>
         <Pressable onPress={handleClose}>
           <Image
+            alt="-"
             {...rest}
             width={`${imageSize.width}px`}
             height={`${imageSize.height}px`}
