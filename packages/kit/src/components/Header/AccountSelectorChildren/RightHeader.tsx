@@ -29,7 +29,11 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey';
+import ManagerWalletDeleteDialog, {
+  DeleteWalletProp,
+} from '../../../views/ManagerWallet/DeleteWallet';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
@@ -81,7 +85,10 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
 
+  const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);
+  const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
+  const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
 
   const renderBackupState = useMemo(() => {
     if (!selectedWallet) return null;
@@ -103,17 +110,16 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
 
   const onDeleteWallet = () => {
     if (selectedWallet?.backuped === true) {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ManagerWallet,
-        params: {
-          screen:
-            ManagerWalletModalRoutes.ManagerWalletDialogAuthorityVerifyModal,
-          params: {
+      showVerify(
+        (pwd) => {
+          setDeleteWallet({
             walletId: selectedWallet?.id ?? '',
-            managerType: 'deleteWallet',
-          },
+            password: pwd,
+          });
+          setShowDeleteWalletDialog(true);
         },
-      });
+        () => {},
+      );
     } else {
       setShowBackupDialog(true);
     }
@@ -288,6 +294,13 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
           />
         ) : null}
       </HStack>
+      <ManagerWalletDeleteDialog
+        visible={showDeleteWalletDialog}
+        deleteWallet={deleteWallet}
+        onDialogClose={() => {
+          setShowDeleteWalletDialog(false);
+        }}
+      />
       <Dialog
         visible={showBackupDialog}
         canceledOnTouchOutside={false}
