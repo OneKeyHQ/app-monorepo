@@ -86,6 +86,7 @@ const ConnectHardwareModal: FC = () => {
     //     screen: CreateWalletModalRoutes.SetupHardwareModal,
     //   },
     // });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnectedDeviceActivated, navigation]);
   useEffect(() => {
     if (isDevicePlugIn) {

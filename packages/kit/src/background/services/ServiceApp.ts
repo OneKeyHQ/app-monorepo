@@ -121,6 +121,84 @@ class ServiceApp extends ServiceBase {
       wallet,
     });
   }
+
+  @backgroundMethod()
+  async addImportedAccount(
+    password: string,
+    networkId: string,
+    credential: string,
+    name?: string,
+  ) {
+    const { dispatch, engine, serviceAccount, appSelector, serviceNetwork } =
+      this.backgroundApi;
+    const account = await engine.addImportedAccount(
+      password,
+      networkId,
+      credential,
+      name,
+    );
+    dispatch(setBoardingCompleted());
+    dispatch(setPasswordCompleted());
+    dispatch(unlock());
+    dispatch(mUnlock());
+    const walletsFromBE = await engine.getWallets();
+    const walletList = walletsFromBE.filter(
+      (wallet) => wallet.type === 'imported',
+    );
+    const wallet = walletList[0];
+    serviceAccount.changeActiveAccount({
+      account,
+      wallet,
+    });
+    const { network }: { network: Network } = appSelector(
+      (s) => s.general.activeNetwork,
+    );
+
+    if (network.id !== networkId) {
+      const networks: Network[] = appSelector((s) => s.network.network) || [];
+      const selected: Network = networks.filter((i) => i.id === networkId)[0];
+      if (selected) {
+        serviceNetwork.changeActiveNetwork({
+          network: selected,
+          sharedChainName: selected.impl,
+        });
+      }
+    }
+
+    return account;
+  }
+
+  @backgroundMethod()
+  async addWatchAccount(networkId: string, address: string, name: string) {
+    const { dispatch, engine, serviceAccount, appSelector, serviceNetwork } =
+      this.backgroundApi;
+    const account = await engine.addWatchingAccount(networkId, address, name);
+    const walletsFromBE = await engine.getWallets();
+    const walletList = walletsFromBE.filter(
+      (wallet) => wallet.type === 'watching',
+    );
+    dispatch(setBoardingCompleted());
+    dispatch(unlock());
+    dispatch(mUnlock());
+    const wallet = walletList[0];
+    serviceAccount.changeActiveAccount({
+      account,
+      wallet,
+    });
+    const { network }: { network: Network } = appSelector(
+      (s) => s.general.activeNetwork,
+    );
+    if (network.id !== networkId) {
+      const networks: Network[] = appSelector((s) => s.network.network) || [];
+      const selected: Network = networks.filter((i) => i.id === networkId)[0];
+      if (selected) {
+        serviceNetwork.changeActiveNetwork({
+          network: selected,
+          sharedChainName: selected.impl,
+        });
+      }
+    }
+  }
 }
 
 export default ServiceApp;
