@@ -92,10 +92,10 @@ const Restore: FC = () => {
   const stateNfcComplete = () => {
     setActionPressStyle('primary');
     setActionPressContent(intl.formatMessage({ id: 'action__continue' }));
-    setActionState(intl.formatMessage({ id: 'title__recovery_completed' }));
+    setActionState(intl.formatMessage({ id: 'title__nfc_data_has_been_read' }));
     setActionDescription(
       intl.formatMessage({
-        id: 'title__backup_completed_desc',
+        id: 'title__nfc_data_has_been_read_desc',
       }),
     );
     setOperateType('complete');

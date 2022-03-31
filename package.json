@@ -37,11 +37,11 @@
     "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "^0.0.7-alpha.3",
-    "@onekeyfe/cross-inpage-provider-types": "^0.0.7-alpha.3",
-    "@onekeyfe/cross-inpage-provider-injected": "^0.0.7-alpha.3",
-    "@onekeyfe/extension-bridge-hosted": "^0.0.7-alpha.3",
-    "@onekeyfe/onekey-cross-webview": "^0.0.7-alpha.3"
+    "@onekeyfe/cross-inpage-provider-core": "^0.0.7",
+    "@onekeyfe/cross-inpage-provider-types": "^0.0.7",
+    "@onekeyfe/cross-inpage-provider-injected": "^0.0.7",
+    "@onekeyfe/extension-bridge-hosted": "^0.0.7",
+    "@onekeyfe/onekey-cross-webview": "^0.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
