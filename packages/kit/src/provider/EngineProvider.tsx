@@ -100,8 +100,11 @@ const EngineApp: FC = ({ children }) => {
   useEffect(() => {
     if (!networks || !networks?.[0]) return;
     if (activeNetwork?.network) return;
-    const sharedChainName = networks[0].impl;
-    const defaultNetwork = networks[0];
+    const defaultNetwork =
+      networks.filter(
+        (network) => network.impl === 'evm' && network.id === 'evm--1',
+      )[0] || networks[0];
+    const sharedChainName = defaultNetwork.impl;
     backgroundApiProxy.serviceNetwork.changeActiveNetwork({
       network: defaultNetwork,
       sharedChainName,

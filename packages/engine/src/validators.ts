@@ -120,6 +120,19 @@ class Validators {
     }
     return Promise.resolve();
   }
+
+  @backgroundMethod()
+  async validateAccountAddress(address: string) {
+    const wallets = await this.dbApi.getWallets();
+
+    const accounts = wallets
+      .map((wallet) => wallet.accounts)
+      .join(',')
+      .split(',');
+    const dbAccounts = await this.dbApi.getAccounts(accounts);
+    const addresses = dbAccounts.map((acc) => acc.address?.toLowerCase());
+    return addresses.includes(address.toLowerCase());
+  }
 }
 
 export { Validators };

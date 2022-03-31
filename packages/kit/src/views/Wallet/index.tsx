@@ -24,8 +24,6 @@ import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
-  ImportAccountModalRoutes,
-  WatchedAccountModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 import {
   ModalRoutes,
@@ -105,6 +103,7 @@ const Home: FC = () => {
       unsubscribe();
       clearTimeout(t);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!wallet) {
@@ -129,7 +128,7 @@ const Home: FC = () => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.CreateWallet,
                 params: {
-                  screen: CreateWalletModalRoutes.CreateWalletModal,
+                  screen: CreateWalletModalRoutes.GuideModal,
                 },
               });
             }}
@@ -164,17 +163,19 @@ const Home: FC = () => {
             onPress={() => {
               if (wallet.type === 'imported') {
                 return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ImportAccount,
+                  screen: ModalRoutes.CreateWallet,
                   params: {
-                    screen: ImportAccountModalRoutes.ImportAccountModal,
+                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                    params: { mode: 'privatekey' },
                   },
                 });
               }
               if (wallet.type === 'watching') {
                 return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.WatchedAccount,
+                  screen: ModalRoutes.CreateWallet,
                   params: {
-                    screen: WatchedAccountModalRoutes.WatchedAccountModal,
+                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                    params: { mode: 'address' },
                   },
                 });
               }

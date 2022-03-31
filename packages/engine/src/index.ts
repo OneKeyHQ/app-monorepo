@@ -826,7 +826,6 @@ class Engine {
     if (accountType === AccountType.VARIANT) {
       address = await this.providerManager.addressToBase(networkId, address);
     }
-
     const a = await this.dbApi.addAccountToWallet('watching', {
       id: `watching--${coinType}--${address}`,
       name: name || '',
