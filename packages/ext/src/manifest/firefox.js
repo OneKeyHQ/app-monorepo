@@ -11,8 +11,7 @@ module.exports = {
   },
   'author': 'https://www.onekey.so',
   // 'default_locale': 'en', // enable this after locale file exists
-  'content_security_policy':
-    "script-src 'self' https://www.google-analytics.com https://www.googletagmanager.com; object-src 'self'",
+  'content_security_policy': "script-src 'self'; object-src 'self';",
 
   //----------------------------------------------
 
