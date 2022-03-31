@@ -170,7 +170,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                   break;
               }
             }}
-            dropdownPosition="left"
+            dropdownPosition="right"
             activatable={false}
             options={[
               {
@@ -249,7 +249,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                   break;
               }
             }}
-            dropdownPosition="left"
+            dropdownPosition="right"
             activatable={false}
             options={[
               {
