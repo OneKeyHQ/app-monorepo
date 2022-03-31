@@ -1646,6 +1646,7 @@ class Engine {
     // Reset app.
     await this.dbApi.reset();
     this.dbApi = new DbApi() as DBAPI;
+    this.validator.dbApi = this.dbApi;
     return Promise.resolve();
   }
 
