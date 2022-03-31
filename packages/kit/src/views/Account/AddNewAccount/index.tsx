@@ -61,7 +61,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       const { prefix, category } = selectedNetwork.accountNameInfo.default;
       if (typeof prefix !== 'undefined') {
         const id = wallet?.nextAccountIds?.[category] || 0;
-        setValue('name', `${prefix} Account #${id + 1}`);
+        setValue('name', `${prefix} #${id + 1}`);
       }
     }
   }, [wallet, networks, watchNetwork, setValue]);

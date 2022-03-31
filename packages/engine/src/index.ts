@@ -618,7 +618,7 @@ class Engine {
     return balances.map((balance, index) => ({
       index: start + index,
       path: accountInfos[index].path,
-      defaultName: `${accountPrefix} Account #${start + index + 1}`,
+      defaultName: `${accountPrefix} #${start + index + 1}`,
       displayAddress: addresses[index],
       mainBalance:
         typeof balance === 'undefined'
@@ -716,8 +716,7 @@ class Engine {
 
       const accountNum = usedIndexes[accountIndex] + 1;
       const name =
-        (names || [])[accountIndex] ||
-        `${accountPrefix} Account #${accountNum}`;
+        (names || [])[accountIndex] || `${accountPrefix} #${accountNum}`;
       const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
         id: `${wallet.id}--${accountInfo.path}`,
         name,
