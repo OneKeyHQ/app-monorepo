@@ -1,6 +1,6 @@
 import React, { ComponentProps, FC, useCallback } from 'react';
 
-import { Pressable } from 'native-base';
+import { Pressable, View } from 'native-base';
 import { Keyboard, Platform } from 'react-native';
 
 export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
@@ -12,6 +12,15 @@ export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
       Keyboard.dismiss();
     }
   }, []);
+
+  // DESKTOP OR WEB
+  if (Platform.OS === 'web') {
+    return (
+      <View w="full" h="full">
+        {children}
+      </View>
+    );
+  }
   return (
     <Pressable
       w="full"
