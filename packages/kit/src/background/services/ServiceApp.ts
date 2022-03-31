@@ -50,7 +50,8 @@ class ServiceApp extends ServiceBase {
     password: string;
     mnemonic?: string;
   }) {
-    const { dispatch, engine, serviceAccount } = this.backgroundApi;
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
     const wallet = await engine.createHDWallet(password, mnemonic);
     const walletsFromBE = await engine.getWallets();
     dispatch(updateWallets(walletsFromBE));
@@ -58,8 +59,15 @@ class ServiceApp extends ServiceBase {
     dispatch(setPasswordCompleted());
     dispatch(unlock());
     dispatch(mUnlock());
+    let account: Account | null = null;
+    if (wallet.accounts.length > 0) {
+      const { network }: { network: Network } = appSelector(
+        (s) => s.general.activeNetwork,
+      );
+      account = await engine.getAccount(wallet.accounts[0], network.id);
+    }
     serviceAccount.changeActiveAccount({
-      account: null,
+      account,
       wallet,
     });
     return wallet;

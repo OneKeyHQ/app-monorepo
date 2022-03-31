@@ -68,7 +68,7 @@ const OnekeyLiteDetail: React.FC = () => {
       if (!wallet) return;
 
       const wallets = (await backgroundApiProxy.engine.getWallets()).filter(
-        (_wallet) => _wallet.type === 'hd' || _wallet.type === 'imported',
+        (_wallet) => _wallet.type === 'hd',
       );
       setControlledWallets(wallets);
     }
