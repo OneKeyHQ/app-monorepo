@@ -33,15 +33,17 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
       const inst = navigation.getParent() || navigation;
       setTimeout(() => {
         inst.goBack();
-        appNavigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.BackupTipsModal,
+        if (!mnemonic) {
+          appNavigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateWallet,
             params: {
-              walletId: wallet.id,
+              screen: CreateWalletModalRoutes.BackupTipsModal,
+              params: {
+                walletId: wallet.id,
+              },
             },
-          },
-        });
+          });
+        }
       }, 100);
     }
     main();
