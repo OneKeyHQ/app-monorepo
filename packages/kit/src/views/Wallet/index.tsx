@@ -84,7 +84,7 @@ const Home: FC = () => {
   const [backupTip, setBackupTip] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => {
-      if (platformEnv.isDev && wallet && !wallet.backuped && backupTip) {
+      if (wallet && !wallet.backuped && backupTip) {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
           params: {
