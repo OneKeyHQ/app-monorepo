@@ -60,6 +60,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       },
     });
 
+    useEffect(() => {
+      setSrc(url);
+    }, [url]);
+
     useImperativeHandle(ref, (): IWebViewWrapperRef | null =>
       isRenderAsIframe ? iframeWebviewRef.current : webviewRef.current,
     );
