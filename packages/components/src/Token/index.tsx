@@ -17,6 +17,7 @@ export type TokenProps = {
   name?: string;
   description?: string;
   address?: string;
+  letter?: string;
 };
 
 const defaultProps = {
@@ -39,20 +40,36 @@ const Token: FC<TokenProps> = ({
   name,
   description,
   address,
+  letter,
 }) => {
   const imageUrl = buildUrl(src, chain, address);
   const fallbackElement = useMemo(
-    () => (
-      <Center
-        width={size}
-        height={size}
-        borderRadius="full"
-        bg="background-selected"
-      >
-        <Icon name="QuestionMarkOutline" />
-      </Center>
-    ),
-    [size],
+    () =>
+      letter ? (
+        <Box
+          borderRadius="full"
+          w={{ base: '8', md: '6' }}
+          h={{ base: '8', md: '6' }}
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          bg="decorative-surface-one"
+        >
+          <Typography.DisplaySmall numberOfLines={1}>
+            {letter.trim()[0].toUpperCase()}
+          </Typography.DisplaySmall>
+        </Box>
+      ) : (
+        <Center
+          width={size}
+          height={size}
+          borderRadius="full"
+          bg="background-selected"
+        >
+          <Icon name="QuestionMarkOutline" />
+        </Center>
+      ),
+    [size, letter],
   );
   return (
     <Box display="flex" flexDirection="row" alignItems="center">

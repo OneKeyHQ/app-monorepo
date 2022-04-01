@@ -188,6 +188,7 @@ export const SortableView: FC<SortableViewProps> = ({ onPress }) => {
         }}
         secondaryActionTranslationId="action__done"
         sortableListProps={{
+          showsVerticalScrollIndicator: false,
           ref,
           data: list,
           // eslint-disable-next-line
