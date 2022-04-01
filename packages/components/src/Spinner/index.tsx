@@ -7,11 +7,12 @@ import { useThemeValue } from '../Provider/hooks';
 type SpinnerSize = 'sm' | 'lg';
 
 export type BadgeProps = {
-  size: SpinnerSize;
+  size?: SpinnerSize;
 };
 
 export const Spinner: FC<BadgeProps> = ({ ...rest }) => {
   const bgColor = useThemeValue('border-hovered');
   return <NBSpinner color={bgColor} {...rest} />;
 };
+// SpinnerLoading
 export default Spinner;

@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/order
+/* eslint-disable import/order */
 import './shared';
 
 import hotReload from '../ui/hotReload';

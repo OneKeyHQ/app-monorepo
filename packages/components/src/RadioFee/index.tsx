@@ -8,10 +8,10 @@ import Typography, { Text } from '../Typography';
 
 export type RadioFeeItemProps = {
   value: string;
-  title: string;
-  titleSecond: string;
-  describe: string;
-  describeSecond: string;
+  title: string | React.ReactElement<any>;
+  titleSecond: string | React.ReactElement<any>;
+  describe: string | React.ReactElement<any>;
+  describeSecond: string | React.ReactElement<any>;
 } & RadioBoxProps;
 
 export type RadioFeeProps = {

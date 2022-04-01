@@ -2,15 +2,17 @@ enum CredentialType {
   SOFTWARE = 'software', // HD
   HARDWARE = 'hardware',
   PRIVATE_KEY = 'private_key',
+  IMPORTED = 'imported',
+  WATCHING = 'watching',
 }
 
-type SoftwareCredential = {
+export type SoftwareCredential = {
   type: CredentialType.SOFTWARE;
   seed: Buffer;
   password: string;
 };
 
-type HardwareCredential = {
+export type HardwareCredential = {
   type: CredentialType.HARDWARE;
 };
 
@@ -19,11 +21,20 @@ type PrivateKeyCredential = {
   privateKey: Buffer;
   password: string;
 };
+export type ImportedCredential = {
+  type: CredentialType.IMPORTED;
+};
+
+export type WatchingCredential = {
+  type: CredentialType.WATCHING;
+};
 
 type CredentialSelector =
   | SoftwareCredential
   | HardwareCredential
-  | PrivateKeyCredential;
+  | PrivateKeyCredential
+  | ImportedCredential
+  | WatchingCredential;
 
 export { CredentialType };
 export type { CredentialSelector, PrivateKeyCredential };

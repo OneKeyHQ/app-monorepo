@@ -4,11 +4,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { RootRoutes } from '../routes/routesEnum';
 
+// TODO make navigation proxy: parent.goBack self.goBack
+
 export function getAppNavigation() {
   // useNavigation() not working for OverlayContainer/Portal Component
   return global.$navigationRef.current!;
 }
 
+// TODO rename useRootNavigation, rootNavigation parent is null
 export default function useAppNavigation() {
   return getAppNavigation();
 }

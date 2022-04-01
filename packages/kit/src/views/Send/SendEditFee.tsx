@@ -1,28 +1,52 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useNavigation, useRoute } from '@react-navigation/core';
+import { RouteProp } from '@react-navigation/native';
 import { Column, Row } from 'native-base';
-import { Control } from 'react-hook-form';
+import { Control, UseFormWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
+  Center,
   Form,
   Modal,
   RadioFee,
   SegmentedControl,
+  Spinner,
+  Typography,
   useForm,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import { useGas } from '@onekeyhq/kit/src/hooks';
+import {
+  IFeeInfo,
+  IFeeInfoPayload,
+  IFeeInfoSelectedType,
+  IFeeInfoUnit,
+} from '@onekeyhq/engine/src/types/vault';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { FormatCurrencyNative } from '../../components/Format';
+
+import { SendRoutes, SendRoutesParams } from './types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+  useFeeInfoPayload,
+} from './useFeeInfoPayload';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type FeeValues = {
-  maxPriorityFee: string;
-  maxFee: string;
+  gasPrice: string;
   gasLimit: string;
+  maxPriorityFeePerGas: string;
+  maxFeePerGas: string;
   baseFee: string;
+  totalFee: string;
 };
 
 enum FeeType {
@@ -30,134 +54,219 @@ enum FeeType {
   advanced = 'advanced',
 }
 
-const CustomFeeForm = ({ control }: { control: Control<FeeValues> }) => {
-  const intl = useIntl();
+type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendEditFee>;
+type NavigationProps = NativeStackNavigationProp<
+  SendRoutesParams,
+  SendRoutes.SendEditFee
+>;
 
+export function FeeSpeedLabel({ index }: { index: number | string }) {
+  const intl = useIntl();
+  const indexInt = parseInt(index as string, 10);
+  let title = intl.formatMessage({ id: 'content__normal' });
+  if (indexInt === 0) {
+    title = intl.formatMessage({ id: 'content__slow' });
+  }
+  if (indexInt === 1) {
+    title = intl.formatMessage({ id: 'content__normal' });
+  }
+  if (indexInt === 2) {
+    title = intl.formatMessage({ id: 'content__fast' });
+  }
+  return <>{title}</>;
+}
+
+const CustomFeeForm = ({
+  feeInfoPayload,
+  control,
+  watch,
+}: {
+  feeInfoPayload: IFeeInfoPayload | null;
+  control: Control<FeeValues>;
+  watch: UseFormWatch<FeeValues>;
+}) => {
+  const intl = useIntl();
+  const feeSymbol = feeInfoPayload?.info?.symbol || '';
+  const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+  const formValues = watch();
+
+  // MIN: (baseFee + maxPriorityFeePerGas) * limit
+  // MAX: maxFeePerGas * limit
+  /*
+  baseFee: "0.000004248"
+  maxFeePerGas: "36.66000144"
+  maxPriorityFeePerGas: "36.65999719128"
+   */
+
+  let totalFeeRange = calculateTotalFeeRange({
+    limit: formValues.gasLimit,
+    price: formValues.gasPrice,
+  });
+  if (isEIP1559Fee) {
+    totalFeeRange = calculateTotalFeeRange({
+      eip1559: true,
+      limit: formValues.gasLimit,
+      price: {
+        baseFee: formValues.baseFee,
+        maxFeePerGas: formValues.maxFeePerGas,
+        maxPriorityFeePerGas: formValues.maxPriorityFeePerGas,
+      },
+    });
+  }
   return (
     <Form mt={8}>
-      <Form.Item
-        label={`${intl.formatMessage({
-          id: 'content__max_priority_fee',
-        })}(Gwei)`}
-        control={control}
-        name="maxPriorityFee"
-        defaultValue=""
-        rules={{
-          required: intl.formatMessage({
-            id: 'form__max_priority_fee_invalid_min',
-          }),
-        }}
-      >
-        <Form.Input w="100%" rightText="0.12USD" />
-      </Form.Item>
-      <Form.Item
-        label={`${intl.formatMessage({ id: 'content__max_fee' })}(Gwei)`}
-        control={control}
-        name="maxFee"
-        defaultValue=""
-        rules={{
-          required: intl.formatMessage({
-            id: 'form__max_fee_invalid_too_low',
-          }),
-        }}
-      >
-        <Form.Input w="100%" rightText="0.12USD" />
-      </Form.Item>
+      {isEIP1559Fee && (
+        <Form.Item
+          label={`${intl.formatMessage({
+            id: 'content__base_fee',
+          })} (${feeSymbol})`}
+          control={control}
+          name="baseFee"
+          defaultValue=""
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__gas_limit_invalid_min',
+            }),
+          }}
+          formControlProps={{ isReadOnly: true }}
+        >
+          <Form.Input w="100%" rightText="-" />
+        </Form.Item>
+      )}
+      {isEIP1559Fee && (
+        <Form.Item
+          label={`${intl.formatMessage({
+            id: 'content__max_priority_fee',
+          })} (${feeSymbol})`}
+          control={control}
+          name="maxPriorityFeePerGas"
+          defaultValue=""
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__max_priority_fee_invalid_min',
+            }),
+          }}
+        >
+          <Form.Input w="100%" rightText="-" />
+        </Form.Item>
+      )}
+      {isEIP1559Fee && (
+        <Form.Item
+          label={`${intl.formatMessage({
+            id: 'content__max_fee',
+          })} (${feeSymbol})`}
+          control={control}
+          name="maxFeePerGas"
+          defaultValue=""
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__max_fee_invalid_too_low',
+            }),
+          }}
+        >
+          <Form.Input w="100%" rightText="-" />
+        </Form.Item>
+      )}
+
+      {!isEIP1559Fee && (
+        <Form.Item
+          label={intl.formatMessage({ id: 'content__gas_price' })}
+          control={control}
+          name="gasPrice"
+          // TODO required rules
+          defaultValue=""
+        >
+          <Form.Input w="100%" />
+        </Form.Item>
+      )}
+
       <Form.Item
         label={intl.formatMessage({ id: 'content__gas_limit' })}
         control={control}
         name="gasLimit"
+        // TODO required rules
         defaultValue=""
       >
         <Form.Input w="100%" />
       </Form.Item>
+
       <Form.Item
-        label={`${intl.formatMessage({ id: 'content__base_fee' })}(Gwei)`}
+        name="totalFee"
         control={control}
-        name="baseFee"
-        defaultValue="62"
-        rules={{
-          required: intl.formatMessage({
-            id: 'form__gas_limit_invalid_min',
-          }),
-        }}
+        label={intl.formatMessage({ id: 'content__fee' })}
       >
-        <Form.Input w="100%" rightText="0.12USD" />
+        <Typography.Body2 color="text-subdued">
+          {totalFeeRange.min === totalFeeRange.max
+            ? totalFeeRange.max
+            : `${totalFeeRange.min} - ${totalFeeRange.max}`}{' '}
+          {feeSymbol}
+        </Typography.Body2>
       </Form.Item>
     </Form>
   );
 };
 
 const StandardFee = ({
+  feeInfoPayload,
   value,
   onChange,
 }: {
+  feeInfoPayload: IFeeInfoPayload | null;
   value: string;
   onChange: (v: string) => void;
 }) => {
-  const { data: gasList } = useGas();
-  const intl = useIntl();
-
+  const feeSymbol = feeInfoPayload?.info?.symbol || '';
+  const gasList = feeInfoPayload?.info?.prices ?? [];
   const gasItems = useMemo(() => {
     if (!gasList) return [];
-    const isEIP1559Fee = gasList?.every((gas) => typeof gas === 'object');
+    const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
     if (isEIP1559Fee) {
-      const [slow, normal, fast] = gasList as EIP1559Fee[];
-      return [
-        {
-          value: '0',
-          title: intl.formatMessage({ id: 'content__fast' }),
-          titleSecond: '-',
-          describe: `${slow.maxFeePerGas} GWEI`,
-          describeSecond: 'Max Fee: 127 GWEI',
-        },
-        {
-          value: '1',
-          title: intl.formatMessage({ id: 'content__normal' }),
-          titleSecond: '-',
-          describe: `${normal.maxFeePerGas} GWEI`,
-          describeSecond: 'Max Fee: 127 GWEI',
-        },
-        {
-          value: '2',
-          title: intl.formatMessage({ id: 'content__slow' }),
-          titleSecond: '-',
-          describe: `${fast.maxFeePerGas} GWEI`,
-          describeSecond: 'Max Fee: 127 GWEI',
-        },
-      ];
-    }
-    if (gasList.length === 1) {
-      const normal = gasList[0] as string;
-      return [
-        {
-          value: '1',
-          title: intl.formatMessage({ id: 'content__normal' }),
-          titleSecond: '-',
-          describe: `${normal}`,
-          describeSecond: '-',
-        },
-      ];
+      return gasList.map((gas, index) => {
+        const gasInfo = gas as EIP1559Fee;
+        return {
+          value: index.toString(),
+          title: <FeeSpeedLabel index={index} />,
+          titleSecond: `Base: ${gasInfo.baseFee}`,
+          describe: `${gasInfo.maxFeePerGas} ${feeSymbol}`,
+          describeSecond: `Max Priority: ${gasInfo.maxPriorityFeePerGas} ${feeSymbol}`,
+        };
+      });
     }
 
-    if (gasList.length === 1) {
-      return gasList.map((gas, index) => ({
+    return gasList.map((gas, index) => {
+      const totalFee = calculateTotalFeeRange({
+        limit: feeInfoPayload?.info?.limit,
+        price: gas,
+      }).max;
+      const totalFeeNative = calculateTotalFeeNative({
+        amount: totalFee,
+        info: feeInfoPayload?.info as IFeeInfo,
+      });
+
+      return {
         value: index.toString(),
-        title: intl.formatMessage({ id: 'content__normal' }),
-        titleSecond: '-',
-        describe: gas as string,
-        describeSecond: '-',
-      }));
-    }
-    return [];
-  }, [gasList, intl]);
+        title: <FeeSpeedLabel index={index} />,
+        titleSecond: `≈ ${totalFee} ${feeSymbol}`,
+        describe: `${gas as string} ${feeSymbol}`,
+        describeSecond: (
+          <FormatCurrencyNative
+            value={totalFeeNative}
+            render={(ele) => (
+              <Typography.Body2 mt={1} color="text-subdued">
+                {!totalFeeNative ? '-' : ele}
+              </Typography.Body2>
+            )}
+          />
+        ),
+      };
+    });
+  }, [feeInfoPayload?.info, feeSymbol, gasList]);
 
   return (
     <RadioFee
       padding="0px"
       mt={5}
       items={gasItems}
-      defaultValue="1"
       name="standard fee group"
       value={value}
       onChange={onChange}
@@ -190,19 +299,132 @@ const EditFeeTabs = ({
     />
   );
 };
-
 const TransactionEditFee = ({ ...rest }) => {
   const { trigger } = rest;
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+  const route = useRoute<RouteProps>();
+  const { encodedTx } = route.params;
+  const { feeInfoPayload, getSelectedFeeInfoUnit } = useFeeInfoPayload({
+    encodedTx,
+  });
+  const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
 
-  const [feeType, setFeeType] = useState<FeeType>(FeeType.standard);
-  const [radioValue, setValue] = useState('1');
+  useEffect(() => {
+    debugLogger.sendTx('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
+  }, [encodedTx, feeInfoPayload]);
+
+  const [feeType, setFeeType] = useState<FeeType | null>(null);
+  const [radioValue, setRadioValue] = useState('');
 
   const isSmallScreen = useIsVerticalLayout();
-  const { control, handleSubmit } = useForm<FeeValues>();
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
+  const { control, handleSubmit, setValue, watch } = useForm<FeeValues>({
+    reValidateMode: 'onBlur',
   });
+  const onSubmit = handleSubmit((data) => {
+    let type: IFeeInfoSelectedType =
+      feeType === FeeType.advanced ? 'custom' : 'preset';
+    // const values = getValues();
+    if (!radioValue && type === 'preset') {
+      type = 'custom';
+    }
+    let priceInfo: string | EIP1559Fee = data.gasPrice;
+    if (isEIP1559Fee) {
+      priceInfo = {
+        baseFee: data.baseFee,
+        maxPriorityFeePerGas: data.maxPriorityFeePerGas,
+        maxFeePerGas: data.maxFeePerGas,
+      };
+    }
+    const feeInfoSelected = {
+      type,
+      preset: radioValue || '1',
+      custom: {
+        eip1559: isEIP1559Fee,
+        price: priceInfo,
+        limit: data.gasLimit,
+      },
+    };
+    debugLogger.sendTx('SendEditFee Confirm >>>> ', feeInfoSelected);
+    navigation.navigate({
+      merge: true,
+      // TODO custom back route name
+      name: SendRoutes.Send,
+      params: {
+        feeInfoSelected,
+      },
+    });
+  });
+
+  const setFormValuesFromFeeInfo = useCallback(
+    (feeInfoValue: IFeeInfoUnit) => {
+      const { price, limit } = feeInfoValue;
+      if (isEIP1559Fee) {
+        const priceInfo = price as EIP1559Fee;
+        setValue('baseFee', priceInfo.baseFee);
+        setValue('maxFeePerGas', priceInfo.maxFeePerGas);
+        setValue('maxPriorityFeePerGas', priceInfo.maxPriorityFeePerGas);
+      } else {
+        setValue('gasPrice', (price as string) ?? '');
+      }
+      setValue('gasLimit', limit ?? '');
+    },
+    [isEIP1559Fee, setValue],
+  );
+
+  useEffect(() => {
+    if (
+      !feeInfoPayload ||
+      feeType !== FeeType.standard ||
+      parseFloat(radioValue) < 0 ||
+      !radioValue
+    ) {
+      return;
+    }
+    const { limit, price } = getSelectedFeeInfoUnit({
+      info: feeInfoPayload.info,
+      index: radioValue,
+    });
+    setFormValuesFromFeeInfo({ price, limit });
+  }, [
+    feeInfoPayload,
+    feeType,
+    getSelectedFeeInfoUnit,
+    isEIP1559Fee,
+    radioValue,
+    setFormValuesFromFeeInfo,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    if (!feeInfoPayload) {
+      return;
+    }
+    const selected = feeInfoPayload?.selected;
+    const type = selected?.type ?? 'preset';
+    if (type === 'preset') {
+      let presetValue = selected?.preset || '1';
+      // preset fix / presetFix
+      if (feeInfoPayload?.info?.prices?.length < 2) {
+        presetValue = '0';
+      }
+      setRadioValue(presetValue);
+      setFeeType(FeeType.standard);
+    }
+    if (type === 'custom') {
+      const customValues = selected?.custom;
+      setFeeType(FeeType.advanced);
+      if (customValues) {
+        setFormValuesFromFeeInfo(customValues);
+      }
+    }
+  }, [
+    feeInfoPayload,
+    feeInfoPayload?.selected,
+    feeInfoPayload?.selected.type,
+    setFormValuesFromFeeInfo,
+    setValue,
+  ]);
 
   const { bottom } = useSafeAreaInsets();
   const footer = (
@@ -219,7 +441,7 @@ const TransactionEditFee = ({ ...rest }) => {
         <Button
           flexGrow={isSmallScreen ? 1 : 0}
           type="primary"
-          size={isSmallScreen ? 'lg' : 'base'}
+          size={isSmallScreen ? 'xl' : 'base'}
           isDisabled={false}
           onPress={onSubmit}
         >
@@ -229,31 +451,44 @@ const TransactionEditFee = ({ ...rest }) => {
     </Column>
   );
 
-  const content = (
-    <>
-      <EditFeeTabs
-        type={feeType}
-        onChange={(value) => {
-          setFeeType(value as FeeType);
-        }}
-      />
-      <Box>
-        {feeType === FeeType.standard ? (
-          <StandardFee
-            value={radioValue}
-            onChange={(value) => {
-              setValue(value);
-            }}
-          />
-        ) : (
-          <CustomFeeForm control={control} />
-        )}
-      </Box>
-    </>
+  let content = (
+    <Center h="full" w="full">
+      <Spinner size="lg" />
+    </Center>
   );
+  if (feeInfoPayload && feeType) {
+    content = (
+      <>
+        <EditFeeTabs
+          type={feeType}
+          onChange={(value) => {
+            setFeeType(value as FeeType);
+          }}
+        />
+        <Box>
+          {feeType === FeeType.standard ? (
+            <StandardFee
+              feeInfoPayload={feeInfoPayload}
+              value={radioValue}
+              onChange={(value) => {
+                setRadioValue(value);
+              }}
+            />
+          ) : (
+            <CustomFeeForm
+              feeInfoPayload={feeInfoPayload}
+              control={control}
+              watch={watch}
+            />
+          )}
+        </Box>
+      </>
+    );
+  }
 
   return (
     <Modal
+      height="598px"
       trigger={trigger}
       primaryActionTranslationId="action__confirm"
       secondaryActionTranslationId="action__reject"

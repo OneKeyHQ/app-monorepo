@@ -25,13 +25,13 @@ debugLogger.debug.enable('jsBridge,dappProvider');
 debugLogger.debug.enable('');
 */
 
-export type IDebugLoggerEngine = {
+export type IDebugLoggerModule = {
   enable: (ns: string) => void;
   load: () => Promise<string>;
 };
 
 export type IDebugLogger = {
-  debug?: IDebugLoggerEngine | null;
+  debug?: IDebugLoggerModule | null;
   http: (...args: any[]) => void;
   jsBridge: (...args: any[]) => void;
   webview: (...args: any[]) => void;
@@ -41,6 +41,8 @@ export type IDebugLogger = {
   extInjected: (...args: any[]) => void;
   backgroundApi: (...args: any[]) => void;
   walletConnect: (...args: any[]) => void;
+  engine: (...args: any[]) => void;
+  sendTx: (...args: any[]) => void;
 };
 
 // https://github.com/debug-js/debug
@@ -55,12 +57,18 @@ const debugLogger: IDebugLogger = {
   extInjected: noop,
   backgroundApi: noop,
   walletConnect: noop,
+  engine: noop,
+  sendTx: noop,
 };
 
 async function initLoggerAsync() {
-  // @ts-ignore
-  // eslint-disable-next-line @typescript-eslint/await-thenable
-  const debug = await createDebug();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let debug = (name: string) => () => null;
+  if (process.env.NODE_ENV !== 'production') {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    debug = await createDebug();
+  }
   Object.assign(debugLogger, {
     debug,
     http: debug('http'),
@@ -72,6 +80,8 @@ async function initLoggerAsync() {
     extInjected: debug('extInjected'),
     backgroundApi: debug('backgroundApi'),
     walletConnect: debug('walletConnect'),
+    engine: debug('engine'),
+    sendTx: debug('sendTx'),
   });
 }
 

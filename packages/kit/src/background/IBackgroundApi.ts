@@ -1,11 +1,7 @@
-// import type only here to avoid cycle-deps
-import {
-  IJsBridgeMessagePayload,
-  IJsonRpcResponse,
-} from '@onekeyfe/cross-inpage-provider-types';
-
+// import type only here to avoid cycle-deps error
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
+import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
@@ -20,7 +16,9 @@ import type ServicePromise from './services/ServicePromise';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNamesStrings,
+  IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
+  IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IBackgroundApiBridge {
@@ -43,6 +41,7 @@ export interface IBackgroundApiBridge {
 export interface IBackgroundApi extends IBackgroundApiBridge {
   engine: Engine;
   validator: Validators;
+  vaultFactory: VaultFactory;
   walletConnect: WalletConnectAdapter;
   servicePromise: ServicePromise;
   serviceDapp: ServiceDapp;
