@@ -41,6 +41,7 @@ const OnekeyHardwareConnect: FC = () => {
       .catch(() => {
         setConnectType('usb');
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -27,7 +27,6 @@ const AppWalletModal: FC = () => {
   const content = (
     <Center>
       <VStack space={4} w="full">
-        {/* Create new wallet */}
         <PressableItem
           p={4}
           bg="surface-default"

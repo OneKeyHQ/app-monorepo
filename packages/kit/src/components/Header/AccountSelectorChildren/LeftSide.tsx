@@ -37,11 +37,7 @@ type WalletItemProps = {
 } & ComponentProps<typeof Pressable> &
   ComponentProps<typeof WalletAvatar>;
 
-const WalletItem: FC<WalletItemProps> = ({
-  isSelected,
-  walletType,
-  ...rest
-}) => (
+const WalletItem: FC<WalletItemProps> = ({ isSelected, ...rest }) => (
   <Pressable {...rest}>
     {({ isHovered }) => (
       <HStack pr={2} space="5px">
@@ -80,6 +76,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
   const navigation = useAppNavigation();
 
   const wallets = useAppSelector((s) => s.wallet.wallets);
+
+  const importedWallet = wallets.filter((w) => w.type === 'imported')[0];
+  const watchingWallet = wallets.filter((w) => w.type === 'watching')[0];
+
   return (
     <VStack borderRightWidth={1} borderRightColor="border-subdued">
       <ScrollView>
@@ -124,11 +124,13 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
           </VStack>
           {/* Imported or watched wallet */}
           <VStack space={2}>
-            {/* <WalletItem
-              onPress={() => setActiveAccountType('imported')}
-              isSelected={activeAccountType === 'imported'}
-              walletType="imported"
-            /> */}
+            {importedWallet ? (
+              <WalletItem
+                onPress={() => setSelectedWallet(importedWallet)}
+                isSelected={selectedWallet?.id === importedWallet.id}
+                walletImage="imported"
+              />
+            ) : null}
 
             {wallets
               .filter((wallet) => wallet.type === 'watching')
@@ -152,7 +154,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.CreateWallet,
               params: {
-                screen: CreateWalletModalRoutes.CreateWalletModal,
+                screen: CreateWalletModalRoutes.GuideModal,
               },
             })
           }

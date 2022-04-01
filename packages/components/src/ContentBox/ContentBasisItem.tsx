@@ -88,7 +88,7 @@ const Item: FC<ContentItemProps> = ({
             ))
           ) : (
             <Typography.Body2 w="100%" color="text-subdued" textAlign="right">
-              {describe}
+              {subDescribe}
             </Typography.Body2>
           ))}
         {!!custom && (

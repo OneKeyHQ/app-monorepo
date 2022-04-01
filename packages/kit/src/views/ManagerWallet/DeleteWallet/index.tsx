@@ -10,15 +10,20 @@ import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useToast } from '../../../hooks/useToast';
 import { setRefreshTS } from '../../../store/reducers/settings';
 
-type ManagerWalletDeleteDialogProps = {
+export type DeleteWalletProp = {
   walletId: string;
   password: string;
+};
+
+type ManagerWalletDeleteDialogProps = {
+  visible: boolean;
+  deleteWallet: DeleteWalletProp | undefined;
   onDialogClose: () => void;
 };
 
 const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
-  walletId,
-  password,
+  visible,
+  deleteWallet,
   onDialogClose,
 }) => {
   const intl = useIntl();
@@ -26,11 +31,12 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const { wallet: activeWallet } = useActiveWalletAccount();
   const { dispatch, engine, serviceApp } = backgroundApiProxy;
 
+  const { walletId, password } = deleteWallet ?? {};
   const [isLoading, setIsLoading] = React.useState(false);
 
   return (
     <Dialog
-      visible
+      visible={visible}
       canceledOnTouchOutside={false}
       onClose={() => onDialogClose?.()}
       contentProps={{
@@ -49,12 +55,14 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
           isLoading,
         },
         onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
+          if (!walletId) return;
+
           setIsLoading(true);
 
           engine
             .getWallet(walletId)
             .then(async (wallet) => {
-              await engine.removeWallet(walletId, password);
+              await engine.removeWallet(walletId, password ?? '');
               if (activeWallet?.id === walletId) {
                 await serviceApp.autoChangeWallet();
               }

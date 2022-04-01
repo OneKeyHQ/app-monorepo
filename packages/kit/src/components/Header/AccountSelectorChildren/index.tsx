@@ -32,6 +32,8 @@ import {
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
   ImportAccountModalRoutes,
   ImportAccountRoutesParams,
   WatchedAccountModalRoutes,
@@ -54,7 +56,8 @@ import RightHeader from './RightHeader';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams> &
   ModalScreenProps<ImportAccountRoutesParams> &
-  ModalScreenProps<WatchedAccountRoutesParams>;
+  ModalScreenProps<WatchedAccountRoutesParams> &
+  ModalScreenProps<CreateWalletRoutesParams>;
 
 export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 
@@ -182,53 +185,53 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     type: AccountType | undefined,
     onChange: (v: string) => void,
   ) {
-    if (type === 'hd') {
-      return (
-        <Select
-          dropdownPosition="left"
-          onChange={(v) => onChange(v)}
-          activatable={false}
-          options={[
-            {
-              label: intl.formatMessage({ id: 'action__rename' }),
-              value: 'rename',
-              iconProps: {
-                name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
-              },
+    // if (type === 'hd') {
+    return (
+      <Select
+        dropdownPosition="left"
+        onChange={(v) => onChange(v)}
+        activatable={false}
+        options={[
+          {
+            label: intl.formatMessage({ id: 'action__rename' }),
+            value: 'rename',
+            iconProps: {
+              name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
             },
-            {
-              label: intl.formatMessage({ id: 'action__view_details' }),
-              value: 'detail',
-              iconProps: {
-                name: isVerticalLayout
-                  ? 'DocumentTextOutline'
-                  : 'DocumentTextSolid',
-              },
+          },
+          {
+            label: intl.formatMessage({ id: 'action__view_details' }),
+            value: 'detail',
+            iconProps: {
+              name: isVerticalLayout
+                ? 'DocumentTextOutline'
+                : 'DocumentTextSolid',
             },
-            {
-              label: intl.formatMessage({ id: 'action__remove_account' }),
-              value: 'remove',
-              iconProps: {
-                name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
-              },
-              destructive: true,
+          },
+          {
+            label: intl.formatMessage({ id: 'action__remove_account' }),
+            value: 'remove',
+            iconProps: {
+              name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
             },
-          ]}
-          headerShown={false}
-          footer={null}
-          containerProps={{ width: 'auto' }}
-          dropdownProps={{
-            width: 248,
-          }}
-          renderTrigger={(activeOption, isHovered, visible) => (
-            <CustomSelectTrigger
-              isTriggerHovered={isHovered}
-              isSelectVisible={visible}
-            />
-          )}
-        />
-      );
-    }
+            destructive: true,
+          },
+        ]}
+        headerShown={false}
+        footer={null}
+        containerProps={{ width: 'auto' }}
+        dropdownProps={{
+          width: 248,
+        }}
+        renderTrigger={(activeOption, isHovered, visible) => (
+          <CustomSelectTrigger
+            isTriggerHovered={isHovered}
+            isSelectVisible={visible}
+          />
+        )}
+      />
+    );
+    // }
 
     // if (type === 'watching') {
     //   return (
@@ -247,22 +250,22 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     //   );
     // }
 
-    if (type === 'imported') {
-      return (
-        <IconButton
-          name="PlusSolid"
-          type="plain"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ImportAccount,
-              params: {
-                screen: ImportAccountModalRoutes.ImportAccountModal,
-              },
-            });
-          }}
-        />
-      );
-    }
+    // if (type === 'imported') {
+    //   return (
+    //     <IconButton
+    //       name="PlusSolid"
+    //       type="plain"
+    //       onPress={() => {
+    //         navigation.navigate(RootRoutes.Modal, {
+    //           screen: ModalRoutes.ImportAccount,
+    //           params: {
+    //             screen: ImportAccountModalRoutes.ImportAccountModal,
+    //           },
+    //         });
+    //       }}
+    //     />
+    //   );
+    // }
   }
 
   useEffect(() => {
@@ -337,17 +340,19 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                 if (!activeWallet) return;
                 if (activeWallet?.type === 'imported') {
                   return navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ImportAccount,
+                    screen: ModalRoutes.CreateWallet,
                     params: {
-                      screen: ImportAccountModalRoutes.ImportAccountModal,
+                      screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                      params: { mode: 'privatekey' },
                     },
                   });
                 }
                 if (activeWallet?.type === 'watching') {
                   return navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.WatchedAccount,
+                    screen: ModalRoutes.CreateWallet,
                     params: {
-                      screen: WatchedAccountModalRoutes.WatchedAccountModal,
+                      screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                      params: { mode: 'address' },
                     },
                   });
                 }

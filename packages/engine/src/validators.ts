@@ -1,10 +1,7 @@
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
-import {
-  backgroundClass,
-  backgroundMethod,
-} from '@onekeyhq/kit/src/background/decorators';
+import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
@@ -12,15 +9,22 @@ import * as limits from './limits';
 import { ProviderController } from './proxy';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
-@backgroundClass()
 class Validators {
-  private readonly dbApi: DBAPI;
+  private _dbApi: DBAPI;
 
   private readonly providerManager: ProviderController;
 
   constructor(dbApi: DBAPI, providerManager: ProviderController) {
-    this.dbApi = dbApi;
+    this._dbApi = dbApi;
     this.providerManager = providerManager;
+  }
+
+  get dbApi(): DBAPI {
+    return this._dbApi;
+  }
+
+  set dbApi(dbApi: DBAPI) {
+    this._dbApi = dbApi;
   }
 
   @backgroundMethod()
@@ -119,6 +123,19 @@ class Validators {
       throw new errors.TooManyHWWallets(limits.HW_WALLET_MAX_NUM);
     }
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async validateAccountAddress(address: string) {
+    const wallets = await this.dbApi.getWallets();
+
+    const accounts = wallets
+      .map((wallet) => wallet.accounts)
+      .join(',')
+      .split(',');
+    const dbAccounts = await this.dbApi.getAccounts(accounts);
+    const addresses = dbAccounts.map((acc) => acc.address?.toLowerCase());
+    return addresses.includes(address.toLowerCase());
   }
 }
 

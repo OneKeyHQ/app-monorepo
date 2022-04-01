@@ -286,12 +286,29 @@ class Engine {
     if (
       usedMnemonic === mnemonicFromEntropy(rs.entropyWithLangPrefixed, password)
     ) {
-      return this.dbApi.createHDWallet(
+      const wallet = await this.dbApi.createHDWallet(
         password,
         rs,
         typeof mnemonic !== 'undefined',
         name,
       );
+      try {
+        const supportedImpls = getSupportedImpls();
+        const addedImpl = new Set();
+        const networks: Array<string> = [];
+        (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
+          if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
+            addedImpl.add(impl);
+            networks.push(networkId);
+          }
+        });
+        for (const networkId of networks) {
+          await this.addHDAccounts(password, wallet.id, networkId);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      return this.dbApi.getWallet(wallet.id) as Promise<Wallet>;
     }
 
     throw new OneKeyInternalError('Invalid mnemonic.');
@@ -601,7 +618,7 @@ class Engine {
     return balances.map((balance, index) => ({
       index: start + index,
       path: accountInfos[index].path,
-      defaultName: `${accountPrefix} Account #${start + index + 1}`,
+      defaultName: `${accountPrefix} #${start + index + 1}`,
       displayAddress: addresses[index],
       mainBalance:
         typeof balance === 'undefined'
@@ -699,8 +716,7 @@ class Engine {
 
       const accountNum = usedIndexes[accountIndex] + 1;
       const name =
-        (names || [])[accountIndex] ||
-        `${accountPrefix} Account #${accountNum}`;
+        (names || [])[accountIndex] || `${accountPrefix} #${accountNum}`;
       const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
         id: `${wallet.id}--${accountInfo.path}`,
         name,
@@ -810,7 +826,6 @@ class Engine {
     if (accountType === AccountType.VARIANT) {
       address = await this.providerManager.addressToBase(networkId, address);
     }
-
     const a = await this.dbApi.addAccountToWallet('watching', {
       id: `watching--${coinType}--${address}`,
       name: name || '',
@@ -1630,6 +1645,7 @@ class Engine {
     // Reset app.
     await this.dbApi.reset();
     this.dbApi = new DbApi() as DBAPI;
+    this.validator.dbApi = this.dbApi;
     return Promise.resolve();
   }
 

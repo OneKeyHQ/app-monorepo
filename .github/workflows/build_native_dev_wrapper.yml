@@ -36,10 +36,17 @@ jobs:
           expo-token: ${{ secrets.EXPO_TOKEN }}
           expo-cache: true
 
-      - name: Install Dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'yarn'
+      - name: Load .env file
+        uses: xom9ikk/dotenv@v1.0.2
+        with:
+          mode: version
+
+      - name: Modify build.gradle
+        uses: OneKeyHQ/onekey-github-actions/build-gradle-edit@main
+        with:
+          versionCode: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ env.VERSION }}
+          android_dir: ./packages/app
 
       - name: Build on EAS workflow
         if: ${{ github.event.inputs.platform }}
