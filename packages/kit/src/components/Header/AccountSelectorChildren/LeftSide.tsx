@@ -12,6 +12,7 @@ import {
   Pressable,
   ScrollView,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
@@ -80,8 +81,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
   const importedWallet = wallets.filter((w) => w.type === 'imported')[0];
   const watchingWallet = wallets.filter((w) => w.type === 'watching')[0];
 
+  const { bottom } = useSafeAreaInsets();
+
   return (
-    <VStack borderRightWidth={1} borderRightColor="border-subdued">
+    <VStack borderRightWidth={1} borderRightColor="border-subdued" pb={bottom}>
       <ScrollView>
         <VStack py={2}>
           {/* APP Wallet */}
