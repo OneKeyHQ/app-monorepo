@@ -2,6 +2,8 @@ import React, { FC } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
@@ -34,7 +36,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         <ScrollView
           _contentContainerStyle={{
             flex: 1,
-            py: 8,
+            py: platformEnv.isMac && platformEnv.isDesktop ? 12 : 5,
             px: 4,
           }}
         >

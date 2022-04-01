@@ -11,12 +11,12 @@ import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
+import { setSupportFaceId } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useSettings, useStatus } from '../../hooks/redux';
-import { setSupportFaceId } from '../../store/reducers/status';
 import ModalStackNavigator from '../Modal';
 import OnboardingScreen from '../Onboarding';
 import StackScreen from '../Stack';
