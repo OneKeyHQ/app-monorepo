@@ -23,7 +23,7 @@ const Image: FC<ImageProps> = ({ preview = false, ...rest }) => {
             }
           }}
         >
-          <NBImage {...rest} />
+          <NBImage alt="-" {...rest} />
         </Pressable>
         <ImageViewer onToggle={setIsVisible} visible={isVisible} src={src} />
       </>

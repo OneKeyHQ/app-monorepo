@@ -11,6 +11,7 @@ import {
   Pressable,
   Typography,
   useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -22,6 +23,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WalletAvatar from './WalletAvatar';
 
@@ -38,7 +40,11 @@ const AccountSelectorTrigger: FC<Props> = ({
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
+  const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
+
   if (!wallet) {
     return (
       <Button
@@ -82,14 +88,12 @@ const AccountSelectorTrigger: FC<Props> = ({
           }
         >
           <Box
-            flex={1}
-            minW="144px"
             flexDirection="row"
             alignItems="center"
-            maxW="50%"
+            maxW={`${maxItemWidth}px`}
           >
             <WalletAvatar size="sm" mr={3} />
-            <Typography.Body2Strong isTruncated numberOfLines={1}>
+            <Typography.Body2Strong isTruncated numberOfLines={1} mr={3}>
               {name}
             </Typography.Body2Strong>
             <Icon size={20} name="SelectorSolid" />

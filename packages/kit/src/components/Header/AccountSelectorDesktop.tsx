@@ -33,7 +33,7 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
     triggerEle,
     domId,
     visible,
-    dropdownPosition: 'left',
+    dropdownPosition: 'right',
     translateY,
     autoAdjust: false,
     setPositionOnlyMounted: true,

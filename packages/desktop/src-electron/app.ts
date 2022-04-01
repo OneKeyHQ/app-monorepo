@@ -38,7 +38,7 @@ const preloadJsUrl = path.join(staticPath, 'preload.js'); // static path
 async function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
-    frame: true,
+    titleBarStyle: 'hidden',
     resizable: false,
     width: 1600,
     height: 900,
