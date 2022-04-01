@@ -116,6 +116,10 @@ export async function ethereumGetAddress(
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function solanaSignTransaction(...args: any[]): Promise<any> {
+  throw new NotImplemented();
+}
 /**
  * get Solana address from the hardware wallet with the specified derivation path
  * @param path drivation path

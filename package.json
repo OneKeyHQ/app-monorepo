@@ -63,7 +63,6 @@
     "babel-plugin-transform-inline-environment-variables": "^0.4.3",
     "babel-plugin-lodash": "^3.3.4",
     "babel-preset-react-app": "^10.0.0",
-    "concurrently": "^6.4.0",
     "copy-webpack-plugin": "^6.0.2",
     "css-loader": "^5.2.7",
     "eslint": "^7.32.0",
@@ -112,6 +111,7 @@
     "webpack-cli": "3.3.12",
     "webpack-dev-server": "^4.3.1",
     "worker-loader": "^3.0.7",
-    "axios": "^0.26.0"
+    "axios": "^0.26.0",
+    "concurrently": "^7.0.0"
   }
 }

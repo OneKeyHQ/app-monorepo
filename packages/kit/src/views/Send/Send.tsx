@@ -1,10 +1,12 @@
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { debounce } from 'lodash';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
@@ -13,6 +15,7 @@ import {
   Icon,
   Modal,
   Pressable,
+  Spinner,
   Text,
   Typography,
   useForm,
@@ -20,16 +23,17 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
+import { ITransferInfo } from '@onekeyhq/engine/src/types/vault';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useGas } from '@onekeyhq/kit/src/hooks';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { FormatBalance } from '../../components/Format';
+import { FormatBalance, FormatCurrencyNative } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
-import { SendParams, SendRoutes, SendRoutesParams } from './types';
+import { FeeSpeedLabel } from './SendEditFee';
+import { SendRoutes, SendRoutesParams } from './types';
+import { useFeeInfoPayload } from './useFeeInfoPayload';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -47,26 +51,48 @@ type TransactionValues = {
 
 type Option = SelectItem<string>;
 
+// TODO utils function createPromisedDebounce
+const buildEncodedTxFromTransferDebounced = debounce(
+  (options: {
+    networkId: string;
+    accountId: string;
+    transferInfo: ITransferInfo;
+    callback: (promise: Promise<any>) => void;
+  }) => {
+    const { callback, ...others } = options;
+    callback(backgroundApiProxy.engine.buildEncodedTxFromTransfer(others));
+  },
+  300,
+  { leading: false, trailing: true },
+);
+
 const Transaction = () => {
+  // const encodedTxRef = useRef<any>(null);
+  const [encodedTx, setEncodedTx] = useState(null);
   const navigation = useNavigation<NavigationProps>();
   const { control, handleSubmit, watch } = useForm<TransactionValues>({
     mode: 'onSubmit',
     reValidateMode: 'onBlur',
+    defaultValues: {
+      to: '',
+      value: '', // TODO rename to amount
+    },
   });
-
-  const toast = useToast();
+  const { account, accountId, networkId } = useActiveWalletAccount();
+  const { feeInfoPayload, loading: feeInfoPayloadLoading } = useFeeInfoPayload({
+    encodedTx,
+  });
 
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const { account } = useActiveWalletAccount();
   const { activeNetwork } = useGeneral();
   const { nativeToken, accountTokens } = useManageTokens();
-  const { data: gasList } = useGas();
-  const [selectOption, setSelectOption] = useState<Option>({} as Option);
+  // selected token
+  const [selectOption, setSelectOption] = useState<Option | null>(null);
   const [inputValue, setInputValue] = useState<string>();
   const isSmallScreen = useIsVerticalLayout();
 
-  const options = useMemo(
+  const tokenOptions = useMemo(
     () =>
       accountTokens.map((token) => {
         const decimal = token.tokenIdOnNetwork
@@ -100,89 +126,126 @@ const Transaction = () => {
     ],
   );
 
-  const getGasLimit = useCallback(async (sendParams: SendParams) => {
-    const gasLimit = await backgroundApiProxy.engine.prepareTransfer(
-      sendParams.network.id,
-      sendParams.account.id,
-      sendParams.to,
-      sendParams.value,
-      sendParams.token.idOnNetwork,
-    );
-    return gasLimit;
-  }, []);
+  const selectedToken = useMemo(
+    () =>
+      accountTokens.find(
+        (accountToken) => accountToken.id === selectOption?.value,
+      ),
+    [accountTokens, selectOption?.value],
+  );
 
-  const gasPrice = gasList?.[1] ?? gasList?.[0] ?? '';
-  const gasPriceFee = gasPrice
-    ? typeof gasPrice === 'string'
-      ? gasPrice
-      : gasPrice.maxFeePerGas
-    : null;
+  const formFields = watch();
 
+  // build transferInfo
+  // TODO move to watch useEffect below
+  const transferInfo: ITransferInfo = useDeepCompareMemo(() => {
+    // TODO token undefined
+    const { to, value } = formFields;
+    const from = (account as { address: string }).address;
+    const info = {
+      from,
+      to,
+      // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
+      token: selectedToken?.tokenIdOnNetwork,
+      amount: value,
+    };
+    return info;
+  }, [account, formFields, selectedToken]);
+
+  // build encodedTx
   useEffect(() => {
-    const subscription = watch((value, { name, type }) => {
+    buildEncodedTxFromTransferDebounced({
+      networkId,
+      accountId,
+      transferInfo,
+      callback: async (promise) => {
+        try {
+          // TODO show loading
+          const tx = await promise;
+          if (tx) {
+            setEncodedTx(tx);
+          }
+        } catch (e) {
+          // TODO display static form error message
+          console.error(e);
+        }
+      },
+    });
+  }, [accountId, networkId, transferInfo]);
+
+  // form data changed watch handler
+  useEffect(() => {
+    const subscription = watch((formValues, { name, type }) => {
       if (type === 'change' && name === 'token') {
-        const option = options.find((o) => o.value === value.token);
+        const option = tokenOptions.find((o) => o.value === formValues.token);
         if (option) setSelectOption(option);
       }
       if (type === 'change' && name === 'value') {
-        setInputValue(value.value);
+        setInputValue(formValues.value);
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, options]);
+  }, [watch, tokenOptions]);
 
+  const submitButtonDisabled =
+    feeInfoPayloadLoading ||
+    !feeInfoPayload ||
+    !formFields.to ||
+    !formFields.value ||
+    !encodedTx;
   const onSubmit = handleSubmit(async (data) => {
-    const tokenConfig =
-      accountTokens.find((token) => token.id === data.token) ?? nativeToken;
+    const tokenConfig = selectedToken ?? nativeToken;
 
-    if (!account || !tokenConfig || !gasPriceFee) return;
-
+    if (!account || !tokenConfig || submitButtonDisabled) return;
+    const encodedTxWithFee =
+      await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
+        networkId,
+        accountId,
+        encodedTx,
+        feeInfoValue: feeInfoPayload?.current.value,
+      });
     const params = {
-      to: data.to,
-      account: {
-        id: account.id,
-        name: account.name,
-        address: (account as { address: string }).address,
+      payloadType: 'transfer', // transfer, transferNft, swap
+      payload: {
+        to: data.to,
+        account: {
+          id: account.id,
+          name: account.name,
+          address: (account as { address: string }).address,
+        },
+        network: {
+          id: activeNetwork?.network.id ?? '',
+          name: activeNetwork?.network.name ?? '',
+        },
+        value: data.value,
+        token: {
+          idOnNetwork: tokenConfig.tokenIdOnNetwork,
+          logoURI: tokenConfig.logoURI,
+          name: tokenConfig.name,
+          symbol: tokenConfig.symbol,
+        },
       },
-      network: {
-        id: activeNetwork?.network.id ?? '',
-        name: activeNetwork?.network.name ?? '',
-      },
-      value: data.value,
-      token: {
-        idOnNetwork: tokenConfig.tokenIdOnNetwork,
-        logoURI: tokenConfig.logoURI,
-        name: tokenConfig.name,
-        symbol: tokenConfig.symbol,
-      },
-      gasPrice: gasPriceFee ?? '5',
-      gasLimit: '21000',
+      encodedTx: encodedTxWithFee,
+      feeInfoSelected: feeInfoPayload?.selected,
     };
 
-    try {
-      const gasLimit = await getGasLimit(params);
-
-      params.gasLimit = gasLimit;
-      navigation.navigate(SendRoutes.SendConfirm, params);
-    } catch (e) {
-      const error = e as { key?: string; message?: string };
-      toast.show({
-        title: error?.key || error?.message || '',
-      });
-    }
+    navigation.navigate(SendRoutes.SendConfirm, params);
   });
 
+  // select first token
+  // TODO trigger watch allFields
   useEffect(() => {
-    if (Array.isArray(options) && options?.length) setSelectOption(options[0]);
-  }, [options]);
+    if (Array.isArray(tokenOptions) && tokenOptions?.length && !selectOption)
+      setSelectOption(tokenOptions[0]);
+  }, [selectOption, tokenOptions]);
 
   return (
     <Modal
+      height="598px"
       hidePrimaryAction
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
       headerDescription={activeNetwork?.network.name ?? ''}
-      height="576px"
       footer={
         <Column>
           <Row
@@ -194,13 +257,13 @@ const Transaction = () => {
             borderTopWidth={1}
             borderTopColor="border-subdued"
           >
-            <Column>
+            <Column flex={1} overflow="hidden">
               <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'content__total' })}
+                {intl.formatMessage({ id: 'content__amount' })}
               </Typography.Body2>
               <Typography.Body1Strong>
-                {inputValue ?? '-'}&nbsp;&nbsp;
-                {selectOption.label}
+                {inputValue || '-'}&nbsp;&nbsp;
+                {selectOption?.label}
               </Typography.Body1Strong>
               {/* <Typography.Caption color="text-subdued">
                 3 min
@@ -209,8 +272,9 @@ const Transaction = () => {
             <Button
               type="primary"
               size={isSmallScreen ? 'xl' : 'base'}
-              isDisabled={false}
+              isDisabled={submitButtonDisabled}
               onPromise={onSubmit}
+              // isLoading={feeInfoPayloadLoading}
             >
               {intl.formatMessage({ id: 'action__continue' })}
             </Button>
@@ -230,7 +294,6 @@ const Transaction = () => {
                 rules={{
                   required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async (toAddress) => {
-                    const networkId = activeNetwork?.network.id || '';
                     if (networkId.length > 0) {
                       return backgroundApiProxy.validator
                         .validateAddress(networkId, toAddress)
@@ -245,6 +308,8 @@ const Transaction = () => {
                 defaultValue=""
               >
                 <Form.Textarea
+                  // TODO different max length in network
+                  maxLength={80}
                   placeholder={intl.formatMessage({ id: 'form__address' })}
                   borderRadius="12px"
                 />
@@ -275,13 +340,10 @@ const Transaction = () => {
                     w: 'full',
                   }}
                   headerShown={false}
-                  options={options}
+                  options={tokenOptions}
                   defaultValue={nativeToken?.id}
                   footer={null}
                   dropdownPosition="right"
-                  onChange={(item) => {
-                    console.log(item);
-                  }}
                 />
               </Form.Item>
               <Form.Item
@@ -293,9 +355,7 @@ const Transaction = () => {
                 rules={{
                   required: intl.formatMessage({ id: 'form__amount_invalid' }),
                   validate: (value) => {
-                    const token = accountTokens.find(
-                      (accountToken) => accountToken.id === selectOption.value,
-                    );
+                    const token = selectedToken;
                     if (!token) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(token?.balance ?? '');
@@ -311,6 +371,7 @@ const Transaction = () => {
                 // helpText="0 USD"
               >
                 <Form.Input
+                  maxLength={40}
                   w="100%"
                   keyboardType="numeric"
                   rightCustomElement={
@@ -335,12 +396,21 @@ const Transaction = () => {
                   {intl.formatMessage({ id: 'content__fee' })}
                 </Typography.Body2Strong>
 
+                {/* TODO use standAloneComponent */}
                 <Pressable
+                  disabled={!feeInfoPayload || feeInfoPayloadLoading}
                   onPress={() => {
-                    navigation.navigate(SendRoutes.SendEditFee);
+                    if (feeInfoPayloadLoading) {
+                      return;
+                    }
+                    navigation.navigate(SendRoutes.SendEditFee, {
+                      encodedTx,
+                      feeInfoSelected: feeInfoPayload?.selected,
+                    });
                   }}
                 >
                   {({ isHovered }) => (
+                    // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
                     <Row
                       justifyContent="space-between"
                       alignItems="center"
@@ -354,23 +424,49 @@ const Transaction = () => {
                       paddingY="8px"
                     >
                       <Column>
-                        <FormatBalance
-                          formatOptions={{
-                            fixed: 4,
-                          }}
-                          balance={gasPriceFee ?? ''}
-                          suffix="Gwei"
-                          render={(ele) => (
-                            <Text
-                              typography={{
-                                sm: 'Body1Strong',
-                                md: 'Body2Strong',
-                              }}
-                            >
-                              {ele}
-                            </Text>
-                          )}
-                        />
+                        <Row>
+                          <Text
+                            typography={{
+                              sm: 'Body1Strong',
+                              md: 'Body2Strong',
+                            }}
+                          >
+                            {feeInfoPayload?.selected?.type === 'preset' ? (
+                              <FeeSpeedLabel
+                                index={feeInfoPayload?.selected?.preset}
+                              />
+                            ) : null}{' '}
+                            {feeInfoPayload?.current?.total ?? '-'}{' '}
+                            {feeInfoPayload?.info?.symbol}
+                          </Text>
+                        </Row>
+                        <Row>
+                          <FormatBalance
+                            formatOptions={{
+                              fixed: feeInfoPayload?.info.nativeDecimals,
+                              unit: feeInfoPayload?.info.decimals,
+                            }}
+                            balance={feeInfoPayload?.current?.total ?? ''}
+                            suffix={feeInfoPayload?.info.nativeSymbol}
+                            render={(ele) => (
+                              <Typography.Body2 mt={1} color="text-subdued">
+                                {!feeInfoPayload?.current?.total ? '-' : ele}
+                              </Typography.Body2>
+                            )}
+                          />
+                        </Row>
+                        <Row>
+                          <FormatCurrencyNative
+                            value={feeInfoPayload?.current?.totalNative}
+                            render={(ele) => (
+                              <Typography.Body2 mt={1} color="text-subdued">
+                                {!feeInfoPayload?.current?.totalNative
+                                  ? '-'
+                                  : ele}
+                              </Typography.Body2>
+                            )}
+                          />
+                        </Row>
 
                         {/* <Typography.Body2 color="text-subdued">
                           0.001694 ETH ~ 0.001977 ETH
@@ -379,7 +475,12 @@ const Transaction = () => {
                           3 min
                         </Typography.Body2> */}
                       </Column>
-                      <Icon size={20} name="PencilSolid" />
+
+                      {feeInfoPayloadLoading ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        <Icon size={20} name="PencilSolid" />
+                      )}
                     </Row>
                   )}
                 </Pressable>

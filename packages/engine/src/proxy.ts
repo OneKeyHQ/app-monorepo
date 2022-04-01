@@ -42,6 +42,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/secret';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import {
   IMPL_ALGO,
@@ -122,21 +123,35 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   };
 }
 
-function fillUnsignedTx(
-  network: Network,
-  dbAccount: DBAccount,
-  to: string,
-  value: BigNumber,
-  token?: Token,
-  extra?: { [key: string]: any },
-): UnsignedTx {
-  let valueOnChain = value;
+export function fillUnsignedTxObj({
+  network,
+  dbAccount,
+  to,
+  value,
+  valueOnChain,
+  token,
+  extra,
+}: {
+  network: Network;
+  dbAccount: DBAccount;
+  to: string;
+  value?: BigNumber;
+  valueOnChain?: string;
+  token?: Token;
+  extra?: { [key: string]: any };
+}): UnsignedTx {
+  let valueOnChainBN = new BigNumber(0);
   let tokenIdOnNetwork: string | undefined;
-  if (typeof token !== 'undefined') {
-    valueOnChain = valueOnChain.shiftedBy(token.decimals);
-    tokenIdOnNetwork = token.tokenIdOnNetwork;
-  } else {
-    valueOnChain = valueOnChain.shiftedBy(network.decimals);
+  if (valueOnChain) {
+    valueOnChainBN = new BigNumber(valueOnChain);
+  } else if (!isNil(value)) {
+    valueOnChainBN = value;
+    if (typeof token !== 'undefined') {
+      valueOnChainBN = valueOnChainBN.shiftedBy(token.decimals);
+      tokenIdOnNetwork = token.tokenIdOnNetwork;
+    } else {
+      valueOnChainBN = valueOnChainBN.shiftedBy(network.decimals);
+    }
   }
 
   const { type, nonce, feeLimit, feePricePerUnit, ...payload } = extra as {
@@ -150,6 +165,7 @@ function fillUnsignedTx(
     maxFeePerGas: string;
     maxPriorityFeePerGas: string;
   };
+  // EIP 1559
   if (
     typeof maxFeePerGas === 'string' &&
     typeof maxPriorityFeePerGas === 'string'
@@ -164,7 +180,7 @@ function fillUnsignedTx(
   }
   const input: TxInput = {
     address: dbAccount.address,
-    value: valueOnChain,
+    value: valueOnChainBN,
     tokenAddress: tokenIdOnNetwork,
   };
   if (network.impl === IMPL_STC) {
@@ -176,7 +192,7 @@ function fillUnsignedTx(
     outputs: [
       {
         address: to,
-        value: valueOnChain,
+        value: valueOnChainBN,
         tokenAddress: tokenIdOnNetwork,
       },
     ],
@@ -186,6 +202,24 @@ function fillUnsignedTx(
     feePricePerUnit: feePricePerUnit?.shiftedBy(network.feeDecimals),
     payload,
   };
+}
+
+export function fillUnsignedTx(
+  network: Network,
+  dbAccount: DBAccount,
+  to: string,
+  value: BigNumber,
+  token?: Token,
+  extra?: { [key: string]: any },
+): UnsignedTx {
+  return fillUnsignedTxObj({
+    network,
+    dbAccount,
+    to,
+    value,
+    token,
+    extra,
+  });
 }
 
 class Verifier implements IVerifier {
@@ -272,7 +306,7 @@ class ProviderController extends BaseProviderController {
     return new Verifier(pub, curve as Curve);
   }
 
-  private getSigners(
+  public getSigners(
     networkId: string,
     credential: CredentialSelector,
     dbAccount: DBAccount,
@@ -403,7 +437,7 @@ class ProviderController extends BaseProviderController {
     }
   }
 
-  private async selectAccountAddress(
+  public async selectAccountAddress(
     networkId: string,
     dbAccount: DBAccount,
   ): Promise<string> {
@@ -478,6 +512,7 @@ class ProviderController extends BaseProviderController {
     token?: Token,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; rawTx: string; success: boolean }> {
+    // network.id: "evm--97"
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const unsignedTx = await this.buildUnsignedTx(
       network.id,
@@ -590,11 +625,12 @@ class ProviderController extends BaseProviderController {
         });
       }
     } else {
+      const count = 3;
       const result = await this.getFeePricePerUnit(networkId);
       return [result.normal, ...(result.others || [])]
         .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
         .map((p) => p.price)
-        .slice(0, 1);
+        .slice(0, count);
     }
   }
 

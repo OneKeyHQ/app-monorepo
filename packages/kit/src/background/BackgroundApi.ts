@@ -17,6 +17,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   validator = this.engine.validator;
 
+  vaultFactory = this.engine.vaultFactory;
+
   walletConnect = new WalletConnectAdapter({
     backgroundApi: this,
   });

@@ -1,11 +1,17 @@
+import { IFeeInfoSelected } from '@onekeyhq/engine/src/types/vault';
+
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
   SendEditFee = 'SendEditFee',
   SendAuthentication = 'SendAuthentication',
 }
+export type EditFeeParams = {
+  encodedTx?: any;
+  feeInfoSelected?: IFeeInfoSelected;
+};
 
-export type SendParams = {
+export type TransferSendParamsPayload = {
   to: string;
   account: {
     id: string;
@@ -23,13 +29,20 @@ export type SendParams = {
     name: string;
     symbol: string;
   };
-  gasPrice: string;
-  gasLimit: string;
+};
+
+export type SendParams = EditFeeParams & {
+  payload?: TransferSendParamsPayload | any;
+};
+
+export type SendAuthenticationParams = SendParams & {
+  accountId: string;
+  networkId: string;
 };
 
 export type SendRoutesParams = {
-  [SendRoutes.Send]: undefined;
-  [SendRoutes.SendEditFee]: undefined;
+  [SendRoutes.Send]: EditFeeParams;
+  [SendRoutes.SendEditFee]: EditFeeParams;
   [SendRoutes.SendConfirm]: SendParams;
-  [SendRoutes.SendAuthentication]: SendParams;
+  [SendRoutes.SendAuthentication]: SendAuthenticationParams;
 };

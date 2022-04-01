@@ -24,5 +24,10 @@ export function useToast() {
     [],
   );
 
-  return { info, show };
+  const toast = { info, show };
+  if (process.env.NODE_ENV !== 'production') {
+    // @ts-ignore
+    global.$$toast = toast;
+  }
+  return toast;
 }

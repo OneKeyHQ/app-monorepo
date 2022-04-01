@@ -22,9 +22,13 @@ import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
+import { SubmitRequestRoutes } from '../../../routes';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import extUtils from '../../../utils/extUtils';
 
 import { listUri } from './TicketService';
 import { TicketType } from './types';
@@ -65,7 +69,19 @@ export const HistoryRequest: FC = () => {
   }, [instanceId]);
 
   const SubmitRequestAction = () => {
-    navigation.navigate(HistoryRequestRoutes.SubmitRequestModal);
+    if (platformEnv.isExtensionUiPopup) {
+      extUtils.openExpandTab({
+        routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
+        params: {
+          screen: SubmitRequestRoutes.SubmitRequestModal,
+        },
+      });
+      setTimeout(() => {
+        window.close();
+      }, 300);
+    } else {
+      navigation.navigate(HistoryRequestRoutes.SubmitRequestModal);
+    }
   };
 
   const noData = () => {

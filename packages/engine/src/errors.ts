@@ -9,6 +9,12 @@ export class OneKeyError extends Error {
     super(message);
     this.info = info || {};
   }
+
+  get message() {
+    // TODO key message with i18n
+    // @ts-ignore
+    return super.message || this.key;
+  }
 }
 
 class NumberLimit extends OneKeyError {
@@ -33,6 +39,10 @@ class StringLengthRequirement extends OneKeyError {
 // Generic errors.
 
 export class NotImplemented extends OneKeyError {
+  constructor(message?: string) {
+    super(message || 'OneKeyError: NotImplemented', {});
+  }
+
   key = 'msg__engine__not_implemented';
 }
 
