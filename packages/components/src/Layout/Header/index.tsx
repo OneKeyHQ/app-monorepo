@@ -52,7 +52,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
           h="full"
           pl={{ md: 2 }}
           pr={{ md: 4 }}
-          w={{ md: '248px' }}
           flexShrink={0}
         >
           {headerLeftNode}
