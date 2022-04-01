@@ -55,7 +55,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
 
   return isOk ? (
     <IconButton
-      iconSize={24}
+      size="xl"
       name={supportFaceId ? 'FaceIdIllus' : 'FingerPrintIllus'}
       onPress={onPress}
     />
