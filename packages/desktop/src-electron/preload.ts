@@ -1,8 +1,22 @@
 import { ipcRenderer } from 'electron';
 
+export type DesktopAPI = {
+  hello: string;
+  checkForUpdates: () => void;
+  downloadUpdate: () => void;
+  installUpdate: () => void;
+  cancelUpdate: () => void;
+  skipUpdate: (version: string) => void;
+  windowClose: () => void;
+  windowFocus: () => void;
+  windowMinimize: () => void;
+  windowMaximize: () => void;
+  windowUnmaximize: () => void;
+  reload: () => void;
+};
 declare global {
   interface Window {
-    desktopApi: any;
+    desktopApi: DesktopAPI;
     INJECT_PATH: string;
   }
 }
@@ -38,9 +52,8 @@ const desktopApi = {
   windowMinimize: () => ipcRenderer.send('window/minimize'),
   windowMaximize: () => ipcRenderer.send('window/maximize'),
   windowUnmaximize: () => ipcRenderer.send('window/unmaximize'),
+  reload: () => ipcRenderer.send('app/reload'),
 };
-
-export const DesktopAPI = typeof desktopApi;
 
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);

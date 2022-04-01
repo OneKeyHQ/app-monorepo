@@ -46,7 +46,7 @@ const AccountSelectorTrigger: FC<Props> = ({
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.CreateWallet,
             params: {
-              screen: CreateWalletModalRoutes.CreateWalletModal,
+              screen: CreateWalletModalRoutes.GuideModal,
             },
           });
         }}

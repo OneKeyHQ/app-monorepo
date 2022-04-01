@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import isDev from 'electron-is-dev';
 
 import Logger, {
@@ -90,6 +90,11 @@ async function createMainWindow() {
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  ipcMain.on('app/reload', () => {
+    app.relaunch();
+    app.exit(0);
   });
 
   // Modules
