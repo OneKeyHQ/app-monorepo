@@ -1,17 +1,28 @@
 import React, { ComponentProps, FC, useCallback } from 'react';
 
-import { Pressable } from 'native-base';
-import { Keyboard, Platform } from 'react-native';
+import { Pressable, View } from 'native-base';
+import { Keyboard } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
   children,
   ...props
 }) => {
   const onPress = useCallback(() => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    if (platformEnv.isNative) {
       Keyboard.dismiss();
     }
   }, []);
+
+  // DESKTOP OR WEB
+  if (platformEnv.isWeb) {
+    return (
+      <View w="full" h="full">
+        {children}
+      </View>
+    );
+  }
   return (
     <Pressable
       w="full"

@@ -3,7 +3,6 @@ import React, { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
@@ -60,16 +59,15 @@ export const tabRoutes = [
 
 const TabNavigator = () => {
   const intl = useIntl();
-  const isVerticalLayout = useIsVerticalLayout();
 
   const renderHeader = useCallback(
     () => (
       <LayoutHeader
-        headerLeft={() => (isVerticalLayout ? <AccountSelector /> : null)}
+        headerLeft={() => <AccountSelector />}
         headerRight={() => <ChainSelector />}
       />
     ),
-    [isVerticalLayout],
+    [],
   );
 
   return (
@@ -85,7 +83,6 @@ const TabNavigator = () => {
           name={tab.name}
           component={tab.component}
           options={{
-            tabBarBackground: () => <AccountSelector />,
             tabBarIcon: tab.tabBarIcon,
             tabBarLabel: intl.formatMessage({ id: tab.translationId }),
           }}

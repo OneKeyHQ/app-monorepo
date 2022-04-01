@@ -201,7 +201,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   ) {
     return (
       <Select
-        dropdownPosition="left"
+        dropdownPosition="right"
         onChange={(v) => onChange(v)}
         activatable={false}
         options={[

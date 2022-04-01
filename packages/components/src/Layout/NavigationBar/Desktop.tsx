@@ -2,6 +2,8 @@ import React, { FC } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
@@ -20,8 +22,6 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
     'text-subdued',
   ]);
 
-  const firstOptions = descriptors[routes[0].key].options;
-
   return (
     <Box
       position="relative"
@@ -32,15 +32,11 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
       borderRightColor="border-subdued"
     >
       <VStack flex={1}>
-        {/* AccountSelector */}
-        <Box py={1} px={4} w="full">
-          {firstOptions?.tabBarBackground?.()}
-        </Box>
         {/* Scrollable area */}
         <ScrollView
           _contentContainerStyle={{
             flex: 1,
-            py: 5,
+            py: platformEnv.isMac && platformEnv.isDesktop ? 12 : 5,
             px: 4,
           }}
         >
