@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Center,
   HStack,
   Icon,
   Image,
@@ -42,12 +41,10 @@ const CreateWalletModal: FC = () => {
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">
-            <Center size={12} borderRadius="12px" bg="surface-neutral-default">
-              <Image source={img1} width="10" height="10" alt="icon" />
-            </Center>
+            <Image source={img1} width="10" height="12" alt="icon" />
             <Icon name="ChevronRightOutline" size={24} />
           </HStack>
-          <VStack space={1} mt={3}>
+          <VStack space={1} mt={6}>
             <Typography.Body1Strong>
               {intl.formatMessage({
                 id: 'wallet__app_wallet',
@@ -77,16 +74,14 @@ const CreateWalletModal: FC = () => {
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">
-            <Center size={12} borderRadius="12px" bg="surface-neutral-default">
-              <Image source={img2} width="10" height="10" alt="icon" />
-            </Center>
+            <Image source={img2} width="10" height="12" alt="icon" />
             <Badge
               title={intl.formatMessage({ id: 'badge__coming_soon' })}
               size="sm"
               type="default"
             />
           </HStack>
-          <VStack space={1} mt={3}>
+          <VStack space={1} mt={6}>
             <Typography.Body1Strong>
               {intl.formatMessage({
                 id: 'wallet__hardware_wallet',

@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC, useCallback, useMemo } from 'react';
 
+import { truncateSync } from 'fs';
+
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -95,6 +97,7 @@ const ChainSelector: FC = () => {
       value: network.id,
       tokenProps: {
         src: network.logoURI,
+        letter: network.shortName,
       },
       badge: network.impl === 'evm' ? 'EVM' : undefined,
     }));
