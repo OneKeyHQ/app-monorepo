@@ -190,7 +190,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     // if (type === 'hd') {
     return (
       <Select
-        dropdownPosition="left"
+        dropdownPosition="right"
         onChange={(v) => onChange(v)}
         activatable={false}
         options={[

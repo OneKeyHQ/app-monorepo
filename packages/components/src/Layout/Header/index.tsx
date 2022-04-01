@@ -8,7 +8,6 @@ import {
   useThemeValue,
   useUserDevice,
 } from '../../Provider/hooks';
-import Typography from '../../Typography';
 
 type HeaderProps = {
   headerLeft: () => ReactNode;
@@ -39,7 +38,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       height={`${headerHeight + insets.top}px`}
       pt={`${insets.top}px`}
       alignItems="center"
-      justifyContent="space-between"
+      justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
       px={2}
       bg={bgColor}
       borderColor={borderColor}
@@ -48,27 +47,24 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     >
       {headerLeftNode ? (
         <HStack
-          flex={1}
+          flex={isHorizontal ? undefined : 1}
           alignItems="center"
           h="full"
-          borderRightColor="border-subdued"
-          borderRightWidth={{ md: 1 }}
           pl={{ md: 2 }}
           pr={{ md: 4 }}
-          w={{ md: '248px' }}
           flexShrink={0}
         >
           {headerLeftNode}
         </HStack>
       ) : null}
 
-      {isHorizontal && (
+      {/* {isHorizontal && (
         <HStack alignItems="center" flex={1} pl={8}>
           <Typography.Heading>Home</Typography.Heading>
         </HStack>
-      )}
+      )} */}
       <HStack
-        flex={1}
+        flex={isHorizontal ? undefined : 1}
         alignItems="center"
         justifyContent="flex-end"
         pr={{ md: 6 }}

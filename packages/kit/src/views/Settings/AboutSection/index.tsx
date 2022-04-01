@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useToast } from '../../../hooks/useToast';
@@ -88,27 +89,30 @@ export const AboutSection = () => {
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Typography.Body2>
         </Box>
-        <Pressable
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          py={4}
-          px={{ base: 4, md: 6 }}
-          borderBottomWidth="1"
-          borderBottomColor="divider"
-          onPress={onCheckUpdate}
-        >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {intl.formatMessage({
-              id: 'form__check_for_updates',
-              defaultMessage: 'Check for Updates',
-            })}
-          </Text>
-          <Box>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Box>
-        </Pressable>
+        {!platformEnv.isWeb && (
+          <Pressable
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            py={4}
+            px={{ base: 4, md: 6 }}
+            borderBottomWidth="1"
+            borderBottomColor="divider"
+            onPress={onCheckUpdate}
+          >
+            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+              {intl.formatMessage({
+                id: 'form__check_for_updates',
+                defaultMessage: 'Check for Updates',
+              })}
+            </Text>
+            <Box>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Box>
+          </Pressable>
+        )}
+
         <Pressable
           display="flex"
           flexDirection="row"

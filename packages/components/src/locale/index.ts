@@ -3,6 +3,7 @@ import enUS from './en-US.json';
 import es from './es.json';
 import filPH from './fil_PH.json';
 import frFR from './fr_FR.json';
+import hiIN from './hi_IN.json';
 import itIT from './it_IT.json';
 import jaJP from './ja_JP.json';
 import koKR from './ko_KR.json';
@@ -30,6 +31,7 @@ const LOCALES = {
   'it-IT': itIT,
   'mn-MN': mnMN,
   'uk-UA': ukUA,
+  'hi-IN': hiIN,
 } as const;
 
 export type LocaleSymbol = keyof typeof LOCALES;

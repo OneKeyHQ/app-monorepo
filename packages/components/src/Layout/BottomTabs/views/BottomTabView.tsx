@@ -67,18 +67,21 @@ export default function BottomTabView(props: Props) {
     }),
   );
 
-  const renderTabBar = () => (
-    <SafeAreaInsetsContext.Consumer>
-      {(insets) => (
-        <NavigationBar
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          insets={insets!}
-          navigation={navigation}
-          state={state}
-          descriptors={descriptors}
-        />
-      )}
-    </SafeAreaInsetsContext.Consumer>
+  const tabBar = React.useMemo(
+    () => (
+      <SafeAreaInsetsContext.Consumer>
+        {(insets) => (
+          <NavigationBar
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            insets={insets!}
+            navigation={navigation}
+            state={state}
+            descriptors={descriptors}
+          />
+        )}
+      </SafeAreaInsetsContext.Consumer>
+    ),
+    [descriptors, navigation, state],
   );
 
   const { routes } = state;
@@ -148,7 +151,7 @@ export default function BottomTabView(props: Props) {
         })}
       </MaybeScreenContainer>
       <BottomTabBarHeightCallbackContext.Provider value={setTabBarHeight}>
-        {renderTabBar()}
+        {tabBar}
       </BottomTabBarHeightCallbackContext.Provider>
     </SafeAreaProviderCompat>
   );
