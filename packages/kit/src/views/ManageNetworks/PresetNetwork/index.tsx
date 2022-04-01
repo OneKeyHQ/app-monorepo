@@ -177,6 +177,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
         primaryActionTranslationId="action__save"
         hideSecondaryAction
         scrollViewProps={{
+          showsVerticalScrollIndicator: false,
           children: (
             <KeyboardDismissView flexDirection="row" justifyContent="center">
               <Form>
