@@ -18,12 +18,12 @@ export default function useRemoveAccountDialog() {
   const [visible, setVisible] = React.useState(false);
   const [accountId, setAccountId] = React.useState('');
   const [walletId, setWalletId] = React.useState('');
-  const [password, setPassword] = React.useState('');
+  const [password, setPassword] = React.useState<string | undefined>();
 
   const onSubmit = useCallback(() => {
-    if (!accountId || !password) return;
+    if (!accountId) return;
     engine
-      .removeAccount(accountId, password)
+      .removeAccount(accountId, password ?? '')
       .then(async () => {
         toast.info(intl.formatMessage({ id: 'msg__removed' }));
         setVisible(false);
@@ -52,7 +52,7 @@ export default function useRemoveAccountDialog() {
   const show = (
     $walletId: string,
     $accountId: string,
-    $password: string,
+    $password: string | undefined,
     call?: (() => void) | undefined,
   ) => {
     successCall.current = call;

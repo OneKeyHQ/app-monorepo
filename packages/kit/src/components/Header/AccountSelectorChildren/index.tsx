@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -153,20 +152,32 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           });
           break;
         case 'remove':
-          showVerify(
-            (pwd) => {
-              showRemoveAccountDialog(
-                selectedWallet?.id ?? '',
-                item.id,
-                pwd,
-                () => {
-                  refreshAccounts();
-                  console.log('remove account', item.id);
-                },
-              );
-            },
-            () => {},
-          );
+          if (selectedWallet?.type === 'watching') {
+            showRemoveAccountDialog(
+              selectedWallet?.id ?? '',
+              item.id,
+              undefined,
+              () => {
+                refreshAccounts();
+                console.log('remove account', item.id);
+              },
+            );
+          } else {
+            showVerify(
+              (pwd) => {
+                showRemoveAccountDialog(
+                  selectedWallet?.id ?? '',
+                  item.id,
+                  pwd,
+                  () => {
+                    refreshAccounts();
+                    console.log('remove account', item.id);
+                  },
+                );
+              },
+              () => {},
+            );
+          }
           break;
 
         default:
@@ -178,6 +189,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
       navigation,
       refreshAccounts,
       selectedWallet?.id,
+      selectedWallet?.type,
       showRemoveAccountDialog,
       showVerify,
     ],
@@ -187,7 +199,6 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     type: AccountType | undefined,
     onChange: (v: string) => void,
   ) {
-    // if (type === 'hd') {
     return (
       <Select
         dropdownPosition="right"
@@ -233,24 +244,6 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         )}
       />
     );
-    // }
-
-    // if (type === 'watching') {
-    //   return (
-    //     <IconButton
-    //       name="PlusSolid"
-    //       type="plain"
-    //       onPress={() => {
-    //         navigation.navigate(RootRoutes.Modal, {
-    //           screen: ModalRoutes.CreateAccount,
-    //           params: {
-    //             screen: CreateAccountModalRoutes.CreateAccountForm,
-    //           },
-    //         });
-    //       }}
-    //     />
-    //   );
-    // }
 
     // if (type === 'imported') {
     //   return (
