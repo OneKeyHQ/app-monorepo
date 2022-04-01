@@ -82,7 +82,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
 
   return (
     <VStack borderRightWidth={1} borderRightColor="border-subdued">
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <VStack py={2}>
           {/* APP Wallet */}
           <VStack space={2}>
