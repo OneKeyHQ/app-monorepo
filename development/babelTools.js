@@ -4,10 +4,11 @@ function normalizeConfig(config) {
   config.plugins = [
     ...(config.plugins || []),
     [
-      // Expose env variable to client-side app code
+      // Expose env variable to app client-side code, so you can access it like `process.env.XXXXX`
       'transform-inline-environment-variables',
       {
-        // *** ATTENTION: DO NOT expose sensitive variable here ***
+        // *** ATTENTION: DO NOT expose any sensitive variable here ***
+        // ***        like password, secretKey, etc.                ***
         'include': [
           'NODE_ENV',
           'REMOTE_CONSOLE_SERVER',

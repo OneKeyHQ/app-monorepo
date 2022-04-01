@@ -162,6 +162,9 @@ const HelpSelector: FC = () => {
                 screen: SubmitRequestRoutes.SubmitRequestModal,
               },
             });
+            setTimeout(() => {
+              window.close();
+            }, 300);
           } else {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.SubmitRequest,

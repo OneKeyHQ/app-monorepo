@@ -39,7 +39,8 @@ async function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: 'hidden',
-    resizable: false,
+    frame: true,
+    resizable: isDev,
     width: 1600,
     height: 900,
     webPreferences: {

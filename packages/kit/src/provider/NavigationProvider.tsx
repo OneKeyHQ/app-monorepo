@@ -15,7 +15,11 @@ const NavigationApp = () => {
   const linking = {
     prefixes: [prefix],
   };
-
+  const enableLinkingRoute =
+    platformEnv.isNative ||
+    platformEnv.isExtensionUiPopup ||
+    platformEnv.isExtensionUiStandaloneWindow ||
+    platformEnv.isDev;
   const [bgColor, textColor, bgDefault] = useThemeValue([
     'surface-subdued',
     'text-default',
@@ -40,7 +44,7 @@ const NavigationApp = () => {
       <NavigationContainer
         ref={navigationRef}
         theme={navigationTheme}
-        linking={platformEnv.isNative ? linking : undefined}
+        linking={enableLinkingRoute ? linking : undefined}
       >
         <Navigator />
       </NavigationContainer>

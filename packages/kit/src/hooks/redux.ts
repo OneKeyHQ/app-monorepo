@@ -55,6 +55,7 @@ export type IActiveWalletAccount = {
     sharedChainName: string;
   } | null;
   networkId: string;
+  accountId: string;
   networkImpl: string;
   accountAddress: string;
 };
@@ -69,11 +70,13 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
     const networkImpl = activeNetwork?.network?.impl || '';
     const networkId = activeNetwork?.network?.id || '';
     const accountAddress = activeAccountInfo?.address || '';
+    const accountId = activeAccount?.id || '';
 
     return {
       wallet: activeWallet,
       account: activeAccount,
       network: activeNetwork,
+      accountId,
       networkId,
       networkImpl,
       accountAddress,

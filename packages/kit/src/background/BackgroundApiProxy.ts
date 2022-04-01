@@ -2,6 +2,7 @@
 
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
+import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
@@ -25,6 +26,9 @@ class BackgroundApiProxy
   engine = this._createProxyService('engine') as Engine;
 
   validator = this._createProxyService('validator') as Validators;
+
+  // TODO remove
+  vaultFactory = {} as VaultFactory;
 
   walletConnect = this._createProxyService(
     'walletConnect',

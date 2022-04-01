@@ -7,6 +7,8 @@ import { Text } from 'react-native';
 
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
+import { useManageTokens } from '../../hooks';
+
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
   unit?: number;
@@ -53,7 +55,7 @@ function formatAmount(
       typeof opts.fixed === 'number'
         ? // 向下取整
           opts.fullPrecision
-          ? bn.toFormat(opts.fixed, BigNumber.ROUND_FLOOR)
+          ? bn.toFormat(opts.fixed, BigNumber.ROUND_FLOOR) // TODO custom ROUND: round, floor, ceil
           : bn.decimalPlaces(opts.fixed, BigNumber.ROUND_FLOOR).toFormat()
         : bn.toFormat()
     ).split(sep);
@@ -176,6 +178,24 @@ export const FormatCurrency: FC<{
   const Component = as;
 
   return <Component>{child}</Component>;
+};
+
+export const FormatCurrencyNative: FC<{
+  value: BigNumber.Value | string | undefined;
+  formatOptions?: FormatOptions;
+  render: (c: JSX.Element) => JSX.Element;
+  as?: FC;
+}> = ({ value, formatOptions = {}, as, render }) => {
+  const { prices } = useManageTokens();
+
+  return (
+    <FormatCurrency
+      numbers={[prices?.main, value, !value ? undefined : 1]}
+      render={render}
+      formatOptions={formatOptions}
+      as={as}
+    />
+  );
 };
 
 export const FormatBalance: FC<{

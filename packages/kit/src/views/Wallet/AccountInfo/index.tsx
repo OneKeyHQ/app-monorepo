@@ -138,6 +138,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             screen: ModalRoutes.Send,
             params: {
               screen: SendRoutes.Send,
+              params: {},
             },
           });
         }}

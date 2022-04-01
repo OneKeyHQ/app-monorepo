@@ -11,6 +11,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -20,6 +21,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
 import { DbApi } from './dbs';
@@ -98,18 +100,26 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
+import { IEncodedTxAny, IFeeInfoUnit } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
+import { VaultFactory } from './vaults/VaultFactory';
+
+import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
 
 @backgroundClass()
 class Engine {
-  private dbApi: DBAPI;
+  public dbApi: DBAPI;
 
-  private providerManager: ProviderController;
+  public providerManager: ProviderController;
 
   private priceManager: PriceController;
 
   readonly validator: Validators;
+
+  public vaultFactory = new VaultFactory({
+    engine: this,
+  });
 
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
@@ -805,6 +815,7 @@ class Engine {
     target: string,
     name: string,
   ): Promise<Account> {
+    // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
     const [, normalizedAddress] = await Promise.all([
@@ -857,7 +868,8 @@ class Engine {
     return this.buildReturnedAccount(a);
   }
 
-  private async getOrAddToken(
+  @backgroundMethod()
+  public async getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
     requireAlreadyAdded = false,
@@ -1064,6 +1076,76 @@ class Engine {
   }
 
   @backgroundMethod()
+  async signAndSendEncodedTx({
+    encodedTx,
+    password,
+    networkId,
+    accountId,
+  }: {
+    encodedTx: any;
+    password: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+    const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
+
+    return vault.signAndSendTransaction(unsignedTx, {
+      password,
+    });
+  }
+
+  @backgroundMethod()
+  async fetchFeeInfo({
+    networkId,
+    accountId,
+    encodedTx,
+  }: {
+    networkId: string;
+    accountId: string;
+    encodedTx: any;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+
+    return vault.fetchFeeInfo(encodedTx);
+  }
+
+  @backgroundMethod()
+  async attachFeeInfoToEncodedTx(params: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTxAny;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTxAny> {
+    const { networkId, accountId } = params;
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    return vault.attachFeeInfoToEncodedTx(params);
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxFromTransfer({
+    networkId,
+    accountId,
+    transferInfo,
+  }: {
+    networkId: string;
+    accountId: string;
+    transferInfo: ITransferInfo;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const result = await vault.buildEncodedTxFromTransfer(transferInfo);
+    debugLogger.sendTx('buildEncodedTxFromTransfer: ', transferInfo, result, {
+      networkId,
+      accountId,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return result;
+  }
+
+  @backgroundMethod()
   async prepareTransfer(
     networkId: string,
     accountId: string,
@@ -1072,6 +1154,7 @@ class Engine {
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<string> {
+    console.error('prepareTransfer is deprecated!');
     // For account model networks, return the estimated gas usage.
     // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
     // TODO: validate to parameter.
@@ -1123,11 +1206,15 @@ class Engine {
     return ret as Array<EIP1559Fee>;
   }
 
+  async getVault(options: IVaultFactoryOptions) {
+    return this.vaultFactory.getVault(options);
+  }
+
   @backgroundMethod()
   async transfer(
     password: string,
-    networkId: string,
-    accountId: string,
+    networkId: string, // "evm--97"
+    accountId: string, // "hd-1--m/44'/60'/0'/0/0"
     to: string,
     value: string,
     gasPrice: string,
@@ -1135,6 +1222,9 @@ class Engine {
     tokenIdOnNetwork?: string,
     extra?: { [key: string]: any },
   ): Promise<{ txid: string; success: boolean }> {
+    console.error('transfer is deprecated!');
+    // TODO transferValidator
+    /*
     let token: Token | undefined;
     if (
       typeof tokenIdOnNetwork !== 'undefined' &&
@@ -1156,24 +1246,38 @@ class Engine {
       this.getNetwork(networkId),
       this.dbApi.getAccount(accountId),
     ]);
+    */
+    debugLogger.engine('transfer:', {
+      password: '***',
+      networkId,
+      accountId,
+      to,
+      value,
+      gasPrice,
+      gasLimit,
+      tokenIdOnNetwork,
+      extra,
+    });
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
 
     try {
-      const { txid, rawTx, success } =
-        await this.providerManager.simpleTransfer(
-          network,
-          dbAccount,
-          credential,
+      const { txid, rawTx } = await vault.simpleTransfer(
+        {
           to,
-          new BigNumber(value),
-          token,
-          {
-            ...extra,
-            feeLimit: new BigNumber(gasLimit),
-            feePricePerUnit: new BigNumber(gasPrice),
-          },
-        );
+          value,
+          tokenIdOnNetwork,
+          extra,
+          gasLimit,
+          gasPrice,
+        },
+        { password },
+      );
+      const historyId = `${networkId}--${txid}`;
       await this.dbApi.addHistoryEntry(
-        `${networkId}--${txid}`,
+        historyId,
         networkId,
         accountId,
         HistoryEntryType.TRANSFER,
@@ -1185,7 +1289,7 @@ class Engine {
           rawTx,
         },
       );
-      return { txid, success };
+      return { txid, success: true };
     } catch (e) {
       console.error(e);
       const { message } = e as { message: string };
