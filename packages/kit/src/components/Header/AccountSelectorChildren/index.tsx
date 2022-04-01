@@ -19,6 +19,7 @@ import {
   Typography,
   VStack,
   useIsVerticalLayout,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
@@ -89,6 +90,7 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const { bottom } = useSafeAreaInsets();
   // const navigation = useNavigation<NavigationProps['navigation']>();
   const navigation = useAppNavigation();
   const { activeNetwork } = useAppSelector((s) => s.general);
@@ -284,7 +286,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         selectedWallet={activeWallet}
         setSelectedWallet={setSelectedWallet}
       />
-      <VStack flex={1}>
+      <VStack flex={1} pb={bottom}>
         <RightHeader selectedWallet={activeWallet} />
         <FlatList
           px={2}
