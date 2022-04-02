@@ -26,6 +26,7 @@ export enum ModalRoutes {
   EnableLocalAuthentication = ' EnableLocalAuthentication',
   ManageNetwork = 'ManageNetwork',
   OnekeyHardware = 'OnekeyHardware',
+  Discover = 'Discover',
 }
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
