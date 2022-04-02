@@ -14,9 +14,12 @@ let synced = true; // Change to false to enable remote updating
 let preset = networkList;
 //  network.id => PresetNetwork
 let presetNetworks: Record<string, PresetNetwork> = {};
+//  network.id => token_address[]
+let defaultStableTokens: Record<string, Array<string>> = {};
 
 function initNetworkList(presetNetwork: NetworkList) {
   const record: Record<string, PresetNetwork> = {};
+  const stableTokens: Record<string, Array<string>> = {};
 
   presetNetwork.networks.forEach((network) => {
     const urls = network.rpcURLs?.map((rpc) => rpc.url) ?? [];
@@ -42,8 +45,11 @@ function initNetworkList(presetNetwork: NetworkList) {
       presetRpcURLs: urls.length > 0 ? urls : [''], // TODO: Update [''] for data consistency
     };
     record[network.id] = pn;
+
+    stableTokens[network.id] = network.extensions?.defaultStableTokens || [];
   });
   presetNetworks = record;
+  defaultStableTokens = stableTokens;
 }
 
 initNetworkList(preset);
@@ -92,4 +98,13 @@ function networkIsPreset(networkId: string): boolean {
   return typeof presetNetworks[networkId] !== 'undefined';
 }
 
-export { networkIsPreset, getPresetNetworks, syncLatestNetworkList };
+function getDefaultStableTokens(): Record<string, Array<string>> {
+  return defaultStableTokens;
+}
+
+export {
+  networkIsPreset,
+  getPresetNetworks,
+  syncLatestNetworkList,
+  getDefaultStableTokens,
+};

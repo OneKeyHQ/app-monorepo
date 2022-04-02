@@ -683,21 +683,15 @@ class IndexedDBApi implements DBAPI {
           const openCursorRequest: IDBRequest = tokenBindingStore
             .index('tokenId')
             .openCursor(IDBKeyRange.only(tokenId));
-          let bindings = 0;
-          let removed = false;
           openCursorRequest.onsuccess = (_cevent) => {
             const cursor: IDBCursorWithValue =
               openCursorRequest.result as IDBCursorWithValue;
             if (cursor) {
               const tokenBinding: TokenBinding = cursor.value as TokenBinding;
               if (tokenBinding.accountId === accountId) {
-                removed = true;
                 cursor.delete();
               }
-              bindings += 1;
               cursor.continue();
-            } else if (bindings === 1 && removed) {
-              transaction.objectStore(TOKEN_STORE_NAME).delete(tokenId);
             }
           };
         }),
