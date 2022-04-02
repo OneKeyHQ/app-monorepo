@@ -12,10 +12,6 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useStatus } from '../../hooks/redux';
-import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
-import { unlock as mUnLock } from '../../store/reducers/data';
-import { setEnableAppLock } from '../../store/reducers/settings';
-import { setPasswordCompleted, unlock } from '../../store/reducers/status';
 
 type FieldValues = {
   password: string;
@@ -23,14 +19,14 @@ type FieldValues = {
 };
 
 type SetupProps = {
+  skipSavePassword?: boolean;
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
 };
 
-const Setup: FC<SetupProps> = ({ onOk }) => {
+const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
   const intl = useIntl();
   const { boardingCompleted } = useStatus();
-  const { dispatch } = backgroundApiProxy;
-  const { savePassword } = useLocalAuthentication();
+  const { serviceApp } = backgroundApiProxy;
   const {
     control,
     handleSubmit,
@@ -42,16 +38,12 @@ const Setup: FC<SetupProps> = ({ onOk }) => {
   });
   const onSubmit = useCallback(
     async (values: FieldValues) => {
-      if (boardingCompleted) {
-        await savePassword(values.password);
-        dispatch(unlock());
-        dispatch(mUnLock());
-        dispatch(setPasswordCompleted());
-        dispatch(setEnableAppLock(true));
+      if (boardingCompleted && !skipSavePassword) {
+        await serviceApp.updatePassword('', values.password);
       }
       onOk?.(values.password, false);
     },
-    [onOk, boardingCompleted, dispatch, savePassword],
+    [onOk, boardingCompleted, skipSavePassword, serviceApp],
   );
 
   return (

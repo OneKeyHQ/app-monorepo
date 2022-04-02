@@ -15,12 +15,8 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { useStatus } from '../../hooks/redux';
-import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
+import { useData } from '../../hooks/redux';
 import { useToast } from '../../hooks/useToast';
-import { unlock as mUnlock } from '../../store/reducers/data';
-import { setEnableAppLock } from '../../store/reducers/settings';
-import { setPasswordCompleted, unlock } from '../../store/reducers/status';
 
 import { PasswordRoutes, PasswordRoutesParams } from './types';
 
@@ -81,10 +77,6 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
       <Form mt="8">
         <Form.Item
           name="password"
-          // label={intl.formatMessage({
-          //   id: 'form__password',
-          //   defaultMessage: 'Password',
-          // })}
           control={control}
           rules={{
             required: intl.formatMessage({
@@ -120,10 +112,8 @@ type PasswordsFieldValues = {
 
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
-  const { passwordCompleted } = useStatus();
   const toast = useToast();
-  const { savePassword } = useLocalAuthentication();
-  const { dispatch } = backgroundApiProxy;
+  const { serviceApp } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps>();
   const {
     control,
@@ -138,38 +128,28 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   });
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
-      await backgroundApiProxy.engine.updatePassword(
-        oldPassword,
-        values.password,
-      );
-      await savePassword(values.password);
-      dispatch(unlock());
-      dispatch(mUnlock());
-      if (!passwordCompleted) {
-        dispatch(setPasswordCompleted());
-        dispatch(setEnableAppLock(true));
-      }
+      await serviceApp.updatePassword(oldPassword, values.password);
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
         navigation?.popToTop?.();
       }
-      toast.info(
-        intl.formatMessage({
-          id: 'msg__password_changed',
-          defaultMessage: 'Password changed',
-        }),
-      );
+      // if oldPassword is empty. set password
+      if (oldPassword) {
+        toast.show({
+          title: intl.formatMessage({
+            id: 'msg__password_has_been_set',
+          }),
+        });
+      } else {
+        toast.show({
+          title: intl.formatMessage({
+            id: 'msg__password_changed',
+          }),
+        });
+      }
     },
-    [
-      navigation,
-      toast,
-      intl,
-      dispatch,
-      oldPassword,
-      savePassword,
-      passwordCompleted,
-    ],
+    [navigation, toast, intl, oldPassword, serviceApp],
   );
 
   const watchedPassword = watch(['password', 'confirmPassword']);
@@ -298,8 +278,8 @@ const ChangePassword = () => {
 };
 
 export const Password = () => {
-  const { passwordCompleted } = useStatus();
-  const [isHasPassword] = useState(passwordCompleted);
+  const { isPasswordSet } = useData();
+  const [isHasPassword] = useState(isPasswordSet);
 
   return (
     <Modal footer={null}>
