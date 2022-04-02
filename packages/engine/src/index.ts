@@ -70,7 +70,10 @@ import {
   getPresetTokensOnNetwork,
   networkIsPreset,
 } from './presets';
-import { syncLatestNetworkList } from './presets/network';
+import {
+  getDefaultStableTokens,
+  syncLatestNetworkList,
+} from './presets/network';
 import {
   PriceController,
   ProviderController,
@@ -183,6 +186,9 @@ class Engine {
           }
         }
       }
+
+      // add default token
+      await this.addDefaultToken();
 
       const context = await this.dbApi.getContext();
       if (
@@ -736,6 +742,9 @@ class Engine {
         pub: outputFormat === 'pub' ? accountInfo.info : '',
         address,
       });
+
+      await this.addDefaultToken(id, impl);
+
       const account = await this.getAccount(id, networkId);
       ret.push(account);
       if ((await callback(account)) === false) {
@@ -806,6 +815,9 @@ class Engine {
         password,
       },
     );
+
+    await this.addDefaultToken(accountId, impl);
+
     return this.getAccount(accountId, networkId);
   }
 
@@ -846,6 +858,9 @@ class Engine {
       pub: '', // TODO: only address is supported for now.
       address,
     });
+
+    await this.addDefaultToken(a.id, impl);
+
     return this.getAccount(a.id, networkId);
   }
 
@@ -905,6 +920,36 @@ class Engine {
       overwrite.symbol = tokenInfo.symbol;
     }
     return this.dbApi.addToken({ ...toAdd, ...overwrite });
+  }
+
+  private async addDefaultToken(
+    accountId?: string,
+    impl?: string,
+  ): Promise<void> {
+    const tokens = getDefaultStableTokens();
+
+    let networkIds: string[] = Object.keys(tokens);
+    if (accountId && impl) {
+      // filter for account
+      networkIds = networkIds.filter((v) => getImplFromNetworkId(v) === impl);
+    }
+    for (const networkId of networkIds) {
+      for (const tokenIdOnNetwork of tokens[networkId]) {
+        try {
+          if (accountId && impl) {
+            // add for account
+            await this.addTokenToAccount(
+              accountId,
+              `${networkId}--${tokenIdOnNetwork}`,
+            );
+          } else {
+            await this.getOrAddToken(networkId, tokenIdOnNetwork);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
   }
 
   @backgroundMethod()
