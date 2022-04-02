@@ -2,26 +2,27 @@ import React, { FC, useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
 
-import { useStatus } from '../../hooks/redux';
+import { useData } from '../../hooks/redux';
 
 import Setup from './Setup';
 import Validation from './Validation';
 
 type ProtectedProps = {
+  skipSavePassword?: boolean;
   children: (
     password: string,
     isLocalAuthentication?: boolean,
   ) => React.ReactNode;
 };
 
-const Protected: FC<ProtectedProps> = ({ children }) => {
+const Protected: FC<ProtectedProps> = ({ children, skipSavePassword }) => {
   const [password, setPassword] = useState('');
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
-  const { passwordCompleted } = useStatus();
-  const [hasPassword] = useState(passwordCompleted);
+  const { isPasswordSet } = useData();
+  const [hasPassword] = useState(isPasswordSet);
 
-  const onOk = useCallback((text: string, is?: boolean) => {
-    setLocalAuthentication(is);
+  const onOk = useCallback((text: string, value?: boolean) => {
+    setLocalAuthentication(value);
     setPassword(text);
   }, []);
   if (password) {
@@ -34,7 +35,7 @@ const Protected: FC<ProtectedProps> = ({ children }) => {
   if (hasPassword) {
     return <Validation onOk={onOk} />;
   }
-  return <Setup onOk={onOk} />;
+  return <Setup onOk={onOk} skipSavePassword={skipSavePassword} />;
 };
 
 export default Protected;

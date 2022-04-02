@@ -4,7 +4,6 @@ type StatusState = {
   lastActivity: number;
   isUnlock: boolean;
   boardingCompleted: boolean;
-  passwordCompleted: boolean;
   supportFaceId: boolean;
 };
 
@@ -12,7 +11,6 @@ const initialState: StatusState = {
   lastActivity: 0,
   isUnlock: false,
   boardingCompleted: false,
-  passwordCompleted: false,
   supportFaceId: true,
 };
 
@@ -22,9 +20,6 @@ export const slice = createSlice({
   reducers: {
     setBoardingCompleted: (state) => {
       state.boardingCompleted = true;
-    },
-    setPasswordCompleted: (state) => {
-      state.passwordCompleted = true;
     },
     setSupportFaceId: (state) => {
       state.supportFaceId = true;
@@ -49,7 +44,6 @@ export const slice = createSlice({
 export const {
   reset,
   setBoardingCompleted,
-  setPasswordCompleted,
   setSupportFaceId,
   lock,
   unlock,

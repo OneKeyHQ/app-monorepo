@@ -1,14 +1,14 @@
+import * as SecureStore from 'expo-secure-store';
+
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { unlock as mUnlock } from '../../store/reducers/data';
+import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { updateNetworkMap } from '../../store/reducers/network';
-import {
-  setBoardingCompleted,
-  setPasswordCompleted,
-  unlock,
-} from '../../store/reducers/status';
+import { setEnableAppLock } from '../../store/reducers/settings';
+import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { updateWallet, updateWallets } from '../../store/reducers/wallet';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { delay } from '../utils';
@@ -53,10 +53,14 @@ class ServiceApp extends ServiceBase {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     const wallet = await engine.createHDWallet(password, mnemonic);
+    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
     const walletsFromBE = await engine.getWallets();
     dispatch(updateWallets(walletsFromBE));
     dispatch(setBoardingCompleted());
-    dispatch(setPasswordCompleted());
     dispatch(unlock());
     dispatch(mUnlock());
     let account: Account | null = null;
@@ -137,8 +141,12 @@ class ServiceApp extends ServiceBase {
       credential,
       name,
     );
+    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
     dispatch(setBoardingCompleted());
-    dispatch(setPasswordCompleted());
     dispatch(unlock());
     dispatch(mUnlock());
     const walletsFromBE = await engine.getWallets();
@@ -198,6 +206,23 @@ class ServiceApp extends ServiceBase {
         });
       }
     }
+  }
+
+  @backgroundMethod()
+  async updatePassword(oldPassword: string, newPassword: string) {
+    const { dispatch, engine, appSelector } = this.backgroundApi;
+    await engine.updatePassword(oldPassword, newPassword);
+    if (platformEnv.isNative) {
+      await SecureStore.setItemAsync('password', newPassword);
+    }
+    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
+    dispatch(setBoardingCompleted());
+    dispatch(unlock());
+    dispatch(mUnlock());
   }
 }
 

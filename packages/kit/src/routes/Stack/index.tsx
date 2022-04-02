@@ -95,8 +95,8 @@ const Dashboard = () => {
 const MainScreen = () => {
   const { dispatch } = backgroundApiProxy;
   const { appLockDuration, enableAppLock } = useSettings();
-  const { lastActivity, isUnlock, passwordCompleted } = useStatus();
-  const { isUnlock: isDataUnlock } = useData();
+  const { lastActivity, isUnlock } = useStatus();
+  const { isUnlock: isDataUnlock, isPasswordSet } = useData();
 
   const refresh = useCallback(() => {
     if (AppState.currentState === 'active') {
@@ -150,7 +150,7 @@ const MainScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!passwordCompleted || !enableAppLock) {
+  if (!isPasswordSet || !enableAppLock) {
     return <Dashboard />;
   }
   return isUnlock && isDataUnlock ? <Dashboard /> : <Unlock />;
