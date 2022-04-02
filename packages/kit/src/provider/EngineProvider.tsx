@@ -14,6 +14,7 @@ import { setAutoRefreshTimeStamp } from '@onekeyhq/kit/src/store/reducers/settin
 import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { passwordSet } from '../store/reducers/data';
 
 const EngineApp: FC = ({ children }) => {
   const networks = useAppSelector((s) => s.network.network);
@@ -111,11 +112,23 @@ const EngineApp: FC = ({ children }) => {
     });
   }, [dispatch, networks, activeNetwork]);
 
-  return (
-    <Box flex="1" onLayout={hideSplashScreen}>
-      {children}
-    </Box>
-  );
+  useEffect(() => {
+    async function main() {
+      try {
+        const isMasterPasswordSet =
+          await backgroundApiProxy.engine.isMasterPasswordSet();
+        if (isMasterPasswordSet) {
+          dispatch(passwordSet());
+        }
+      } finally {
+        hideSplashScreen();
+      }
+    }
+    main();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return <Box flex="1">{children}</Box>;
 };
 
 export default EngineApp;

@@ -40,9 +40,7 @@ const Done: FC<DoneProps> = ({ privatekey, name, networkId, password }) => {
           name,
         );
         const inst = navigation.getParent() || navigation;
-        setTimeout(() => {
-          inst.goBack();
-        }, 100);
+        inst.goBack();
       } catch (e) {
         const errorKey = (e as { key: string }).key;
         toast.show({
@@ -65,7 +63,7 @@ export const AddImportedAccountDone = () => {
   const { privatekey, name, networkId } = route.params ?? {};
   return (
     <Modal footer={null}>
-      <Protected>
+      <Protected skipSavePassword>
         {(password) => (
           <Done
             privatekey={privatekey}

@@ -31,20 +31,18 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
     async function main() {
       const wallet = await serviceApp.createHDWallet({ password, mnemonic });
       const inst = navigation.getParent() || navigation;
-      setTimeout(() => {
-        inst.goBack();
-        if (!mnemonic) {
-          appNavigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.CreateWallet,
+      inst.goBack();
+      if (!mnemonic) {
+        appNavigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateWallet,
+          params: {
+            screen: CreateWalletModalRoutes.BackupTipsModal,
             params: {
-              screen: CreateWalletModalRoutes.BackupTipsModal,
-              params: {
-                walletId: wallet.id,
-              },
+              walletId: wallet.id,
             },
-          });
-        }
-      }, 100);
+          },
+        });
+      }
     }
     main();
   }, [navigation, password, serviceApp, mnemonic, appNavigation]);
@@ -60,7 +58,7 @@ export const AppWalletDone = () => {
   const { mnemonic } = route.params ?? {};
   return (
     <Modal footer={null}>
-      <Protected>
+      <Protected skipSavePassword>
         {(password) => <Done password={password} mnemonic={mnemonic} />}
       </Protected>
     </Modal>

@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import { useData, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
@@ -45,7 +45,7 @@ export const SecuritySection = () => {
   const { dispatch } = backgroundApiProxy;
   const { enableAppLock, enableLocalAuthentication, appLockDuration } =
     useSettings();
-  const { passwordCompleted } = useStatus();
+  const { isPasswordSet } = useData();
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();
   const lockTimerOptions = useMemo(
@@ -133,7 +133,7 @@ export const SecuritySection = () => {
               mr="3"
             >
               {intl.formatMessage({
-                id: passwordCompleted
+                id: isPasswordSet
                   ? 'form__change_password'
                   : 'title__set_password',
               })}
@@ -181,7 +181,7 @@ export const SecuritySection = () => {
               </Box>
             </Box>
           ) : null}
-          {passwordCompleted ? (
+          {isPasswordSet ? (
             <Box
               display="flex"
               flexDirection="row"
