@@ -17,6 +17,12 @@ jobs:
         with:
           lfs: true
 
+      - name: Dotenv Action
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.7
+        with:
+          path: .env.version
+
       - name: 'Setup ENV'
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
@@ -84,8 +90,8 @@ jobs:
           artifact-type: Extension
           artifact-name: OneKey-Extension-RN
           artifact-bundle-id: 'so.onekey.wallet.extension'
-          artifact-version-name: '${{ env.PKG_VERSION }}@${{ env.GITHUB_TAG }}'
-          artifact-version-code: '${{ env.GITHUB_TAG }}'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ steps.dotenv.outputs.build_number }}'
+          artifact-version-code: '${{ steps.dotenv.outputs.build_number }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           change-log: 'Download [Artifacts] at the bottom of page.'
           custom-issue-url: ''
