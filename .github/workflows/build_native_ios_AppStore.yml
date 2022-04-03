@@ -1,6 +1,8 @@
 name: Build Native iOS AppStore CI
 
 on:
+  schedule:
+    - cron: '33 19 * * 2,4,7' 
   workflow_dispatch:
 jobs:
   build:
