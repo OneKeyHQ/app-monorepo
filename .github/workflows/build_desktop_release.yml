@@ -2,7 +2,7 @@ name: build-desktop
 
 on:
   schedule:
-    - cron: '30 19 * * 2,4,7' 
+    - cron: '33 19 * * 0,2,4' 
   workflow_dispatch:
 
 jobs:
