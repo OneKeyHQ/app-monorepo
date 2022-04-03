@@ -2,7 +2,7 @@ name: Build Native Android Release CI
 
 on:
   schedule:
-    - cron: '32 19 * * 2,4,7' 
+    - cron: '32 19 * * 0,2,4' 
   workflow_dispatch:
 jobs:
   build:
