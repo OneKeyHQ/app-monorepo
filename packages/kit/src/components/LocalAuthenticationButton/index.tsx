@@ -1,11 +1,13 @@
 import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { IconButton } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLocalAuthentication, useToast } from '../../hooks';
 import { useSettings, useStatus } from '../../hooks/redux';
-import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { EnableLocalAuthenticationRoutes } from '../../routes/Modal/EnableLocalAuthentication';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 
@@ -21,6 +23,9 @@ type NavigationProps = NativeStackNavigationProp<
 const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   onOk,
 }) => {
+  const { serviceApp } = backgroundApiProxy;
+  const intl = useIntl();
+  const toast = useToast();
   const { enableLocalAuthentication } = useSettings();
   const { supportFaceId } = useStatus();
   const navigation = useNavigation<NavigationProps>();
@@ -42,15 +47,25 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
     if (localAuthenticateResult.success) {
       const password = await getPassword();
       if (password) {
-        onOk?.(password);
+        const result = await serviceApp.verifyPassword(password);
+        if (result) {
+          onOk?.(password);
+          return;
+        }
       }
     }
+    toast.show({
+      title: intl.formatMessage({ id: 'msg__verification_failure' }),
+    });
   }, [
     enableLocalAuthentication,
     navigation,
     onOk,
     localAuthenticate,
     getPassword,
+    serviceApp,
+    toast,
+    intl,
   ]);
 
   return isOk ? (

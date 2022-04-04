@@ -16,6 +16,7 @@ import { useStatus } from '../../hooks/redux';
 type FieldValues = {
   password: string;
   confirmPassword: string;
+  withEnableAuthentication: boolean;
 };
 
 type SetupProps = {

@@ -142,7 +142,7 @@ export const SecuritySection = () => {
               <Icon name="ChevronRightSolid" size={20} />
             </Box>
           </Pressable>
-          {isOk ? (
+          {isOk && isPasswordSet ? (
             <Box
               display="flex"
               flexDirection="row"

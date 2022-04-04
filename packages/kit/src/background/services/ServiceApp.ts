@@ -57,6 +57,9 @@ class ServiceApp extends ServiceBase {
     if (!data.isPasswordSet) {
       dispatch(passwordSet());
       dispatch(setEnableAppLock(true));
+      if (platformEnv.isNative) {
+        await SecureStore.setItemAsync('password', password);
+      }
     }
     const walletsFromBE = await engine.getWallets();
     dispatch(updateWallets(walletsFromBE));
@@ -145,6 +148,9 @@ class ServiceApp extends ServiceBase {
     if (!data.isPasswordSet) {
       dispatch(passwordSet());
       dispatch(setEnableAppLock(true));
+      if (platformEnv.isNative) {
+        await SecureStore.setItemAsync('password', password);
+      }
     }
     dispatch(setBoardingCompleted());
     dispatch(unlock());
@@ -223,6 +229,16 @@ class ServiceApp extends ServiceBase {
     dispatch(setBoardingCompleted());
     dispatch(unlock());
     dispatch(mUnlock());
+  }
+
+  @backgroundMethod()
+  async verifyPassword(password: string) {
+    const { engine } = this.backgroundApi;
+    const result = await engine.verifyMasterPassword(password);
+    if (platformEnv.isNative && result) {
+      await SecureStore.setItemAsync('password', password);
+    }
+    return result;
   }
 }
 
