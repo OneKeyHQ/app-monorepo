@@ -3,7 +3,7 @@ module.exports = {
   'version': process.env.VERSION,
   'name': 'OneKey: Safe Crypto DeFi Wallet',
   'description':
-    'Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others',
+    'Multi-Chain Support for BTC, ETH, BNB, NEAR & other Layer2 Networks',
   /*
   'options_page': 'ui-options.html',
   'chrome_url_overrides': {
