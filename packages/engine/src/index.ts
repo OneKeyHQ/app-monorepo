@@ -1258,6 +1258,32 @@ class Engine {
   }
 
   @backgroundMethod()
+  async addHistoryEntry({
+    id,
+    networkId,
+    accountId,
+    type,
+    status,
+    meta,
+  }: {
+    id: string;
+    networkId: string;
+    accountId: string;
+    type: HistoryEntryType;
+    status: HistoryEntryStatus;
+    meta: HistoryEntryMeta;
+  }) {
+    await this.dbApi.addHistoryEntry(
+      id,
+      networkId,
+      accountId,
+      type,
+      status,
+      meta,
+    );
+  }
+
+  @backgroundMethod()
   async transfer(
     password: string,
     networkId: string, // "evm--97"
