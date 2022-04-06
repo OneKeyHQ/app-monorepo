@@ -16,12 +16,12 @@ import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 import type { HistoryItem } from './types';
 
 type HeaderHistoriesProps = {
-  histories: HistoryItem[];
+  keyword: string;
   onSelectHistory?: (token: HistoryItem) => void;
 };
 
 const HeaderHistories: FC<HeaderHistoriesProps> = ({
-  histories,
+  keyword,
   onSelectHistory,
 }) => {
   const intl = useIntl();
@@ -32,17 +32,17 @@ const HeaderHistories: FC<HeaderHistoriesProps> = ({
           id: 'title__search_results',
         })}
       </Typography.Subheading>
-      {histories.length ? (
+      {keyword ? (
         <Container.Box mb={4}>
-          {histories.map((item, index) => (
-            <Container.Item
-              key={index}
-              title={item.url}
-              titleColor="text-default"
-              customArrowIconName="ArrowCircleRightSolid"
-              onPress={() => onSelectHistory?.(item)}
-            />
-          ))}
+          <Container.Item
+            key="search-content"
+            title={keyword}
+            titleColor="text-default"
+            customArrowIconName="ArrowCircleRightSolid"
+            onPress={() =>
+              onSelectHistory?.({ url: keyword, title: '', logoURI: '' })
+            }
+          />
         </Container.Box>
       ) : null}
     </Box>
@@ -50,18 +50,16 @@ const HeaderHistories: FC<HeaderHistoriesProps> = ({
 };
 
 type HeaderProps = {
-  histories: HistoryItem[];
+  terms: string;
   keyword: string;
-  terms?: string;
   onChange: (keyword: string) => void;
   onSelectHistory?: (history: HistoryItem) => void;
   onSubmitContent?: (content: string) => void;
 };
 
 const Header: FC<HeaderProps> = ({
-  histories,
-  keyword,
   terms,
+  keyword,
   onChange,
   onSelectHistory,
   onSubmitContent,
@@ -84,10 +82,7 @@ const Header: FC<HeaderProps> = ({
         }}
       />
       {terms ? (
-        <HeaderHistories
-          histories={histories}
-          onSelectHistory={onSelectHistory}
-        />
+        <HeaderHistories keyword={keyword} onSelectHistory={onSelectHistory} />
       ) : (
         <Typography.Subheading mb={2} color="text-subdued">
           {intl.formatMessage({ id: 'transaction__history' })}
@@ -114,7 +109,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       </Center>
     );
   }
-  return terms.length > 0 ? (
+  return terms.length ? (
     <Empty
       imageUrl={IconSearch}
       title={intl.formatMessage({

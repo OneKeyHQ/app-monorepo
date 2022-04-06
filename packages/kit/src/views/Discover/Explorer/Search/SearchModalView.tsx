@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/Discover';
 
 import { Header, ListEmptyComponent } from './Header';
-import { useSearchDapps } from './useSearchDapps';
 import { useSearchHistories } from './useSearchHistories';
 
 import type { HistoryItem } from './types';
@@ -37,20 +36,14 @@ const SearchModalView: FC = () => {
   const [searchContent, setSearchContent] = useState<string>('');
   const searchContentTerm = useDebounce(searchContent, 200);
 
-  const { loading: dappLoading, searchedDapps } = useSearchDapps(
+  const { loading, searchedHistories, allHistories } = useSearchHistories(
     searchContentTerm,
     searchContent,
   );
 
-  const {
-    loading: historyLoading,
-    searchedHistories,
-    allHistories,
-  } = useSearchHistories(searchContentTerm, searchContent);
-
   const flatListData = useMemo(
-    () => (searchContentTerm ? searchedDapps : allHistories),
-    [searchContentTerm, allHistories, searchedDapps],
+    () => (searchContentTerm ? searchedHistories : allHistories),
+    [searchContentTerm, allHistories, searchedHistories],
   );
 
   const onSelectHistory = (item: HistoryItem) => {
@@ -64,7 +57,7 @@ const SearchModalView: FC = () => {
   }) => (
     <Pressable.Item
       p={4}
-      key={index}
+      key={`search-history-item-${index}-${item.url}`}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
       onPress={() => {
@@ -91,19 +84,22 @@ const SearchModalView: FC = () => {
         // @ts-expect-error
         renderItem,
         ItemSeparatorComponent: () => <Divider />,
-        keyExtractor: (_item) => (_item as HistoryItem).url,
+        keyExtractor: (_item, index) => {
+          try {
+            const item = _item as HistoryItem;
+            return `${index}-${item.url}-${item.title}`;
+          } catch (e) {
+            return index.toString();
+          }
+        },
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
-          <ListEmptyComponent
-            isLoading={historyLoading || dappLoading}
-            terms={searchContentTerm}
-          />
+          <ListEmptyComponent isLoading={loading} terms={searchContentTerm} />
         ),
         ListHeaderComponent: (
           <Header
-            histories={searchedHistories}
-            keyword={searchContent}
             terms={searchContentTerm}
+            keyword={searchContent}
             onChange={setSearchContent}
             onSelectHistory={onSelectHistory}
             onSubmitContent={(content) => {

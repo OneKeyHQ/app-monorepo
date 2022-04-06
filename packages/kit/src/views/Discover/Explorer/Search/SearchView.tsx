@@ -66,7 +66,7 @@ const SearchView: FC<SearchViewProps> = ({
     <Pressable.Item
       px={3}
       py={2}
-      key={index}
+      key={`${index}-${item.url}`}
       onPress={() => {
         onSelectHistory(item);
       }}
@@ -149,7 +149,9 @@ const SearchView: FC<SearchViewProps> = ({
               </Box>
             ) : null
           }
-          keyExtractor={(_item: HistoryItem) => _item.url}
+          keyExtractor={(_item: HistoryItem, index) =>
+            `${index}-${_item.url}-${_item.title}`
+          }
           showsVerticalScrollIndicator={false}
         />
       </Box>
