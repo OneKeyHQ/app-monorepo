@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Keyboard, Platform } from 'react-native';
 
 export function useLocalAuthentication() {
   const [isOk, setOk] = useState(false);
@@ -24,6 +24,7 @@ export function useLocalAuthentication() {
     if (!supported) {
       return { success: false, error: 'no supported' };
     }
+    Keyboard.dismiss();
     return LocalAuthentication.authenticateAsync({
       cancelLabel: 'Cancel',
       // promptMessage: 'Face ID',
