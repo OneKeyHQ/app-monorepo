@@ -2,7 +2,7 @@ name: build-desktop
 
 on:
   schedule:
-    - cron: '33 19 * * 0,2,4' 
+    - cron: '33 19 * * 0,2,4'
   workflow_dispatch:
 
 jobs:
@@ -74,7 +74,8 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
 
-      - name: Build and Sign Static Linux / Macos / Windows Installer
+      - name: Publish and Sign Static Linux / Macos / Windows Installer
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -83,6 +84,17 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
         run: 'cd packages/desktop && yarn publish:all'
+
+      - name: Build and Sign Static Linux / Macos / Windows Installer
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: 'cd packages/desktop && yarn build'
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
