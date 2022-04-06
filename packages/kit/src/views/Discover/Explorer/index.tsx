@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
+import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
@@ -16,6 +17,7 @@ import Home from '../Home';
 import Desktop from './Content/Desktop';
 import Mobile from './Content/Mobile';
 import MoreMenuView from './MoreMenu';
+import { useWebviewRef } from './useWebviewRef';
 
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
@@ -37,62 +39,51 @@ const Explorer: FC = () => {
   const toast = useToast();
   const { dispatch } = backgroundApiProxy;
 
+  const [navigationStateChangeEvent, setNavigationStateChangeEvent] = useState<
+    any | null
+  >(null);
+  const [webviewRef, setWebviewRef] = useState<IWebViewWrapperRef | null>(null);
+
+  const {
+    canGoBack: webCanGoBack,
+    goBack,
+    goForward,
+    url: webUrl,
+  } = useWebviewRef(webviewRef, navigationStateChangeEvent);
   const [visibleMore, setVisibleMore] = useState(false);
 
   const [displayInitialPage, setDisplayInitialPage] = useState(true);
-  // 后退的栈
-  const [urlStack, setUrlStack] = useState<string[]>([]);
-  // 前进的栈
-  const [urlPreStack, setUrlPreStack] = useState<string[]>([]);
 
   const [searchContent, setSearchContent] = useState<string | undefined>();
   const [currentUrl, setCurrentUrl] = useState<string | undefined>();
 
   const isSmallLayout = useIsSmallLayout();
 
-  const pushStackUrl = (url: string) => {
-    setUrlStack([...urlStack, url]);
-  };
-
-  const popStackUrl = () => {
-    if (urlStack.length >= 1) {
-      const url = urlStack.pop();
-      const stack = [...urlStack];
-      setUrlStack(stack);
-      return url;
+  const gotoUrl = (url: string | undefined) => {
+    if (url && url.trim() !== '') {
+      setDisplayInitialPage(false);
+      if (url !== currentUrl) {
+        setCurrentUrl(url);
+      }
+    } else {
+      setDisplayInitialPage(true);
     }
-    return null;
-  };
-
-  const pushPreStackUrl = (url: string) => {
-    setUrlPreStack([...urlPreStack, url]);
-  };
-
-  const popPreStackUrl = () => {
-    if (urlPreStack.length >= 1) {
-      const url = urlPreStack.pop();
-      const stack = [...urlPreStack];
-      setUrlPreStack(stack);
-      return url;
-    }
-    return null;
   };
 
   useEffect(() => {
-    if (urlStack.length === 0) {
-      setDisplayInitialPage(true);
-      setSearchContent('');
-    } else {
-      setDisplayInitialPage(false);
-      const url = urlStack[urlStack.length - 1];
-      setCurrentUrl(url);
-      setSearchContent(url);
-    }
-  }, [urlStack]);
+    console.log('Explorer useEffect webviewRef:', !!webviewRef);
+  }, [webviewRef, webviewRef?.innerRef]);
 
   useEffect(() => {
     console.log('Explorer useEffect currentUrl:', currentUrl);
   }, [currentUrl]);
+
+  useEffect(() => {
+    // console.log('Explorer Title & Url:', webTitle, ' ,', webUrl);
+    console.log('Explorer Title & Url:', webUrl);
+
+    setSearchContent(displayInitialPage ? '' : webUrl ?? currentUrl ?? '');
+  }, [currentUrl, webUrl, displayInitialPage]);
 
   const onSearchSubmitEditing = (text: string) => {
     console.log('onSearchSubmitEditing', text);
@@ -104,27 +95,32 @@ const Explorer: FC = () => {
       }
       url = new URL(url).toString();
 
-      if (url) pushStackUrl(url);
+      if (url) gotoUrl(url);
       console.log('onSearchSubmitEditing pushStackUrl', url);
     } catch (error) {
-      pushStackUrl(`https://www.google.com/search?q=${text}`);
+      gotoUrl(`https://www.google.com/search?q=${text}`);
       console.log('not a url', error);
     }
   };
 
   const onGoBack = () => {
-    const url = popStackUrl();
-    if (url) pushPreStackUrl(url);
+    console.log('onGoBack', webCanGoBack());
+
+    if (webCanGoBack()) {
+      goBack();
+    } else {
+      gotoUrl(undefined);
+    }
 
     console.log('onGoBack');
   };
 
   const onNext = () => {
-    const url = popPreStackUrl();
-    if (url) {
-      pushStackUrl(url);
+    if (displayInitialPage === true) {
+      gotoUrl(currentUrl);
+    } else {
+      goForward();
     }
-
     console.log('onNext');
   };
 
@@ -188,7 +184,14 @@ const Explorer: FC = () => {
             }}
           />
         ) : (
-          <WebView src={currentUrl ?? ''} openUrlInExt />
+          <WebView
+            src={currentUrl ?? ''}
+            onWebViewRef={(ref) => {
+              setWebviewRef(ref);
+            }}
+            onNavigationStateChange={setNavigationStateChangeEvent}
+            allowpopups={false}
+          />
         )}
       </Box>
     ),
