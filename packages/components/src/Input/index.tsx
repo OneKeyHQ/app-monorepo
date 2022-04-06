@@ -9,6 +9,8 @@ import Icon, { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
 
+import type { TypographyStyle } from '../Typography';
+
 type Props = {
   isDisabled?: boolean;
   leftText?: string;
@@ -19,6 +21,7 @@ type Props = {
   rightCustomElement?: ReactNode;
   rightSecondaryIconName?: ICON_NAMES;
   size?: string;
+  textSize?: TypographyStyle;
   onPressLeftText?: () => void;
   onPressRightText?: () => void;
   onPressLeftIcon?: () => void;
@@ -42,6 +45,7 @@ const Input = React.forwardRef<
       rightSecondaryText,
       rightSecondaryIconName,
       size,
+      textSize,
       onPressLeftText,
       onPressRightText,
       onPressLeftIcon,
@@ -57,13 +61,18 @@ const Input = React.forwardRef<
     let pl = '3';
     let pr = '3';
     const small = useIsVerticalLayout();
-    const textProps =
-      small || size === 'xl'
-        ? getTypographyStyleProps('Body1')
-        : (getTypographyStyleProps('Body2') as Pick<
-            ComponentProps<typeof Text>,
-            'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
-          >);
+
+    let textProps: Pick<
+      ComponentProps<typeof Text>,
+      'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight'
+    >;
+    if (textSize) {
+      textProps = getTypographyStyleProps(textSize);
+    } else if (small || size === 'xl') {
+      textProps = getTypographyStyleProps('Body1');
+    } else {
+      textProps = getTypographyStyleProps('Body2');
+    }
 
     if (leftText) {
       leftElements.push(
