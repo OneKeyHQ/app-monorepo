@@ -11,9 +11,10 @@ import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 
 import Desktop from './Content/Desktop';
 import Mobile from './Content/Mobile';
-import MoreView from './MoreView';
+import MoreMenuView from './MoreMenu';
 
 export type ExplorerViewProps = {
+  displayInitialPage?: boolean;
   searchContent?: string;
   onSearchContentChange?: (text: string) => void;
   onSearchSubmitEditing?: (text: string) => void;
@@ -257,7 +258,7 @@ const Explorer: FC = () => {
 
   const moreViewContent = useMemo(
     () => (
-      <MoreView
+      <MoreMenuView
         visible={visibleMore}
         onVisibleChange={setVisibleMore}
         onRefresh={onRefresh}
@@ -287,6 +288,7 @@ const Explorer: FC = () => {
           />
         ) : (
           <Desktop
+            displayInitialPage={displayInitialPage}
             searchContent={searchContent}
             onSearchContentChange={setSearchContent}
             onSearchSubmitEditing={onSearchSubmitEditing}

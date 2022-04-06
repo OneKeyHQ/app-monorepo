@@ -25,3 +25,4 @@ export type { ManagerAccountRoutesParams } from './ManagerAccount';
 export type { EnableLocalAuthenticationRoutesParams } from './EnableLocalAuthentication';
 export type { ManageNetworkRoutesParams } from './ManageNetwork';
 export type { OnekeyHardwareRoutesParams } from './HardwareOnekey';
+export type { DiscoverRoutesParams } from './Discover';
