@@ -928,7 +928,9 @@ class Engine {
   ): Promise<void> {
     const tokens = getDefaultStableTokens();
 
-    let networkIds: string[] = Object.keys(tokens);
+    let networkIds: string[] = Object.keys(tokens).filter((v) =>
+      getSupportedImpls().has(getImplFromNetworkId(v)),
+    );
     if (accountId && impl) {
       // filter for account
       networkIds = networkIds.filter((v) => getImplFromNetworkId(v) === impl);
