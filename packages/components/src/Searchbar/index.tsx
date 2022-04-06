@@ -5,13 +5,12 @@ import Input from '../Input';
 type SearchbarProps = {
   onClear?: () => void;
   onChangeText?: (text: string) => void;
-  hiddenLeftIcon?: boolean;
 };
 
 const Searchbar: FC<
   Omit<ComponentProps<typeof Input>, 'onChange' | 'onChangeText'> &
     SearchbarProps
-> = ({ value, onClear, onChangeText, hiddenLeftIcon, ...props }) => {
+> = ({ value, onClear, onChangeText, ...props }) => {
   const [innerValue, setInnerValue] = useState(value);
   const rightIconName = innerValue || value ? 'CloseCircleSolid' : undefined;
   const handleChangeText = useCallback(
@@ -28,7 +27,7 @@ const Searchbar: FC<
   return (
     <Input
       value={value ?? innerValue}
-      leftIconName={hiddenLeftIcon ? undefined : 'SearchOutline'}
+      leftIconName="SearchOutline"
       rightIconName={rightIconName}
       placeholder="Search..."
       onPressRightIcon={onClear}

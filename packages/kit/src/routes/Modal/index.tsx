@@ -43,6 +43,7 @@ import DappSignatureStack, {
   DappSignatureModalRoutes,
   DappSignatureRoutesParams,
 } from './DappSignature';
+import DiscoverModal from './Discover';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
 import OnekeyHardwareModal, {
   OnekeyHardwareModalRoutes,
@@ -209,6 +210,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.OnekeyHardware,
     component: OnekeyHardwareModal,
+  },
+  {
+    name: ModalRoutes.Discover,
+    component: DiscoverModal,
   },
 ];
 
