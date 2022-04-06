@@ -46,6 +46,9 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       accountId: sendParams.accountId,
       encodedTx: sendParams.encodedTx,
     });
+    if (route.params.onSuccess) {
+      route.params.onSuccess(result);
+    }
     debugLogger.sendTx('Authentication sendTx DONE:', sendParams, result);
     return true;
   }, [password, sendParams]);

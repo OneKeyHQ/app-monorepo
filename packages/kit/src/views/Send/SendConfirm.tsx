@@ -22,8 +22,15 @@ import {
   useThemeValue,
   utils,
 } from '@onekeyhq/components';
+import {
+  HistoryEntryStatus,
+  HistoryEntryType,
+} from '@onekeyhq/engine/src/types/history';
+import { IBroadcastedTx } from '@onekeyhq/engine/src/types/vault';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import {
   SendRoutes,
@@ -90,9 +97,33 @@ const TransactionConfirm = () => {
           ...params,
           accountId: payload.account.id,
           networkId: payload.network.id,
+          onSuccess: (tx: IBroadcastedTx) => {
+            const historyId = `${payload.network.id}--${tx.txid}`;
+            backgroundApiProxy.engine.addHistoryEntry({
+              id: historyId,
+              accountId: payload.account.id,
+              networkId: payload.network.id,
+              type: HistoryEntryType.TRANSFER,
+              status: HistoryEntryStatus.PENDING,
+              meta: {
+                contract: payload.token?.idOnNetwork || '',
+                target: payload.to,
+                value: payload.value,
+                rawTx: tx.rawTx,
+              },
+            });
+          },
         }),
       ),
-    [navigation, params, payload.account.id, payload.network.id],
+    [
+      navigation,
+      params,
+      payload.account.id,
+      payload.network.id,
+      payload.to,
+      payload.token?.idOnNetwork,
+      payload.value,
+    ],
   );
 
   const totalTransfer = isTransferNativeToken

@@ -1,4 +1,7 @@
-import { IFeeInfoSelected } from '@onekeyhq/engine/src/types/vault';
+import {
+  IBroadcastedTx,
+  IFeeInfoSelected,
+} from '@onekeyhq/engine/src/types/vault';
 
 export enum SendRoutes {
   Send = 'Send',
@@ -32,7 +35,9 @@ export type TransferSendParamsPayload = {
 };
 
 export type SendParams = EditFeeParams & {
+  payloadType?: string;
   payload?: TransferSendParamsPayload | any;
+  onSuccess?: (tx: IBroadcastedTx) => void;
 };
 
 export type SendAuthenticationParams = SendParams & {
