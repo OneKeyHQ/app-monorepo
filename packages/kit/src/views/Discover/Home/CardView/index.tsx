@@ -9,6 +9,8 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 
 import DAppIcon from '../../DAppIcon';
 import { DAppItemType } from '../../type';
@@ -16,9 +18,14 @@ import { SectionTitle } from '../TitleView';
 import { SectionDataType } from '../type';
 
 const CardViewMobile: FC<SectionDataType> = ({ title, data }) => {
+  const { dispatch } = backgroundApiProxy;
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
-      <Pressable onPress={() => {}}>
+      <Pressable
+        onPress={() => {
+          dispatch(updateHistory(item.id));
+        }}
+      >
         <Box
           width="139px"
           height="100%"
@@ -38,12 +45,12 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data }) => {
             textAlign="center"
             color="text-subdued"
           >
-            {item.description}
+            {item.subtitle}
           </Typography.Caption>
         </Box>
       </Pressable>
     ),
-    [],
+    [dispatch],
   );
   return (
     <Box width="100%" height="224px" mt="32px">
@@ -97,7 +104,7 @@ const CardViewDesktop: FC<SectionDataType> = ({ title, data }) => {
               textAlign="left"
               color="text-subdued"
             >
-              {item.description}
+              {item.subtitle}
             </Typography.Caption>
           </Box>
         </Pressable>
@@ -129,10 +136,12 @@ const CardViewDesktop: FC<SectionDataType> = ({ title, data }) => {
 
 const CardView: FC<SectionDataType> = ({ ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
+  const { data } = rest;
+  const filterData = data.filter((item, index) => index < 8);
   return isSmallScreen ? (
-    <CardViewMobile {...rest} />
+    <CardViewMobile {...rest} data={filterData} />
   ) : (
-    <CardViewDesktop {...rest} />
+    <CardViewDesktop {...rest} data={filterData} />
   );
 };
 

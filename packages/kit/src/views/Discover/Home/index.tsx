@@ -22,33 +22,38 @@ import {
   useLocale,
 } from '@onekeyhq/components';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  updateHistory,
+  updateSyncData,
+} from '@onekeyhq/kit/src/store/reducers/discover';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useDiscover } from '../../../hooks/redux';
 import DAppIcon from '../DAppIcon';
 import { imageUrl, requestRankings, requestSync } from '../Service';
-// import { rankingDataMock, syncDataMock } from '../Service/MockData';
 import { DAppItemType, RankingsPayload, SyncRequestPayload } from '../type';
 
 import CardView from './CardView';
 import DiscoverIOS from './DiscoverIOS';
 import ListView from './ListView';
-import { SectionDataType, SectionType } from './type';
-
-const whiteList: { title: string; type: SectionType }[] = [
-  { title: 'NFTs', type: 'card' },
-  { title: 'DeFi', type: 'list' },
-];
+import { SectionDataType } from './type';
 
 const Banner: FC<SectionDataType> = ({ data }) => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
   const { width } = useWindowDimensions();
   const cardWidth = (width - 256 - 96) / 3;
+  const { dispatch } = backgroundApiProxy;
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => {
       const url = imageUrl(item.pic ?? '');
       return (
-        <Pressable onPress={() => {}}>
+        <Pressable
+          onPress={() => {
+            dispatch(updateHistory(item.id));
+          }}
+        >
           <Box
             width={isSmallScreen ? '294px' : `${cardWidth}px`}
             height="100%"
@@ -74,13 +79,13 @@ const Banner: FC<SectionDataType> = ({ data }) => {
               color="text-subdued"
               numberOfLines={2}
             >
-              {item.description}
+              {item.subtitle}
             </Typography.Caption>
           </Box>
         </Pressable>
       );
     },
-    [cardWidth, isSmallScreen],
+    [cardWidth, dispatch, isSmallScreen],
   );
   return (
     <Box width="100%" height={isSmallScreen ? '306px' : '349px'}>
@@ -113,7 +118,8 @@ export const Discover = () => {
   const navigation = useNavigation();
   const intl = useIntl();
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
-
+  const { dispatch } = backgroundApiProxy;
+  const { syncData } = useDiscover();
   useLayoutEffect(() => {
     if (platformEnv.isIOS) {
       navigation.setOptions({
@@ -141,27 +147,29 @@ export const Discover = () => {
   );
 
   const generaListData = useCallback(
-    (syncData: SyncRequestPayload, rankData: RankingsPayload) => {
+    (syncResponceData: SyncRequestPayload, rankData: RankingsPayload) => {
       const listData: SectionDataType[] = [];
-      const { increment, banners } = syncData;
+      const { increment, banners } = syncResponceData;
       const { tags } = rankData;
       if (increment) {
         if (banners) {
           const dAppItems = banners.map((item) => {
             const dApp = increment[item.dapp];
-            return { pic: item.pic, ...dApp };
+            return { pic: item.pic, ...dApp, id: item.dapp };
           });
           listData.push({ type: 'banner', title: 'Explore', data: dAppItems });
         }
         if (tags.length > 0) {
           tags.forEach((item) => {
-            const filter = whiteList.filter((i) => i.title === item.name);
-            if (filter.length > 0) {
-              const { dapps } = item;
-              const dAppItems = dapps.map((i) => increment[i]);
+            const { dapps } = item;
+            const dAppItems = dapps.map((key) => ({
+              ...increment[key],
+              id: key,
+            }));
+            if (dAppItems.length > 0) {
               listData.push({
-                type: filter[0].type,
-                title: filter[0].title,
+                type: listData.length % 2 === 1 ? 'card' : 'list',
+                title: item.name,
                 data: dAppItems,
               });
             }
@@ -175,23 +183,37 @@ export const Discover = () => {
 
   const getData = useCallback(() => {
     setPageStatus('loading');
-    requestSync(0, locale)
-      .then((response) => {
-        requestRankings()
-          .then((response2) => {
-            setPageStatus('data');
-            updateFlatListData(() => [
-              ...generaListData(response.data, response2.data),
-            ]);
-          })
-          .catch(() => {
-            setPageStatus('network');
-          });
-      })
-      .catch(() => {
-        setPageStatus('network');
-      });
-  }, [generaListData, locale]);
+    if (platformEnv.isIOS) {
+      requestRankings()
+        .then((response2) => {
+          setPageStatus('data');
+          updateFlatListData(() => [
+            ...generaListData(syncData, response2.data),
+          ]);
+        })
+        .catch(() => {
+          setPageStatus('network');
+        });
+    } else {
+      requestSync(0, locale)
+        .then((response) => {
+          dispatch(updateSyncData(response.data));
+          requestRankings()
+            .then((response2) => {
+              setPageStatus('data');
+              updateFlatListData(() => [
+                ...generaListData(response.data, response2.data),
+              ]);
+            })
+            .catch(() => {
+              setPageStatus('network');
+            });
+        })
+        .catch(() => {
+          setPageStatus('network');
+        });
+    }
+  }, [dispatch, generaListData, locale, syncData]);
 
   const noData = () => {
     switch (pageStatus) {

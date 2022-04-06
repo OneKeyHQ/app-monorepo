@@ -1,4 +1,5 @@
 export type DAppItemType = {
+  id: string;
   name: string;
   subtitle: string;
   description: string;

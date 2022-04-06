@@ -2,8 +2,8 @@ import axios from 'axios';
 
 import { RankingsPayload, SyncRequestPayload } from '../type';
 
-// const host = 'https://dapp-server.onekey.so';
-const host = 'https://dapp-test-server.onekey.so';
+const host = 'https://dapp-server.onekey.so';
+// const host = 'https://dapp-test-server.onekey.so';
 
 const syncUri = (timestamp: number, locale: string) =>
   `${host}/api/v1.0/sync/${locale}/${timestamp}`;

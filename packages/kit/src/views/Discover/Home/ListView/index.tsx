@@ -10,6 +10,8 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 
 import DAppIcon from '../../DAppIcon';
 import { DAppItemType } from '../../type';
@@ -17,9 +19,14 @@ import { SectionTitle } from '../TitleView';
 import { SectionDataType } from '../type';
 
 const ListViewMobile: FC<SectionDataType> = ({ title, data }) => {
+  const { dispatch } = backgroundApiProxy;
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item, index }) => (
-      <Pressable onPress={() => {}}>
+      <Pressable
+        onPress={() => {
+          dispatch(updateHistory(item.id));
+        }}
+      >
         <Box
           padding="16px"
           height="76px"
@@ -30,17 +37,17 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data }) => {
         >
           <Box flexDirection="row" flex={1} alignItems="center">
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
-            <Box flexDirection="column" ml="12px">
+            <Box flexDirection="column" ml="12px" flex={1}>
               <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
               <Typography.Body2 color="text-subdued" mt="4px" numberOfLines={1}>
-                {item.description}
+                {item.subtitle}
               </Typography.Body2>
             </Box>
           </Box>
         </Box>
       </Pressable>
     ),
-    [data?.length],
+    [data?.length, dispatch],
   );
   return (
     <Box width="100%" mt="32px">
@@ -84,7 +91,7 @@ const ListViewDesktop: FC<SectionDataType> = ({ title, data }) => {
             >
               <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
               <Typography.Body2 color="text-subdued" numberOfLines={1} mt="4px">
-                {item.description}
+                {item.subtitle}
               </Typography.Body2>
             </Box>
           </Box>
@@ -121,10 +128,13 @@ const ListViewDesktop: FC<SectionDataType> = ({ title, data }) => {
 
 const ListView: FC<SectionDataType> = ({ ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
+  const { data } = rest;
+  const maxCount = isSmallScreen ? 5 : 9;
+  const filterData = data.filter((item, index) => index < maxCount);
   return isSmallScreen ? (
-    <ListViewMobile {...rest} />
+    <ListViewMobile {...rest} data={filterData} />
   ) : (
-    <ListViewDesktop {...rest} />
+    <ListViewDesktop {...rest} data={filterData} />
   );
 };
 

@@ -15,7 +15,8 @@ export const SectionTitle: FC<{ title: string }> = ({ title }) => {
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
-      px={isSmallScreen ? '16px' : '32px'}
+      pl={isSmallScreen ? '16px' : '32px'}
+      pr={isSmallScreen ? '8px' : '32px'}
       mb="14px"
     >
       <Typography.Heading>{title}</Typography.Heading>
