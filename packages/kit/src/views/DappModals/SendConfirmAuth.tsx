@@ -7,6 +7,7 @@ import { Center, Icon, Modal, Spinner, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 
+import useDappApproveAction from '../../hooks/useDappApproveAction';
 import {
   DappSendModalRoutes,
   DappSendRoutesParams,
@@ -148,8 +149,10 @@ export const HDAccountAuthentication = () => {
     gasLimit: params.gasLimit,
   };
 
+  const { reject } = useDappApproveAction({ id: params.id });
+
   return (
-    <Modal footer={null}>
+    <Modal footer={null} onClose={reject}>
       <Protected>
         {(password) => (
           <SendConfirmAuth sendParams={sendParams} password={password} />

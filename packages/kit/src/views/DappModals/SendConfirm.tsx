@@ -318,7 +318,7 @@ const Send = () => {
     wallet,
   ]);
 
-  const dappApprove = useDappApproveAction({ id });
+  const { reject } = useDappApproveAction({ id });
 
   return (
     <Modal
@@ -332,8 +332,8 @@ const Send = () => {
         isDisabled: isInvalidParams || !isSameFromAccount || isWatchAccount,
         onPromise: handleSendConfirm,
       }}
-      onSecondaryActionPress={dappApprove.reject}
-      onClose={dappApprove.reject}
+      onSecondaryActionPress={reject}
+      onClose={reject}
       scrollViewProps={{
         children: content,
       }}
