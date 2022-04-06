@@ -4,7 +4,7 @@ import { ColorType } from 'native-base/lib/typescript/components/types';
 
 import Box from '../Box';
 import Divider from '../Divider';
-import Icon from '../Icon';
+import Icon, { ICON_NAMES } from '../Icon';
 import PressableItem from '../Pressable/PressableItem';
 import Typography, { Text } from '../Typography';
 
@@ -17,6 +17,7 @@ export type ContentItemProps = {
   describeColor?: ColorType | null;
   subDescribe?: string | string[] | null;
   hasArrow?: boolean;
+  customArrowIconName?: ICON_NAMES;
   custom?: React.ReactNode | null;
   onPress?: (() => void) | null;
 } & ContentItemBaseProps;
@@ -33,6 +34,7 @@ const Item: FC<ContentItemProps> = ({
   describeColor,
   subDescribe,
   hasArrow,
+  customArrowIconName,
   hasDivider,
   children,
   custom,
@@ -97,9 +99,9 @@ const Item: FC<ContentItemProps> = ({
           </Box>
         )}
       </Box>
-      {hasArrow && (
+      {(hasArrow || !!customArrowIconName) && (
         <Box ml={3}>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name={customArrowIconName ?? 'ChevronRightSolid'} size={20} />
         </Box>
       )}
     </Box>
