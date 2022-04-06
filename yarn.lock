@@ -3555,6 +3555,11 @@
     cross-fetch "^3.0.6"
     runtypes "^5.0.1"
 
+"@onekeyfe/safe-pass@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/safe-pass/-/safe-pass-1.0.0.tgz#b1eec9c7dd26e56cbedf7e28b403fdf829888d58"
+  integrity sha512-WL75WAfgMefg8xHV8IjtOVnsDYrwaAnKs+s8eJ1xdm9R9Zj2uMadOUwmGLJP+VXI+VOjX5CySkG4nL0uiLV5Hw==
+
 "@popperjs/core@^2.4.4":
   version "2.11.2"
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.2.tgz#830beaec4b4091a9e9398ac50f865ddea52186b9"
