@@ -2,7 +2,7 @@ name: Build Native iOS Release CI
 
 on:
   schedule:
-    - cron: '34 19 * * 2,4,7' 
+    - cron: '31 19 * * 0,2,4' 
   workflow_dispatch:
 jobs:
   build:
