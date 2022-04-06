@@ -1,60 +1,60 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import ContractCall from '@onekeyhq/kit/src/views/DappModals/ContractCall';
 import ContractData from '@onekeyhq/kit/src/views/DappModals/ContractData';
-import Multicall from '@onekeyhq/kit/src/views/DappModals/Multicall';
 import TransactionEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
 
 import createStackNavigator from './createStackNavigator';
 
-export enum DappMulticallModalRoutes {
-  MulticallModal = 'MulticallModal',
+export enum DappContractCallModalRoutes {
+  ContractCallModal = 'ContractCallModal',
   EditFeeModal = 'EditFeeModal',
   ContractDataModal = 'ContractDataModal',
 }
 
 export type DappMulticallRoutesParams = {
-  [DappMulticallModalRoutes.MulticallModal]: undefined;
-  [DappMulticallModalRoutes.EditFeeModal]: undefined;
-  [DappMulticallModalRoutes.ContractDataModal]: { contractData: string };
+  [DappContractCallModalRoutes.ContractCallModal]: undefined;
+  [DappContractCallModalRoutes.EditFeeModal]: undefined;
+  [DappContractCallModalRoutes.ContractDataModal]: { contractData: string };
 };
 
-const DappMulticallModalNavigator =
+const DappContractCallModalNavigator =
   createStackNavigator<DappMulticallRoutesParams>();
 
 const modalRoutes = [
   {
-    name: DappMulticallModalRoutes.MulticallModal,
-    component: Multicall,
+    name: DappContractCallModalRoutes.ContractCallModal,
+    component: ContractCall,
   },
   {
-    name: DappMulticallModalRoutes.EditFeeModal,
+    name: DappContractCallModalRoutes.EditFeeModal,
     component: TransactionEditFee,
   },
   {
-    name: DappMulticallModalRoutes.ContractDataModal,
+    name: DappContractCallModalRoutes.ContractDataModal,
     component: ContractData,
   },
 ];
 
-const DappMulticallStack = () => {
+const DappContractCallStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
-    <DappMulticallModalNavigator.Navigator
+    <DappContractCallModalNavigator.Navigator
       screenOptions={{
         headerShown: false,
         animationEnabled: !!isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (
-        <DappMulticallModalNavigator.Screen
+        <DappContractCallModalNavigator.Screen
           key={route.name}
           name={route.name}
           component={route.component}
         />
       ))}
-    </DappMulticallModalNavigator.Navigator>
+    </DappContractCallModalNavigator.Navigator>
   );
 };
 
-export default DappMulticallStack;
+export default DappContractCallStack;

@@ -306,7 +306,7 @@ class ProviderController extends BaseProviderController {
     return new Verifier(pub, curve as Curve);
   }
 
-  public getSigners(
+  private getSigners(
     networkId: string,
     credential: CredentialSelector,
     dbAccount: DBAccount,
@@ -806,9 +806,16 @@ class ProviderController extends BaseProviderController {
         } else if (typeof unsignedTx.accessList === 'undefined') {
           delete unsignedTx.type;
         }
-        const [signature] = await Object.values(
-          this.getSigners(network.id, credential, dbAccount),
-        )[0].sign(
+        const signer = this.getSigners(network.id, credential, dbAccount)[
+          dbAccount.address
+        ];
+
+        if (!signer) {
+          // TODO: handle this case.
+          throw new Error('Signer not found');
+        }
+
+        const [signature] = await signer.sign(
           Buffer.from(
             keccak256(ethTransaction.serialize(unsignedTx)).slice(2),
             'hex',

@@ -75,10 +75,15 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
-  openMulticallModal(request: CommonRequestParams['request']) {
+  openMulticallModal(
+    request: CommonRequestParams['request'] & { contractCode?: string },
+  ) {
     return this.openModal({
       request,
-      screens: [ModalRoutes.DappMulticallModal, DappModalRoutes.MulticallModal],
+      screens: [
+        ModalRoutes.DappContractCallModal,
+        DappModalRoutes.ContractCallModal,
+      ],
     });
   }
 

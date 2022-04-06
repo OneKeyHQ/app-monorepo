@@ -10,7 +10,7 @@ import {
   DappApproveRoutesParams,
   DappConnectionModalRoutes,
   DappConnectionRoutesParams,
-  DappMulticallModalRoutes,
+  DappContractCallModalRoutes,
   DappMulticallRoutesParams,
   DappSendModalRoutes,
   DappSendRoutesParams,
@@ -51,9 +51,9 @@ const DappModalsGallery = () => {
   };
   const openMulticallModal = () => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.DappMulticallModal,
+      screen: ModalRoutes.DappContractModal,
       params: {
-        screen: DappMulticallModalRoutes.MulticallModal,
+        screen: DappContractCallModalRoutes.ContractCallModal,
       },
     });
   };

@@ -17,7 +17,7 @@ export enum ModalRoutes {
   OnekeyLiteChangePinInputPin = 'OnekeyLiteChangePinInputPin',
   DappApproveModal = 'DappApproveModal',
   DappSendConfirmModal = 'DappSendConfirmModal',
-  DappMulticallModal = 'DappMulticallModal',
+  DappContractCallModal = 'DappContractCallModal',
   DappSignatureModal = 'DappSignatureModal',
   DappConnectionModal = 'DappConnectionModal',
   Password = 'Password',
@@ -31,7 +31,7 @@ export enum ModalRoutes {
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
   ApproveModal = 'ApproveModal',
-  MulticallModal = 'MulticallModal',
+  ContractCallModal = 'ContractCallModal',
   SendConfirmModal = 'SendConfirmModal',
 }
 export enum RootRoutes {

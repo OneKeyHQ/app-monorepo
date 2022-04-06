@@ -24,6 +24,8 @@ import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
+  ImportAccountModalRoutes,
+  WatchedAccountModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 import {
   ModalRoutes,
@@ -83,28 +85,22 @@ const Home: FC = () => {
   const [offline, setOffline] = useState(false);
   const [backupTip, setBackupTip] = useState(true);
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (wallet && !wallet.backuped && backupTip) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.BackupTipsModal,
-            params: { walletId: wallet.id },
-          },
-        });
-      }
-      setBackupTip(() => false);
-    }, 2000);
+    if (wallet && !wallet.backuped && backupTip) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateWallet,
+        params: {
+          screen: CreateWalletModalRoutes.BackupTipsModal,
+          params: { walletId: wallet.id },
+        },
+      });
+    }
+    setBackupTip(() => false);
 
     const unsubscribe = NetInfo.addEventListener((state) => {
       setOffline(state.type === NetInfoStateType.none);
     });
-    return () => {
-      unsubscribe();
-      clearTimeout(t);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return unsubscribe;
+  }, [navigation, backupTip, wallet]);
 
   if (!wallet) {
     return (
@@ -128,7 +124,7 @@ const Home: FC = () => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.CreateWallet,
                 params: {
-                  screen: CreateWalletModalRoutes.GuideModal,
+                  screen: CreateWalletModalRoutes.CreateWalletModal,
                 },
               });
             }}
@@ -163,19 +159,17 @@ const Home: FC = () => {
             onPress={() => {
               if (wallet.type === 'imported') {
                 return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateWallet,
+                  screen: ModalRoutes.ImportAccount,
                   params: {
-                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                    params: { mode: 'privatekey' },
+                    screen: ImportAccountModalRoutes.ImportAccountModal,
                   },
                 });
               }
               if (wallet.type === 'watching') {
                 return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateWallet,
+                  screen: ModalRoutes.WatchedAccount,
                   params: {
-                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                    params: { mode: 'address' },
+                    screen: WatchedAccountModalRoutes.WatchedAccountModal,
                   },
                 });
               }

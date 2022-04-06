@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 
+import { UnsignedTransaction, serialize } from '@ethersproject/transactions';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { Column } from 'native-base';
@@ -7,7 +8,10 @@ import { useIntl } from 'react-intl';
 
 import { Box, Center, Modal, Token, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { SEPERATOR } from '@onekeyhq/engine/src/constants';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { Transaction } from '../../background/providers/ProviderApiEthereum';
 import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -33,15 +37,6 @@ type NavigationProps = NativeStackNavigationProp<
   DappApproveModalRoutes.ApproveModal
 >;
 
-type ApprovalParams = {
-  from: string;
-  // Target 的详细信息从哪拿
-  to: string;
-  gasLimit: string;
-  gasPrice: string;
-  data: string;
-};
-
 const isRug = (target?: string) => {
   const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target?.toLowerCase() ?? ''));
@@ -55,32 +50,77 @@ const Approve = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
 
-  const { id, origin, ...dappParams } = useDappParams<ApprovalParams>();
-  const approvalData = (dappParams.data.params as [ApprovalParams])?.[0] ?? {};
-  const { from, to, gasLimit, gasPrice, data } = approvalData;
+  const { id, origin, ...dappParams } = useDappParams<Transaction>();
+  const approvalTransaction = useMemo(
+    () => (dappParams.data.params as [Transaction])?.[0] ?? {},
+    [dappParams.data.params],
+  );
+  const {
+    from,
+    to,
+    gas: gasLimit = '21000',
+    gasPrice,
+    data,
+  } = approvalTransaction;
   const computedIsRug = isRug(origin);
 
   // parsed from data
   const parsedData = data;
-  const { account } = useActiveWalletAccount();
+  const { account, networkId } = useActiveWalletAccount();
   // Should be parse from data, we use native to mock here
   const { nativeToken } = useManageTokens();
-  const token = {
-    logoUrl: nativeToken?.logoURI,
-    name: nativeToken?.name,
-    symbol: nativeToken?.symbol ?? 'ETH',
-    decimal: nativeToken?.decimals ?? 18,
-  };
-  const getResolveData = useCallback(() => {
-    // Make a transaction and return it
-    if (data) {
-      return '0xf9b3000d2e6630b1b9935505b1baf03900790b4e59278dc3e621b77604489f91';
+  const token = useMemo(
+    () => ({
+      logoUrl: nativeToken?.logoURI,
+      name: nativeToken?.name,
+      symbol: nativeToken?.symbol ?? 'ETH',
+      decimal: nativeToken?.decimals ?? 18,
+    }),
+    [nativeToken],
+  );
+
+  const getResolveData = useCallback(async () => {
+    if (!data || !networkId || !account) {
+      return;
     }
-  }, [data]);
+    try {
+      const [, chainId] = networkId.split(SEPERATOR);
+      // Make a transaction and return it
+      const unsignedTx: UnsignedTransaction = {
+        to,
+        data,
+        gasPrice,
+        // maxFeePerGas,
+        // maxPriorityFeePerGas,
+        chainId: Number(chainId),
+        gasLimit: approvalTransaction.gas,
+      };
+      const rawTx = serialize(unsignedTx);
+      const [txResult] = await backgroundApiProxy.engine.signTransaction(
+        '12341234',
+        networkId,
+        account.id,
+        [rawTx],
+      );
+      return txResult;
+    } catch (e) {
+      console.error(e);
+    }
+  }, [account, approvalTransaction.gas, data, gasPrice, networkId, to]);
+
   const dappApprove = useDappApproveAction({
     id,
     getResolveData,
   });
+
+  const handleConfirmApprove = useCallback(async () => {
+    if (!computedIsRug) {
+      // Do approve operation
+      return dappApprove.resolve();
+    }
+    // Do confirm before approve
+    setRugConfirmDialogVisible(true);
+  }, [computedIsRug, dappApprove]);
 
   const content = useMemo(() => {
     const spendLimit = Number(route.params?.spendLimit ?? 0);
@@ -95,7 +135,7 @@ const Approve = () => {
         intl.formatMessage({ id: 'form__unlimited' })
       );
 
-    const fee = new BigNumber(gasLimit).multipliedBy(gasPrice);
+    const fee = new BigNumber(gasLimit).multipliedBy(gasPrice ?? '5');
     const gasFeeNode = (
       <FormatBalance
         balance={fee}
@@ -207,9 +247,20 @@ const Approve = () => {
         </Column>
       </Column>
     );
-    // :TODO: IMPORTANT
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    account,
+    intl,
+    navigation,
+    origin,
+    parsedData,
+    route,
+    token,
+    computedIsRug,
+    from,
+    gasLimit,
+    gasPrice,
+    to,
+  ]);
 
   return (
     <>
@@ -225,14 +276,7 @@ const Approve = () => {
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__reject"
         header={intl.formatMessage({ id: 'title__approve' })}
-        onPrimaryActionPress={({ close }) => {
-          if (!computedIsRug) {
-            // Do approve operation
-            return dappApprove.resolve({ close });
-          }
-          // Do confirm before approve
-          setRugConfirmDialogVisible(true);
-        }}
+        primaryActionProps={{ onPromise: handleConfirmApprove }}
         onSecondaryActionPress={dappApprove.reject}
         onClose={dappApprove.reject}
         scrollViewProps={{

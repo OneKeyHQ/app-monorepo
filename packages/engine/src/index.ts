@@ -1433,7 +1433,7 @@ class Engine {
         overwriteParams,
         autoBroadcast,
       );
-      txsWithStatus.forEach(async (tx) => {
+      for (const tx of txsWithStatus) {
         ret.push(autoBroadcast ? tx.txid : tx.rawTx);
         const meta = { ...tx.txMeta, rawTx: tx.rawTx };
         await this.dbApi.addHistoryEntry(
@@ -1446,7 +1446,7 @@ class Engine {
             : HistoryEntryStatus.SIGNED,
           meta as HistoryEntryMeta,
         );
-      });
+      }
     } catch (e) {
       const { message } = e as { message: string };
       throw new FailedToTransfer(message);

@@ -19,7 +19,7 @@ export type DappApproveRoutesParams = {
   [DappApproveModalRoutes.ApproveModal]?: { spendLimit?: string };
   [DappApproveModalRoutes.SpendLimitModal]: undefined;
   [DappApproveModalRoutes.EditFeeModal]: undefined;
-  [DappApproveModalRoutes.ContractDataModal]: { contractData: string };
+  [DappApproveModalRoutes.ContractDataModal]: { contractData?: string };
 };
 
 const DappApproveModalNavigator =

@@ -1,25 +1,34 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Modal, Token, Typography } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
-
 import {
-  DappMulticallModalRoutes,
+  Box,
+  Center,
+  Modal,
+  Text,
+  Token,
+  Typography,
+} from '@onekeyhq/components';
+import { TtransactionTypes } from '@onekeyhq/engine/src/managers/transaction';
+
+import { Transaction } from '../../background/providers/ProviderApiEthereum';
+import useDappParams from '../../hooks/useDappParams';
+import {
+  DappContractCallModalRoutes,
   DappMulticallRoutesParams,
 } from '../../routes';
 
 import { DescriptionList, DescriptionListItem } from './DescriptionList';
-import RugConfirmDialog from './RugConfirmDialog';
+// import RugConfirmDialog from './RugConfirmDialog';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   DappMulticallRoutesParams,
-  DappMulticallModalRoutes.MulticallModal
+  DappContractCallModalRoutes.ContractCallModal
 >;
 
 const MockData = {
@@ -63,48 +72,52 @@ const MockData = {
   ]`,
 };
 
-const isRug = (target: string) => {
-  const RUG_LIST = ['app.uniswap.org'];
-  return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
+type ContractTransaction = Transaction & {
+  type: TtransactionTypes;
+  contractCode?: string;
 };
 
-const Multicall = () => {
-  const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
+const ContractCall = () => {
+  // const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
+  const { id, origin, ...dappParams } = useDappParams<ContractTransaction>();
+
+  const requestData =
+    (dappParams.data.params as [ContractTransaction])?.[0] ?? {};
   const computedTotal = `${MockData.detail.amount + MockData.detail.fee} ${
     MockData.detail.token
   }`;
-  const computedIsRug = isRug(MockData.target);
+
+  const header = useMemo(() => {
+    switch (requestData.type) {
+      // TODO: add more transaction header string
+      // case TRANSACTION_TYPES.DEPLOY_CONTRACT:
+      //   return intl.formatMessage({ id: 'transaction__deployment' });
+      default:
+        return intl.formatMessage({ id: 'transaction__contract_interaction' });
+    }
+  }, [intl, requestData.type]);
+
+  // TODO: Return default no parsable error screen
+  if (!requestData) {
+    return null;
+  }
 
   return (
     <>
-      <RugConfirmDialog
-        visible={rugConfirmDialogVisible}
-        onCancel={() => setRugConfirmDialogVisible(false)}
-        onConfirm={() => {
-          // Do something on user confirm
-        }}
-      />
       <Modal
         height="640px"
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__reject"
-        header={intl.formatMessage({ id: 'transaction__multicall' })}
+        header={header}
         onSecondaryActionPress={() => {
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
         }}
-        onPrimaryActionPress={({ onClose }) => {
-          if (!computedIsRug) {
-            // Do approve operation
-            return onClose?.();
-          }
-          // Do confirm before approve
-          setRugConfirmDialogVisible(true);
-        }}
+        onPrimaryActionPress={({ onClose }) => onClose?.()}
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
@@ -147,7 +160,6 @@ const Multicall = () => {
                     id: 'content__interact_with',
                   })}
                   detail={MockData.target}
-                  isRug={computedIsRug}
                 />
               </DescriptionList>
 
@@ -169,7 +181,7 @@ const Multicall = () => {
                     detail={MockData.detail.fee}
                     onPress={() => {
                       navigation.navigate(
-                        DappMulticallModalRoutes.EditFeeModal,
+                        DappContractCallModalRoutes.EditFeeModal,
                       );
                     }}
                   />
@@ -199,7 +211,7 @@ const Multicall = () => {
                     editable
                     onPress={() => {
                       navigation.navigate(
-                        DappMulticallModalRoutes.ContractDataModal,
+                        DappContractCallModalRoutes.ContractDataModal,
                         { contractData: MockData.contractData },
                       );
                     }}
@@ -214,4 +226,4 @@ const Multicall = () => {
   );
 };
 
-export default Multicall;
+export default ContractCall;

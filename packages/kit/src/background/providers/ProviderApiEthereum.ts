@@ -10,6 +10,10 @@ import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import {
+  TtransactionTypes,
+  determineTransactionType,
+} from '@onekeyhq/engine/src/managers/transaction';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,6 +69,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       chainId: '0x736d17dc',
       networkVersion: '1936529372',
     };
+
     if (network && network.network.impl === IMPL_EVM) {
       networkInfo = network.network.extraInfo as EvmExtraInfo;
     }
@@ -103,25 +108,59 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     debugLogger.backgroundApi('eth_sendTransaction', request, transaction);
+    console.log(
+      "🚀 ~ file: ProviderApiEthereum.ts ~ line 107 ~ ProviderApiEthereum ~ 'eth_sendTransaction', request, transaction",
+      'eth_sendTransaction',
+      request,
+      transaction,
+    );
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    const isContractAddress = false;
-    if (isContractAddress) {
-      const isApproval = false;
+    const { type, contractCode } = await determineTransactionType(
+      transaction,
+      this,
+    );
+    console.log(
+      '🚀 ~ file: ProviderApiEthereum.ts ~ line 112 ~ ProviderApiEthereum ~ type, contractCode',
+      type,
+      contractCode,
+    );
 
-      if (isApproval) {
-        // Approval modal
-        return this.backgroundApi.serviceDapp?.openApprovalModal(request);
-      }
-
-      // Contract modal
-      return this.backgroundApi.serviceDapp?.openMulticallModal(request);
+    const isApproval = [
+      TtransactionTypes.SWAP_APPROVAL,
+      TtransactionTypes.TOKEN_METHOD_APPROVE,
+    ].some((methodName) => methodName.toLowerCase() === type?.toLowerCase());
+    if (isApproval) {
+      // Approval modal
+      return this.backgroundApi.serviceDapp?.openApprovalModal(request);
     }
 
-    // Send transaction confirm modal
-    return this.backgroundApi.serviceDapp?.openSendConfirmModal(request);
+    const isSend = [
+      TtransactionTypes.TOKEN_METHOD_TRANSFER,
+      TtransactionTypes.SIMPLE_SEND,
+    ].some((methodName) => methodName.toLowerCase() === type?.toLowerCase());
+    if (isSend) {
+      // Send transaction confirm modal
+      return this.backgroundApi.serviceDapp?.openSendConfirmModal(request);
+    }
+
+    // Contract modal
+    const param = {
+      ...transaction,
+      type,
+      contractCode,
+    };
+    const data = typeof request.data === 'object' ? request.data : {};
+    const contractReq = {
+      ...request,
+      data: {
+        ...data,
+        params: [param],
+      },
+    };
+    return this.backgroundApi.serviceDapp?.openMulticallModal(contractReq);
   }
 
   /**

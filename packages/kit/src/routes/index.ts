@@ -13,7 +13,7 @@ export * from './Modal/WatchedAccount';
 export * from './Modal/HardwareOnekeyLiteReset';
 export * from './Modal/HardwareOnekeyLiteChangePin';
 export * from './Modal/DappApprove';
-export * from './Modal/DappMulticall';
+export * from './Modal/DappContractCall';
 export * from './Modal/DappSend';
 export * from './Modal/DappSignature';
 export * from './Modal/DappConnection';

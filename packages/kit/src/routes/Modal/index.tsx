@@ -31,10 +31,10 @@ import DappConnectionStack, {
   DappConnectionModalRoutes,
   DappConnectionRoutesParams,
 } from './DappConnection';
-import DappMulticallStack, {
-  DappMulticallModalRoutes,
+import DappContractCallStack, {
+  DappContractCallModalRoutes,
   DappMulticallRoutesParams,
-} from './DappMulticall';
+} from './DappContractCall';
 import DappSendStack, {
   DappSendModalRoutes,
   DappSendRoutesParams,
@@ -172,8 +172,8 @@ const modalStackScreenList = [
     component: DappConnectionStack,
   },
   {
-    name: ModalRoutes.DappMulticallModal,
-    component: DappMulticallStack,
+    name: ModalRoutes.DappContractCallModal,
+    component: DappContractCallStack,
   },
   {
     name: ModalRoutes.DappSendConfirmModal,
@@ -235,7 +235,7 @@ export type ModalTypes = {
   [ManagerAccountModalRoutes.ManagerAccountModal]: NavigatorScreenParams<ManagerAccountRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
-  [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;
+  [DappContractCallModalRoutes.ContractCallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;
   [DappSendModalRoutes.SendConfirmModal]: NavigatorScreenParams<DappSendRoutesParams>;
   [DappSignatureModalRoutes.SignatureModal]: NavigatorScreenParams<DappSignatureRoutesParams>;
 };
