@@ -1,6 +1,8 @@
 name: build-ext
 
 on:
+  schedule:
+    - cron: '34 19 * * 0,2,4' 
   workflow_dispatch:
 
 jobs:
