@@ -92,7 +92,7 @@ const AccountSelectorTrigger: FC<Props> = ({
             alignItems="center"
             maxW={`${maxItemWidth}px`}
           >
-            <WalletAvatar size="sm" mr={3} />
+            <WalletAvatar walletImage={wallet.type} size="sm" mr={3} />
             <Typography.Body2Strong isTruncated numberOfLines={1} mr={3}>
               {name}
             </Typography.Body2Strong>
