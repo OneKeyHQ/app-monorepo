@@ -16,17 +16,12 @@ export const useWebviewRef = (
 
   useEffect(() => {
     // RN Webview
-    console.log('RN Webview');
+
     if (platformEnv.isNative) {
       try {
         const { canGoBack, canGoForward, title, url } =
           navigationStateChangeEvent;
-        console.log('Electron Webview onNavigationStateChange', {
-          canGoBack,
-          canGoForward,
-          title,
-          url,
-        });
+
         setRNCanGoBack(canGoBack);
         setRNCanGoForward(canGoForward);
         setCurrentTitle(title);
@@ -41,7 +36,6 @@ export const useWebviewRef = (
     if (platformEnv.isDesktop) {
       try {
         // Electron Webview
-        console.log('Electron Webview');
 
         const electronWebView = webViewRef?.innerRef as IElectronWebView;
         const handleMessage = (event: any) => {

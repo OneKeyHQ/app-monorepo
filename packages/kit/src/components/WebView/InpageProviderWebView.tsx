@@ -20,7 +20,8 @@ import {
 import { Box, Progress } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Button, Center, Icon, Typography } from '@onekeyhq/components';
+import { Button, Center, Image, Typography } from '@onekeyhq/components';
+import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // @ts-ignore
@@ -122,7 +123,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     };
     const ErrorView: FC<ErrorViewProps> = () => (
       <Center w="full" h="full" bg="background-default">
-        <Icon name="StatusOfflineOutline" size={48} />
+        <Box mb={3}>
+          <Image size="100px" source={IconNoConnect} />
+        </Box>
         <Typography.DisplayMedium mt={3}>
           {intl.formatMessage({ id: 'title__no_connection' })}
         </Typography.DisplayMedium>
