@@ -1,0 +1,196 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
+import { ListRenderItem } from 'react-native';
+
+import {
+  Box,
+  Divider,
+  Empty,
+  FlatList,
+  Pressable,
+  Spinner,
+  Typography,
+  useLocale,
+} from '@onekeyhq/components';
+import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
+import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
+import ExploreIMG from '@onekeyhq/kit/assets/explore.png';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  updateHistory,
+  updateSyncData,
+} from '@onekeyhq/kit/src/store/reducers/discover';
+
+import { useDiscover } from '../../../hooks/redux';
+import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
+import DAppIcon from '../DAppIcon';
+import { requestRankings, requestSync } from '../Service';
+import { DAppItemType } from '../type';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.ExploreScreen
+>;
+
+type PageStatusType = 'network' | 'loading' | 'data';
+
+const DiscoverIOS = () => {
+  const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+  const { history } = useDiscover();
+  const { locale } = useLocale();
+  const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
+  const { dispatch } = backgroundApiProxy;
+
+  const banner = useMemo(
+    () => (
+      <Pressable
+        onPress={() => {
+          navigation.navigate(HomeRoutes.ExploreScreen);
+        }}
+      >
+        <Box width="100%" height="268px">
+          <Box
+            justifyContent="center"
+            width="100%"
+            height="220px"
+            bgColor="surface-default"
+            borderColor="border-subdued"
+            borderRadius="12px"
+            borderWidth={1}
+          >
+            <Empty
+              imageUrl={ExploreIMG}
+              title={intl.formatMessage({
+                id: 'title__explore_dapps',
+              })}
+              subTitle="https://explore.onekey.so →"
+            />
+          </Box>
+          <Typography.Subheading color="text-subdued" mt="24px">
+            {intl.formatMessage({
+              id: 'transaction__history',
+            })}
+          </Typography.Subheading>
+        </Box>
+      </Pressable>
+    ),
+    [intl, navigation],
+  );
+
+  const renderItem: ListRenderItem<DAppItemType> = useCallback(
+    ({ item, index }) => (
+      <Pressable
+        onPress={() => {
+          dispatch(updateHistory(item.id));
+        }}
+      >
+        <Box
+          padding="16px"
+          height="76px"
+          width="100%"
+          bgColor="surface-default"
+          borderTopRadius={index === 0 ? '12px' : '0px'}
+          borderRadius={index === history?.length - 1 ? '12px' : '0px'}
+        >
+          <Box flexDirection="row" flex={1} alignItems="center">
+            <DAppIcon size={40} favicon={item.favicon} chain={item.chain} />
+            <Box
+              flexDirection="column"
+              ml="12px"
+              justifyContent="center"
+              flex={1}
+            >
+              <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
+              <Typography.Body2 color="text-subdued" numberOfLines={1}>
+                {item.subtitle}
+              </Typography.Body2>
+            </Box>
+          </Box>
+        </Box>
+      </Pressable>
+    ),
+    [dispatch, history?.length],
+  );
+
+  const getData = useCallback(() => {
+    setPageStatus('loading');
+    requestSync(0, locale)
+      .then((response) => {
+        dispatch(updateSyncData(response.data));
+        requestRankings()
+          .then(() => {
+            setPageStatus('data');
+          })
+          .catch(() => {
+            setPageStatus('network');
+          });
+      })
+      .catch(() => {
+        setPageStatus('network');
+      });
+  }, [dispatch, locale]);
+
+  const noData = () => {
+    switch (pageStatus) {
+      case 'network':
+        return (
+          <Empty
+            imageUrl={IconWifi}
+            title={intl.formatMessage({ id: 'title__no_connection' })}
+            subTitle={intl.formatMessage({
+              id: 'title__no_connection_desc',
+            })}
+            actionTitle={intl.formatMessage({
+              id: 'action__retry',
+            })}
+            handleAction={() => getData()}
+          />
+        );
+      case 'loading':
+        return <Spinner size="sm" />;
+      default:
+        return null;
+    }
+  };
+
+  useEffect(() => {
+    getData();
+  }, [getData]);
+
+  return (
+    <Box flex="1" bg="background-default">
+      {pageStatus === 'data' ? (
+        <FlatList
+          contentContainerStyle={{
+            paddingBottom: 24,
+            paddingTop: 24,
+          }}
+          px="16px"
+          data={history}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <Divider />}
+          keyExtractor={(item, index) => `Dapp history${item.id}${index}`}
+          ListHeaderComponent={banner}
+          ListEmptyComponent={
+            <Empty
+              imageUrl={IconHistory}
+              title={intl.formatMessage({ id: 'title__no_history' })}
+              subTitle={intl.formatMessage({ id: 'title__no_history_desc' })}
+            />
+          }
+        />
+      ) : (
+        <Box flex={1} flexDirection="column" justifyContent="center">
+          {noData()}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default DiscoverIOS;

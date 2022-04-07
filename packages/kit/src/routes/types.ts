@@ -71,6 +71,7 @@ export enum HomeRoutes {
   SettingsScreen = 'settings',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
+  ExploreScreen = 'ExploreScreen',
 }
 
 export type HomeRoutesParams = {
@@ -84,6 +85,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.SettingsScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
+  [HomeRoutes.ExploreScreen]: undefined;
 };
 /** HomeStack */
 

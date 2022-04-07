@@ -3,11 +3,13 @@ import React, { FC, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
-import { Box, Button, Center, useIsSmallLayout } from '@onekeyhq/components';
+import { Box, useIsSmallLayout } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useToast } from '@onekeyhq/kit/src/hooks';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
 import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
+
+import Home from '../Home';
 
 import Desktop from './Content/Desktop';
 import Mobile from './Content/Mobile';
@@ -177,76 +179,7 @@ const Explorer: FC = () => {
     () => (
       <Box flex={1}>
         {displayInitialPage ? (
-          <Center flex={1}>
-            <Button
-              onPress={() => {
-                pushStackUrl('https://www.baidu.com');
-              }}
-            >
-              link www.baidu.com
-            </Button>
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://portfolio.test.onekey.so');
-              }}
-            >
-              link portfolio.test.onekey.so
-            </Button>
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://swap.onekey.so/#/swap');
-              }}
-            >
-              link OneKeySwap
-            </Button>
-
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://app.uniswap.org/#/swap');
-              }}
-            >
-              link uniswap
-            </Button>
-
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://discover.test.onekey.so');
-              }}
-            >
-              link discover onekey
-            </Button>
-
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://example.walletconnect.org/');
-              }}
-            >
-              link walletconnect
-            </Button>
-
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://metamask.github.io/test-dapp/');
-              }}
-            >
-              link metamask test-dapp
-            </Button>
-
-            <Button
-              mt={4}
-              onPress={() => {
-                pushStackUrl('https://4v495.csb.app/');
-              }}
-            >
-              link csb
-            </Button>
-          </Center>
+          <Home />
         ) : (
           <WebView src={currentUrl ?? ''} openUrlInExt />
         )}
