@@ -32,6 +32,11 @@ export const useSettings = () => {
   return settings;
 };
 
+export const useDiscover = () => {
+  const discover = useAppSelector((s) => s.discover);
+  return discover;
+};
+
 export const useStatus = () => {
   const status = useAppSelector((s) => s.status);
   return status;
