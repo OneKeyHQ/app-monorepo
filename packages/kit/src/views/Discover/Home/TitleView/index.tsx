@@ -1,14 +1,30 @@
 import React, { FC } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+
 import {
   Box,
   Button,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
-export const SectionTitle: FC<{ title: string }> = ({ title }) => {
+import { SectionDataType } from '../type';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.DAppListScreen
+>;
+export const SectionTitle: FC<SectionDataType> = ({
+  title,
+  data,
+  onItemSelect,
+}) => {
   const isSmallScreen = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps>();
 
   return (
     <Box
@@ -21,6 +37,13 @@ export const SectionTitle: FC<{ title: string }> = ({ title }) => {
     >
       <Typography.Heading>{title}</Typography.Heading>
       <Button
+        onPress={() => {
+          navigation.navigate(HomeRoutes.DAppListScreen, {
+            data,
+            title,
+            onItemSelect,
+          });
+        }}
         height="32px"
         type="plain"
         size="sm"

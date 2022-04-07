@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { ListRenderItem, useWindowDimensions } from 'react-native';
 
@@ -23,10 +24,8 @@ import {
 } from '@onekeyhq/components';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  updateHistory,
-  updateSyncData,
-} from '@onekeyhq/kit/src/store/reducers/discover';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import { updateSyncData } from '@onekeyhq/kit/src/store/reducers/discover';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDiscover } from '../../../hooks/redux';
@@ -39,19 +38,26 @@ import DiscoverIOS from './DiscoverIOS';
 import ListView from './ListView';
 import { SectionDataType } from './type';
 
-const Banner: FC<SectionDataType> = ({ data }) => {
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ExploreScreen>;
+
+type DiscoverProps = {
+  onItemSelect: (item: DAppItemType) => void;
+};
+
+const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
   const { width } = useWindowDimensions();
   const cardWidth = (width - 256 - 96) / 3;
-  const { dispatch } = backgroundApiProxy;
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => {
       const url = imageUrl(item.pic ?? '');
       return (
         <Pressable
           onPress={() => {
-            dispatch(updateHistory(item.id));
+            if (onItemSelect) {
+              onItemSelect(item);
+            }
           }}
         >
           <Box
@@ -85,7 +91,7 @@ const Banner: FC<SectionDataType> = ({ data }) => {
         </Pressable>
       );
     },
-    [cardWidth, dispatch, isSmallScreen],
+    [cardWidth, isSmallScreen, onItemSelect],
   );
   return (
     <Box width="100%" height={isSmallScreen ? '306px' : '349px'}>
@@ -112,7 +118,19 @@ const Banner: FC<SectionDataType> = ({ data }) => {
 
 type PageStatusType = 'network' | 'loading' | 'data';
 
-export const Discover = () => {
+export const Discover: FC<DiscoverProps> = ({
+  onItemSelect: propOnItemSelect,
+  ...rest
+}) => {
+  let onItemSelect: ((item: DAppItemType) => void) | undefined;
+  const route = useRoute<RouteProps>();
+  if (platformEnv.isIOS) {
+    const { onItemSelect: routeOnItemSelect } = route.params;
+    onItemSelect = routeOnItemSelect;
+  } else {
+    onItemSelect = propOnItemSelect;
+  }
+
   const { locale } = useLocale();
   const [flatListData, updateFlatListData] = useState<SectionDataType[]>([]);
   const navigation = useNavigation();
@@ -134,16 +152,16 @@ export const Discover = () => {
     ({ item }) => {
       switch (item.type) {
         case 'banner':
-          return <Banner {...item} />;
+          return <Banner {...item} {...rest} onItemSelect={onItemSelect} />;
         case 'card':
-          return <CardView {...item} />;
+          return <CardView {...item} {...rest} onItemSelect={onItemSelect} />;
         case 'list':
-          return <ListView {...item} />;
+          return <ListView {...item} {...rest} onItemSelect={onItemSelect} />;
         default:
           return null;
       }
     },
-    [],
+    [onItemSelect, rest],
   );
 
   const generaListData = useCallback(
@@ -252,7 +270,7 @@ export const Discover = () => {
           }}
           data={flatListData}
           renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.type}${index}`}
+          keyExtractor={(item, index) => `${item.type ?? ''}${index}`}
         />
       ) : (
         <Box flex={1} flexDirection="column" justifyContent="center">
@@ -263,6 +281,7 @@ export const Discover = () => {
   );
 };
 
-const Home = () => (platformEnv.isIOS ? <DiscoverIOS /> : <Discover />);
+const Home: FC<DiscoverProps> = ({ ...rest }) =>
+  platformEnv.isIOS ? <DiscoverIOS {...rest} /> : <Discover {...rest} />;
 
 export default Home;

@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
+import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import Settings from '@onekeyhq/kit/src/views/Settings';
@@ -44,6 +45,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.ExploreScreen,
     component: Discover,
+  },
+  {
+    name: HomeRoutes.DAppListScreen,
+    component: DAppList,
   },
 ];
 

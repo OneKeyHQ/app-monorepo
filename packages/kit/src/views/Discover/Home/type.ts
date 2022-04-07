@@ -3,7 +3,8 @@ import { DAppItemType } from '../type';
 export type SectionType = 'banner' | 'card' | 'list';
 
 export type SectionDataType = {
-  data: DAppItemType[];
-  type: SectionType;
   title: string;
+  data: DAppItemType[];
+  type?: SectionType;
+  onItemSelect?: (item: DAppItemType) => void;
 };

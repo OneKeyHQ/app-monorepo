@@ -9,21 +9,22 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 
 import DAppIcon from '../../DAppIcon';
 import { DAppItemType } from '../../type';
 import { SectionTitle } from '../TitleView';
 import { SectionDataType } from '../type';
 
-const CardViewMobile: FC<SectionDataType> = ({ title, data }) => {
-  const { dispatch } = backgroundApiProxy;
+const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
+  const filterData = data.filter((item, index) => index < 8);
+
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
       <Pressable
         onPress={() => {
-          dispatch(updateHistory(item.id));
+          if (onItemSelect) {
+            onItemSelect(item);
+          }
         }}
       >
         <Box
@@ -50,18 +51,18 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data }) => {
         </Box>
       </Pressable>
     ),
-    [dispatch],
+    [onItemSelect],
   );
   return (
     <Box width="100%" height="224px" mt="32px">
-      <SectionTitle title={title} />
+      <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
       <FlatList
         contentContainerStyle={{
           paddingRight: 16,
         }}
         showsHorizontalScrollIndicator={false}
         horizontal
-        data={data}
+        data={filterData}
         renderItem={renderItem}
         keyExtractor={(item, index) => `CardView${index}`}
       />
@@ -69,12 +70,17 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data }) => {
   );
 };
 
-const CardViewDesktop: FC<SectionDataType> = ({ title, data }) => {
+const CardViewDesktop: FC<SectionDataType> = ({
+  title,
+  data,
+  onItemSelect,
+}) => {
   const { width } = useWindowDimensions();
   const screenWidth = width - 270 - 48;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
+  const filterData = data.filter((item, index) => index < 8);
 
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
@@ -85,11 +91,16 @@ const CardViewDesktop: FC<SectionDataType> = ({ title, data }) => {
         height={176}
         paddingX="8px"
       >
-        <Pressable>
+        <Pressable
+          onPress={() => {
+            if (onItemSelect) {
+              onItemSelect(item);
+            }
+          }}
+        >
           <Box
             bgColor="surface-default"
             flexDirection="column"
-            // margin="8px"
             borderRadius="12px"
             padding="16px"
             height={164}
@@ -110,25 +121,25 @@ const CardViewDesktop: FC<SectionDataType> = ({ title, data }) => {
         </Pressable>
       </Box>
     ),
-    [cardWidth],
+    [cardWidth, onItemSelect],
   );
 
   const flatList = useMemo(
     () => (
       <FlatList
         paddingLeft="24px"
-        data={data}
+        data={filterData}
         renderItem={renderItem}
         numColumns={numColumns}
         keyExtractor={(item, index) => `${numColumns}key${index}`}
         key={`key${numColumns}`}
       />
     ),
-    [data, numColumns, renderItem],
+    [filterData, numColumns, renderItem],
   );
   return (
     <Box width="100%" height="100%" mt="32px">
-      <SectionTitle title={title} />
+      <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
       {flatList}
     </Box>
   );
@@ -137,11 +148,10 @@ const CardViewDesktop: FC<SectionDataType> = ({ title, data }) => {
 const CardView: FC<SectionDataType> = ({ ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { data } = rest;
-  const filterData = data.filter((item, index) => index < 8);
   return isSmallScreen ? (
-    <CardViewMobile {...rest} data={filterData} />
+    <CardViewMobile {...rest} data={data} />
   ) : (
-    <CardViewDesktop {...rest} data={filterData} />
+    <CardViewDesktop {...rest} data={data} />
   );
 };
 

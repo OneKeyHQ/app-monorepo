@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
+import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
+
 import * as SubModalRoutesParams from './Modal/types';
 import { ModalRoutes, RootRoutes } from './routesEnum';
 
@@ -42,6 +44,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.ManageNetwork]: NavigatorScreenParams<SubModalRoutesParams.ManageNetworkRoutesParams>;
   [ModalRoutes.OnekeyHardware]: NavigatorScreenParams<SubModalRoutesParams.OnekeyHardwareRoutesParams>;
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
+  [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
 };
 /** Modal */
 
@@ -72,6 +75,7 @@ export enum HomeRoutes {
   SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   ExploreScreen = 'ExploreScreen',
+  DAppListScreen = 'DAppListScreen',
 }
 
 export type HomeRoutesParams = {
@@ -85,7 +89,12 @@ export type HomeRoutesParams = {
   [HomeRoutes.SettingsScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
-  [HomeRoutes.ExploreScreen]: undefined;
+  [HomeRoutes.ExploreScreen]: { onItemSelect?: (item: DAppItemType) => void };
+  [HomeRoutes.DAppListScreen]: {
+    title: string;
+    data: DAppItemType[];
+    onItemSelect?: (item: DAppItemType) => void;
+  };
 };
 /** HomeStack */
 

@@ -1,5 +1,7 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { ListRenderItem, useWindowDimensions } from 'react-native';
 
 import {
@@ -10,15 +12,16 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
-import DAppIcon from '../../DAppIcon';
-import { DAppItemType } from '../../type';
-import { SectionTitle } from '../TitleView';
-import { SectionDataType } from '../type';
+import DAppIcon from '../DAppIcon';
+import { SectionDataType } from '../Home/type';
+import { DAppItemType } from '../type';
 
-const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
-  const filterData = data.filter((item, index) => index < 5);
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.DAppListScreen>;
 
+const Mobile: FC<SectionDataType> = ({ ...rest }) => {
+  const { data, onItemSelect } = rest;
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item, index }) => (
       <Pressable
@@ -34,7 +37,7 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
           width="100%"
           bgColor="surface-default"
           borderTopRadius={index === 0 ? '12px' : '0px'}
-          borderRadius={index === filterData?.length - 1 ? '12px' : '0px'}
+          borderRadius={index === data?.length - 1 ? '12px' : '0px'}
         >
           <Box flexDirection="row" flex={1} alignItems="center">
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
@@ -48,13 +51,13 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
         </Box>
       </Pressable>
     ),
-    [filterData?.length, onItemSelect],
+    [data?.length, onItemSelect],
   );
   return (
-    <Box width="100%" mt="32px">
-      <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
+    <Box width="100%">
       <FlatList
-        data={filterData}
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 24 }}
+        data={data}
         px="16px"
         ItemSeparatorComponent={() => <Divider />}
         renderItem={renderItem}
@@ -64,17 +67,13 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
   );
 };
 
-const ListViewDesktop: FC<SectionDataType> = ({
-  title,
-  data,
-  onItemSelect,
-}) => {
+const Desktop: FC<SectionDataType> = ({ ...rest }) => {
+  const { data, onItemSelect } = rest;
   const { width } = useWindowDimensions();
-  const screenWidth = width - 270 - 64;
-  const minWidth = 400;
+  const screenWidth = width - 48;
+  const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
-  const filterData = data.filter((item, index) => index < 9);
 
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
@@ -82,9 +81,8 @@ const ListViewDesktop: FC<SectionDataType> = ({
         width={cardWidth}
         maxWidth={cardWidth}
         minWidth={cardWidth}
-        height="96px"
+        height={176}
         paddingX="8px"
-        paddingY="8px"
       >
         <Pressable
           onPress={() => {
@@ -93,14 +91,25 @@ const ListViewDesktop: FC<SectionDataType> = ({
             }
           }}
         >
-          <Box flexDirection="row" padding="16px">
+          <Box
+            bgColor="surface-default"
+            flexDirection="column"
+            borderRadius="12px"
+            padding="16px"
+            height={164}
+          >
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
-            <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued" numberOfLines={1} mt="4px">
-                {item.subtitle}
-              </Typography.Body2>
-            </Box>
+            <Typography.Body2Strong numberOfLines={1} mt="12px">
+              {item.name}
+            </Typography.Body2Strong>
+            <Typography.Caption
+              numberOfLines={3}
+              mt="4px"
+              textAlign="left"
+              color="text-subdued"
+            >
+              {item.subtitle}
+            </Typography.Caption>
           </Box>
         </Pressable>
       </Box>
@@ -111,36 +120,43 @@ const ListViewDesktop: FC<SectionDataType> = ({
   const flatList = useMemo(
     () => (
       <FlatList
-        mx="32px"
-        bgColor="surface-default"
-        borderRadius="12px"
-        paddingX="8px"
-        paddingY="8px"
-        data={filterData}
+        contentContainerStyle={{ paddingTop: 32, paddingBottom: 32 }}
+        paddingLeft="24px"
+        data={data}
         renderItem={renderItem}
         numColumns={numColumns}
         keyExtractor={(item, index) => `${numColumns}key${index}`}
         key={`key${numColumns}`}
       />
     ),
-    [filterData, numColumns, renderItem],
+    [data, numColumns, renderItem],
   );
   return (
-    <Box width="100%" height="100%" mt="32px">
-      <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
+    <Box width="100%" height="100%">
       {flatList}
     </Box>
   );
 };
 
-const ListView: FC<SectionDataType> = ({ ...rest }) => {
+const DAppList: FC = () => {
+  const route = useRoute<RouteProps>();
+  const { title } = route.params;
   const isSmallScreen = useIsVerticalLayout();
-  const { data } = rest;
-  return isSmallScreen ? (
-    <ListViewMobile {...rest} data={data} />
-  ) : (
-    <ListViewDesktop {...rest} data={data} />
+  const navigation = useNavigation();
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title,
+    });
+  }, [navigation, title]);
+  return (
+    <Box flex="1" bg="background-default">
+      {isSmallScreen ? (
+        <Mobile {...route.params} />
+      ) : (
+        <Desktop {...route.params} />
+      )}
+    </Box>
   );
 };
 
-export default ListView;
+export default DAppList;
