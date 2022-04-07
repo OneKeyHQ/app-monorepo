@@ -13,7 +13,10 @@ import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type LocalAuthenticationButtonProps = { onOk?: (password: string) => void };
+type LocalAuthenticationButtonProps = {
+  onOk?: (password: string) => void;
+  onNg?: () => void;
+};
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -22,6 +25,7 @@ type NavigationProps = NativeStackNavigationProp<
 
 const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   onOk,
+  onNg,
 }) => {
   const { serviceApp } = backgroundApiProxy;
   const intl = useIntl();
@@ -57,10 +61,12 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
     toast.show({
       title: intl.formatMessage({ id: 'msg__verification_failure' }),
     });
+    onNg?.();
   }, [
     enableLocalAuthentication,
     navigation,
     onOk,
+    onNg,
     localAuthenticate,
     getPassword,
     serviceApp,

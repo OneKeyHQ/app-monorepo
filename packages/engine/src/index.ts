@@ -186,8 +186,10 @@ class Engine {
         }
       }
 
-      // add default token
-      await this.addDefaultToken();
+      // add default token in background
+      setTimeout(() => {
+        this.addDefaultToken();
+      }, 500);
 
       const context = await this.dbApi.getContext();
       if (

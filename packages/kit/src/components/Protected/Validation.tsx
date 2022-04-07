@@ -61,10 +61,6 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
       <Form mt="8">
         <Form.Item
           name="password"
-          // label={intl.formatMessage({
-          //   id: 'form__password',
-          //   defaultMessage: 'Password',
-          // })}
           defaultValue=""
           control={control}
           rules={{
