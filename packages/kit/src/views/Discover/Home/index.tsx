@@ -213,7 +213,8 @@ export const Discover = () => {
           setPageStatus('network');
         });
     }
-  }, [dispatch, generaListData, locale, syncData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, generaListData, locale]);
 
   const noData = () => {
     switch (pageStatus) {

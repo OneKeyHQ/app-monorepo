@@ -1,9 +1,7 @@
 import React from 'react';
 
-// import Explorer from './Explorer';
-import Home from './Home';
+import Explorer from './Explorer';
 
-const Discover = () => <Home />;
-// const Discover = () => <Explorer />;
+const Discover = () => <Explorer />;
 
 export default Discover;
