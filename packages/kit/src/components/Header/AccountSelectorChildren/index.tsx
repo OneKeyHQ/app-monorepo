@@ -2,6 +2,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { SectionListRenderItemInfo } from 'react-native';
 
 import {
   Account,
@@ -10,15 +11,18 @@ import {
   HStack,
   Icon,
   Pressable,
+  SectionList,
   Select,
+  Token,
   Typography,
   VStack,
   useIsVerticalLayout,
   useSafeAreaInsets,
   useToast,
 } from '@onekeyhq/components';
-// import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import NetworksAllIndicator from '@onekeyhq/components/img/networks_all.png';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
@@ -73,6 +77,8 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
+type AccountGroup = { network: Network; accounts: Array<AccountEngineType> };
+
 const AccountSelectorChildren: FC<{
   isOpen?: boolean;
   toggleOpen?: (...args: any) => any;
@@ -90,6 +96,8 @@ const AccountSelectorChildren: FC<{
   const [modifyNameAccount, setModifyNameAccount] =
     useState<AccountEngineType>();
 
+  const { engine } = backgroundApiProxy;
+
   const {
     account: currentSelectedAccount,
     wallet: defaultSelectedWallet,
@@ -100,7 +108,7 @@ const AccountSelectorChildren: FC<{
     defaultSelectedWallet,
   );
 
-  const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
+  const [activeAccounts, setActiveAccounts] = useState<AccountGroup[]>([]);
 
   const activeWallet = useMemo(() => {
     const wallet =
@@ -110,17 +118,31 @@ const AccountSelectorChildren: FC<{
   }, [defaultSelectedWallet, selectedWallet?.id, wallets]);
 
   const refreshAccounts = useCallback(async () => {
+    console.log('refreshAccounts');
     if (!activeWallet) {
       setActiveAccounts([]);
       return;
     }
-    const accounts = await backgroundApiProxy.engine.getAccounts(
-      activeWallet.accounts,
-      activeNetwork?.id,
+    console.log('refreshAccounts activeWallet:', JSON.stringify(activeWallet));
+
+    const networksMap = new Map(
+      (await engine.listNetworks()).map((key) => [key.id, key]),
     );
 
-    setActiveAccounts(accounts);
-  }, [activeNetwork?.id, activeWallet]);
+    const accountsGroup = (
+      await engine.getWalletAccountsGroupedByNetwork(activeWallet.id)
+    )
+      .reduce((accumulate, current) => {
+        const network = networksMap.get(current.networkId);
+        if (!network) return accumulate;
+        return [...accumulate, { network, accounts: current.accounts }];
+      }, [] as AccountGroup[])
+      .filter((group) => group.accounts.length > 0);
+
+    console.log('accountsGroup', accountsGroup.length);
+
+    setActiveAccounts(accountsGroup);
+  }, [activeWallet, engine]);
 
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
@@ -270,7 +292,37 @@ const AccountSelectorChildren: FC<{
       />
       <VStack flex={1} pb={bottom}>
         <RightHeader selectedWallet={activeWallet} />
-        <FlatList
+        <Box p={2}>
+          <Select
+            title={intl.formatMessage({ id: 'network__networks' })}
+            footer={null}
+            defaultValue="all"
+            options={[
+              {
+                label: intl.formatMessage({ id: 'option__all' }),
+                value: 'all',
+                tokenProps: {
+                  chain: 'all',
+                },
+              },
+              {
+                label: 'ETH',
+                value: 'ethereum',
+                tokenProps: {
+                  chain: 'eth',
+                },
+              },
+              {
+                label: 'BSC',
+                value: 'bsc',
+                tokenProps: {
+                  chain: 'bsc',
+                },
+              },
+            ]}
+          />
+        </Box>
+        {/* <FlatList
           px={2}
           contentContainerStyle={{
             paddingBottom: 16,
@@ -324,74 +376,142 @@ const AccountSelectorChildren: FC<{
           )}
           ItemSeparatorComponent={() => <Box h={2} />}
           ListFooterComponent={
+        /> */}
+        <SectionList
+          px={2}
+          stickySectionHeadersEnabled
+          sections={activeAccounts}
+          // SectionSeparatorComponent={(
+          //   section: SectionListData<AccountEngineType, Network>,
+          // ) => (
+          //   // <Box h={section.leadingItem ? 2 : 0} />
+          //   <Box />
+          // )}
+          keyExtractor={(item, index) => `${index}`}
+          renderItem={({
+            item,
+            section,
+          }: SectionListRenderItemInfo<AccountEngineType, Network>) => (
             <Pressable
-              mt={2}
               onPress={() => {
-                if (!activeWallet) return;
-                const networkSettings = activeNetwork?.settings;
-                const showNotSupportToast = () => {
-                  toast.show({
-                    title: intl.formatMessage({ id: 'badge__coming_soon' }),
-                  });
-                };
-                if (activeWallet?.type === 'imported') {
-                  if (!networkSettings?.importedAccountEnabled) {
-                    showNotSupportToast();
-                    return;
-                  }
-                  return navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                      params: { mode: 'privatekey' },
-                    },
-                  });
-                }
-                if (activeWallet?.type === 'watching') {
-                  if (!networkSettings?.watchingAccountEnabled) {
-                    showNotSupportToast();
-                    return;
-                  }
-                  return navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                      params: { mode: 'address' },
-                    },
-                  });
-                }
-
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateAccount,
-                  params: {
-                    screen: CreateAccountModalRoutes.CreateAccountForm,
-                    params: {
-                      walletId: activeWallet.id,
-                    },
-                  },
+                backgroundApiProxy.serviceAccount.changeActiveAccount({
+                  accountId: item.id,
+                  walletId: activeWallet?.id ?? '',
+                });
+                setTimeout(() => {
+                  navigation.dispatch(DrawerActions.closeDrawer());
                 });
               }}
             >
               {({ isHovered, isPressed }) => (
                 <HStack
-                  p={2}
-                  borderRadius="xl"
-                  space={3}
+                  p="7px"
                   borderWidth={1}
-                  borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                  borderColor={isHovered ? 'border-hovered' : 'transparent'}
                   bgColor={isPressed ? 'surface-pressed' : undefined}
                   borderStyle="dashed"
+                  bg={
+                    currentSelectedAccount?.id === item.id &&
+                    activeNetwork?.id === section?.id
+                      ? 'surface-selected'
+                      : 'transparent'
+                  }
+                  space={4}
+                  borderRadius="xl"
                   alignItems="center"
                 >
-                  <Icon name="PlusCircleOutline" />
-                  <Typography.Body2Strong color="text-subdued">
-                    {intl.formatMessage({ id: 'action__add_account' })}
-                  </Typography.Body2Strong>
+                  <Box flex={1}>
+                    <Account
+                      hiddenAvatar
+                      address={item?.address ?? ''}
+                      name={item.name}
+                    />
+                  </Box>
+                  {renderSideAction(activeWallet?.type, (v) =>
+                    handleChange(item, v),
+                  )}
                 </HStack>
               )}
             </Pressable>
-          }
+          )}
+          renderSectionHeader={({
+            section,
+          }: SectionListRenderItemInfo<AccountEngineType, Network>) => (
+            <Box p={2} bg="surface-subdued" flexDirection="row">
+              <Token chain={chain} size={4} />
+              <Typography.Subheading color="text-subdued" ml={2}>
+                {title}
+              </Typography.Subheading>
+            </Box>
+          )}
         />
+        <Box p={2}>
+          <Pressable
+            onPress={() => {
+              if (!activeWallet) return;
+              const networkSettings = activeNetwork?.settings;
+              const showNotSupportToast = () => {
+                toast.show({
+                  title: intl.formatMessage({ id: 'badge__coming_soon' }),
+                });
+              };
+              if (activeWallet?.type === 'imported') {
+                if (!networkSettings?.importedAccountEnabled) {
+                  showNotSupportToast();
+                  return;
+                }
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateWallet,
+                  params: {
+                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                    params: { mode: 'privatekey' },
+                  },
+                });
+              }
+              if (activeWallet?.type === 'watching') {
+                if (!networkSettings?.watchingAccountEnabled) {
+                  showNotSupportToast();
+                  return;
+                }
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateWallet,
+                  params: {
+                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                    params: { mode: 'address' },
+                  },
+                });
+              }
+
+              return navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateAccount,
+                params: {
+                  screen: CreateAccountModalRoutes.CreateAccountForm,
+                  params: {
+                    walletId: activeWallet.id,
+                  },
+                },
+              });
+            }}
+          >
+            {({ isHovered }) => (
+              <HStack
+                py={3}
+                borderRadius="xl"
+                space={3}
+                borderWidth={1}
+                borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                borderStyle="dashed"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon name="UserAddOutline" />
+                <Typography.Body2Strong color="text-subdued">
+                  {intl.formatMessage({ id: 'action__add_account' })}
+                </Typography.Body2Strong>
+              </HStack>
+            )}
+          </Pressable>
+        </Box>
       </VStack>
       {RemoveAccountDialog}
       <AccountModifyNameDialog
