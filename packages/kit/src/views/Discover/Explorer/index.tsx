@@ -11,6 +11,7 @@ import { useToast } from '@onekeyhq/kit/src/hooks';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
 import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Home from '../Home';
 
@@ -30,6 +31,7 @@ export type ExplorerViewProps = {
   onRefresh?: () => void;
   onMore?: () => void;
   moreView: React.ReactNode;
+  showExplorerBar?: boolean;
 };
 
 const Explorer: FC = () => {
@@ -57,7 +59,17 @@ const Explorer: FC = () => {
   const [searchContent, setSearchContent] = useState<string | undefined>();
   const [currentUrl, setCurrentUrl] = useState<string | undefined>();
 
+  const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
+
   const isSmallLayout = useIsSmallLayout();
+
+  useEffect(() => {
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      setShowExplorerBar(true);
+    } else {
+      setShowExplorerBar(false);
+    }
+  }, []);
 
   const gotoUrl = (url: string | undefined) => {
     if (url && url.trim() !== '') {
@@ -228,6 +240,7 @@ const Explorer: FC = () => {
             onRefresh={onRefresh}
             onMore={onMore}
             moreView={moreViewContent}
+            showExplorerBar={showExplorerBar}
           />
         ) : (
           <Desktop
@@ -241,6 +254,7 @@ const Explorer: FC = () => {
             onRefresh={onRefresh}
             onMore={onMore}
             moreView={moreViewContent}
+            showExplorerBar={showExplorerBar}
           />
         )}
       </Box>

@@ -65,6 +65,7 @@ const Desktop: FC<ExplorerViewProps> = ({
   onNext,
   onRefresh,
   moreView,
+  showExplorerBar,
 }) => {
   const intl = useIntl();
 
@@ -73,62 +74,76 @@ const Desktop: FC<ExplorerViewProps> = ({
 
   return (
     <Box flex="1" zIndex={3}>
-      <Box bg="surface-subdued" zIndex={5}>
-        <HStack
-          w="100%"
-          h="64px"
-          px={8}
-          space={3}
-          flexDirection="row"
-          alignItems="center"
-        >
-          <IconButton type="plain" name="ArrowLeftOutline" onPress={onGoBack} />
-          <IconButton type="plain" name="ArrowRightOutline" onPress={onNext} />
-          <IconButton type="plain" name="RefreshOutline" onPress={onRefresh} />
+      {!!showExplorerBar && (
+        <Box bg="surface-subdued" zIndex={5}>
+          <HStack
+            w="100%"
+            h="64px"
+            px={8}
+            space={3}
+            flexDirection="row"
+            alignItems="center"
+          >
+            <IconButton
+              type="plain"
+              name="ArrowLeftOutline"
+              onPress={onGoBack}
+            />
+            <IconButton
+              type="plain"
+              name="ArrowRightOutline"
+              onPress={onNext}
+            />
+            <IconButton
+              type="plain"
+              name="RefreshOutline"
+              onPress={onRefresh}
+            />
 
-          <BrowserURLInput
-            ref={searchBar}
-            flex={1}
-            h="38px"
-            placeholder={intl.formatMessage({
-              id: 'content__search_or_enter_dapp_url',
-            })}
-            customLeftIcon="LockClosedSolid"
-            size="base"
-            value={searchContent}
-            onClear={() => onSearchContentChange?.('')}
-            onChangeText={onSearchContentChange}
-            onSubmitEditing={(event) => {
-              onSearchContentChange?.(event.nativeEvent.text);
-              onSearchSubmitEditing?.(event.nativeEvent.text);
-            }}
-            onFocus={() => {
-              setHistoryVisible(true);
-              console.log('onFocus');
-            }}
-            onBlur={() => {
-              setHistoryVisible(false);
-              console.log('onBlur');
-            }}
-          />
+            <BrowserURLInput
+              ref={searchBar}
+              flex={1}
+              h="38px"
+              placeholder={intl.formatMessage({
+                id: 'content__search_or_enter_dapp_url',
+              })}
+              customLeftIcon="LockClosedSolid"
+              size="base"
+              value={searchContent}
+              onClear={() => onSearchContentChange?.('')}
+              onChangeText={onSearchContentChange}
+              onSubmitEditing={(event) => {
+                onSearchContentChange?.(event.nativeEvent.text);
+                onSearchSubmitEditing?.(event.nativeEvent.text);
+              }}
+              onFocus={() => {
+                setHistoryVisible(true);
+                console.log('onFocus');
+              }}
+              onBlur={() => {
+                setHistoryVisible(false);
+                console.log('onBlur');
+              }}
+            />
 
-          {/* <IconButton
+            {/* <IconButton
             type="plain"
             name="DotsHorizontalOutline"
             onPress={onMore}
           /> */}
-        </HStack>
-        {moreView}
-        <SearchView
-          visible={historyVisible && (displayInitialPage ?? false)}
-          onVisibleChange={setHistoryVisible}
-          searchContent={searchContent ?? ''}
-          onSelectorItem={(item) => {
-            onSearchSubmitEditing?.(item.url);
-          }}
-          relativeComponent={searchBar.current}
-        />
-      </Box>
+          </HStack>
+          {moreView}
+          <SearchView
+            visible={historyVisible && (displayInitialPage ?? false)}
+            onVisibleChange={setHistoryVisible}
+            searchContent={searchContent ?? ''}
+            onSelectorItem={(item) => {
+              onSearchSubmitEditing?.(item.url);
+            }}
+            relativeComponent={searchBar.current}
+          />
+        </Box>
+      )}
 
       <Box flex={1} zIndex={3}>
         {explorerContent}
