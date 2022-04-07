@@ -54,3 +54,24 @@ body {
     background-color: black;
   }
 }*/
+
+
+/*
+  Scrollbar
+*/
+/* width */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  /* gray color palette comes from design file "illustration" */
+  background: #74748B; 
+  border-radius: 3px;
+}
