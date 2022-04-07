@@ -17,6 +17,7 @@ import Home from '../Home';
 
 import Desktop from './Content/Desktop';
 import Mobile from './Content/Mobile';
+import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
 import { useWebviewRef } from './useWebviewRef';
 
@@ -35,7 +36,6 @@ export type ExplorerViewProps = {
 };
 
 const Explorer: FC = () => {
-  console.log('Explorer');
   const intl = useIntl();
   const openBrowser = useOpenBrowser();
   const toast = useToast();
@@ -61,6 +61,9 @@ const Explorer: FC = () => {
 
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
 
+  const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
+  const [dappOpenPayload, setDappOpenPayload] = useState<string>();
+
   const isSmallLayout = useIsSmallLayout();
 
   useEffect(() => {
@@ -73,10 +76,8 @@ const Explorer: FC = () => {
 
   const gotoUrl = (url: string | undefined) => {
     if (url && url.trim() !== '') {
-      setDisplayInitialPage(false);
-      if (url !== currentUrl) {
-        setCurrentUrl(url);
-      }
+      setDappOpenPayload(url);
+      setShowDappOpenHint(true);
     } else {
       setDisplayInitialPage(true);
     }
@@ -258,6 +259,17 @@ const Explorer: FC = () => {
           />
         )}
       </Box>
+      <DappOpenHintDialog
+        payload={dappOpenPayload}
+        visible={showDappOpenHint}
+        onVisibleChange={setShowDappOpenHint}
+        onAgree={(payload) => {
+          setDisplayInitialPage(false);
+          if (payload !== currentUrl) {
+            setCurrentUrl(payload);
+          }
+        }}
+      />
     </>
   );
 };
