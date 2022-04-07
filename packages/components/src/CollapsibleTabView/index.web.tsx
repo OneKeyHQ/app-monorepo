@@ -101,7 +101,7 @@ const Container: FC<ComponentProps<typeof BaseContainer>> = ({
   };
 
   return (
-    <Box flex="1" overflow="scroll">
+    <ScrollView>
       <Box flex="1" style={containerStyle} w="100%">
         <Box
           h={headerHeight ? headerHeight + 48 : 'auto'}
@@ -115,7 +115,7 @@ const Container: FC<ComponentProps<typeof BaseContainer>> = ({
         </Box>
         <Context.Provider value={value}>{children}</Context.Provider>
       </Box>
-    </Box>
+    </ScrollView>
   );
 };
 
