@@ -70,12 +70,12 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
           }, 600);
         }
       } catch (e) {
-        navigation.navigate({
-          merge: true,
-          // TODO custom back name, Back to Send/SendConfirm
-          name: SendRoutes.Send,
-          params: route.params,
-        });
+        // navigation.navigate({
+        //   merge: true,
+        //   // TODO custom back name, Back to Send/SendConfirm
+        //   name: SendRoutes.Send,
+        //   params: route.params,
+        // });
 
         // EIP 1559 fail:
         //  replacement transaction underpriced

@@ -30,6 +30,7 @@ export type IEncodedTxEvm = {
   value: string;
   data: string;
   gas?: string;
+  gasLimit?: string;
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;

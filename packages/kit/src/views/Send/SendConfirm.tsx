@@ -6,22 +6,9 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import BigNumber from 'bignumber.js';
-import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Center,
-  Divider,
-  Modal,
-  Spinner,
-  Text,
-  Token,
-  Typography,
-  useThemeValue,
-  utils,
-} from '@onekeyhq/components';
+import { utils } from '@onekeyhq/components';
 import {
   HistoryEntryStatus,
   HistoryEntryType,
@@ -31,7 +18,13 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappApproveAction from '../../hooks/useDappApproveAction';
+import useDappParams from '../../hooks/useDappParams';
 
+import { TxPreviewBlind } from './previews/TxPreviewBlind';
+import { ITxPreviewModalProps } from './previews/TxPreviewModal';
+import { TxPreviewTransfer } from './previews/TxPreviewTransfer';
 import {
   SendRoutes,
   SendRoutesParams,
@@ -42,43 +35,48 @@ import { useFeeInfoPayload } from './useFeeInfoPayload';
 type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
-const renderTitleDetailView = (title: string, detail: string | any) => (
-  <Row justifyContent="space-between" space="16px" padding="16px">
-    <Text
-      color="text-subdued"
-      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-    >
-      {title}
-    </Text>
-    {typeof detail === 'string' ? (
-      <Text
-        textAlign="right"
-        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-        flex={1}
-        numberOfLines={1}
-      >
-        {detail}
-      </Text>
-    ) : (
-      detail
-    )}
-  </Row>
-);
+/*
+await ethereum.request({method:'eth_sendTransaction',params:[{from: "0x76f3f64cb3cd19debee51436df630a342b736c24",
+to: "0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb",
+type: "0x0",
+value: "0x0"}]})
+ */
 
 const TransactionConfirm = () => {
-  const cardBgColor = useThemeValue('surface-default');
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
+  let { accountId, networkId } = useActiveWalletAccount();
   // TODO multi-chain encodedTx
   const encodedTx = params.encodedTx as IEncodedTxEvm;
-  const payload = params.payload as TransferSendParamsPayload;
-  const isTransferNativeToken = !payload?.token?.idOnNetwork;
+  const isFromDapp = params.source;
+  // TODO Ext testing
+  const { id } = useDappParams();
+  const dappApprove = useDappApproveAction({
+    id,
+    closeOnError: true,
+  });
+  const useFeeInTx = !isFromDapp;
+  if (isFromDapp) {
+    // TODO dapp fee should be fixed by decimals
+    delete encodedTx.gas;
+    delete encodedTx.gasLimit;
+    delete encodedTx.gasPrice;
+  }
 
-  const { feeInfoPayload, loading } = useFeeInfoPayload({
+  let payload = params.payload as TransferSendParamsPayload;
+  if (payload) {
+    accountId = payload.account.id;
+    networkId = payload.network.id;
+  } else {
+    // TODO parse encodedTx to payload
+    payload = {} as TransferSendParamsPayload;
+  }
+
+  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     encodedTx,
-    useFeeInTx: true,
+    useFeeInTx,
   });
 
   useEffect(() => {
@@ -90,154 +88,95 @@ const TransactionConfirm = () => {
     );
   }, [encodedTx, feeInfoPayload, params]);
 
-  const handleNavigation = useCallback(
-    () =>
-      Promise.resolve(
-        navigation.navigate(SendRoutes.SendAuthentication, {
-          ...params,
-          accountId: payload.account.id,
-          networkId: payload.network.id,
-          onSuccess: (tx: IBroadcastedTx) => {
-            const historyId = `${payload.network.id}--${tx.txid}`;
-            backgroundApiProxy.engine.addHistoryEntry({
-              id: historyId,
-              accountId: payload.account.id,
-              networkId: payload.network.id,
-              type: HistoryEntryType.TRANSFER,
-              status: HistoryEntryStatus.PENDING,
-              meta: {
-                contract: payload.token?.idOnNetwork || '',
-                target: payload.to,
-                value: payload.value,
-                rawTx: tx.rawTx,
-              },
-            });
-          },
-        }),
-      ),
+  const saveHistory = useCallback(
+    (tx: IBroadcastedTx) => {
+      const historyId = `${networkId}--${tx.txid}`;
+      backgroundApiProxy.engine.addHistoryEntry({
+        id: historyId,
+        accountId,
+        networkId,
+        type: HistoryEntryType.TRANSFER,
+        status: HistoryEntryStatus.PENDING,
+        meta: {
+          contract: payload.token?.idOnNetwork || '',
+          target: payload.to,
+          value: payload.value,
+          rawTx: tx.rawTx,
+        },
+      });
+    },
     [
-      navigation,
-      params,
-      payload.account.id,
-      payload.network.id,
+      accountId,
+      networkId,
       payload.to,
       payload.token?.idOnNetwork,
       payload.value,
     ],
   );
 
-  const totalTransfer = isTransferNativeToken
-    ? new BigNumber(payload.value)
-        .plus(feeInfoPayload?.current?.totalNative as string)
-        .toFixed()
-    : false;
+  const handleNavigation = useCallback(
+    async ({ close }: { onClose?: () => void; close: () => void }) => {
+      const encodedTxWithFee =
+        !useFeeInTx && feeInfoPayload
+          ? await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
+              networkId,
+              accountId,
+              encodedTx,
+              feeInfoValue: feeInfoPayload?.current.value,
+            })
+          : encodedTx;
+      return navigation.navigate(SendRoutes.SendAuthentication, {
+        ...params,
+        encodedTx: encodedTxWithFee,
+        accountId,
+        networkId,
+        onSuccess: (tx) => {
+          saveHistory(tx);
+          dappApprove.resolve({
+            result: tx.txid,
+          });
+          close();
+        },
+      });
+    },
+    [
+      useFeeInTx,
+      feeInfoPayload,
+      networkId,
+      accountId,
+      encodedTx,
+      navigation,
+      params,
+      dappApprove,
+      saveHistory,
+    ],
+  );
+
+  const sharedProps: ITxPreviewModalProps = {
+    encodedTx,
+    feeInfoPayload,
+    feeInfoLoading,
+    feeInfoEditable: !useFeeInTx,
+    payload,
+    onPrimaryActionPress: handleNavigation,
+    onSecondaryActionPress: ({ close }) => {
+      dappApprove.reject();
+      close();
+    },
+    onClose: dappApprove.reject,
+    source: params.source,
+  };
+
+  if (isFromDapp) {
+    return <TxPreviewBlind {...sharedProps} />;
+  }
 
   return (
-    <Modal
-      height="598px"
-      primaryActionTranslationId="action__confirm"
-      secondaryActionTranslationId="action__reject"
-      header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
+    <TxPreviewTransfer
+      {...sharedProps}
       headerDescription={`${intl.formatMessage({
         id: 'content__to',
       })}:${utils.shortenAddress(encodedTx.to)}`}
-      primaryActionProps={{
-        onPromise: handleNavigation,
-      }}
-      scrollViewProps={{
-        children: (
-          <Column flex="1">
-            <Center>
-              <Token src={payload.token.logoURI} size="56px" />
-              <Typography.Heading mt="8px">
-                {`${payload.token.symbol}(${payload.token.name})`}
-              </Typography.Heading>
-            </Center>
-            <Column bg={cardBgColor} borderRadius="12px" mt="24px">
-              {/* From */}
-              <Row justifyContent="space-between" space="16px" padding="16px">
-                <Text
-                  color="text-subdued"
-                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                >
-                  {intl.formatMessage({ id: 'content__from' })}
-                </Text>
-                <Column alignItems="flex-end" w="auto" flex={1}>
-                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                    {payload.account.name}
-                  </Text>
-                  <Typography.Body2
-                    textAlign="right"
-                    color="text-subdued"
-                    numberOfLines={3}
-                  >
-                    {payload.account.address}
-                  </Typography.Body2>
-                </Column>
-              </Row>
-              <Divider />
-              {/* To */}
-              <Row justifyContent="space-between" space="16px" padding="16px">
-                <Text
-                  color="text-subdued"
-                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                >
-                  {intl.formatMessage({ id: 'content__to' })}
-                </Text>
-                <Text
-                  textAlign="right"
-                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                  flex={1}
-                  noOfLines={3}
-                >
-                  {payload.to}
-                </Text>
-              </Row>
-            </Column>
-            <Box>
-              <Typography.Subheading mt="24px" color="text-subdued">
-                {intl.formatMessage({ id: 'transaction__transaction_details' })}
-              </Typography.Subheading>
-            </Box>
-
-            <Column bg={cardBgColor} borderRadius="12px" mt="2">
-              {renderTitleDetailView(
-                intl.formatMessage({ id: 'content__amount' }),
-                `${payload.value} ${payload.token.symbol}`,
-              )}
-              <Divider />
-              {renderTitleDetailView(
-                `${intl.formatMessage({
-                  id: 'content__fee',
-                })}(${intl.formatMessage({ id: 'content__estimated' })})`,
-                loading ? (
-                  <Spinner />
-                ) : (
-                  `${feeInfoPayload?.current?.totalNative || ''} ${
-                    feeInfoPayload?.info?.nativeSymbol || ''
-                  }`
-                ),
-              )}
-              <Divider />
-              {totalTransfer &&
-                renderTitleDetailView(
-                  `${intl.formatMessage({
-                    id: 'content__total',
-                  })}(${intl.formatMessage({
-                    id: 'content__amount',
-                  })} + ${intl.formatMessage({ id: 'content__fee' })})`,
-                  loading ? (
-                    <Spinner />
-                  ) : (
-                    `${totalTransfer} ${
-                      feeInfoPayload?.info?.nativeSymbol || ''
-                    }`
-                  ),
-                )}
-            </Column>
-          </Column>
-        ),
-      }}
     />
   );
 };

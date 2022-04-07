@@ -85,9 +85,11 @@ class ServiceDapp extends ServiceBase {
   async openModal({
     request,
     screens = [],
+    params = {},
   }: {
     request: IJsBridgeMessagePayload;
     screens: any[];
+    params?: any;
   }) {
     return new Promise((resolve, reject) => {
       const id = this.backgroundApi.servicePromise.createCallback({
@@ -95,12 +97,16 @@ class ServiceDapp extends ServiceBase {
         reject,
       });
       const routeNames = [RootRoutes.Modal, ...screens];
-      const routeParams = {
+      const source = {
         id,
         origin: request.origin,
         scope: request.scope, // ethereum
-        data: JSON.stringify(request.data),
+        data: JSON.stringify(request.data), // TODO why stringify: Ext route linking only works flat object
       } as IDappCallParams;
+      const routeParams = {
+        source,
+        ...params,
+      };
 
       const modalParams: { screen: any; params: any } = {
         screen: null,

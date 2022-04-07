@@ -3,6 +3,8 @@ import {
   IFeeInfoSelected,
 } from '@onekeyhq/engine/src/types/vault';
 
+import { IDappCallParams } from '../../background/IBackgroundApi';
+
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
@@ -12,6 +14,8 @@ export enum SendRoutes {
 export type EditFeeParams = {
   encodedTx?: any;
   feeInfoSelected?: IFeeInfoSelected;
+  backRouteName?: string;
+  source?: IDappCallParams;
 };
 
 export type TransferSendParamsPayload = {

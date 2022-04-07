@@ -37,11 +37,11 @@ function useDappApproveAction({
   );
 
   const resolve = useCallback(
-    async ({ close }: { close?: () => void } = {}) => {
+    async ({ close, result }: { close?: () => void; result?: any } = {}) => {
       try {
         setRejectError(null);
         // throw new Error('simulate something is wrong');
-        const data = await getResolveData?.();
+        const data = result ?? (await getResolveData?.());
         backgroundApiProxy.servicePromise.resolveCallback({
           id,
           data,

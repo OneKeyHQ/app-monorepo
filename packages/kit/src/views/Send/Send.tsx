@@ -12,13 +12,10 @@ import {
   Box,
   Button,
   Form,
-  Icon,
   Modal,
-  Pressable,
-  Spinner,
-  Text,
   Typography,
   useForm,
+  useFormState,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -28,10 +25,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { FormatBalance, FormatCurrencyNative } from '../../components/Format';
+import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
-import { FeeSpeedLabel } from './SendEditFee';
+import { FeeInfoInputForTransfer } from './FeeInfoInput';
 import { SendRoutes, SendRoutesParams } from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
 
@@ -71,15 +68,16 @@ const Transaction = () => {
   const [encodedTx, setEncodedTx] = useState(null);
   const navigation = useNavigation<NavigationProps>();
   const { control, handleSubmit, watch } = useForm<TransactionValues>({
-    mode: 'onSubmit',
+    mode: 'onBlur',
     reValidateMode: 'onBlur',
     defaultValues: {
       to: '',
       value: '', // TODO rename to amount
     },
   });
+  const { isValid } = useFormState({ control });
   const { account, accountId, networkId } = useActiveWalletAccount();
-  const { feeInfoPayload, loading: feeInfoPayloadLoading } = useFeeInfoPayload({
+  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     encodedTx,
   });
 
@@ -188,7 +186,8 @@ const Transaction = () => {
   }, [watch, tokenOptions]);
 
   const submitButtonDisabled =
-    feeInfoPayloadLoading ||
+    !isValid ||
+    feeInfoLoading ||
     !feeInfoPayload ||
     !formFields.to ||
     !formFields.value ||
@@ -396,94 +395,11 @@ const Transaction = () => {
                   {intl.formatMessage({ id: 'content__fee' })}
                 </Typography.Body2Strong>
 
-                {/* TODO use standAloneComponent */}
-                <Pressable
-                  disabled={!feeInfoPayload || feeInfoPayloadLoading}
-                  onPress={() => {
-                    if (feeInfoPayloadLoading) {
-                      return;
-                    }
-                    navigation.navigate(SendRoutes.SendEditFee, {
-                      encodedTx,
-                      feeInfoSelected: feeInfoPayload?.selected,
-                    });
-                  }}
-                >
-                  {({ isHovered }) => (
-                    // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
-                    <Row
-                      justifyContent="space-between"
-                      alignItems="center"
-                      bgColor={
-                        isHovered ? 'surface-hovered' : 'surface-default'
-                      }
-                      borderColor="border-default"
-                      borderWidth="1px"
-                      borderRadius="12px"
-                      paddingX="12px"
-                      paddingY="8px"
-                    >
-                      <Column>
-                        <Row>
-                          <Text
-                            typography={{
-                              sm: 'Body1Strong',
-                              md: 'Body2Strong',
-                            }}
-                          >
-                            {feeInfoPayload?.selected?.type === 'preset' ? (
-                              <FeeSpeedLabel
-                                index={feeInfoPayload?.selected?.preset}
-                              />
-                            ) : null}{' '}
-                            {feeInfoPayload?.current?.total ?? '-'}{' '}
-                            {feeInfoPayload?.info?.symbol}
-                          </Text>
-                        </Row>
-                        <Row>
-                          <FormatBalance
-                            formatOptions={{
-                              fixed: feeInfoPayload?.info.nativeDecimals,
-                              unit: feeInfoPayload?.info.decimals,
-                            }}
-                            balance={feeInfoPayload?.current?.total ?? ''}
-                            suffix={feeInfoPayload?.info.nativeSymbol}
-                            render={(ele) => (
-                              <Typography.Body2 mt={1} color="text-subdued">
-                                {!feeInfoPayload?.current?.total ? '-' : ele}
-                              </Typography.Body2>
-                            )}
-                          />
-                        </Row>
-                        <Row>
-                          <FormatCurrencyNative
-                            value={feeInfoPayload?.current?.totalNative}
-                            render={(ele) => (
-                              <Typography.Body2 mt={1} color="text-subdued">
-                                {!feeInfoPayload?.current?.totalNative
-                                  ? '-'
-                                  : ele}
-                              </Typography.Body2>
-                            )}
-                          />
-                        </Row>
-
-                        {/* <Typography.Body2 color="text-subdued">
-                          0.001694 ETH ~ 0.001977 ETH
-                        </Typography.Body2> */}
-                        {/* <Typography.Body2 color="text-subdued">
-                          3 min
-                        </Typography.Body2> */}
-                      </Column>
-
-                      {feeInfoPayloadLoading ? (
-                        <Spinner size="sm" />
-                      ) : (
-                        <Icon size={20} name="PencilSolid" />
-                      )}
-                    </Row>
-                  )}
-                </Pressable>
+                <FeeInfoInputForTransfer
+                  encodedTx={encodedTx}
+                  feeInfoPayload={feeInfoPayload}
+                  loading={feeInfoLoading}
+                />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

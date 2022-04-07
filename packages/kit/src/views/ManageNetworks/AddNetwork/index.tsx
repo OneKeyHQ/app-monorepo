@@ -65,7 +65,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
 
   const hintText = useMemo(() => {
     if (rpcUrlStatus.error) return '';
-    if (rpcUrlStatus.loading) {
+    if (rpcUrlStatus.feeInfoLoading) {
       return intl.formatMessage({ id: 'form__rpc_url_connecting' });
     }
     if (rpcUrlStatus.connected) {
@@ -78,14 +78,14 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
 
   useEffect(() => {
     if (url && URITester.test(url)) {
-      setRpcUrlStatus((prev) => ({ ...prev, connected: false, loading: true }));
+      setRpcUrlStatus((prev) => ({ ...prev, connected: false, feeInfoLoading: true }));
       serviceNetwork
         .preAddNetwork(url)
         .then(({ chainId, existingNetwork }) => {
           setValue('chainId', chainId);
           if (existingNetwork) {
             setRpcUrlStatus({
-              loading: false,
+              feeInfoLoading: false,
               connected: true,
               error: intl.formatMessage(
                 { id: 'form__rpc_url_invalid_exist' },
@@ -94,11 +94,11 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
             });
             return;
           }
-          setRpcUrlStatus({ connected: true, loading: false });
+          setRpcUrlStatus({ connected: true, feeInfoLoading: false });
         })
         .catch(() => {
           setRpcUrlStatus({
-            loading: false,
+            feeInfoLoading: false,
             connected: false,
             error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
           });

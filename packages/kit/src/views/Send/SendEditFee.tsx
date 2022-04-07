@@ -304,7 +304,7 @@ const TransactionEditFee = ({ ...rest }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
-  const { encodedTx } = route.params;
+  const { encodedTx, backRouteName } = route.params;
   const { feeInfoPayload, getSelectedFeeInfoUnit } = useFeeInfoPayload({
     encodedTx,
   });
@@ -348,8 +348,7 @@ const TransactionEditFee = ({ ...rest }) => {
     debugLogger.sendTx('SendEditFee Confirm >>>> ', feeInfoSelected);
     navigation.navigate({
       merge: true,
-      // TODO custom back route name
-      name: SendRoutes.Send,
+      name: backRouteName as typeof SendRoutes.SendConfirm,
       params: {
         feeInfoSelected,
       },

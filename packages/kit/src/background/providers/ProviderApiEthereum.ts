@@ -15,6 +15,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
+import { ModalRoutes } from '../../routes/routesEnum';
+import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, permissionRequired } from '../decorators';
 
 import ProviderApiBase, {
@@ -102,26 +104,34 @@ class ProviderApiEthereum extends ProviderApiBase {
       // return extUtils.openApprovalWindow();
     }
 
-    debugLogger.backgroundApi('eth_sendTransaction', request, transaction);
+    debugLogger.ethereum('eth_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    const isContractAddress = false;
-    if (isContractAddress) {
-      const isApproval = false;
+    return this.backgroundApi.serviceDapp?.openModal({
+      request,
+      screens: [ModalRoutes.Send, SendRoutes.SendConfirm],
+      params: {
+        encodedTx: transaction,
+      },
+    });
 
-      if (isApproval) {
-        // Approval modal
-        return this.backgroundApi.serviceDapp?.openApprovalModal(request);
-      }
-
-      // Contract modal
-      return this.backgroundApi.serviceDapp?.openMulticallModal(request);
-    }
-
-    // Send transaction confirm modal
-    return this.backgroundApi.serviceDapp?.openSendConfirmModal(request);
+    // const isContractAddress = false;
+    // if (isContractAddress) {
+    //   const isApproval = false;
+    //
+    //   if (isApproval) {
+    //     // Approval modal
+    //     return this.backgroundApi.serviceDapp?.openApprovalModal(request);
+    //   }
+    //
+    //   // Contract modal
+    //   return this.backgroundApi.serviceDapp?.openMulticallModal(request);
+    // }
+    //
+    // // Send transaction confirm modal
+    // return this.backgroundApi.serviceDapp?.openSendConfirmModal(request);
   }
 
   /**

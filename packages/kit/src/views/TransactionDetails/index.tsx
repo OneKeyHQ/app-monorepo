@@ -19,6 +19,7 @@ import {
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   TokenType,
@@ -37,7 +38,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { formatBalanceDisplay, useFormatAmount } from '../../components/Format';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useToast } from '../../hooks/useToast';
-import { copyToClipboard } from '../../utils/ClipboardUtils';
 import NFTView from '../Components/nftView';
 import { getTransactionStatusStr } from '../Components/transactionRecord';
 import {

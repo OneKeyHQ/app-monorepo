@@ -15,9 +15,9 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import { useToast } from '../../hooks/useToast';
-import { copyToClipboard } from '../../utils/ClipboardUtils';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
 
