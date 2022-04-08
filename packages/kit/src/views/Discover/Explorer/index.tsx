@@ -84,6 +84,15 @@ const Explorer: FC = () => {
   }, []);
 
   const gotoUrl = (item: (string | DAppItemType) | undefined) => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      if (typeof item === 'string') {
+        openBrowser.openUrl(item);
+      } else {
+        openBrowser.openUrl(item?.url ?? '');
+      }
+      return;
+    }
+
     if (!item || (typeof item === 'string' && item.trim().length === 0)) {
       setDisplayInitialPage(true);
       return;
