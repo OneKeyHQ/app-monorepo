@@ -193,7 +193,7 @@ function Select<T = string>({
 
   const handlePressFooter = useCallback(() => {
     toggleVisible();
-    setTimeout(() => onPressFooter?.(), 300);
+    onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
   const container = useMemo(() => {

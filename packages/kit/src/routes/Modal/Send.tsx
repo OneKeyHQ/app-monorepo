@@ -4,6 +4,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import SendAuthentication from '@onekeyhq/kit/src/views/Send/Authentication';
 import Send from '@onekeyhq/kit/src/views/Send/Send';
 import SendConfirm from '@onekeyhq/kit/src/views/Send/SendConfirm';
+import { SendConfirmRedirect } from '@onekeyhq/kit/src/views/Send/SendConfirmRedirect';
 import SendEditFee from '@onekeyhq/kit/src/views/Send/SendEditFee';
 import {
   SendRoutes,
@@ -22,6 +23,10 @@ const modalRoutes = [
   {
     name: SendRoutes.SendConfirm,
     component: SendConfirm,
+  },
+  {
+    name: SendRoutes.SendConfirmRedirect,
+    component: SendConfirmRedirect,
   },
   {
     name: SendRoutes.SendEditFee,

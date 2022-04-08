@@ -14,6 +14,7 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import {
   StackBasicRoutesParams,
@@ -25,7 +26,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
-import { getClipboard } from '../../utils/ClipboardUtils';
 import HelpSelector from '../Help/HelpSelector';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';

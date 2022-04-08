@@ -3,15 +3,19 @@ import {
   IFeeInfoSelected,
 } from '@onekeyhq/engine/src/types/vault';
 
+import { IDappCallParams } from '../../background/IBackgroundApi';
+
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
+  SendConfirmRedirect = 'SendConfirmRedirect',
   SendEditFee = 'SendEditFee',
   SendAuthentication = 'SendAuthentication',
 }
 export type EditFeeParams = {
   encodedTx?: any;
   feeInfoSelected?: IFeeInfoSelected;
+  backRouteName?: keyof SendRoutesParams;
 };
 
 export type TransferSendParamsPayload = {
@@ -34,10 +38,15 @@ export type TransferSendParamsPayload = {
   };
 };
 
+export type SendConfirmRedirectParams = {
+  query?: string;
+};
+
 export type SendParams = EditFeeParams & {
   payloadType?: string;
   payload?: TransferSendParamsPayload | any;
   onSuccess?: (tx: IBroadcastedTx) => void;
+  sourceInfo?: IDappCallParams;
 };
 
 export type SendAuthenticationParams = SendParams & {
@@ -49,5 +58,6 @@ export type SendRoutesParams = {
   [SendRoutes.Send]: EditFeeParams;
   [SendRoutes.SendEditFee]: EditFeeParams;
   [SendRoutes.SendConfirm]: SendParams;
+  [SendRoutes.SendConfirmRedirect]: SendConfirmRedirectParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
 };

@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { navigationGoHomeForceReload } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
   const navigation = useNavigation();
@@ -24,7 +25,9 @@ function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
     }
     // do not execute this code below on Modal onClose:
     //    navigation.getParent()?.goBack();
-    navigationGoHomeForceReload();
+    if (!platformEnv.isExtensionUiStandaloneWindow) {
+      navigationGoHomeForceReload();
+    }
   }, [navigation, onClose]);
   return close;
 }

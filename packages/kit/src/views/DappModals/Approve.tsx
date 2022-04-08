@@ -8,6 +8,7 @@ import { useIntl } from 'react-intl';
 import { Box, Center, Modal, Token, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 
+import { IDappCallParams } from '../../background/IBackgroundApi';
 import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -55,7 +56,10 @@ const Approve = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
 
-  const { id, origin, ...dappParams } = useDappParams<ApprovalParams>();
+  const { sourceInfo, ...dappParams } = useDappParams();
+  const { id, origin } = sourceInfo || ({} as IDappCallParams);
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const approvalData = (dappParams.data.params as [ApprovalParams])?.[0] ?? {};
   const { from, to, gasLimit, gasPrice, data } = approvalData;
   const computedIsRug = isRug(origin);

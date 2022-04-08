@@ -190,5 +190,10 @@ export function useFeeInfoPayload({
         setLoading(false);
       });
   }, [encodedTx, fetchFeeInfo, setFeeInfoPayload]);
-  return { feeInfoPayload, loading, getSelectedFeeInfoUnit, calculateTotalFee };
+  return {
+    feeInfoPayload,
+    feeInfoLoading: loading,
+    getSelectedFeeInfoUnit,
+    calculateTotalFee,
+  };
 }

@@ -9,6 +9,8 @@ import React, {
   useState,
 } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
@@ -177,8 +179,12 @@ const Modal: FC<ModalProps> = ({
         <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
           <Box
             height={modalHeight}
+            // TODO 100vh in App
+            maxHeight={platformEnv.isBrowser ? '100vh' : undefined}
             w="100%"
-            borderTopRadius="24px"
+            borderTopRadius={
+              platformEnv.isExtensionUiStandaloneWindow ? 0 : '24px'
+            }
             overflow="hidden"
           >
             <Mobile

@@ -1,9 +1,9 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Spinner } from '@onekeyhq/components';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -17,6 +17,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { passwordSet } from '../store/reducers/data';
 
 const EngineApp: FC = ({ children }) => {
+  const [appReady, setAppReady] = useState(false);
   const networks = useAppSelector((s) => s.network.network);
   const { activeNetwork } = useAppSelector((s) => s.general);
   const { refreshTimeStamp } = useSettings();
@@ -41,9 +42,19 @@ const EngineApp: FC = ({ children }) => {
     await SplashScreen.hideAsync();
   }, []);
 
-  useEffect(() => {
-    backgroundApiProxy.serviceApp.initNetworks();
-  }, []);
+  const handleAppReady = useCallback(async () => {
+    await backgroundApiProxy.serviceApp.initNetworks();
+    try {
+      const isMasterPasswordSet =
+        await backgroundApiProxy.engine.isMasterPasswordSet();
+      if (isMasterPasswordSet) {
+        dispatch(passwordSet());
+      }
+    } finally {
+      setAppReady(true);
+      hideSplashScreen();
+    }
+  }, [dispatch, hideSplashScreen]);
 
   useEffect(() => {
     async function main() {
@@ -113,22 +124,20 @@ const EngineApp: FC = ({ children }) => {
   }, [dispatch, networks, activeNetwork]);
 
   useEffect(() => {
-    async function main() {
-      try {
-        const isMasterPasswordSet =
-          await backgroundApiProxy.engine.isMasterPasswordSet();
-        if (isMasterPasswordSet) {
-          dispatch(passwordSet());
-        }
-      } finally {
-        hideSplashScreen();
-      }
-    }
-    main();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    handleAppReady();
+  }, [handleAppReady]);
 
-  return <Box flex="1">{children}</Box>;
+  return (
+    <Box flex="1" bg="background-default">
+      {!appReady ? (
+        <Box flex="1" justifyContent="center">
+          <Spinner />
+        </Box>
+      ) : (
+        children
+      )}
+    </Box>
+  );
 };
 
 export default EngineApp;

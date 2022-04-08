@@ -37,11 +37,11 @@ function useDappApproveAction({
   );
 
   const resolve = useCallback(
-    async ({ close }: { close?: () => void } = {}) => {
+    async ({ close, result }: { close?: () => void; result?: any } = {}) => {
       try {
         setRejectError(null);
         // throw new Error('simulate something is wrong');
-        const data = await getResolveData?.();
+        const data = result ?? (await getResolveData?.());
         backgroundApiProxy.servicePromise.resolveCallback({
           id,
           data,
@@ -64,12 +64,14 @@ function useDappApproveAction({
 
   // also trigger browser refresh
   useEffect(() => {
+    // const registerWindowUnload = isExt && !platformEnv.isDev;
+    const registerWindowUnload = isExt;
     // TODO do not reject with hardware interaction when beforeunload
-    if (isExt) {
+    if (registerWindowUnload) {
       window.addEventListener('beforeunload', () => reject());
     }
     return () => {
-      if (isExt) {
+      if (registerWindowUnload) {
         window.removeEventListener('beforeunload', () => reject());
       }
     };

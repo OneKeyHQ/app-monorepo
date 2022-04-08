@@ -7,11 +7,11 @@ import { useIntl } from 'react-intl';
 import { Alert, Box, Button, Modal, VStack } from '@onekeyhq/components';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 
 import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';

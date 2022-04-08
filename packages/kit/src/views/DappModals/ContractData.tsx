@@ -11,10 +11,10 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import { useToast } from '../../hooks/useToast';
 import { DappApproveModalRoutes, DappApproveRoutesParams } from '../../routes';
-import { copyToClipboard } from '../../utils/ClipboardUtils';
 
 const MOCKED_COUNTRACT_DATA = `Parameters:
 [

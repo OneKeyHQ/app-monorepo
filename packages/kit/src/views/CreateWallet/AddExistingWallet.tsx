@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +12,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
@@ -129,7 +129,7 @@ const AddExistingWallet = () => {
   );
 
   const onPaste = useCallback(async () => {
-    const pastedText = await Clipboard.getStringAsync();
+    const pastedText = await getClipboard();
     setValue('text', pastedText);
     trigger('text');
   }, [setValue, trigger]);
@@ -203,16 +203,18 @@ const AddExistingWallet = () => {
           <Form.Item control={control} name="text">
             <Form.Textarea placeholder={placeholder} h="48" />
           </Form.Item>
-          <Center>
-            <Button
-              size="xl"
-              type="plain"
-              leftIconName="DuplicateSolid"
-              onPromise={onPaste}
-            >
-              {intl.formatMessage({ id: 'action__paste' })}
-            </Button>
-          </Center>
+          {!(platformEnv.isExtension || platformEnv.isWeb) && (
+            <Center>
+              <Button
+                size="xl"
+                type="plain"
+                leftIconName="DuplicateSolid"
+                onPromise={onPaste}
+              >
+                {intl.formatMessage({ id: 'action__paste' })}
+              </Button>
+            </Center>
+          )}
         </Form>
         {platformEnv.isNative && mode === 'all' ? (
           <Button

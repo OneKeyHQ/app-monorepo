@@ -14,6 +14,7 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import {
   ManagerAccountModalRoutes,
@@ -22,7 +23,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useToast } from '../../../hooks/useToast';
-import { copyToClipboard } from '../../../utils/ClipboardUtils';
 
 type NavigationProps = RouteProp<
   ManagerAccountRoutesParams,
