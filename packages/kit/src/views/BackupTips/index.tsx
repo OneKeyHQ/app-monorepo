@@ -102,7 +102,7 @@ const BackupTips: FC = () => {
           secondaryActionTranslationId: 'action__cancel',
           onPrimaryActionPress: () => {
             setVisible(false);
-            navigation.goBack();
+            setTimeout(() => navigation.goBack(), 500);
           },
           primaryActionProps: {
             type: 'destructive',

@@ -37,7 +37,7 @@ const ResetButton = () => {
 
   const onBackupConfirm = useCallback(() => {
     setShowBackupModal(false);
-    setShowResetModal(true);
+    setTimeout(() => setShowResetModal(true), 500);
   }, []);
 
   return (

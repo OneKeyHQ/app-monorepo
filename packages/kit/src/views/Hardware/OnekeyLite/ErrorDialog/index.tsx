@@ -64,7 +64,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            onExit?.();
+            setTimeout(() => onExit?.(), 500);
           },
         }}
       />
@@ -95,7 +95,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            onIntoNfcSetting?.();
+            setTimeout(() => onIntoNfcSetting?.(), 500);
           },
         }}
       />
@@ -122,7 +122,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            onRetryConnect?.();
+            setTimeout(() => onRetryConnect?.(), 500);
           },
           onSecondaryActionPress: () => onExit?.(),
         }}
