@@ -3,7 +3,7 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
-import { Box, Spinner } from '@onekeyhq/components';
+import { Box, Center, Spinner } from '@onekeyhq/components';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -14,16 +14,15 @@ import { setAutoRefreshTimeStamp } from '@onekeyhq/kit/src/store/reducers/settin
 import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { passwordSet } from '../store/reducers/data';
 
 const EngineApp: FC = ({ children }) => {
-  const [appReady, setAppReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const networks = useAppSelector((s) => s.network.network);
   const { activeNetwork } = useAppSelector((s) => s.general);
   const { refreshTimeStamp } = useSettings();
   const { account } = useActiveWalletAccount();
 
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, serviceApp } = backgroundApiProxy;
 
   const handleFiatMoneyUpdate = useCallback(async () => {
     const fiatMoney = await backgroundApiProxy.engine.listFiats();
@@ -37,24 +36,6 @@ const EngineApp: FC = ({ children }) => {
   useSWR('auto-refresh', () => dispatch(setAutoRefreshTimeStamp()), {
     refreshInterval: 1 * 60 * 1000,
   });
-
-  const hideSplashScreen = useCallback(async () => {
-    await SplashScreen.hideAsync();
-  }, []);
-
-  const handleAppReady = useCallback(async () => {
-    await backgroundApiProxy.serviceApp.initNetworks();
-    try {
-      const isMasterPasswordSet =
-        await backgroundApiProxy.engine.isMasterPasswordSet();
-      if (isMasterPasswordSet) {
-        dispatch(passwordSet());
-      }
-    } finally {
-      setAppReady(true);
-      hideSplashScreen();
-    }
-  }, [dispatch, hideSplashScreen]);
 
   useEffect(() => {
     async function main() {
@@ -124,15 +105,24 @@ const EngineApp: FC = ({ children }) => {
   }, [dispatch, networks, activeNetwork]);
 
   useEffect(() => {
-    handleAppReady();
-  }, [handleAppReady]);
+    async function main() {
+      try {
+        await serviceApp.initApp();
+      } finally {
+        setLoading(false);
+        await SplashScreen.hideAsync();
+      }
+    }
+    main();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <Box flex="1" bg="background-default">
-      {!appReady ? (
-        <Box flex="1" justifyContent="center">
+    <Box flex="1">
+      {loading ? (
+        <Center w="full" h="full">
           <Spinner />
-        </Box>
+        </Center>
       ) : (
         children
       )}

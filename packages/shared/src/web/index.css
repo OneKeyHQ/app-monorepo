@@ -77,3 +77,11 @@ body {
   background: #74748B;
   border-radius: 3px;
 }
+
+input {
+  outline: none;
+}
+
+textarea {
+  outline: none;
+}

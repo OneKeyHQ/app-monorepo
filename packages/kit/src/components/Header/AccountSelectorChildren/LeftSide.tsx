@@ -142,7 +142,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   key={wallet.id}
                   onPress={() => setSelectedWallet(wallet)}
                   isSelected={selectedWallet?.id === wallet.id}
-                  walletImage="watched"
+                  walletImage="watching"
                 />
               ))}
           </VStack>

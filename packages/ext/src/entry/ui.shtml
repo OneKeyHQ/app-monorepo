@@ -24,9 +24,6 @@
   #animatedComponent-0000 {
     z-index: 9999 !important;
   }
-  input {
-    outline: none;
-  }
 </style>
 </body>
 </html>
