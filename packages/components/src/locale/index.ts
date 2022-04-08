@@ -35,5 +35,6 @@ const LOCALES = {
 } as const;
 
 export type LocaleSymbol = keyof typeof LOCALES;
+export type LocaleIds = keyof typeof enUS;
 
 export default LOCALES;
