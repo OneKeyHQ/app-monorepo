@@ -149,6 +149,7 @@
   "badge__backed_up": "Створено резервну копію",
   "badge__coming_soon": "Незабаром",
   "checkbox__manual_backup_warning": "Я розумію, що якщо я втрачу свою фразу відновлення, я втрачу свої фонди",
+  "content__account_lowercase": "",
   "content__activated": "Активовано",
   "content__activity_logs": "Журнали діяльності",
   "content__advance": "Заздалегідь",
@@ -694,3 +695,4 @@
   "wallet__wallet": "гаманець",
   "wallet__watched_accounts": "Переглянуті акаунти"
 }
+

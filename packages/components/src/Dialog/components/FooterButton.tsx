@@ -5,13 +5,14 @@ import { useIntl } from 'react-intl';
 import Box from '../../Box';
 import Button, { ButtonSize } from '../../Button';
 import HStack from '../../HStack';
+import { LocaleIds } from '../../locale';
 import { useUserDevice } from '../../Provider/hooks';
 
 export type OnCloseCallback = { onClose?: (() => void) | undefined };
 
 export type FooterButtonProps = {
-  primaryActionTranslationId?: string;
-  secondaryActionTranslationId?: string;
+  primaryActionTranslationId?: LocaleIds;
+  secondaryActionTranslationId?: LocaleIds;
   onPrimaryActionPress?: ({ onClose }: OnCloseCallback) => void;
   onSecondaryActionPress?: () => void;
   buttonSize?: ButtonSize;

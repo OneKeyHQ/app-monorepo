@@ -149,6 +149,7 @@
   "badge__backed_up": "Backed up",
   "badge__coming_soon": "Coming soon",
   "checkbox__manual_backup_warning": "I understand that if I lose my recovery phrase, I will lose my funds.",
+  "content__account_lowercase": "",
   "content__activated": "Activated",
   "content__activity_logs": "Activity logs",
   "content__advance": "Advance",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Ví tiền",
   "wallet__watched_accounts": "Tài khoản đã theo dõi"
 }
+

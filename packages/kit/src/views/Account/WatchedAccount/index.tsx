@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Modal, useForm } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
@@ -85,7 +86,7 @@ const WatchedAccount: FC = () => {
 
       navigation.goBack();
     } catch (e) {
-      const errorKey = (e as { key: string }).key;
+      const errorKey = (e as { key: LocaleIds }).key;
       toast.show({
         title: intl.formatMessage({ id: errorKey }),
       });

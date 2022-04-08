@@ -4,6 +4,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Form, Modal, useForm } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
@@ -59,7 +60,7 @@ const AddWatchAccount = () => {
         const inst = navigation.getParent() || navigation;
         inst.goBack();
       } catch (e) {
-        const errorKey = (e as { key: string }).key;
+        const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
           title: intl.formatMessage({ id: errorKey }),
         });
