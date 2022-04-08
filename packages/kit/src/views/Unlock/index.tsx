@@ -161,10 +161,6 @@ const Unlock = () => {
               <Form.Item
                 control={control}
                 name="password"
-                label={intl.formatMessage({
-                  id: 'form__password',
-                  defaultMessage: 'Password',
-                })}
                 rules={{
                   required: intl.formatMessage({
                     id: 'form__field_is_required',
