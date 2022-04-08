@@ -18,6 +18,7 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
+import { IDappCallParams } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';
@@ -51,9 +52,12 @@ const Send = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
-  const { id, scope, origin, ...params } = useDappParams();
+  const { sourceInfo, ...params } = useDappParams();
+  const { id } = sourceInfo || ({} as IDappCallParams);
   const dappApprove = useDappApproveAction({ id });
   const sendConfirmData =
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (params.data.params as SendConfirmParams[])?.[0] ?? {};
   const { from, to, value, gas, gasPrice } = sendConfirmData;
   const { account, wallet, network } = useActiveWalletAccount();

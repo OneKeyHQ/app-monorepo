@@ -14,6 +14,7 @@ import {
 import { Text } from '@onekeyhq/components/src/Typography';
 import { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 
+import { IDappCallParams } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -56,7 +57,8 @@ const Connection = () => {
   const intl = useIntl();
   const { account, networkImpl, accountAddress } = useActiveWalletAccount();
   const accountInfo = account as DBSimpleAccount | null;
-  const { origin, scope, id } = useDappParams();
+  const { sourceInfo } = useDappParams();
+  const { origin, scope, id } = sourceInfo ?? ({} as IDappCallParams);
   const computedIsRug = isRug(origin);
 
   // TODO move to DappService

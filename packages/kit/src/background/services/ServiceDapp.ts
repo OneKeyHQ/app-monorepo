@@ -14,6 +14,7 @@ import {
   dappSaveSiteConnection,
 } from '../../store/reducers/dapp';
 import extUtils from '../../utils/extUtils';
+import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappCallParams } from '../IBackgroundApi';
 import { ensureSerializable } from '../utils';
@@ -65,20 +66,18 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
-  openSendConfirmModal(request: CommonRequestParams['request']) {
-    return this.openModal({
-      request,
-      screens: [
-        ModalRoutes.DappSendConfirmModal,
-        DappModalRoutes.SendConfirmModal,
-      ],
-    });
-  }
-
   openMulticallModal(request: CommonRequestParams['request']) {
     return this.openModal({
       request,
       screens: [ModalRoutes.DappMulticallModal, DappModalRoutes.MulticallModal],
+    });
+  }
+
+  openSendConfirmModal(request: IJsBridgeMessagePayload, params: any) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.Send, SendRoutes.SendConfirmRedirect],
+      params,
     });
   }
 
@@ -97,15 +96,18 @@ class ServiceDapp extends ServiceBase {
         reject,
       });
       const routeNames = [RootRoutes.Modal, ...screens];
-      const source = {
+      const sourceInfo = {
         id,
         origin: request.origin,
         scope: request.scope, // ethereum
-        data: JSON.stringify(request.data), // TODO why stringify: Ext route linking only works flat object
+        data: request.data,
       } as IDappCallParams;
       const routeParams = {
-        source,
-        ...params,
+        // stringify required, nested object not working with Ext route linking
+        query: JSON.stringify({
+          sourceInfo,
+          ...params,
+        }),
       };
 
       const modalParams: { screen: any; params: any } = {

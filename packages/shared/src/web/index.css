@@ -60,18 +60,19 @@ body {
   Scrollbar
 */
 /* width */
-::-webkit-scrollbar {
-  width: 6px;
-}
+/*::-webkit-scrollbar {*/
+/*  width: 6px;*/
+/*  position: absolute;*/
+/*}*/
 
-/* Track */
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/*!* Track *!*/
+/*::-webkit-scrollbar-track {*/
+/*  background: transparent;*/
+/*}*/
 
-/* Handle */
-::-webkit-scrollbar-thumb {
-  /* gray color palette comes from design file "illustration" */
-  background: #74748B; 
-  border-radius: 3px;
-}
+/*!* Handle *!*/
+/*::-webkit-scrollbar-thumb {*/
+/*  !* gray color palette comes from design file "illustration" *!*/
+/*  background: #74748B;*/
+/*  border-radius: 3px;*/
+/*}*/

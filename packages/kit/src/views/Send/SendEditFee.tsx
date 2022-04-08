@@ -216,7 +216,10 @@ const StandardFee = ({
   onChange: (v: string) => void;
 }) => {
   const feeSymbol = feeInfoPayload?.info?.symbol || '';
-  const gasList = feeInfoPayload?.info?.prices ?? [];
+  const gasList = useMemo(
+    () => feeInfoPayload?.info?.prices ?? [],
+    [feeInfoPayload?.info?.prices],
+  );
   const gasItems = useMemo(() => {
     if (!gasList) return [];
     const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
@@ -346,13 +349,15 @@ const TransactionEditFee = ({ ...rest }) => {
       },
     };
     debugLogger.sendTx('SendEditFee Confirm >>>> ', feeInfoSelected);
-    navigation.navigate({
-      merge: true,
-      name: backRouteName as typeof SendRoutes.SendConfirm,
-      params: {
-        feeInfoSelected,
-      },
-    });
+    if (backRouteName) {
+      navigation.navigate({
+        merge: true,
+        name: backRouteName,
+        params: {
+          feeInfoSelected,
+        },
+      });
+    }
   });
 
   const setFormValuesFromFeeInfo = useCallback(

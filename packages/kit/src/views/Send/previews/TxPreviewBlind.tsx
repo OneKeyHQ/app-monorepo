@@ -1,16 +1,12 @@
 import React from 'react';
 
-import BigNumber from 'bignumber.js';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   Divider,
-  Spinner,
   Text,
-  Token,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -21,8 +17,13 @@ import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 import { ITxPreviewModalProps, TxPreviewModal } from './TxPreviewModal';
 
 function TxPreviewBlind(props: ITxPreviewModalProps) {
-  const { feeInfoPayload, feeInfoLoading, feeInfoEditable, encodedTx, source } =
-    props;
+  const {
+    feeInfoPayload,
+    feeInfoLoading,
+    feeInfoEditable,
+    encodedTx,
+    sourceInfo,
+  } = props;
   const intl = useIntl();
   const cardBgColor = useThemeValue('surface-default');
   const encodedTxEvm = encodedTx as IEncodedTxEvm;
@@ -80,7 +81,7 @@ function TxPreviewBlind(props: ITxPreviewModalProps) {
               flex={1}
               noOfLines={3}
             >
-              {source?.origin}
+              {sourceInfo?.origin}
             </Text>
           </Row>
         </Column>

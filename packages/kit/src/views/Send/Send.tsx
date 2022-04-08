@@ -203,27 +203,29 @@ const Transaction = () => {
         encodedTx,
         feeInfoValue: feeInfoPayload?.current.value,
       });
+    const payload = {
+      to: data.to,
+      account: {
+        id: account.id,
+        name: account.name,
+        address: (account as { address: string }).address,
+      },
+      network: {
+        id: activeNetwork?.network.id ?? '',
+        name: activeNetwork?.network.name ?? '',
+      },
+      value: data.value,
+      token: {
+        idOnNetwork: tokenConfig.tokenIdOnNetwork,
+        logoURI: tokenConfig.logoURI,
+        name: tokenConfig.name,
+        symbol: tokenConfig.symbol,
+      },
+    };
     const params = {
       payloadType: 'transfer', // transfer, transferNft, swap
-      payload: {
-        to: data.to,
-        account: {
-          id: account.id,
-          name: account.name,
-          address: (account as { address: string }).address,
-        },
-        network: {
-          id: activeNetwork?.network.id ?? '',
-          name: activeNetwork?.network.name ?? '',
-        },
-        value: data.value,
-        token: {
-          idOnNetwork: tokenConfig.tokenIdOnNetwork,
-          logoURI: tokenConfig.logoURI,
-          name: tokenConfig.name,
-          symbol: tokenConfig.symbol,
-        },
-      },
+      payload,
+      backRouteName: SendRoutes.Send,
       encodedTx: encodedTxWithFee,
       feeInfoSelected: feeInfoPayload?.selected,
     };

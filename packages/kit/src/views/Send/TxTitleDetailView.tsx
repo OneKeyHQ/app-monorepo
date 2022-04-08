@@ -34,7 +34,7 @@ function TxTitleDetailView({
           textAlign="right"
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           flex={1}
-          numberOfLines={1}
+          numberOfLines={3}
         >
           {detail}
         </Text>

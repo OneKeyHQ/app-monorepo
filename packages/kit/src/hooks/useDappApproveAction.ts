@@ -64,12 +64,14 @@ function useDappApproveAction({
 
   // also trigger browser refresh
   useEffect(() => {
+    // const registerWindowUnload = isExt && !platformEnv.isDev;
+    const registerWindowUnload = isExt;
     // TODO do not reject with hardware interaction when beforeunload
-    if (isExt) {
+    if (registerWindowUnload) {
       window.addEventListener('beforeunload', () => reject());
     }
     return () => {
-      if (isExt) {
+      if (registerWindowUnload) {
         window.removeEventListener('beforeunload', () => reject());
       }
     };

@@ -36,7 +36,7 @@ export const useSearchTokens = (
     main();
   }, [terms, networkid]);
   return {
-    feeInfoLoading: loading,
+    loading,
     searchedTokens,
   };
 };

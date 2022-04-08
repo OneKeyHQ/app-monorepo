@@ -11,10 +11,11 @@ import {
 
 import { IDappCallParams } from '../../../background/IBackgroundApi';
 import { TransferSendParamsPayload } from '../types';
-import useDappParams from "../../../hooks/useDappParams";
 
+// TODO networkId, accountId, onSuccess
 export type ITxPreviewModalProps = ModalProps & {
-  source?: IDappCallParams;
+  // TODO rename sourceInfo
+  sourceInfo?: IDappCallParams;
   encodedTx: IEncodedTxAny;
   feeInfoPayload: IFeeInfoPayload | null;
   feeInfoLoading: boolean;

@@ -61,7 +61,7 @@ export const useSearchDapps = (terms: string, keyword: string) => {
     main();
   }, [terms]);
   return {
-    feeInfoLoading: loading,
+    loading,
     searchedDapps,
   };
 };

@@ -168,7 +168,7 @@ export const SubmitRequest: FC = () => {
       const tempName = uuid.v4() as string;
       const imagename = `${tempName}.png`;
       const image: ImageModel = {
-        feeInfoLoading: true,
+        loading: true,
         localPath: result.uri,
         filename: imagename,
       };
@@ -193,7 +193,7 @@ export const SubmitRequest: FC = () => {
                 ...prev.slice(0, imageIndex),
                 {
                   ...prev[imageIndex],
-                  feeInfoLoading: false,
+                  loading: false,
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                   token: responseJson.data.upload.token,
                 },

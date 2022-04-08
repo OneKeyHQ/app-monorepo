@@ -38,7 +38,7 @@ function FeeInfoInput({
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
   disabled?: boolean;
-  backRouteName?: string;
+  backRouteName?: keyof SendRoutesParams;
   renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
 }) {
   const navigation = useNavigation<NavigationProps>();
@@ -201,6 +201,7 @@ function FeeInfoInputForConfirm({
   return (
     <FeeInfoInput
       disabled={disabled}
+      backRouteName={SendRoutes.SendConfirm}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
       loading={loading}

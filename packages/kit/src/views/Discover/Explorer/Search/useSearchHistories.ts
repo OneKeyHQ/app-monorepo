@@ -48,7 +48,7 @@ export const useSearchHistories = (terms: string, keyword: string) => {
     main();
   }, [discover.history, terms]);
   return {
-    feeInfoLoading: loading,
+    loading,
     searchedHistories,
     allHistories,
   };

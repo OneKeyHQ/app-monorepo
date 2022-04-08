@@ -20,7 +20,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
-import useDappParams from '../../hooks/useDappParams';
 
 import { TxPreviewBlind } from './previews/TxPreviewBlind';
 import { ITxPreviewModalProps } from './previews/TxPreviewModal';
@@ -50,11 +49,10 @@ const TransactionConfirm = () => {
   let { accountId, networkId } = useActiveWalletAccount();
   // TODO multi-chain encodedTx
   const encodedTx = params.encodedTx as IEncodedTxEvm;
-  const isFromDapp = params.source;
-  // TODO Ext testing
-  const { id } = useDappParams();
+  // TODO rename to sourceInfo
+  const isFromDapp = params.sourceInfo;
   const dappApprove = useDappApproveAction({
-    id,
+    id: params.sourceInfo?.id || '',
     closeOnError: true,
   });
   const useFeeInTx = !isFromDapp;
@@ -91,6 +89,7 @@ const TransactionConfirm = () => {
   const saveHistory = useCallback(
     (tx: IBroadcastedTx) => {
       const historyId = `${networkId}--${tx.txid}`;
+      // TODO addHistoryEntryFromEncodedTx({ type, encodedTx, signedTx, payload })
       backgroundApiProxy.engine.addHistoryEntry({
         id: historyId,
         accountId,
@@ -164,7 +163,7 @@ const TransactionConfirm = () => {
       close();
     },
     onClose: dappApprove.reject,
-    source: params.source,
+    sourceInfo: params.sourceInfo,
   };
 
   if (isFromDapp) {

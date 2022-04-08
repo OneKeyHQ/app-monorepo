@@ -105,7 +105,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
 
   const hintText = useMemo(() => {
     if (rpcUrlStatus.error) return '';
-    if (rpcUrlStatus.feeInfoLoading) {
+    if (rpcUrlStatus.loading) {
       return intl.formatMessage({ id: 'form__rpc_url_connecting' });
     }
     if (rpcUrlStatus.connected) {
@@ -118,23 +118,23 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
 
   useEffect(() => {
     if (url && URITester.test(url)) {
-      setRpcUrlStatus((prev) => ({ ...prev, connected: false, feeInfoLoading: true }));
+      setRpcUrlStatus((prev) => ({ ...prev, connected: false, loading: true }));
       serviceNetwork
         .preAddNetwork(url)
         .then(({ chainId: pChainId }) => {
           if (pChainId !== chainId) {
             setRpcUrlStatus({
-              feeInfoLoading: false,
+              loading: false,
               connected: true,
               error: intl.formatMessage({ id: 'form__chain_id_invalid' }),
             });
             return;
           }
-          setRpcUrlStatus({ connected: true, feeInfoLoading: false });
+          setRpcUrlStatus({ connected: true, loading: false });
         })
         .catch(() => {
           setRpcUrlStatus({
-            feeInfoLoading: false,
+            loading: false,
             connected: false,
             error: intl.formatMessage({ id: 'form__rpc_fetched_failed' }),
           });
