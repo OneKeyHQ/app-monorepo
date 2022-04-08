@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import type { ExplorerViewProps } from '..';
-import type { HistoryItem } from '../Search/types';
+import type { DAppItemType } from '../../type';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 
@@ -38,8 +38,8 @@ const Mobile: FC<ExplorerViewProps> = ({
       params: {
         screen: DiscoverModalRoutes.SearchHistoryModal,
         params: {
-          onSelectorItem: (item: HistoryItem) =>
-            onSearchSubmitEditing?.(item.url),
+          onSelectorItem: (item: DAppItemType | string) =>
+            onSearchSubmitEditing?.(item),
         },
       },
     });

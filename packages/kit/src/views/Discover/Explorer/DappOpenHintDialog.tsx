@@ -4,11 +4,13 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 
+import type { DAppItemType } from '../type';
+
 export type DappOpenHintDialogProps = {
-  payload: string | undefined;
+  payload: DAppItemType | undefined;
   visible: boolean;
   onVisibleChange: (visible: boolean) => void;
-  onAgree: (payload: string | undefined) => void;
+  onAgree: (payload: DAppItemType | undefined) => void;
 };
 
 const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
@@ -39,8 +41,8 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
       footerButtonProps={{
         primaryActionTranslationId: 'action__i_got_it',
         onPrimaryActionPress: () => {
-          onVisibleChange(false);
           onAgree?.(payload);
+          onVisibleChange(false);
         },
       }}
     />

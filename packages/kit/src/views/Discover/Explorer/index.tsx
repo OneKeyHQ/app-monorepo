@@ -8,8 +8,12 @@ import { Box, useIsSmallLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useToast } from '@onekeyhq/kit/src/hooks';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
-import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
+import {
+  updateFirstRemindDAPP,
+  updateHistory,
+} from '@onekeyhq/kit/src/store/reducers/discover';
 import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,11 +25,13 @@ import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
 import { useWebviewRef } from './useWebviewRef';
 
+import type { DAppItemType } from '../type';
+
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
   searchContent?: string;
   onSearchContentChange?: (text: string) => void;
-  onSearchSubmitEditing?: (text: string) => void;
+  onSearchSubmitEditing?: (text: DAppItemType | string) => void;
   explorerContent: React.ReactNode;
   onGoBack?: () => void;
   onNext?: () => void;
@@ -37,9 +43,11 @@ export type ExplorerViewProps = {
 
 const Explorer: FC = () => {
   const intl = useIntl();
-  const openBrowser = useOpenBrowser();
   const toast = useToast();
+  const openBrowser = useOpenBrowser();
+
   const { dispatch } = backgroundApiProxy;
+  const discover = useAppSelector((s) => s.discover);
 
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] = useState<
     any | null
@@ -62,7 +70,7 @@ const Explorer: FC = () => {
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
 
   const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
-  const [dappOpenPayload, setDappOpenPayload] = useState<string>();
+  const [dappOpenPayload, setDappOpenPayload] = useState<DAppItemType>();
 
   const isSmallLayout = useIsSmallLayout();
 
@@ -74,18 +82,26 @@ const Explorer: FC = () => {
     }
   }, []);
 
-  const gotoUrl = (url: string | undefined) => {
-    if (url && url.trim() !== '') {
-      setDappOpenPayload(url);
-      setShowDappOpenHint(true);
-    } else {
+  const gotoUrl = (item: (string | DAppItemType) | undefined) => {
+    if (!item || (typeof item === 'string' && item.trim().length === 0)) {
       setDisplayInitialPage(true);
+      return;
+    }
+
+    if (typeof item === 'string') {
+      setDisplayInitialPage(false);
+      if (item !== currentUrl) {
+        setCurrentUrl(item ?? '');
+      }
+    } else if (!discover.firstRemindDAPP) {
+      setDappOpenPayload(item);
+      setShowDappOpenHint(true);
+    } else if (item) {
+      setDisplayInitialPage(false);
+      setCurrentUrl(item.url ?? '');
+      dispatch(updateHistory(item.id));
     }
   };
-
-  useEffect(() => {
-    console.log('Explorer useEffect webviewRef:', !!webviewRef);
-  }, [webviewRef, webviewRef?.innerRef]);
 
   useEffect(() => {
     console.log('Explorer useEffect currentUrl:', currentUrl);
@@ -98,21 +114,24 @@ const Explorer: FC = () => {
     setSearchContent(displayInitialPage ? '' : webUrl ?? currentUrl ?? '');
   }, [currentUrl, webUrl, displayInitialPage]);
 
-  const onSearchSubmitEditing = (text: string) => {
-    console.log('onSearchSubmitEditing', text);
+  const onSearchSubmitEditing = (dapp: DAppItemType | string) => {
+    if (typeof dapp === 'string') {
+      console.log('onSearchSubmitEditing', dapp);
+      try {
+        let url = dapp;
+        if (!url.startsWith('http') && url.indexOf('.') !== -1 && url) {
+          url = `http://${url}`;
+        }
+        url = new URL(url).toString();
 
-    try {
-      let url = text;
-      if (!url.startsWith('http') && url.indexOf('.') !== -1 && url) {
-        url = `http://${url}`;
+        if (url) gotoUrl(url);
+        console.log('onSearchSubmitEditing pushStackUrl', url);
+      } catch (error) {
+        gotoUrl(`https://www.google.com/search?q=${dapp}`);
+        console.log('not a url', error);
       }
-      url = new URL(url).toString();
-
-      if (url) gotoUrl(url);
-      console.log('onSearchSubmitEditing pushStackUrl', url);
-    } catch (error) {
-      gotoUrl(`https://www.google.com/search?q=${text}`);
-      console.log('not a url', error);
+    } else if (dapp) {
+      gotoUrl(dapp);
     }
   };
 
@@ -193,7 +212,7 @@ const Explorer: FC = () => {
         {displayInitialPage ? (
           <Home
             onItemSelect={(item) => {
-              dispatch(updateHistory(item.id));
+              gotoUrl(item);
             }}
           />
         ) : (
@@ -265,8 +284,12 @@ const Explorer: FC = () => {
         onVisibleChange={setShowDappOpenHint}
         onAgree={(payload) => {
           setDisplayInitialPage(false);
-          if (payload !== currentUrl) {
-            setCurrentUrl(payload);
+          if (payload?.url !== currentUrl) {
+            setCurrentUrl(payload?.url ?? '');
+          }
+          if (payload) {
+            dispatch(updateFirstRemindDAPP(true));
+            dispatch(updateHistory(payload.id));
           }
         }}
       />

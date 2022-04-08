@@ -5,7 +5,6 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import {
   Box,
   Divider,
-  Image,
   Modal,
   Pressable,
   ScrollableFlatListProps,
@@ -18,10 +17,12 @@ import {
   DiscoverRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Discover';
 
+import DAppIcon from '../../DAppIcon';
+
 import { Header, ListEmptyComponent } from './Header';
 import { useSearchHistories } from './useSearchHistories';
 
-import type { HistoryItem } from './types';
+import type { DAppItemType } from '../../type';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -46,12 +47,12 @@ const SearchModalView: FC = () => {
     [searchContentTerm, allHistories, searchedHistories],
   );
 
-  const onSelectHistory = (item: HistoryItem) => {
+  const onSelectHistory = (item: DAppItemType | string) => {
     navigation.goBack();
     onSelectorItem?.(item);
   };
 
-  const renderItem: ScrollableFlatListProps<HistoryItem>['renderItem'] = ({
+  const renderItem: ScrollableFlatListProps<DAppItemType>['renderItem'] = ({
     item,
     index,
   }) => (
@@ -65,10 +66,10 @@ const SearchModalView: FC = () => {
       }}
     >
       <Box w="100%" flexDirection="row" alignItems="center">
-        <Image w="38px" h="38px" borderRadius="10px" src={item.logoURI} />
+        <DAppIcon size={38} favicon={item.favicon} chain={item.chain} />
         <Box mx={3} flexDirection="column" flex={1}>
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {item.title}
+            {item.name}
           </Text>
           <Typography.Body2 color="text-subdued">{item.url}</Typography.Body2>
         </Box>
@@ -86,8 +87,8 @@ const SearchModalView: FC = () => {
         ItemSeparatorComponent: () => <Divider />,
         keyExtractor: (_item, index) => {
           try {
-            const item = _item as HistoryItem;
-            return `${index}-${item.url}-${item.title}`;
+            const item = _item as DAppItemType;
+            return `${index}-${item.url}-${item.name}`;
           } catch (e) {
             return index.toString();
           }
@@ -103,7 +104,7 @@ const SearchModalView: FC = () => {
             onChange={setSearchContent}
             onSelectHistory={onSelectHistory}
             onSubmitContent={(content) => {
-              onSelectHistory({ url: content, logoURI: '', title: '' });
+              onSelectHistory(content);
             }}
           />
         ),

@@ -13,11 +13,11 @@ import {
 } from '@onekeyhq/components';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 
-import type { HistoryItem } from './types';
+import type { DAppItemType } from '../../type';
 
 type HeaderHistoriesProps = {
   keyword: string;
-  onSelectHistory?: (token: HistoryItem) => void;
+  onSelectHistory?: (token: DAppItemType | string) => void;
 };
 
 const HeaderHistories: FC<HeaderHistoriesProps> = ({
@@ -39,9 +39,7 @@ const HeaderHistories: FC<HeaderHistoriesProps> = ({
             title={keyword}
             titleColor="text-default"
             customArrowIconName="ArrowCircleRightSolid"
-            onPress={() =>
-              onSelectHistory?.({ url: keyword, title: '', logoURI: '' })
-            }
+            onPress={() => onSelectHistory?.(keyword)}
           />
         </Container.Box>
       ) : null}
@@ -53,7 +51,7 @@ type HeaderProps = {
   terms: string;
   keyword: string;
   onChange: (keyword: string) => void;
-  onSelectHistory?: (history: HistoryItem) => void;
+  onSelectHistory?: (history: DAppItemType | string) => void;
   onSubmitContent?: (content: string) => void;
 };
 
