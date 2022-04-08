@@ -309,16 +309,18 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             children: intl.formatMessage({ id: 'action__backup' }),
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.BackupWallet,
-              params: {
-                screen: BackupWalletModalRoutes.BackupWalletModal,
-                params: {
-                  walletId: selectedWallet?.id ?? '',
-                },
-              },
-            });
             onClose?.();
+            setTimeout(() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.BackupWallet,
+                params: {
+                  screen: BackupWalletModalRoutes.BackupWalletModal,
+                  params: {
+                    walletId: selectedWallet?.id ?? '',
+                  },
+                },
+              });
+            }, 500);
           },
         }}
       />

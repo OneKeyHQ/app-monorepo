@@ -149,6 +149,7 @@
   "badge__backed_up": "Con respaldo",
   "badge__coming_soon": "Próximamente",
   "checkbox__manual_backup_warning": "Entiendo que si pierdo mi frase de recuperación, perderé mis fundaciones",
+  "content__account_lowercase": "",
   "content__activated": "Activado",
   "content__activity_logs": "Registros de actividad",
   "content__advance": "Avance",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Cartera",
   "wallet__watched_accounts": "Cuentas vigiladas"
 }
+

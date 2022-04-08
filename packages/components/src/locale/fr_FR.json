@@ -149,6 +149,7 @@
   "badge__backed_up": "Sauvegardé",
   "badge__coming_soon": "Prochainement",
   "checkbox__manual_backup_warning": "Je comprends que si je perds ma phrase de récupération, je perdrai mes fonds.",
+  "content__account_lowercase": "",
   "content__activated": "Activé",
   "content__activity_logs": "Journaux d'activité",
   "content__advance": "Avance",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Portefeuille",
   "wallet__watched_accounts": "Comptes surveillés"
 }
+

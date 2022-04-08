@@ -149,6 +149,7 @@
   "badge__backed_up": "को समर्थन",
   "badge__coming_soon": "जल्द आ रहा है",
   "checkbox__manual_backup_warning": "मैं समझता हूं कि यदि मैं अपना पुनर्प्राप्ति वाक्यांश खो देता हूं, तो मैं अपनी निधि खो दूंगा।",
+  "content__account_lowercase": "",
   "content__activated": "सक्रिय",
   "content__activity_logs": "गतिविधि लॉग",
   "content__advance": "अग्रिम",
@@ -694,3 +695,4 @@
   "wallet__wallet": "बटुआ",
   "wallet__watched_accounts": "देखे गए खाते"
 }
+

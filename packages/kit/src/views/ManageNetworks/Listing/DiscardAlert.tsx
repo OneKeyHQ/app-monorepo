@@ -35,7 +35,7 @@ export const DiscardAlert: FC<DiscardAlertProps> = ({
           handleClose?.();
           setTimeout(() => {
             onConfirm?.();
-          }, 100);
+          }, 500);
         },
         primaryActionTranslationId: 'action__discard',
         secondaryActionTranslationId: 'action__cancel',

@@ -149,6 +149,7 @@
   "badge__backed_up": "백업됨",
   "badge__coming_soon": "출시 예정",
   "checkbox__manual_backup_warning": "나는 회복 문구를 잃어버리면 나의 발견물을 잃게 된다는 것을 이해합니다.",
+  "content__account_lowercase": "",
   "content__activated": "활성화됨",
   "content__activity_logs": "활동 로그",
   "content__advance": "전진",
@@ -694,3 +695,4 @@
   "wallet__wallet": "지갑",
   "wallet__watched_accounts": "시청 계정"
 }
+

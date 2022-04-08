@@ -14,6 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../Box';
 import Button from '../Button';
 import FlatList from '../FlatList';
+import { LocaleIds } from '../locale';
 import { useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
@@ -30,8 +31,8 @@ export type ModalProps = {
   visible?: boolean;
   closeable?: boolean;
   closeAction?: () => void;
-  primaryActionTranslationId?: string;
-  secondaryActionTranslationId?: string;
+  primaryActionTranslationId?: LocaleIds;
+  secondaryActionTranslationId?: LocaleIds;
   onBackActionPress?: () => void;
   onPrimaryActionPress?: ({
     onClose,

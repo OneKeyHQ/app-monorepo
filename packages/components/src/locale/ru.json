@@ -149,6 +149,7 @@
   "badge__backed_up": "Резервное копирование",
   "badge__coming_soon": "Скоро будет",
   "checkbox__manual_backup_warning": "Я понимаю, что если я потеряю свою фразу восстановления, я потеряю свои находки",
+  "content__account_lowercase": "",
   "content__activated": "Активированный",
   "content__activity_logs": "Журналы регистрации действий",
   "content__advance": "Продвигать",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Бумажник",
   "wallet__watched_accounts": "Просмотренные аккаунты"
 }
+
