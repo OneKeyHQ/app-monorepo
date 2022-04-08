@@ -6,7 +6,7 @@ import type { Engine } from '../index';
 import type { IVaultOptions } from '../types/vault';
 
 // TODO rename to VaultContext
-export class EngineVaultTools {
+export class VaultContext {
   constructor(options: IVaultOptions) {
     this.options = options;
     this.engine = options.engine;

@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
   FormatBalance,
   FormatCurrency,
@@ -33,7 +34,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

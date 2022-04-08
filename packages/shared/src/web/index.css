@@ -57,11 +57,13 @@ body {
 
 
 /*
-  Scrollbar
+  hide Scrollbar
+  in JS: extendTheme()
 */
-/* width */
+/* set width=0 to hide scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 0;
+  background: transparent;
 }
 
 /* Track */
@@ -72,6 +74,6 @@ body {
 /* Handle */
 ::-webkit-scrollbar-thumb {
   /* gray color palette comes from design file "illustration" */
-  background: #74748B; 
+  background: #74748B;
   border-radius: 3px;
 }

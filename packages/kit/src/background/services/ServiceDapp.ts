@@ -14,6 +14,7 @@ import {
   dappSaveSiteConnection,
 } from '../../store/reducers/dapp';
 import extUtils from '../../utils/extUtils';
+import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappCallParams } from '../IBackgroundApi';
 import { ensureSerializable } from '../utils';
@@ -65,16 +66,6 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
-  openSendConfirmModal(request: CommonRequestParams['request']) {
-    return this.openModal({
-      request,
-      screens: [
-        ModalRoutes.DappSendConfirmModal,
-        DappModalRoutes.SendConfirmModal,
-      ],
-    });
-  }
-
   openMulticallModal(request: CommonRequestParams['request']) {
     return this.openModal({
       request,
@@ -82,12 +73,22 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
+  openSendConfirmModal(request: IJsBridgeMessagePayload, params: any) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.Send, SendRoutes.SendConfirmRedirect],
+      params,
+    });
+  }
+
   async openModal({
     request,
     screens = [],
+    params = {},
   }: {
     request: IJsBridgeMessagePayload;
     screens: any[];
+    params?: any;
   }) {
     return new Promise((resolve, reject) => {
       const id = this.backgroundApi.servicePromise.createCallback({
@@ -95,12 +96,19 @@ class ServiceDapp extends ServiceBase {
         reject,
       });
       const routeNames = [RootRoutes.Modal, ...screens];
-      const routeParams = {
+      const sourceInfo = {
         id,
         origin: request.origin,
         scope: request.scope, // ethereum
-        data: JSON.stringify(request.data),
+        data: request.data,
       } as IDappCallParams;
+      const routeParams = {
+        // stringify required, nested object not working with Ext route linking
+        query: JSON.stringify({
+          sourceInfo,
+          ...params,
+        }),
+      };
 
       const modalParams: { screen: any; params: any } = {
         screen: null,

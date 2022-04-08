@@ -59,7 +59,8 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
         const result = await sendTx();
         if (result) {
           if (navigation.canGoBack()) {
-            navigation.getParent()?.goBack?.();
+            // onSuccess will close() modal, goBack() is NOT needed here.
+            // navigation.getParent()?.goBack?.();
           }
           // TODO toast not working if timeout < 500, and should be after navigate()
           setTimeout(() => {
@@ -70,12 +71,15 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
           }, 600);
         }
       } catch (e) {
-        navigation.navigate({
-          merge: true,
-          // TODO custom back name, Back to Send/SendConfirm
-          name: SendRoutes.Send,
-          params: route.params,
-        });
+        if (route.params.backRouteName) {
+          navigation.navigate({
+            merge: true,
+            name: route.params.backRouteName,
+            params: route.params,
+          });
+        } else {
+          // goBack or close
+        }
 
         // EIP 1559 fail:
         //  replacement transaction underpriced

@@ -10,7 +10,7 @@ import {
 } from '../types/vault';
 import { WalletType } from '../types/wallet';
 
-import { EngineVaultTools } from './EngineVaultTools';
+import { VaultContext } from './VaultContext';
 
 import type { IBroadcastedTx, ISignCredentialOptions } from '../types/vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
@@ -21,7 +21,7 @@ export type IVaultInitConfig = {
 };
 export type IKeyringMapKey = WalletType;
 
-export abstract class VaultBase extends EngineVaultTools {
+export abstract class VaultBase extends VaultContext {
   keyring!: KeyringBase;
 
   abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBaseMock>;
