@@ -4,9 +4,11 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
 import { Box, useIsSmallLayout } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useToast } from '@onekeyhq/kit/src/hooks';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
+import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 
 import Home from '../Home';
@@ -33,6 +35,7 @@ const Explorer: FC = () => {
   const intl = useIntl();
   const openBrowser = useOpenBrowser();
   const toast = useToast();
+  const { dispatch } = backgroundApiProxy;
 
   const [visibleMore, setVisibleMore] = useState(false);
 
@@ -179,7 +182,11 @@ const Explorer: FC = () => {
     () => (
       <Box flex={1}>
         {displayInitialPage ? (
-          <Home />
+          <Home
+            onItemSelect={(item) => {
+              dispatch(updateHistory(item.id));
+            }}
+          />
         ) : (
           <WebView src={currentUrl ?? ''} openUrlInExt />
         )}

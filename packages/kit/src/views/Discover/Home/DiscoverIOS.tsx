@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,10 +18,7 @@ import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import ExploreIMG from '@onekeyhq/kit/assets/explore.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  updateHistory,
-  updateSyncData,
-} from '@onekeyhq/kit/src/store/reducers/discover';
+import { updateSyncData } from '@onekeyhq/kit/src/store/reducers/discover';
 
 import { useDiscover } from '../../../hooks/redux';
 import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
@@ -38,7 +35,10 @@ type NavigationProps = NativeStackNavigationProp<
 
 type PageStatusType = 'network' | 'loading' | 'data';
 
-const DiscoverIOS = () => {
+type DiscoverProps = {
+  onItemSelect: (item: DAppItemType) => void;
+};
+const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { history } = useDiscover();
@@ -50,7 +50,7 @@ const DiscoverIOS = () => {
     () => (
       <Pressable
         onPress={() => {
-          navigation.navigate(HomeRoutes.ExploreScreen);
+          navigation.navigate(HomeRoutes.ExploreScreen, { onItemSelect });
         }}
       >
         <Box width="100%" height="268px">
@@ -79,14 +79,14 @@ const DiscoverIOS = () => {
         </Box>
       </Pressable>
     ),
-    [intl, navigation],
+    [intl, navigation, onItemSelect],
   );
 
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item, index }) => (
       <Pressable
         onPress={() => {
-          dispatch(updateHistory(item.id));
+          onItemSelect(item);
         }}
       >
         <Box
@@ -114,7 +114,7 @@ const DiscoverIOS = () => {
         </Box>
       </Pressable>
     ),
-    [dispatch, history?.length],
+    [history?.length, onItemSelect],
   );
 
   const getData = useCallback(() => {
