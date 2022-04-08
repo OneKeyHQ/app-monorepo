@@ -118,8 +118,8 @@ jobs:
           artifact-type: Desktop
           artifact-name: OneKey-Desktop-RN
           artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ steps.dotenv.outputs.build_number }}'
-          artifact-version-code: '${{ steps.dotenv.outputs.build_number }}'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           change-log: 'Download [Artifacts] at the bottom of page.'
           custom-issue-url: ''
