@@ -60,7 +60,11 @@ const KitProvider: FC = () => {
   useRemoteConsole();
   useEffect(() => {
     async function prepare() {
-      await SplashScreen.preventAutoHideAsync();
+      try {
+        await SplashScreen.preventAutoHideAsync();
+      } catch (e) {
+        console.log(e);
+      }
     }
     prepare();
   }, []);
