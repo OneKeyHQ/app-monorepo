@@ -134,11 +134,13 @@ const MainScreen = () => {
   );
 
   useEffect(() => {
-    if (!platformEnv.isNative || !preconditon) {
+    if (platformEnv.isExtension || !preconditon) {
       return;
     }
+    // AppState.addEventListener return subscription object in native env, but return empty in web env
     const subscription = AppState.addEventListener('change', onChange);
     return () => {
+      AppState.removeEventListener('change', onChange);
       // @ts-ignore
       subscription?.remove();
     };
