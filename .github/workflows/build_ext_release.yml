@@ -2,7 +2,7 @@ name: build-ext
 
 on:
   schedule:
-    - cron: '34 19 * * 0,2,4' 
+    - cron: '34 19 * * 0,2,4'
   workflow_dispatch:
 
 jobs:
@@ -28,6 +28,12 @@ jobs:
       - name: 'Setup ENV'
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # generate build number
+          DATE=`date "+%Y%m%d"`
+          build_number="${DATE}-${GITHUB_RUN_NUMBER}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
 
           github_ref="${github_ref////-}"
           github_ref="${github_ref/refs-heads-/}"

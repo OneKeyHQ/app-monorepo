@@ -28,6 +28,12 @@ jobs:
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
 
+          # generate build number
+          DATE=`date "+%Y%m%d"`
+          build_number="${DATE}-${GITHUB_RUN_NUMBER}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+
           github_ref="${github_ref////-}"
           github_ref="${github_ref/refs-heads-/}"
           github_ref="${github_ref/refs-tags-/}"
