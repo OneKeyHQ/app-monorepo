@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Account } from '@onekeyhq/engine/src/types/account';
@@ -58,7 +59,7 @@ const getTransactionTypeStr = (
   intl: IntlShape,
   transaction: Transaction | null,
 ): string => {
-  const stringKeys: Record<TransactionType, string> = {
+  const stringKeys: Record<TransactionType, LocaleIds> = {
     'Transfer': 'action__send',
     'Receive': 'action__receive',
     'Swap': 'transaction__exchange',
@@ -159,7 +160,11 @@ const TransactionDetails: FC = () => {
 
   // render Address
   const renderAddress = useCallback(
-    (titleKey: string, address: string, networkLabel: string | null = null) => {
+    (
+      titleKey: LocaleIds,
+      address: string,
+      networkLabel: string | null = null,
+    ) => {
       const filterAccounts = accounts.filter(
         (_account) => _account.address === address,
       );
@@ -208,7 +213,7 @@ const TransactionDetails: FC = () => {
 
   // render Amount
   const renderAmount = useCallback(
-    (titleKey: string) => {
+    (titleKey: LocaleIds) => {
       const list = getTransferNFTList(txInfo);
       const originAmount = getTransferAmount(txInfo, network?.network);
       const amount = formatBalanceDisplay(

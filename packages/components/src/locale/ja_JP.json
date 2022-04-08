@@ -149,6 +149,7 @@
   "badge__backed_up": "バックアップ済み",
   "badge__coming_soon": "近日公開予定",
   "checkbox__manual_backup_warning": "リカバリーフレーズを紛失した場合、ファウンドを失うことを理解しています。",
+  "content__account_lowercase": "",
   "content__activated": "起動中",
   "content__activity_logs": "アクティビティログ",
   "content__advance": "前進",
@@ -694,3 +695,4 @@
   "wallet__wallet": "財布",
   "wallet__watched_accounts": "監視されたアカウント"
 }
+

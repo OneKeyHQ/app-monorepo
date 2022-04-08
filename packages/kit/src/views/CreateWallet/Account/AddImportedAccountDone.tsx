@@ -4,6 +4,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import {
@@ -42,7 +43,7 @@ const Done: FC<DoneProps> = ({ privatekey, name, networkId, password }) => {
         const inst = navigation.getParent() || navigation;
         inst.goBack();
       } catch (e) {
-        const errorKey = (e as { key: string }).key;
+        const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
           title: intl.formatMessage({ id: errorKey }),
         });

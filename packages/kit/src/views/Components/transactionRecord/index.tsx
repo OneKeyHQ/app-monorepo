@@ -13,6 +13,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   TokenType,
   Transaction,
@@ -47,7 +48,7 @@ export const getTransactionStatusStr = (
   intl: IntlShape,
   state: TxStatus = TxStatus.Pending,
 ): string => {
-  const stringKeys: Record<TxStatus, string> = {
+  const stringKeys: Record<TxStatus, LocaleIds> = {
     'Pending': 'transaction__pending',
     'Confirmed': 'transaction__success',
     'Failed': 'transaction__failed',
@@ -81,7 +82,7 @@ const getTransactionTypeStr = (
   //   );
   // }
 
-  const stringKeys: Record<TransactionType, string> = {
+  const stringKeys: Record<TransactionType, LocaleIds> = {
     'Transfer': 'action__send',
     'Receive': 'action__receive',
     'Swap': 'transaction__exchange',

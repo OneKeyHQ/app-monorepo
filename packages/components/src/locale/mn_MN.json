@@ -149,6 +149,7 @@
   "badge__backed_up": "Нөөцлөгдөх",
   "badge__coming_soon": "Тун удахгүй",
   "checkbox__manual_backup_warning": "Сэргээх хэллэгээ алдвал олдворуудаа алдах болно гэдгийг би ойлгож байна",
+  "content__account_lowercase": "",
   "content__activated": "Идэвхжүүлсэн",
   "content__activity_logs": "Үйл ажиллагааны бүртгэл",
   "content__advance": "Урьдчилгаа",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Түрийвч",
   "wallet__watched_accounts": "Үзсэн бүртгэлүүд"
 }
+

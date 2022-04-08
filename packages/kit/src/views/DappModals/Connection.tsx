@@ -11,6 +11,7 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 
@@ -37,7 +38,7 @@ const MockData = {
   ] as Permission[],
 };
 
-const getPermissionTransId = (type: PermissionType) => {
+const getPermissionTransId = (type: PermissionType): LocaleIds => {
   switch (type) {
     case 'view-addresses':
       return 'content__view_the_address_of_your_permitted_accounts_required';

@@ -149,6 +149,7 @@
   "badge__backed_up": "ได้รับการสนุบสนุน, ช่วยเหลือ",
   "badge__coming_soon": "เร็ว ๆ นี้",
   "checkbox__manual_backup_warning": "ฉันเข้าใจว่าถ้าฉันทำวลีกู้คืนหาย ฉันจะสูญเสียสิ่งที่ค้นพบ",
+  "content__account_lowercase": "",
   "content__activated": "เปิดใช้งานแล้ว",
   "content__activity_logs": "บันทึกกิจกรรม",
   "content__advance": "ก้าวหน้า",
@@ -694,3 +695,4 @@
   "wallet__wallet": "กระเป๋าสตางค์",
   "wallet__watched_accounts": "ดูบัญชี"
 }
+

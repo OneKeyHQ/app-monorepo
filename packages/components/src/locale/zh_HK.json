@@ -149,6 +149,7 @@
   "badge__backed_up": "支持",
   "badge__coming_soon": "快來了",
   "checkbox__manual_backup_warning": "我明白，如果我失去了恢復短語，我將失去我的發現",
+  "content__account_lowercase": "",
   "content__activated": "活性",
   "content__activity_logs": "活動日誌",
   "content__advance": "進步",
@@ -694,3 +695,4 @@
   "wallet__wallet": "錢包",
   "wallet__watched_accounts": "關注賬戶"
 }
+

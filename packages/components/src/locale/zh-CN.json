@@ -149,6 +149,7 @@
   "badge__backed_up": "已备份",
   "badge__coming_soon": "即将推出",
   "checkbox__manual_backup_warning": "我了解如果丢失了助记词，我将会丢失资产。",
+  "content__account_lowercase": "",
   "content__activated": "已激活",
   "content__activity_logs": "活动日志",
   "content__advance": "专业版",
@@ -694,3 +695,4 @@
   "wallet__wallet": "钱包",
   "wallet__watched_accounts": "观察账户"
 }
+

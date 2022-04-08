@@ -149,6 +149,7 @@
   "badge__backed_up": "Gesichert",
   "badge__coming_soon": "Demnächst verfügbar",
   "checkbox__manual_backup_warning": "Mir ist klar, dass ich bei Verlust der Wiederherstellungsphrase meine Fundstücke verliere.",
+  "content__account_lowercase": "",
   "content__activated": "Aktiviert",
   "content__activity_logs": "Aktivitätsprotokolle",
   "content__advance": "Vorauszahlung",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Brieftasche",
   "wallet__watched_accounts": "Beobachtete Konten"
 }
+

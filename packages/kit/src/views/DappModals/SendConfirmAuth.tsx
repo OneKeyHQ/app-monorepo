@@ -4,6 +4,7 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Modal, Spinner, Typography } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 
@@ -43,8 +44,8 @@ const SendConfirmAuth: FC<EnableLocalAuthenticationProps> = ({
 }) => {
   const intl = useIntl();
   const [status, setStatus] = useState(TransactionStatus.Pending);
-  const [errorMsg, setErrorMsg] = useState<string>();
-  const [errorKey, setErrorKey] = useState<string>();
+  const [errorMsg, setErrorMsg] = useState<LocaleIds>();
+  const [errorKey, setErrorKey] = useState<LocaleIds>();
 
   useEffect(() => {
     // Finale
@@ -73,7 +74,7 @@ const SendConfirmAuth: FC<EnableLocalAuthenticationProps> = ({
           });
         }
       } catch (e) {
-        const error = e as { key?: string; message?: string };
+        const error = e as { key?: LocaleIds; message?: LocaleIds };
         setErrorKey(error?.key ?? 'msg__unknown_error');
         setErrorMsg(error?.message);
         setStatus(TransactionStatus.Failed);

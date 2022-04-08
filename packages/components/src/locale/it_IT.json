@@ -149,6 +149,7 @@
   "badge__backed_up": "Sostenuto da",
   "badge__coming_soon": "In arrivo",
   "checkbox__manual_backup_warning": "Capisco che se perdo la mia frase di recupero, perderò i miei fondi",
+  "content__account_lowercase": "",
   "content__activated": "Attivato",
   "content__activity_logs": "Registri di attività",
   "content__advance": "Progredire",
@@ -694,3 +695,4 @@
   "wallet__wallet": "Portafoglio",
   "wallet__watched_accounts": "Conti guardati"
 }
+

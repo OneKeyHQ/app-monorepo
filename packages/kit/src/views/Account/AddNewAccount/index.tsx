@@ -5,6 +5,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
@@ -85,7 +86,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           wallet: wallet ?? null,
         });
       } catch (e) {
-        const errorKey = (e as { key: string }).key;
+        const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
           title: intl.formatMessage({ id: errorKey }),
         });
