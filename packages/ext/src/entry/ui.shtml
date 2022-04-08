@@ -27,6 +27,9 @@
   input {
     outline: none;
   }
+  textarea {
+    outline: none;
+  }
 </style>
 </body>
 </html>
