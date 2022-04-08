@@ -2,7 +2,10 @@
 import React, { useEffect, useState } from 'react';
 
 import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
+import {
+  IWebViewWrapperRef,
+  useWebViewBridge,
+} from '@onekeyfe/onekey-cross-webview';
 import { useIsFocused } from '@react-navigation/native';
 
 import {
@@ -35,12 +38,18 @@ function WebView({
   openUrlInExt = false,
   showDemoActions = false,
   showWalletActions = false,
+  onWebViewRef,
+  onNavigationStateChange,
+  allowpopups = false,
 }: {
   src: string;
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
   showDemoActions?: boolean;
   showWalletActions?: boolean;
+  onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
+  onNavigationStateChange?: (event: any) => void;
+  allowpopups?: boolean;
 }): JSX.Element {
   const isFocused = useIsFocused();
   const [srcLocal, setSrcLocal] = useState(src || srcList[0]);
@@ -48,6 +57,12 @@ function WebView({
   const [resName, setResName] = useState('');
   const { jsBridge, webviewRef, setWebViewRef } = useWebViewBridge();
   const [webviewVisible, setWebViewVisible] = useState(true);
+
+  useEffect(() => {
+    onWebViewRef?.(webviewRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onWebViewRef, webviewRef?.current]);
+
   useEffect(() => {
     if (jsBridge) {
       // only enable message for current focused webview
@@ -175,6 +190,8 @@ function WebView({
             src={src}
             onSrcChange={onSrcChange}
             receiveHandler={backgroundApiProxy.bridgeReceiveHandler}
+            onNavigationStateChange={onNavigationStateChange}
+            allowpopups={allowpopups}
           />
         )}
       </Box>

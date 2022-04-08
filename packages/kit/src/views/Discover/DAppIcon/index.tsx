@@ -10,7 +10,7 @@ const chainUrl = (id: string) => {
   const chain = id.toLocaleLowerCase();
   return `${CDN_PREFIX}assets/${chain}/${chain}.png`;
 };
-type DAppSize = 28 | 48 | 40;
+type DAppSize = 24 | 28 | 38 | 48 | 40;
 type DAppIconProps = {
   favicon: string;
   chain?: string;
@@ -26,10 +26,22 @@ export type InnerProps = {
 
 function sizeWithProps(size: DAppSize): InnerProps {
   const propsMap: Record<DAppSize, InnerProps> = {
+    24: {
+      borderRadius: 8,
+      innerSize: 22,
+      innerRadius: 6,
+      chainIconPadding: 1.57,
+    },
     28: {
       borderRadius: 9,
       innerSize: 25,
       innerRadius: 6,
+      chainIconPadding: 1.57,
+    },
+    38: {
+      borderRadius: 10,
+      innerSize: 36,
+      innerRadius: 10,
       chainIconPadding: 1.57,
     },
     40: {

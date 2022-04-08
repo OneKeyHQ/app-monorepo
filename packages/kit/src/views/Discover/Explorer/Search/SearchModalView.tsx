@@ -5,7 +5,6 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import {
   Box,
   Divider,
-  Image,
   Modal,
   Pressable,
   ScrollableFlatListProps,
@@ -18,11 +17,12 @@ import {
   DiscoverRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Discover';
 
+import DAppIcon from '../../DAppIcon';
+
 import { Header, ListEmptyComponent } from './Header';
-import { useSearchDapps } from './useSearchDapps';
 import { useSearchHistories } from './useSearchHistories';
 
-import type { HistoryItem } from './types';
+import type { DAppItemType } from '../../type';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -37,34 +37,28 @@ const SearchModalView: FC = () => {
   const [searchContent, setSearchContent] = useState<string>('');
   const searchContentTerm = useDebounce(searchContent, 200);
 
-  const { loading: dappLoading, searchedDapps } = useSearchDapps(
+  const { loading, searchedHistories, allHistories } = useSearchHistories(
     searchContentTerm,
     searchContent,
   );
 
-  const {
-    loading: historyLoading,
-    searchedHistories,
-    allHistories,
-  } = useSearchHistories(searchContentTerm, searchContent);
-
   const flatListData = useMemo(
-    () => (searchContentTerm ? searchedDapps : allHistories),
-    [searchContentTerm, allHistories, searchedDapps],
+    () => (searchContentTerm ? searchedHistories : allHistories),
+    [searchContentTerm, allHistories, searchedHistories],
   );
 
-  const onSelectHistory = (item: HistoryItem) => {
+  const onSelectHistory = (item: DAppItemType | string) => {
     navigation.goBack();
     onSelectorItem?.(item);
   };
 
-  const renderItem: ScrollableFlatListProps<HistoryItem>['renderItem'] = ({
+  const renderItem: ScrollableFlatListProps<DAppItemType>['renderItem'] = ({
     item,
     index,
   }) => (
     <Pressable.Item
       p={4}
-      key={index}
+      key={`search-history-item-${index}-${item.url}`}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
       onPress={() => {
@@ -72,10 +66,10 @@ const SearchModalView: FC = () => {
       }}
     >
       <Box w="100%" flexDirection="row" alignItems="center">
-        <Image w="38px" h="38px" borderRadius="10px" src={item.logoURI} />
+        <DAppIcon size={38} favicon={item.favicon} chain={item.chain} />
         <Box mx={3} flexDirection="column" flex={1}>
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            {item.title}
+            {item.name}
           </Text>
           <Typography.Body2 color="text-subdued">{item.url}</Typography.Body2>
         </Box>
@@ -91,23 +85,26 @@ const SearchModalView: FC = () => {
         // @ts-expect-error
         renderItem,
         ItemSeparatorComponent: () => <Divider />,
-        keyExtractor: (_item) => (_item as HistoryItem).url,
+        keyExtractor: (_item, index) => {
+          try {
+            const item = _item as DAppItemType;
+            return `${index}-${item.url}-${item.name}`;
+          } catch (e) {
+            return index.toString();
+          }
+        },
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
-          <ListEmptyComponent
-            isLoading={historyLoading || dappLoading}
-            terms={searchContentTerm}
-          />
+          <ListEmptyComponent isLoading={loading} terms={searchContentTerm} />
         ),
         ListHeaderComponent: (
           <Header
-            histories={searchedHistories}
-            keyword={searchContent}
             terms={searchContentTerm}
+            keyword={searchContent}
             onChange={setSearchContent}
             onSelectHistory={onSelectHistory}
             onSubmitContent={(content) => {
-              onSelectHistory({ url: content, logoURI: '', title: '' });
+              onSelectHistory(content);
             }}
           />
         ),
