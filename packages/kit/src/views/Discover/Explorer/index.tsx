@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
+import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
@@ -7,124 +8,151 @@ import { Box, useIsSmallLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useToast } from '@onekeyhq/kit/src/hooks';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
-import { updateHistory } from '@onekeyhq/kit/src/store/reducers/discover';
+import {
+  updateFirstRemindDAPP,
+  updateHistory,
+} from '@onekeyhq/kit/src/store/reducers/discover';
 import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Home from '../Home';
 
 import Desktop from './Content/Desktop';
 import Mobile from './Content/Mobile';
+import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
+import { useWebviewRef } from './useWebviewRef';
+
+import type { DAppItemType } from '../type';
 
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
   searchContent?: string;
   onSearchContentChange?: (text: string) => void;
-  onSearchSubmitEditing?: (text: string) => void;
+  onSearchSubmitEditing?: (text: DAppItemType | string) => void;
   explorerContent: React.ReactNode;
   onGoBack?: () => void;
   onNext?: () => void;
   onRefresh?: () => void;
   onMore?: () => void;
   moreView: React.ReactNode;
+  showExplorerBar?: boolean;
 };
 
 const Explorer: FC = () => {
-  console.log('Explorer');
   const intl = useIntl();
-  const openBrowser = useOpenBrowser();
   const toast = useToast();
-  const { dispatch } = backgroundApiProxy;
+  const openBrowser = useOpenBrowser();
 
+  const { dispatch } = backgroundApiProxy;
+  const discover = useAppSelector((s) => s.discover);
+
+  const [navigationStateChangeEvent, setNavigationStateChangeEvent] = useState<
+    any | null
+  >(null);
+  const [webviewRef, setWebviewRef] = useState<IWebViewWrapperRef | null>(null);
+
+  const {
+    canGoBack: webCanGoBack,
+    goBack,
+    goForward,
+    url: webUrl,
+  } = useWebviewRef(webviewRef, navigationStateChangeEvent);
   const [visibleMore, setVisibleMore] = useState(false);
 
   const [displayInitialPage, setDisplayInitialPage] = useState(true);
-  // 后退的栈
-  const [urlStack, setUrlStack] = useState<string[]>([]);
-  // 前进的栈
-  const [urlPreStack, setUrlPreStack] = useState<string[]>([]);
 
   const [searchContent, setSearchContent] = useState<string | undefined>();
   const [currentUrl, setCurrentUrl] = useState<string | undefined>();
 
+  const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
+
+  const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
+  const [dappOpenPayload, setDappOpenPayload] = useState<DAppItemType>();
+
   const isSmallLayout = useIsSmallLayout();
 
-  const pushStackUrl = (url: string) => {
-    setUrlStack([...urlStack, url]);
-  };
-
-  const popStackUrl = () => {
-    if (urlStack.length >= 1) {
-      const url = urlStack.pop();
-      const stack = [...urlStack];
-      setUrlStack(stack);
-      return url;
-    }
-    return null;
-  };
-
-  const pushPreStackUrl = (url: string) => {
-    setUrlPreStack([...urlPreStack, url]);
-  };
-
-  const popPreStackUrl = () => {
-    if (urlPreStack.length >= 1) {
-      const url = urlPreStack.pop();
-      const stack = [...urlPreStack];
-      setUrlPreStack(stack);
-      return url;
-    }
-    return null;
-  };
-
   useEffect(() => {
-    if (urlStack.length === 0) {
-      setDisplayInitialPage(true);
-      setSearchContent('');
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      setShowExplorerBar(true);
     } else {
-      setDisplayInitialPage(false);
-      const url = urlStack[urlStack.length - 1];
-      setCurrentUrl(url);
-      setSearchContent(url);
+      setShowExplorerBar(false);
     }
-  }, [urlStack]);
+  }, []);
+
+  const gotoUrl = (item: (string | DAppItemType) | undefined) => {
+    if (!item || (typeof item === 'string' && item.trim().length === 0)) {
+      setDisplayInitialPage(true);
+      return;
+    }
+
+    if (typeof item === 'string') {
+      setDisplayInitialPage(false);
+      if (item !== currentUrl) {
+        setCurrentUrl(item ?? '');
+      }
+    } else if (!discover.firstRemindDAPP) {
+      setDappOpenPayload(item);
+      setShowDappOpenHint(true);
+    } else if (item) {
+      setDisplayInitialPage(false);
+      setCurrentUrl(item.url ?? '');
+      dispatch(updateHistory(item.id));
+    }
+  };
 
   useEffect(() => {
     console.log('Explorer useEffect currentUrl:', currentUrl);
   }, [currentUrl]);
 
-  const onSearchSubmitEditing = (text: string) => {
-    console.log('onSearchSubmitEditing', text);
+  useEffect(() => {
+    // console.log('Explorer Title & Url:', webTitle, ' ,', webUrl);
+    console.log('Explorer Title & Url:', webUrl);
 
-    try {
-      let url = text;
-      if (!url.startsWith('http') && url.indexOf('.') !== -1 && url) {
-        url = `http://${url}`;
+    setSearchContent(displayInitialPage ? '' : webUrl ?? currentUrl ?? '');
+  }, [currentUrl, webUrl, displayInitialPage]);
+
+  const onSearchSubmitEditing = (dapp: DAppItemType | string) => {
+    if (typeof dapp === 'string') {
+      console.log('onSearchSubmitEditing', dapp);
+      try {
+        let url = dapp;
+        if (!url.startsWith('http') && url.indexOf('.') !== -1 && url) {
+          url = `http://${url}`;
+        }
+        url = new URL(url).toString();
+
+        if (url) gotoUrl(url);
+        console.log('onSearchSubmitEditing pushStackUrl', url);
+      } catch (error) {
+        gotoUrl(`https://www.google.com/search?q=${dapp}`);
+        console.log('not a url', error);
       }
-      url = new URL(url).toString();
-
-      if (url) pushStackUrl(url);
-      console.log('onSearchSubmitEditing pushStackUrl', url);
-    } catch (error) {
-      pushStackUrl(`https://www.google.com/search?q=${text}`);
-      console.log('not a url', error);
+    } else if (dapp) {
+      gotoUrl(dapp);
     }
   };
 
   const onGoBack = () => {
-    const url = popStackUrl();
-    if (url) pushPreStackUrl(url);
+    console.log('onGoBack', webCanGoBack());
+
+    if (webCanGoBack()) {
+      goBack();
+    } else {
+      gotoUrl(undefined);
+    }
 
     console.log('onGoBack');
   };
 
   const onNext = () => {
-    const url = popPreStackUrl();
-    if (url) {
-      pushStackUrl(url);
+    if (displayInitialPage === true) {
+      gotoUrl(currentUrl);
+    } else {
+      goForward();
     }
-
     console.log('onNext');
   };
 
@@ -184,11 +212,18 @@ const Explorer: FC = () => {
         {displayInitialPage ? (
           <Home
             onItemSelect={(item) => {
-              dispatch(updateHistory(item.id));
+              gotoUrl(item);
             }}
           />
         ) : (
-          <WebView src={currentUrl ?? ''} openUrlInExt />
+          <WebView
+            src={currentUrl ?? ''}
+            onWebViewRef={(ref) => {
+              setWebviewRef(ref);
+            }}
+            onNavigationStateChange={setNavigationStateChangeEvent}
+            allowpopups={false}
+          />
         )}
       </Box>
     ),
@@ -225,6 +260,7 @@ const Explorer: FC = () => {
             onRefresh={onRefresh}
             onMore={onMore}
             moreView={moreViewContent}
+            showExplorerBar={showExplorerBar}
           />
         ) : (
           <Desktop
@@ -238,9 +274,25 @@ const Explorer: FC = () => {
             onRefresh={onRefresh}
             onMore={onMore}
             moreView={moreViewContent}
+            showExplorerBar={showExplorerBar}
           />
         )}
       </Box>
+      <DappOpenHintDialog
+        payload={dappOpenPayload}
+        visible={showDappOpenHint}
+        onVisibleChange={setShowDappOpenHint}
+        onAgree={(payload) => {
+          setDisplayInitialPage(false);
+          if (payload?.url !== currentUrl) {
+            setCurrentUrl(payload?.url ?? '');
+          }
+          if (payload) {
+            dispatch(updateFirstRemindDAPP(true));
+            dispatch(updateHistory(payload.id));
+          }
+        }}
+      />
     </>
   );
 };

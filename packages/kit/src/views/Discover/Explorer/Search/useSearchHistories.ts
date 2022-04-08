@@ -1,59 +1,15 @@
 import { useEffect, useState } from 'react';
 
-import type { HistoryItem } from './types';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
-const Histories = [
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'OneKey',
-    url: 'https://onekey.one',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'Baidu',
-    url: 'https://www.baidu.com/',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'Google',
-    url: 'https://www.Google.com',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'OneKey',
-    url: 'https://onekey.one',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'Baidu',
-    url: 'https://www.baidu.com/',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'Google',
-    url: 'https://www.Google.com',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'OneKey',
-    url: 'https://onekey.one',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'Baidu',
-    url: 'https://www.baidu.com/',
-  },
-  {
-    logoURI: 'https://picsum.photos/id/237/200/200',
-    title: 'Google',
-    url: 'https://www.Google.com',
-  },
-];
+import type { DAppItemType } from '../../type';
 
 export const useSearchHistories = (terms: string, keyword: string) => {
+  const discover = useAppSelector((s) => s.discover);
+
   const [loading, setLoading] = useState(false);
-  const [searchedHistories, setHistories] = useState<HistoryItem[]>([]);
-  const [allHistories, setAllHistories] = useState<HistoryItem[]>([]);
+  const [searchedHistories, setHistories] = useState<DAppItemType[]>([]);
+  const [allHistories, setAllHistories] = useState<DAppItemType[]>([]);
 
   useEffect(() => {
     if (terms !== keyword) {
@@ -64,21 +20,25 @@ export const useSearchHistories = (terms: string, keyword: string) => {
   useEffect(() => {
     function main() {
       if (terms.length === 0) {
-        setAllHistories(Histories);
+        setAllHistories(discover.history);
         return;
       }
       setLoading(true);
       setHistories([]);
       try {
-        const histories = Histories;
-        setAllHistories(Histories);
+        setAllHistories(discover.history);
+        const histories = discover.history;
         setHistories(
           histories.filter(
             (history) =>
-              history.title
+              history.name.toLowerCase().includes(terms.trim().toLowerCase()) ||
+              history.url.toLowerCase().includes(terms.trim().toLowerCase()) ||
+              history.subtitle
                 .toLowerCase()
                 .includes(terms.trim().toLowerCase()) ||
-              history.url.toLowerCase().includes(terms.trim().toLowerCase()),
+              history.description
+                .toLowerCase()
+                .includes(terms.trim().toLowerCase()),
           ),
         );
       } finally {
@@ -86,7 +46,7 @@ export const useSearchHistories = (terms: string, keyword: string) => {
       }
     }
     main();
-  }, [terms]);
+  }, [discover.history, terms]);
   return {
     loading,
     searchedHistories,

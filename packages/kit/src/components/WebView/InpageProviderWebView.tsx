@@ -9,7 +9,7 @@ import React, {
 
 import {
   IElectronWebView,
-  InpageProviderWebViewProps,
+  InpageProviderWebViewProps as InpageWebViewProps,
 } from '@onekeyfe/cross-inpage-provider-types';
 import {
   DesktopWebView,
@@ -20,7 +20,8 @@ import {
 import { Box, Progress } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Button, Center, Icon, Typography } from '@onekeyhq/components';
+import { Button, Center, Image, Typography } from '@onekeyhq/components';
+import IconNoConnect from '@onekeyhq/kit/assets/ic_3d_no_connect.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // @ts-ignore
@@ -32,9 +33,20 @@ import injectedNativeCode from './injectedNative.text-js';
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
 
+export type InpageProviderWebViewProps = InpageWebViewProps & {
+  onNavigationStateChange?: (event: any) => void;
+  allowpopups?: boolean;
+};
+
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
-    { src: url = '', onSrcChange, receiveHandler }: InpageProviderWebViewProps,
+    {
+      src: url = '',
+      onSrcChange,
+      receiveHandler,
+      onNavigationStateChange,
+      allowpopups,
+    }: InpageProviderWebViewProps,
     ref: any,
   ) => {
     const intl = useIntl();
@@ -111,7 +123,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     };
     const ErrorView: FC<ErrorViewProps> = () => (
       <Center w="full" h="full" bg="background-default">
-        <Icon name="StatusOfflineOutline" size={48} />
+        <Box mb={3}>
+          <Image size="100px" source={IconNoConnect} />
+        </Box>
         <Typography.DisplayMedium mt={3}>
           {intl.formatMessage({ id: 'title__no_connection' })}
         </Typography.DisplayMedium>
@@ -159,6 +173,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                 src={src}
                 onSrcChange={onSrcChange}
                 receiveHandler={receiveHandler}
+                allowpopups={allowpopups}
               />
             ))}
           {isApp && (
@@ -173,6 +188,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 setProgress(Math.ceil(nativeEvent.progress * 100));
               }}
+              onNavigationStateChange={onNavigationStateChange}
               textInteractionEnabled={undefined}
               minimumFontSize={undefined}
             />

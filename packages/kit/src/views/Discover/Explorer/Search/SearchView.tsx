@@ -6,7 +6,6 @@ import {
   Box,
   FlatList,
   HStack,
-  Image,
   PresenceTransition,
   Pressable,
   ScrollableFlatListProps,
@@ -17,16 +16,18 @@ import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocume
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
+import DAppIcon from '../../DAppIcon';
+
 import { useSearchHistories } from './useSearchHistories';
 
-import type { HistoryItem } from './types';
+import type { DAppItemType } from '../../type';
 
 export type SearchViewProps = {
   visible: boolean;
   searchContent: string;
   relativeComponent: any;
   onVisibleChange?: (visible: boolean) => void;
-  onSelectorItem?: (item: HistoryItem) => void;
+  onSelectorItem?: (item: DAppItemType) => void;
 };
 
 const SearchView: FC<SearchViewProps> = ({
@@ -51,7 +52,7 @@ const SearchView: FC<SearchViewProps> = ({
     [searchContentTerm, allHistories, searchedHistories],
   );
 
-  const onSelectHistory = (item: HistoryItem) => {
+  const onSelectHistory = (item: DAppItemType) => {
     onSelectorItem?.(item);
   };
 
@@ -59,23 +60,23 @@ const SearchView: FC<SearchViewProps> = ({
     // onVisibleChange?.(!visible);
   };
 
-  const renderItem: ScrollableFlatListProps<HistoryItem>['renderItem'] = ({
+  const renderItem: ScrollableFlatListProps<DAppItemType>['renderItem'] = ({
     item,
     index,
   }) => (
     <Pressable.Item
       px={3}
       py={2}
-      key={index}
+      key={`${index}-${item.url}`}
       onPress={() => {
         onSelectHistory(item);
       }}
     >
       <HStack space={3} w="100%" alignItems="center">
-        <Image w="24px" h="24px" borderRadius="8px" src={item.logoURI} />
+        <DAppIcon size={24} favicon={item.favicon} chain={item.chain} />
 
         <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-          {item.title}
+          {item.name}
         </Text>
         <Typography.Body2 color="text-subdued">{item.url}</Typography.Body2>
       </HStack>
@@ -149,7 +150,9 @@ const SearchView: FC<SearchViewProps> = ({
               </Box>
             ) : null
           }
-          keyExtractor={(_item: HistoryItem) => _item.url}
+          keyExtractor={(_item: DAppItemType, index) =>
+            `${index}-${_item.url}-${_item.name}`
+          }
           showsVerticalScrollIndicator={false}
         />
       </Box>
