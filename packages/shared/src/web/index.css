@@ -57,22 +57,23 @@ body {
 
 
 /*
-  Scrollbar
+  hide Scrollbar
+  in JS: extendTheme()
 */
-/* width */
-/*::-webkit-scrollbar {*/
-/*  width: 6px;*/
-/*  position: absolute;*/
-/*}*/
+/* set width=0 to hide scrollbar */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
 
-/*!* Track *!*/
-/*::-webkit-scrollbar-track {*/
-/*  background: transparent;*/
-/*}*/
+/* Track */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-/*!* Handle *!*/
-/*::-webkit-scrollbar-thumb {*/
-/*  !* gray color palette comes from design file "illustration" *!*/
-/*  background: #74748B;*/
-/*  border-radius: 3px;*/
-/*}*/
+/* Handle */
+::-webkit-scrollbar-thumb {
+  /* gray color palette comes from design file "illustration" */
+  background: #74748B;
+  border-radius: 3px;
+}
