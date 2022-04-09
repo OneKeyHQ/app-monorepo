@@ -108,6 +108,8 @@ const EngineApp: FC = ({ children }) => {
     async function main() {
       try {
         await serviceApp.initApp();
+      } catch (e) {
+        console.log(e);
       } finally {
         setLoading(false);
         await SplashScreen.hideAsync();
