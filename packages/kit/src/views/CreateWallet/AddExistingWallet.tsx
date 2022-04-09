@@ -21,7 +21,7 @@ import {
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useDebounce, useToast } from '../../hooks';
+import { useDebounce } from '../../hooks';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -34,7 +34,6 @@ type AddExistingWalletValues = { text: string };
 
 const AddExistingWallet = () => {
   const intl = useIntl();
-  const { show } = useToast();
   const [isOk, setOk] = useState(false);
   const isSmallScreen = useIsVerticalLayout();
   const { params: { mode } = { mode: 'all' } } = useRoute<RouteProps>();
@@ -104,18 +103,6 @@ const AddExistingWallet = () => {
           mnemonic: values.text,
         });
       } else if (isAddress) {
-        const isDuplicated =
-          await backgroundApiProxy.validator.validateAccountAddress(
-            values.text,
-          );
-        if (isDuplicated) {
-          show({
-            title: intl.formatMessage({
-              id: 'msg__cannot_import_existing_wallet',
-            }),
-          });
-          return;
-        }
         navigation.navigate(CreateWalletModalRoutes.AddWatchAccountModal, {
           address: values.text,
         });
@@ -125,7 +112,7 @@ const AddExistingWallet = () => {
         });
       }
     },
-    [navigation, show, intl],
+    [navigation, intl],
   );
 
   const onPaste = useCallback(async () => {

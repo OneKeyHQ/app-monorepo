@@ -56,6 +56,9 @@ export const settingsSlice = createSlice({
     toggleEnableLocalAuthentication: (state) => {
       state.enableLocalAuthentication = !state.enableLocalAuthentication;
     },
+    setEnableLocalAuthentication: (state, action: PayloadAction<boolean>) => {
+      state.enableLocalAuthentication = action.payload;
+    },
     setAppLockDuration: (state, action: PayloadAction<number>) => {
       state.appLockDuration = action.payload;
     },
@@ -84,6 +87,7 @@ export const {
   setAppLockDuration,
   setAutoRefreshTimeStamp,
   updateVersionAndBuildNumber,
+  setEnableLocalAuthentication,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -1,5 +1,7 @@
 import React, { ComponentProps, FC, useState } from 'react';
 
+import { Platform } from 'react-native';
+
 import IconButton from '../IconButton';
 import Input from '../Input';
 
@@ -17,6 +19,9 @@ export const FormPasswordInput: FC<
       w="full"
       type={show ? 'text' : 'password'}
       onChangeText={onChange}
+      keyboardType={
+        Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'
+      }
       size="xl"
       rightCustomElement={
         <IconButton

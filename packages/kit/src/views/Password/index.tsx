@@ -15,8 +15,9 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { useData } from '../../hooks/redux';
-import { useToast } from '../../hooks/useToast';
+import { useLocalAuthentication, useToast } from '../../hooks';
+import { useAppDispatch, useData } from '../../hooks/redux';
+import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 
 import { PasswordRoutes, PasswordRoutesParams } from './types';
 
@@ -108,11 +109,14 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
 type PasswordsFieldValues = {
   password: string;
   confirmPassword: string;
+  withEnableAuthentication: boolean;
 };
 
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
   const toast = useToast();
+  const { isOk } = useLocalAuthentication();
+  const dispatch = useAppDispatch();
   const { serviceApp } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps>();
   const {
@@ -129,13 +133,11 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
       await serviceApp.updatePassword(oldPassword, values.password);
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      } else {
-        navigation?.popToTop?.();
+      if (values.withEnableAuthentication) {
+        dispatch(setEnableLocalAuthentication(true));
       }
       // if oldPassword is empty. set password
-      if (oldPassword) {
+      if (!oldPassword) {
         toast.show({
           title: intl.formatMessage({
             id: 'msg__password_has_been_set',
@@ -148,8 +150,9 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
           }),
         });
       }
+      navigation.goBack();
     },
-    [navigation, toast, intl, oldPassword, serviceApp],
+    [navigation, toast, intl, oldPassword, serviceApp, dispatch],
   );
 
   const watchedPassword = watch(['password', 'confirmPassword']);
@@ -252,6 +255,20 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
         >
           <Form.PasswordInput />
         </Form.Item>
+        {isOk && !oldPassword ? (
+          <Form.Item name="withEnableAuthentication" control={control}>
+            <Form.CheckBox
+              title={intl.formatMessage(
+                { id: 'content__authentication_with' },
+                {
+                  0: `${intl.formatMessage({
+                    id: 'content__face_id',
+                  })}/${intl.formatMessage({ id: 'content__touch_id' })}`,
+                },
+              )}
+            />
+          </Form.Item>
+        ) : null}
         <Button
           size="xl"
           type="primary"

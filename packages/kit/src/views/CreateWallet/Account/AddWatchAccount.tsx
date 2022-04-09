@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { useToast } from '../../../hooks';
+import { useDrawer, useToast } from '../../../hooks';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -33,6 +33,7 @@ const AddWatchAccount = () => {
     params: { address },
   } = useRoute<RouteProps>();
   const toast = useToast();
+  const { closeDrawer } = useDrawer();
   const wallets = useAppSelector((s) => s.wallet.wallets);
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { serviceApp } = backgroundApiProxy;
@@ -58,6 +59,7 @@ const AddWatchAccount = () => {
           values.name || defaultWalletName,
         );
         const inst = navigation.getParent() || navigation;
+        closeDrawer();
         inst.goBack();
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
@@ -66,7 +68,15 @@ const AddWatchAccount = () => {
         });
       }
     },
-    [navigation, serviceApp, defaultWalletName, address, toast, intl],
+    [
+      navigation,
+      serviceApp,
+      defaultWalletName,
+      address,
+      toast,
+      intl,
+      closeDrawer,
+    ],
   );
   return (
     <Modal

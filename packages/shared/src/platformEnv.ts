@@ -33,7 +33,14 @@ export type IPlatformEnv = {
 
 export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
 
-export const isBrowser = (): boolean => typeof window !== 'undefined';
+export const isIOS = (): boolean => Platform.OS === 'ios';
+
+export const isAndroid = (): boolean => Platform.OS === 'android';
+
+export const isNative = (): boolean => isAndroid() || isIOS();
+
+export const isBrowser = (): boolean =>
+  typeof window !== 'undefined' && !isNative();
 
 // @ts-ignore
 export const isFirefox = (): boolean => typeof InstallTrigger !== 'undefined';
@@ -107,12 +114,6 @@ export const isLinux = (): boolean => {
 export const isMAS = (): boolean => !!process.env.IS_MAS;
 
 export const isDev = (): boolean => process.env.NODE_ENV !== 'production';
-
-export const isIOS = (): boolean => Platform.OS === 'ios';
-
-export const isAndroid = (): boolean => Platform.OS === 'android';
-
-export const isNative = (): boolean => isAndroid() || isIOS();
 
 const platformEnv: IPlatformEnv = {
   isMac: isMac(),

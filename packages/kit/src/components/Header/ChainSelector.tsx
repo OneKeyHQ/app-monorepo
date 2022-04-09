@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC, useCallback, useMemo } from 'react';
 
-import { truncateSync } from 'fs';
-
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -41,7 +39,6 @@ const ChainSelector: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
-  const { dispatch } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { wallet } = useActiveWalletAccount();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
