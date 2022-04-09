@@ -18,6 +18,7 @@ import LocalAuthenticationButton from '../../components/LocalAuthenticationButto
 import { useLocalAuthentication, useToast } from '../../hooks';
 import { useAppDispatch, useData } from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
+import { savePassword } from '../../utils/localAuthentication';
 
 import { PasswordRoutes, PasswordRoutesParams } from './types';
 
@@ -135,6 +136,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       await serviceApp.updatePassword(oldPassword, values.password);
       if (values.withEnableAuthentication) {
         dispatch(setEnableLocalAuthentication(true));
+        savePassword(values.password);
       }
       // if oldPassword is empty. set password
       if (!oldPassword) {
