@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
 import { Box, useIsSmallLayout } from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useToast } from '@onekeyhq/kit/src/hooks';
@@ -14,7 +15,6 @@ import {
   updateFirstRemindDAPP,
   updateHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
-import { copyToClipboard } from '@onekeyhq/kit/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Home from '../Home';

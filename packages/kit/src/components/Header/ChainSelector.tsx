@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { FC, useCallback, useMemo } from 'react';
 
-import { truncateSync } from 'fs';
-
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -41,7 +39,6 @@ const ChainSelector: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
-  const { dispatch } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { wallet } = useActiveWalletAccount();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
@@ -118,12 +115,14 @@ const ChainSelector: FC = () => {
         // footer={null}
         footerText={intl.formatMessage({ id: 'action__customize_network' })}
         footerIcon="PencilSolid"
-        onPressFooter={() =>
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManageNetwork,
-            params: { screen: ManageNetworkRoutes.Listing },
-          })
-        }
+        onPressFooter={() => {
+          setTimeout(() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageNetwork,
+              params: { screen: ManageNetworkRoutes.Listing },
+            });
+          }, 500);
+        }}
         renderTrigger={(activeOption, isHovered, visible) => (
           <HStack
             p={2}

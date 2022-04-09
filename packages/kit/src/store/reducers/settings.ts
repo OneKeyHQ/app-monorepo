@@ -22,8 +22,8 @@ type SettingsState = {
 const initialState: SettingsState = {
   theme: 'dark',
   locale: 'zh-CN',
-  version: '1.0.0',
-  buildNumber: '2020010101',
+  version: process.env.VERSION ?? '1.0.0',
+  buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
@@ -56,6 +56,9 @@ export const settingsSlice = createSlice({
     toggleEnableLocalAuthentication: (state) => {
       state.enableLocalAuthentication = !state.enableLocalAuthentication;
     },
+    setEnableLocalAuthentication: (state, action: PayloadAction<boolean>) => {
+      state.enableLocalAuthentication = action.payload;
+    },
     setAppLockDuration: (state, action: PayloadAction<number>) => {
       state.appLockDuration = action.payload;
     },
@@ -84,6 +87,7 @@ export const {
   setAppLockDuration,
   setAutoRefreshTimeStamp,
   updateVersionAndBuildNumber,
+  setEnableLocalAuthentication,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

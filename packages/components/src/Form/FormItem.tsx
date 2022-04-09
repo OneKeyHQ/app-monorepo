@@ -5,7 +5,6 @@ import React, {
   useCallback,
 } from 'react';
 
-import * as Clipboard from 'expo-clipboard';
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 
 import Box from '../Box';
@@ -14,6 +13,7 @@ import Icon from '../Icon';
 import IconButton from '../IconButton';
 import Stack from '../Stack';
 import Typography from '../Typography';
+import { getClipboard } from '../utils/ClipboardUtils';
 
 type InternalActionList = 'paste';
 
@@ -38,7 +38,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormItemProps) {
   const handleCopied = useCallback(async (callback: (c: string) => void) => {
     try {
-      const str = await Clipboard.getStringAsync();
+      const str = await getClipboard();
       callback?.(str);
     } catch (e) {
       callback?.('');

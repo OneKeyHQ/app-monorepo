@@ -1,17 +1,20 @@
-import * as SecureStore from 'expo-secure-store';
-
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { updateNetworkMap } from '../../store/reducers/network';
-import { setEnableAppLock } from '../../store/reducers/settings';
+import {
+  setEnableAppLock,
+  setEnableLocalAuthentication,
+} from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { updateWallet, updateWallets } from '../../store/reducers/wallet';
+import {
+  getPassword,
+  hasHardwareSupported,
+} from '../../utils/localAuthentication';
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { delay } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -26,11 +29,15 @@ class ServiceApp extends ServiceBase {
     await persistor.purge();
     await engine.resetApp();
     dispatch({ type: 'LOGOUT', payload: undefined });
-    await delay(300);
-    await this.initNetworks();
-    await delay(300);
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();
+  }
+
+  @backgroundMethod()
+  async initApp() {
+    await this.initNetworks();
+    await this.initPassword();
+    await this.initLocalAuthentication();
   }
 
   @backgroundMethod()
@@ -43,38 +50,34 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHDWallet({
-    password,
-    mnemonic,
-  }: {
-    password: string;
-    mnemonic?: string;
-  }) {
-    const { dispatch, engine, serviceAccount, appSelector } =
-      this.backgroundApi;
-    const wallet = await engine.createHDWallet(password, mnemonic);
-    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-    if (!data.isPasswordSet) {
+  async initLocalAuthentication() {
+    const { engine, dispatch, appSelector } = this.backgroundApi;
+    const setting: { enableLocalAuthentication: boolean } = appSelector(
+      (s) => s.settings,
+    );
+    if (setting.enableLocalAuthentication) {
+      const isSupported = await hasHardwareSupported();
+      if (isSupported) {
+        const password = await getPassword();
+        if (password) {
+          const success = await engine.verifyMasterPassword(password);
+          if (!success) {
+            dispatch(setEnableLocalAuthentication(false));
+          }
+        } else {
+          dispatch(setEnableLocalAuthentication(false));
+        }
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async initPassword() {
+    const { engine, dispatch } = this.backgroundApi;
+    const isMasterPasswordSet = await engine.isMasterPasswordSet();
+    if (isMasterPasswordSet) {
       dispatch(passwordSet());
-      dispatch(setEnableAppLock(true));
     }
-    const walletsFromBE = await engine.getWallets();
-    dispatch(updateWallets(walletsFromBE));
-    dispatch(setBoardingCompleted());
-    dispatch(unlock());
-    dispatch(mUnlock());
-    let account: Account | null = null;
-    if (wallet.accounts.length > 0) {
-      const { network }: { network: Network } = appSelector(
-        (s) => s.general.activeNetwork,
-      );
-      account = await engine.getAccount(wallet.accounts[0], network.id);
-    }
-    serviceAccount.changeActiveAccount({
-      account,
-      wallet,
-    });
-    return wallet;
   }
 
   @backgroundMethod()
@@ -127,6 +130,44 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async createHDWallet({
+    password,
+    mnemonic,
+  }: {
+    password: string;
+    mnemonic?: string;
+  }) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const wallet = await engine.createHDWallet(password, mnemonic);
+    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
+    const walletsFromBE = await engine.getWallets();
+    dispatch(updateWallets(walletsFromBE));
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
+    dispatch(unlock());
+    dispatch(mUnlock());
+    let account: Account | null = null;
+    if (wallet.accounts.length > 0) {
+      const { network }: { network: Network } = appSelector(
+        (s) => s.general.activeNetwork,
+      );
+      account = await engine.getAccount(wallet.accounts[0], network.id);
+    }
+    serviceAccount.changeActiveAccount({
+      account,
+      wallet,
+    });
+    return wallet;
+  }
+
+  @backgroundMethod()
   async addImportedAccount(
     password: string,
     networkId: string,
@@ -146,7 +187,10 @@ class ServiceApp extends ServiceBase {
       dispatch(passwordSet());
       dispatch(setEnableAppLock(true));
     }
-    dispatch(setBoardingCompleted());
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
     dispatch(unlock());
     dispatch(mUnlock());
     const walletsFromBE = await engine.getWallets();
@@ -185,7 +229,10 @@ class ServiceApp extends ServiceBase {
     const walletList = walletsFromBE.filter(
       (wallet) => wallet.type === 'watching',
     );
-    dispatch(setBoardingCompleted());
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
     dispatch(unlock());
     dispatch(mUnlock());
     const wallet = walletList[0];
@@ -212,17 +259,24 @@ class ServiceApp extends ServiceBase {
   async updatePassword(oldPassword: string, newPassword: string) {
     const { dispatch, engine, appSelector } = this.backgroundApi;
     await engine.updatePassword(oldPassword, newPassword);
-    if (platformEnv.isNative) {
-      await SecureStore.setItemAsync('password', newPassword);
-    }
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     if (!data.isPasswordSet) {
       dispatch(passwordSet());
       dispatch(setEnableAppLock(true));
     }
-    dispatch(setBoardingCompleted());
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
     dispatch(unlock());
     dispatch(mUnlock());
+  }
+
+  @backgroundMethod()
+  async verifyPassword(password: string) {
+    const { engine } = this.backgroundApi;
+    const result = await engine.verifyMasterPassword(password);
+    return result;
   }
 }
 

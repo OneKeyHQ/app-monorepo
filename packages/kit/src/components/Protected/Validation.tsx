@@ -22,15 +22,14 @@ type ValidationProps = {
 };
 
 const Validation: FC<ValidationProps> = ({ onOk }) => {
+  const { serviceApp } = backgroundApiProxy;
   const intl = useIntl();
   const { enableLocalAuthentication } = useSettings();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
-    const isOk = await backgroundApiProxy.engine.verifyMasterPassword(
-      values.password,
-    );
+    const isOk = await serviceApp.verifyPassword(values.password);
     if (isOk) {
       onOk?.(values.password, false);
     } else {
@@ -62,10 +61,6 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
       <Form mt="8">
         <Form.Item
           name="password"
-          // label={intl.formatMessage({
-          //   id: 'form__password',
-          //   defaultMessage: 'Password',
-          // })}
           defaultValue=""
           control={control}
           rules={{

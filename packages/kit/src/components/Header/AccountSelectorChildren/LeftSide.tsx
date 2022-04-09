@@ -85,7 +85,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
 
   return (
     <VStack borderRightWidth={1} borderRightColor="border-subdued" pb={bottom}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView>
         <VStack py={2}>
           {/* APP Wallet */}
           <VStack space={2}>
@@ -142,7 +142,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   key={wallet.id}
                   onPress={() => setSelectedWallet(wallet)}
                   isSelected={selectedWallet?.id === wallet.id}
-                  walletImage="watched"
+                  walletImage="watching"
                 />
               ))}
           </VStack>

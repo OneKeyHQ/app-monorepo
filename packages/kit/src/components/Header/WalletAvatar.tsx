@@ -9,7 +9,7 @@ import { Text } from '@onekeyhq/components/src/Typography';
 type WalletAvatarProps = {
   size?: 'xl' | 'lg' | 'sm' | string;
   avatarBgColor?: string;
-  walletImage?: string | 'classic' | 'mini' | 'imported' | 'watched';
+  walletImage?: string | 'classic' | 'mini' | 'imported' | 'watching' | 'hd';
   circular?: boolean;
 } & ComponentProps<typeof Center>;
 
@@ -52,7 +52,7 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
           source={walletImage === 'classic' ? ClassicIcon : MiniIcon}
         />
       );
-    if (walletImage === 'imported' || walletImage === 'watched')
+    if (walletImage === 'imported' || walletImage === 'watching')
       return (
         <Icon
           name={walletImage === 'imported' ? 'SaveOutline' : 'EyeOutline'}
@@ -60,6 +60,23 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
           color="icon-default"
         />
       );
+    if (walletImage === 'hd') {
+      return (
+        <Text
+          typography={
+            size === 'xl'
+              ? 'DisplayXLarge'
+              : size === 'lg'
+              ? 'DisplayLarge'
+              : size === 'sm'
+              ? 'DisplayMedium'
+              : undefined
+          }
+        >
+          🤑
+        </Text>
+      );
+    }
     return (
       <Text
         typography={

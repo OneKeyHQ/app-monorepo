@@ -99,7 +99,7 @@ const UnlockButton: FC<UnlockButtonProps> = ({ onOk }) => (
 
 const Unlock = () => {
   const intl = useIntl();
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, serviceApp } = backgroundApiProxy;
   const {
     control,
     handleSubmit,
@@ -114,9 +114,7 @@ const Unlock = () => {
   const py = isSmall ? '16' : undefined;
   const onUnlock = useCallback(
     async (values: FieldValues) => {
-      const isOk = await backgroundApiProxy.engine.verifyMasterPassword(
-        values.password,
-      );
+      const isOk = await serviceApp.verifyPassword(values.password);
       if (isOk) {
         dispatch(unlock());
         dispatch(mUnlock());
@@ -129,7 +127,7 @@ const Unlock = () => {
         });
       }
     },
-    [dispatch, intl, setError],
+    [dispatch, intl, setError, serviceApp],
   );
   const onOk = useCallback(() => {
     dispatch(unlock());
@@ -163,10 +161,6 @@ const Unlock = () => {
               <Form.Item
                 control={control}
                 name="password"
-                label={intl.formatMessage({
-                  id: 'form__password',
-                  defaultMessage: 'Password',
-                })}
                 rules={{
                   required: intl.formatMessage({
                     id: 'form__field_is_required',

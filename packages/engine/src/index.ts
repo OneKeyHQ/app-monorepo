@@ -11,7 +11,6 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -187,8 +186,10 @@ class Engine {
         }
       }
 
-      // add default token
-      await this.addDefaultToken();
+      // add default token in background
+      setTimeout(() => {
+        this.addDefaultToken();
+      }, 500);
 
       const context = await this.dbApi.getContext();
       if (

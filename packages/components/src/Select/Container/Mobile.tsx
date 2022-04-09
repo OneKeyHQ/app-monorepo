@@ -32,7 +32,6 @@ function Mobile<T>({
   const { bottom } = useSafeAreaInsets();
   return (
     <Modal
-      useNativeDriver
       propagateSwipe
       hideModalContentWhileAnimating
       isVisible={!!visible}

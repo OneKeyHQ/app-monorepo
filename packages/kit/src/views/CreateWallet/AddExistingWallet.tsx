@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +12,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
@@ -21,7 +21,7 @@ import {
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useDebounce, useToast } from '../../hooks';
+import { useDebounce } from '../../hooks';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -34,7 +34,6 @@ type AddExistingWalletValues = { text: string };
 
 const AddExistingWallet = () => {
   const intl = useIntl();
-  const { show } = useToast();
   const [isOk, setOk] = useState(false);
   const isSmallScreen = useIsVerticalLayout();
   const { params: { mode } = { mode: 'all' } } = useRoute<RouteProps>();
@@ -104,18 +103,6 @@ const AddExistingWallet = () => {
           mnemonic: values.text,
         });
       } else if (isAddress) {
-        const isDuplicated =
-          await backgroundApiProxy.validator.validateAccountAddress(
-            values.text,
-          );
-        if (isDuplicated) {
-          show({
-            title: intl.formatMessage({
-              id: 'msg__cannot_import_existing_wallet',
-            }),
-          });
-          return;
-        }
         navigation.navigate(CreateWalletModalRoutes.AddWatchAccountModal, {
           address: values.text,
         });
@@ -125,11 +112,11 @@ const AddExistingWallet = () => {
         });
       }
     },
-    [navigation, show, intl],
+    [navigation, intl],
   );
 
   const onPaste = useCallback(async () => {
-    const pastedText = await Clipboard.getStringAsync();
+    const pastedText = await getClipboard();
     setValue('text', pastedText);
     trigger('text');
   }, [setValue, trigger]);
@@ -203,16 +190,18 @@ const AddExistingWallet = () => {
           <Form.Item control={control} name="text">
             <Form.Textarea placeholder={placeholder} h="48" />
           </Form.Item>
-          <Center>
-            <Button
-              size="xl"
-              type="plain"
-              leftIconName="DuplicateSolid"
-              onPromise={onPaste}
-            >
-              {intl.formatMessage({ id: 'action__paste' })}
-            </Button>
-          </Center>
+          {!(platformEnv.isExtension || platformEnv.isWeb) && (
+            <Center>
+              <Button
+                size="xl"
+                type="plain"
+                leftIconName="DuplicateSolid"
+                onPromise={onPaste}
+              >
+                {intl.formatMessage({ id: 'action__paste' })}
+              </Button>
+            </Center>
+          )}
         </Form>
         {platformEnv.isNative && mode === 'all' ? (
           <Button

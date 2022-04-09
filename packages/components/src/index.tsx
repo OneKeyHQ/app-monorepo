@@ -64,7 +64,7 @@ export * from './OverlayContainer';
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
 
-export { useForm, Controller, useWatch } from 'react-hook-form';
+export { useForm, Controller, useWatch, useFormState } from 'react-hook-form';
 export type { Control } from 'react-hook-form';
 
 export { utils };

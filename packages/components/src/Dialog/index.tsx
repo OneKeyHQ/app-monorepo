@@ -33,7 +33,10 @@ const Outer: FC<OuterContainerProps> = ({
   hasFormInsideDialog,
   ...rest
 }) => {
-  if (Platform.OS === 'web' || !hasFormInsideDialog) {
+  if (
+    (Platform.OS === 'web' || !hasFormInsideDialog) &&
+    Platform.OS !== 'ios'
+  ) {
     return (
       <NBModal
         isOpen={isVisible}
@@ -143,7 +146,9 @@ const Dialog: FC<DialogProps> = ({
                     {...footerButtonProps}
                     onSecondaryActionPress={() => {
                       handleClose();
-                      footerButtonProps?.onSecondaryActionPress?.();
+                      setTimeout(() => {
+                        footerButtonProps?.onSecondaryActionPress?.();
+                      }, 500);
                     }}
                     onPrimaryActionPress={() => {
                       footerButtonProps?.onPrimaryActionPress?.({ onClose });

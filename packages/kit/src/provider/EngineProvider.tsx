@@ -1,9 +1,9 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Center, Spinner } from '@onekeyhq/components';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -14,15 +14,15 @@ import { setAutoRefreshTimeStamp } from '@onekeyhq/kit/src/store/reducers/settin
 import { updateWallets } from '@onekeyhq/kit/src/store/reducers/wallet';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { passwordSet } from '../store/reducers/data';
 
 const EngineApp: FC = ({ children }) => {
+  const [loading, setLoading] = useState(true);
   const networks = useAppSelector((s) => s.network.network);
   const { activeNetwork } = useAppSelector((s) => s.general);
   const { refreshTimeStamp } = useSettings();
   const { account } = useActiveWalletAccount();
 
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, serviceApp } = backgroundApiProxy;
 
   const handleFiatMoneyUpdate = useCallback(async () => {
     const fiatMoney = await backgroundApiProxy.engine.listFiats();
@@ -36,14 +36,6 @@ const EngineApp: FC = ({ children }) => {
   useSWR('auto-refresh', () => dispatch(setAutoRefreshTimeStamp()), {
     refreshInterval: 1 * 60 * 1000,
   });
-
-  const hideSplashScreen = useCallback(async () => {
-    await SplashScreen.hideAsync();
-  }, []);
-
-  useEffect(() => {
-    backgroundApiProxy.serviceApp.initNetworks();
-  }, []);
 
   useEffect(() => {
     async function main() {
@@ -115,20 +107,27 @@ const EngineApp: FC = ({ children }) => {
   useEffect(() => {
     async function main() {
       try {
-        const isMasterPasswordSet =
-          await backgroundApiProxy.engine.isMasterPasswordSet();
-        if (isMasterPasswordSet) {
-          dispatch(passwordSet());
-        }
+        await serviceApp.initApp();
       } finally {
-        hideSplashScreen();
+        setLoading(false);
+        await SplashScreen.hideAsync();
       }
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <Box flex="1">{children}</Box>;
+  return (
+    <Box flex="1">
+      {loading ? (
+        <Center w="full" h="full">
+          <Spinner />
+        </Center>
+      ) : (
+        children
+      )}
+    </Box>
+  );
 };
 
 export default EngineApp;
