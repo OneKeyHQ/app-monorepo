@@ -1,6 +1,6 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
-import { Keyboard, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 export const hasHardwareSupported = () =>
   new Promise<boolean>((resolve) => {
@@ -22,10 +22,6 @@ export const localAuthenticate: () => Promise<LocalAuthentication.LocalAuthentic
     if (!supported) {
       return { success: false, error: 'no supported' };
     }
-    // sometimes, the users turn on faceid  with the focus of the input box,
-    // in that case, if faceid is turned on before the keyboard is hidden,
-    // after faceid finished, the keyboard will always be there. there is no way to turn it off.
-    Keyboard.dismiss();
     return LocalAuthentication.authenticateAsync({
       cancelLabel: 'Cancel',
       // promptMessage: 'Face ID',

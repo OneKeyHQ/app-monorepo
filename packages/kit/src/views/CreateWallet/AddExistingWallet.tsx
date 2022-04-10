@@ -112,7 +112,7 @@ const AddExistingWallet = () => {
         });
       }
     },
-    [navigation, intl],
+    [navigation],
   );
 
   const onPaste = useCallback(async () => {
