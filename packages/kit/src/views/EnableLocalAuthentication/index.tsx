@@ -42,7 +42,10 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
       }
       savePassword(enableLocalAuthentication ? '' : password);
       dispatch(toggleEnableLocalAuthentication());
-      navigation?.goBack?.();
+      setTimeout(() => {
+        // delay 100ms goBack, otherwise the keyboard will be showup
+        navigation?.goBack?.();
+      }, 100);
     }
     main();
     // eslint-disable-next-line

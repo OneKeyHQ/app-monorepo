@@ -34,7 +34,10 @@ export function toPlainErrorObject(error: {
     code: error.code,
     data: error.data,
     message: error.message,
-    stack: error.stack,
+    // Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
+    stack: platformEnv.isAndroid
+      ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
+      : error.stack,
   };
 }
 
