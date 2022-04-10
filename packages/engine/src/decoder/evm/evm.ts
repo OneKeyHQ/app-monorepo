@@ -40,7 +40,7 @@ interface EVMDecodedItemERC20Approve {
 }
 
 interface EVMDecodedItem extends EVMBaseDecodedItem {
-  symbol: string;
+  symbol: string; // Chain Native Currency Symbol
   amount: string; // in ether
   value: string; // in wei
   isERC20: boolean;
@@ -101,14 +101,11 @@ class EVMTxDecoder {
         case EVMTxType.TOKEN_TRANSFER: {
           // transfer(address _to, uint256 _value)
           const recipent = txDesc?.args[0] as string;
-          const value = txDesc?.args[1] as string;
-          const amount = ethers.utils.formatUnits(
-            txDesc?.args[1],
-            token.decimals,
-          );
+          const value = txDesc?.args[1] as ethers.BigNumber;
+          const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
             type: 'transfer',
-            value,
+            value: value.toString(),
             amount,
             recipent,
             token,
@@ -118,16 +115,13 @@ class EVMTxDecoder {
         case EVMTxType.APPROVE: {
           // approve(address _spender, uint256 _value)
           const spender = txDesc?.args[0] as string;
-          const value = txDesc?.args[1] as string;
-          const amount = ethers.utils.formatUnits(
-            txDesc?.args[1],
-            token.decimals,
-          );
+          const value = txDesc?.args[1] as ethers.BigNumber;
+          const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
             type: 'approve',
             spender,
             amount,
-            value,
+            value: value.toString(),
             token,
           } as EVMDecodedItemERC20Approve;
           break;
@@ -181,6 +175,16 @@ class EVMTxDecoder {
     itemBuilder.maxPriorityFeePerGas =
       tx.maxPriorityFeePerGas?.toString() ?? '';
     itemBuilder.maxFeePerGas = tx.maxFeePerGas?.toString() ?? '';
+  }
+
+  private static formatValue(
+    value: ethers.BigNumber,
+    decimals: number,
+  ): string {
+    if (ethers.constants.MaxUint256.eq(value)) {
+      return 'Infinite';
+    }
+    return ethers.utils.formatUnits(value, decimals) ?? '';
   }
 
   private static parseERC20(
