@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -12,7 +12,9 @@ import {
 
 import { useAppSelector } from './redux';
 
-export const useManageTokens = () => {
+export const useManageTokens = ({
+  pollingInterval = 0,
+}: { pollingInterval?: number } = {}) => {
   const { activeAccount, activeNetwork, tokens, ownedTokens, tokensPrice } =
     useAppSelector((s) => s.general);
   const { dispatch } = backgroundApiProxy;
@@ -121,6 +123,22 @@ export const useManageTokens = () => {
       }
     })();
   }, [activeAccount, activeNetwork, dispatch]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    if (pollingInterval) {
+      updateAccountTokens();
+      timer = setInterval(() => {
+        updateAccountTokens();
+      }, pollingInterval);
+    }
+
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [pollingInterval, updateAccountTokens]);
 
   return {
     nativeToken,
