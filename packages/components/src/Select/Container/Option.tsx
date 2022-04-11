@@ -23,6 +23,25 @@ function isGroup<T>(
   return false;
 }
 
+function Leading<T>({ option }: { option: SelectItem<T> }) {
+  const isSmallScreen = useIsVerticalLayout();
+  // hooks only available in React component
+  return (
+    <>
+      {!!option.tokenProps && (
+        <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
+      )}
+      {!!option.iconProps && (
+        <Icon
+          color={option.destructive ? 'icon-critical' : 'icon-default'}
+          size={isSmallScreen ? 24 : 20}
+          {...option.iconProps}
+        />
+      )}
+    </>
+  );
+}
+
 function RenderSingleOption<T>({
   option,
   activeOption,
@@ -36,24 +55,7 @@ function RenderSingleOption<T>({
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
-  const Leading = () => {
-    // hooks only available in React component
-    const isSmallScreen = useIsVerticalLayout();
-    return (
-      <>
-        {!!option.tokenProps && (
-          <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
-        )}
-        {!!option.iconProps && (
-          <Icon
-            color={option.destructive ? 'icon-critical' : 'icon-default'}
-            size={isSmallScreen ? 24 : 20}
-            {...option.iconProps}
-          />
-        )}
-      </>
-    );
-  };
+
   const OptionText = () => (
     <Box flex={1}>
       <HStack alignItems="center">
@@ -113,7 +115,9 @@ function RenderSingleOption<T>({
                 : ''
             }
           >
-            {(!!option.tokenProps || !!option.iconProps) && <Leading />}
+            {(!!option.tokenProps || !!option.iconProps) && (
+              <Leading option={option} />
+            )}
             <OptionText />
             {!!option.trailing && option.trailing}
             {!!isActive && !!activatable && <SelectedIndicator />}
