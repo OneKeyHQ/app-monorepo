@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Input, Pressable } from '@onekeyhq/components';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 import useNavigation from '@onekeyhq/kit/src/hooks/useNavigation';
 import {
   DiscoverModalRoutes,
@@ -21,7 +21,6 @@ type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 
 const Mobile: FC<ExplorerViewProps> = ({
   searchContent,
-  onSearchContentChange,
   onSearchSubmitEditing,
   explorerContent,
   onGoBack,
@@ -62,23 +61,28 @@ const Mobile: FC<ExplorerViewProps> = ({
           </Pressable>
 
           <Pressable onPress={onSearch} flex={1} mx={7}>
-            <Input
+            <Box
               w="100%"
               h={8}
-              numberOfLines={1}
-              flexWrap="wrap"
-              textSize="Caption"
-              isReadOnly
-              placeholder={intl.formatMessage({
-                id: 'content__search',
-              })}
-              value={searchContent}
-              onChangeText={(text) => onSearchContentChange?.(text)}
-              onSubmitEditing={(event) => {
-                onSearchContentChange?.(event.nativeEvent.text);
-                onSearchSubmitEditing?.(event.nativeEvent.text);
-              }}
-            />
+              bg="action-secondary-default"
+              borderWidth="1px"
+              borderColor="border-default"
+              flexDirection="row"
+              alignItems="center"
+              px={3}
+              borderRadius="12px"
+            >
+              <Typography.Caption
+                flex={1}
+                color={searchContent ? 'text-default' : 'text-subdued'}
+                numberOfLines={1}
+              >
+                {searchContent ||
+                  intl.formatMessage({
+                    id: 'content__search',
+                  })}
+              </Typography.Caption>
+            </Box>
           </Pressable>
 
           <Pressable onPress={onMore}>
