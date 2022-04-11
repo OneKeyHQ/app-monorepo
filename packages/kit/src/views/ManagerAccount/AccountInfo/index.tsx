@@ -128,6 +128,21 @@ const ManagerAccountModal: FC = () => {
                   title={intl.formatMessage({ id: 'action__remove_account' })}
                   titleColor="text-critical"
                   onPress={() => {
+                    if (
+                      wallet?.type === 'imported' ||
+                      wallet?.type === 'watching'
+                    ) {
+                      showRemoveAccountDialog(
+                        walletId,
+                        accountId,
+                        undefined,
+                        () => {
+                          if (navigation.canGoBack()) navigation.goBack();
+                        },
+                      );
+                      return;
+                    }
+
                     showVerify(
                       (pwd) => {
                         showRemoveAccountDialog(
