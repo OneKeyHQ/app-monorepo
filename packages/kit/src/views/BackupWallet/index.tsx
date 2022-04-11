@@ -1,4 +1,4 @@
-import React, { FC, useEffect } from 'react';
+import React, { ComponentProps, FC, useEffect } from 'react';
 
 import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -33,7 +33,7 @@ export type BackupWalletViewProps = {
 };
 
 export type BackupItemProps = {
-  imageSrc: any;
+  imageSrc: ComponentProps<typeof Image>['source'];
   title: string;
   describe?: string;
   badge?: string;
