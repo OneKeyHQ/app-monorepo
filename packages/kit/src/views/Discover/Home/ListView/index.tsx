@@ -39,10 +39,14 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
           <Box flexDirection="row" flex={1} alignItems="center">
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
             <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued" mt="4px" numberOfLines={1}>
+              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+              <Typography.Caption
+                color="text-subdued"
+                mt="4px"
+                numberOfLines={1}
+              >
                 {item.subtitle}
-              </Typography.Body2>
+              </Typography.Caption>
             </Box>
           </Box>
         </Box>
@@ -96,10 +100,14 @@ const ListViewDesktop: FC<SectionDataType> = ({
           <Box flexDirection="row" padding="16px">
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
             <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued" numberOfLines={1} mt="4px">
+              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+              <Typography.Caption
+                color="text-subdued"
+                numberOfLines={1}
+                mt="4px"
+              >
                 {item.subtitle}
-              </Typography.Body2>
+              </Typography.Caption>
             </Box>
           </Box>
         </Pressable>

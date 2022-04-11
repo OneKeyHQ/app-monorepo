@@ -13,6 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import DAppIcon from '../DAppIcon';
 import { SectionDataType } from '../Home/type';
@@ -42,10 +43,14 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
           <Box flexDirection="row" flex={1} alignItems="center">
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
             <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued" mt="4px" numberOfLines={1}>
+              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+              <Typography.Caption
+                color="text-subdued"
+                mt="4px"
+                numberOfLines={1}
+              >
                 {item.subtitle}
-              </Typography.Body2>
+              </Typography.Caption>
             </Box>
           </Box>
         </Box>
@@ -140,7 +145,7 @@ const Desktop: FC<SectionDataType> = ({ ...rest }) => {
 
 const DAppList: FC = () => {
   const route = useRoute<RouteProps>();
-  const { title } = route.params;
+  const { title, onItemSelect } = route.params;
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -148,12 +153,23 @@ const DAppList: FC = () => {
       title,
     });
   }, [navigation, title]);
+  const callback = useCallback(
+    (item: DAppItemType) => {
+      if (platformEnv.isDesktop || platformEnv.isNative) {
+        navigation.goBack();
+      }
+      if (onItemSelect) {
+        onItemSelect(item);
+      }
+    },
+    [navigation, onItemSelect],
+  );
   return (
     <Box flex="1" bg="background-default">
       {isSmallScreen ? (
-        <Mobile {...route.params} />
+        <Mobile {...route.params} onItemSelect={callback} />
       ) : (
-        <Desktop {...route.params} />
+        <Desktop {...route.params} onItemSelect={callback} />
       )}
     </Box>
   );

@@ -122,10 +122,10 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
               justifyContent="center"
               flex={1}
             >
-              <Typography.Body1Strong>{item.name}</Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued" numberOfLines={1}>
+              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+              <Typography.Caption color="text-subdued" numberOfLines={1}>
                 {item.subtitle}
-              </Typography.Body2>
+              </Typography.Caption>
             </Box>
           </Box>
         </Box>

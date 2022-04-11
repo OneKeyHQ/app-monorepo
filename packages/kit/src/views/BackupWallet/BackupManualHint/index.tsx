@@ -56,22 +56,18 @@ const BackupWalletManualHintView: FC = () => {
             })}
           </Typography.Body1>
           <Box flexDirection="row" mt={4} w="100%">
-            <Box mt={1}>
-              <Icon size={24} name="CheckCircleOutline" color="icon-success" />
-            </Box>
+            <Icon size={24} name="CheckCircleOutline" color="icon-success" />
 
-            <Typography.Body1 ml={2} flex={1}>
+            <Typography.Body1 ml={4} flex={1}>
               {intl.formatMessage({
                 id: 'backup__manual_backup_advice_write_on_paper',
               })}
             </Typography.Body1>
           </Box>
           <Box flexDirection="row" mt={4} w="100%">
-            <Box mt={1}>
-              <Icon size={24} name="CheckCircleOutline" color="icon-success" />
-            </Box>
+            <Icon size={24} name="CheckCircleOutline" color="icon-success" />
 
-            <Typography.Body1 ml={2} flex={1}>
+            <Typography.Body1 ml={4} flex={1}>
               {intl.formatMessage({
                 id: 'backup__manual_backup_advice_write_sync',
               })}

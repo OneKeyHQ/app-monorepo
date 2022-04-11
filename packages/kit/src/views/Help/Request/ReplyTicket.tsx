@@ -173,14 +173,7 @@ export const ReplyTicket: FC = () => {
               const imageIndex = prev.findIndex(
                 (i) => i.filename === imageModel.filename,
               );
-              console.log('xxx', imageModel, imageIndex);
-
               if (imageIndex < 0) return prev;
-              console.log([
-                ...prev.slice(0, imageIndex),
-                ...prev.slice(imageIndex),
-              ]);
-
               return [
                 ...prev.slice(0, imageIndex),
                 ...prev.slice(imageIndex + 1),
