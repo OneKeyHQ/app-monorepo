@@ -52,7 +52,16 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const { account } = useActiveWalletAccount();
   const { prices, nativeToken, updateAccountTokens } = useManageTokens();
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
-  useEffect(updateAccountTokens, [updateAccountTokens]);
+
+  useEffect(() => {
+    updateAccountTokens();
+    const timer = setInterval(() => {
+      updateAccountTokens();
+    }, 5000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [updateAccountTokens]);
 
   const copyContentToClipboard = useCallback(
     (address) => {
