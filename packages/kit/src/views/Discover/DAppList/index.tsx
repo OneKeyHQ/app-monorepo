@@ -158,10 +158,6 @@ const DAppList: FC = () => {
       if (platformEnv.isDesktop || platformEnv.isNative) {
         navigation.goBack();
       }
-      navigation.goBack();
-      if (platformEnv.isIOS) {
-        navigation.goBack();
-      }
       if (onItemSelect) {
         onItemSelect(item);
       }
