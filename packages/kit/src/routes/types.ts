@@ -44,6 +44,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.ManageNetwork]: NavigatorScreenParams<SubModalRoutesParams.ManageNetworkRoutesParams>;
   [ModalRoutes.OnekeyHardware]: NavigatorScreenParams<SubModalRoutesParams.OnekeyHardwareRoutesParams>;
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
+  [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
 };
 /** Modal */
 
@@ -58,7 +59,9 @@ export enum TabRoutes {
 
 export type TabRoutesParams = {
   [TabRoutes.Home]: undefined;
-  [TabRoutes.Swap]: undefined;
+  [TabRoutes.Swap]:
+    | undefined
+    | { inputTokenId?: string; outputTokenId?: string };
   [TabRoutes.Portfolio]: undefined;
   [TabRoutes.Discover]: undefined;
   [TabRoutes.Me]: undefined;

@@ -1,28 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
+import { Box } from '@onekeyhq/components';
 
-import { Box, useLocale, useTheme } from '@onekeyhq/components';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../hooks/redux';
+import { reset } from '../../store/reducers/swap';
 
-import WebView from '../../components/WebView';
-import OfflineView from '../Offline';
+import SwapContent from './SwapContent';
+import SwapHeader from './SwapHeader';
 
 const Swap = () => {
-  const { themeVariant } = useTheme();
-  const { locale } = useLocale();
-  const url = `https://swap.test.onekey.so/#/swap?theme=${themeVariant}&locale=${locale}`;
-  const [offline, setOffline] = useState(false);
+  const { network, account } = useActiveWalletAccount();
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setOffline(state.type === NetInfoStateType.none);
-    });
-    return unsubscribe;
-  }, []);
-
+    backgroundApiProxy.dispatch(reset());
+  }, [network, account]);
   return (
-    <Box flex="1" bg="background-default">
-      <WebView src={url} openUrlInExt />
-      <OfflineView offline={offline} />
+    <Box>
+      <SwapHeader />
+      <SwapContent />
     </Box>
   );
 };
