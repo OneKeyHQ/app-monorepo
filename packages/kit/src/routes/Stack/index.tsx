@@ -140,9 +140,13 @@ const MainScreen = () => {
     // AppState.addEventListener return subscription object in native env, but return empty in web env
     const subscription = AppState.addEventListener('change', onChange);
     return () => {
-      AppState.removeEventListener('change', onChange);
       // @ts-ignore
-      subscription?.remove();
+      if (subscription) {
+        // @ts-ignore
+        subscription?.remove();
+      } else {
+        AppState.removeEventListener('change', onChange);
+      }
     };
   }, [dispatch, onChange, preconditon]);
 
