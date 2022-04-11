@@ -122,7 +122,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
-        {platformEnv.isExtensionUiPopup && (
+        {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
             onPress={() => {
               extUtils.openExpandTab({ routes: '' });
