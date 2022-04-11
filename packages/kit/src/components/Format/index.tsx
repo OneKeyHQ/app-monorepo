@@ -8,6 +8,7 @@ import { Text } from 'react-native';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import { useManageTokens } from '../../hooks';
+import { ValuedToken } from '../../store/reducers/general';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
@@ -180,23 +181,42 @@ export const FormatCurrency: FC<{
   return <Component>{child}</Component>;
 };
 
-export const FormatCurrencyNative: FC<{
+export const FormatCurrencyToken: FC<{
+  token?: ValuedToken | null;
   value: BigNumber.Value | string | undefined;
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;
   as?: FC;
-}> = ({ value, formatOptions = {}, as, render }) => {
+}> = ({ token, value, formatOptions = {}, as, render }) => {
   const { prices } = useManageTokens();
+  const priceKey =
+    token && token.tokenIdOnNetwork ? token.tokenIdOnNetwork : 'main';
 
   return (
     <FormatCurrency
-      numbers={[prices?.main, value, !value ? undefined : 1]}
+      numbers={[prices?.[priceKey], value, !value ? undefined : 1]}
       render={render}
       formatOptions={formatOptions}
       as={as}
     />
   );
 };
+
+export const FormatCurrencyNative: FC<{
+  value: BigNumber.Value | string | undefined;
+  formatOptions?: FormatOptions;
+  render: (c: JSX.Element) => JSX.Element;
+  as?: FC;
+}> = ({ value, formatOptions = {}, as, render }) => (
+  <FormatCurrencyToken
+    // token is native
+    token={null}
+    value={value}
+    formatOptions={formatOptions}
+    render={render}
+    as={as}
+  />
+);
 
 export const FormatBalance: FC<{
   balance: BigNumber.Value | string | undefined;
