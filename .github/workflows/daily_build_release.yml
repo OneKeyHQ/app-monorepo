@@ -2,7 +2,7 @@ name: daily_build_release
 
 on:
   schedule:
-    - cron: '30 19 * * 0,2,4'
+    - cron: '30 19 * * 0,1,2,3,4'
   workflow_dispatch:
 
 jobs:
