@@ -1,4 +1,4 @@
-import React, { FC, useEffect } from 'react';
+import React, { ComponentProps, FC, useEffect } from 'react';
 
 import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,19 +10,20 @@ import {
   Badge,
   Box,
   Icon,
+  Image,
   Modal,
   Pressable,
   Typography,
 } from '@onekeyhq/components';
 import { BadgeType } from '@onekeyhq/components/src/Badge';
-import { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
+import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useToast } from '../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { BackupType } from './types';
@@ -32,7 +33,7 @@ export type BackupWalletViewProps = {
 };
 
 export type BackupItemProps = {
-  iconName: ICON_NAMES;
+  imageSrc: ComponentProps<typeof Image>['source'];
   title: string;
   describe?: string;
   badge?: string;
@@ -44,7 +45,7 @@ const BackupItemDefaultProps = {
 } as const;
 
 const BackupItem: FC<BackupItemProps> = ({
-  iconName,
+  imageSrc,
   title,
   describe,
   badge,
@@ -53,11 +54,12 @@ const BackupItem: FC<BackupItemProps> = ({
 }) => (
   <Pressable.Item borderRadius={12} onPress={() => onPress?.()}>
     <Box>
-      <Box flexDirection="row" alignItems="center">
-        <Icon size={24} name={iconName} />
-        <Typography.Body1Strong ml={3} flex={1}>
-          {title}
-        </Typography.Body1Strong>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Image size={16} source={imageSrc} />
         <Box>
           {badge ? (
             <Badge title={badge} size="sm" type={badgeType} />
@@ -66,8 +68,9 @@ const BackupItem: FC<BackupItemProps> = ({
           )}
         </Box>
       </Box>
+      <Typography.Body1Strong mt={4}>{title}</Typography.Body1Strong>
       {describe && (
-        <Typography.Body1 mt={2} color="text-subdued">
+        <Typography.Body1 mt={1} color="text-subdued">
           {describe}
         </Typography.Body1>
       )}
@@ -78,10 +81,8 @@ BackupItem.defaultProps = BackupItemDefaultProps;
 
 const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
   const intl = useIntl();
-  const toast = useToast();
 
   const navigation = useNavigation();
-  const hasSupportCloud = Platform.OS === 'ios';
   const hasSupportNFC = Platform.OS === 'ios' || Platform.OS === 'android';
 
   const onManualBackup = (backupType: BackupType) => {
@@ -113,24 +114,9 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
       scrollViewProps={{
         children: (
           <Column space={4} p={0.5}>
-            {hasSupportCloud && (
-              <BackupItem
-                iconName="CloudOutline"
-                title={intl.formatMessage({ id: 'backup__icloud_backup' })}
-                describe={intl.formatMessage({
-                  id: 'backup__icloud_backup_desc',
-                })}
-                badge={intl.formatMessage({ id: 'badge__coming_soon' })}
-                onPress={() => {
-                  // onManualBackup('iCloud');
-                  toast.info(intl.formatMessage({ id: 'badge__coming_soon' }));
-                }}
-              />
-            )}
-
             {hasSupportNFC && (
               <BackupItem
-                iconName="OnekeyLiteOutline"
+                imageSrc={OneKeyLite}
                 title={intl.formatMessage({ id: 'backup__onekey_lite_backup' })}
                 describe={intl.formatMessage({
                   id: 'backup__onekey_lite_backup_desc',
@@ -142,7 +128,7 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
             )}
 
             <BackupItem
-              iconName="DocumentTextOutline"
+              imageSrc={RecoveryPhrase}
               title={intl.formatMessage({ id: 'backup__manual_backup' })}
               describe={intl.formatMessage({
                 id: 'backup__manual_backup_desc',
