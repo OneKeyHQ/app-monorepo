@@ -6,7 +6,7 @@ import { IVaultFactoryOptions } from '../types/vault';
 import type { Engine } from '../index';
 import type { IVaultOptions } from '../types/vault';
 
-export class VaultContextLite {
+export class VaultContextBase {
   constructor(options: IVaultFactoryOptions) {
     this.options = options;
     this.networkId = options.networkId;
@@ -19,7 +19,6 @@ export class VaultContextLite {
 
   accountId: string; // "hd-1--m/44'/60'/0'/0/0"
 
-  // TODO use async init() all extra fields
   async getNetworkChainId() {
     const [impl, chainId] = this.networkId.split(SEPERATOR);
     return chainId;
@@ -36,8 +35,7 @@ export class VaultContextLite {
   }
 }
 
-// TODO rename to VaultContext
-export class VaultContext extends VaultContextLite {
+export class VaultContext extends VaultContextBase {
   constructor(options: IVaultOptions) {
     super(options);
     this.options = options;

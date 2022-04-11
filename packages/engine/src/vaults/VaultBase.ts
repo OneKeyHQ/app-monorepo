@@ -18,7 +18,7 @@ import type { VaultHelperBase } from './VaultHelperBase';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export type IVaultInitConfig = {
-  keyringCreator: (vault: VaultBase) => KeyringBase;
+  keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
 export type IKeyringMapKey = WalletType;
 

@@ -1,4 +1,4 @@
-/* eslint-disable new-cap */
+/* eslint-disable new-cap, @typescript-eslint/require-await */
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IMPL_CFX, IMPL_EVM, SEPERATOR } from '../constants';
@@ -19,7 +19,22 @@ function getNetworkImpl(networkId: string) {
   return impl;
 }
 
-export function createKeyringInstance(vault: VaultBase) {
+export function createVaultHelperInstance(
+  options: IVaultFactoryOptions,
+): VaultHelperBase {
+  const impl = getNetworkImpl(options.networkId);
+  if (impl === IMPL_EVM) {
+    return new VaultHelperEvm(options);
+  }
+  if (impl === IMPL_CFX) {
+    return new VaultHelperCfx(options);
+  }
+  throw new OneKeyInternalError(
+    `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
+  );
+}
+
+export async function createKeyringInstance(vault: VaultBase) {
   const { accountId } = vault;
   let keyring: KeyringBase | null = null;
   // TODO dbAccount type: "simple"
@@ -42,21 +57,6 @@ export function createKeyringInstance(vault: VaultBase) {
     );
   }
   return keyring;
-}
-
-export function createVaultHelperInstance(
-  options: IVaultFactoryOptions,
-): VaultHelperBase {
-  const impl = getNetworkImpl(options.networkId);
-  if (impl === IMPL_EVM) {
-    return new VaultHelperEvm(options);
-  }
-  if (impl === IMPL_CFX) {
-    return new VaultHelperCfx(options);
-  }
-  throw new OneKeyInternalError(
-    `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
-  );
 }
 
 export async function createVaultInstance(options: IVaultOptions) {

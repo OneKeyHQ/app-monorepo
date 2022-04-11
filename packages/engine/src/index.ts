@@ -105,7 +105,6 @@ import { Token } from './types/token';
 import { IEncodedTxAny, IFeeInfoUnit } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
-import { IEncodedTxEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';

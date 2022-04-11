@@ -1,8 +1,9 @@
-import { IEncodedTxAny } from '../types/vault';
+import { VaultContextBase } from './VaultContext';
 
-import { VaultContextLite } from './VaultContext';
+import type { IDecodedTxAny, IEncodedTxAny } from '../types/vault';
 
-export abstract class VaultHelperBase extends VaultContextLite {
+// ATTENTION: VaultHelperBase can be init in UI, so it could NOT including engine, DB and any other background code
+export abstract class VaultHelperBase extends VaultContextBase {
   // convert encodedTx to nativeTx (web3 sdk tx)
-  abstract parseToNativeTx(encodedTx: IEncodedTxAny): Promise<any>;
+  abstract parseToNativeTx(encodedTx: IEncodedTxAny): Promise<IDecodedTxAny>;
 }

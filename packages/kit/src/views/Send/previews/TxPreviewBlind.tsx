@@ -12,10 +12,10 @@ import {
 } from '@onekeyhq/components';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
+import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 
 import { ITxPreviewModalProps, TxPreviewModal } from './TxPreviewModal';
-import { DecodeTxButtonTest } from "../DecodeTxButtonTest";
 
 function TxPreviewBlind(props: ITxPreviewModalProps) {
   const {

@@ -15,8 +15,8 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 
-import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
+import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 import { TxTitleDetailView } from '../TxTitleDetailView';
 import { TransferSendParamsPayload } from '../types';
 
