@@ -1,3 +1,13 @@
+
+### 🙋‍♂️ We are hiring many roles (Remote) !
+
+> * Remote (Live anywhere)
+> * Global Pay (Literally)
+> * ESOP (For everybody)
+> * Open Source (As you see)
+> * Awesome Colleagues (Hell Yeah!)
+
+[👉 Click here to check all open positions](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
 # OneKey App Monorepo [English]
 
 ## 🌍 Environment Configuration
