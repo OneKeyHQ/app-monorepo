@@ -66,7 +66,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         decimals: decimal,
         logoURI,
       } = token;
-      navigation.push(ManageTokenRoutes.ViewToken, {
+      navigation.navigate(ManageTokenRoutes.ViewToken, {
         name,
         symbol,
         address,
@@ -306,7 +306,7 @@ const ListingToken: FC<ListingTokenProps> = ({
       decimals: decimal,
       logoURI,
     } = item;
-    navigation.push(ManageTokenRoutes.AddToken, {
+    navigation.navigate(ManageTokenRoutes.AddToken, {
       name,
       symbol,
       address,
