@@ -153,6 +153,7 @@ const RecoverConfirm: FC = () => {
 
   return (
     <Modal
+      height="640px"
       header={intl.formatMessage({ id: 'action__recover_accounts' })}
       headerDescription={`${intl.formatMessage({
         id: 'account__recover_2_of_2',
@@ -175,6 +176,7 @@ const RecoverConfirm: FC = () => {
       }}
       hideSecondaryAction
       flatListProps={{
+        height: '640px',
         data: flatListData,
         // @ts-ignore
         renderItem,
