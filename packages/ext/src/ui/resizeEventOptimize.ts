@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// Open firefox popup, wait for 5s, do NOT click anything
 function checkPerformance() {
   if (platformEnv.isFirefox && platformEnv.isDev) {
     const { addEventListener } = window;
@@ -21,7 +22,7 @@ function checkPerformance() {
           console.log(
             `***** Firefox resize event fired ${times} times in ${ms}ms ***** `,
           );
-          if (times > 5) {
+          if (times >= 10) {
             alert(
               'Performance WARNING: Firefox resize event fired in high frequency',
             );
