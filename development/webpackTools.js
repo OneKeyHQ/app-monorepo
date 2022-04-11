@@ -3,6 +3,7 @@ require('./env');
 const webpack = require('webpack');
 const lodash = require('lodash');
 const notifier = require('node-notifier');
+const developmentConsts = require('./developmentConsts');
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -60,6 +61,7 @@ function normalizeConfig({ platform, config }) {
 }
 
 module.exports = {
+  developmentConsts,
   resolveExtensions,
   normalizeConfig,
 };

@@ -2,6 +2,9 @@
 const babelTools = require('./development/babelTools');
 
 module.exports = babelTools.normalizeConfig({
-  presets: ['@expo/next-adapter/babel'],
-  plugins: [],
+  platform: babelTools.developmentConsts.platforms.all,
+  config: {
+    presets: ['@expo/next-adapter/babel'],
+    plugins: [],
+  },
 });

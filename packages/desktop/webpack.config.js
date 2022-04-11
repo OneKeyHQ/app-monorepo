@@ -7,7 +7,7 @@ console.log('============ webpack.version ', webpack.version);
 module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(env, argv);
   config = webpackTools.normalizeConfig({
-    platform: 'desktop',
+    platform: webpackTools.developmentConsts.platforms.desktop,
     config,
   });
   return config;
