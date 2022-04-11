@@ -20,7 +20,7 @@ type InternalActionList = 'paste';
 type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement | InternalActionList[];
-  helpText?: string | ((v: any) => string);
+  helpText?: string | ((v: any) => string) | ReactElement;
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
 };

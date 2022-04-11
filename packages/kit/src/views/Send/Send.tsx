@@ -1,4 +1,4 @@
-/* eslint-disable no-nested-ternary */
+/* eslint-disable no-nested-ternary, @typescript-eslint/no-unused-vars */
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -13,6 +13,7 @@ import {
   Button,
   Form,
   Modal,
+  Spinner,
   Typography,
   useForm,
   useFormState,
@@ -25,7 +26,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { FormatBalance } from '../../components/Format';
+import { FormatBalance, FormatCurrencyToken } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
@@ -66,15 +67,18 @@ const buildEncodedTxFromTransferDebounced = debounce(
 const Transaction = () => {
   // const encodedTxRef = useRef<any>(null);
   const [encodedTx, setEncodedTx] = useState(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [buildLoading, setBuildLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const { control, handleSubmit, watch } = useForm<TransactionValues>({
-    mode: 'onBlur',
-    reValidateMode: 'onBlur',
-    defaultValues: {
-      to: '',
-      value: '', // TODO rename to amount
-    },
-  });
+  const { control, handleSubmit, watch, getValues } =
+    useForm<TransactionValues>({
+      mode: 'onBlur',
+      reValidateMode: 'onBlur',
+      defaultValues: {
+        to: '',
+        value: '', // TODO rename to amount
+      },
+    });
   const { isValid } = useFormState({ control });
   const { account, accountId, networkId } = useActiveWalletAccount();
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
@@ -158,7 +162,7 @@ const Transaction = () => {
       transferInfo,
       callback: async (promise) => {
         try {
-          // TODO show loading
+          setBuildLoading(true);
           const tx = await promise;
           if (tx) {
             setEncodedTx(tx);
@@ -166,6 +170,8 @@ const Transaction = () => {
         } catch (e) {
           // TODO display static form error message
           console.error(e);
+        } finally {
+          setBuildLoading(false);
         }
       },
     });
@@ -353,6 +359,17 @@ const Transaction = () => {
                 control={control}
                 name="value"
                 defaultValue=""
+                helpText={
+                  <FormatCurrencyToken
+                    token={selectedToken}
+                    value={getValues('value')}
+                    render={(ele) => (
+                      <Typography.Body2 mt={1} color="text-subdued">
+                        {ele}
+                      </Typography.Body2>
+                    )}
+                  />
+                }
                 rules={{
                   required: intl.formatMessage({ id: 'form__amount_invalid' }),
                   validate: (value) => {
