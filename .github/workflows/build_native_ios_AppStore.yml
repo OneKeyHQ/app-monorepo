@@ -1,9 +1,11 @@
 name: Build Native iOS AppStore CI
 
 on:
-  schedule:
-    - cron: '30 19 * * 0,2,4'
-    
+  workflow_run:
+    workflows:
+      - daily_build_release
+    types:
+      - completed
   workflow_dispatch:
 jobs:
   build:
@@ -32,6 +34,36 @@ jobs:
           expo-version: 4.x
           expo-token: ${{ secrets.EXPO_TOKEN }}
           expo-cache: true
+
+      - name: 'Setup ENV'
+        run: |
+          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+        env:
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.7
+        with:
+          path: .env.version
+
+      - name: Modify info.plist
+        uses: OneKeyHQ/onekey-github-actions/build-plist-edit@main
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ steps.dotenv.outputs.version }}
+          projectName: OneKeyWallet
+          dir: ./packages/app
 
       - name: Build on EAS
         run: |
