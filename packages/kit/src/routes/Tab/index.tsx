@@ -47,16 +47,16 @@ export const tabRoutes: TabRouteConfig[] = [
           tabBarIcon: () => 'TrendingUpOutline',
           translationId: 'title__portfolio',
         },
-        {
-          name: TabRoutes.Discover,
-          component: DiscoverScreen,
-          tabBarIcon: () => 'CompassOutline',
-          translationId: 'title__explore',
-        },
       ] as TabRouteConfig[];
     }
     return [];
   })(),
+  {
+    name: TabRoutes.Discover,
+    component: DiscoverScreen,
+    tabBarIcon: () => 'CompassOutline',
+    translationId: 'title__explore',
+  },
   {
     name: TabRoutes.Me,
     component: MeScreen,
