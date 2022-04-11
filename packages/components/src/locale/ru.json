@@ -149,7 +149,6 @@
   "badge__backed_up": "Резервное копирование",
   "badge__coming_soon": "Скоро будет",
   "checkbox__manual_backup_warning": "Я понимаю, что если я потеряю свою фразу восстановления, я потеряю свои находки",
-  "content__account_lowercase": "",
   "content__activated": "Активированный",
   "content__activity_logs": "Журналы регистрации действий",
   "content__advance": "Продвигать",
@@ -248,6 +247,7 @@
   "content__total": "Всего",
   "content__touch_id": "Touch ID",
   "content__type": "Тип",
+  "content__up_to_100_accounts": "Up to 100 accounts",
   "content__view_the_address_of_your_permitted_accounts_required": "Просмотр адресов разрешенных счетов (обязательно).",
   "content__watch_a_public_address": "Смотреть публичное выступление",
   "content__we_dont_store_any_of_your_information": "Мы не храним вашу информацию, поэтому если вы забудете свой PIN-код, мы не сможем помочь вам его восстановить.",
@@ -575,6 +575,7 @@
   "onboarding__landing_opensource_title": "Ваши активы, \nТолько в ваших руках",
   "onboarding__landing_welcome_desc": "Одно место для всех ваших криптовалют.",
   "onboarding__landing_welcome_title": "Добро пожаловать в OneKey!",
+  "option__all": "All",
   "select__options": "Опции",
   "terms__desc": "Пожалуйста, ознакомьтесь с нашим Пользовательским соглашением и Политикой конфиденциальности.",
   "terms__privacy_policy": "Политика конфиденциальности",
@@ -698,4 +699,3 @@
   "wallet__wallet": "Бумажник",
   "wallet__watched_accounts": "Просмотренные аккаунты"
 }
-

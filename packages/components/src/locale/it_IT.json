@@ -149,7 +149,6 @@
   "badge__backed_up": "Sostenuto da",
   "badge__coming_soon": "In arrivo",
   "checkbox__manual_backup_warning": "Capisco che se perdo la mia frase di recupero, perderò i miei fondi",
-  "content__account_lowercase": "",
   "content__activated": "Attivato",
   "content__activity_logs": "Registri di attività",
   "content__advance": "Progredire",
@@ -248,6 +247,7 @@
   "content__total": "Totale",
   "content__touch_id": "Touch ID",
   "content__type": "Tipo",
+  "content__up_to_100_accounts": "Up to 100 accounts",
   "content__view_the_address_of_your_permitted_accounts_required": "Visualizza l'indirizzo dei tuoi conti consentiti (obbligatorio).",
   "content__watch_a_public_address": "Guarda un discorso pubblico",
   "content__we_dont_store_any_of_your_information": "Non memorizziamo nessuna delle tue informazioni, quindi se dimentichi il tuo PIN, non possiamo aiutarti a recuperarlo.",
@@ -575,6 +575,7 @@
   "onboarding__landing_opensource_title": "I tuoi beni, \nSolo nelle tue mani",
   "onboarding__landing_welcome_desc": "Un posto per tutte le tue criptovalute.",
   "onboarding__landing_welcome_title": "Benvenuti a OneKey!",
+  "option__all": "All",
   "select__options": "Opzioni",
   "terms__desc": "Si prega di rivedere il nostro Accordo per gli utenti e l'Informativa sulla privacy.",
   "terms__privacy_policy": "Politica sulla privacy",
@@ -698,4 +699,3 @@
   "wallet__wallet": "Portafoglio",
   "wallet__watched_accounts": "Conti guardati"
 }
-

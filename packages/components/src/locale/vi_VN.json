@@ -149,7 +149,6 @@
   "badge__backed_up": "Backed up",
   "badge__coming_soon": "Coming soon",
   "checkbox__manual_backup_warning": "I understand that if I lose my recovery phrase, I will lose my funds.",
-  "content__account_lowercase": "",
   "content__activated": "Activated",
   "content__activity_logs": "Activity logs",
   "content__advance": "Advance",
@@ -248,6 +247,7 @@
   "content__total": "Total",
   "content__touch_id": "Touch ID",
   "content__type": "Type",
+  "content__up_to_100_accounts": "Up to 100 accounts",
   "content__view_the_address_of_your_permitted_accounts_required": "View the address of your permitted accounts (required).",
   "content__watch_a_public_address": "Xem Địa chỉ Công cộng",
   "content__we_dont_store_any_of_your_information": "We don't store any of your information, so if you forget your PIN, we can't help you get it back.",
@@ -575,6 +575,7 @@
   "onboarding__landing_opensource_title": "Your Assets, \nOnly in Your Hands",
   "onboarding__landing_welcome_desc": "One place for all your cryptos.",
   "onboarding__landing_welcome_title": "Welcome to OneKey!",
+  "option__all": "All",
   "select__options": "Tùy chọn",
   "terms__desc": "Please review our User Agreement and Privacy Policy.",
   "terms__privacy_policy": "Privacy Policy",
@@ -698,4 +699,3 @@
   "wallet__wallet": "Ví tiền",
   "wallet__watched_accounts": "Tài khoản đã theo dõi"
 }
-

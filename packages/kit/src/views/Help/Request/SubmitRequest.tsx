@@ -5,7 +5,7 @@ import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Row, ZStack } from 'native-base';
 import { useIntl } from 'react-intl';
-import { Platform, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import uuid from 'react-native-uuid';
 
 import {
@@ -48,16 +48,19 @@ type SubmitValues = {
 };
 
 const defaultOption = (): string => {
-  switch (Platform.OS) {
-    case 'ios':
-      return 'App on iOS';
-    case 'android':
-      return 'App on Android';
-    case 'web':
-      return 'App on Browser';
-    default:
-      return 'Hardware';
+  if (platformEnv.isIOS) {
+    return 'App on iOS';
   }
+  if (platformEnv.isAndroid) {
+    return 'App on Android';
+  }
+  if (platformEnv.isDesktop) {
+    return 'App on Desktop';
+  }
+  if (platformEnv.isBrowser) {
+    return 'App on Browser';
+  }
+  return 'Hardware';
 };
 
 const valueWithOption = (option: string): string => {
@@ -115,6 +118,7 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
             borderRadius="12px"
             source={{ uri: localPath }}
             flex={1}
+            preview
           />
           <Box
             mt={0}
@@ -230,14 +234,7 @@ export const SubmitRequest: FC = () => {
               const imageIndex = prev.findIndex(
                 (i) => i.filename === imageModel.filename,
               );
-              console.log('xxx', imageModel, imageIndex);
-
               if (imageIndex < 0) return prev;
-              console.log([
-                ...prev.slice(0, imageIndex),
-                ...prev.slice(imageIndex),
-              ]);
-
               return [
                 ...prev.slice(0, imageIndex),
                 ...prev.slice(imageIndex + 1),

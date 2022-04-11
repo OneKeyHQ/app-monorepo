@@ -148,20 +148,32 @@ export const Discover: FC<DiscoverProps> = ({
     }
   }, [navigation, intl]);
 
+  const callback = useCallback(
+    (item: DAppItemType) => {
+      if (platformEnv.isIOS) {
+        navigation.goBack();
+      }
+      if (onItemSelect) {
+        onItemSelect(item);
+      }
+    },
+    [navigation, onItemSelect],
+  );
+
   const renderItem: ListRenderItem<SectionDataType> = useCallback(
     ({ item }) => {
       switch (item.type) {
         case 'banner':
-          return <Banner {...item} {...rest} onItemSelect={onItemSelect} />;
+          return <Banner {...item} {...rest} onItemSelect={callback} />;
         case 'card':
-          return <CardView {...item} {...rest} onItemSelect={onItemSelect} />;
+          return <CardView {...item} {...rest} onItemSelect={callback} />;
         case 'list':
-          return <ListView {...item} {...rest} onItemSelect={onItemSelect} />;
+          return <ListView {...item} {...rest} onItemSelect={callback} />;
         default:
           return null;
       }
     },
-    [onItemSelect, rest],
+    [callback, rest],
   );
 
   const generaListData = useCallback(

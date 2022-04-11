@@ -149,7 +149,6 @@
   "badge__backed_up": "Нөөцлөгдөх",
   "badge__coming_soon": "Тун удахгүй",
   "checkbox__manual_backup_warning": "Сэргээх хэллэгээ алдвал олдворуудаа алдах болно гэдгийг би ойлгож байна",
-  "content__account_lowercase": "",
   "content__activated": "Идэвхжүүлсэн",
   "content__activity_logs": "Үйл ажиллагааны бүртгэл",
   "content__advance": "Урьдчилгаа",
@@ -248,6 +247,7 @@
   "content__total": "Нийт",
   "content__touch_id": "Touch ID",
   "content__type": "Төрөл",
+  "content__up_to_100_accounts": "Up to 100 accounts",
   "content__view_the_address_of_your_permitted_accounts_required": "Зөвшөөрөгдсөн дансныхаа хаягийг харах (шаардлагатай).",
   "content__watch_a_public_address": "Нийтийн үг үзэх",
   "content__we_dont_store_any_of_your_information": "Бид таны ямар ч мэдээллийг хадгалдаггүй тул хэрэв та ПИН кодоо мартсан бол буцааж авахад тусалж чадахгүй.",
@@ -575,6 +575,7 @@
   "onboarding__landing_opensource_title": "Таны хөрөнгө,\n Зөвхөн таны гарт",
   "onboarding__landing_welcome_desc": "Таны бүх криптод зориулсан нэг газар.",
   "onboarding__landing_welcome_title": "OneKey-д тавтай морил!",
+  "option__all": "All",
   "select__options": "Сонголтууд",
   "terms__desc": "Манай Хэрэглэгчийн гэрээ болон Нууцлалын бодлогыг шалгана уу.",
   "terms__privacy_policy": "Нууцлалын бодлого",
@@ -698,4 +699,3 @@
   "wallet__wallet": "Түрийвч",
   "wallet__watched_accounts": "Үзсэн бүртгэлүүд"
 }
-

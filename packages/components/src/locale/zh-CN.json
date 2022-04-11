@@ -149,7 +149,6 @@
   "badge__backed_up": "已备份",
   "badge__coming_soon": "即将推出",
   "checkbox__manual_backup_warning": "我了解如果丢失了助记词，我将会丢失资产。",
-  "content__account_lowercase": "",
   "content__activated": "已激活",
   "content__activity_logs": "活动日志",
   "content__advance": "专业版",
@@ -248,6 +247,7 @@
   "content__total": "总额",
   "content__touch_id": "指纹",
   "content__type": "类型",
+  "content__up_to_100_accounts": "最多 100 个账户",
   "content__view_the_address_of_your_permitted_accounts_required": "查看您允许的账户的地址（必填）",
   "content__watch_a_public_address": "观察地址",
   "content__we_dont_store_any_of_your_information": "我们不存储任何您的信息，因此一旦您忘记自己的 PIN 码，我们也无法帮您找回。",
@@ -575,6 +575,7 @@
   "onboarding__landing_opensource_title": "您的资产，只在您手",
   "onboarding__landing_welcome_desc": "您的数字资产港湾",
   "onboarding__landing_welcome_title": "欢迎使用 OneKey",
+  "option__all": "全部",
   "select__options": "选项",
   "terms__desc": "请查看我们的用户协议和隐私权政策。",
   "terms__privacy_policy": "隐私权政策",
@@ -698,4 +699,3 @@
   "wallet__wallet": "钱包",
   "wallet__watched_accounts": "观察账户"
 }
-
