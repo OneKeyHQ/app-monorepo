@@ -10,7 +10,7 @@ type ImageProps = { preview?: boolean } & ComponentProps<typeof NBImage>;
 const Image: FC<ImageProps> = ({ preview = false, ...rest }) => {
   const [isVisible, setIsVisible] = useState(false);
   const { src } = rest;
-
+  const { source } = rest;
   if (preview) {
     return (
       <>
@@ -25,7 +25,12 @@ const Image: FC<ImageProps> = ({ preview = false, ...rest }) => {
         >
           <NBImage alt="-" {...rest} />
         </Pressable>
-        <ImageViewer onToggle={setIsVisible} visible={isVisible} src={src} />
+        <ImageViewer
+          onToggle={setIsVisible}
+          visible={isVisible}
+          src={src}
+          source={source}
+        />
       </>
     );
   }

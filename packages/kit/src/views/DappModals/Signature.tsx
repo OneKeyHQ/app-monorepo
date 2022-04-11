@@ -74,9 +74,7 @@ const Signature = () => {
                 {/* Account */}
                 <DescriptionListItem
                   // TODO: Replace this translation to titlelized account
-                  title={intl.formatMessage({
-                    id: 'content__account_lowercase',
-                  })}
+                  title=""
                   detail={
                     <Column alignItems="flex-end" w="auto" flex={1}>
                       <Text

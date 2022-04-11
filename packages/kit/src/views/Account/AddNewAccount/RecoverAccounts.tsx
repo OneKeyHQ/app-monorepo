@@ -27,6 +27,7 @@ import type {
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -52,7 +53,7 @@ type FlatDataType = ImportableHDAccount & {
 type CellProps = {
   item: FlatDataType;
   index: number;
-  onChange: (v: boolean) => void;
+  onChange: (v: boolean, callback: (success: boolean) => void) => void;
 } & ComponentProps<typeof Box>;
 
 const CustomCell: FC<CellProps> = ({ item, index, onChange }) => {
@@ -80,9 +81,12 @@ const CustomCell: FC<CellProps> = ({ item, index, onChange }) => {
           isChecked={isChecked}
           isDisabled={item.isDisabled}
           onChange={(isSelected) => {
-            setIsCheck(isSelected);
             if (!item.isDisabled && onChange) {
-              onChange(isSelected);
+              onChange(isSelected, (success) => {
+                if (success) {
+                  setIsCheck(isSelected);
+                }
+              });
             }
           }}
         />
@@ -95,6 +99,7 @@ const CustomCell: FC<CellProps> = ({ item, index, onChange }) => {
 type PageStatusType = 'loading' | 'empty' | 'data';
 const RecoverAccounts: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const route = useRoute<RouteProps>();
   const { password, walletId, network } = route.params;
   const [currentPage, setCurrentPage] = useState(0);
@@ -123,31 +128,39 @@ const RecoverAccounts: FC = () => {
       const activeAccounts = await getActiveAccount();
       const limit = 10;
       const start = page * limit;
-      const accounts = await backgroundApiProxy.engine.searchHDAccounts(
-        walletId,
-        network,
-        password,
-        start,
-        limit,
-      );
-      if (currentPage === 0) {
-        setPageStatus(accounts.length > 0 ? 'data' : 'empty');
-      }
-      updateFlatListData((prev) => [
-        ...prev,
-        ...accounts.map((item) => {
-          const isDisabled =
-            activeAccounts.filter((a) => a.path === item.path).length > 0;
-          return { ...item, selected: isDisabled, isDisabled };
-        }),
-      ]);
-      return accounts;
+      backgroundApiProxy.engine
+        .searchHDAccounts(walletId, network, password, start, limit)
+        .then((accounts) => {
+          if (currentPage === 0) {
+            setPageStatus(accounts.length > 0 ? 'data' : 'empty');
+          }
+          updateFlatListData((prev) => [
+            ...prev,
+            ...accounts.map((item) => {
+              const isDisabled =
+                activeAccounts.filter((a) => a.path === item.path).length > 0;
+              return { ...item, selected: isDisabled, isDisabled };
+            }),
+          ]);
+        });
     },
     [currentPage, getActiveAccount, network, password, walletId],
   );
 
   const checkBoxOnChange = useCallback(
-    (isSelected: boolean, item: FlatDataType) => {
+    (isSelected: boolean, item: FlatDataType): boolean => {
+      if (isSelected) {
+        const selectCount = flatListData.filter((i) => i.selected).length;
+        if (selectCount > 99) {
+          toast.show({
+            title: intl.formatMessage({ id: 'content__up_to_100_accounts' }),
+          });
+          setIsVaild(
+            flatListData.filter((i) => !i.isDisabled && i.selected).length > 0,
+          );
+          return false;
+        }
+      }
       flatListData.map((i) => {
         if (i.path === item.path) {
           i.selected = isSelected;
@@ -157,8 +170,9 @@ const RecoverAccounts: FC = () => {
       setIsVaild(
         flatListData.filter((i) => !i.isDisabled && i.selected).length > 0,
       );
+      return true;
     },
-    [flatListData],
+    [flatListData, intl, toast],
   );
 
   const renderItem: ListRenderItem<FlatDataType> = useCallback(
@@ -167,8 +181,8 @@ const RecoverAccounts: FC = () => {
         item={item}
         index={index}
         borderBottomRadius={index === flatListData.length - 1 ? '12px' : 0}
-        onChange={(isSelected) => {
-          checkBoxOnChange(isSelected, item);
+        onChange={(isSelected, callback) => {
+          callback(checkBoxOnChange(isSelected, item));
         }}
       />
     ),
