@@ -71,6 +71,7 @@ const Explorer: FC = () => {
 
   const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
   const [dappOpenPayload, setDappOpenPayload] = useState<DAppItemType>();
+  const [refreshKey, setRefreshKey] = useState<string>();
 
   const isSmallLayout = useIsSmallLayout();
 
@@ -83,6 +84,15 @@ const Explorer: FC = () => {
   }, []);
 
   const gotoUrl = (item: (string | DAppItemType) | undefined) => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      if (typeof item === 'string') {
+        openBrowser.openUrl(item);
+      } else {
+        openBrowser.openUrl(item?.url ?? '');
+      }
+      return;
+    }
+
     if (!item || (typeof item === 'string' && item.trim().length === 0)) {
       setDisplayInitialPage(true);
       return;
@@ -104,13 +114,6 @@ const Explorer: FC = () => {
   };
 
   useEffect(() => {
-    console.log('Explorer useEffect currentUrl:', currentUrl);
-  }, [currentUrl]);
-
-  useEffect(() => {
-    // console.log('Explorer Title & Url:', webTitle, ' ,', webUrl);
-    console.log('Explorer Title & Url:', webUrl);
-
     setSearchContent(displayInitialPage ? '' : webUrl ?? currentUrl ?? '');
   }, [currentUrl, webUrl, displayInitialPage]);
 
@@ -125,7 +128,6 @@ const Explorer: FC = () => {
         url = new URL(url).toString();
 
         if (url) gotoUrl(url);
-        console.log('onSearchSubmitEditing pushStackUrl', url);
       } catch (error) {
         gotoUrl(`https://www.google.com/search?q=${dapp}`);
         console.log('not a url', error);
@@ -158,13 +160,7 @@ const Explorer: FC = () => {
 
   const onRefresh = () => {
     try {
-      const polyfillUrl = new URL(currentUrl ?? '');
-      polyfillUrl.searchParams.set(
-        'onekey-browser-refresh',
-        Math.random().toString(),
-      );
-
-      setCurrentUrl(polyfillUrl.toString());
+      setRefreshKey(Math.random().toString());
     } catch (error) {
       console.warn(error);
     }
@@ -251,6 +247,7 @@ const Explorer: FC = () => {
       <Box flex={1} bg="background-default">
         {isSmallLayout ? (
           <Mobile
+            key={refreshKey}
             searchContent={searchContent}
             onSearchContentChange={setSearchContent}
             onSearchSubmitEditing={onSearchSubmitEditing}
@@ -264,6 +261,7 @@ const Explorer: FC = () => {
           />
         ) : (
           <Desktop
+            key={refreshKey}
             displayInitialPage={displayInitialPage}
             searchContent={searchContent}
             onSearchContentChange={setSearchContent}

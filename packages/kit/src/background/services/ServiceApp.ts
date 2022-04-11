@@ -141,18 +141,18 @@ class ServiceApp extends ServiceBase {
       this.backgroundApi;
     const wallet = await engine.createHDWallet(password, mnemonic);
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-    if (!data.isPasswordSet) {
-      dispatch(passwordSet());
-      dispatch(setEnableAppLock(true));
-    }
-    const walletsFromBE = await engine.getWallets();
-    dispatch(updateWallets(walletsFromBE));
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
     if (!status.boardingCompleted) {
       dispatch(setBoardingCompleted());
     }
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
     dispatch(unlock());
     dispatch(mUnlock());
+    const walletsFromBE = await engine.getWallets();
+    dispatch(updateWallets(walletsFromBE));
     let account: Account | null = null;
     if (wallet.accounts.length > 0) {
       const { network }: { network: Network } = appSelector(
@@ -182,14 +182,14 @@ class ServiceApp extends ServiceBase {
       credential,
       name,
     );
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     if (!data.isPasswordSet) {
       dispatch(passwordSet());
       dispatch(setEnableAppLock(true));
-    }
-    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-    if (!status.boardingCompleted) {
-      dispatch(setBoardingCompleted());
     }
     dispatch(unlock());
     dispatch(mUnlock());

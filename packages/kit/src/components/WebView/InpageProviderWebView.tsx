@@ -41,7 +41,7 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
     {
-      src: url = '',
+      src = '',
       onSrcChange,
       receiveHandler,
       onNavigationStateChange,
@@ -50,7 +50,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     ref: any,
   ) => {
     const intl = useIntl();
-    const [src, setSrc] = useState(url);
+    const [key, setKey] = useState('');
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [progress, setProgress] = useState(5);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -71,10 +71,6 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         // noop
       },
     });
-
-    useEffect(() => {
-      setSrc(url);
-    }, [url]);
 
     useImperativeHandle(ref, (): IWebViewWrapperRef | null =>
       isRenderAsIframe ? iframeWebviewRef.current : webviewRef.current,
@@ -105,13 +101,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
 
     const onRefresh = () => {
       try {
-        const polyfillUrl = new URL(url);
-        polyfillUrl.searchParams.set(
-          'onekey-browser-refresh',
-          Math.random().toString(),
-        );
-
-        setSrc(polyfillUrl.toString());
+        setKey(Math.random().toString());
         setDesktopLoadError(false);
       } catch (error) {
         console.warn(error);
@@ -169,6 +159,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               <ErrorView />
             ) : (
               <DesktopWebView
+                key={key}
                 ref={setWebViewRef}
                 src={src}
                 onSrcChange={onSrcChange}
@@ -178,6 +169,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
             ))}
           {isApp && (
             <NativeWebView
+              key={key}
               ref={setWebViewRef}
               src={src}
               onSrcChange={onSrcChange}
@@ -199,7 +191,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               ref={iframeRef}
               title="iframe-web"
               src={src}
-              key={src}
+              key={key}
               frameBorder="0"
               style={{ height: '100%', width: '100%' }}
             />

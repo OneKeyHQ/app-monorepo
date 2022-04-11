@@ -174,10 +174,9 @@ export const SubmitRequest: FC = () => {
       };
 
       let base64Image = result.uri;
-      if (Platform.OS === 'ios' && result.base64) {
+      if (platformEnv.isNative && result.base64) {
         base64Image = result.base64;
       }
-
       updateImageArr((prev) => [...prev, image]);
       uploadImage(
         { filename: imagename, image: base64Image },
