@@ -132,6 +132,7 @@ const Transaction = () => {
     [accountTokens, selectOption?.value],
   );
 
+  // TODO watch performance
   const formFields = watch();
 
   // build transferInfo
