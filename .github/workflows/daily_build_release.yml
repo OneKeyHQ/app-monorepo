@@ -1,0 +1,23 @@
+name: daily_build_release
+
+on:
+  schedule:
+    - cron: '30 19 * * 0,2,4'
+  workflow_dispatch:
+
+jobs:
+  daily_build_release:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        node-version: [16.x]
+
+    steps:
+      - name: 'Setup ENV'
+        run: |
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($GITHUB_RUN_NUMBER % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV

@@ -10,6 +10,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
+import { useDrawer } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 
@@ -26,10 +27,12 @@ type DoneProps = {
 const Done: FC<DoneProps> = ({ password, mnemonic }) => {
   const { serviceApp } = backgroundApiProxy;
   const navigation = useNavigation();
+  const { closeDrawer } = useDrawer();
   const appNavigation = useAppNavigation();
   useEffect(() => {
     async function main() {
       const wallet = await serviceApp.createHDWallet({ password, mnemonic });
+      closeDrawer();
       const inst = navigation.getParent() || navigation;
       inst.goBack();
       if (!mnemonic) {
@@ -45,7 +48,7 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
       }
     }
     main();
-  }, [navigation, password, serviceApp, mnemonic, appNavigation]);
+  }, [navigation, password, serviceApp, mnemonic, appNavigation, closeDrawer]);
   return (
     <Center h="full" w="full">
       <Spinner size="lg" />
