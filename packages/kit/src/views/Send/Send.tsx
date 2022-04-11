@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FormatBalance } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
+import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
 import { SendRoutes, SendRoutesParams } from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
@@ -80,7 +81,6 @@ const Transaction = () => {
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     encodedTx,
   });
-
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { activeNetwork } = useGeneral();
@@ -406,6 +406,7 @@ const Transaction = () => {
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />
+            <DecodeTxButtonTest encodedTx={encodedTx} />
           </>
         ),
       }}

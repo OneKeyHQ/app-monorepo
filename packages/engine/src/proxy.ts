@@ -191,7 +191,7 @@ export function fillUnsignedTxObj({
     inputs: [input],
     outputs: [
       {
-        address: to,
+        address: to || '',
         value: valueOnChainBN,
         tokenAddress: tokenIdOnNetwork,
       },

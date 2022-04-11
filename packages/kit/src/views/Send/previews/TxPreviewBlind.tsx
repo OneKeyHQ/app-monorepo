@@ -15,6 +15,7 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 
 import { ITxPreviewModalProps, TxPreviewModal } from './TxPreviewModal';
+import { DecodeTxButtonTest } from "../DecodeTxButtonTest";
 
 function TxPreviewBlind(props: ITxPreviewModalProps) {
   const {
@@ -123,6 +124,7 @@ function TxPreviewBlind(props: ITxPreviewModalProps) {
             </Row>
           </Column>
         </Box>
+        <DecodeTxButtonTest encodedTx={encodedTxEvm} />
       </Column>
     </TxPreviewModal>
   );

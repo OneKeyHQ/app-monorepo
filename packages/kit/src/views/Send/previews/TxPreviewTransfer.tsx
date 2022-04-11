@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
+import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { TxTitleDetailView } from '../TxTitleDetailView';
 import { TransferSendParamsPayload } from '../types';
 
@@ -125,6 +126,7 @@ function TxPreviewTransfer(props: ITxPreviewModalProps) {
             />
           )}
         </Column>
+        <DecodeTxButtonTest encodedTx={encodedTx} />
       </Column>
     </TxPreviewModal>
   );
