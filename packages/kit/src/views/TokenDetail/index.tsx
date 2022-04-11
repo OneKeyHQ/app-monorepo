@@ -3,6 +3,7 @@ import React, { useEffect, useMemo } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 
 import { Box } from '@onekeyhq/components';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
@@ -41,12 +42,14 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
 
   return (
     <Box bg="background-default" flex={1}>
-      <HistoricalRecords
-        accountId={accountId}
-        networkId={networkId}
-        tokenId={tokenId}
-        headerView={headerView}
-      />
+      <Box flex={1} marginX="auto" w="100%" maxW={MAX_PAGE_CONTAINER_WIDTH}>
+        <HistoricalRecords
+          accountId={accountId}
+          networkId={networkId}
+          tokenId={tokenId}
+          headerView={headerView}
+        />
+      </Box>
     </Box>
   );
 };
