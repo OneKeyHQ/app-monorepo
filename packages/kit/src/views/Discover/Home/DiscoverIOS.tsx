@@ -41,10 +41,27 @@ type DiscoverProps = {
 const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { history } = useDiscover();
+  const { history, syncData } = useDiscover();
   const { locale } = useLocale();
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const { dispatch } = backgroundApiProxy;
+  const [dappHistory, setDappHistory] = useState<DAppItemType[]>([]);
+
+  useEffect(() => {
+    const dappHistoryArray: DAppItemType[] = [];
+
+    Object.entries(history).forEach(([key]) => {
+      const dAppItem = syncData.increment[key];
+
+      if (dAppItem) dappHistoryArray.push(dAppItem);
+    });
+
+    setDappHistory(
+      dappHistoryArray.sort(
+        (a, b) => (history[b.id] ?? 0) - (history[a.id] ?? 0),
+      ),
+    );
+  }, [history, syncData.increment]);
 
   const banner = useMemo(
     () => (
@@ -95,7 +112,7 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
           width="100%"
           bgColor="surface-default"
           borderTopRadius={index === 0 ? '12px' : '0px'}
-          borderRadius={index === history?.length - 1 ? '12px' : '0px'}
+          borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
         >
           <Box flexDirection="row" flex={1} alignItems="center">
             <DAppIcon size={40} favicon={item.favicon} chain={item.chain} />
@@ -114,7 +131,7 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
         </Box>
       </Pressable>
     ),
-    [history?.length, onItemSelect],
+    [dappHistory.length, onItemSelect],
   );
 
   const getData = useCallback(() => {
@@ -171,7 +188,7 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
             paddingTop: 24,
           }}
           px="16px"
-          data={history}
+          data={dappHistory}
           renderItem={renderItem}
           ItemSeparatorComponent={() => <Divider />}
           keyExtractor={(item, index) => `Dapp history${item.id}${index}`}

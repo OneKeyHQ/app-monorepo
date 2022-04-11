@@ -1,8 +1,11 @@
 name: build-ext
 
 on:
-  schedule:
-    - cron: '34 19 * * 0,2,4' 
+  workflow_run:
+    workflows:
+      - daily_build_release
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
@@ -29,6 +32,15 @@ jobs:
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
 
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
           github_ref="${github_ref////-}"
           github_ref="${github_ref/refs-heads-/}"
           github_ref="${github_ref/refs-tags-/}"
@@ -45,6 +57,7 @@ jobs:
 
         env:
           github_ref: ${{ github.ref }}
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
 
       - name: Setup Node
@@ -92,8 +105,8 @@ jobs:
           artifact-type: Extension
           artifact-name: OneKey-Extension-RN
           artifact-bundle-id: 'so.onekey.wallet.extension'
-          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ steps.dotenv.outputs.build_number }}'
-          artifact-version-code: '${{ steps.dotenv.outputs.build_number }}'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           change-log: 'Download [Artifacts] at the bottom of page.'
           custom-issue-url: ''

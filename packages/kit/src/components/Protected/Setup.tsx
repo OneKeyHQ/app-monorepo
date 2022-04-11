@@ -95,7 +95,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
             },
           }}
         >
-          <Form.PasswordInput />
+          <Form.PasswordInput autoFocus />
         </Form.Item>
         <Form.Item
           name="confirmPassword"

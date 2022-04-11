@@ -86,7 +86,7 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             }),
           }}
         >
-          <Form.PasswordInput />
+          <Form.PasswordInput autoFocus />
         </Form.Item>
         <Button
           size="xl"
@@ -221,7 +221,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
             },
           }}
         >
-          <Form.PasswordInput />
+          <Form.PasswordInput autoFocus />
         </Form.Item>
         <Form.Item
           name="confirmPassword"

@@ -5,11 +5,27 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { DAppItemType } from '../../type';
 
 export const useSearchHistories = (terms: string, keyword: string) => {
-  const discover = useAppSelector((s) => s.discover);
+  const { history, syncData } = useAppSelector((s) => s.discover);
 
   const [loading, setLoading] = useState(false);
   const [searchedHistories, setHistories] = useState<DAppItemType[]>([]);
   const [allHistories, setAllHistories] = useState<DAppItemType[]>([]);
+
+  useEffect(() => {
+    const dappHistoryArray: DAppItemType[] = [];
+
+    Object.entries(history).forEach(([key]) => {
+      const dAppItem = syncData.increment[key];
+
+      if (dAppItem) dappHistoryArray.push(dAppItem);
+    });
+
+    setAllHistories(
+      dappHistoryArray.sort(
+        (a, b) => (history[b.id] ?? 0) - (history[a.id] ?? 0),
+      ),
+    );
+  }, [history, syncData.increment]);
 
   useEffect(() => {
     if (terms !== keyword) {
@@ -20,23 +36,23 @@ export const useSearchHistories = (terms: string, keyword: string) => {
   useEffect(() => {
     function main() {
       if (terms.length === 0) {
-        setAllHistories(discover.history);
         return;
       }
       setLoading(true);
       setHistories([]);
       try {
-        setAllHistories(discover.history);
-        const histories = discover.history;
+        const histories = allHistories;
         setHistories(
           histories.filter(
-            (history) =>
-              history.name.toLowerCase().includes(terms.trim().toLowerCase()) ||
-              history.url.toLowerCase().includes(terms.trim().toLowerCase()) ||
-              history.subtitle
+            (_history) =>
+              _history.name
                 .toLowerCase()
                 .includes(terms.trim().toLowerCase()) ||
-              history.description
+              _history.url.toLowerCase().includes(terms.trim().toLowerCase()) ||
+              _history.subtitle
+                .toLowerCase()
+                .includes(terms.trim().toLowerCase()) ||
+              _history.description
                 .toLowerCase()
                 .includes(terms.trim().toLowerCase()),
           ),
@@ -46,7 +62,7 @@ export const useSearchHistories = (terms: string, keyword: string) => {
       }
     }
     main();
-  }, [discover.history, terms]);
+  }, [allHistories, history, terms]);
   return {
     loading,
     searchedHistories,
