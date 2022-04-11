@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,7 @@ import {
   Modal,
   Typography,
 } from '@onekeyhq/components';
+import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -34,30 +35,14 @@ type NavigationProps = NativeStackNavigationProp<
 
 type ListItem = { label: string; value: string };
 
-export const AddToken: FC = () => {
-  const intl = useIntl();
-  const { activeAccount, activeNetwork } = useGeneral();
-  const { info } = useToast();
+export type IViewTokenModalProps = ModalProps;
+function ViewTokenModal(props: IViewTokenModalProps) {
   const [balance, setBalance] = useState<string | undefined>();
+  const { activeAccount, activeNetwork } = useGeneral();
+  const intl = useIntl();
   const {
     params: { name, symbol, decimal, address, logoURI },
   } = useRoute<RouteProps>();
-  const navigation = useNavigation<NavigationProps>();
-  useEffect(() => {
-    async function fetchBalance() {
-      if (activeAccount && activeNetwork) {
-        const res = await backgroundApiProxy.engine.preAddToken(
-          activeAccount?.id,
-          activeNetwork.network.id,
-          address,
-        );
-        if (res?.[0]) {
-          setBalance(res?.[0].toString());
-        }
-      }
-    }
-    fetchBalance();
-  }, [activeAccount, activeNetwork, address]);
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -100,36 +85,27 @@ export const AddToken: FC = () => {
     }
     return data;
   }, [name, symbol, address, decimal, balance, intl]);
-  const onPrimaryActionPress = useCallback(async () => {
-    if (activeAccount && activeNetwork) {
-      await backgroundApiProxy.engine.quickAddToken(
-        activeAccount.id,
-        activeNetwork.network.id,
-        address,
-      );
-      info(
-        intl.formatMessage({
-          id: 'msg__token_added',
-          defaultMessage: 'Token Added',
-        }),
-      );
-      if (navigation.canGoBack()) {
-        navigation.goBack();
+  useEffect(() => {
+    async function fetchBalance() {
+      if (activeAccount && activeNetwork) {
+        const res = await backgroundApiProxy.engine.preAddToken(
+          activeAccount?.id,
+          activeNetwork.network.id,
+          address,
+        );
+        if (res?.[0]) {
+          setBalance(res?.[0].toString());
+        }
       }
     }
-  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
+    fetchBalance();
+  }, [activeAccount, activeNetwork, address]);
   return (
     <Modal
-      header={intl.formatMessage({
-        id: 'title__add_token',
-        defaultMessage: 'Add Token',
-      })}
+      header={symbol}
       height="560px"
-      primaryActionProps={{
-        onPromise: onPrimaryActionPress,
-      }}
-      primaryActionTranslationId="action__confirm"
       hideSecondaryAction
+      hidePrimaryAction
       scrollViewProps={{
         children: (
           <KeyboardDismissView>
@@ -196,8 +172,55 @@ export const AddToken: FC = () => {
           </KeyboardDismissView>
         ),
       }}
+      {...props}
     />
   );
-};
+}
 
+function AddTokenModal() {
+  const { info } = useToast();
+  const { activeAccount, activeNetwork } = useGeneral();
+  const navigation = useNavigation<NavigationProps>();
+  const intl = useIntl();
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: { name, symbol, decimal, address, logoURI },
+  } = useRoute<RouteProps>();
+
+  const onPrimaryActionPress = useCallback(async () => {
+    if (activeAccount && activeNetwork) {
+      await backgroundApiProxy.engine.quickAddToken(
+        activeAccount.id,
+        activeNetwork.network.id,
+        address,
+      );
+      info(
+        intl.formatMessage({
+          id: 'msg__token_added',
+          defaultMessage: 'Token Added',
+        }),
+      );
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    }
+  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
+
+  return (
+    <ViewTokenModal
+      header={intl.formatMessage({
+        id: 'title__add_token',
+        defaultMessage: 'Add Token',
+      })}
+      hidePrimaryAction={false}
+      primaryActionTranslationId="action__confirm"
+      primaryActionProps={{
+        onPromise: onPrimaryActionPress,
+      }}
+    />
+  );
+}
+
+export { ViewTokenModal, AddTokenModal };
+export const AddToken = AddTokenModal;
 export default AddToken;
