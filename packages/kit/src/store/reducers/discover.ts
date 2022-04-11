@@ -1,15 +1,15 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { DAppItemType, SyncRequestPayload } from '../../views/Discover/type';
+import { SyncRequestPayload } from '../../views/Discover/type';
 
 type InitialState = {
-  history: DAppItemType[];
+  history: Record<string, number>;
   syncData: SyncRequestPayload;
   firstRemindDAPP: boolean;
 };
 
 const initialState: InitialState = {
-  history: [],
+  history: {},
   syncData: { timestamp: 0, banners: [], increment: {} },
   firstRemindDAPP: false,
 };
@@ -19,17 +19,11 @@ export const discoverSlice = createSlice({
   initialState,
   reducers: {
     updateHistory(state, action: PayloadAction<string>) {
-      const dAppItem = {
-        ...state.syncData.increment[action.payload],
-        id: action.payload,
-      };
-      if (state.history.length > 0) {
-        const tmpArr = state.history.filter(
-          (item) => item.id !== action.payload,
-        );
-        state.history = [dAppItem, ...tmpArr];
+      const num = state.history[action.payload];
+      if (num) {
+        state.history[action.payload] = num + 1;
       } else {
-        state.history = [dAppItem, ...state.history];
+        state.history[action.payload] = 1;
       }
     },
     updateSyncData(state, action: PayloadAction<InitialState['syncData']>) {
