@@ -2,7 +2,6 @@ export const PROTOCOL = 'file';
 
 export const MODULES = [
   'bridge',
-  'window-controls',
   // 'request-filter' // TODO ignore request-filters
 ];
 
