@@ -12,6 +12,8 @@ module.exports = babelTools.normalizeConfig({
         root: ['./'],
         alias: {
           'console-feed': './src/console-feed-mock',
+          // FIX FOR FIREFOX resize issue, import react-native-restart make firefox
+          'react-native-restart': './src/assets/js/react-native-restart.js',
         },
       },
     ],
