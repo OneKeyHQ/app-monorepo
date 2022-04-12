@@ -33,7 +33,10 @@ global.resourcesPath = isDev
   ? path.join(__dirname, '..', 'public', 'static')
   : process.resourcesPath;
 const staticPath = path.join(__dirname, '..', 'public', 'static');
-const preloadJsUrl = path.join(staticPath, 'preload.js'); // static path
+// static path
+const preloadJsUrl = isDev
+  ? path.join(staticPath, 'preload.js')
+  : '/static/preload.js';
 
 async function createMainWindow() {
   const display = screen.getPrimaryDisplay();
@@ -46,10 +49,10 @@ async function createMainWindow() {
     resizable: true,
     width: 1200,
     height: 1200 / ratio,
-    minWidth: 1200,
-    minHeight: 1200 / ratio,
-    maxWidth: dimensions.width,
-    maxHeight: dimensions.width / ratio,
+    minWidth: isDev ? undefined : 1200,
+    minHeight: isDev ? undefined : 1200 / ratio,
+    maxWidth: isDev ? undefined : dimensions.width,
+    maxHeight: isDev ? undefined : dimensions.width / ratio,
     webPreferences: {
       webviewTag: true,
       webSecurity: !isDev,
@@ -62,7 +65,9 @@ async function createMainWindow() {
     icon: path.join(global.resourcesPath, 'images', 'icons', '512x512.png'),
   });
 
-  browserWindow.setAspectRatio(ratio);
+  if (!isDev) {
+    browserWindow.setAspectRatio(ratio);
+  }
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
@@ -82,7 +87,7 @@ async function createMainWindow() {
     browserWindow.webContents.send('SET_ONEKEY_DESKTOP_GLOBALS', {
       resourcesPath: global.resourcesPath,
       staticPath: `file://${staticPath}`,
-      preloadJsUrl: `file://${preloadJsUrl}`,
+      preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
     });
   });
 
