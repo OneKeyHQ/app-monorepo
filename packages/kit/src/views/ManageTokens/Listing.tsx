@@ -55,6 +55,28 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
   onDelToken,
 }) => {
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+
+  const onDetail = useCallback(
+    (token) => {
+      const {
+        name,
+        symbol,
+        tokenIdOnNetwork: address,
+        decimals: decimal,
+        logoURI,
+      } = token;
+      navigation.navigate(ManageTokenRoutes.ViewToken, {
+        name,
+        symbol,
+        address,
+        decimal,
+        logoURI,
+      });
+    },
+    [navigation],
+  );
+
   return (
     <Box>
       {tokens.length ? (
@@ -67,7 +89,8 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
           </Typography.Subheading>
           <Box mt="2" mb="6">
             {tokens.map((item, index) => (
-              <Box
+              <Pressable
+                onPress={() => onDetail(item)}
                 key={item.tokenIdOnNetwork}
                 borderTopRadius={index === 0 ? '12' : undefined}
                 borderBottomRadius={
@@ -126,7 +149,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   circle
                   onPress={() => onDelToken?.(item)}
                 />
-              </Box>
+              </Pressable>
             ))}
           </Box>
         </Box>
@@ -283,7 +306,7 @@ const ListingToken: FC<ListingTokenProps> = ({
       decimals: decimal,
       logoURI,
     } = item;
-    navigation.push(ManageTokenRoutes.AddToken, {
+    navigation.navigate(ManageTokenRoutes.AddToken, {
       name,
       symbol,
       address,

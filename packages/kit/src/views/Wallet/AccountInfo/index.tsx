@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -50,9 +50,10 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
   const toast = useToast();
   const { account } = useActiveWalletAccount();
-  const { prices, nativeToken, updateAccountTokens } = useManageTokens();
+  const { prices, nativeToken } = useManageTokens({
+    pollingInterval: 5000,
+  });
   const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
-  useEffect(updateAccountTokens, [updateAccountTokens]);
 
   const copyContentToClipboard = useCallback(
     (address) => {
