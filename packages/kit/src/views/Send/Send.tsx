@@ -324,6 +324,7 @@ const Transaction = () => {
                   maxLength={80}
                   placeholder={intl.formatMessage({ id: 'form__address' })}
                   borderRadius="12px"
+                  h={{ base: 66, md: 58 }}
                 />
               </Form.Item>
               {/* <Box zIndex={999}>
@@ -396,18 +397,19 @@ const Transaction = () => {
                 <Form.Input
                   maxLength={40}
                   w="100%"
+                  size="xl"
                   keyboardType="numeric"
                   rightCustomElement={
                     <>
-                      <Typography.Body2 mr={4} color="text-subdued">
+                      <Typography.Body1 mr={4} color="text-subdued">
                         {selectOption?.label ?? '-'}
-                      </Typography.Body2>
+                      </Typography.Body1>
                       {/* <Divider
                         orientation="vertical"
                         bg="border-subdued"
                         h={5}
                       />
-                      <Button type="plain">
+                      <Button type="plain" size="xl">
                         {intl.formatMessage({ id: 'action__max' })}
                       </Button> */}
                     </>
