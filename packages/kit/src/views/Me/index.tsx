@@ -205,7 +205,11 @@ const Me = () => {
           )}
         </VStack>
       </Box>
-      <Box position="absolute" bottom="32px" right="32px">
+      <Box
+        position="absolute"
+        bottom={{ base: 4, md: 8 }}
+        right={{ base: 4, md: 8 }}
+      >
         <HelpSelector />
       </Box>
     </Box>
