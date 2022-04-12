@@ -390,6 +390,8 @@ export const SubmitRequest: FC = () => {
       navigation.removeListener('beforeRemove', beforeRemoveCallBack);
   }, [beforeRemoveCallBack, navigation]);
 
+  const { version } = useSettings();
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__submit_a_request' })}
@@ -402,7 +404,7 @@ export const SubmitRequest: FC = () => {
         ),
       }}
       scrollViewProps={{
-        children: [
+        children: (
           <Form>
             <Box zIndex={999}>
               <Typography.Body2Strong mb="4px">
@@ -549,13 +551,13 @@ export const SubmitRequest: FC = () => {
                   },
                 }}
                 name="appVersion"
-                defaultValue="1.0.0"
+                defaultValue={version}
               >
                 <Form.Input placeholder="0.0.0" />
               </Form.Item>
             )}
-          </Form>,
-        ],
+          </Form>
+        ),
       }}
     />
   );

@@ -62,6 +62,8 @@ jobs:
 
       - name: Build on EAS
         run: |
+          # pass BUILD_NUMBER as env variable to expo server
+          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
           cd packages/app
           npx eas-cli build --profile=production --platform android --non-interactive --no-wait > eas-build.log
           npx eas-cli build --profile=production-store --platform android --non-interactive --no-wait
