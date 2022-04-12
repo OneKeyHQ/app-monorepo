@@ -71,7 +71,8 @@ const Transaction = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const { control, handleSubmit, watch, getValues } =
+
+  const { control, handleSubmit, watch, trigger, getValues } =
     useForm<TransactionValues>({
       mode: 'onBlur',
       reValidateMode: 'onBlur',
@@ -296,21 +297,24 @@ const Transaction = () => {
               <Form.Item
                 label={intl.formatMessage({ id: 'content__to' })}
                 labelAddon={platformEnv.isExtension ? [] : ['paste']}
+                onLabelAddonPress={() => trigger('to')} // call validation after paste
                 control={control}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
                   required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async (toAddress) => {
-                    if (networkId.length > 0) {
-                      return backgroundApiProxy.validator
-                        .validateAddress(networkId, toAddress)
-                        .then(
-                          () => true,
-                          () =>
-                            intl.formatMessage({ id: 'form__address_invalid' }),
-                        );
+                    try {
+                      await backgroundApiProxy.validator.validateAddress(
+                        networkId,
+                        toAddress,
+                      );
+                    } catch (error) {
+                      return intl.formatMessage({
+                        id: 'form__address_invalid',
+                      });
                     }
+                    return true;
                   },
                 }}
                 defaultValue=""

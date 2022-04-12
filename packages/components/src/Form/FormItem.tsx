@@ -21,6 +21,7 @@ type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement | InternalActionList[];
   helpText?: string | ((v: any) => string) | ReactElement;
+  onLabelAddonPress?: () => void;
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
 };
@@ -34,6 +35,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   defaultValue,
   formControlProps,
   labelAddon,
+  onLabelAddonPress,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormItemProps) {
   const handleCopied = useCallback(async (callback: (c: string) => void) => {
@@ -79,7 +81,10 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         size="xs"
                         circle
                         name="ClipboardSolid"
-                        onPress={() => handleCopied(onChange)}
+                        onPress={async () => {
+                          await handleCopied(onChange);
+                          onLabelAddonPress?.();
+                        }}
                       />
                     );
                   }
