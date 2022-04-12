@@ -62,11 +62,11 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   // init in NON-Ext UI env
   private readonly backgroundApi?: IBackgroundApi | null = null;
 
-  callBackgroundMethod(
+  async callBackgroundMethod(
     sync = true,
     method: string,
     ...params: Array<any>
-  ): any {
+  ): Promise<any> {
     ensureSerializable(params);
     let [serviceName, methodName] = method.split('.');
     if (!methodName) {
@@ -108,14 +108,16 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
         ? (this.backgroundApi as any)[serviceName]
         : this.backgroundApi;
       if (serviceApi[backgroundMethodName]) {
-        const result = serviceApi[backgroundMethodName].call(
+        const resultPromise = serviceApi[backgroundMethodName].call(
           serviceApi,
           ...params,
         );
-        ensurePromiseObject(result, {
+        ensurePromiseObject(resultPromise, {
           serviceName,
           methodName,
         });
+        let result = await resultPromise;
+        result = ensureSerializable(result, true);
         return result;
       }
       if (!IGNORE_METHODS.includes(backgroundMethodName)) {

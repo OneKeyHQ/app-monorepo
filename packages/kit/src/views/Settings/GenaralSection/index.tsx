@@ -107,7 +107,7 @@ export const GenaralSection = () => {
                 { label: 'Italiano', value: 'it-IT' },
                 { label: 'Монгол', value: 'mn-MN' },
                 { label: 'Українська', value: 'uk-UA' },
-                { label: 'सरलीकृत चीनी', value: 'hi-IN' },
+                { label: 'भाषा', value: 'hi-IN' },
               ]}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"

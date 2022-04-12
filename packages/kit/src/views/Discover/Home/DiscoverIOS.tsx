@@ -51,7 +51,7 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
     const dappHistoryArray: DAppItemType[] = [];
 
     Object.entries(history).forEach(([key]) => {
-      const dAppItem = syncData.increment[key];
+      const dAppItem = { ...syncData.increment[key], id: key };
 
       if (dAppItem) dappHistoryArray.push(dAppItem);
     });
