@@ -198,7 +198,7 @@ function createConfig() {
   devUtils.cleanWebpackDebugFields(webpackConfig);
 
   webpackConfig = webpackTools.normalizeConfig({
-    platform: 'ext',
+    platform: webpackTools.developmentConsts.platforms.ext,
     config: webpackConfig,
   });
 
