@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import { BrowserWindow, app, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, ipcMain, screen, shell } from 'electron';
 import isDev from 'electron-is-dev';
 
 import Logger, {
@@ -36,13 +36,20 @@ const staticPath = path.join(__dirname, '..', 'public', 'static');
 const preloadJsUrl = path.join(staticPath, 'preload.js'); // static path
 
 async function createMainWindow() {
+  const display = screen.getPrimaryDisplay();
+  const dimensions = display.workAreaSize;
+  const ratio = 16 / 9;
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: 'hidden',
     frame: true,
-    resizable: isDev,
-    width: 1600,
-    height: 900,
+    resizable: true,
+    width: 1200,
+    height: 1200 / ratio,
+    minWidth: 1200,
+    minHeight: 1200 / ratio,
+    maxWidth: dimensions.width,
+    maxHeight: dimensions.width / ratio,
     webPreferences: {
       webviewTag: true,
       webSecurity: !isDev,
@@ -54,6 +61,8 @@ async function createMainWindow() {
     },
     icon: path.join(global.resourcesPath, 'images', 'icons', '512x512.png'),
   });
+
+  browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
