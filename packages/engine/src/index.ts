@@ -1174,7 +1174,25 @@ class Engine {
   }): Promise<IEncodedTxAny> {
     const { networkId, accountId } = params;
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-    return vault.attachFeeInfoToEncodedTx(params);
+    const txWithFee: IEncodedTxAny = await vault.attachFeeInfoToEncodedTx(
+      params,
+    );
+    debugLogger.sendTx('attachFeeInfoToEncodedTx', txWithFee);
+    return txWithFee as unknown;
+  }
+
+  @backgroundMethod()
+  async decodeTx({
+    networkId,
+    accountId,
+    encodedTx,
+  }: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTxAny;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    return vault.decodeTx(encodedTx);
   }
 
   @backgroundMethod()

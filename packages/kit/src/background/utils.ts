@@ -68,11 +68,18 @@ export function isSerializable(obj: any) {
   return true;
 }
 
-export function ensureSerializable(obj: any) {
-  if (platformEnv.isDev && !isSerializable(obj)) {
-    console.error('Object should be serializable >>>> ', obj);
-    throw new Error('Object should be serializable');
+export function ensureSerializable(obj: any, stringify = false): any {
+  if (process.env.NODE_ENV !== 'production') {
+    if (!isSerializable(obj)) {
+      console.error('Object should be serializable >>>> ', obj);
+      if (stringify) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      throw new Error('Object should be serializable');
+    }
   }
+  return obj;
 }
 
 export function ensurePromiseObject(
@@ -85,16 +92,14 @@ export function ensurePromiseObject(
     methodName: string;
   },
 ) {
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    obj !== undefined &&
-    !(obj instanceof Promise)
-  ) {
-    throwCrossError(
-      `${
-        serviceName ? `${serviceName}.` : ''
-      }${methodName}() should be async or Promise method.`,
-    );
+  if (process.env.NODE_ENV !== 'production') {
+    if (obj !== undefined && !(obj instanceof Promise)) {
+      throwCrossError(
+        `${
+          serviceName ? `${serviceName}.` : ''
+        }${methodName}() should be async or Promise method.`,
+      );
+    }
   }
 }
 

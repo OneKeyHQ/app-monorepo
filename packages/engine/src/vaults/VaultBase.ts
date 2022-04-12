@@ -14,6 +14,7 @@ import { VaultContext } from './VaultContext';
 
 import type { IBroadcastedTx, ISignCredentialOptions } from '../types/vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
+import type { VaultHelperBase } from './VaultHelperBase';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export type IVaultInitConfig = {
@@ -23,6 +24,8 @@ export type IKeyringMapKey = WalletType;
 
 export abstract class VaultBase extends VaultContext {
   keyring!: KeyringBase;
+
+  helper!: VaultHelperBase;
 
   abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBaseMock>;
 
@@ -55,8 +58,8 @@ export abstract class VaultBase extends VaultContext {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxAny>;
 
-  // TODO vaultLite methods only for UI
-  // VaultLite
+  abstract decodeTx(encodedTx: IEncodedTxAny): Promise<any>;
+
   abstract buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxAny>;
