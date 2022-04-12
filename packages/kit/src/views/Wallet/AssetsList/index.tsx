@@ -121,34 +121,23 @@ const AssetsList = () => {
                 </Text>
               )}
             />
-            {isSmallScreen ? (
-              <FormatCurrency
-                numbers={[item.balance, prices?.[mapKey]]}
-                render={(ele) => (
-                  <Typography.Body2 color="text-subdued">
-                    {item.balance && prices?.[mapKey] ? ele : '-'}
-                  </Typography.Body2>
-                )}
-              />
-            ) : (
-              <FormatCurrency
-                numbers={[prices?.[mapKey]]}
-                render={(ele) => (
-                  <Typography.Body2 color="text-subdued">
-                    {prices?.[mapKey] ? ele : '-'}
-                  </Typography.Body2>
-                )}
-              />
-            )}
+            <FormatCurrency
+              numbers={[item.balance, prices?.[mapKey]]}
+              render={(ele) => (
+                <Typography.Body2 color="text-subdued">
+                  {item.balance && prices?.[mapKey] ? ele : '-'}
+                </Typography.Body2>
+              )}
+            />
           </Box>
           {!isSmallScreen && (
             <Box mr={3} flexDirection="row" flex={1}>
               {/* <Icon size={20} name="ActivityOutline" /> */}
               <FormatCurrency
-                numbers={[item.balance, prices?.[mapKey]]}
+                numbers={[prices?.[mapKey]]}
                 render={(ele) => (
                   <Typography.Body2Strong ml={3}>
-                    {item.balance && prices?.[mapKey] ? ele : '-'}
+                    {prices?.[mapKey] ? ele : '-'}
                   </Typography.Body2Strong>
                 )}
               />
