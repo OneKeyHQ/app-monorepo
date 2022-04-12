@@ -1,6 +1,35 @@
 require('./env');
+const path = require('path');
+const developmentConsts = require('./developmentConsts');
 
-function normalizeConfig(config) {
+function fullPath(pathStr) {
+  return path.resolve(__dirname, pathStr);
+}
+
+function normalizeConfig({ platform, config }) {
+  let moduleResolver = null;
+  if (platform === developmentConsts.platforms.ext) {
+    moduleResolver = {
+      // root: [],
+      alias: {
+        // * remote connection disallowed in ext
+        'console-feed': fullPath('./module-resolver/console-feed-mock'),
+        // * cause firefox popup resize issue
+        'react-native-restart': fullPath(
+          './module-resolver/react-native-restart-mock',
+        ),
+      },
+    };
+  }
+  if (platform === developmentConsts.platforms.app) {
+    moduleResolver = {
+      root: ['./'],
+      alias: {
+        '@onekeyfe/connect': './src/public/static/connect/index.js',
+      },
+    };
+  }
+
   config.plugins = [
     ...(config.plugins || []),
     [
@@ -40,10 +69,15 @@ function normalizeConfig(config) {
     ['@babel/plugin-proposal-class-properties', { 'loose': true }],
     ['@babel/plugin-proposal-private-methods', { 'loose': true }],
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
-  ];
+    moduleResolver && ['module-resolver', moduleResolver],
+  ].filter(Boolean);
+
+  console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
+
   return config;
 }
 
 module.exports = {
+  developmentConsts,
   normalizeConfig,
 };
