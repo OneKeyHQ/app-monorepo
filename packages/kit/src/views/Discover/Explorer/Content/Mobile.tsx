@@ -37,6 +37,7 @@ const Mobile: FC<ExplorerViewProps> = ({
       params: {
         screen: DiscoverModalRoutes.SearchHistoryModal,
         params: {
+          url: searchContent,
           onSelectorItem: (item: DAppItemType | string) =>
             onSearchSubmitEditing?.(item),
         },
