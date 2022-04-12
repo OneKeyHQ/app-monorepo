@@ -27,6 +27,7 @@ jobs:
       - name: Setup keys secret
         run: |
           echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/ios/OneKeyWallet/RNBridge/NFCENV.m
+          echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
 
       - name: Setup Expo
         uses: expo/expo-github-action@v5
@@ -68,4 +69,4 @@ jobs:
       - name: Build on EAS
         run: |
           cd packages/app
-          npx eas-cli build --profile=production-store --platform ios --non-interactive --no-wait
+          npx eas-cli build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit

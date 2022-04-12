@@ -2,7 +2,12 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import { AddToken, CustomToken, Listing } from '../../views/ManageTokens';
+import {
+  AddToken,
+  CustomToken,
+  Listing,
+  ViewTokenModal,
+} from '../../views/ManageTokens';
 import {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
@@ -20,6 +25,10 @@ const modalRoutes = [
   {
     name: ManageTokenRoutes.AddToken,
     component: AddToken,
+  },
+  {
+    name: ManageTokenRoutes.ViewToken,
+    component: ViewTokenModal,
   },
   {
     name: ManageTokenRoutes.CustomToken,

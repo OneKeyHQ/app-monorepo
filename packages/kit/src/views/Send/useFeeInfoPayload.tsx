@@ -112,7 +112,7 @@ export function useFeeInfoPayload({
     if (!encodedTx) {
       return null;
     }
-    const DEFAULT_PRESET_INDEX = '0';
+    const DEFAULT_PRESET_INDEX = '1';
     let feeInfoSelected = (
       route.params as { feeInfoSelected?: IFeeInfoSelected }
     )?.feeInfoSelected;

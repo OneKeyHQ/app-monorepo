@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FormatBalance, FormatCurrencyToken } from '../../components/Format';
 import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
+import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
 import { SendRoutes, SendRoutesParams } from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
@@ -70,7 +71,8 @@ const Transaction = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const { control, handleSubmit, watch, getValues } =
+
+  const { control, handleSubmit, watch, trigger, getValues } =
     useForm<TransactionValues>({
       mode: 'onBlur',
       reValidateMode: 'onBlur',
@@ -84,7 +86,6 @@ const Transaction = () => {
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     encodedTx,
   });
-
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { activeNetwork } = useGeneral();
@@ -136,6 +137,7 @@ const Transaction = () => {
     [accountTokens, selectOption?.value],
   );
 
+  // TODO watch performance
   const formFields = watch();
 
   // build transferInfo
@@ -295,21 +297,24 @@ const Transaction = () => {
               <Form.Item
                 label={intl.formatMessage({ id: 'content__to' })}
                 labelAddon={platformEnv.isExtension ? [] : ['paste']}
+                onLabelAddonPress={() => trigger('to')} // call validation after paste
                 control={control}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
                   required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async (toAddress) => {
-                    if (networkId.length > 0) {
-                      return backgroundApiProxy.validator
-                        .validateAddress(networkId, toAddress)
-                        .then(
-                          () => true,
-                          () =>
-                            intl.formatMessage({ id: 'form__address_invalid' }),
-                        );
+                    try {
+                      await backgroundApiProxy.validator.validateAddress(
+                        networkId,
+                        toAddress,
+                      );
+                    } catch (error) {
+                      return intl.formatMessage({
+                        id: 'form__address_invalid',
+                      });
                     }
+                    return true;
                   },
                 }}
                 defaultValue=""
@@ -422,6 +427,7 @@ const Transaction = () => {
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />
+            <DecodeTxButtonTest encodedTx={encodedTx} />
           </>
         ),
       }}
