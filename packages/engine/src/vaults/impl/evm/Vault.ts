@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { defaultAbiCoder } from '@ethersproject/abi';
+import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
@@ -8,10 +9,12 @@ import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import { EIP1559Fee } from '../../../types/network';
 import {
+  IEncodedTxAny,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
@@ -35,6 +38,16 @@ export type IEncodedTxEvm = {
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
 };
+
+export enum IDecodedTxEvmType {
+  NativeTransfer = 'NativeTransfer',
+  TokenTransfer = 'TokenTransfer',
+  TokenApprove = 'TokenApprove',
+  Swap = 'Swap',
+  NftTransfer = 'NftTransfer',
+  Transaction = 'Transaction',
+  ContractDeploy = 'ContractDeploy',
+}
 
 function decodeUnsignedTxFeeData(unsignedTx: UnsignedTx) {
   return {
@@ -98,6 +111,22 @@ export default class Vault extends VaultBase {
       fillUnsignedTx(network, dbAccount, to, valueBN, token, extraCombined),
     );
     return this.signAndSendTransaction(unsignedTx, options);
+  }
+
+  async decodeTx(encodedTx: IEncodedTxAny): Promise<any> {
+    const ethersTx = (await this.helper.parseToNativeTx(
+      encodedTx,
+    )) as ethers.Transaction;
+
+    // call engine RPC here
+    // this.engine.proxyRPCCall(this.networkId,{ ... })
+
+    return {
+      type: IDecodedTxEvmType.NativeTransfer,
+      amount: ethers.utils.formatEther(ethersTx.value),
+      // DO NOT RETURN nativeTx which is NOT serializable
+      nativeTx: ethersTx,
+    };
   }
 
   async buildEncodedTxFromTransfer(

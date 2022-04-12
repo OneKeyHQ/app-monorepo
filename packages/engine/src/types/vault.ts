@@ -27,6 +27,7 @@ export type ITransferInfo = {
 };
 
 export type IEncodedTxAny = any;
+export type IDecodedTxAny = any;
 
 // TODO rename to IFeeInfoValue, IFeeInfoData, IFeeInfoDetail
 export type IFeeInfoUnit = {

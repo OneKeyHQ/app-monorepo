@@ -4,9 +4,11 @@ import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import {
+  IEncodedTxAny,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
@@ -26,6 +28,10 @@ export default class Vault extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<any> {
     throw new Error('Method not implemented.');
+  }
+
+  decodeTx(encodedTx: IEncodedTxAny): Promise<any> {
+    throw new NotImplemented();
   }
 
   buildEncodedTxFromTransfer(transferInfo: ITransferInfo): Promise<any> {

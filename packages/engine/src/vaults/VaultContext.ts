@@ -1,29 +1,24 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
 import { SEPERATOR } from '../constants';
 import { getWalletIdFromAccountId } from '../managers/account';
+import { IVaultFactoryOptions } from '../types/vault';
 
 import type { Engine } from '../index';
 import type { IVaultOptions } from '../types/vault';
 
-// TODO rename to VaultContext
-export class VaultContext {
-  constructor(options: IVaultOptions) {
+export class VaultContextBase {
+  constructor(options: IVaultFactoryOptions) {
     this.options = options;
-    this.engine = options.engine;
     this.networkId = options.networkId;
     this.accountId = options.accountId;
   }
 
-  options: IVaultOptions;
+  options: IVaultFactoryOptions;
 
-  // TODO use get() instead
   networkId: string; // "evm--97"
 
   accountId: string; // "hd-1--m/44'/60'/0'/0/0"
 
-  engine: Engine;
-
-  // TODO use async init() all extra fields
   async getNetworkChainId() {
     const [impl, chainId] = this.networkId.split(SEPERATOR);
     return chainId;
@@ -33,6 +28,23 @@ export class VaultContext {
     const [impl, chainId] = this.networkId.split(SEPERATOR);
     return impl;
   }
+
+  async getWalletId() {
+    // "hd-1--m/44'/60'/0'/0/0" ---> "hd-1"
+    return getWalletIdFromAccountId(this.accountId);
+  }
+}
+
+export class VaultContext extends VaultContextBase {
+  constructor(options: IVaultOptions) {
+    super(options);
+    this.options = options;
+    this.engine = options.engine;
+  }
+
+  options: IVaultOptions;
+
+  engine: Engine;
 
   async getDbAccount() {
     // TODO cache available?
@@ -46,10 +58,5 @@ export class VaultContext {
   async getNetwork() {
     // TODO cache available?
     return this.engine.getNetwork(this.networkId);
-  }
-
-  async getWalletId() {
-    // "hd-1--m/44'/60'/0'/0/0" ---> "hd-1"
-    return getWalletIdFromAccountId(this.accountId);
   }
 }
