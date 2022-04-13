@@ -35,7 +35,15 @@ jobs:
           expo-token: ${{ secrets.EXPO_TOKEN }}
           expo-cache: true
 
-      - name: 'Setup ENV'
+      - name: Setup ENV BUILD_NUMBER to 1
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          # Generate build number ------- start
+          echo "BUILD_NUMBER=1" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+      - name: Setup ENV BUILD_NUMBER by workflow_run
+        if: ${{ github.event.workflow_run }}
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
 
@@ -70,4 +78,4 @@ jobs:
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
           cd packages/app
-          npx eas-cli build --profile=production --platform ios --non-interactive --no-wait > eas-build.log
+          npx eas-cli build --profile=production --platform ios --non-interactive --no-wait
