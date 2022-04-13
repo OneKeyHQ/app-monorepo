@@ -15,6 +15,7 @@ import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
+import natsort from 'natsort';
 
 import {
   backgroundClass,
@@ -260,9 +261,12 @@ class Engine {
   }
 
   @backgroundMethod()
-  getWallets(): Promise<Array<Wallet>> {
+  async getWallets(): Promise<Array<Wallet>> {
     // Return all wallets, including the special imported wallet and watching wallet.
-    return this.dbApi.getWallets();
+    const wallets = await this.dbApi.getWallets();
+    return wallets.sort((a, b) =>
+      natsort({ insensitive: true })(a.name, b.name),
+    );
   }
 
   @backgroundMethod()
@@ -460,7 +464,7 @@ class Engine {
             typeof networkId === 'undefined' ||
             isAccountCompatibleWithNetwork(a.id, networkId),
         )
-        .sort((a, b) => (a.name > b.name ? 1 : -1))
+        .sort((a, b) => natsort({ insensitive: true })(a.name, b.name))
         .map((a: DBAccount) => this.buildReturnedAccount(a, networkId)),
     );
   }

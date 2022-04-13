@@ -16939,6 +16939,11 @@ native-url@0.3.4:
   dependencies:
     querystring "^0.2.0"
 
+natsort@^2.0.3:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/natsort/-/natsort-2.0.3.tgz#e2c2023641bc95471983e667df632ee115f00f62"
+  integrity sha512-fuzhAiXcdNAIg2f5kqFOAABvX+uDoJvZs6DvCgioPf7FRAMHsw6G4kH7GFjSZ31yNFkNJuuOIilE8jl0JkavVQ==
+
 natural-compare@^1.4.0:
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/natural-compare/-/natural-compare-1.4.0.tgz#4abebfeed7541f2c27acfb29bdbbd15c8d5ba4f7"
