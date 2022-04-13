@@ -27,7 +27,7 @@ type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 const AddImportedAccount = () => {
   const { control, handleSubmit } = useForm<AddImportedAccountValues>();
   const {
-    params: { privatekey },
+    params: { privatekey, selectableNetworks },
   } = useRoute<RouteProps>();
   const intl = useIntl();
   const wallets = useAppSelector((s) => s.wallet.wallets);
@@ -63,7 +63,11 @@ const AddImportedAccount = () => {
       hideSecondaryAction
     >
       <Form>
-        <FormChainSelector control={control} name="networkId" />
+        <FormChainSelector
+          selectableNetworks={selectableNetworks}
+          control={control}
+          name="networkId"
+        />
         <Form.Item
           name="name"
           label={intl.formatMessage({ id: 'form__account_name' })}

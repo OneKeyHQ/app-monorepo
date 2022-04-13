@@ -13,6 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
@@ -48,35 +49,22 @@ const AddExistingWallet = () => {
 
   useEffect(() => {
     async function validate(text: string) {
-      let result: boolean;
       if (!text) {
         return false;
       }
-      if (mode === 'all' || mode === 'privatekey') {
-        result = /[0-9A-Za-z]{64}/.test(text);
-        if (result) {
-          return result;
-        }
+      const { category } =
+        await backgroundApiProxy.validator.validateCreateInput(text);
+      if (mode === 'all') {
+        return category !== UserCreateInputCategory.INVALID;
       }
-      if (mode === 'all' || mode === 'mnemonic') {
-        result = await backgroundApiProxy.validator.validateMnemonic(text).then(
-          () => true,
-          () => false,
-        );
-        if (result) {
-          return result;
-        }
+      if (mode === 'privatekey') {
+        return category === UserCreateInputCategory.PRIVATE_KEY;
       }
-      if (mode === 'all' || mode === 'address') {
-        result = await backgroundApiProxy.validator
-          .validateAddress('evm--1', text)
-          .then(
-            () => true,
-            () => false,
-          );
-        if (result) {
-          return result;
-        }
+      if (mode === 'mnemonic') {
+        return category === UserCreateInputCategory.MNEMONIC;
+      }
+      if (mode === 'address') {
+        return category === UserCreateInputCategory.ADDRESS;
       }
       return false;
     }
@@ -85,30 +73,21 @@ const AddExistingWallet = () => {
 
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
-      const isValidMnemonic = await backgroundApiProxy.validator
-        .validateMnemonic(values.text)
-        .then(
-          () => true,
-          () => false,
-        );
-      const isAddress = await backgroundApiProxy.validator
-        .validateAddress('evm--1', values.text)
-        .then(
-          () => true,
-          () => false,
-        );
-      const isPrivateKey = /[0-9A-Za-z]{64}/.test(values.text);
-      if (isValidMnemonic) {
+      const { category, possibleNetworks: selectableNetworks } =
+        await backgroundApiProxy.validator.validateCreateInput(values.text);
+      if (category === UserCreateInputCategory.MNEMONIC) {
         navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal, {
           mnemonic: values.text,
         });
-      } else if (isAddress) {
+      } else if (category === UserCreateInputCategory.ADDRESS) {
         navigation.navigate(CreateWalletModalRoutes.AddWatchAccountModal, {
           address: values.text,
+          selectableNetworks,
         });
-      } else if (isPrivateKey) {
+      } else if (category === UserCreateInputCategory.PRIVATE_KEY) {
         navigation.navigate(CreateWalletModalRoutes.AddImportedAccountModal, {
           privatekey: values.text,
+          selectableNetworks,
         });
       }
     },

@@ -85,13 +85,19 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.AddExistingWalletModal]: {
     mode: 'all' | 'mnemonic' | 'address' | 'privatekey';
   };
-  [CreateWalletModalRoutes.AddImportedAccountModal]: { privatekey: string };
+  [CreateWalletModalRoutes.AddImportedAccountModal]: {
+    privatekey: string;
+    selectableNetworks?: Array<string>;
+  };
   [CreateWalletModalRoutes.AddImportedAccountDoneModal]: {
     privatekey: string;
     networkId: string;
     name: string;
   };
-  [CreateWalletModalRoutes.AddWatchAccountModal]: { address: string };
+  [CreateWalletModalRoutes.AddWatchAccountModal]: {
+    address: string;
+    selectableNetworks?: Array<string>;
+  };
   [CreateWalletModalRoutes.GuideModal]: undefined;
   [CreateWalletModalRoutes.BackupTipsModal]: {
     walletId: string;
