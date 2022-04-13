@@ -9,6 +9,7 @@ import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { EVMDecodedItem, EVMTxDecoder } from '../../../decoder/evm/evm';
 import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
@@ -113,20 +114,15 @@ export default class Vault extends VaultBase {
     return this.signAndSendTransaction(unsignedTx, options);
   }
 
-  async decodeTx(encodedTx: IEncodedTxAny): Promise<any> {
+  override async decodeTx(encodedTx: IEncodedTxAny): Promise<EVMDecodedItem> {
     const ethersTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as ethers.Transaction;
 
-    // call engine RPC here
-    // this.engine.proxyRPCCall(this.networkId,{ ... })
-
-    return {
-      type: IDecodedTxEvmType.NativeTransfer,
-      amount: ethers.utils.formatEther(ethersTx.value),
-      // DO NOT RETURN nativeTx which is NOT serializable
-      nativeTx: ethersTx,
-    };
+    if (!Number.isFinite(ethersTx.chainId)) {
+      ethersTx.chainId = Number(await this.getNetworkChainId());
+    }
+    return EVMTxDecoder.decode(ethersTx, this.engine);
   }
 
   async buildEncodedTxFromTransfer(

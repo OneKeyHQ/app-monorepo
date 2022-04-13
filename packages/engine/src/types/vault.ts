@@ -1,3 +1,5 @@
+import { EVMDecodedItem } from '../decoder/evm/evm';
+
 import { EIP1559Fee } from './network';
 
 import type { Engine } from '../index';
@@ -28,6 +30,7 @@ export type ITransferInfo = {
 
 export type IEncodedTxAny = any;
 export type IDecodedTxAny = any;
+export type IDecodedTx = EVMDecodedItem | null;
 
 // TODO rename to IFeeInfoValue, IFeeInfoData, IFeeInfoDetail
 export type IFeeInfoUnit = {
