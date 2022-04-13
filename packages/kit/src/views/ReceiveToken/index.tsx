@@ -1,21 +1,18 @@
 import React, { useCallback } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
-import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { TouchableOpacity } from 'react-native';
 
 import {
-  Account,
   Box,
-  Icon,
+  Button,
   Modal,
   QRCode,
   Text,
-  Typography,
-  useThemeValue,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 
 import { useToast } from '../../hooks/useToast';
 
@@ -29,10 +26,10 @@ type NavigationProps = RouteProp<
 const ReceiveToken = () => {
   const intl = useIntl();
   const toast = useToast();
-  const borderColor = useThemeValue('border-subdued');
   const route = useRoute<NavigationProps>();
 
   const { address, name } = route.params;
+  const isSmallScreen = useIsVerticalLayout();
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(address);
@@ -46,65 +43,67 @@ const ReceiveToken = () => {
         header={intl.formatMessage({ id: 'action__receive' })}
         height="auto"
         scrollViewProps={{
+          contentContainerStyle: {
+            flex: 1,
+            justifyContent: 'center',
+            paddingTop: 24,
+            paddingBottom: 24,
+          },
           children: (
-            <Column flex={1}>
-              <Box alignItems="center">
-                <Box alignItems="center">
-                  <Account
-                    avatarSize="sm"
-                    name={name}
-                    address={address}
-                    notShowAddress
+            <Box flex={1} justifyContent="center" flexDirection="column">
+              <Box alignItems="center" flexDirection="column">
+                <Box
+                  borderRadius="3xl"
+                  bgColor="white"
+                  p={isSmallScreen ? '16px' : '11px'}
+                  shadow="depth.4"
+                >
+                  <QRCode
+                    value={address}
+                    logo={qrcodeLogo}
+                    size={isSmallScreen ? 264 : 186}
+                    logoSize={isSmallScreen ? 57 : 40}
+                    logoMargin={isSmallScreen ? 4 : 2}
+                    logoBackgroundColor="white"
                   />
                 </Box>
-
-                <Box
-                  mt="16px"
-                  padding="16px"
-                  borderWidth="1px"
-                  borderRadius="12px"
-                  bgColor="surface-default"
-                  borderColor={borderColor}
-                  width="192px"
-                >
-                  <QRCode value={address} size={160} />
-                </Box>
               </Box>
-              <Row
-                justifyContent="space-between"
-                padding="16px"
-                borderWidth="1px"
-                borderRadius="12px"
-                borderColor={borderColor}
-                borderStyle="dashed"
-                mt="24px"
+              <Box
+                alignItems="center"
+                mt={isSmallScreen ? '32px' : '24px'}
+                px={isSmallScreen ? '67px' : '72px'}
               >
                 <Text
                   textAlign="center"
-                  typography="Body2"
-                  flex={1}
+                  typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
+                  noOfLines={1}
+                >
+                  {name}
+                </Text>
+                <Text
+                  mt="8px"
+                  color="text-subdued"
+                  textAlign="center"
+                  typography={{ sm: 'Body1', md: 'Body2' }}
                   noOfLines={3}
                 >
                   {address}
                 </Text>
-              </Row>
-
-              <TouchableOpacity onPress={copyAddressToClipboard}>
-                <Row
-                  mt="12px"
-                  space="12px"
-                  padding="10px"
-                  justifyContent="center"
+                <Button
+                  width={isSmallScreen ? '188px' : '154px'}
+                  height={isSmallScreen ? '48px' : '36px'}
+                  mt={isSmallScreen ? '32px' : '24px'}
+                  type="plain"
+                  size="xl"
+                  leftIconName="DuplicateSolid"
+                  onPress={copyAddressToClipboard}
                 >
-                  <Icon name="DuplicateSolid" />
-                  <Typography.Button1 textAlign="center">
-                    {intl.formatMessage({
-                      id: 'action__copy_address',
-                    })}
-                  </Typography.Button1>
-                </Row>
-              </TouchableOpacity>
-            </Column>
+                  {intl.formatMessage({
+                    id: 'action__copy_address',
+                  })}
+                </Button>
+              </Box>
+            </Box>
           ),
         }}
       />
