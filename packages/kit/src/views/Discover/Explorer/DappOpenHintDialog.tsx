@@ -6,16 +6,14 @@ import { Dialog } from '@onekeyhq/components';
 
 export type DappOpenHintDialogProps = {
   visible: boolean;
+  onVisibilityChange: (visible: boolean) => void;
   onConfirm: () => void;
-  onCancel: () => void;
-  onClose: () => void;
 };
 
 const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
   visible,
+  onVisibilityChange,
   onConfirm,
-  onCancel,
-  onClose,
 }) => {
   const intl = useIntl();
 
@@ -24,7 +22,7 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
       hasFormInsideDialog
       visible={visible}
       onClose={() => {
-        onClose?.();
+        onVisibilityChange?.(false);
       }}
       contentProps={{
         iconType: 'info',
@@ -39,9 +37,6 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
         primaryActionTranslationId: 'action__i_got_it',
         onPrimaryActionPress: () => {
           onConfirm?.();
-        },
-        onSecondaryActionPress: () => {
-          onCancel?.();
         },
       }}
     />

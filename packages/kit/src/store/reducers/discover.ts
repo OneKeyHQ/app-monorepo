@@ -16,7 +16,7 @@ type InitialState = {
 const initialState: InitialState = {
   history: {},
   syncData: { timestamp: 0, banners: [], increment: {} },
-  firstRemindDAPP: false,
+  firstRemindDAPP: true,
 };
 
 export const discoverSlice = createSlice({

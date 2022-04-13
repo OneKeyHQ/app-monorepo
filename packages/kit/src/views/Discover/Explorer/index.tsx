@@ -10,7 +10,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useToast } from '@onekeyhq/kit/src/hooks';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import useConfirm from '@onekeyhq/kit/src/hooks/useConfirm';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
 import {
   updateFirstRemindDAPP,
@@ -42,6 +41,8 @@ export type ExplorerViewProps = {
   showExplorerBar?: boolean;
 };
 
+let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
+
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -70,13 +71,7 @@ const Explorer: FC = () => {
 
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
 
-  const {
-    confirm,
-    onConfirm,
-    onCancel,
-    closeConfirm,
-    visible: showDappOpenHint,
-  } = useConfirm();
+  const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
 
   const [refreshKey, setRefreshKey] = useState<string>();
 
@@ -113,15 +108,20 @@ const Explorer: FC = () => {
       return true;
     }
 
-    if (!discover.firstRemindDAPP) {
-      const isConfirm = await confirm();
+    if (discover.firstRemindDAPP) {
+      setShowDappOpenHint(true);
+
+      const isConfirm = await new Promise<boolean>((resolve) => {
+        dappOpenConfirm = resolve;
+      });
+
       if (isConfirm) {
         setDisplayInitialPage(false);
         if (item?.url !== currentUrl) {
           setCurrentUrl(item?.url ?? '');
         }
         if (item) {
-          dispatch(updateFirstRemindDAPP(true));
+          dispatch(updateFirstRemindDAPP(false));
           dispatch(updateHistory(item.id));
         }
         return true;
@@ -299,9 +299,14 @@ const Explorer: FC = () => {
       </Box>
       <DappOpenHintDialog
         visible={showDappOpenHint}
-        onConfirm={onConfirm}
-        onCancel={onCancel}
-        onClose={closeConfirm}
+        onVisibilityChange={() => {
+          setShowDappOpenHint(false);
+          dappOpenConfirm = undefined;
+        }}
+        onConfirm={() => {
+          setShowDappOpenHint(false);
+          dappOpenConfirm?.(true);
+        }}
       />
     </>
   );
