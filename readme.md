@@ -80,7 +80,7 @@ npm install -g expo-cli
 
 在根目录执行以下命令，从而开发不同的业务代码
 
-- `yarn web`: 开发网页模式，会启动静态服务器在本地 3000 端口，需同时本地启动[connect](https://github.com/OneKeyHQ/connect) 项目
+- `yarn web`: 开发网页模式，会启动静态服务器在本地 3000 端口
 - `yarn ios`: 通过 USB 连接 iphone 设备进行开发调试
 - `yarn android`: 调试安卓
 - `yarn desktop`: 开发桌面端模式
