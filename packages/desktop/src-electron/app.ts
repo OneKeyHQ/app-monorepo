@@ -29,11 +29,12 @@ const log = {
 const logger = new Logger(log.level as LogLevel, { ...log });
 
 global.logger = logger;
-global.resourcesPath = isDev
-  ? path.join(__dirname, '..', 'public', 'static')
-  : process.resourcesPath;
-const staticPath = path.join(__dirname, '..', 'public', 'static');
-const preloadJsUrl = path.join(staticPath, 'preload.js'); // static path
+global.resourcesPath = process.resourcesPath;
+const staticPath = isDev
+  ? path.join(__dirname, '../public/static')
+  : path.join(global.resourcesPath, 'static');
+// static path
+const preloadJsUrl = path.join(staticPath, 'preload.js');
 
 async function createMainWindow() {
   const display = screen.getPrimaryDisplay();
@@ -44,12 +45,10 @@ async function createMainWindow() {
     titleBarStyle: 'hidden',
     frame: true,
     resizable: true,
-    width: 1200,
-    height: 1200 / ratio,
-    minWidth: 1200,
-    minHeight: 1200 / ratio,
-    maxWidth: dimensions.width,
-    maxHeight: dimensions.width / ratio,
+    width: Math.min(1200, dimensions.width),
+    height: Math.min(1200 / ratio, dimensions.height),
+    minWidth: isDev ? undefined : 800,
+    minHeight: isDev ? undefined : 800 / ratio,
     webPreferences: {
       webviewTag: true,
       webSecurity: !isDev,
@@ -59,10 +58,10 @@ async function createMainWindow() {
       contextIsolation: false,
       preload: path.join(__dirname, 'preload.js'),
     },
-    icon: path.join(global.resourcesPath, 'images', 'icons', '512x512.png'),
+    icon: path.join(staticPath, 'images/icons/512x512.png'),
   });
 
-  browserWindow.setAspectRatio(ratio);
+  // browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
@@ -82,7 +81,7 @@ async function createMainWindow() {
     browserWindow.webContents.send('SET_ONEKEY_DESKTOP_GLOBALS', {
       resourcesPath: global.resourcesPath,
       staticPath: `file://${staticPath}`,
-      preloadJsUrl: `file://${preloadJsUrl}`,
+      preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
     });
   });
 
