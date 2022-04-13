@@ -3,6 +3,7 @@
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  IApproveInfo,
   IDecodedTx,
   IEncodedTxAny,
   IFeeInfo,
@@ -63,6 +64,15 @@ export abstract class VaultBase extends VaultContext {
 
   abstract buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxAny>;
+
+  abstract buildEncodedTxFromApprove(
+    approveInfo: IApproveInfo,
+  ): Promise<IEncodedTxAny>;
+
+  abstract updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTxAny,
+    amount: string,
   ): Promise<IEncodedTxAny>;
 
   // buildEncodedTxFromNftTransfer

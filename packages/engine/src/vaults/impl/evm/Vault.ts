@@ -14,6 +14,7 @@ import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import { EIP1559Fee } from '../../../types/network';
 import {
+  IApproveInfo,
   IEncodedTxAny,
   IFeeInfo,
   IFeeInfoUnit,
@@ -22,7 +23,12 @@ import {
 } from '../../../types/vault';
 import { VaultBase } from '../../VaultBase';
 
-import { EVMDecodedItem, EVMTxDecoder } from './decoder/decoder';
+import {
+  EVMDecodedItem,
+  EVMDecodedItemERC20Approve,
+  EVMTxDecoder,
+  EVMTxType,
+} from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -167,6 +173,68 @@ export default class Vault extends VaultBase {
       to: transferInfo.to,
       value: amountHex, // TODO convert to hex value
       data: '0x', // TODO native transfer default data value
+    };
+  }
+
+  async buildEncodedTxFromApprove(
+    approveInfo: IApproveInfo,
+  ): Promise<IEncodedTxEvm> {
+    const [network, token, spender] = await Promise.all([
+      this.getNetwork(),
+      this.engine.getOrAddToken(this.networkId, approveInfo.token),
+      this.engine.validator.validateAddress(
+        this.networkId,
+        approveInfo.spender,
+      ),
+    ]);
+    if (typeof token === 'undefined') {
+      throw new Error(`Token not found: ${approveInfo.token}`);
+    }
+
+    const amountBN = new BigNumber(approveInfo.amount);
+    const amountHex = toBigIntHex(
+      amountBN.isNaN()
+        ? new BigNumber(2).pow(256).minus(1)
+        : amountBN.shiftedBy(token.decimals),
+    );
+    // keccak256(Buffer.from('approve(address,uint256)') => '0x095ea7b3...'
+    const methodID = '0x095ea7b3';
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['address', 'uint256'], [spender, amountHex])
+      .slice(2)}`;
+    return {
+      from: approveInfo.from,
+      to: approveInfo.token,
+      value: '0x0',
+      data,
+    };
+  }
+
+  async updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTxEvm,
+    amount: string,
+  ): Promise<IEncodedTxEvm> {
+    // keccak256(Buffer.from('approve(address,uint256)') => '0x095ea7b3...'
+    const approveMethodID = '0x095ea7b3';
+
+    const decodedTx = await this.decodeTx(encodedTx);
+    if (decodedTx.txType !== EVMTxType.TOKEN_APPROVE) {
+      throw new Error('Not a approve transaction.');
+    }
+
+    const { token, spender } = decodedTx.info as EVMDecodedItemERC20Approve;
+
+    const amountBN = new BigNumber(amount);
+    if (amountBN.isNaN()) {
+      throw new Error(`Invalid amount input: ${amount}`);
+    }
+    const amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
+    const data = `${approveMethodID}${defaultAbiCoder
+      .encode(['address', 'uint256'], [spender, amountHex])
+      .slice(2)}`;
+    return {
+      ...encodedTx,
+      data, // Override the data
     };
   }
 

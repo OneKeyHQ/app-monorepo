@@ -229,5 +229,5 @@ class EVMTxDecoder {
   }
 }
 
-export { EVMTxDecoder };
-export type { EVMDecodedItem };
+export { EVMTxDecoder, EVMTxType };
+export type { EVMDecodedItem, EVMDecodedItemERC20Approve };
