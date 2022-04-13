@@ -13,7 +13,7 @@ import {
   Button,
   Form,
   Modal,
-  Spinner,
+  NumberInput,
   Typography,
   useForm,
   useFormState,
@@ -394,11 +394,16 @@ const Transaction = () => {
                 }}
                 // helpText="0 USD"
               >
-                <Form.Input
+                <NumberInput
                   maxLength={40}
                   w="100%"
                   size="xl"
                   keyboardType="numeric"
+                  decimal={
+                    selectedToken && selectedToken.tokenIdOnNetwork
+                      ? activeNetwork?.network.tokenDisplayDecimals
+                      : activeNetwork?.network.nativeDisplayDecimals
+                  }
                   rightCustomElement={
                     <>
                       <Typography.Body1 mr={4} color="text-subdued">
