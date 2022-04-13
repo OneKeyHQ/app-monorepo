@@ -86,7 +86,11 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             }),
           }}
         >
-          <Form.PasswordInput autoFocus />
+          <Form.PasswordInput
+            autoFocus
+            // press enter key to submit
+            onSubmitEditing={handleSubmit(onSubmit)}
+          />
         </Form.Item>
         <Button
           size="xl"
@@ -267,7 +271,10 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
             },
           }}
         >
-          <Form.PasswordInput />
+          <Form.PasswordInput
+            // press enter key to submit
+            onSubmitEditing={handleSubmit(onSubmit)}
+          />
         </Form.Item>
         {isOk && !oldPassword ? (
           <Form.Item name="withEnableAuthentication" control={control}>
