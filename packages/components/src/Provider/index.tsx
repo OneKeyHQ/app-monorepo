@@ -1,7 +1,6 @@
 import React, { FC, useMemo } from 'react';
 
-import { StatusBar } from 'expo-status-bar';
-import { NativeBaseProvider, extendTheme } from 'native-base';
+import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -130,7 +129,9 @@ const Provider: FC<UIProviderProps> = ({ children, themeVariant, locale }) => {
   return (
     <FontProvider>
       <Context.Provider value={providerValue}>
-        <StatusBar style={themeVariant === 'dark' ? 'light' : 'dark'} />
+        <StatusBar
+          barStyle={themeVariant === 'dark' ? 'light-content' : 'dark-content'}
+        />
         <IntlProvider locale={locale} messages={LOCALES[locale]}>
           <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>
         </IntlProvider>

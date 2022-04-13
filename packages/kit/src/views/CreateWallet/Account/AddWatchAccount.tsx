@@ -30,7 +30,7 @@ type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 const AddWatchAccount = () => {
   const {
-    params: { address },
+    params: { address, selectableNetworks },
   } = useRoute<RouteProps>();
   const toast = useToast();
   const { closeDrawer } = useDrawer();
@@ -92,7 +92,11 @@ const AddWatchAccount = () => {
       hideSecondaryAction
     >
       <Form>
-        <FormChainSelector control={control} name="networkId" />
+        <FormChainSelector
+          selectableNetworks={selectableNetworks}
+          control={control}
+          name="networkId"
+        />
         <Form.Item
           name="name"
           label={intl.formatMessage({ id: 'form__account_name' })}

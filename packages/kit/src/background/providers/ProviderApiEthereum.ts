@@ -286,7 +286,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO @publicMethod()
   async metamask_getProviderState(request: IJsBridgeMessagePayload) {
     // pass debugLoggerSettings to dapp injected provider
-    const debugLoggerSettings = (await debugLogger?.debug?.load()) ?? '';
+    const debugLoggerSettings = (await debugLogger?.debug?.load?.()) ?? '';
     return {
       accounts: await this.eth_accounts(request),
       chainId: await this.eth_chainId(),

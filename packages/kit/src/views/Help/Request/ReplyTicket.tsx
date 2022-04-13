@@ -211,7 +211,7 @@ export const ReplyTicket: FC = () => {
       }}
       primaryActionTranslationId="action__submit"
       scrollViewProps={{
-        children: [
+        children: (
           <Form>
             <Form.Item
               label={intl.formatMessage({ id: 'form__your_reply' })}
@@ -236,10 +236,8 @@ export const ReplyTicket: FC = () => {
                     id: 'msg__exceeding_the_maximum_word_limit',
                   }),
                 },
-                validate: (value) => {
-                  console.log(`value = ${value}`);
-                  return undefined;
-                },
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                validate: (_) => undefined,
               }}
               name="comment"
               formControlProps={{ width: 'full' }}
@@ -248,8 +246,8 @@ export const ReplyTicket: FC = () => {
               <Form.Textarea borderRadius="12px" />
             </Form.Item>
             {imagesList()}
-          </Form>,
-        ],
+          </Form>
+        ),
       }}
     />
   );
