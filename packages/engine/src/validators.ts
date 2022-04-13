@@ -3,10 +3,14 @@ import * as bip39 from 'bip39';
 
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
+import { getSupportedImpls } from './constants';
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
 import * as limits from './limits';
+import { implToAccountType } from './managers/impl';
 import { ProviderController } from './proxy';
+import { AccountType } from './types/account';
+import { UserCreateInput, UserCreateInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
 class Validators {
@@ -25,6 +29,56 @@ class Validators {
 
   set dbApi(dbApi: DBAPI) {
     this._dbApi = dbApi;
+  }
+
+  @backgroundMethod()
+  async validateCreateInput(input: string): Promise<UserCreateInput> {
+    let category = UserCreateInputCategory.INVALID;
+    let possibleNetworks: Array<string> = [];
+    if (/\s/g.test(input)) {
+      // white space in input, only try mnemonic
+      try {
+        await this.validateMnemonic(input);
+        category = UserCreateInputCategory.MNEMONIC;
+      } catch {
+        console.log('Invalid mnemonic', input);
+      }
+    } else {
+      const enabledNetworks = (await this.dbApi.listNetworks()).filter(
+        (dbNetwork) =>
+          dbNetwork.enabled && getSupportedImpls().has(dbNetwork.impl),
+      );
+      if (/^(0x)?[0-9a-zA-Z]{64}$/.test(input)) {
+        // a 64-char hexstring with or without 0x prefix, try private key only
+        // TODO: verify private key & return networks with specific curve.
+        category = UserCreateInputCategory.PRIVATE_KEY;
+        possibleNetworks = enabledNetworks.map((network) => network.id);
+      } else {
+        // check whether input is an address of any network
+        const selectedImpls = new Set();
+        for (const network of enabledNetworks) {
+          const { id: networkId, impl } = network;
+          let networkIsPossible = true;
+          if (!selectedImpls.has(impl)) {
+            try {
+              await this.validateAddress(networkId, input);
+              if (implToAccountType[impl] === AccountType.SIMPLE) {
+                selectedImpls.add(impl);
+              }
+            } catch {
+              networkIsPossible = false;
+            }
+          }
+          if (networkIsPossible) {
+            possibleNetworks.push(networkId);
+          }
+        }
+        if (possibleNetworks.length > 0) {
+          category = UserCreateInputCategory.ADDRESS;
+        }
+      }
+    }
+    return { category, possibleNetworks };
   }
 
   @backgroundMethod()
