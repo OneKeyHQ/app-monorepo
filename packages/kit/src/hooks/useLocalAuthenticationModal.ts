@@ -4,7 +4,6 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import useAppNavigation from './useAppNavigation';
 
 export default function useLocalAuthenticationModal() {
-  // const navigation = useNavigation();
   const navigation = useAppNavigation();
 
   const showVerify = (

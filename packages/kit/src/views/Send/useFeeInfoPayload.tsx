@@ -102,7 +102,7 @@ export function useFeeInfoPayload({
     },
     [],
   );
-  // const { data: gasList } = useGas();
+
   // prepareTransfer -> gasLimit
   // maxFeePerGas
   // price=5 limit=21000

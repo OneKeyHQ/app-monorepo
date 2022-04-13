@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import Toast from 'react-native-toast-message';
 
@@ -24,7 +24,7 @@ export function useToast() {
     [],
   );
 
-  const toast = { info, show };
+  const toast = useMemo(() => ({ info, show }), [info, show]);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     global.$$toast = toast;

@@ -29,8 +29,6 @@ import { ensureBackgroundObject } from '../background/utils';
 
 import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
-import chainReducer from './reducers/chain';
-import counter from './reducers/counter';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
 import discoverReducer from './reducers/discover';
@@ -43,7 +41,6 @@ import walletReducer from './reducers/wallet';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
-  chain: chainReducer,
   wallet: walletReducer,
   settings: settingsReducer,
   status: statusReducer,
@@ -53,7 +50,6 @@ const allReducers = combineReducers({
   dapp: dappReducer,
   data: dataReducer,
   discover: discoverReducer,
-  counter,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
