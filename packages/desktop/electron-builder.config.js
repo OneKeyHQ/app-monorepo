@@ -25,7 +25,11 @@ module.exports = {
   'extraResources': [
     {
       'from': 'build/static/images/icons/512x512.png',
-      'to': 'images/icons/512x512.png',
+      'to': 'static/images/icons/512x512.png',
+    },
+    {
+      'from': 'build/static/preload.js',
+      'to': 'static/preload.js',
     },
   ],
   'publish': {
@@ -66,7 +70,7 @@ module.exports = {
     'gatekeeperAssess': false,
     'darkModeSupport': false,
     'category': 'productivity',
-    'target': ['dmg', 'zip'],
+    'target': [{ target: 'dmg', arch: ['x64', 'arm64'] }, { target: 'zip', arch: ['x64', 'arm64'] }],
   },
   'win': {
     'extraResources': [

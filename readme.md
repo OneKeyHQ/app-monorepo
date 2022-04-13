@@ -57,7 +57,7 @@ Some of the dependencies have native parts, so you need to go into the `packages
 
 1. The app does not start
 
-Clear the packaging tool cache with the `--reset-cache` command in `yarn native` in the root directory. Also run `-yarn clean` in the root directory to clear all dependencies and generated files and then re-run `-yarn` to install the dependencies.
+Clear the packaging tool cache with the `--reset-cache` command in `yarn native` in the root directory. Also run `yarn clean` in the root directory to clear all dependencies and generated files and then re-run `yarn` to install the dependencies.
 
 # OneKey App Monorepo [Chinese]
 

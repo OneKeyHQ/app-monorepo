@@ -16,7 +16,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import { useLocalAuthentication, useToast } from '../../hooks';
-import { useAppDispatch, useData } from '../../hooks/redux';
+import { useAppDispatch, useData, useSettings } from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import { savePassword } from '../../utils/localAuthentication';
 
@@ -116,6 +116,7 @@ type PasswordsFieldValues = {
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
   const toast = useToast();
+  const { enableLocalAuthentication } = useSettings();
   const { isOk } = useLocalAuthentication();
   const dispatch = useAppDispatch();
   const { serviceApp } = backgroundApiProxy;
@@ -138,6 +139,9 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
         dispatch(setEnableLocalAuthentication(true));
         savePassword(values.password);
       }
+      if (enableLocalAuthentication) {
+        savePassword(values.password);
+      }
       // if oldPassword is empty. set password
       if (!oldPassword) {
         toast.show({
@@ -154,7 +158,15 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       }
       navigation.goBack();
     },
-    [navigation, toast, intl, oldPassword, serviceApp, dispatch],
+    [
+      navigation,
+      toast,
+      intl,
+      oldPassword,
+      serviceApp,
+      dispatch,
+      enableLocalAuthentication,
+    ],
   );
 
   const watchedPassword = watch(['password', 'confirmPassword']);
