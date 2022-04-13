@@ -36,7 +36,7 @@ type NavigationProps = NativeStackNavigationProp<
 type PageStatusType = 'network' | 'loading' | 'data';
 
 type DiscoverProps = {
-  onItemSelect: (item: DAppItemType) => void;
+  onItemSelect: (item: DAppItemType) => Promise<boolean>;
 };
 const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
   const intl = useIntl();

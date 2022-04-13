@@ -4,20 +4,18 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 
-import type { DAppItemType } from '../type';
-
 export type DappOpenHintDialogProps = {
-  payload: DAppItemType | undefined;
   visible: boolean;
-  onVisibleChange: (visible: boolean) => void;
-  onAgree: (payload: DAppItemType | undefined) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  onClose: () => void;
 };
 
 const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
   visible,
-  onVisibleChange,
-  payload,
-  onAgree,
+  onConfirm,
+  onCancel,
+  onClose,
 }) => {
   const intl = useIntl();
 
@@ -26,9 +24,8 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
       hasFormInsideDialog
       visible={visible}
       onClose={() => {
-        onVisibleChange(false);
+        onClose?.();
       }}
-      onVisibleChange={onVisibleChange}
       contentProps={{
         iconType: 'info',
         title: intl.formatMessage({
@@ -41,8 +38,10 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
       footerButtonProps={{
         primaryActionTranslationId: 'action__i_got_it',
         onPrimaryActionPress: () => {
-          onAgree?.(payload);
-          onVisibleChange(false);
+          onConfirm?.();
+        },
+        onSecondaryActionPress: () => {
+          onCancel?.();
         },
       }}
     />
