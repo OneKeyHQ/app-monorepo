@@ -34,19 +34,19 @@ const Attachment: FC<AttachmentsType> = ({ id, size }) => {
   );
 
   const attachment = useMemo(() => {
-    if (data) {
-      return (
-        <Image
-          width={size}
-          height={size}
-          src={data.data}
-          borderRadius="12px"
-          preview
-        />
-      );
-    }
-    return null;
-  }, [data, size]);
+    if (!data?.data) return null;
+
+    return (
+      <Image
+        key={data.data}
+        width={size}
+        height={size}
+        src={data.data}
+        borderRadius="12px"
+        preview
+      />
+    );
+  }, [data?.data, size]);
   return attachment;
 };
 
@@ -85,6 +85,9 @@ export const TicketDetail: FC = () => {
       mutate();
     }
   }, [isFocused, mutate]);
+
+  const { version } = useSettings();
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__request_details' })}
@@ -102,16 +105,19 @@ export const TicketDetail: FC = () => {
         ref: scrollViewRef,
         onContentSizeChange: () =>
           scrollViewRef?.current?.scrollToEnd?.({ animated: false }),
-        children: [
+        children: (
           <Column space="24px" paddingBottom="40px">
             {comments.map((item, index) => {
               const isMine = isMe(item.author_id, submitterId);
               let { body } = item;
               if (index === 0) {
-                body = `${body}\n\nApp on iOS\nAppVersion: 1.0.2`;
+                body = `${body}\n\nApp on iOS\nAppVersion: ${version}`;
               }
               return (
-                <Row justifyContent={isMine ? 'flex-end' : 'flex-start'}>
+                <Row
+                  justifyContent={isMine ? 'flex-end' : 'flex-start'}
+                  key={item.id}
+                >
                   <Column paddingBottom="24px" space="8px">
                     <Column
                       bgColor="surface-default"
@@ -152,8 +158,8 @@ export const TicketDetail: FC = () => {
                 </Row>
               );
             })}
-          </Column>,
-        ],
+          </Column>
+        ),
       }}
     />
   );

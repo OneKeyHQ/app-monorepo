@@ -89,6 +89,7 @@ const CustomFeeForm = ({
   const feeSymbol = feeInfoPayload?.info?.symbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const formValues = watch();
+  const isSmallScreen = useIsVerticalLayout();
 
   // MIN: (baseFee + maxPriorityFeePerGas) * limit
   // MAX: maxFeePerGas * limit
@@ -130,7 +131,11 @@ const CustomFeeForm = ({
           }}
           formControlProps={{ isReadOnly: true }}
         >
-          <Form.Input w="100%" rightText="-" />
+          <Form.Input
+            w="100%"
+            rightText="-"
+            size={isSmallScreen ? 'xl' : undefined}
+          />
         </Form.Item>
       )}
       {isEIP1559Fee && (
@@ -147,7 +152,11 @@ const CustomFeeForm = ({
             }),
           }}
         >
-          <Form.Input w="100%" rightText="-" />
+          <Form.Input
+            w="100%"
+            rightText="-"
+            size={isSmallScreen ? 'xl' : undefined}
+          />
         </Form.Item>
       )}
       {isEIP1559Fee && (
@@ -164,7 +173,11 @@ const CustomFeeForm = ({
             }),
           }}
         >
-          <Form.Input w="100%" rightText="-" />
+          <Form.Input
+            w="100%"
+            rightText="-"
+            size={isSmallScreen ? 'xl' : undefined}
+          />
         </Form.Item>
       )}
 
@@ -176,7 +189,7 @@ const CustomFeeForm = ({
           // TODO required rules
           defaultValue=""
         >
-          <Form.Input w="100%" />
+          <Form.Input w="100%" size={isSmallScreen ? 'xl' : undefined} />
         </Form.Item>
       )}
 
@@ -187,7 +200,7 @@ const CustomFeeForm = ({
         // TODO required rules
         defaultValue=""
       >
-        <Form.Input w="100%" />
+        <Form.Input w="100%" size={isSmallScreen ? 'xl' : undefined} />
       </Form.Item>
 
       <Form.Item
@@ -456,7 +469,7 @@ const TransactionEditFee = ({ ...rest }) => {
   );
 
   let content = (
-    <Center h="full" w="full">
+    <Center w="full" py={16}>
       <Spinner size="lg" />
     </Center>
   );

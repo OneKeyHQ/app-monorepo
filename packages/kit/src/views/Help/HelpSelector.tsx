@@ -85,14 +85,14 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__submit_a_request' }),
           value: 'submit_request',
           iconProps: {
-            name: 'AnnotationOutline',
+            name: isSmallScreen ? 'AnnotationOutline' : 'AnnotationSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__s_request_history' }),
           value: 'history',
           iconProps: {
-            name: 'ClockOutline',
+            name: isSmallScreen ? 'ClockOutline' : 'ClockSolid',
           },
         },
       ],
@@ -104,21 +104,21 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__help_support' }),
           value: 'support',
           iconProps: {
-            name: 'AnnotationOutline',
+            name: isSmallScreen ? 'SupportOutline' : 'SupportSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__beginner_guide' }),
           value: 'guide',
           iconProps: {
-            name: 'MapOutline',
+            name: isSmallScreen ? 'MapOutline' : 'MapSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
           value: 'hardware_wallet',
           iconProps: {
-            name: 'BookmarkAltOutline',
+            name: isSmallScreen ? 'BookmarkAltOutline' : 'BookmarkAltSolid',
           },
         },
       ],
@@ -130,21 +130,21 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'title__official_website' }),
           value: 'website',
           iconProps: {
-            name: 'GlobeAltOutline',
+            name: isSmallScreen ? 'GlobeAltOutline' : 'GlobeAltSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'title__buy_onekey_hardware' }),
           value: 'shop',
           iconProps: {
-            name: 'ShoppingBagOutline',
+            name: isSmallScreen ? 'ShoppingBagOutline' : 'ShoppingBagSolid',
           },
         },
         {
           label: intl.formatMessage({ id: 'title__client_download' }),
           value: 'download',
           iconProps: {
-            name: 'DownloadOutline',
+            name: isSmallScreen ? 'DownloadOutline' : 'DownloadSolid',
           },
         },
       ],
