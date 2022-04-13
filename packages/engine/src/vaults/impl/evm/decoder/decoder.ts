@@ -1,10 +1,10 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
-import { Token } from '../../types/token';
+import { Token } from '../../../../types/token';
 
 import { ABI } from './abi';
 
-import type { Engine } from '../..';
+import type { Engine } from '../../../..';
 
 enum EVMTxType {
   // Native currency transfer
@@ -59,8 +59,8 @@ interface EVMDecodedItem {
   maxPriorityFeePerGas: string;
   maxFeePerGas: string;
 
-  contranctCallInfo?: {
-    contranctAddress: string;
+  contractCallInfo?: {
+    contractAddress: string;
     functionName: string;
     functionSignature: string;
     args: any;
@@ -84,8 +84,8 @@ class EVMTxDecoder {
     this.fillTxInfo(itemBuilder, tx);
 
     if (txDesc) {
-      itemBuilder.contranctCallInfo = {
-        contranctAddress: tx.to ?? '',
+      itemBuilder.contractCallInfo = {
+        contractAddress: tx.to ?? '',
         functionName: txDesc.name,
         functionSignature: txDesc.signature,
         args: txDesc.args,

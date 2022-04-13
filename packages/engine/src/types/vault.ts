@@ -1,4 +1,4 @@
-import { EVMDecodedItem } from '../decoder/evm/evm';
+import { EVMDecodedItem } from '../vaults/impl/evm/decoder/decoder';
 
 import { EIP1559Fee } from './network';
 

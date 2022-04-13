@@ -9,7 +9,6 @@ import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { EVMDecodedItem, EVMTxDecoder } from '../../../decoder/evm/evm';
 import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
@@ -23,6 +22,7 @@ import {
 } from '../../../types/vault';
 import { VaultBase } from '../../VaultBase';
 
+import { EVMDecodedItem, EVMTxDecoder } from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
