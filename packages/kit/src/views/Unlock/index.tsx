@@ -167,7 +167,10 @@ const Unlock = () => {
                   }),
                 }}
               >
-                <Form.PasswordInput />
+                <Form.PasswordInput
+                  // press enter key to submit
+                  onSubmitEditing={handleSubmit(onUnlock)}
+                />
               </Form.Item>
               <Button
                 size="xl"
