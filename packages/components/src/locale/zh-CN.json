@@ -136,7 +136,7 @@
   "backup__icloud_backup_desc": "更快、更轻松地备份。",
   "backup__manual_backup": "手动备份",
   "backup__manual_backup_advice_title": "备份您的助记词：",
-  "backup__manual_backup_advice_write_on_paper": "您可以把它写在纸上，放在一个安全的地方；",
+  "backup__manual_backup_advice_write_on_paper": "您可以把它写在纸上，放在一个安全的地方。",
   "backup__manual_backup_advice_write_sync": "或同步至 iCloud，Google Drive，OneKey Lite、密码管理器。",
   "backup__manual_backup_desc": "将助记词写在纸上，然后存放在安全的地方。",
   "backup__manual_backup_warning": "警告",

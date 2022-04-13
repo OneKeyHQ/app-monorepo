@@ -124,7 +124,10 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
             },
           }}
         >
-          <Form.PasswordInput />
+          <Form.PasswordInput
+            // press enter key to submit
+            onSubmitEditing={handleSubmit(onSubmit)}
+          />
         </Form.Item>
         <Button
           type="primary"

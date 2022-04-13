@@ -136,7 +136,7 @@
   "backup__icloud_backup_desc": "Back up easier and faster.",
   "backup__manual_backup": "Manual Backup",
   "backup__manual_backup_advice_title": "To backup your recovery phrase:",
-  "backup__manual_backup_advice_write_on_paper": "Either write it on a paper that you will store in a safe place;",
+  "backup__manual_backup_advice_write_on_paper": "Either write it on a paper that you will store in a safe place.",
   "backup__manual_backup_advice_write_sync": "Or sync it to iCloud, Google Drive, OneKey Lite, a password manager...).",
   "backup__manual_backup_desc": "Write recovery phrase down and store the paper somewhere safe.",
   "backup__manual_backup_warning": "Warning",
