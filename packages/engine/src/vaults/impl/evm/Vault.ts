@@ -12,7 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
-import { EIP1559Fee } from '../../../types/network';
+import { EIP1559Fee, EvmExtraInfo } from '../../../types/network';
 import {
   IApproveInfo,
   IEncodedTxAny,
@@ -28,6 +28,8 @@ import {
   EVMDecodedItemERC20Approve,
   EVMTxDecoder,
   EVMTxType,
+  InfiniteAmountHex,
+  InfiniteAmountText,
 } from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -223,12 +225,17 @@ export default class Vault extends VaultBase {
     }
 
     const { token, spender } = decodedTx.info as EVMDecodedItemERC20Approve;
-
-    const amountBN = new BigNumber(amount);
-    if (amountBN.isNaN()) {
-      throw new Error(`Invalid amount input: ${amount}`);
+    let amountHex;
+    if (amount === InfiniteAmountText) {
+      amountHex = InfiniteAmountHex;
+    } else {
+      const amountBN = new BigNumber(amount);
+      if (amountBN.isNaN()) {
+        throw new Error(`Invalid amount input: ${amount}`);
+      }
+      amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
     }
-    const amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
+
     const data = `${approveMethodID}${defaultAbiCoder
       .encode(['address', 'uint256'], [spender, amountHex])
       .slice(2)}`;
@@ -260,9 +267,9 @@ export default class Vault extends VaultBase {
       encodedTx,
     );
     const gasLimitFinal = gasLimit ?? gas;
-    // TODO do not shift decimals here
     // fillUnsignedTx in each impl
     const unsignedTxInfo = fillUnsignedTxObj({
+      shiftFeeDecimals: false,
       network,
       dbAccount,
       to,
@@ -340,21 +347,31 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxEvm;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxEvm> {
+    const network = await this.getNetwork();
     const { encodedTx, feeInfoValue } = params;
     const encodedTxWithFee = { ...encodedTx };
     if (!isNil(feeInfoValue.limit)) {
-      // TODO to hex toBigIntHex()
-      encodedTxWithFee.gas = feeInfoValue.limit;
+      encodedTxWithFee.gas = toBigIntHex(new BigNumber(feeInfoValue.limit));
     }
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
     if (!isNil(feeInfoValue.price)) {
       if (feeInfoValue.eip1559) {
         const priceInfo = feeInfoValue.price as EIP1559Fee;
-        encodedTxWithFee.maxFeePerGas = priceInfo.maxFeePerGas;
-        encodedTxWithFee.maxPriorityFeePerGas = priceInfo.maxPriorityFeePerGas;
-        encodedTxWithFee.gasPrice = '1'; // default gasPrice required in engine api
+        encodedTxWithFee.maxFeePerGas = toBigIntHex(
+          new BigNumber(priceInfo.maxFeePerGas).shiftedBy(network.feeDecimals),
+        );
+        encodedTxWithFee.maxPriorityFeePerGas = toBigIntHex(
+          new BigNumber(priceInfo.maxPriorityFeePerGas).shiftedBy(
+            network.feeDecimals,
+          ),
+        );
+        encodedTxWithFee.gasPrice = '0x1'; // default gasPrice required in engine api
       } else {
-        encodedTxWithFee.gasPrice = feeInfoValue.price as string;
+        encodedTxWithFee.gasPrice = toBigIntHex(
+          new BigNumber(feeInfoValue.price as string).shiftedBy(
+            network.feeDecimals,
+          ),
+        );
       }
     }
     return Promise.resolve(encodedTxWithFee);

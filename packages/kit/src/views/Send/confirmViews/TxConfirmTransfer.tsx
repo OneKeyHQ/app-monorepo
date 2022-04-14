@@ -20,9 +20,9 @@ import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 import { TxTitleDetailView } from '../TxTitleDetailView';
 import { TransferSendParamsPayload } from '../types';
 
-import { ITxPreviewModalProps, TxPreviewModal } from './TxPreviewModal';
+import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 
-function TxPreviewTransfer(props: ITxPreviewModalProps) {
+function TxConfirmTransfer(props: ITxConfirmViewProps) {
   const {
     payload,
     feeInfoPayload,
@@ -41,7 +41,7 @@ function TxPreviewTransfer(props: ITxPreviewModalProps) {
     : false;
 
   return (
-    <TxPreviewModal {...props}>
+    <SendConfirmModal {...props}>
       <Column flex="1">
         <Center>
           <Token src={transferPayload?.token?.logoURI} size="56px" />
@@ -128,8 +128,8 @@ function TxPreviewTransfer(props: ITxPreviewModalProps) {
         </Column>
         <DecodeTxButtonTest encodedTx={encodedTx} />
       </Column>
-    </TxPreviewModal>
+    </SendConfirmModal>
   );
 }
 
-export { TxPreviewTransfer };
+export { TxConfirmTransfer };

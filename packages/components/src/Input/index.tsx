@@ -123,7 +123,12 @@ const Input = React.forwardRef<
     if (rightSecondaryText) {
       if (rightText) {
         rightElements.push(
-          <Divider bg="border-subdued" orientation="vertical" h="3" />,
+          <Divider
+            key="rightDivider"
+            bg="border-subdued"
+            orientation="vertical"
+            h="3"
+          />,
         );
       }
       rightElements.push(

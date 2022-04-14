@@ -8,10 +8,19 @@ import { IDappCallParams } from '../../background/IBackgroundApi';
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
-  SendConfirmRedirect = 'SendConfirmRedirect',
+  SendConfirmFromDapp = 'SendConfirmFromDapp',
   SendEditFee = 'SendEditFee',
+  TokenApproveAmountEdit = 'TokenApproveAmountEdit',
   SendAuthentication = 'SendAuthentication',
 }
+
+export type TokenApproveAmountEditParams = {
+  tokenApproveAmount: string;
+  sourceInfo?: IDappCallParams | undefined;
+  encodedTx?: any;
+  decodedTx?: any;
+};
+
 export type EditFeeParams = {
   encodedTx?: any;
   feeInfoSelected?: IFeeInfoSelected;
@@ -38,7 +47,7 @@ export type TransferSendParamsPayload = {
   };
 };
 
-export type SendConfirmRedirectParams = {
+export type SendConfirmFromDappParams = {
   query?: string;
 };
 
@@ -57,7 +66,8 @@ export type SendAuthenticationParams = SendParams & {
 export type SendRoutesParams = {
   [SendRoutes.Send]: EditFeeParams;
   [SendRoutes.SendEditFee]: EditFeeParams;
+  [SendRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
+  [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
   [SendRoutes.SendConfirm]: SendParams;
-  [SendRoutes.SendConfirmRedirect]: SendConfirmRedirectParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
 };

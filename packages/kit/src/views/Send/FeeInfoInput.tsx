@@ -181,7 +181,7 @@ function FeeInfoInputForConfirm({
     ({ isHovered }) => (
       <TxTitleDetailView
         isHovered={isHovered}
-        editable={!disabled && !loading && !!feeInfoPayload}
+        arrow={!disabled && !loading && !!feeInfoPayload}
         title={`${intl.formatMessage({
           id: 'content__fee',
         })}(${intl.formatMessage({ id: 'content__estimated' })})`}

@@ -11,6 +11,7 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 import {
   Box,
   Button,
+  Divider,
   Form,
   Modal,
   NumberInput,
@@ -143,24 +144,11 @@ const Transaction = () => {
     [accountTokens, selectOption?.value],
   );
 
-  // TODO watch performance
-  const formFields = watch();
-
-  // build transferInfo
-  // TODO move to watch useEffect below
-  const transferInfo: ITransferInfo = useDeepCompareMemo(() => {
-    // TODO token undefined
-    const { to, value } = formFields;
-    const from = (account as { address: string }).address;
-    const info = {
-      from,
-      to,
-      // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
-      token: selectedToken?.tokenIdOnNetwork,
-      amount: value,
-    };
-    return info;
-  }, [account, formFields, selectedToken]);
+  const [transferInfo, setTransferInfo] = useState<ITransferInfo>({
+    from: '',
+    to: '',
+    amount: '',
+  });
 
   // build encodedTx
   useEffect(() => {
@@ -188,23 +176,36 @@ const Transaction = () => {
   // form data changed watch handler
   useEffect(() => {
     const subscription = watch((formValues, { name, type }) => {
+      const { to, value } = formValues;
+      const from = (account as { address: string }).address;
+      const info = {
+        from,
+        to,
+        // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
+        token: selectedToken?.tokenIdOnNetwork,
+        amount: value,
+      } as ITransferInfo;
+      setTransferInfo(info);
       if (type === 'change' && name === 'token') {
         const option = tokenOptions.find((o) => o.value === formValues.token);
         if (option) setSelectOption(option);
       }
       if (type === 'change' && name === 'value') {
         setInputValue(formValues.value);
+        setTimeout(() => {
+          trigger('value');
+        }, 300);
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions]);
+  }, [watch, tokenOptions, trigger, account, selectedToken?.tokenIdOnNetwork]);
 
   const submitButtonDisabled =
     !isValid ||
     feeInfoLoading ||
     !feeInfoPayload ||
-    !formFields.to ||
-    !formFields.value ||
+    !getValues('to') ||
+    !getValues('value') ||
     !encodedTx;
   const onSubmit = handleSubmit(async (data) => {
     const tokenConfig = selectedToken ?? nativeToken;
@@ -417,14 +418,14 @@ const Transaction = () => {
                       <Typography.Body1 mr={4} color="text-subdued">
                         {selectOption?.label ?? '-'}
                       </Typography.Body1>
-                      {/* <Divider
+                      <Divider
                         orientation="vertical"
                         bg="border-subdued"
                         h={5}
                       />
                       <Button type="plain" size="xl">
                         {intl.formatMessage({ id: 'action__max' })}
-                      </Button> */}
+                      </Button>
                     </>
                   }
                 />

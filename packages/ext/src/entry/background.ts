@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/order
-import './shared';
+import './shared-polyfill';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 

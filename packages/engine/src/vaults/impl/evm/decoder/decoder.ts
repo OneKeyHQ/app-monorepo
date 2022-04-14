@@ -6,6 +6,10 @@ import { ABI } from './abi';
 
 import type { Engine } from '../../../..';
 
+export const InfiniteAmountText = 'Infinite';
+export const InfiniteAmountHex =
+  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
 enum EVMTxType {
   // Native currency transfer
   NATIVE_TRANSFER = 'native_transfer',
@@ -63,7 +67,7 @@ interface EVMDecodedItem {
     contractAddress: string;
     functionName: string;
     functionSignature: string;
-    args: any;
+    args?: any;
   };
 
   info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
@@ -88,6 +92,7 @@ class EVMTxDecoder {
         contractAddress: tx.to ?? '',
         functionName: txDesc.name,
         functionSignature: txDesc.signature,
+        // TODO args not serializable
         args: txDesc.args,
       };
     }
@@ -192,7 +197,7 @@ class EVMTxDecoder {
     decimals: number,
   ): string {
     if (ethers.constants.MaxUint256.eq(value)) {
-      return 'Infinite';
+      return InfiniteAmountText;
     }
     return ethers.utils.formatUnits(value, decimals) ?? '';
   }

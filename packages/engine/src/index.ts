@@ -1267,6 +1267,22 @@ class Engine {
   }
 
   @backgroundMethod()
+  async updateEncodedTxTokenApprove({
+    networkId,
+    accountId,
+    encodedTx,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTxAny;
+    amount: string;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    return vault.updateEncodedTxTokenApprove(encodedTx, amount);
+  }
+
+  @backgroundMethod()
   async buildEncodedTxFromTransfer({
     networkId,
     accountId,

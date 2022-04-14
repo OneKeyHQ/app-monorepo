@@ -115,6 +115,11 @@ const Provider: FC<UIProviderProps> = ({ children, themeVariant, locale }) => {
           },
         },
         components: {
+          Image: {
+            defaultProps: {
+              alt: '-',
+            },
+          },
           ScrollView: {
             defaultProps: {
               // in CSS: packages/shared/src/web/index.css
