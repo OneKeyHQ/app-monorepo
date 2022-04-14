@@ -23,7 +23,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
@@ -38,7 +37,7 @@ type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const RecoverConfirm: FC = () => {
   const intl = useIntl();
-  const { dispatch } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
 
   const route = useRoute<RouteProps>();
   const { accounts, walletId, network } = route.params;
@@ -50,14 +49,13 @@ const RecoverConfirm: FC = () => {
     const selectedIndexes = flatListData
       .filter((i) => i.selected)
       .map((i) => i.index);
-    await backgroundApiProxy.engine.addHDAccounts(
+    await serviceAccount.addHDAccounts(
       password,
       walletId,
       network,
       selectedIndexes,
     );
 
-    dispatch(setRefreshTS());
     if (navigation.canGoBack()) {
       navigation.getParent()?.goBack?.();
     }

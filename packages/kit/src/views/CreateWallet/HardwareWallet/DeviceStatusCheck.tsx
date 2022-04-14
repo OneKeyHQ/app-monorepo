@@ -31,7 +31,7 @@ const DeviceStatusCheckModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
   const { network } = useActiveWalletAccount();
-  const { engine, serviceAccount } = backgroundApiProxy;
+  const { engine } = backgroundApiProxy;
 
   useEffect(() => {
     // Check device status
@@ -58,6 +58,7 @@ const DeviceStatusCheckModal: FC = () => {
           if (accounts.length > 0) {
             const $account = accounts[0];
             account = $account;
+            console.log(account);
           }
         } catch (e) {
           console.log(e);

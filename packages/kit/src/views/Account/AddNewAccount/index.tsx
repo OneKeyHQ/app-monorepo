@@ -40,7 +40,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const toast = useToast();
   const { closeDrawer } = useDrawer();
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
     useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });
 
@@ -72,19 +72,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       const network = getValues('network');
       const name = getValues('name');
       try {
-        const [account] = await backgroundApiProxy.engine.addHDAccounts(
+        await serviceAccount.addHDAccounts(
           password,
           selectedWalletId,
           network,
           undefined,
           [name],
         );
-
-        // dispatch(setRefreshTS());
-        // backgroundApiProxy.serviceAccount.changeActiveAccount({
-        //   account,
-        //   wallet: wallet ?? null,
-        // });
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
@@ -92,13 +86,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
         });
       }
 
-      // const selectedNetwork = networks?.find((n) => n.id === network) ?? null;
-      // if (selectedNetwork) {
-      //   backgroundApiProxy.serviceNetwork.changeActiveNetwork({
-      //     network: selectedNetwork,
-      //     sharedChainName: selectedNetwork.impl,
-      //   });
-      // }
       closeDrawer();
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();

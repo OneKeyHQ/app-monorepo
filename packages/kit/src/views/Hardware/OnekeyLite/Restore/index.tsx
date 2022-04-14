@@ -42,7 +42,7 @@ const Restore: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
-  const { serviceApp } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
   const toast = useToast();
 
   const { pwd, onRetry } = useRoute<RouteProps>().params;
@@ -127,7 +127,7 @@ const Restore: FC = () => {
             {
               onSuccess: async (password) => {
                 try {
-                  await serviceApp.createHDWallet({
+                  await serviceAccount.createHDWallet({
                     password,
                     mnemonic: data.trim(),
                   });
@@ -180,7 +180,7 @@ const Restore: FC = () => {
           {
             onSuccess: async (password) => {
               try {
-                await serviceApp.createHDWallet({
+                await serviceAccount.createHDWallet({
                   password,
                   mnemonic: restoreData.trim(),
                 });

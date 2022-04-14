@@ -3,14 +3,13 @@ import React, {
   FC,
   ReactNode,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useDrawerStatus } from '@react-navigation/drawer';
+import { useNavigation } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -28,21 +27,21 @@ type AccountSelectorProps = {
 };
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
-  const [visible, setVisible] = useState(false);
+  const [innerVisible, setVisible] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation();
+
   const isDrawerOpen = useDrawerStatus() === 'open';
   const triggerRef = useRef<HTMLElement>(null);
+  const visible = isVerticalLayout ? isDrawerOpen : innerVisible;
 
   const handleToggleVisible = useCallback(() => {
-    // @ts-expect-error
-    if (isVerticalLayout) navigation?.toggleDrawer?.();
+    if (isVerticalLayout) {
+      // @ts-expect-error
+      navigation?.toggleDrawer?.();
+    }
     setVisible((v) => !v);
   }, [navigation, isVerticalLayout]);
-
-  useEffect(() => {
-    setVisible(!!isDrawerOpen);
-  }, [isDrawerOpen]);
 
   const child = useMemo(() => {
     if (isVerticalLayout) {

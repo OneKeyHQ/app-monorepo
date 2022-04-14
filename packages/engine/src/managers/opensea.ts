@@ -8,7 +8,7 @@ import {
 } from '../types/opensea';
 
 // TODO: Move into env
-const OPENSEA_API_KEY = '9254ce052d7b49d8972757591909bda6';
+const OPENSEA_API_KEY = 'd7aa7bffcd224a318fef48e5de67f4d5';
 
 export const isCollectibleSupportedChainId = (
   chainId?: number | string | null,

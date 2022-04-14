@@ -40,7 +40,7 @@ const WatchedAccount: FC = () => {
   const { wallets } = useRuntime();
   const { closeDrawer } = useDrawer();
   const navigation = useNavigation<NavigationProps>();
-  const { serviceApp } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
 
   const defaultWalletName = useMemo(() => {
     const walletList = wallets.filter((wallet) => wallet.type === 'watching');
@@ -52,7 +52,7 @@ const WatchedAccount: FC = () => {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await serviceApp.addWatchAccount(
+      await serviceAccount.addWatchAccount(
         data.network,
         data.address,
         data.name || defaultWalletName,

@@ -36,7 +36,7 @@ const AddWatchAccount = () => {
   const { closeDrawer } = useDrawer();
   const { wallets } = useRuntime();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { serviceApp } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit } = useForm<AddWatchAccountValues>({
     defaultValues: { name: '' },
   });
@@ -53,7 +53,7 @@ const AddWatchAccount = () => {
   const onSubmit = useCallback(
     async (values: AddWatchAccountValues) => {
       try {
-        await serviceApp.addWatchAccount(
+        await serviceAccount.addWatchAccount(
           values.networkId,
           address,
           values.name || defaultWalletName,
@@ -70,7 +70,7 @@ const AddWatchAccount = () => {
     },
     [
       navigation,
-      serviceApp,
+      serviceAccount,
       defaultWalletName,
       address,
       toast,

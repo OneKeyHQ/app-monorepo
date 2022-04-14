@@ -25,13 +25,16 @@ type DoneProps = {
 };
 
 const Done: FC<DoneProps> = ({ password, mnemonic }) => {
-  const { serviceApp } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
   const navigation = useNavigation();
   const { closeDrawer } = useDrawer();
   const appNavigation = useAppNavigation();
   useEffect(() => {
     async function main() {
-      const wallet = await serviceApp.createHDWallet({ password, mnemonic });
+      const wallet = await serviceAccount.createHDWallet({
+        password,
+        mnemonic,
+      });
       closeDrawer();
       const inst = navigation.getParent() || navigation;
       inst.goBack();
@@ -48,7 +51,14 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
       }
     }
     main();
-  }, [navigation, password, serviceApp, mnemonic, appNavigation, closeDrawer]);
+  }, [
+    navigation,
+    password,
+    serviceAccount,
+    mnemonic,
+    appNavigation,
+    closeDrawer,
+  ]);
   return (
     <Center h="full" w="full">
       <Spinner size="lg" />

@@ -1,4 +1,6 @@
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import {
   updateAccountDetail,
   updateAccounts,
@@ -6,7 +8,10 @@ import {
   updateWallets,
 } from '@onekeyhq/kit/src/store/reducers/runtime';
 
+import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
+import { setEnableAppLock } from '../../store/reducers/settings';
+import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
@@ -20,7 +25,7 @@ class ServiceAccount extends ServiceBase {
     walletId,
   }: {
     accountId: string | null;
-    walletId: string;
+    walletId: string | null;
   }) {
     const { dispatch, appSelector } = this.backgroundApi;
     const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
@@ -80,11 +85,11 @@ class ServiceAccount extends ServiceBase {
 
     let accountId: string | null = null;
     if (wallet && activeNetworkId && wallet.accounts.length > 0) {
-      const account = await engine.getAccount(
-        wallet.accounts[0],
+      const account = await engine.getAccounts(
+        wallet.accounts,
         activeNetworkId,
       );
-      accountId = account?.id ?? null;
+      accountId = account?.[0].id ?? null;
     }
     serviceAccount.changeActiveAccount({
       accountId,
@@ -102,6 +107,183 @@ class ServiceAccount extends ServiceBase {
       },
     );
     this.backgroundApi.walletConnect.notifySessionChanged();
+  }
+
+  @backgroundMethod()
+  initCheckingWallet(wallets: Wallet[]): string | null {
+    const { appSelector } = this.backgroundApi;
+    // first time read from local storage
+    const previousWalletId: string = appSelector(
+      (s) => s.general.activeWalletId,
+    );
+    const isValidNetworkId = wallets.some(
+      (wallet) => wallet.id === previousWalletId,
+    );
+    if (!previousWalletId || !isValidNetworkId) {
+      return wallets[0]?.id ?? null;
+    }
+    return previousWalletId;
+  }
+
+  @backgroundMethod()
+  async autoChangeWallet() {
+    const { engine, serviceAccount, appSelector } = this.backgroundApi;
+    const wallets = await this.initWallets();
+
+    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    let wallet: Wallet | null =
+      wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
+    let account: Account | null = null;
+    if (wallet) {
+      account = await engine.getAccount(wallet.accounts?.[0], activeNetworkId);
+    } else if (wallets.length > 0) {
+      const $wallet = wallets[0];
+      wallet = $wallet;
+    }
+    serviceAccount.changeActiveAccount({
+      accountId: account?.id ?? null,
+      walletId: wallet?.id ?? null,
+    });
+  }
+
+  @backgroundMethod()
+  async createHDWallet({
+    password,
+    mnemonic,
+  }: {
+    password: string;
+    mnemonic?: string;
+  }) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const wallet = await engine.createHDWallet(password, mnemonic);
+    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
+    dispatch(unlock());
+    dispatch(mUnlock());
+
+    await this.initWallets();
+    const accountId = wallet.accounts?.[0] ?? null;
+    serviceAccount.changeActiveAccount({
+      accountId,
+      walletId: wallet.id,
+    });
+    return wallet;
+  }
+
+  @backgroundMethod()
+  async addHDAccounts(
+    password: string,
+    walletId: string,
+    networkId: string,
+    index?: number[],
+    name?: string[],
+  ) {
+    const { engine, dispatch } = this.backgroundApi;
+    const accounts = await engine.addHDAccounts(
+      password,
+      walletId,
+      networkId,
+      index,
+      name,
+    );
+
+    if (!accounts.length) return;
+
+    const activeAccount = accounts[0];
+    await this.initWallets();
+    await this.reloadAccountsByWalletIdNetworkId(walletId, networkId);
+
+    dispatch(
+      setActiveIds({
+        activeAccountId: activeAccount.id,
+        activeWalletId: walletId,
+        activeNetworkId: networkId,
+      }),
+    );
+    return accounts;
+  }
+
+  @backgroundMethod()
+  async addImportedAccount(
+    password: string,
+    networkId: string,
+    credential: string,
+    name?: string,
+  ) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const account = await engine.addImportedAccount(
+      password,
+      networkId,
+      credential,
+      name,
+    );
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
+    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    if (!data.isPasswordSet) {
+      dispatch(passwordSet());
+      dispatch(setEnableAppLock(true));
+    }
+    dispatch(unlock());
+    dispatch(mUnlock());
+
+    const wallets = await serviceAccount.initWallets();
+    const watchedWallet = wallets.find((wallet) => wallet.type === 'imported');
+    if (!watchedWallet) return;
+    await serviceAccount.reloadAccountsByWalletIdNetworkId(
+      watchedWallet?.id,
+      networkId,
+    );
+
+    dispatch(
+      setActiveIds({
+        activeAccountId: account.id,
+        activeWalletId: watchedWallet.id,
+        activeNetworkId: networkId,
+      }),
+    );
+    return account;
+  }
+
+  @backgroundMethod()
+  async addWatchAccount(networkId: string, address: string, name: string) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const account = await engine.addWatchingAccount(networkId, address, name);
+
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
+    dispatch(unlock());
+    dispatch(mUnlock());
+
+    const wallets = await serviceAccount.initWallets();
+    const watchedWallet = wallets.find((wallet) => wallet.type === 'watching');
+    if (!watchedWallet) return;
+    await serviceAccount.reloadAccountsByWalletIdNetworkId(
+      watchedWallet?.id,
+      networkId,
+    );
+
+    dispatch(
+      setActiveIds({
+        activeAccountId: account.id,
+        activeWalletId: watchedWallet.id,
+        activeNetworkId: networkId,
+      }),
+    );
   }
 }
 
