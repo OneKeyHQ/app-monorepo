@@ -1,9 +1,6 @@
 import RNRestart from 'react-native-restart';
 
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
-import { updateNetworks } from '@onekeyhq/kit/src/store/reducers/runtime';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
