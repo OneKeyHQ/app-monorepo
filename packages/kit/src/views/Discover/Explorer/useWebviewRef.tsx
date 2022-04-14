@@ -11,8 +11,8 @@ export const useWebviewRef = (
 ) => {
   const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
   const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
-  const [currentTitle, setCurrentTitle] = useState('');
-  const [currentUrl, setCurrentUrl] = useState('');
+  const [currentTitle, setCurrentTitle] = useState<string>();
+  const [currentUrl, setCurrentUrl] = useState<string>();
 
   useEffect(() => {
     // RN Webview
@@ -49,10 +49,27 @@ export const useWebviewRef = (
           setCurrentUrl(webViewRef?.innerRef?.getURL());
         };
 
+        const handleStartLoadingMessage = (event: any) => {
+          console.log('did-finish-load event:', event);
+          setCurrentTitle(undefined);
+
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          setCurrentUrl(webViewRef?.innerRef?.getURL());
+        };
+
         console.log('RN WebView addEventListener', !!electronWebView);
 
+        electronWebView.addEventListener(
+          'did-start-loading',
+          handleStartLoadingMessage,
+        );
         electronWebView.addEventListener('did-finish-load', handleMessage);
         return () => {
+          electronWebView.removeEventListener(
+            'did-start-loading',
+            handleStartLoadingMessage,
+          );
           electronWebView.removeEventListener('did-finish-load', handleMessage);
         };
       } catch (error) {

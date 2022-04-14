@@ -139,7 +139,16 @@ const Explorer: FC = () => {
   };
 
   useEffect(() => {
-    setSearchContent(displayInitialPage ? '' : webUrl ?? currentUrl ?? '');
+    let content: string;
+    if (displayInitialPage) {
+      content = '';
+    } else if (webUrl && webUrl.trim() !== '') {
+      content = webUrl;
+    } else {
+      content = currentUrl ?? '';
+    }
+
+    setSearchContent(content);
   }, [currentUrl, webUrl, displayInitialPage]);
 
   const onSearchSubmitEditing = (dapp: DAppItemType | string) => {
@@ -176,7 +185,8 @@ const Explorer: FC = () => {
 
   const onNext = () => {
     if (displayInitialPage === true) {
-      gotoUrl(currentUrl);
+      // gotoUrl(currentUrl);
+      setDisplayInitialPage(false);
     } else {
       goForward();
     }
