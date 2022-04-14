@@ -41,6 +41,8 @@ export type ExplorerViewProps = {
   showExplorerBar?: boolean;
 };
 
+let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
+
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -70,7 +72,7 @@ const Explorer: FC = () => {
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
 
   const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
-  const [dappOpenPayload, setDappOpenPayload] = useState<DAppItemType>();
+
   const [refreshKey, setRefreshKey] = useState<string>();
 
   const isSmallLayout = useIsSmallLayout();
@@ -83,19 +85,19 @@ const Explorer: FC = () => {
     }
   }, []);
 
-  const gotoUrl = (item: (string | DAppItemType) | undefined) => {
+  const gotoUrl = async (item: (string | DAppItemType) | undefined) => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       if (typeof item === 'string') {
         openBrowser.openUrl(item);
       } else {
         openBrowser.openUrl(item?.url ?? '');
       }
-      return;
+      return false;
     }
 
     if (!item || (typeof item === 'string' && item.trim().length === 0)) {
       setDisplayInitialPage(true);
-      return;
+      return false;
     }
 
     if (typeof item === 'string') {
@@ -103,14 +105,37 @@ const Explorer: FC = () => {
       if (item !== currentUrl) {
         setCurrentUrl(item ?? '');
       }
-    } else if (!discover.firstRemindDAPP) {
-      setDappOpenPayload(item);
+      return true;
+    }
+
+    if (discover.firstRemindDAPP) {
       setShowDappOpenHint(true);
-    } else if (item) {
+
+      const isConfirm = await new Promise<boolean>((resolve) => {
+        dappOpenConfirm = resolve;
+      });
+
+      if (isConfirm) {
+        setDisplayInitialPage(false);
+        if (item?.url !== currentUrl) {
+          setCurrentUrl(item?.url ?? '');
+        }
+        if (item) {
+          dispatch(updateFirstRemindDAPP(false));
+          dispatch(updateHistory(item.id));
+        }
+        return true;
+      }
+      return false;
+    }
+
+    if (item) {
       setDisplayInitialPage(false);
       setCurrentUrl(item.url ?? '');
       dispatch(updateHistory(item.id));
+      return true;
     }
+    return false;
   };
 
   useEffect(() => {
@@ -206,11 +231,7 @@ const Explorer: FC = () => {
     () => (
       <Box flex={1}>
         {displayInitialPage ? (
-          <Home
-            onItemSelect={(item) => {
-              gotoUrl(item);
-            }}
-          />
+          <Home onItemSelect={(item) => gotoUrl(item)} />
         ) : (
           <WebView
             src={currentUrl ?? ''}
@@ -277,18 +298,14 @@ const Explorer: FC = () => {
         )}
       </Box>
       <DappOpenHintDialog
-        payload={dappOpenPayload}
         visible={showDappOpenHint}
-        onVisibleChange={setShowDappOpenHint}
-        onAgree={(payload) => {
-          setDisplayInitialPage(false);
-          if (payload?.url !== currentUrl) {
-            setCurrentUrl(payload?.url ?? '');
-          }
-          if (payload) {
-            dispatch(updateFirstRemindDAPP(true));
-            dispatch(updateHistory(payload.id));
-          }
+        onVisibilityChange={() => {
+          setShowDappOpenHint(false);
+          dappOpenConfirm = undefined;
+        }}
+        onConfirm={() => {
+          setShowDappOpenHint(false);
+          dappOpenConfirm?.(true);
         }}
       />
     </>

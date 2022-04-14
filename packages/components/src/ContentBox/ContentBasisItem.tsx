@@ -49,6 +49,7 @@ const Item: FC<ContentItemProps> = ({
       alignItems="center"
     >
       <Text
+        flex={!!children || !!describe ? 0 : 1}
         h="100%"
         color={titleColor ?? 'text-subdued'}
         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
@@ -56,7 +57,7 @@ const Item: FC<ContentItemProps> = ({
         {title}
       </Text>
       <Box
-        flex={1}
+        flex={!!children || !!describe ? 1 : 0}
         ml={3}
         flexDirection="column"
         flexWrap="wrap"

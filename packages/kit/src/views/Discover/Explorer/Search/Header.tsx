@@ -11,7 +11,7 @@ import {
   Spinner,
   Typography,
 } from '@onekeyhq/components';
-import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
+import IconNoHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 
 import type { DAppItemType } from '../../type';
 
@@ -72,6 +72,7 @@ const Header: FC<HeaderProps> = ({
           defaultMessage: 'Search Tokens',
         })}
         mb="6"
+        autoFocus
         value={keyword}
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
@@ -107,15 +108,19 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       </Center>
     );
   }
-  return terms.length ? (
-    <Empty
-      imageUrl={IconSearch}
-      title={intl.formatMessage({
-        id: 'content__no_results',
-        defaultMessage: 'No Result',
-      })}
-    />
-  ) : null;
+  return terms.length ? null : (
+    <Box pt={12}>
+      <Empty
+        imageUrl={IconNoHistory}
+        title={intl.formatMessage({
+          id: 'title__no_history',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'title__no_history_desc',
+        })}
+      />
+    </Box>
+  );
 };
 
 export { Header, ListEmptyComponent };
