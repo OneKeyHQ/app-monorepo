@@ -36,7 +36,7 @@ type NavigationProps = NativeStackNavigationProp<
 type PageStatusType = 'network' | 'loading' | 'data';
 
 type DiscoverProps = {
-  onItemSelect: (item: DAppItemType) => void;
+  onItemSelect: (item: DAppItemType) => Promise<boolean>;
 };
 const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
   const intl = useIntl();
@@ -58,7 +58,8 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
 
     setDappHistory(
       dappHistoryArray.sort(
-        (a, b) => (history[b.id] ?? 0) - (history[a.id] ?? 0),
+        (a, b) =>
+          (history[b.id]?.timestamp ?? 0) - (history[a.id]?.timestamp ?? 0),
       ),
     );
   }, [history, syncData.increment]);
