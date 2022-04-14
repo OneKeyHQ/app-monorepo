@@ -3,6 +3,7 @@
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  IDecodedTx,
   IEncodedTxAny,
   IFeeInfo,
   IFeeInfoUnit,
@@ -58,7 +59,7 @@ export abstract class VaultBase extends VaultContext {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxAny>;
 
-  abstract decodeTx(encodedTx: IEncodedTxAny): Promise<any>;
+  abstract decodeTx(encodedTx: IEncodedTxAny): Promise<IDecodedTx>;
 
   abstract buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,

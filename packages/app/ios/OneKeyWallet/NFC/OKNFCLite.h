@@ -33,7 +33,8 @@ typedef NS_ENUM(NSInteger, OKNFCLiteSetMncStatus) {
     OKNFCLiteSetMncStatusSuccess = 0,
     OKNFCLiteSetMncStatusSNNotMatch,
     OKNFCLiteSetMncStatusPinNotMatch,
-    OKNFCLiteSetMncStatusWiped
+    OKNFCLiteSetMncStatusWiped,
+    OKNFCLiteSetMncStatusCancel
 };
 
 typedef NS_ENUM(NSInteger, OKNFCLiteGetMncStatus) {
@@ -41,7 +42,8 @@ typedef NS_ENUM(NSInteger, OKNFCLiteGetMncStatus) {
     OKNFCLiteGetMncStatusSuccess = 0,
     OKNFCLiteGetMncStatusSNNotMatch,
     OKNFCLiteGetMncStatusPinNotMatch,
-    OKNFCLiteGetMncStatusWiped
+    OKNFCLiteGetMncStatusWiped,
+    OKNFCLiteGetMncStatusCancel,
 };
 
 typedef NS_ENUM(NSInteger, OKNFCLiteChangePinStatus) {
