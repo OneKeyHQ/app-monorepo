@@ -18,7 +18,7 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { updateWallet } from '@onekeyhq/kit/src/store/reducers/wallet';
+import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';

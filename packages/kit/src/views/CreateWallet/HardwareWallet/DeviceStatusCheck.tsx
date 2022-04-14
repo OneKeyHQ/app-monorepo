@@ -53,7 +53,7 @@ const DeviceStatusCheckModal: FC = () => {
           const accounts = await engine.addHDAccounts(
             'Undefined',
             wallet.id,
-            network.network.id,
+            network.id,
           );
           if (accounts.length > 0) {
             const $account = accounts[0];
@@ -63,10 +63,10 @@ const DeviceStatusCheckModal: FC = () => {
           console.log(e);
         }
 
-        serviceAccount.changeActiveAccount({
-          account,
-          wallet,
-        });
+        // serviceAccount.changeActiveAccount({
+        //   account,
+        //   wallet,
+        // });
 
         if (navigation.canGoBack()) {
           navigation.goBack();

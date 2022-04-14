@@ -16,7 +16,7 @@ import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useGeneral } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks/redux';
 import { useToast } from '../../hooks/useToast';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -38,7 +38,8 @@ type ListItem = { label: string; value: string };
 export type IViewTokenModalProps = ModalProps;
 function ViewTokenModal(props: IViewTokenModalProps) {
   const [balance, setBalance] = useState<string | undefined>();
-  const { activeAccount, activeNetwork } = useGeneral();
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
   const intl = useIntl();
   const {
     params: { name, symbol, decimal, address, logoURI },
@@ -90,7 +91,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       if (activeAccount && activeNetwork) {
         const res = await backgroundApiProxy.engine.preAddToken(
           activeAccount?.id,
-          activeNetwork.network.id,
+          activeNetwork.id,
           address,
         );
         if (res?.[0]) {
@@ -179,7 +180,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
 
 function AddTokenModal() {
   const { info } = useToast();
-  const { activeAccount, activeNetwork } = useGeneral();
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const {
@@ -191,7 +193,7 @@ function AddTokenModal() {
     if (activeAccount && activeNetwork) {
       await backgroundApiProxy.engine.quickAddToken(
         activeAccount.id,
-        activeNetwork.network.id,
+        activeNetwork.id,
         address,
       );
       info(

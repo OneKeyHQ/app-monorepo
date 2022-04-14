@@ -34,6 +34,8 @@ function Mobile<T>({
     <Modal
       propagateSwipe
       hideModalContentWhileAnimating
+      useNativeDriver
+      useNativeDriverForBackdrop
       isVisible={!!visible}
       onModalHide={onModalHide}
       swipeDirection={['down']}

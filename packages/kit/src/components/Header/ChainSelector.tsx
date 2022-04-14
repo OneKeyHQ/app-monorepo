@@ -14,10 +14,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../hooks';
@@ -40,50 +37,15 @@ const ChainSelector: FC = () => {
   const navigation = useNavigation<NavigationProps>();
 
   const { enabledNetworks } = useManageNetworks();
-  const { wallet } = useActiveWalletAccount();
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
+  const { network: activeNetwork } = useActiveWalletAccount();
+
   const { screenWidth } = useUserDevice();
   const handleActiveChainChange = useCallback(
-    async (id) => {
+    (id) => {
       if (!enabledNetworks) return null;
-
-      let selectedNetwork: Network | null = null;
-      let selectedSharedChainName: string | null = null;
-      enabledNetworks.forEach((network) => {
-        if (network.id === id) {
-          selectedNetwork = network;
-          selectedSharedChainName = network.impl;
-        }
-      });
-      if (selectedNetwork && selectedSharedChainName) {
-        backgroundApiProxy.serviceNetwork.changeActiveNetwork({
-          network: selectedNetwork,
-          sharedChainName: selectedSharedChainName,
-        });
-
-        // @ts-expect-error
-        if (activeNetwork?.network.impl === selectedNetwork?.impl) return;
-        if (!wallet) return;
-        const currentWalletAccounts = wallet.accounts;
-        if (!currentWalletAccounts || !currentWalletAccounts?.length) {
-          backgroundApiProxy.serviceAccount.changeActiveAccount({
-            account: null,
-            wallet,
-          });
-          return;
-        }
-        const accounts = await backgroundApiProxy.engine.getAccounts(
-          currentWalletAccounts,
-          id,
-        );
-        const targetAccount = accounts[0];
-        backgroundApiProxy.serviceAccount.changeActiveAccount({
-          account: targetAccount,
-          wallet,
-        });
-      }
+      backgroundApiProxy.serviceNetwork.changeActiveNetwork(id);
     },
-    [enabledNetworks, wallet, activeNetwork?.network.impl],
+    [enabledNetworks],
   );
 
   const options = useMemo(() => {
@@ -107,12 +69,11 @@ const ChainSelector: FC = () => {
         positionTranslateY={8}
         dropdownPosition="right"
         dropdownProps={{ w: '64' }}
-        value={activeNetwork ? activeNetwork?.network?.id : undefined}
+        value={activeNetwork ? activeNetwork?.id : undefined}
         onChange={handleActiveChainChange}
         title={intl.formatMessage({ id: 'network__networks' })}
         options={options}
         isTriggerPlain
-        // footer={null}
         footerText={intl.formatMessage({ id: 'action__customize_network' })}
         footerIcon="PencilSolid"
         onPressFooter={() => {

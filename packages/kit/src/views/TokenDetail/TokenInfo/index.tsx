@@ -18,6 +18,7 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -25,17 +26,15 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
+import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useManageTokens } from '../../../hooks/useManageTokens';
-import { Network } from '../../../store/reducers/network';
-import extUtils from '../../../utils/extUtils';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
   token: TokenDO | null | undefined;
-  network: Network | null | undefined;
+  network: INetwork | null | undefined;
 };
 
 const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {

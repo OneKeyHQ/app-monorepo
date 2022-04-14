@@ -92,8 +92,8 @@ const Send = () => {
         address: (account as { address: string }).address,
       },
       network: {
-        id: network?.network.id ?? '',
-        name: network?.network.name ?? '',
+        id: network?.id ?? '',
+        name: network?.name ?? '',
       },
       token: {
         idOnNetwork: token.tokenIdOnNetwork,
@@ -126,8 +126,8 @@ const Send = () => {
     id,
     isInvalidParams,
     navigation,
-    network?.network.id,
-    network?.network.name,
+    network?.id,
+    network?.name,
     to,
     token.logoURI,
     token.name,

@@ -109,7 +109,7 @@ const MainScreen = () => {
       dispatch(refreshLastActivity());
     }
   }, [dispatch]);
-  useInterval(refresh, 5 * 1000);
+  useInterval(refresh, 30 * 1000);
 
   const onChange = useCallback(
     (state: AppStateStatus) => {

@@ -16,16 +16,15 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import WalletAvatar from '../../../components/Header/WalletAvatar';
-import { useToast } from '../../../hooks/useToast';
-import { updateWallet } from '../../../store/reducers/wallet';
 
 type FieldValues = { name: string };
 

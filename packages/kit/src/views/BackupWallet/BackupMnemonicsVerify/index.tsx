@@ -5,16 +5,15 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { updateWallet } from '../../../store/reducers/wallet';
 
 type RouteProps = RouteProp<
   BackupWalletRoutesParams,

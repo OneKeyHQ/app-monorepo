@@ -249,10 +249,7 @@ const Home: FC = () => {
           name={TabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
-          <CollectiblesList
-            address={account?.address}
-            network={network?.network}
-          />
+          <CollectiblesList address={account?.address} network={network} />
         </Tabs.Tab>
         <Tabs.Tab
           name={TabEnum.History}
@@ -260,7 +257,7 @@ const Home: FC = () => {
         >
           <HistoricalRecord
             accountId={account?.id}
-            networkId={network?.network?.id}
+            networkId={network?.id}
             isTab
           />
         </Tabs.Tab>

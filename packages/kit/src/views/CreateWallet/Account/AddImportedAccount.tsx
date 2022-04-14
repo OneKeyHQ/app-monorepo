@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Form, Modal, useForm } from '@onekeyhq/components';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -30,7 +30,7 @@ const AddImportedAccount = () => {
     params: { privatekey, selectableNetworks },
   } = useRoute<RouteProps>();
   const intl = useIntl();
-  const wallets = useAppSelector((s) => s.wallet.wallets);
+  const { wallets } = useRuntime();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const defaultWalletName = useMemo(() => {

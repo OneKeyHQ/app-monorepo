@@ -15,7 +15,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -76,7 +76,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
   // const navigation = useNavigation<NavigationProps['navigation']>();
   const navigation = useAppNavigation();
 
-  const wallets = useAppSelector((s) => s.wallet.wallets);
+  const { wallets } = useRuntime();
 
   const importedWallet = wallets.filter((w) => w.type === 'imported')[0];
   const watchingWallet = wallets.filter((w) => w.type === 'watching')[0];

@@ -16,6 +16,7 @@ export type ManagerAccountRoutesParams = {
     walletId: string;
     accountId: string;
     networkId: string;
+    refreshAccounts: () => void;
   };
   [ManagerAccountModalRoutes.ManagerAccountExportPrivateModal]: {
     accountId: string;

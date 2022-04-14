@@ -7,7 +7,7 @@ import { Form, Modal, useForm } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -34,7 +34,7 @@ const AddWatchAccount = () => {
   } = useRoute<RouteProps>();
   const toast = useToast();
   const { closeDrawer } = useDrawer();
-  const wallets = useAppSelector((s) => s.wallet.wallets);
+  const { wallets } = useRuntime();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { serviceApp } = backgroundApiProxy;
   const { control, handleSubmit } = useForm<AddWatchAccountValues>({

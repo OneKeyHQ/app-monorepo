@@ -64,7 +64,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
             .then(async (wallet) => {
               await engine.removeWallet(walletId, password ?? '');
               if (activeWallet?.id === walletId) {
-                await serviceApp.autoChangeWallet();
+                // await serviceApp.autoChangeWallet();
               }
               dispatch(setRefreshTS());
               toast.info(
