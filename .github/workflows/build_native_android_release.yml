@@ -31,7 +31,15 @@ jobs:
           expo-token: ${{ secrets.EXPO_TOKEN }}
           expo-cache: true
 
-      - name: 'Setup ENV'
+      - name: Setup ENV BUILD_NUMBER to 1
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          # Generate build number ------- start
+          echo "BUILD_NUMBER=1" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+      - name: Setup ENV BUILD_NUMBER by workflow_run
+        if: ${{ github.event.workflow_run }}
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
 
@@ -60,10 +68,13 @@ jobs:
           versionName: ${{ steps.dotenv.outputs.version }}
           android_dir: ./packages/app
 
-      - name: Build on EAS
+      - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+
+      - name: Build on EAS
+        run: |
           cd packages/app
-          npx eas-cli build --profile=production --platform android --non-interactive --no-wait > eas-build.log
+          npx eas-cli build --profile=production --platform android --non-interactive --no-wait
           npx eas-cli build --profile=production-store --platform android --non-interactive --no-wait
