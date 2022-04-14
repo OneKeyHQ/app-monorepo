@@ -22,6 +22,7 @@ import {
 } from '../../../types/vault';
 import { VaultBase } from '../../VaultBase';
 
+import { EVMDecodedItem, EVMTxDecoder } from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -113,20 +114,15 @@ export default class Vault extends VaultBase {
     return this.signAndSendTransaction(unsignedTx, options);
   }
 
-  async decodeTx(encodedTx: IEncodedTxAny): Promise<any> {
+  override async decodeTx(encodedTx: IEncodedTxAny): Promise<EVMDecodedItem> {
     const ethersTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as ethers.Transaction;
 
-    // call engine RPC here
-    // this.engine.proxyRPCCall(this.networkId,{ ... })
-
-    return {
-      type: IDecodedTxEvmType.NativeTransfer,
-      amount: ethers.utils.formatEther(ethersTx.value),
-      // DO NOT RETURN nativeTx which is NOT serializable
-      nativeTx: ethersTx,
-    };
+    if (!Number.isFinite(ethersTx.chainId)) {
+      ethersTx.chainId = Number(await this.getNetworkChainId());
+    }
+    return EVMTxDecoder.decode(ethersTx, this.engine);
   }
 
   async buildEncodedTxFromTransfer(
