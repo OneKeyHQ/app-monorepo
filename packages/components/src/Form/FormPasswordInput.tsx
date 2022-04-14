@@ -29,6 +29,7 @@ export const FormPasswordInput: FC<
           name={rightIconName}
           size="xl"
           type="plain"
+          focusable={false}
         />
       }
       {...props}

@@ -78,7 +78,9 @@ const SearchView: FC<SearchViewProps> = ({
         <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
           {item.name}
         </Text>
-        <Typography.Body2 color="text-subdued">{item.url}</Typography.Body2>
+        <Typography.Body2 numberOfLines={1} color="text-subdued">
+          {item.url}
+        </Typography.Body2>
       </HStack>
     </Pressable.Item>
   );

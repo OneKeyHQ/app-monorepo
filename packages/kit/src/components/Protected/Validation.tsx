@@ -79,7 +79,11 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
             },
           }}
         >
-          <Form.PasswordInput autoFocus />
+          <Form.PasswordInput
+            autoFocus
+            // press enter key to submit
+            onSubmitEditing={onSubmit}
+          />
         </Form.Item>
         <Button type="primary" size="xl" onPress={onSubmit}>
           {intl.formatMessage({

@@ -538,7 +538,7 @@ class Engine {
     const [dbAccount, network, tokens] = await Promise.all([
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
-      this.getTokens(networkId, accountId, false),
+      this.getTokens(networkId, undefined, false),
     ]);
     const decimalsMap: Record<string, number> = {};
     tokens.forEach((token) => {
@@ -1058,7 +1058,6 @@ class Engine {
     // Get token info by network and account.
     const tokens = await this.dbApi.getTokens(networkId, accountId);
     if (typeof accountId !== 'undefined') {
-      // TODO: add default tokens.
       if (withMain) {
         const dbNetwork = await this.dbApi.getNetwork(networkId);
         tokens.unshift({

@@ -155,12 +155,18 @@ const DAppList: FC = () => {
   }, [navigation, title]);
   const callback = useCallback(
     (item: DAppItemType) => {
-      if (platformEnv.isDesktop || platformEnv.isNative) {
-        navigation.goBack();
-      }
-      if (onItemSelect) {
-        onItemSelect(item);
-      }
+      (async () => {
+        if (onItemSelect) {
+          // iOS 弹窗无法展示在 modal 上面提前返回
+          if (platformEnv.isIOS) {
+            navigation.goBack();
+          }
+          const agree = await onItemSelect(item);
+          if (agree && (platformEnv.isDesktop || platformEnv.isAndroid)) {
+            navigation.goBack();
+          }
+        }
+      })();
     },
     [navigation, onItemSelect],
   );
