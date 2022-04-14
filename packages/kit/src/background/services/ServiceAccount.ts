@@ -120,7 +120,9 @@ class ServiceAccount extends ServiceBase {
       (wallet) => wallet.id === previousWalletId,
     );
     if (!previousWalletId || !isValidNetworkId) {
-      return wallets[0]?.id ?? null;
+      const defaultWallet =
+        wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
+      return defaultWallet?.id ?? null;
     }
     return previousWalletId;
   }
@@ -284,6 +286,24 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+  }
+
+  @backgroundMethod()
+  initCheckingAccount(accounts?: Account[]): string | null {
+    if (!accounts) return null;
+
+    const { appSelector } = this.backgroundApi;
+    // first time read from local storage
+    const previousAccountId: string = appSelector(
+      (s) => s.general.activeAccountId,
+    );
+    const isValidAccountId = accounts.some(
+      (account) => account.id === previousAccountId,
+    );
+    if (!previousAccountId || !isValidAccountId) {
+      return accounts[0]?.id ?? null;
+    }
+    return previousAccountId;
   }
 }
 

@@ -61,10 +61,18 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async initNetworks() {
+    const { engine } = this.backgroundApi;
+    await engine.syncPresetNetworks();
+    return this.fetchNetworks();
+  }
+
+  @backgroundMethod()
   async fetchNetworks() {
     const { engine, dispatch } = this.backgroundApi;
     const networks = await engine.listNetworks(false);
     dispatch(updateNetworks(networks));
+    return networks;
   }
 
   @backgroundMethod()
@@ -112,6 +120,22 @@ class ServiceNetwork extends ServiceBase {
   async getRPCEndpointStatus(rpcURL: string, impl: string) {
     const { engine } = this.backgroundApi;
     return engine.getRPCEndpointStatus(rpcURL, impl);
+  }
+
+  @backgroundMethod()
+  initCheckingNetwork(networks: Network[]): string | null {
+    const { appSelector } = this.backgroundApi;
+    // first time read from local storage
+    const previousActiveNetworkId: string = appSelector(
+      (s) => s.general.activeNetworkId,
+    );
+    const isValidNetworkId = networks.some(
+      (network) => network.id === previousActiveNetworkId,
+    );
+    if (!previousActiveNetworkId || !isValidNetworkId) {
+      return networks[0]?.id ?? null;
+    }
+    return previousActiveNetworkId;
   }
 }
 

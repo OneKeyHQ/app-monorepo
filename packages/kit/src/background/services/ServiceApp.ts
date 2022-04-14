@@ -68,13 +68,13 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async initApp() {
-    const { dispatch, serviceAccount } = this.backgroundApi;
+    const { dispatch, serviceAccount, serviceNetwork } = this.backgroundApi;
     await this.initPassword();
     await this.initLocalAuthentication();
 
-    const networks = await this.initNetworks();
+    const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();
-    const activeNetworkId = this.initCheckingNetwork(networks);
+    const activeNetworkId = serviceNetwork.initCheckingNetwork(networks);
     const activeWalletId = serviceAccount.initCheckingWallet(wallets);
 
     const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
@@ -82,7 +82,7 @@ class ServiceApp extends ServiceBase {
       activeNetworkId,
     );
 
-    const activeAccountId = this.initCheckingAccount(accounts);
+    const activeAccountId = serviceAccount.initCheckingAccount(accounts);
     dispatch(
       setActiveIds({
         activeAccountId,
@@ -90,49 +90,6 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
-  }
-
-  @backgroundMethod()
-  async initNetworks() {
-    const { engine, dispatch } = this.backgroundApi;
-    await engine.syncPresetNetworks();
-    const networksFromBE = await engine.listNetworks(false);
-    dispatch(updateNetworks(networksFromBE));
-    return networksFromBE;
-  }
-
-  @backgroundMethod()
-  initCheckingNetwork(networks: Network[]): string | null {
-    const { appSelector } = this.backgroundApi;
-    // first time read from local storage
-    const previousActiveNetworkId: string = appSelector(
-      (s) => s.general.activeNetworkId,
-    );
-    const isValidNetworkId = networks.some(
-      (network) => network.id === previousActiveNetworkId,
-    );
-    if (!previousActiveNetworkId || !isValidNetworkId) {
-      return networks[0]?.id ?? null;
-    }
-    return previousActiveNetworkId;
-  }
-
-  @backgroundMethod()
-  initCheckingAccount(accounts?: Account[]): string | null {
-    if (!accounts) return null;
-
-    const { appSelector } = this.backgroundApi;
-    // first time read from local storage
-    const previousAccountId: string = appSelector(
-      (s) => s.general.activeAccountId,
-    );
-    const isValidAccountId = accounts.some(
-      (account) => account.id === previousAccountId,
-    );
-    if (!previousAccountId || !isValidAccountId) {
-      return accounts[0]?.id ?? null;
-    }
-    return previousAccountId;
   }
 
   @backgroundMethod()

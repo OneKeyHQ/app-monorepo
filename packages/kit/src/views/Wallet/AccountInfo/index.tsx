@@ -48,7 +48,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const toast = useToast();
   const { account, network: activeNetwork } = useActiveWalletAccount();
   const { prices, nativeToken } = useManageTokens({
-    pollingInterval: 10000,
+    pollingInterval: 5000,
   });
 
   const copyContentToClipboard = useCallback(
