@@ -119,7 +119,7 @@ const Provider: FC<UIProviderProps> = ({ children, themeVariant, locale }) => {
             defaultProps: {
               // in CSS: packages/shared/src/web/index.css
               // show/hide scrollbar
-              showsVerticalScrollIndicator: true,
+              showsVerticalScrollIndicator: false,
             },
           },
         },
