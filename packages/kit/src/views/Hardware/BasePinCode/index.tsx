@@ -26,7 +26,7 @@ const HardwarePinCode: FC<HardwarePinCodeViewProp> = ({
   onComplete,
 }) => (
   <Modal header="PIN" footer={null}>
-    <KeyboardAvoidingView flex={1}>
+    <KeyboardAvoidingView flex={1} keyboardVerticalOffset={120}>
       <Box
         flexDirection="column"
         alignItems="center"
