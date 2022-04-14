@@ -10,7 +10,6 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
-import { reload } from '@onekeyhq/kit/src/utils/helper';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -22,7 +21,6 @@ const ResetButton = () => {
   const onReset = useCallback(async () => {
     await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
-    reload();
   }, []);
 
   const onOpenResetModal = useCallback(async () => {

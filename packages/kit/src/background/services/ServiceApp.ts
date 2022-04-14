@@ -10,16 +10,24 @@ import {
 } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { updateWallet, updateWallets } from '../../store/reducers/wallet';
+import { reload } from '../../utils/helper';
 import {
   getPassword,
   hasHardwareSupported,
 } from '../../utils/localAuthentication';
 import { backgroundClass, backgroundMethod } from '../decorators';
+import { delay } from '../utils';
 
-import ServiceBase from './ServiceBase';
+import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    // TODO recheck last reset status and resetApp here
+    console.log('TODO: recheck last reset status and resetApp here');
+  }
+
   @backgroundMethod()
   async resetApp() {
     const { engine, dispatch, persistor, serviceNetwork, serviceAccount } =
@@ -31,6 +39,11 @@ class ServiceApp extends ServiceBase {
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();
+
+    // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
+    await delay(1500);
+    // reload() MUST be called from background in Ext
+    reload();
   }
 
   @backgroundMethod()

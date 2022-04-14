@@ -23,10 +23,11 @@ export const reload = () => {
   if (platformEnv.isDesktop) {
     return window.desktopApi?.reload?.();
   }
-  if (platformEnv.isExtension) {
+  // reload() MUST be called from background in Ext, UI reload will close whole Browser
+  if (platformEnv.isExtensionBackground) {
     return chrome.runtime.reload();
   }
-  if (platformEnv.isWeb && typeof window !== 'undefined') {
+  if (platformEnv.isBrowser) {
     return window?.location?.reload?.();
   }
 };
