@@ -41,7 +41,7 @@ import { SectionDataType } from './type';
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ExploreScreen>;
 
 type DiscoverProps = {
-  onItemSelect: (item: DAppItemType) => void;
+  onItemSelect: (item: DAppItemType) => Promise<boolean>;
 };
 
 const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
@@ -122,7 +122,7 @@ export const Discover: FC<DiscoverProps> = ({
   onItemSelect: propOnItemSelect,
   ...rest
 }) => {
-  let onItemSelect: ((item: DAppItemType) => void) | undefined;
+  let onItemSelect: ((item: DAppItemType) => Promise<boolean>) | undefined;
   const route = useRoute<RouteProps>();
   if (platformEnv.isIOS) {
     const { onItemSelect: routeOnItemSelect } = route.params;
@@ -150,14 +150,14 @@ export const Discover: FC<DiscoverProps> = ({
 
   const callback = useCallback(
     (item: DAppItemType) => {
+      // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
       if (platformEnv.isIOS) {
         navigation.goBack();
       }
-      if (onItemSelect) {
-        onItemSelect(item);
-      }
+      return onItemSelect?.(item) ?? Promise.resolve(false);
     },
-    [navigation, onItemSelect],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onItemSelect],
   );
 
   const renderItem: ListRenderItem<SectionDataType> = useCallback(

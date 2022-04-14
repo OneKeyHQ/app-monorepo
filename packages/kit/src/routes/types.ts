@@ -88,11 +88,13 @@ export type HomeRoutesParams = {
   [HomeRoutes.SettingsScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
-  [HomeRoutes.ExploreScreen]: { onItemSelect?: (item: DAppItemType) => void };
+  [HomeRoutes.ExploreScreen]: {
+    onItemSelect?: (item: DAppItemType) => Promise<boolean>;
+  };
   [HomeRoutes.DAppListScreen]: {
     title: string;
     data: DAppItemType[];
-    onItemSelect?: (item: DAppItemType) => void;
+    onItemSelect?: (item: DAppItemType) => Promise<boolean> | void | undefined;
   };
 };
 /** HomeStack */
