@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Fuse from 'fuse.js';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { WebSiteHistory } from '@onekeyhq/kit/src/store/reducers/discover';
 
 import type { DAppItemType } from '../../type';
 
@@ -11,23 +12,35 @@ const options = {
   threshold: 0.4,
   keys: [
     {
-      name: 'name',
+      name: 'dapp.name',
       weight: 1,
     },
     {
-      name: 'url',
+      name: 'dapp.url',
       weight: 0.5,
     },
     {
-      name: 'subtitle',
+      name: 'dapp.subtitle',
       weight: 0.3,
+    },
+    {
+      name: 'webSite.title',
+      weight: 1,
+    },
+    {
+      name: 'webSite.url',
+      weight: 0.5,
     },
   ],
 };
 
-type MatchDAppItemType = {
+export type MatchDAppItemType = {
+  id: string;
+  dapp?: DAppItemType | undefined;
+  webSite?: WebSiteHistory | undefined;
   clicks?: number | undefined;
-} & DAppItemType;
+  timestamp?: number | undefined;
+};
 
 function searchScore(params: Fuse.FuseResult<MatchDAppItemType>) {
   return (params.score ?? 1) - (params.item.clicks ?? 1) / 100;
@@ -36,7 +49,7 @@ function searchScore(params: Fuse.FuseResult<MatchDAppItemType>) {
 function searchHistories(
   histories: MatchDAppItemType[],
   terms: string,
-): DAppItemType[] {
+): MatchDAppItemType[] {
   const fuse = new Fuse(histories, options);
   const searchResult = fuse.search(terms);
 
@@ -54,18 +67,19 @@ export const useSearchHistories = (terms: string, keyword: string) => {
   const allHistories = useMemo(() => {
     const dappHistoryArray: MatchDAppItemType[] = [];
 
-    Object.entries(history).forEach(([key]) => {
+    Object.entries(history).forEach(([key, value]) => {
       const dAppItem = {
-        ...syncData.increment[key],
         id: key,
-        clicks: history[key]?.clicks ?? 0,
+        dapp: syncData.increment[key],
+        webSite: value.webSite,
+        clicks: value?.clicks ?? 0,
+        timestamp: value?.timestamp ?? 0,
       };
       if (dAppItem) dappHistoryArray.push(dAppItem);
     });
 
     return dappHistoryArray.sort(
-      (a, b) =>
-        (history[b.id]?.timestamp ?? 0) - (history[a.id]?.timestamp ?? 0),
+      (a, b) => (b.timestamp ?? 0) - (a?.timestamp ?? 0),
     );
   }, [history, syncData.increment]);
 
