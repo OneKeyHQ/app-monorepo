@@ -32,9 +32,9 @@ type RouteProps = RouteProp<
 const SearchModalView: FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { onSelectorItem } = route.params;
+  const { url, onSelectorItem } = route.params;
 
-  const [searchContent, setSearchContent] = useState<string>('');
+  const [searchContent, setSearchContent] = useState<string>(url ?? '');
   const searchContentTerm = useDebounce(searchContent, 200);
 
   const { loading, searchedHistories, allHistories } = useSearchHistories(
@@ -71,7 +71,9 @@ const SearchModalView: FC = () => {
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {item.name}
           </Text>
-          <Typography.Body2 color="text-subdued">{item.url}</Typography.Body2>
+          <Typography.Body2 numberOfLines={1} color="text-subdued">
+            {item.url}
+          </Typography.Body2>
         </Box>
       </Box>
     </Pressable.Item>
