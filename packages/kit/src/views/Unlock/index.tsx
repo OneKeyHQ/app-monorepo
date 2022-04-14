@@ -16,7 +16,6 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { reload } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -37,8 +36,6 @@ const ForgetPasswordButton = () => {
   const onReset = useCallback(async () => {
     await backgroundApiProxy.serviceApp.resetApp();
     setVisible(false);
-
-    reload();
   }, []);
   return (
     <>
