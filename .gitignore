@@ -14,6 +14,7 @@ build
 *.tsbuildinfo
 yarn-error.log
 /packages/app/.env
+/packages/app/pc-api-8644398719570171123-0-dcae07e2afab.json
 
 .yarn
 .yarnrc

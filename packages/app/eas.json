@@ -80,6 +80,10 @@
         "ascApiKeyIssuerId": "bbc48cd1-0ffa-4bb7-994d-fab6a5eff73e",
         "ascApiKeyId": "KAV3B73J8L",
         "ascApiKeyPath": "./AscApiKey.p8"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./pc-api-8644398719570171123-0-dcae07e2afab.json",
+        "track": "beta"
       }
     }
   }
