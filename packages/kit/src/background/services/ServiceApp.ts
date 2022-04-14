@@ -1,6 +1,9 @@
+import RNRestart from 'react-native-restart';
+
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { updateNetworkMap } from '../../store/reducers/network';
@@ -10,7 +13,6 @@ import {
 } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { updateWallet, updateWallets } from '../../store/reducers/wallet';
-import { reload } from '../../utils/helper';
 import {
   getPassword,
   hasHardwareSupported,
@@ -28,6 +30,22 @@ class ServiceApp extends ServiceBase {
     console.log('TODO: recheck last reset status and resetApp here');
   }
 
+  restartApp() {
+    if (platformEnv.isNative) {
+      return RNRestart.Restart();
+    }
+    if (platformEnv.isDesktop) {
+      return window.desktopApi?.reload?.();
+    }
+    // restartApp() MUST be called from background in Ext, UI reload will close whole Browser
+    if (platformEnv.isExtensionBackground) {
+      return chrome.runtime.reload();
+    }
+    if (platformEnv.isBrowser) {
+      return window?.location?.reload?.();
+    }
+  }
+
   @backgroundMethod()
   async resetApp() {
     const { engine, dispatch, persistor, serviceNetwork, serviceAccount } =
@@ -42,8 +60,8 @@ class ServiceApp extends ServiceBase {
 
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
     await delay(1500);
-    // reload() MUST be called from background in Ext
-    reload();
+    // restartApp() MUST be called from background in Ext
+    this.restartApp();
   }
 
   @backgroundMethod()
