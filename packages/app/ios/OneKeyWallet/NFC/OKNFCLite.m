@@ -53,7 +53,6 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 - (void)endNFCSessionWithError:(BOOL)isError {
     self.session.alertMessage = @"";
     if (isError) {
-        
       [self.session invalidateSessionWithErrorMessage:OKTools.isChineseLan ? @"读取失败，请重试":@"Connect fail, please try again."];
     } else {
         [self.session invalidateSession];
@@ -266,11 +265,11 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
         return;
     }
 
-  if (![self syncLiteInfo]) {
-      [self endNFCSessionWithError:YES];
-      self.changePinCallback(OKNFCLiteChangePinStatusError);
-      return;
-  }
+    if (![self syncLiteInfo]) {
+        [self endNFCSessionWithError:YES];
+        self.changePinCallback(OKNFCLiteChangePinStatusError);
+        return;
+    }
   
     if (self.status == OKNFCLiteStatusNewCard) {
         [self endNFCSessionWithError:YES];
@@ -286,9 +285,12 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
 
     OKNFCLiteChangePinResult changePinResult = [OKNFCLite setNewPin:self.neoPin withOldPin:self.pin withTag:tag];
     if (changePinResult == OKNFCLiteChangePinResultError) {
-        [self syncLiteInfo];
+        if ([self syncLiteInfo]) {
+          self.changePinCallback(self.pinRTL == 10 ? OKNFCLiteChangePinStatusWiped:OKNFCLiteChangePinStatusPinNotMatch);
+        } else {
+          self.changePinCallback(OKNFCLiteChangePinStatusError);
+        }
         [self endNFCSessionWithError:YES];
-        self.changePinCallback(OKNFCLiteChangePinStatusPinNotMatch);
         return;
     } else if (changePinResult == OKNFCLiteChangePinResultWiped) {
         [self endNFCSessionWithError:YES];
@@ -677,12 +679,12 @@ typedef NS_ENUM(NSInteger, OKNFCLiteChangePinResult) {
           case OKNFCLiteSessionTypeSetMnemonic:
           case OKNFCLiteSessionTypeSetMnemonicForce: {
             if ([self.delegate respondsToSelector:@selector(ok_lite:setMnemonicComplete:)]) {
-              [self.delegate ok_lite:nil setMnemonicComplete:-1];
+              [self.delegate ok_lite:self setMnemonicComplete:OKNFCLiteSetMncStatusCancel];
             }
           } break;
           case OKNFCLiteSessionTypeGetMnemonic: {
             if ([self.delegate respondsToSelector:@selector(ok_lite:getMnemonic:complete:)]) {
-              [self.delegate ok_lite:nil getMnemonic:nil complete:-1];
+              [self.delegate ok_lite:self getMnemonic:nil complete:OKNFCLiteGetMncStatusCancel];
             }
           } break;
           case OKNFCLiteSessionTypeChangePin: {
