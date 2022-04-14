@@ -1131,6 +1131,50 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getTokenAllowance({
+    networkId,
+    accountId,
+    tokenIdOnNetwork,
+    spender,
+  }: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork: string;
+    spender: string;
+  }): Promise<string | undefined> {
+    // TODO: move this into vaults to support multichain
+    try {
+      if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+        // Bad request, shouldn't happen.
+        return;
+      }
+      const [tokenAddress, spenderAddress] = await Promise.all([
+        this.validator.validateTokenAddress(networkId, tokenIdOnNetwork),
+        this.validator.validateAddress(networkId, spender),
+      ]);
+      const [dbAccount, token] = await Promise.all([
+        this.dbApi.getAccount(accountId),
+        this.getOrAddToken(networkId, tokenAddress, true),
+      ]);
+      if (typeof token === 'undefined') {
+        // Token not found locally
+        return;
+      }
+      const allowance = await this.providerManager.getTokenAllowance(
+        networkId,
+        dbAccount,
+        token,
+        spenderAddress,
+      );
+      if (!allowance.isNaN()) {
+        return allowance.toFixed();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  @backgroundMethod()
   async signAndSendEncodedTx({
     encodedTx,
     password,

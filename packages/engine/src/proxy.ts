@@ -8,6 +8,7 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
+import { defaultAbiCoder } from '@ethersproject/abi';
 import { keccak256 } from '@ethersproject/keccak256';
 import * as ethTransaction from '@ethersproject/transactions';
 import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
@@ -482,6 +483,35 @@ class ProviderController extends BaseProviderController {
         })),
       ),
     );
+  }
+
+  async getTokenAllowance(
+    networkId: string,
+    dbAccount: DBAccount,
+    token: Token,
+    spenderAddress: string,
+  ): Promise<BigNumber> {
+    // TODO: move this into chainlibs
+    const [impl] = networkId.split(SEPERATOR);
+    switch (impl) {
+      case IMPL_EVM: {
+        // keccak256(Buffer.from('allowance(address,address)') => '0xdd62ed3e...'
+        const allowanceMethodID = '0xdd62ed3e';
+        const data = `${allowanceMethodID}${defaultAbiCoder
+          .encode(['address', 'address'], [dbAccount.address, spenderAddress])
+          .slice(2)}`;
+        const client: Geth = (await this.getClient(networkId)) as Geth;
+        const rawAllowanceHex = await client.rpc.call('eth_call', [
+          { to: token.tokenIdOnNetwork, data },
+          'latest',
+        ]);
+        return new BigNumber(rawAllowanceHex as string).shiftedBy(
+          -token.decimals,
+        );
+      }
+      default:
+        throw new NotImplemented();
+    }
   }
 
   async preSend(

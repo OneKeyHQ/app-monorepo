@@ -28,6 +28,13 @@ export type ITransferInfo = {
   token?: string;
 };
 
+export type IApproveInfo = {
+  from: string; // token owner
+  token: string; // token address
+  amount: string; // amount
+  spender: string; // spender to authorize
+};
+
 export type IEncodedTxAny = any;
 export type IDecodedTxAny = any;
 export type IDecodedTx = EVMDecodedItem | null;

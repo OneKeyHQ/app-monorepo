@@ -8,6 +8,7 @@ import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import {
+  IApproveInfo,
   IEncodedTxAny,
   IFeeInfo,
   IFeeInfoUnit,
@@ -35,6 +36,17 @@ export default class Vault extends VaultBase {
   }
 
   buildEncodedTxFromTransfer(transferInfo: ITransferInfo): Promise<any> {
+    throw new Error('Method not implemented.');
+  }
+
+  buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
+    throw new Error('Method not implemented.');
+  }
+
+  updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTxAny,
+    amount: string,
+  ): Promise<IEncodedTxAny> {
     throw new Error('Method not implemented.');
   }
 
