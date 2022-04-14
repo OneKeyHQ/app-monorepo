@@ -11,7 +11,7 @@ import { useToast } from '../../../hooks/useToast';
 export default function useRemoveAccountDialog() {
   const intl = useIntl();
   const toast = useToast();
-  const { engine, serviceApp } = backgroundApiProxy;
+  const { engine, serviceAccount } = backgroundApiProxy;
   const { account: activeAccount } = useActiveWalletAccount();
   const successCall = useRef<() => void>();
 
@@ -29,7 +29,7 @@ export default function useRemoveAccountDialog() {
         setVisible(false);
 
         if (activeAccount?.id === accountId) {
-          await serviceApp.autoChangeAccount({ walletId });
+          await serviceAccount.autoChangeAccount({ walletId });
         }
         successCall?.current?.();
       })
@@ -44,7 +44,7 @@ export default function useRemoveAccountDialog() {
     engine,
     intl,
     password,
-    serviceApp,
+    serviceAccount,
     toast,
     walletId,
   ]);
@@ -59,7 +59,7 @@ export default function useRemoveAccountDialog() {
     setAccountId($accountId);
     setPassword($password);
     setWalletId($walletId);
-    setTimeout(() => setVisible(true), 200);
+    setTimeout(() => setVisible(true), 250);
   };
 
   const RemoveAccountDialog = useMemo(

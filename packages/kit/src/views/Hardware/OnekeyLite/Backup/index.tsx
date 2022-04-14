@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -12,14 +12,13 @@ import {
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
-import { useNavigation } from '@onekeyhq/kit/src';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useToast } from '@onekeyhq/kit/src/hooks';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { updateWallet } from '@onekeyhq/kit/src/store/reducers/wallet';
+import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';

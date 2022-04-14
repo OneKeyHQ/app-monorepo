@@ -27,7 +27,7 @@ type DoneProps = {
 };
 
 const Done: FC<DoneProps> = ({ privatekey, name, networkId, password }) => {
-  const { serviceApp } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
   const intl = useIntl();
   const toast = useToast();
   const { closeDrawer } = useDrawer();
@@ -35,7 +35,7 @@ const Done: FC<DoneProps> = ({ privatekey, name, networkId, password }) => {
   useEffect(() => {
     async function main() {
       try {
-        await serviceApp.addImportedAccount(
+        await serviceAccount.addImportedAccount(
           password,
           networkId,
           privatekey,

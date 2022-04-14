@@ -6,14 +6,13 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Modal, useForm } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useDrawer } from '@onekeyhq/kit/src/hooks';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-import { setBoardingCompleted } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -38,10 +37,10 @@ const WatchedAccount: FC = () => {
       address: '',
     },
   });
-  const wallets = useAppSelector((s) => s.wallet.wallets);
-  const networks = useAppSelector((s) => s.network.network);
+  const { wallets } = useRuntime();
+  const { closeDrawer } = useDrawer();
   const navigation = useNavigation<NavigationProps>();
-  const { dispatch } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
 
   const defaultWalletName = useMemo(() => {
     const walletList = wallets.filter((wallet) => wallet.type === 'watching');
@@ -53,38 +52,14 @@ const WatchedAccount: FC = () => {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const walletList = wallets.filter((wallet) => wallet.type === 'watching');
-      const wallet = walletList[0];
-      const createdAccount = await backgroundApiProxy.engine.addWatchingAccount(
+      await serviceAccount.addWatchAccount(
         data.network,
         data.address,
         data.name || defaultWalletName,
       );
-
-      toast.show({
-        title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
-      });
-      const selectedNetwork = networks?.find(
-        (network) => network.id === data.network,
-      );
-
-      dispatch(setRefreshTS());
-      dispatch(setBoardingCompleted());
-
-      setTimeout(() => {
-        backgroundApiProxy.serviceAccount.changeActiveAccount({
-          account: createdAccount,
-          wallet,
-        });
-        if (selectedNetwork) {
-          backgroundApiProxy.serviceNetwork.changeActiveNetwork({
-            network: selectedNetwork,
-            sharedChainName: selectedNetwork.impl,
-          });
-        }
-      }, 50);
-
-      navigation.goBack();
+      const inst = navigation.getParent() || navigation;
+      closeDrawer();
+      inst.goBack();
     } catch (e) {
       const errorKey = (e as { key: LocaleIds }).key;
       toast.show({

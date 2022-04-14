@@ -131,6 +131,8 @@ const Provider: FC<UIProviderProps> = ({ children, themeVariant, locale }) => {
       <Context.Provider value={providerValue}>
         <StatusBar
           barStyle={themeVariant === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor={COLORS[themeVariant]['background-default']}
+          animated
         />
         <IntlProvider locale={locale} messages={LOCALES[locale]}>
           <NativeBaseProvider theme={themeVar}>{children}</NativeBaseProvider>

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { DrawerActions } from '@react-navigation/native';
@@ -11,5 +11,8 @@ export function useDrawer() {
   const openDrawer = useCallback(() => {
     navigation.dispatch(DrawerActions.openDrawer());
   }, [navigation]);
-  return { closeDrawer, openDrawer };
+  return useMemo(
+    () => ({ closeDrawer, openDrawer }),
+    [closeDrawer, openDrawer],
+  );
 }

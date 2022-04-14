@@ -21,10 +21,7 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -49,11 +46,10 @@ type AccountAmountInfoProps = { isCenter: boolean };
 const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { account } = useActiveWalletAccount();
+  const { account, network: activeNetwork } = useActiveWalletAccount();
   const { prices, nativeToken } = useManageTokens({
     pollingInterval: 5000,
   });
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork?.network);
 
   const copyContentToClipboard = useCallback(
     (address) => {

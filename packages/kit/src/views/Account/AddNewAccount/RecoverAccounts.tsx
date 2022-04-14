@@ -26,7 +26,7 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateAccountModalRoutes,
@@ -107,7 +107,8 @@ const RecoverAccounts: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const [flatListData, updateFlatListData] = useState<FlatDataType[]>([]);
-  const wallets = useAppSelector((s) => s.wallet.wallets);
+  const { wallets } = useRuntime();
+
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
 
   const [isVaild, setIsVaild] = useState(false);

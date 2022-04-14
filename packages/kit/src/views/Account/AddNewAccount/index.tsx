@@ -10,7 +10,7 @@ import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useDrawer, useToast } from '@onekeyhq/kit/src/hooks';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -20,7 +20,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 type PrivateKeyFormValues = {
   network: string;
@@ -41,14 +40,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const toast = useToast();
   const { closeDrawer } = useDrawer();
-  const { dispatch } = backgroundApiProxy;
+  const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
     useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const wallets = useAppSelector((s) => s.wallet.wallets);
-  const networks = useAppSelector((s) => s.network.network);
+  const { wallets, networks } = useRuntime();
+
   const selectedWalletId = route.params.walletId;
   const wallet = useMemo(
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
@@ -73,19 +72,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       const network = getValues('network');
       const name = getValues('name');
       try {
-        const [account] = await backgroundApiProxy.engine.addHDAccounts(
+        await serviceAccount.addHDAccounts(
           password,
           selectedWalletId,
           network,
           undefined,
           [name],
         );
-
-        dispatch(setRefreshTS());
-        backgroundApiProxy.serviceAccount.changeActiveAccount({
-          account,
-          wallet: wallet ?? null,
-        });
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
@@ -93,13 +86,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
         });
       }
 
-      const selectedNetwork = networks?.find((n) => n.id === network) ?? null;
-      if (selectedNetwork) {
-        backgroundApiProxy.serviceNetwork.changeActiveNetwork({
-          network: selectedNetwork,
-          sharedChainName: selectedNetwork.impl,
-        });
-      }
       closeDrawer();
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();

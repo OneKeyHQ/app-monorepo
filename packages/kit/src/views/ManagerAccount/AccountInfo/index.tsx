@@ -31,7 +31,8 @@ const ManagerAccountModal: FC = () => {
     useRemoveAccountDialog();
   const [modifyNameVisible, setModifyNameVisible] = useState(false);
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
-  const { walletId, accountId, networkId } = useRoute<RouteProps>().params;
+  const { walletId, accountId, networkId, refreshAccounts } =
+    useRoute<RouteProps>().params;
 
   const [wallet, setWallet] = useState<Wallet>();
   const [account, setAccount] = useState<Account>();
@@ -52,7 +53,9 @@ const ManagerAccountModal: FC = () => {
       .then(($account) => {
         setAccount($account);
       });
-  }, [accountId, networkId]);
+
+    if (typeof refreshAccounts === 'function') refreshAccounts?.();
+  }, [accountId, networkId, refreshAccounts]);
 
   useEffect(() => {
     refreshWallet();

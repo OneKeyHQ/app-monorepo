@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Form } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
 
 type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;
@@ -18,15 +18,15 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
   const { enabledNetworks: networks } = useManageNetworks();
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
-  const currentNetworkId = activeNetwork?.network?.id;
+  const { activeNetworkId: currentNetworkId } = useGeneral();
+
   let defaultNetworkId = currentNetworkId;
   // If selectableNetworks is specified and currenct selected network not in
   // it, set the first selectable network as the default.
   if (
     typeof selectableNetworks !== 'undefined' &&
     (typeof currentNetworkId === 'undefined' ||
-      !selectableNetworks.includes(currentNetworkId))
+      !selectableNetworks.includes(currentNetworkId ?? ''))
   ) {
     [defaultNetworkId] = selectableNetworks;
   }

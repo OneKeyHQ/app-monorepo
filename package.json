@@ -34,14 +34,17 @@
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
     "test": "yarn test:unit",
     "test:unit": "yarn jest ./test/unit/",
-    "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi"
+    "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "^0.0.7",
-    "@onekeyfe/cross-inpage-provider-types": "^0.0.7",
     "@onekeyfe/cross-inpage-provider-injected": "^0.0.7",
+    "@onekeyfe/cross-inpage-provider-types": "^0.0.7",
     "@onekeyfe/extension-bridge-hosted": "^0.0.7",
-    "@onekeyfe/onekey-cross-webview": "^0.0.7"
+    "@onekeyfe/onekey-cross-webview": "^0.0.7",
+    "commitizen": "^4.2.4",
+    "global": "^4.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
@@ -56,18 +59,22 @@
     "@types/react-dom": "^17.0.10",
     "@typescript-eslint/eslint-plugin": "^4.31.0",
     "@typescript-eslint/parser": "^4.31.0",
+    "axios": "^0.26.0",
     "babel-eslint": "^10.1.0",
     "babel-jest": "^27.4.2",
     "babel-loader": "8.1.0",
     "babel-plugin-inline-import": "^3.0.0",
-    "babel-plugin-transform-inline-environment-variables": "^0.4.3",
     "babel-plugin-lodash": "^3.3.4",
+    "babel-plugin-transform-inline-environment-variables": "^0.4.3",
     "babel-preset-react-app": "^10.0.0",
+    "concurrently": "^7.0.0",
     "copy-webpack-plugin": "^6.0.2",
     "css-loader": "^5.2.7",
+    "cz-lerna-changelog": "2.0.3",
     "eslint": "^7.32.0",
     "eslint-config-airbnb": "^18.2.1",
     "eslint-config-airbnb-typescript": "^14.0.0",
+    "eslint-config-next": "^12.1.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-config-react-app": "^6.0.0",
     "eslint-config-wesbos": "2.1.0",
@@ -79,7 +86,6 @@
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-react": "^7.25.1",
     "eslint-plugin-react-hooks": "^4.2.0",
-    "eslint-config-next": "^12.1.0",
     "eth-rpc-errors": "^4.0.3",
     "expo-yarn-workspaces": "^1.6.0",
     "file-loader": "^6.2.0",
@@ -93,6 +99,7 @@
     "http-server": "^14.0.0",
     "husky": "^7.0.4",
     "jest": "^27.4.3",
+    "jira-precommit-hook": "^4.0.0",
     "lint-staged": "^11.2.6",
     "next-image-loader": "^2.0.6",
     "node-notifier": "^10.0.0",
@@ -107,11 +114,15 @@
     "terser-webpack-plugin": "^4.2.3",
     "ts-loader": "^9.2.6",
     "typescript": "4.4.4",
+    "validate-commit-msg": "^2.14.0",
     "webpack": "4.43.0",
     "webpack-cli": "3.3.12",
     "webpack-dev-server": "^4.3.1",
-    "worker-loader": "^3.0.7",
-    "axios": "^0.26.0",
-    "concurrently": "^7.0.0"
+    "worker-loader": "^3.0.7"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-lerna-changelog"
+    }
   }
 }

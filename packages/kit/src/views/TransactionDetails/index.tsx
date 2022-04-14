@@ -82,7 +82,7 @@ const TransactionDetails: FC = () => {
   const { tx } = route.params;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { account, network } = useActiveWalletAccount();
-  const openBlockBrowser = useOpenBlockBrowser(network?.network);
+  const openBlockBrowser = useOpenBlockBrowser(network);
   const formatDate = useFormatDate();
   const { useFormatCurrencyDisplay } = useFormatAmount();
 
@@ -215,7 +215,7 @@ const TransactionDetails: FC = () => {
   const renderAmount = useCallback(
     (titleKey: LocaleIds) => {
       const list = getTransferNFTList(txInfo);
-      const originAmount = getTransferAmount(txInfo, network?.network);
+      const originAmount = getTransferAmount(txInfo, network);
       const amount = formatBalanceDisplay(
         originAmount.balance,
         originAmount.unit,
@@ -282,9 +282,9 @@ const TransactionDetails: FC = () => {
         new BigNumber(txInfo?.gasSpent ?? 0).multipliedBy(
           new BigNumber(txInfo?.gasPrice ?? 0),
         ),
-        network?.network?.symbol,
+        network?.symbol,
         {
-          unit: network?.network?.decimals,
+          unit: network?.decimals,
         },
       );
 
@@ -313,9 +313,9 @@ const TransactionDetails: FC = () => {
       new BigNumber(txInfo?.gasSpent ?? 0)
         .multipliedBy(new BigNumber(txInfo?.gasPrice ?? 0))
         .plus(new BigNumber(txInfo?.value ?? 0)),
-      network?.network?.symbol,
+      network?.symbol,
       {
-        unit: network?.network?.decimals,
+        unit: network?.decimals,
       },
     );
 
@@ -332,8 +332,8 @@ const TransactionDetails: FC = () => {
     );
   }, [
     intl,
-    network?.network?.decimals,
-    network?.network?.symbol,
+    network?.decimals,
+    network?.symbol,
     totalAmountFiat.amount,
     totalAmountFiat.unit,
     totalErc20AmountFiat.amount,
@@ -352,9 +352,9 @@ const TransactionDetails: FC = () => {
       new BigNumber(txInfo?.gasSpent ?? 0).multipliedBy(
         new BigNumber(txInfo?.gasPrice ?? 0),
       ),
-      network?.network?.symbol,
+      network?.symbol,
       {
-        unit: network?.network?.decimals,
+        unit: network?.decimals,
       },
     );
 
@@ -366,8 +366,8 @@ const TransactionDetails: FC = () => {
     );
   }, [
     intl,
-    network?.network?.decimals,
-    network?.network?.symbol,
+    network?.decimals,
+    network?.symbol,
     txInfo?.gasPrice,
     txInfo?.gasSpent,
   ]);
@@ -377,18 +377,18 @@ const TransactionDetails: FC = () => {
     const Amount = formatBalanceDisplay(
       new BigNumber(txInfo?.gasPrice ?? 0),
 
-      network?.network?.symbol,
+      network?.symbol,
       {
-        unit: network?.network?.decimals,
+        unit: network?.decimals,
       },
     );
     const feeAmount = formatBalanceDisplay(
       new BigNumber(txInfo?.gasPrice ?? 0),
 
-      network?.network?.feeSymbol,
+      network?.feeSymbol,
       {
-        unit: network?.network?.feeDecimals,
-        fixed: network?.network?.tokenDisplayDecimals,
+        unit: network?.feeDecimals,
+        fixed: network?.tokenDisplayDecimals,
       },
     );
     return (
@@ -401,11 +401,11 @@ const TransactionDetails: FC = () => {
     );
   }, [
     intl,
-    network?.network?.decimals,
-    network?.network?.feeDecimals,
-    network?.network?.feeSymbol,
-    network?.network?.symbol,
-    network?.network?.tokenDisplayDecimals,
+    network?.decimals,
+    network?.feeDecimals,
+    network?.feeSymbol,
+    network?.symbol,
+    network?.tokenDisplayDecimals,
     txInfo?.gasPrice,
   ]);
 
@@ -472,14 +472,14 @@ const TransactionDetails: FC = () => {
               {txInfo?.type === TransactionType.Swap && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__send' })}
-                  describe={`-${getSwapTransfer(txInfo, network?.network)}`}
+                  describe={`-${getSwapTransfer(txInfo, network)}`}
                 />
               )}
 
               {txInfo?.type === TransactionType.Swap && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__receive' })}
-                  describe={`${getSwapReceive(txInfo, network?.network)}`}
+                  describe={`${getSwapReceive(txInfo, network)}`}
                 />
               )}
 

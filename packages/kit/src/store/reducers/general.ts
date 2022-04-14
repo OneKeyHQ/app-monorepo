@@ -1,77 +1,87 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
-
-import type { Network } from './network';
 
 export type ValuedToken = Token & { balance?: string };
 
 export type GeneralInitialState = {
-  activeAccount: Account | null;
-  activeWallet: Wallet | null;
-  activeNetwork: {
-    network: Network;
-    sharedChainName: string;
-  } | null;
+  activeAccountId: string | null;
+  activeWalletId: string | null;
+  activeNetworkId: string | null;
   tokens: Record<string, Record<string, Token[]>>;
   ownedTokens: Record<string, Record<string, ValuedToken[]>>;
   tokensPrice: Record<string, Record<string, string>>;
 };
 
 const initialState: GeneralInitialState = {
-  activeAccount: null,
-  activeNetwork: null,
-  activeWallet: null,
+  activeAccountId: null,
+  activeNetworkId: null,
+  activeWalletId: null,
   tokens: {},
   ownedTokens: {},
   tokensPrice: {},
-};
+} as const;
 
 export const generalSlice = createSlice({
   name: 'general',
   initialState,
   reducers: {
+    setActiveIds(
+      state,
+      action: PayloadAction<
+        Pick<
+          GeneralInitialState,
+          'activeAccountId' | 'activeNetworkId' | 'activeWalletId'
+        >
+      >,
+    ) {
+      const { activeAccountId, activeNetworkId, activeWalletId } =
+        action.payload;
+      state.activeAccountId = activeAccountId;
+      state.activeWalletId = activeWalletId;
+      state.activeNetworkId = activeNetworkId;
+    },
     changeActiveAccount(
       state,
-      action: PayloadAction<{ account: Account | null; wallet: Wallet | null }>,
+      action: PayloadAction<
+        Pick<GeneralInitialState, 'activeAccountId' | 'activeWalletId'>
+      >,
     ) {
-      const { account, wallet } = action.payload;
-      state.activeAccount = account;
-      state.activeWallet = wallet;
+      const { activeAccountId, activeWalletId } = action.payload;
+      state.activeAccountId = activeAccountId;
+      state.activeWalletId = activeWalletId;
     },
     changeActiveNetwork(
       state,
-      action: PayloadAction<NonNullable<GeneralInitialState['activeNetwork']>>,
+      action: PayloadAction<
+        NonNullable<GeneralInitialState['activeNetworkId']>
+      >,
     ) {
-      state.activeNetwork = action.payload;
+      state.activeNetworkId = action.payload;
     },
     changeActiveTokens(state, action: PayloadAction<Token[]>) {
-      const { activeAccount, activeNetwork } = state;
-      if (activeAccount && activeNetwork) {
-        if (!state.tokens[activeAccount.id]) {
-          state.tokens[activeAccount.id] = {};
+      const { activeAccountId, activeNetworkId } = state;
+      if (activeAccountId && activeNetworkId) {
+        if (!state.tokens[activeAccountId]) {
+          state.tokens[activeAccountId] = {};
         }
-        state.tokens[activeAccount.id][activeNetwork?.network.id] =
-          action.payload;
+        state.tokens[activeAccountId][activeNetworkId] = action.payload;
       }
     },
     changeActiveOwnedToken(state, action: PayloadAction<ValuedToken[]>) {
-      const { activeAccount, activeNetwork } = state;
-      if (activeAccount && activeNetwork) {
-        if (!state.ownedTokens[activeAccount.id]) {
-          state.ownedTokens[activeAccount.id] = {};
+      const { activeAccountId, activeNetworkId } = state;
+      if (activeAccountId && activeNetworkId) {
+        if (!state.ownedTokens[activeAccountId]) {
+          state.ownedTokens[activeAccountId] = {};
         }
-        state.ownedTokens[activeAccount.id][activeNetwork?.network.id] =
-          action.payload;
+        state.ownedTokens[activeAccountId][activeNetworkId] = action.payload;
       }
     },
     updateTokensPrice(state, action: PayloadAction<Record<string, string>>) {
-      const { activeNetwork } = state;
-      if (activeNetwork) {
-        const oldState = state.tokensPrice[activeNetwork?.network.id];
-        state.tokensPrice[activeNetwork?.network.id] = {
+      const { activeNetworkId } = state;
+      if (activeNetworkId) {
+        const oldState = state.tokensPrice[activeNetworkId];
+        state.tokensPrice[activeNetworkId] = {
           ...oldState,
           ...action.payload,
         };
@@ -80,10 +90,13 @@ export const generalSlice = createSlice({
   },
 });
 
-export const { changeActiveTokens, changeActiveOwnedToken, updateTokensPrice } =
-  generalSlice.actions;
-
-export const { changeActiveAccount, changeActiveNetwork } =
-  generalSlice.actions;
+export const {
+  changeActiveTokens,
+  changeActiveOwnedToken,
+  updateTokensPrice,
+  changeActiveAccount,
+  changeActiveNetwork,
+  setActiveIds,
+} = generalSlice.actions;
 
 export default generalSlice.reducer;

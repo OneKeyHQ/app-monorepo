@@ -6,7 +6,7 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { appDispatch, appSelector } from '../store';
 
 import type { IAppState } from '../store';
-import type { Network } from '../store/reducers/network';
+import type { INetwork } from '../store/reducers/runtime';
 
 export const useAppDispatch = () => {
   console.error(
@@ -52,13 +52,12 @@ export const useGeneral = () => {
   return general;
 };
 
+export const useRuntime = () => useAppSelector((s) => s.runtime);
+
 export type IActiveWalletAccount = {
   wallet: Wallet | null;
   account: Account | null;
-  network: {
-    network: Network;
-    sharedChainName: string;
-  } | null;
+  network: INetwork | null;
   networkId: string;
   accountId: string;
   networkImpl: string;
@@ -67,19 +66,27 @@ export type IActiveWalletAccount = {
 
 export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
   makeSelector<IActiveWalletAccount>((selector) => {
-    const { activeAccount, activeWallet, activeNetwork } = selector(
+    const { activeAccountId, activeWalletId, activeNetworkId } = selector(
       (s) => s.general,
     );
+    const { wallets, networks, accounts } = selector((s) => s.runtime);
 
-    const activeAccountInfo = activeAccount;
-    const networkImpl = activeNetwork?.network?.impl || '';
-    const networkId = activeNetwork?.network?.id || '';
+    const activeWallet =
+      wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
+    const activeAccountInfo = activeWallet
+      ? accounts.find((account) => account.id === activeAccountId) ?? null
+      : null;
+
+    const activeNetwork =
+      networks.find((network) => network.id === activeNetworkId) ?? null;
+    const networkImpl = activeNetwork?.impl || '';
+    const networkId = activeNetwork?.id || '';
     const accountAddress = activeAccountInfo?.address || '';
-    const accountId = activeAccount?.id || '';
+    const accountId = activeAccountInfo?.id || '';
 
     return {
       wallet: activeWallet,
-      account: activeAccount,
+      account: activeAccountInfo,
       network: activeNetwork,
       accountId,
       networkId,

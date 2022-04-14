@@ -27,7 +27,7 @@ import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import { useDebounce, useManageTokens, useToast } from '../../hooks';
-import { useGeneral } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks/redux';
 import { timeout } from '../../utils/helper';
 
 import { useSearchTokens } from './hooks';
@@ -268,7 +268,8 @@ const ListingToken: FC<ListingTokenProps> = ({
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const { info } = useToast();
-  const { activeAccount, activeNetwork } = useGeneral();
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
   const { updateAccountTokens, updateTokens } = useManageTokens();
   const onPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
@@ -276,7 +277,7 @@ const ListingToken: FC<ListingTokenProps> = ({
         await timeout(
           backgroundApiProxy.engine.quickAddToken(
             activeAccount?.id,
-            activeNetwork.network.id,
+            activeNetwork.id,
             item.tokenIdOnNetwork,
           ),
           5000,
@@ -395,11 +396,12 @@ export const Listing: FC = () => {
   const [mylist, setMylist] = useState<Token[]>([]);
   const searchTerm = useDebounce(keyword, 1000);
 
-  const { activeNetwork, activeAccount } = useGeneral();
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
   const { loading, searchedTokens } = useSearchTokens(
     searchTerm,
     keyword,
-    activeNetwork?.network.id,
+    activeNetwork?.id,
   );
 
   const [visible, setVisible] = useState(false);
@@ -466,7 +468,7 @@ export const Listing: FC = () => {
           defaultMessage: 'Manage Tokens',
         })}
         height="560px"
-        headerDescription={activeNetwork?.network.shortName}
+        headerDescription={activeNetwork?.shortName}
         hidePrimaryAction
         onSecondaryActionPress={() => {
           navigation.navigate(ManageTokenRoutes.CustomToken);

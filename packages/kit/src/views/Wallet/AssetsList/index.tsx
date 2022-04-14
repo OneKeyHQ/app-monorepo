@@ -24,18 +24,17 @@ import {
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-
-import { useManageTokens } from '../../../hooks/useManageTokens';
+import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import {
   HomeRoutes,
   HomeRoutesParams,
   ModalRoutes,
   RootRoutes,
   RootRoutesParams,
-} from '../../../routes/types';
-import { ManageTokenRoutes } from '../../ManageTokens/types';
+} from '@onekeyhq/kit/src/routes/types';
+import type { ValuedToken } from '@onekeyhq/kit/src/store/reducers/general';
+import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
-import type { ValuedToken } from '../../../store/reducers/general';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -88,8 +87,8 @@ const AssetsList = () => {
     const mapKey = index === 0 ? 'main' : item.tokenIdOnNetwork;
     const decimal =
       index === 0
-        ? network?.network.nativeDisplayDecimals
-        : network?.network.tokenDisplayDecimals;
+        ? network?.nativeDisplayDecimals
+        : network?.tokenDisplayDecimals;
     return (
       <Pressable.Item
         disabled={!item.tokenIdOnNetwork}

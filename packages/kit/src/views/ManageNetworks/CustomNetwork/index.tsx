@@ -300,7 +300,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                 >
                   <Form.Input />
                 </Form.Item>
-                {network?.network.id !== id ? (
+                {network?.id !== id ? (
                   <Button
                     w="full"
                     size="lg"

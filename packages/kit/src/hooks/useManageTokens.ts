@@ -10,26 +10,27 @@ import {
   updateTokensPrice,
 } from '../store/reducers/general';
 
-import { useAppSelector } from './redux';
+import { useActiveWalletAccount, useGeneral } from './redux';
 
 export const useManageTokens = ({
   pollingInterval = 0,
 }: { pollingInterval?: number } = {}) => {
-  const { activeAccount, activeNetwork, tokens, ownedTokens, tokensPrice } =
-    useAppSelector((s) => s.general);
+  const { tokens, ownedTokens, tokensPrice } = useGeneral();
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
   const { dispatch } = backgroundApiProxy;
 
   const prices = useMemo(() => {
     if (!activeNetwork) {
       return {};
     }
-    return tokensPrice[activeNetwork.network.id] ?? {};
+    return tokensPrice[activeNetwork?.id] ?? {};
   }, [tokensPrice, activeNetwork]);
 
   const { allTokens } = useMemo(() => {
     let data: Token[] = [];
     if (activeAccount && activeNetwork) {
-      data = tokens[activeAccount?.id]?.[activeNetwork?.network.id] ?? [];
+      data = tokens[activeAccount?.id]?.[activeNetwork?.id] ?? [];
     }
     return { allTokens: data };
   }, [tokens, activeAccount, activeNetwork]);
@@ -41,8 +42,7 @@ export const useManageTokens = ({
       const dataMap = new Map<string, ValuedToken>();
       let dataNativeToken: ValuedToken | undefined;
       if (activeAccount && activeNetwork) {
-        data =
-          ownedTokens[activeAccount?.id]?.[activeNetwork?.network.id] ?? [];
+        data = ownedTokens[activeAccount?.id]?.[activeNetwork?.id] ?? [];
       }
       data.forEach((token) => {
         if (token.tokenIdOnNetwork) {
@@ -61,14 +61,11 @@ export const useManageTokens = ({
     }, [ownedTokens, activeAccount, activeNetwork]);
 
   const updateAccountTokens = useCallback(() => {
-    if (activeAccount && activeNetwork) {
-      const networkId = activeNetwork.network.id;
+    if (activeAccount?.id && activeNetwork?.id) {
+      const networkId = activeNetwork.id;
       const accountId = activeAccount.id;
       backgroundApiProxy.engine.getTokens(networkId, accountId).then((list) => {
-        if (
-          networkId !== activeNetwork.network.id ||
-          accountId !== activeAccount.id
-        ) {
+        if (networkId !== activeNetwork.id || accountId !== activeAccount.id) {
           return;
         }
         if (accountTokens.length === 0) {
@@ -79,9 +76,9 @@ export const useManageTokens = ({
           .map((token) => token.tokenIdOnNetwork);
 
         backgroundApiProxy.engine
-          .getPrices(activeNetwork.network.id, addressList, true)
+          .getPrices(activeNetwork.id, addressList, true)
           .then((priceData) => {
-            if (networkId !== activeNetwork.network.id) {
+            if (networkId !== activeNetwork.id) {
               return;
             }
             dispatch(updateTokensPrice(priceData));
@@ -91,7 +88,7 @@ export const useManageTokens = ({
           .getAccountBalance(accountId, networkId, addressList, true)
           .then((balanceData) => {
             if (
-              networkId !== activeNetwork.network.id ||
+              networkId !== activeNetwork.id ||
               accountId !== activeAccount.id
             ) {
               return;
@@ -109,14 +106,14 @@ export const useManageTokens = ({
           });
       });
     }
-  }, [activeAccount, activeNetwork, dispatch, accountTokens.length]);
+  }, [activeAccount?.id, activeNetwork?.id, dispatch, accountTokens.length]);
 
   // TODO move to background Service
   const updateTokens = useCallback(() => {
     (async () => {
       if (activeAccount && activeNetwork) {
         const topTokens = await backgroundApiProxy.engine.getTopTokensOnNetwork(
-          activeNetwork.network.id,
+          activeNetwork.id,
           50,
         );
         dispatch(changeActiveTokens(topTokens));
@@ -140,14 +137,26 @@ export const useManageTokens = ({
     };
   }, [pollingInterval, updateAccountTokens]);
 
-  return {
-    nativeToken,
-    accountTokensMap,
-    accountTokensSet,
-    accountTokens,
-    allTokens,
-    prices,
-    updateTokens,
-    updateAccountTokens,
-  };
+  return useMemo(
+    () => ({
+      nativeToken,
+      accountTokensMap,
+      accountTokensSet,
+      accountTokens,
+      allTokens,
+      prices,
+      updateTokens,
+      updateAccountTokens,
+    }),
+    [
+      nativeToken,
+      accountTokensMap,
+      accountTokensSet,
+      accountTokens,
+      allTokens,
+      prices,
+      updateTokens,
+      updateAccountTokens,
+    ],
+  );
 };

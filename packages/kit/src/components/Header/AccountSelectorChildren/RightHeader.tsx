@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -69,11 +69,10 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
 
 const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
-  // const navigation = useNavigation<NavigationProps['navigation']>();
   const navigation = useAppNavigation();
 
   const isVerticalLayout = useIsVerticalLayout();
-  const activeNetwork = useAppSelector((s) => s.general.activeNetwork);
+  const { network: activeNetwork } = useActiveWalletAccount();
 
   const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);
@@ -122,7 +121,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
           <HeaderTitle selectedWallet={selectedWallet} />
           <Typography.Caption color="text-subdued">
             {intl.formatMessage({ id: 'network__network' })}:{' '}
-            {activeNetwork?.network?.name ?? '-'}
+            {activeNetwork?.name ?? '-'}
           </Typography.Caption>
         </VStack>
         {['hd', 'normal'].includes(selectedWallet?.type ?? '') ? (

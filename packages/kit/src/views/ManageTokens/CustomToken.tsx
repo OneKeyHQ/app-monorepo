@@ -13,7 +13,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../hooks';
-import { useGeneral } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
 import { useToast } from '../../hooks/useToast';
 
@@ -39,7 +39,8 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const { activeAccount, activeNetwork } = useGeneral();
+  const { account: activeAccount, network: activeNetwork } =
+    useActiveWalletAccount();
   const { accountTokensSet } = useManageTokens();
 
   const helpTip = intl.formatMessage({
@@ -74,7 +75,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       if (activeNetwork && activeAccount) {
         const preResult = await backgroundApiProxy.engine.preAddToken(
           activeAccount.id,
-          activeNetwork.network.id,
+          activeNetwork.id,
           data.address,
         );
         if (preResult) {
@@ -130,7 +131,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         try {
           preResult = await backgroundApiProxy.engine.preAddToken(
             activeAccount.id,
-            activeNetwork.network.id,
+            activeNetwork.id,
             trimedAddress,
           );
           if (preResult?.[1]) {

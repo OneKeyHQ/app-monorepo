@@ -31,7 +31,7 @@ const DeviceStatusCheckModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
   const { network } = useActiveWalletAccount();
-  const { engine, serviceAccount } = backgroundApiProxy;
+  const { engine } = backgroundApiProxy;
 
   useEffect(() => {
     // Check device status
@@ -53,20 +53,21 @@ const DeviceStatusCheckModal: FC = () => {
           const accounts = await engine.addHDAccounts(
             'Undefined',
             wallet.id,
-            network.network.id,
+            network.id,
           );
           if (accounts.length > 0) {
             const $account = accounts[0];
             account = $account;
+            console.log(account);
           }
         } catch (e) {
           console.log(e);
         }
 
-        serviceAccount.changeActiveAccount({
-          account,
-          wallet,
-        });
+        // serviceAccount.changeActiveAccount({
+        //   account,
+        //   wallet,
+        // });
 
         if (navigation.canGoBack()) {
           navigation.goBack();

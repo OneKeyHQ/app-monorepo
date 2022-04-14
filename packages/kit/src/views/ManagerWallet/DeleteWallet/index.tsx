@@ -29,7 +29,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const { wallet: activeWallet } = useActiveWalletAccount();
-  const { dispatch, engine, serviceApp } = backgroundApiProxy;
+  const { dispatch, engine, serviceAccount } = backgroundApiProxy;
 
   const { walletId, password } = deleteWallet ?? {};
   const [isLoading, setIsLoading] = React.useState(false);
@@ -64,7 +64,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
             .then(async (wallet) => {
               await engine.removeWallet(walletId, password ?? '');
               if (activeWallet?.id === walletId) {
-                await serviceApp.autoChangeWallet();
+                await serviceAccount.autoChangeWallet();
               }
               dispatch(setRefreshTS());
               toast.info(

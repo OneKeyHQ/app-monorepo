@@ -67,8 +67,8 @@ class ProviderApiEthereum extends ProviderApiBase {
       chainId: '0x736d17dc',
       networkVersion: '1936529372',
     };
-    if (network && network.network.impl === IMPL_EVM) {
-      networkInfo = network.network.extraInfo as EvmExtraInfo;
+    if (network && network.impl === IMPL_EVM) {
+      networkInfo = network.extraInfo as EvmExtraInfo;
     }
     return networkInfo;
   }

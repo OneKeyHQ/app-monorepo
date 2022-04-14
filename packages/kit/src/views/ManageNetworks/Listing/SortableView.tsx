@@ -16,7 +16,7 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks, useToast } from '../../../hooks';
-import { useGeneral } from '../../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 
 import { DiscardAlert } from './DiscardAlert';
 import { NetworkIcon } from './NetworkIcon';
@@ -43,7 +43,7 @@ const ItemRow: FC<ItemRowProps> = ({
   onChange,
 }) => {
   const [isChecked, setChecked] = useState(initialValue);
-  const { activeNetwork } = useGeneral();
+  const { network: activeNetwork } = useActiveWalletAccount();
   const onToggle = useCallback(() => {
     setChecked(!isChecked);
     onChange?.(network.id, !isChecked);
@@ -75,7 +75,7 @@ const ItemRow: FC<ItemRowProps> = ({
         </Box>
       </Box>
       <Switch
-        isDisabled={network.id === activeNetwork?.network.id}
+        isDisabled={network.id === activeNetwork?.id}
         isChecked={isChecked}
         labelType="false"
         onToggle={onToggle}

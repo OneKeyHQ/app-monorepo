@@ -82,13 +82,18 @@ const Transaction = () => {
       },
     });
   const { isValid } = useFormState({ control });
-  const { account, accountId, networkId } = useActiveWalletAccount();
+  const {
+    account,
+    accountId,
+    networkId,
+    network: activeNetwork,
+  } = useActiveWalletAccount();
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     encodedTx,
   });
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const { activeNetwork } = useGeneral();
+
   const { nativeToken, accountTokens } = useManageTokens();
   // selected token
   const [selectOption, setSelectOption] = useState<Option | null>(null);
@@ -99,8 +104,8 @@ const Transaction = () => {
     () =>
       accountTokens.map((token) => {
         const decimal = token.tokenIdOnNetwork
-          ? activeNetwork?.network.tokenDisplayDecimals
-          : activeNetwork?.network.nativeDisplayDecimals;
+          ? activeNetwork?.tokenDisplayDecimals
+          : activeNetwork?.nativeDisplayDecimals;
         return {
           label: token?.symbol ?? '-',
           value: token?.id,
@@ -124,8 +129,8 @@ const Transaction = () => {
     [
       accountTokens,
       intl,
-      activeNetwork?.network.nativeDisplayDecimals,
-      activeNetwork?.network.tokenDisplayDecimals,
+      activeNetwork?.nativeDisplayDecimals,
+      activeNetwork?.tokenDisplayDecimals,
     ],
   );
 
@@ -219,8 +224,8 @@ const Transaction = () => {
         address: (account as { address: string }).address,
       },
       network: {
-        id: activeNetwork?.network.id ?? '',
-        name: activeNetwork?.network.name ?? '',
+        id: activeNetwork?.id ?? '',
+        name: activeNetwork?.name ?? '',
       },
       value: data.value,
       token: {
@@ -254,7 +259,7 @@ const Transaction = () => {
       hidePrimaryAction
       hideSecondaryAction
       header={intl.formatMessage({ id: 'action__send' })}
-      headerDescription={activeNetwork?.network.name ?? ''}
+      headerDescription={activeNetwork?.name ?? ''}
       footer={
         <Column>
           <Row
@@ -401,8 +406,8 @@ const Transaction = () => {
                   keyboardType="numeric"
                   decimal={
                     selectedToken && selectedToken.tokenIdOnNetwork
-                      ? activeNetwork?.network.tokenDisplayDecimals
-                      : activeNetwork?.network.nativeDisplayDecimals
+                      ? activeNetwork?.tokenDisplayDecimals
+                      : activeNetwork?.nativeDisplayDecimals
                   }
                   rightCustomElement={
                     <>

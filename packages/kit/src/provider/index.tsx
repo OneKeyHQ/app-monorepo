@@ -82,7 +82,6 @@ const KitProvider: FC = () => {
     >
       <ReduxProvider store={store}>
         <ThemeApp>
-          {/* <PersistGate loading={null} persistor={persistor}></PersistGate> */}
           <WaitBackgroundReady loading={undefined}>
             <EngineApp>
               <NavigationApp />

@@ -11,6 +11,7 @@ const DrawerStack = createDrawerNavigator();
 
 const DrawerStackNavigator = () => (
   <DrawerStack.Navigator
+    useLegacyImplementation
     screenOptions={{
       headerShown: false,
       drawerType: 'front',

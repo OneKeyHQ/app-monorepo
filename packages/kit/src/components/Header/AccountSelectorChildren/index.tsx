@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DrawerActions } from '@react-navigation/native';
@@ -11,9 +9,7 @@ import {
   FlatList,
   HStack,
   Icon,
-  IconButton,
   Pressable,
-  ScrollView,
   Select,
   Typography,
   VStack,
@@ -26,24 +22,13 @@ import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
-  useAppSelector,
-  useSettings,
+  useRuntime,
 } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
   CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-  ImportAccountModalRoutes,
-  ImportAccountRoutesParams,
-  WatchedAccountModalRoutes,
-  WatchedAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
@@ -53,11 +38,6 @@ import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount'
 
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
-
-type NavigationProps = ModalScreenProps<CreateAccountRoutesParams> &
-  ModalScreenProps<ImportAccountRoutesParams> &
-  ModalScreenProps<WatchedAccountRoutesParams> &
-  ModalScreenProps<CreateWalletRoutesParams>;
 
 export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 
@@ -89,10 +69,9 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { bottom } = useSafeAreaInsets();
-  // const navigation = useNavigation<NavigationProps['navigation']>();
   const navigation = useAppNavigation();
-  const { activeNetwork } = useAppSelector((s) => s.general);
+
+  const { bottom } = useSafeAreaInsets();
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
@@ -101,9 +80,12 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const [modifyNameAccount, setModifyNameAccount] =
     useState<AccountEngineType>();
 
-  const { account: currentSelectedAccount, wallet: defaultSelectedWallet } =
-    useActiveWalletAccount();
-  const wallets = useAppSelector((s) => s.wallet.wallets);
+  const {
+    account: currentSelectedAccount,
+    wallet: defaultSelectedWallet,
+    network: activeNetwork,
+  } = useActiveWalletAccount();
+  const { wallets } = useRuntime();
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
     defaultSelectedWallet,
   );
@@ -117,18 +99,15 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
     return wallet;
   }, [defaultSelectedWallet, selectedWallet?.id, wallets]);
 
-  const refreshAccounts = useCallback(() => {
-    async function main() {
-      if (!activeWallet) return;
-      const accounts = await backgroundApiProxy.engine.getAccounts(
-        activeWallet.accounts,
-        activeNetwork?.network?.id,
-      );
+  const refreshAccounts = useCallback(async () => {
+    if (!activeWallet) return;
+    const accounts = await backgroundApiProxy.engine.getAccounts(
+      activeWallet.accounts,
+      activeNetwork?.id,
+    );
 
-      setActiveAccounts(accounts);
-    }
-    return main();
-  }, [activeNetwork?.network?.id, activeWallet]);
+    setActiveAccounts(accounts);
+  }, [activeNetwork?.id, activeWallet]);
 
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
@@ -146,7 +125,8 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
               params: {
                 walletId: selectedWallet?.id ?? '',
                 accountId: item.id,
-                networkId: activeNetwork?.network.id ?? '',
+                networkId: activeNetwork?.id ?? '',
+                refreshAccounts,
               },
             },
           });
@@ -159,19 +139,18 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
               undefined,
               () => {
                 refreshAccounts();
-                console.log('remove account', item.id);
               },
             );
           } else {
             showVerify(
               (pwd) => {
+                console.log('---------', pwd);
                 showRemoveAccountDialog(
                   selectedWallet?.id ?? '',
                   item.id,
                   pwd,
                   () => {
                     refreshAccounts();
-                    console.log('remove account', item.id);
                   },
                 );
               },
@@ -185,7 +164,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
       }
     },
     [
-      activeNetwork?.network.id,
+      activeNetwork?.id,
       navigation,
       refreshAccounts,
       selectedWallet?.id,
@@ -244,23 +223,6 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         )}
       />
     );
-
-    // if (type === 'imported') {
-    //   return (
-    //     <IconButton
-    //       name="PlusSolid"
-    //       type="plain"
-    //       onPress={() => {
-    //         navigation.navigate(RootRoutes.Modal, {
-    //           screen: ModalRoutes.ImportAccount,
-    //           params: {
-    //             screen: ImportAccountModalRoutes.ImportAccountModal,
-    //           },
-    //         });
-    //       }}
-    //     />
-    //   );
-    // }
   }
 
   useEffect(() => {
@@ -292,12 +254,12 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
             <Pressable
               onPress={() => {
                 backgroundApiProxy.serviceAccount.changeActiveAccount({
-                  account: item,
-                  wallet: activeWallet,
+                  accountId: item.id,
+                  walletId: activeWallet?.id ?? '',
                 });
                 setTimeout(() => {
                   navigation.dispatch(DrawerActions.closeDrawer());
-                });
+                }, 0);
               }}
             >
               {({ isHovered }) => (
@@ -388,9 +350,8 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         visible={modifyNameVisible}
         account={modifyNameAccount}
         onClose={() => setModifyNameVisible(false)}
-        onDone={(account) => {
+        onDone={() => {
           refreshAccounts();
-          console.log('account modify name', account.id);
         }}
       />
     </>

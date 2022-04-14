@@ -29,31 +29,25 @@ import { ensureBackgroundObject } from '../background/utils';
 
 import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
-import chainReducer from './reducers/chain';
-import counter from './reducers/counter';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
 import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
-import networkReducer from './reducers/network';
+import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
 import statusReducer from './reducers/status';
-import walletReducer from './reducers/wallet';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
-  chain: chainReducer,
-  wallet: walletReducer,
+  runtime: runtimeReducer,
   settings: settingsReducer,
   status: statusReducer,
-  network: networkReducer,
   general: generalReducer,
   fiatMoney: fiatMoneyReducer,
   dapp: dappReducer,
   data: dataReducer,
   discover: discoverReducer,
-  counter,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
