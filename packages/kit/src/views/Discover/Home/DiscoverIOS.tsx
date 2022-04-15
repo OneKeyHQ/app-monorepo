@@ -18,7 +18,10 @@ import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import ExploreIMG from '@onekeyhq/kit/assets/explore.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { updateSyncData } from '@onekeyhq/kit/src/store/reducers/discover';
+import {
+  updateRankData,
+  updateSyncData,
+} from '@onekeyhq/kit/src/store/reducers/discover';
 
 import { useDiscover } from '../../../hooks/redux';
 import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
@@ -136,21 +139,25 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
   );
 
   const getData = useCallback(() => {
-    setPageStatus('loading');
+    setPageStatus(
+      Object.keys(syncData.increment).length > 0 ? 'data' : 'loading',
+    );
     requestSync(0, locale)
       .then((response) => {
-        dispatch(updateSyncData(response.data));
-        requestRankings()
-          .then(() => {
-            setPageStatus('data');
-          })
-          .catch(() => {
-            setPageStatus('network');
-          });
+        if (response.data.timestamp > syncData.timestamp) {
+          dispatch(updateSyncData(response.data));
+        }
+        setPageStatus('data');
+        requestRankings().then((response2) => {
+          dispatch(updateRankData(response2.data));
+        });
       })
       .catch(() => {
-        setPageStatus('network');
+        setPageStatus(
+          Object.keys(syncData.increment).length > 0 ? 'data' : 'network',
+        );
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, locale]);
 
   const noData = () => {

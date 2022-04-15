@@ -3,7 +3,6 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ImportedAccount from '@onekeyhq/kit/src/views/Account/ImportedAccount';
 import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
-import BackupTips from '@onekeyhq/kit/src/views/BackupTips';
 import CreateWallet from '@onekeyhq/kit/src/views/CreateWallet';
 import AddImportedAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedAccount';
 import AddImportedAccountDone from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedAccountDone';
@@ -47,7 +46,6 @@ export enum CreateWalletModalRoutes {
   ImportWalletModal = 'ImportWalletModal',
   CreateWatchedAccount = 'CreateWatchedAccount',
   CreateImportedAccount = 'CreateImportedAccount',
-  BackupTipsModal = 'BackupTipsModal',
 
   // Onekey Lite backup
   OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
@@ -99,9 +97,6 @@ export type CreateWalletRoutesParams = {
     selectableNetworks?: Array<string>;
   };
   [CreateWalletModalRoutes.GuideModal]: undefined;
-  [CreateWalletModalRoutes.BackupTipsModal]: {
-    walletId: string;
-  };
 
   // Onekey Lite backup
   [CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal]: {
@@ -186,10 +181,6 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.CreateImportedAccount,
     component: ImportedAccount,
-  },
-  {
-    name: CreateWalletModalRoutes.BackupTipsModal,
-    component: BackupTips,
   },
 
   // Onekey Lite backup

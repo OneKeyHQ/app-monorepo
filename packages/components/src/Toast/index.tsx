@@ -1,10 +1,10 @@
 import React, { FC, useState } from 'react';
 
-import { Box, Column, IconButton, Row } from 'native-base';
-
+import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
+import Pressable from '../Pressable';
 import { ThemeValues } from '../Provider/theme';
-import Typography from '../Typography';
+import { Text } from '../Typography';
 
 export { useToast } from 'native-base';
 
@@ -16,6 +16,7 @@ export type ToastProps = {
   dismiss?: boolean;
   error?: boolean;
   status?: ToastStatus;
+  onClose?: (callBack: (display: boolean) => void) => void;
 };
 
 export type ToastStatusProps = {
@@ -68,9 +69,9 @@ export const Toast: FC<ToastProps> = ({
   error = false,
   dismiss = false,
   status = undefined,
+  onClose,
 }) => {
   const toastStatusProps = toastPropWithStatus(status);
-
   const bgColor = error ? 'surface-critical-default' : 'text-default';
   const textColor = error ? 'text-on-critical' : 'surface-default';
   const iconColor = error ? 'text-on-primary' : 'surface-neutral-default';
@@ -80,55 +81,61 @@ export const Toast: FC<ToastProps> = ({
     <Box
       width="auto"
       bg={status ? 'surface-default' : bgColor}
-      px={status ? '16px' : '12px'}
-      py={status ? '16px' : '8px'}
+      px={status ? '17px' : '12px'}
+      py={status ? '17px' : '8px'}
       borderRadius="12px"
+      borderWidth={1}
+      borderColor="border-default"
       display={display ? 'flex' : 'none'}
     >
-      <Column>
-        <Row space={2} alignItems="center" justifyContent="space-between">
-          <Row alignItems="center">
-            {status ? (
-              <Box padding="3px">
-                <Icon
-                  size={18}
-                  name={toastStatusProps.iconName}
-                  color={toastStatusProps?.iconColor}
-                />
-              </Box>
-            ) : null}
-            {status ? (
-              <Typography.Body2>{title}</Typography.Body2>
-            ) : (
-              <Typography.Body1 color={textColor} textAlign="center">
-                {title}
-              </Typography.Body1>
-            )}
-          </Row>
-
-          {dismiss ? (
-            <IconButton
-              padding="2px"
-              display={dismiss ? 'flex' : 'none'}
-              icon={
-                <Icon
-                  size={20}
-                  name="CloseOutline"
-                  color={status ? 'icon-default' : iconColor}
-                />
-              }
-              onPress={() => {
-                setDisplay(false);
-              }}
-            />
+      <Box flexDirection="row" flex={1}>
+        <Box flexDirection="row" flex={1}>
+          {status ? (
+            <Box mr="12px">
+              <Icon
+                size={24}
+                name={toastStatusProps.iconName}
+                color={toastStatusProps?.iconColor}
+              />
+            </Box>
           ) : null}
-        </Row>
-        <Box display={description ? 'flex' : 'none'} pl="32px" pt="8px">
-          <Typography.Body2 color="text-subdued">
-            {description}
-          </Typography.Body2>
+          <Box flexDirection="column" flex={1}>
+            <Text
+              typography={status ? 'Body2' : 'Body1'}
+              color={status ? 'text-default' : textColor}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            <Box display={description ? 'flex' : 'none'} mt="4px" flex={1}>
+              <Text typography="Body2" color="text-subdued">
+                {description}
+              </Text>
+            </Box>
+          </Box>
         </Box>
-      </Column>
+        {dismiss ? (
+          <Pressable
+            onPress={() => {
+              if (onClose) {
+                onClose((outterDisplay) => {
+                  setDisplay(outterDisplay);
+                });
+              } else {
+                setDisplay(false);
+              }
+            }}
+          >
+            <Box ml="16px" padding="2px" display={dismiss ? 'flex' : 'none'}>
+              <Icon
+                size={20}
+                name="CloseOutline"
+                color={status ? 'icon-default' : iconColor}
+              />
+            </Box>
+          </Pressable>
+        ) : null}
+      </Box>
     </Box>
   );
 };
