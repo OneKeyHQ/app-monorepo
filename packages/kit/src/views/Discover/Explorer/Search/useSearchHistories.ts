@@ -77,6 +77,7 @@ export const useSearchHistories = (terms: string, keyword: string) => {
 
   const searchedHistories = useMemo(() => {
     if (terms.length === 0) {
+      setLoading(false);
       return [];
     }
     setLoading(true);
