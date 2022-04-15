@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { ComponentProps, FC, useState } from 'react';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
@@ -17,7 +17,7 @@ export type ToastProps = {
   error?: boolean;
   status?: ToastStatus;
   onClose?: (callBack: (display: boolean) => void) => void;
-};
+} & ComponentProps<typeof Box>;
 
 export type ToastStatusProps = {
   iconName: ICON_NAMES;
@@ -70,6 +70,7 @@ export const Toast: FC<ToastProps> = ({
   dismiss = false,
   status = undefined,
   onClose,
+  ...rest
 }) => {
   const toastStatusProps = toastPropWithStatus(status);
   const bgColor = error ? 'surface-critical-default' : 'text-default';
@@ -87,6 +88,7 @@ export const Toast: FC<ToastProps> = ({
       borderWidth={1}
       borderColor="border-default"
       display={display ? 'flex' : 'none'}
+      {...rest}
     >
       <Box flexDirection="row" flex={1}>
         <Box flexDirection="row" flex={1}>
