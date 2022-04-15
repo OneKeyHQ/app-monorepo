@@ -30,7 +30,7 @@ const backgroundCheck: Middleware<unknown, unknown> =
 
 const middlewares = [
   // simpleLogger,
-  logger,
+  // logger,
   backgroundCheck,
 ];
 
