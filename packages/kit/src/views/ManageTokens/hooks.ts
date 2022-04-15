@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import type { ValuedToken } from '../../store/reducers/general';
+import type { ValuedToken } from '../../store/typings';
 
 export const useSearchTokens = (
   terms: string,

@@ -27,6 +27,7 @@ export enum ModalRoutes {
   ManageNetwork = 'ManageNetwork',
   OnekeyHardware = 'OnekeyHardware',
   Discover = 'Discover',
+  Swap = 'Swap',
 }
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
