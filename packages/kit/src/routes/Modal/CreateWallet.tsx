@@ -47,7 +47,6 @@ export enum CreateWalletModalRoutes {
   ImportWalletModal = 'ImportWalletModal',
   CreateWatchedAccount = 'CreateWatchedAccount',
   CreateImportedAccount = 'CreateImportedAccount',
-  BackupTipsModal = 'BackupTipsModal',
 
   // Onekey Lite backup
   OnekeyLitePinCodeVerifyModal = 'OnekeyLitePinCodeVerifyModal',
@@ -99,9 +98,6 @@ export type CreateWalletRoutesParams = {
     selectableNetworks?: Array<string>;
   };
   [CreateWalletModalRoutes.GuideModal]: undefined;
-  [CreateWalletModalRoutes.BackupTipsModal]: {
-    walletId: string;
-  };
 
   // Onekey Lite backup
   [CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal]: {
@@ -186,10 +182,6 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.CreateImportedAccount,
     component: ImportedAccount,
-  },
-  {
-    name: CreateWalletModalRoutes.BackupTipsModal,
-    component: BackupTips,
   },
 
   // Onekey Lite backup

@@ -28,27 +28,16 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
   const { serviceAccount } = backgroundApiProxy;
   const navigation = useNavigation();
   const { closeDrawer } = useDrawer();
-  const appNavigation = useAppNavigation();
   useEffect(() => {
     async function main() {
-      const wallet = await serviceAccount.createHDWallet({
+      await serviceAccount.createHDWallet({
         password,
         mnemonic,
       });
+
       closeDrawer();
       const inst = navigation.getParent() || navigation;
       inst.goBack();
-      if (!mnemonic) {
-        appNavigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.BackupTipsModal,
-            params: {
-              walletId: wallet.id,
-            },
-          },
-        });
-      }
     }
     main();
   }, [
@@ -56,9 +45,9 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
     password,
     serviceAccount,
     mnemonic,
-    appNavigation,
     closeDrawer,
   ]);
+
   return (
     <Center h="full" w="full">
       <Spinner size="lg" />
