@@ -108,7 +108,7 @@ const SearchView: FC<SearchViewProps> = ({
                   borderColor="border-subdued"
                   fallbackElement={
                     <Center w="24px" h="24px">
-                      <Icon size={22} name="QuestionMarkCircleOutline" />
+                      <Icon size={18} name="GlobeSolid" />
                     </Center>
                   }
                 />
@@ -116,7 +116,7 @@ const SearchView: FC<SearchViewProps> = ({
             )}
 
             <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-              {name ?? title}
+              {name ?? title ?? 'Unknown'}
             </Text>
             <Typography.Body2 numberOfLines={1} color="text-subdued">
               {dappUrl ?? webSiteUrl}

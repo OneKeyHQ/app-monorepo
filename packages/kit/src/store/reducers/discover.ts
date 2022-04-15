@@ -33,7 +33,7 @@ function getUrlHostName(urlStr: string | undefined): string | undefined {
   }
   try {
     const url = new URL(urlStr);
-    return url.hostname;
+    return url.hostname.toLowerCase();
   } catch (error) {
     return undefined;
   }
@@ -49,7 +49,7 @@ function diffWebSite(
   } = oldWebSite || {};
   const { title, url, favicon } = newWebSite || {};
 
-  const newUrl = oldUrl && oldUrl !== '' ? oldUrl : url;
+  const newUrl = url && url !== '' ? url : oldUrl;
   const newTitle = title && title !== '' ? title : oldTitle;
   const newFavicon = favicon && favicon !== '' ? favicon : oldFavicon;
 
@@ -114,6 +114,21 @@ export const discoverSlice = createSlice({
         hostname = getUrlHostName(action.payload.webSite.url);
       }
       if (!hostname) return;
+
+      let url = hostname;
+      if (url.startsWith('www.')) {
+        url = url.replace('www.', '');
+      }
+      if (url.startsWith('m.')) {
+        url = url.replace('m.', '');
+      }
+
+      if (
+        action.payload.webSite.url &&
+        action.payload.webSite.url.indexOf(url) === -1
+      ) {
+        return;
+      }
 
       const history = state.history[hostname];
       if (history && history.webSite) {

@@ -84,24 +84,23 @@ const SearchModalView: FC = () => {
               <DAppIcon size={38} favicon={dappFavicon ?? ''} chain={chain} />
             )}
             {(!!webSiteFavicon || item.webSite) && (
-              <Box
-                width="38px"
-                height="38px"
-                borderRadius="10px"
-                borderWidth="1px"
-                borderColor="border-subdued"
-              >
+              <Box width="38px" height="38px">
                 <Image
                   width="38px"
                   height="38px"
-                  src={webSiteFavicon ?? ''}
                   source={{ uri: webSiteFavicon }}
                   borderRadius="10px"
                   borderWidth="1px"
                   borderColor="border-subdued"
                   fallbackElement={
-                    <Center w="38px" h="38px">
-                      <Icon size={22} name="QuestionMarkCircleOutline" />
+                    <Center
+                      w="38px"
+                      h="38px"
+                      borderRadius="10px"
+                      borderWidth="1px"
+                      borderColor="border-subdued"
+                    >
+                      <Icon size={20} name="GlobeSolid" />
                     </Center>
                   }
                 />
@@ -110,7 +109,7 @@ const SearchModalView: FC = () => {
 
             <Box mx={3} flexDirection="column" flex={1}>
               <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                {name ?? title}
+                {name ?? title ?? 'Unknown'}
               </Text>
               <Typography.Body2 numberOfLines={1} color="text-subdued">
                 {dappUrl ?? webSiteUrl}
