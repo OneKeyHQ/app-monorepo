@@ -55,7 +55,6 @@ const BrowserURLInput = React.forwardRef<typeof Input, BrowserURLInputProps>(
 BrowserURLInput.displayName = 'BrowserURLInput';
 
 const Desktop: FC<ExplorerViewProps> = ({
-  displayInitialPage,
   searchContent,
   onSearchContentChange,
   onSearchSubmitEditing,
@@ -133,7 +132,7 @@ const Desktop: FC<ExplorerViewProps> = ({
           </HStack>
           {moreView}
           <SearchView
-            visible={historyVisible && (displayInitialPage ?? false)}
+            visible={historyVisible}
             onVisibleChange={setHistoryVisible}
             searchContent={searchContent ?? ''}
             onSelectorItem={(item) => {
