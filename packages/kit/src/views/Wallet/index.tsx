@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/core';
@@ -39,6 +39,7 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
+import BackupToast from './BackupToast';
 import CollectiblesList from './Collectibles';
 import HistoricalRecord from './HistoricalRecords';
 
@@ -79,29 +80,33 @@ const Home: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-
   const [offline, setOffline] = useState(false);
-  const [backupTip, setBackupTip] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (wallet && !wallet.backuped && backupTip) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.BackupTipsModal,
-            params: { walletId: wallet.id },
-          },
-        });
-      }
-      setBackupTip(() => false);
-    }, 2000);
+  const [backupMap, updateBackMap] = useState<
+    Record<string, boolean | undefined>
+  >({});
+  const backupToast = useCallback(() => {
+    if (wallet && !wallet?.backuped && backupMap[wallet?.id] === undefined) {
+      return (
+        <BackupToast
+          walletId={wallet.id}
+          onClose={() => {
+            updateBackMap((prev) => {
+              prev[wallet?.id] = false;
+              return { ...prev };
+            });
+          }}
+        />
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallet?.id, wallet?.backuped]);
 
+  useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       setOffline(state.type === NetInfoStateType.none);
     });
     return () => {
       unsubscribe();
-      clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -262,6 +267,7 @@ const Home: FC = () => {
           />
         </Tabs.Tab>
       </Tabs.Container>
+      {backupToast()}
       <OfflineView offline={offline} />
     </>
   );
