@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   TokenType,
   Transaction,
@@ -240,7 +241,21 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
             ) : (
               <Address color="text-subdued" text={transaction.to} short />
             )} */}
-            <Address color="text-subdued" text={transaction.toAddress} short />
+            <Address
+              color="text-subdued"
+              text={transaction.toAddress}
+              wordBreak="break-all"
+              whiteSpace="nowrap"
+              short
+              prefix={
+                // eslint-disable-next-line no-nested-ternary
+                transaction.type === 'Receive'
+                  ? `${intl.formatMessage({ id: 'content__from' })}: `
+                  : transaction.type === 'Transfer'
+                  ? `${intl.formatMessage({ id: 'content__to' })}: `
+                  : undefined
+              }
+            />
           </Box>
           {displayAmount() && amountInfo()}
         </Box>
@@ -263,9 +278,31 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
             <Address color="text-subdued" text={transaction.toAddress} />
           </Box>
         )} */}
-        <Box flex={1}>
-          <Address color="text-subdued" text={transaction.toAddress} />
-        </Box>
+        {/* <Address
+          flex={1}
+          color="text-subdued"
+          text={transaction.toAddress}
+          wordBreak="break-all"
+          prefix={
+            // eslint-disable-next-line no-nested-ternary
+            transaction.type === 'Receive'
+              ? `${intl.formatMessage({ id: 'content__from' })}: `
+              : transaction.type === 'Transfer'
+              ? `${intl.formatMessage({ id: 'content__to' })}: `
+              : undefined
+          }
+        /> */}
+        <Typography.Body2 color="text-subdued" flex={1}>
+          {
+            // eslint-disable-next-line no-nested-ternary
+            transaction.type === 'Receive'
+              ? `${intl.formatMessage({ id: 'content__from' })}: `
+              : transaction.type === 'Transfer'
+              ? `${intl.formatMessage({ id: 'content__to' })}: `
+              : undefined
+          }
+          {shortenAddress(transaction.toAddress, 16)}
+        </Typography.Body2>
         {displayAmount() ? amountInfo() : <Box minW="156px" />}
       </Box>
     );
