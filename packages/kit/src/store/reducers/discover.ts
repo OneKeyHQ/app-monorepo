@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { SyncRequestPayload } from '../../views/Discover/type';
+import { RankingsPayload, SyncRequestPayload } from '../../views/Discover/type';
 
 export type DiscoverHistory = {
   clicks: number;
@@ -11,12 +11,14 @@ type InitialState = {
   history: Record<string, DiscoverHistory>;
   syncData: SyncRequestPayload;
   firstRemindDAPP: boolean;
+  rankData: RankingsPayload;
 };
 
 const initialState: InitialState = {
   history: {},
   syncData: { timestamp: 0, banners: [], increment: {} },
   firstRemindDAPP: true,
+  rankData: { tags: [] },
 };
 
 export const discoverSlice = createSlice({
@@ -43,10 +45,17 @@ export const discoverSlice = createSlice({
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;
     },
+    updateRankData(state, action: PayloadAction<InitialState['rankData']>) {
+      state.rankData = action.payload;
+    },
   },
 });
 
-export const { updateHistory, updateSyncData, updateFirstRemindDAPP } =
-  discoverSlice.actions;
+export const {
+  updateHistory,
+  updateSyncData,
+  updateFirstRemindDAPP,
+  updateRankData,
+} = discoverSlice.actions;
 
 export default discoverSlice.reducer;
