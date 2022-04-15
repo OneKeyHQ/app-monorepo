@@ -57,6 +57,7 @@ const Outer: FC<OuterContainerProps> = ({
       animationIn="fadeIn"
       isVisible={isVisible}
       onModalHide={onClose}
+      avoidKeyboard
       style={{ marginHorizontal: 0 }}
       {...rest}
     >

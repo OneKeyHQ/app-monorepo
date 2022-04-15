@@ -10,8 +10,10 @@ import { Text } from '@onekeyhq/components/src/Typography';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useDialog } from '../../../components/Dialog';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useToast } from '../../../hooks/useToast';
+import { GlobalDialogIds, GlobalDialogParams } from '../../../routes/Dialog';
 import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,6 +31,10 @@ export const AboutSection = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
   const settings = useSettings();
+
+  const dialog = useDialog<GlobalDialogParams[GlobalDialogIds.SimpleDialog]>(
+    GlobalDialogIds.SimpleDialog,
+  );
 
   const onCheckUpdate = useCallback(() => {
     toast.info(
@@ -240,6 +246,24 @@ export const AboutSection = () => {
             </Typography.Body2>
             <Icon name="ExternalLinkOutline" color="text-success" size={14} />
           </HStack>
+        </Pressable>
+
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() =>
+            dialog
+              .show('params')
+              .then((value) => console.log('我是返回值:', value))
+          }
+        >
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            我是弹窗
+          </Text>
         </Pressable>
       </Box>
     </Box>

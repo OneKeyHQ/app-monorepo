@@ -8,6 +8,7 @@ import Toast from '@onekeyhq/components/src/Toast/Custom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Navigator, { navigationRef } from '../navigator';
+import Dialog from '../routes/Dialog';
 
 const prefix = createURL('/');
 
@@ -49,6 +50,7 @@ const NavigationApp = () => {
         <Navigator />
       </NavigationContainer>
       <Toast bottomOffset={60} />
+      <Dialog />
     </>
   );
 };

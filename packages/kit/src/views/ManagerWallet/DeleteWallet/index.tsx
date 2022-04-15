@@ -2,43 +2,40 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
-import { useToast } from '../../../hooks/useToast';
-import { setRefreshTS } from '../../../store/reducers/settings';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import GlobalDialog, { useDialog } from '@onekeyhq/kit/src/components/Dialog';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import {
+  GlobalDialogIds,
+  GlobalDialogParams,
+} from '@onekeyhq/kit/src/routes/Dialog';
+import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 
 export type DeleteWalletProp = {
   walletId: string;
   password: string;
 };
 
-type ManagerWalletDeleteDialogProps = {
-  visible: boolean;
-  deleteWallet: DeleteWalletProp | undefined;
-  onDialogClose: () => void;
-};
-
-const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
-  visible,
-  deleteWallet,
-  onDialogClose,
-}) => {
+const ManagerWalletDeleteDialog: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const { wallet: activeWallet } = useActiveWalletAccount();
   const { dispatch, engine, serviceAccount } = backgroundApiProxy;
 
-  const { walletId, password } = deleteWallet ?? {};
+  const dialogId = GlobalDialogIds.DeleteWalletDialog;
+  const { args, hide, resolve } =
+    useDialog<GlobalDialogParams[GlobalDialogIds.DeleteWalletDialog]>(dialogId);
+
+  const { walletId, password } = args ?? {};
   const [isLoading, setIsLoading] = React.useState(false);
 
   return (
-    <Dialog
-      visible={visible}
+    <GlobalDialog
+      dialogId={dialogId}
       canceledOnTouchOutside={false}
-      onClose={() => onDialogClose?.()}
+      onClose={() => hide?.()}
       contentProps={{
         iconType: 'danger',
         title: intl.formatMessage({
@@ -73,6 +70,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
                   { 0: wallet.name },
                 ),
               );
+              resolve?.(true);
               onClose?.();
             })
             .catch((e) => {

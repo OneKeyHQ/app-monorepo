@@ -31,6 +31,7 @@ import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
+import dialogReducer from './reducers/dialog';
 import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
@@ -50,6 +51,7 @@ const allReducers = combineReducers({
   data: dataReducer,
   discover: discoverReducer,
   swap: swapReducer,
+  dialog: dialogReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

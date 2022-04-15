@@ -1,4 +1,3 @@
-/* eslint-disable  @typescript-eslint/no-unused-vars */
 import React, { FC, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -22,10 +21,9 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import { GlobalDialogIds, GlobalDialogParams } from '../../../routes/Dialog';
 import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey';
-import ManagerWalletDeleteDialog, {
-  DeleteWalletProp,
-} from '../../../views/ManagerWallet/DeleteWallet';
+import { useDialog } from '../../Dialog';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
@@ -76,8 +74,11 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
 
   const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);
-  const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
-  const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
+
+  // 使用 useDialog 展示对话框
+  const { show: showDeleteWallet } = useDialog<
+    GlobalDialogParams[GlobalDialogIds.DeleteWalletDialog]
+  >(GlobalDialogIds.DeleteWalletDialog);
 
   const renderBackupState = useMemo(() => {
     if (!selectedWallet) return null;
@@ -101,11 +102,17 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
     if (selectedWallet?.backuped === true) {
       showVerify(
         (pwd) => {
-          setDeleteWallet({
+          // 使用全局的 Dialog
+          showDeleteWallet({
             walletId: selectedWallet?.id ?? '',
             password: pwd,
           });
-          setShowDeleteWalletDialog(true);
+
+          // 想等待 Dialog 的 处理结果 可以用，这样 Dialog 必须调用 resolve
+          // const result = await showDeleteWallet({
+          //   walletId: selectedWallet?.id ?? '',
+          //   password: pwd,
+          // });
         },
         () => {},
       );
@@ -283,13 +290,6 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
           />
         ) : null}
       </HStack>
-      <ManagerWalletDeleteDialog
-        visible={showDeleteWalletDialog}
-        deleteWallet={deleteWallet}
-        onDialogClose={() => {
-          setShowDeleteWalletDialog(false);
-        }}
-      />
       <Dialog
         visible={showBackupDialog}
         canceledOnTouchOutside={false}
