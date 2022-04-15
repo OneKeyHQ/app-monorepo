@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { Column, Row } from 'native-base';
@@ -14,7 +14,13 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import {
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
+} from '@onekeyhq/engine/src/types/vault';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 import { TxTitleDetailView } from '../TxTitleDetailView';
@@ -31,17 +37,59 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
     encodedTx,
   } = props;
   const intl = useIntl();
+  const { accountId, networkId } = useActiveWalletAccount();
   const transferPayload = payload as TransferSendParamsPayload;
   const cardBgColor = useThemeValue('surface-default');
   const isTransferNativeToken = !transferPayload?.token?.idOnNetwork;
-  const totalTransfer = isTransferNativeToken
-    ? new BigNumber(transferPayload?.value)
-        .plus(feeInfoPayload?.current?.totalNative ?? '')
-        .toFixed()
-    : false;
+
+  const transferAmount = useMemo(() => {
+    if (transferPayload.isMax) {
+      if (isTransferNativeToken) {
+        return new BigNumber(transferPayload.token.balance ?? 0)
+          .minus(feeInfoPayload?.current?.totalNative ?? 0)
+          .toFixed();
+      }
+      return transferPayload.token.balance ?? '0';
+    }
+    return transferPayload.value ?? '0';
+  }, [
+    feeInfoPayload,
+    isTransferNativeToken,
+    transferPayload.isMax,
+    transferPayload.token.balance,
+    transferPayload.value,
+  ]);
+
+  const totalCost = useMemo(() => {
+    const fee = feeInfoPayload?.current?.totalNative ?? '0';
+    return isTransferNativeToken
+      ? new BigNumber(fee).plus(transferAmount ?? '0').toFixed()
+      : fee;
+  }, [feeInfoPayload, isTransferNativeToken, transferAmount]);
 
   return (
-    <SendConfirmModal {...props}>
+    <SendConfirmModal
+      {...props}
+      confirmDisabled={new BigNumber(transferAmount).lt(0)}
+      updateEncodedTxBeforeConfirm={async (tx) => {
+        if (transferPayload.isMax) {
+          const updatePayload: IEncodedTxUpdatePayloadTransfer = {
+            amount: transferAmount,
+          };
+          const newTx = await backgroundApiProxy.engine.updateEncodedTx({
+            networkId,
+            accountId,
+            encodedTx: tx,
+            payload: updatePayload,
+            options: {
+              type: IEncodedTxUpdateType.transfer,
+            },
+          });
+          return Promise.resolve(newTx);
+        }
+        return Promise.resolve(tx);
+      }}
+    >
       <Column flex="1">
         <Center>
           <Token src={transferPayload?.token?.logoURI} size="56px" />
@@ -99,17 +147,17 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
         <Column bg={cardBgColor} borderRadius="12px" mt="2">
           <TxTitleDetailView
             title={intl.formatMessage({ id: 'content__amount' })}
-            detail={`${transferPayload?.value} ${transferPayload?.token?.symbol}`}
+            detail={`${transferAmount} ${transferPayload?.token?.symbol}`}
           />
           <Divider />
           <FeeInfoInputForConfirm
-            disabled={!feeInfoEditable}
+            editable={feeInfoEditable}
             encodedTx={encodedTx}
             feeInfoPayload={feeInfoPayload}
             loading={feeInfoLoading}
           />
           <Divider />
-          {totalTransfer && (
+          {isTransferNativeToken && (
             <TxTitleDetailView
               title={`${intl.formatMessage({
                 id: 'content__total',
@@ -120,7 +168,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
                 feeInfoLoading ? (
                   <Spinner />
                 ) : (
-                  `${totalTransfer} ${feeInfoPayload?.info?.nativeSymbol || ''}`
+                  `${totalCost} ${feeInfoPayload?.info?.nativeSymbol || ''}`
                 )
               }
             />

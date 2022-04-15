@@ -25,6 +25,7 @@ import { useDecodedTx } from '../../hooks/useDecodedTx';
 
 import {
   ITxConfirmViewProps,
+  ITxConfirmViewPropsHandleConfirm,
   SendConfirmModal,
 } from './confirmViews/SendConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
@@ -118,8 +119,11 @@ const TransactionConfirm = () => {
     ],
   );
 
-  const handleNavigation = useCallback(
-    async ({ close }: { onClose?: () => void; close: () => void }) => {
+  const handleConfirm = useCallback<ITxConfirmViewPropsHandleConfirm>(
+    async (options) => {
+      const { close } = options;
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      const encodedTx = options.encodedTx as IEncodedTxEvm;
       if (!encodedTx) {
         return;
       }
@@ -144,6 +148,7 @@ const TransactionConfirm = () => {
         encodedTx: encodedTxWithFee,
         accountId,
         networkId,
+        // TODO onComplete
         onSuccess: (tx) => {
           saveHistory(tx);
           backgroundApiProxy.serviceToken.fetchAccountTokens();
@@ -155,7 +160,6 @@ const TransactionConfirm = () => {
       });
     },
     [
-      encodedTx,
       isFromDapp,
       useFeeInTx,
       feeInfoPayload,
@@ -175,7 +179,7 @@ const TransactionConfirm = () => {
     feeInfoLoading,
     feeInfoEditable: !useFeeInTx,
     payload,
-    onPrimaryActionPress: handleNavigation,
+    handleConfirm,
     onSecondaryActionPress: ({ close }) => {
       dappApprove.reject();
       close();
@@ -187,7 +191,7 @@ const TransactionConfirm = () => {
 
   if (!decodedTx) {
     return (
-      <SendConfirmModal {...sharedProps}>
+      <SendConfirmModal {...sharedProps} confirmDisabled>
         <Center flex="1">
           <Spinner />
         </Center>

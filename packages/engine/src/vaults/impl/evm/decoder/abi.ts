@@ -12,6 +12,11 @@ const ERC20 = [
   'event Approval(address indexed _owner, address indexed _spender, uint256 _value)',
 ] as const;
 
+export enum Erc20MethodSelectors {
+  tokenTransfer = '0xa9059cbb',
+  tokenApprove = '0x095ea7b3',
+}
+
 const ABI = {
   ERC20,
 };

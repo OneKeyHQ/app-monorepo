@@ -29,6 +29,7 @@ export type RadioButtonProps = {
    * 点击修改状态
    */
   onChange?: (value: IRadioValue) => void;
+  onCheckedChange?: (checked: boolean) => void;
 } & ButtonProps;
 
 const getMargin = (size: ButtonSize = 'base'): [number, number] => {
@@ -49,6 +50,7 @@ const RadioButton: FC<RadioButtonProps> = ({
   isChecked,
   isDisabled,
   onChange,
+  onCheckedChange,
   ...props
 }) => {
   const [vertical, horizontal] = getMargin(size);
@@ -75,6 +77,9 @@ const RadioButton: FC<RadioButtonProps> = ({
       {...props}
       onPress={() => {
         if (onChange) onChange(value);
+        if (onCheckedChange && !isDisabled) {
+          onCheckedChange(!isChecked);
+        }
       }}
       bg={bg}
       _hover={{

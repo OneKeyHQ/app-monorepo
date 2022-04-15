@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { Column, Row } from 'native-base';
@@ -46,22 +46,28 @@ function TokenApproveAmountEdit({ ...rest }) {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = useActiveWalletAccount();
-  const { encodedTx, tokenApproveAmount } = route.params;
+  const { encodedTx, tokenApproveAmount, isMaxAmount } = route.params;
+  const [isMax, setIsMax] = useState(isMaxAmount);
   const decodedTx = route.params.decodedTx as EVMDecodedItem | null;
-  const symbol = decodedTx?.info?.token?.symbol;
+  const token = decodedTx?.info?.token;
+  const symbol = token?.symbol;
 
-  const { control, setValue, handleSubmit } = useForm<FeeValues>({
-    mode: 'onBlur',
-    reValidateMode: 'onBlur',
+  const {
+    control,
+    handleSubmit,
+    trigger: formTrigger,
+  } = useForm<FeeValues>({
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: {
-      amount: tokenApproveAmount,
+      amount: isMaxAmount ? '' : tokenApproveAmount,
     },
   });
   const onSubmit = handleSubmit(async (data) => {
     if (!navigation.canGoBack()) {
       return;
     }
-    const { amount } = data;
+    const amount = isMax ? InfiniteAmountText : data.amount;
     const tx = await engine.updateEncodedTxTokenApprove({
       networkId,
       accountId,
@@ -75,14 +81,11 @@ function TokenApproveAmountEdit({ ...rest }) {
       merge: true,
       name: prevRouteName,
       params: {
-        tokenApproveAmount: data.amount,
+        tokenApproveAmount: amount,
         encodedTx: tx,
       },
     });
   });
-  const useMaxSpendLimit = useCallback(() => {
-    setValue('amount', InfiniteAmountText);
-  }, [setValue]);
 
   const { bottom } = useSafeAreaInsets();
   const footer = (
@@ -108,6 +111,13 @@ function TokenApproveAmountEdit({ ...rest }) {
     </Column>
   );
 
+  const validateRules = {
+    required: '$i18n$ 请输入授权金额',
+  };
+  if (isMax) {
+    validateRules.required = '';
+  }
+
   return (
     <Modal
       trigger={trigger}
@@ -122,9 +132,7 @@ function TokenApproveAmountEdit({ ...rest }) {
               label={intl.formatMessage({
                 id: 'form__max_spend_limit',
               })}
-              rules={{
-                required: '$i18n$ 请输入授权金额',
-              }}
+              rules={validateRules}
               control={control}
               name="amount"
               defaultValue={intl.formatMessage({ id: 'form__unlimited' })}
@@ -135,10 +143,20 @@ function TokenApproveAmountEdit({ ...rest }) {
                 { 0: route.params.sourceInfo?.origin ?? '--' },
               )}
             >
-              <Form.Input
+              <Form.NumberInput
+                decimal={token?.decimals}
                 rightText={symbol}
-                rightSecondaryText={intl.formatMessage({ id: 'action__max' })}
-                onPressSecondaryRightText={useMaxSpendLimit}
+                enableMaxButton
+                isMax={isMax}
+                onMaxChange={(v) => {
+                  setIsMax(v);
+                  if (v) {
+                    setTimeout(() => {
+                      formTrigger('amount');
+                    }, 300);
+                  }
+                }}
+                maxText={intl.formatMessage({ id: 'form__unlimited' })}
               />
             </Form.Item>
           </Form>

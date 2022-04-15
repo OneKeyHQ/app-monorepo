@@ -1,4 +1,4 @@
-import React, { ComponentProps, ReactNode } from 'react';
+import React, { ComponentProps, ReactElement, ReactNode } from 'react';
 
 import { Input as BaseInput, Pressable, Stack } from 'native-base';
 import { Platform } from 'react-native';
@@ -15,7 +15,7 @@ type Props = {
   isDisabled?: boolean;
   leftText?: string;
   rightText?: string;
-  rightSecondaryText?: string;
+  rightSecondaryText?: string | ReactElement | null;
   leftIconName?: ICON_NAMES;
   rightIconName?: ICON_NAMES;
   rightCustomElement?: ReactNode;

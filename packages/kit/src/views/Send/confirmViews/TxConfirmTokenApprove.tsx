@@ -71,12 +71,14 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
   }, [accountId, encodedTx, engine, networkId]);
 
   const approveAmount = decodedTx?.info?.amount as string;
+  const isMaxAmount = approveAmount === InfiniteAmountText;
   const token = decodedTx?.info?.token;
   const approveAmountInput = (
     <Pressable
       onPress={() => {
         navigation.navigate(SendRoutes.TokenApproveAmountEdit, {
           tokenApproveAmount: approveAmount,
+          isMaxAmount,
           sourceInfo,
           encodedTx,
           decodedTx,
@@ -94,7 +96,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
             id: 'content__spend_limit_amount',
           })}
           detail={
-            approveAmount === InfiniteAmountText
+            isMaxAmount
               ? intl.formatMessage({ id: 'form__unlimited' })
               : `${approveAmount} ${decodedTx?.info?.token?.symbol as string}`
           }
@@ -183,7 +185,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
           </Typography.Subheading>
           <Column bg={cardBgColor} borderRadius="12px" mt="2">
             <FeeInfoInputForConfirm
-              disabled={!feeInfoEditable}
+              editable={feeInfoEditable}
               encodedTx={encodedTx}
               feeInfoPayload={feeInfoPayload}
               loading={feeInfoLoading}

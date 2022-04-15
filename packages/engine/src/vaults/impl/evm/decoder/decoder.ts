@@ -35,7 +35,7 @@ interface EVMDecodedItemERC20Transfer {
   token: Token;
   amount: string;
   value: string;
-  recipent: string;
+  recipient: string;
 }
 
 interface EVMDecodedItemERC20Approve {
@@ -110,14 +110,14 @@ class EVMTxDecoder {
       switch (txType) {
         case EVMTxType.TOKEN_TRANSFER: {
           // transfer(address _to, uint256 _value)
-          const recipent = txDesc?.args[0] as string;
+          const recipient = txDesc?.args[0] as string;
           const value = txDesc?.args[1] as ethers.BigNumber;
           const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
             type: 'transfer',
             value: value.toString(),
             amount,
-            recipent,
+            recipient,
             token,
           } as EVMDecodedItemERC20Transfer;
           break;
@@ -235,4 +235,8 @@ class EVMTxDecoder {
 }
 
 export { EVMTxDecoder, EVMTxType };
-export type { EVMDecodedItem, EVMDecodedItemERC20Approve };
+export type {
+  EVMDecodedItem,
+  EVMDecodedItemERC20Approve,
+  EVMDecodedItemERC20Transfer,
+};

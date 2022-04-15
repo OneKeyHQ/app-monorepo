@@ -16,6 +16,7 @@ export enum SendRoutes {
 
 export type TokenApproveAmountEditParams = {
   tokenApproveAmount: string;
+  isMaxAmount: boolean;
   sourceInfo?: IDappCallParams | undefined;
   encodedTx?: any;
   decodedTx?: any;
@@ -39,11 +40,13 @@ export type TransferSendParamsPayload = {
     name: string;
   };
   value: string;
+  isMax: boolean;
   token: {
     idOnNetwork: string;
     logoURI: string;
     name: string;
     symbol: string;
+    balance?: string;
   };
 };
 

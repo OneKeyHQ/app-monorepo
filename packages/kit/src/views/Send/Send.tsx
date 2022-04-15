@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary, @typescript-eslint/no-unused-vars */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -32,7 +32,11 @@ import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
-import { SendRoutes, SendRoutesParams } from './types';
+import {
+  SendRoutes,
+  SendRoutesParams,
+  TransferSendParamsPayload,
+} from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -72,6 +76,7 @@ const Transaction = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
+  const [isMax, setIsMax] = useState(false);
 
   const { control, handleSubmit, watch, trigger, getValues } =
     useForm<TransactionValues>({
@@ -152,15 +157,20 @@ const Transaction = () => {
 
   // build encodedTx
   useEffect(() => {
+    setBuildLoading(true);
     buildEncodedTxFromTransferDebounced({
       networkId,
       accountId,
       transferInfo,
       callback: async (promise) => {
+        setEncodedTx(null);
+        if (!isValid) {
+          setBuildLoading(false);
+          return;
+        }
         try {
-          setBuildLoading(true);
           const tx = await promise;
-          if (tx) {
+          if (tx && transferInfo.to) {
             setEncodedTx(tx);
           }
         } catch (e) {
@@ -171,21 +181,41 @@ const Transaction = () => {
         }
       },
     });
-  }, [accountId, networkId, transferInfo]);
+  }, [accountId, isValid, networkId, transferInfo]);
+
+  const updateTransferInfo = useCallback(() => {
+    const formValues = getValues();
+    let { to, value } = formValues;
+    const from = (account as { address: string }).address;
+    // max token transfer
+    if (selectedToken?.tokenIdOnNetwork && isMax) {
+      value = selectedToken?.balance ?? '';
+    }
+    const info = {
+      from,
+      to,
+      // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
+      token: selectedToken?.tokenIdOnNetwork,
+      amount: value,
+      max: isMax,
+    } as ITransferInfo;
+    setTransferInfo(info);
+  }, [
+    account,
+    getValues,
+    isMax,
+    selectedToken?.balance,
+    selectedToken?.tokenIdOnNetwork,
+  ]);
+
+  useEffect(() => {
+    updateTransferInfo();
+  }, [isMax, updateTransferInfo]);
 
   // form data changed watch handler
   useEffect(() => {
     const subscription = watch((formValues, { name, type }) => {
-      const { to, value } = formValues;
-      const from = (account as { address: string }).address;
-      const info = {
-        from,
-        to,
-        // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
-        token: selectedToken?.tokenIdOnNetwork,
-        amount: value,
-      } as ITransferInfo;
-      setTransferInfo(info);
+      updateTransferInfo();
       if (type === 'change' && name === 'token') {
         const option = tokenOptions.find((o) => o.value === formValues.token);
         if (option) setSelectOption(option);
@@ -198,14 +228,14 @@ const Transaction = () => {
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions, trigger, account, selectedToken?.tokenIdOnNetwork]);
+  }, [watch, tokenOptions, trigger, updateTransferInfo]);
 
   const submitButtonDisabled =
     !isValid ||
     feeInfoLoading ||
     !feeInfoPayload ||
     !getValues('to') ||
-    !getValues('value') ||
+    (!getValues('value') && !isMax) ||
     !encodedTx;
   const onSubmit = handleSubmit(async (data) => {
     const tokenConfig = selectedToken ?? nativeToken;
@@ -218,7 +248,7 @@ const Transaction = () => {
         encodedTx,
         feeInfoValue: feeInfoPayload?.current.value,
       });
-    const payload = {
+    const payload: TransferSendParamsPayload = {
       to: data.to,
       account: {
         id: account.id,
@@ -230,11 +260,13 @@ const Transaction = () => {
         name: activeNetwork?.name ?? '',
       },
       value: data.value,
+      isMax,
       token: {
         idOnNetwork: tokenConfig.tokenIdOnNetwork,
         logoURI: tokenConfig.logoURI,
         name: tokenConfig.name,
         symbol: tokenConfig.symbol,
+        balance: tokenConfig.balance,
       },
     };
     const params = {
@@ -258,45 +290,14 @@ const Transaction = () => {
   return (
     <Modal
       height="598px"
-      hidePrimaryAction
       hideSecondaryAction
+      primaryActionTranslationId="action__continue"
+      primaryActionProps={{
+        isDisabled: submitButtonDisabled,
+        onPress: onSubmit,
+      }}
       header={intl.formatMessage({ id: 'action__send' })}
       headerDescription={activeNetwork?.name ?? ''}
-      footer={
-        <Column>
-          <Row
-            justifyContent="space-between"
-            alignItems="center"
-            px={{ base: 4, md: 6 }}
-            pt={4}
-            pb={4 + bottom}
-            borderTopWidth={1}
-            borderTopColor="border-subdued"
-          >
-            <Column flex={1} overflow="hidden">
-              <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'content__amount' })}
-              </Typography.Body2>
-              <Typography.Body1Strong>
-                {inputValue || '-'}&nbsp;&nbsp;
-                {selectOption?.label}
-              </Typography.Body1Strong>
-              {/* <Typography.Caption color="text-subdued">
-                3 min
-              </Typography.Caption> */}
-            </Column>
-            <Button
-              type="primary"
-              size={isSmallScreen ? 'xl' : 'base'}
-              isDisabled={submitButtonDisabled}
-              onPromise={onSubmit}
-              // isLoading={feeInfoPayloadLoading}
-            >
-              {intl.formatMessage({ id: 'action__continue' })}
-            </Button>
-          </Row>
-        </Column>
-      }
       scrollViewProps={{
         children: (
           <>
@@ -375,7 +376,9 @@ const Transaction = () => {
                 helpText={
                   <FormatCurrencyToken
                     token={selectedToken}
-                    value={getValues('value')}
+                    value={
+                      isMax ? selectedToken?.balance ?? '0' : getValues('value')
+                    }
                     render={(ele) => (
                       <Typography.Body2 mt={1} color="text-subdued">
                         {ele}
@@ -384,10 +387,13 @@ const Transaction = () => {
                   />
                 }
                 rules={{
-                  required: intl.formatMessage({ id: 'form__amount_invalid' }),
+                  required: isMax
+                    ? ''
+                    : intl.formatMessage({ id: 'form__amount_invalid' }),
                   validate: (value) => {
                     const token = selectedToken;
                     if (!token) return undefined;
+                    if (isMax) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(
                       balances[token.tokenIdOnNetwork || 'main'] ?? '0',
@@ -401,33 +407,26 @@ const Transaction = () => {
                     return undefined;
                   },
                 }}
-                // helpText="0 USD"
               >
-                <NumberInput
+                <Form.NumberInput
                   maxLength={40}
                   w="100%"
                   size="xl"
-                  keyboardType="numeric"
                   decimal={
                     selectedToken && selectedToken.tokenIdOnNetwork
                       ? activeNetwork?.tokenDisplayDecimals
                       : activeNetwork?.nativeDisplayDecimals
                   }
-                  rightCustomElement={
-                    <>
-                      <Typography.Body1 mr={4} color="text-subdued">
-                        {selectOption?.label ?? '-'}
-                      </Typography.Body1>
-                      <Divider
-                        orientation="vertical"
-                        bg="border-subdued"
-                        h={5}
-                      />
-                      <Button type="plain" size="xl">
-                        {intl.formatMessage({ id: 'action__max' })}
-                      </Button>
-                    </>
-                  }
+                  rightText={selectOption?.label ?? '-'}
+                  enableMaxButton
+                  isMax={isMax}
+                  maxText={selectedToken?.balance || ''}
+                  onMaxChange={(v) => {
+                    setIsMax(v);
+                    setTimeout(() => {
+                      trigger('value');
+                    }, 300);
+                  }}
                 />
               </Form.Item>
               <Box>
