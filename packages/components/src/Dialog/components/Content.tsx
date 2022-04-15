@@ -3,10 +3,8 @@ import React, { FC } from 'react';
 import { Icon } from 'native-base';
 
 import Box from '../../Box';
-import {
-  DialogIconTypeDanger,
-  DialogIconTypeInfo,
-} from '../../Icon/react/solid';
+import Center from '../../Center';
+import { Exclamation, InformationCircle } from '../../Icon/react/outline';
 import { Text } from '../../Typography';
 
 export type IconType = 'danger' | 'info';
@@ -37,12 +35,41 @@ export type ContentProps = {
 const getIcon = (iconType: IconType) => {
   let icon = null;
   if (iconType === 'danger') {
-    icon = DialogIconTypeDanger;
+    icon = Exclamation;
   }
   if (iconType === 'info') {
-    icon = DialogIconTypeInfo;
+    icon = InformationCircle;
   }
-  return !!icon && <Icon mb={4} as={icon} size={12} />;
+  return (
+    !!icon && (
+      <Center
+        p={3}
+        mb={4}
+        rounded="full"
+        bgColor={
+          // eslint-disable-next-line no-nested-ternary
+          iconType === 'danger'
+            ? 'surface-critical-default'
+            : iconType === 'info'
+            ? 'surface-neutral-default'
+            : undefined
+        }
+      >
+        <Icon
+          as={icon}
+          size={6}
+          color={
+            // eslint-disable-next-line no-nested-ternary
+            iconType === 'danger'
+              ? 'icon-critical'
+              : iconType === 'info'
+              ? 'icon-default'
+              : undefined
+          }
+        />
+      </Center>
+    )
+  );
 };
 
 const Content: FC<ContentProps> = ({
