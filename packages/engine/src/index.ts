@@ -1213,6 +1213,30 @@ class Engine {
   }
 
   @backgroundMethod()
+  async buildEncodedTxFromApprove({
+    networkId,
+    accountId,
+    token,
+    spender,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    token: string;
+    amount: string;
+    spender: string;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const { address } = await this.getAccount(accountId, networkId);
+    return vault.buildEncodedTxFromApprove({
+      token,
+      spender,
+      amount,
+      from: address,
+    });
+  }
+
+  @backgroundMethod()
   async attachFeeInfoToEncodedTx(params: {
     networkId: string;
     accountId: string;

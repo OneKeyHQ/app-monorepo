@@ -83,17 +83,48 @@ const SwapContent = () => {
 
   const onSubmit = useCallback(async () => {
     if (data) {
-      if (account && network) {
-        const allowance = await backgroundApiProxy.engine.getTokenAllowance({
-          networkId: network?.id,
-          accountId: account.id,
-          tokenIdOnNetwork: data.sellTokenAddress,
-          spender: data?.allowanceTarget,
-        });
-        const bnAllowance = new BigNumber(allowance || '0');
-        const bnInput = new BigNumber(data.sellAmount || '0');
-        if (bnAllowance.lt(bnInput)) {
-          console.log('do approve process');
+      // check approve
+      if (
+        data.needApprove &&
+        data.sellTokenAddress !== '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+      ) {
+        if (account && network) {
+          const allowance = await backgroundApiProxy.engine.getTokenAllowance({
+            networkId: network?.id,
+            accountId: account.id,
+            tokenIdOnNetwork: data.sellTokenAddress,
+            spender: data.allowanceTarget,
+          });
+          const bnAllowance = new BigNumber(allowance || '0');
+          const bnInput = new BigNumber(data.sellAmount || '0');
+          if (bnAllowance.lt(bnInput)) {
+            const encodedTx =
+              await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+                networkId: network.id,
+                accountId: account.id,
+                spender: data.allowanceTarget,
+                token: data.sellTokenAddress,
+                amount: 'unlimited',
+              });
+            console.log('encodedTx', encodedTx);
+            //  approve transaction
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
+              params: {
+                screen: SendRoutes.SendConfirm,
+                params: {
+                  encodedTx: { ...encodedTx, from: account?.address },
+                  sourceInfo: {
+                    id: '0',
+                    origin: 'Swap Token Approve',
+                    scope: 'ethereum',
+                    data: data.data || '',
+                  },
+                },
+              },
+            });
+            return;
+          }
         }
       }
       navigation.navigate(RootRoutes.Modal, {
@@ -113,6 +144,14 @@ const SwapContent = () => {
       });
     }
   }, [data, account, navigation, network]);
+
+  let buttonText = intl.formatMessage({ id: 'title__swap' });
+
+  if (error) {
+    buttonText = error;
+  } else if (data?.needApprove) {
+    buttonText = 'Approved';
+  }
 
   return (
     <Center px="4">
@@ -210,7 +249,7 @@ const SwapContent = () => {
           isLoading={isLoading}
           onPress={onSubmit}
         >
-          {error || intl.formatMessage({ id: 'title__swap' })}
+          {buttonText}
         </Button>
       </Box>
     </Center>

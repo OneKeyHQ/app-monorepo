@@ -37,6 +37,7 @@ export type SwapQuote = {
   sellTokenAddress: string;
   estimatedGasTokenRefund?: string;
   allowanceTarget: string;
+  needApprove?: boolean;
 };
 
 const swapClient = axios.create();
@@ -187,11 +188,25 @@ export function useSwapQuote() {
           const totalOut = new BigNumber(resultData.sellAmount);
           const baseOut = new BigNumber(10);
           const decimalsOUt = new BigNumber(input.decimals);
-          dispatch(
-            setInputAmount(
-              totalOut.div(baseOut.exponentiatedBy(decimalsOUt)).toFixed(2),
-            ),
-          );
+          const inAmount = totalOut.div(baseOut.exponentiatedBy(decimalsOUt));
+          dispatch(setInputAmount(inAmount.toFixed(2)));
+        }
+        if (
+          account &&
+          network &&
+          resultData.sellTokenAddress !==
+            '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+        ) {
+          const allowance = await backgroundApiProxy.engine.getTokenAllowance({
+            networkId: network?.id,
+            accountId: account.id,
+            tokenIdOnNetwork: resultData.sellTokenAddress,
+            spender: resultData.allowanceTarget,
+          });
+          // console.log('allowance', allowance, 'resultData.sellAmount', resultData.sellAmount)
+          const bnAllowance = new BigNumber(allowance || '0');
+          const bnInput = new BigNumber(resultData.sellAmount || '0');
+          resultData.needApprove = bnAllowance.lt(bnInput);
         }
         setData(resultData);
       } finally {

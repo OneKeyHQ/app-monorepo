@@ -330,8 +330,6 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
   } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
 
-  console.log('balances', balances);
-
   const searchTerm = useDebounce(keyword, 1000);
 
   const { activeAccountId, activeNetworkId } = useGeneral();

@@ -99,7 +99,6 @@ export const useManageTokens = ({
               true,
             )
             .then((balanceData) => {
-              console.log('balanceData', balanceData);
               dispatch(updateTokensBalance(balanceData));
               const listWithBalances = list.map((item) => {
                 const data = {
