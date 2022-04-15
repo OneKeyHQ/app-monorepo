@@ -11,8 +11,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useDrawer } from '../../../hooks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -40,13 +38,7 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
       inst.goBack();
     }
     main();
-  }, [
-    navigation,
-    password,
-    serviceAccount,
-    mnemonic,
-    closeDrawer,
-  ]);
+  }, [navigation, password, serviceAccount, mnemonic, closeDrawer]);
 
   return (
     <Center h="full" w="full">

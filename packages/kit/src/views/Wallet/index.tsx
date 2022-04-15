@@ -99,7 +99,7 @@ const Home: FC = () => {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
+  }, [wallet?.id, wallet?.backuped]);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
