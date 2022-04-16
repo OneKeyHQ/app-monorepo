@@ -81,6 +81,10 @@ import ReceiveToken, {
   ReceiveTokenRoutes,
   ReceiveTokenRoutesParams,
 } from './ReceiveToken';
+import ScanQrcode, {
+  ScanQrcodeRoutes,
+  ScanQrcodeRoutesParams,
+} from './ScanQrcode';
 import Send, { SendRoutes, SendRoutesParams } from './Send';
 import SubmitRequestModal, {
   SubmitRequestModalRoutesParams,
@@ -115,6 +119,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Send,
     component: Send,
+  },
+  {
+    name: ModalRoutes.ScanQrcode,
+    component: ScanQrcode,
   },
   {
     name: ModalRoutes.BackupWallet,

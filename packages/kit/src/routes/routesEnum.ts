@@ -26,6 +26,7 @@ export enum ModalRoutes {
   OnekeyHardware = 'OnekeyHardware',
   Discover = 'Discover',
   Swap = 'Swap',
+  ScanQrcode = 'ScanQrcode',
 }
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
