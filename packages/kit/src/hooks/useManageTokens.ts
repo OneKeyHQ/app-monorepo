@@ -120,7 +120,7 @@ export const useManageTokens = ({
     (async () => {
       if (activeAccountId && activeNetworkId) {
         const topTokens = await backgroundApiProxy.engine.getTopTokensOnNetwork(
-          activeAccountId,
+          activeNetworkId,
           50,
         );
         dispatch(changeActiveTokens(topTokens));
