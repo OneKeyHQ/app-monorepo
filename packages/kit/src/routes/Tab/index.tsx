@@ -32,25 +32,12 @@ export const tabRoutes: TabRouteConfig[] = [
     tabBarIcon: () => 'HomeOutline',
     translationId: 'title__home',
   },
-  ...(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      return [
-        {
-          name: TabRoutes.Swap,
-          component: SwapScreen,
-          tabBarIcon: () => 'SwitchHorizontalOutline',
-          translationId: 'title__swap',
-        },
-        {
-          name: TabRoutes.Portfolio,
-          component: PortfolioScreen,
-          tabBarIcon: () => 'TrendingUpOutline',
-          translationId: 'title__portfolio',
-        },
-      ] as TabRouteConfig[];
-    }
-    return [];
-  })(),
+  {
+    name: TabRoutes.Swap,
+    component: SwapScreen,
+    tabBarIcon: () => 'SwitchHorizontalOutline',
+    translationId: 'title__swap',
+  },
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,
@@ -63,6 +50,19 @@ export const tabRoutes: TabRouteConfig[] = [
     tabBarIcon: () => 'UserOutline',
     translationId: 'title__me',
   },
+  ...(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      return [
+        {
+          name: TabRoutes.Portfolio,
+          component: PortfolioScreen,
+          tabBarIcon: () => 'TrendingUpOutline',
+          translationId: 'title__portfolio',
+        },
+      ] as TabRouteConfig[];
+    }
+    return [];
+  })(),
 ];
 
 const TabNavigator = () => {
