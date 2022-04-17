@@ -17,6 +17,7 @@ type SettingsState = {
   appLockDuration: number;
   refreshTimeStamp: number;
   autoRefreshTimeStamp: number;
+  swapSlippagePercent: string;
 };
 
 const initialState: SettingsState = {
@@ -31,6 +32,7 @@ const initialState: SettingsState = {
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
   autoRefreshTimeStamp: getTimeStamp(),
+  swapSlippagePercent: '3',
 };
 
 export const settingsSlice = createSlice({
@@ -74,6 +76,9 @@ export const settingsSlice = createSlice({
     setAutoRefreshTimeStamp: (state) => {
       state.autoRefreshTimeStamp = getTimeStamp();
     },
+    setSwapSlippagePercent: (state, action: PayloadAction<string>) => {
+      state.swapSlippagePercent = action.payload;
+    },
   },
 });
 
@@ -88,6 +93,7 @@ export const {
   setAutoRefreshTimeStamp,
   updateVersionAndBuildNumber,
   setEnableLocalAuthentication,
+  setSwapSlippagePercent,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

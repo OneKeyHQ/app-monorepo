@@ -90,6 +90,7 @@ import SubmitRequestModal, {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,
 } from './SubmitRequest';
+import SwapModal from './Swap';
 import TransactionDetailModal, {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
@@ -214,6 +215,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Discover,
     component: DiscoverModal,
+  },
+  {
+    name: ModalRoutes.Swap,
+    component: SwapModal,
   },
 ];
 
