@@ -3,6 +3,7 @@ export enum SwapRoutes {
   Input = 'Input',
   Output = 'Output',
   Settings = 'Settings',
+  CustomToken = 'CustomToken',
 }
 
 export type SwapRoutesParams = {
@@ -10,6 +11,7 @@ export type SwapRoutesParams = {
   [SwapRoutes.Input]: undefined;
   [SwapRoutes.Output]: undefined;
   [SwapRoutes.Settings]: undefined;
+  [SwapRoutes.CustomToken]: { address?: string } | undefined;
 };
 
 export type SwapQuote = {
