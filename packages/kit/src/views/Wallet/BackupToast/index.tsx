@@ -29,9 +29,9 @@ const BackupToast: FC<BackupToastProps> = ({ onClose, walletId }) => {
     <>
       <Box
         position="absolute"
-        width="358px"
+        width={isSmallScreen ? `${screenWidth - 32}px` : '358px'}
         top={isSmallScreen ? undefined : '32px'}
-        right={isSmallScreen ? `${(screenWidth - 358) / 2}px` : '32px'}
+        right={isSmallScreen ? '16px' : '32px'}
         bottom={isSmallScreen ? '28px' : undefined}
         justifyContent="center"
         alignItems="center"
@@ -52,6 +52,7 @@ const BackupToast: FC<BackupToastProps> = ({ onClose, walletId }) => {
           }}
         >
           <Toast
+            width={isSmallScreen ? `${screenWidth - 32}px` : '358px'}
             onClose={() => {
               setVisible(true);
             }}
