@@ -51,16 +51,18 @@ const TokenInput: FC<TokenInputProps> = ({
         justifyContent="space-between"
         alignItems="center"
       >
-        <Input
-          borderWidth={0}
-          placeholder="0.00"
-          pl="0"
-          bg="transparent"
-          _hover={{ bg: 'transparent' }}
-          _focus={{ bg: 'transparent' }}
-          value={inputValue}
-          onChangeText={onChange}
-        />
+        <Box flex="1">
+          <Input
+            borderWidth={0}
+            placeholder="0.00"
+            pl="0"
+            bg="transparent"
+            _hover={{ bg: 'transparent' }}
+            _focus={{ bg: 'transparent' }}
+            value={inputValue}
+            onChangeText={onChange}
+          />
+        </Box>
         <Pressable onPress={onPress}>
           <HStack alignItems="center">
             {token ? (

@@ -29,9 +29,9 @@ import {
 import { formatNumber } from '../../../../components/Format';
 import { useDebounce, useManageTokens } from '../../../../hooks';
 import { useGeneral } from '../../../../hooks/redux';
+import { SwapRoutes } from '../../typings';
 
 import { useSearchTokens } from './hooks';
-import { ManageTokenRoutes } from './types';
 
 import type { ValuedToken } from '../../../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -231,9 +231,9 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
           params.address = terms;
         }
         navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.ManageToken,
+          screen: ModalRoutes.Swap,
           params: {
-            screen: ManageTokenRoutes.CustomToken,
+            screen: SwapRoutes.CustomToken,
             params,
           },
         });

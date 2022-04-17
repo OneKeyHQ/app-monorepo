@@ -9,6 +9,8 @@ import {
   SwapRoutesParams,
 } from '@onekeyhq/kit/src/views/Swap/typings';
 
+import CustomToken from '../../views/ManageTokens/CustomToken';
+
 import createStackNavigator from './createStackNavigator';
 
 const SwapNavigator = createStackNavigator<SwapRoutesParams>();
@@ -25,6 +27,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.Settings,
     component: Settings,
+  },
+  {
+    name: SwapRoutes.CustomToken,
+    component: CustomToken,
   },
 ];
 
