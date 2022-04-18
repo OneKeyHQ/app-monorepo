@@ -48,7 +48,7 @@ export type ITxConfirmViewProps = ModalProps & {
 // TODO rename SendConfirmModalBase
 function SendConfirmModal(props: ITxConfirmViewProps) {
   const intl = useIntl();
-  const { network } = useActiveWalletAccount();
+  const { network, accountId } = useActiveWalletAccount();
   const {
     children,
     encodedTx,
@@ -60,7 +60,6 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     updateEncodedTxBeforeConfirm,
     ...others
   } = props;
-
   const { nativeToken } = useManageTokens();
 
   // TODO move to validator
@@ -70,6 +69,10 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       new BigNumber(fee).plus(decodedTx?.amount ?? '0'),
     );
   }, [decodedTx?.amount, feeInfoPayload, nativeToken?.balance]);
+  const isWatchingAccount = useMemo(
+    () => accountId && accountId.startsWith('watching-'),
+    [accountId],
+  );
 
   return (
     <Modal
@@ -77,6 +80,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled:
+          isWatchingAccount ||
           feeInfoLoading ||
           balanceInsufficient ||
           !encodedTx ||
@@ -99,6 +103,13 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
         children: (
           <>
             {children}
+            {isWatchingAccount ? (
+              <FormErrorMessage
+                message={intl.formatMessage({
+                  id: '$i18n$-观察账户无法交易' as any,
+                })}
+              />
+            ) : null}
             {balanceInsufficient ? (
               <FormErrorMessage
                 message={intl.formatMessage(
