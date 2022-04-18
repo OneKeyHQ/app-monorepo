@@ -47,6 +47,7 @@ import {
   decodedItemToTransaction,
   getErc20TransferHistories,
   getTxHistories,
+  updateLocalTransactions,
 } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import {
@@ -1827,6 +1828,8 @@ class Engine {
       throw new OneKeyInternalError('getTxHistories failed.');
     }
     const { txList } = covalent.data;
+    updateLocalTransactions(decodedLocalTxHistoryList, txList);
+
     const localTxHashSet = new Set(
       decodedLocalTxHistoryList.map((tx) => tx.txHash),
     );

@@ -503,7 +503,7 @@ const TransactionDetails: FC = () => {
             <Container.Box mt={2}>
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_limit' })}
-                describe={txInfo?.gasOffered.toString()}
+                describe={txInfo?.gasOffered?.toString()}
               />
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_used' })}

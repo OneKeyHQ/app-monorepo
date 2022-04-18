@@ -14,10 +14,15 @@ import {
   TxDetail,
   TxStatus,
 } from '../types/covalent';
-import { HistoryEntryStatus, HistoryEntryTransaction } from '../types/history';
+import {
+  HistoryEntry,
+  HistoryEntryStatus,
+  HistoryEntryTransaction,
+} from '../types/history';
 import {
   EVMDecodedItem,
   EVMDecodedTxType,
+  EVMTxDecoder,
 } from '../vaults/impl/evm/decoder/decoder';
 
 const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
@@ -485,6 +490,26 @@ function getTxDetail(
     });
 }
 
+function updateLocalTransactions(
+  localHistory: Transaction[],
+  txList: Transaction[],
+) {
+  const localHistoryMap: Record<string, Transaction> = {};
+  for (const h of localHistory) {
+    localHistoryMap[h.txHash] = h;
+  }
+
+  const confirmeds = txList.filter(
+    (tx) => tx.successful === TxStatus.Confirmed,
+  );
+  for (const confirmed of confirmeds) {
+    const { txHash, gasSpent } = confirmed;
+    if (localHistoryMap[txHash]) {
+      localHistoryMap[txHash].gasSpent = gasSpent;
+    }
+  }
+}
+
 function decodedItemToTransaction(
   item: EVMDecodedItem,
   historyEntry: HistoryEntryTransaction,
@@ -531,4 +556,5 @@ export {
   getTxDetail,
   getNftDetail,
   decodedItemToTransaction,
+  updateLocalTransactions,
 };
