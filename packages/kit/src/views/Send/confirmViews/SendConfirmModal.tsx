@@ -7,6 +7,7 @@ import { Modal } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import {
+  IDecodedTx,
   IEncodedTxAny,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/types/vault';
@@ -30,7 +31,7 @@ export type ITxConfirmViewProps = ModalProps & {
   // TODO rename sourceInfo
   sourceInfo?: IDappCallParams;
   encodedTx: IEncodedTxAny;
-  decodedTx?: any;
+  decodedTx?: IDecodedTx;
   updateEncodedTxBeforeConfirm?: (
     encodedTx: IEncodedTxAny,
   ) => Promise<IEncodedTxAny>;
@@ -63,10 +64,12 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   const { nativeToken } = useManageTokens();
 
   // TODO move to validator
-  const balanceLessThanFee = useMemo(() => {
+  const balanceInsufficient = useMemo(() => {
     const fee = feeInfoPayload?.current?.totalNative ?? '0';
-    return new BigNumber(nativeToken?.balance ?? '0').lt(fee);
-  }, [feeInfoPayload, nativeToken?.balance]);
+    return new BigNumber(nativeToken?.balance ?? '0').lt(
+      new BigNumber(fee).plus(decodedTx?.amount ?? '0'),
+    );
+  }, [decodedTx?.amount, feeInfoPayload, nativeToken?.balance]);
 
   return (
     <Modal
@@ -75,7 +78,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionProps={{
         isDisabled:
           feeInfoLoading ||
-          balanceLessThanFee ||
+          balanceInsufficient ||
           !encodedTx ||
           !decodedTx ||
           confirmDisabled,
@@ -96,9 +99,14 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
         children: (
           <>
             {children}
-            {balanceLessThanFee ? (
+            {balanceInsufficient ? (
               <FormErrorMessage
-                message={intl.formatMessage({ id: 'form__amount_invalid' })}
+                message={intl.formatMessage(
+                  { id: 'form__amount_invalid' },
+                  {
+                    0: nativeToken?.symbol ?? '',
+                  },
+                )}
               />
             ) : null}
           </>
