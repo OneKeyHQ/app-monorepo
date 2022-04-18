@@ -1,31 +1,21 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import {
-  changeActiveOwnedToken,
-  changeActiveTokens,
-  updateTokensBalance,
-  updateTokensPrice,
-} from '../store/reducers/general';
-import { ValuedToken } from '../store/typings';
 
 import { useAppSelector } from './redux';
 
 export const useManageTokens = ({
   pollingInterval = 0,
 }: { pollingInterval?: number } = {}) => {
+  const { activeAccountId, activeNetworkId } = useAppSelector((s) => s.general);
   const {
-    activeAccountId,
-    activeNetworkId,
     tokens,
-    ownedTokens,
     tokensPrice,
-    tokensBalance = {},
-  } = useAppSelector((s) => s.general);
-  const { dispatch } = backgroundApiProxy;
-
+    accountTokens: userTokens,
+    accountTokensBalance,
+  } = useAppSelector((s) => s.tokens);
   const prices = useMemo(() => {
     if (!activeNetworkId) {
       return {};
@@ -37,25 +27,25 @@ export const useManageTokens = ({
     if (!activeNetworkId || !activeAccountId) {
       return {};
     }
-    return tokensBalance?.[activeAccountId]?.[activeNetworkId] ?? {};
-  }, [tokensBalance, activeNetworkId, activeAccountId]);
+    return accountTokensBalance?.[activeNetworkId]?.[activeAccountId] ?? {};
+  }, [accountTokensBalance, activeNetworkId, activeAccountId]);
 
-  const { allTokens } = useMemo(() => {
+  const allTokens = useMemo(() => {
     let data: Token[] = [];
-    if (activeAccountId && activeNetworkId) {
-      data = tokens[activeAccountId]?.[activeNetworkId] ?? [];
+    if (activeNetworkId) {
+      data = tokens[activeNetworkId] ?? [];
     }
-    return { allTokens: data };
-  }, [tokens, activeAccountId, activeNetworkId]);
+    return data;
+  }, [tokens, activeNetworkId]);
 
   const { accountTokens, accountTokensMap, accountTokensSet, nativeToken } =
     useMemo(() => {
-      let data: ValuedToken[] = [];
+      let data: Token[] = [];
       const dataSet = new Set<string>();
-      const dataMap = new Map<string, ValuedToken>();
-      let dataNativeToken: ValuedToken | undefined;
+      const dataMap = new Map<string, Token>();
+      let dataNativeToken: Token | undefined;
       if (activeAccountId && activeNetworkId) {
-        data = ownedTokens[activeAccountId]?.[activeNetworkId] ?? [];
+        data = userTokens[activeNetworkId]?.[activeAccountId] ?? [];
       }
       data.forEach((token) => {
         if (token.tokenIdOnNetwork) {
@@ -71,86 +61,22 @@ export const useManageTokens = ({
         accountTokensSet: dataSet,
         nativeToken: dataNativeToken,
       };
-    }, [ownedTokens, activeAccountId, activeNetworkId]);
-
-  const updateAccountTokens = useCallback(() => {
-    if (activeAccountId && activeNetworkId) {
-      backgroundApiProxy.engine
-        .getTokens(activeNetworkId, activeAccountId)
-        .then((list) => {
-          if (accountTokens.length === 0) {
-            dispatch(changeActiveOwnedToken(list.map((item) => ({ ...item }))));
-          }
-          const addressList = list
-            .filter((i) => i.tokenIdOnNetwork)
-            .map((token) => token.tokenIdOnNetwork);
-
-          backgroundApiProxy.engine
-            .getPrices(activeNetworkId, addressList, true)
-            .then((priceData) => {
-              dispatch(updateTokensPrice(priceData));
-            });
-
-          backgroundApiProxy.engine
-            .getAccountBalance(
-              activeAccountId,
-              activeNetworkId,
-              addressList,
-              true,
-            )
-            .then((balanceData) => {
-              dispatch(updateTokensBalance(balanceData));
-              const listWithBalances = list.map((item) => {
-                const data = {
-                  ...item,
-                  balance: item.tokenIdOnNetwork
-                    ? balanceData[item.tokenIdOnNetwork]?.toString()
-                    : balanceData.main?.toString(),
-                };
-                return data;
-              });
-              dispatch(changeActiveOwnedToken(listWithBalances));
-            });
-        });
-    }
-  }, [activeAccountId, activeNetworkId, dispatch, accountTokens.length]);
-
-  // TODO move to background Service
-  const updateTokens = useCallback(() => {
-    (async () => {
-      if (activeAccountId && activeNetworkId) {
-        const topTokens = await backgroundApiProxy.engine.getTopTokensOnNetwork(
-          activeNetworkId,
-          50,
-        );
-        dispatch(changeActiveTokens(topTokens));
-        const accountBalances =
-          await backgroundApiProxy.engine.getAccountBalance(
-            activeAccountId,
-            activeNetworkId,
-            topTokens.map((i) => i.tokenIdOnNetwork),
-            true,
-          );
-        dispatch(updateTokensBalance(accountBalances));
-      }
-    })();
-  }, [activeAccountId, activeNetworkId, dispatch]);
+    }, [userTokens, activeAccountId, activeNetworkId]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
     if (pollingInterval) {
-      updateAccountTokens();
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
       timer = setInterval(() => {
-        updateAccountTokens();
+        backgroundApiProxy.serviceToken.fetchAccountTokens();
       }, pollingInterval);
     }
-
     return () => {
       if (timer) {
         clearInterval(timer);
       }
     };
-  }, [pollingInterval, updateAccountTokens]);
+  }, [pollingInterval]);
 
   return {
     nativeToken,
@@ -160,7 +86,5 @@ export const useManageTokens = ({
     allTokens,
     prices,
     balances,
-    updateTokens,
-    updateAccountTokens,
   };
 };

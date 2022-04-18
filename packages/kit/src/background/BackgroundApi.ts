@@ -11,6 +11,7 @@ import ServiceDapp from './services/ServiceDapp';
 import ServiceNetwork from './services/ServiceNetwork';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePromise from './services/ServicePromise';
+import ServiceToken from './services/ServiceToken';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   engine = new Engine();
@@ -51,6 +52,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     backgroundApi: this,
   });
 
+  serviceToken = new ServiceToken({
+    backgroundApi: this,
+  });
   // ----------------------------------------------
 
   @backgroundMethod()

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React from 'react';
+import React, { useCallback } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -34,7 +34,8 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
-import type { ValuedToken } from '../../../store/typings';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -74,13 +75,17 @@ const ListHeaderComponent = () => {
 
 const AssetsList = () => {
   const isSmallScreen = useIsVerticalLayout();
-  const { accountTokens, updateAccountTokens, prices } = useManageTokens();
+  const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
 
-  useFocusEffect(updateAccountTokens);
+  useFocusEffect(
+    useCallback(() => {
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+    }, []),
+  );
 
-  const renderItem: ScrollableFlatListProps<ValuedToken>['renderItem'] = ({
+  const renderItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
     item,
     index,
   }) => {
@@ -109,22 +114,27 @@ const AssetsList = () => {
           <Token size={8} src={item.logoURI} />
           <Box mx={3} flexDirection="column" flex={1}>
             <FormatBalance
-              balance={item.balance}
+              balance={balances[item.tokenIdOnNetwork || 'main']}
               suffix={item.symbol}
               formatOptions={{
                 fixed: decimal ?? 4,
               }}
               render={(ele) => (
                 <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {!item.balance ? '-' : ele}
+                  {!balances[item.tokenIdOnNetwork || 'main'] ? '-' : ele}
                 </Text>
               )}
             />
             <FormatCurrency
-              numbers={[item.balance, prices?.[mapKey]]}
+              numbers={[
+                balances[item.tokenIdOnNetwork || 'main'],
+                prices?.[mapKey],
+              ]}
               render={(ele) => (
                 <Typography.Body2 color="text-subdued">
-                  {item.balance && prices?.[mapKey] ? ele : '-'}
+                  {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey]
+                    ? ele
+                    : '-'}
                 </Typography.Body2>
               )}
             />

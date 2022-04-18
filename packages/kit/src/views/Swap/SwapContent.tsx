@@ -244,6 +244,7 @@ const SwapContent = () => {
           </Box>
         ) : null}
         <Button
+          size="lg"
           type="primary"
           isDisabled={!!error || !isSwapEnabled || !data}
           isLoading={isLoading}

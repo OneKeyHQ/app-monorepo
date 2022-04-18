@@ -1,10 +1,10 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { ValuedToken } from '../typings';
+import { Token } from '../typings';
 
 type SwapState = {
-  input?: ValuedToken;
-  output?: ValuedToken;
+  input?: Token;
+  output?: Token;
   inputAmount: string;
   outputAmount: string;
   independentField: 'INPUT' | 'OUTPUT';
@@ -20,17 +20,17 @@ const initialState: SwapState = {
   value: 0,
 };
 
-export const slice = createSlice({
+export const swapSlice = createSlice({
   name: 'swap',
   initialState,
   reducers: {
-    setInput(state, action: PayloadAction<ValuedToken>) {
+    setInput(state, action: PayloadAction<Token>) {
       state.input = action.payload;
     },
     setInputAmount(state, action: PayloadAction<string>) {
       state.inputAmount = action.payload;
     },
-    setOutput(state, action: PayloadAction<ValuedToken>) {
+    setOutput(state, action: PayloadAction<Token>) {
       state.output = action.payload;
     },
     setOutputAmount(state, action: PayloadAction<string>) {
@@ -69,6 +69,6 @@ export const {
   update,
   switchInputOutput,
   reset,
-} = slice.actions;
+} = swapSlice.actions;
 
-export default slice.reducer;
+export default swapSlice.reducer;
