@@ -81,7 +81,7 @@ const Transaction = () => {
   const route = useRoute<RouteProps>();
   const { token: routeParamsToken } = route.params;
 
-  const { control, handleSubmit, watch, trigger, getValues } =
+  const { control, handleSubmit, watch, trigger, getValues, setValue } =
     useForm<TransactionValues>({
       mode: 'onBlur',
       reValidateMode: 'onBlur',
@@ -221,7 +221,13 @@ const Transaction = () => {
       updateTransferInfo();
       if (type === 'change' && name === 'token') {
         const option = tokenOptions.find((o) => o.value === formValues.token);
-        if (option) setSelectOption(option);
+        if (option) {
+          setSelectOption(option);
+          // setValue('value', '');
+          setTimeout(() => {
+            trigger('value');
+          }, 300);
+        }
       }
       if (type === 'change' && name === 'value') {
         setInputValue(formValues.value);
@@ -231,7 +237,7 @@ const Transaction = () => {
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions, trigger, updateTransferInfo]);
+  }, [watch, tokenOptions, trigger, updateTransferInfo, setValue]);
 
   const submitButtonDisabled =
     !isValid ||
@@ -402,7 +408,10 @@ const Transaction = () => {
                 rules={{
                   required: isMax
                     ? ''
-                    : intl.formatMessage({ id: 'form__amount_invalid' }),
+                    : intl.formatMessage(
+                        { id: 'form__amount_invalid' },
+                        { 0: selectedToken?.symbol ?? '' },
+                      ),
                   validate: (value) => {
                     const token = selectedToken;
                     if (!token) return undefined;
@@ -412,10 +421,16 @@ const Transaction = () => {
                       balances[token.tokenIdOnNetwork || 'main'] ?? '0',
                     );
                     if (inputBN.isNaN() || balanceBN.isNaN()) {
-                      return intl.formatMessage({ id: 'form__amount_invalid' });
+                      return intl.formatMessage(
+                        { id: 'form__amount_invalid' },
+                        { 0: selectedToken?.symbol ?? '' },
+                      );
                     }
                     if (balanceBN.isLessThan(inputBN)) {
-                      return intl.formatMessage({ id: 'form__amount_invalid' });
+                      return intl.formatMessage(
+                        { id: 'form__amount_invalid' },
+                        { 0: selectedToken?.symbol ?? '' },
+                      );
                     }
                     return undefined;
                   },
@@ -430,7 +445,7 @@ const Transaction = () => {
                       ? activeNetwork?.tokenDisplayDecimals
                       : activeNetwork?.nativeDisplayDecimals
                   }
-                  rightText={selectOption?.label ?? '-'}
+                  rightText={selectedToken?.symbol ?? '-'}
                   enableMaxButton
                   isMax={isMax}
                   maxText={selectedToken?.balance || ''}
