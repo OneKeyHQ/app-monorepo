@@ -26,8 +26,8 @@ import { VaultBase } from '../../VaultBase';
 import {
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
-  EVMTxDecoder,
   EVMDecodedTxType,
+  EVMTxDecoder,
 } from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';

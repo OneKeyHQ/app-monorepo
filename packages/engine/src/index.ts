@@ -1577,12 +1577,9 @@ class Engine {
     let updatedStatusMap: Record<string, HistoryEntryStatus> = {};
 
     if (updatePending) {
-      const pendings: Array<string> = [];
-      entries.forEach((entry) => {
-        if (entry.status === HistoryEntryStatus.PENDING) {
-          pendings.push(entry.id);
-        }
-      });
+      const pendings = entries.filter(
+        (entry) => entry.status === HistoryEntryStatus.PENDING,
+      );
 
       updatedStatusMap = await this.providerManager.refreshPendingTxs(
         networkId,
