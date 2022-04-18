@@ -102,11 +102,11 @@ const OnekeyLiteDetail: React.FC = () => {
     });
 
     navigation.setOptions({
-      title: 'OneKey Lite',
+      title: intl.formatMessage({ id: 'app__hardware_name_onekey_lite' }),
       headerRight: () => (
         <Select
           dropdownPosition="right"
-          title="Onekey Lite"
+          title={intl.formatMessage({ id: 'app__hardware_name_onekey_lite' })}
           onChange={(v) => {
             if (currentOptionType !== v) setCurrentOptionType(v);
           }}
