@@ -32,6 +32,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 import { SendRoutes } from '../../routes';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
+import { refreshWebviewGlobalKey } from '../../store/reducers/status';
 import HelpSelector from '../Help/HelpSelector';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -47,6 +48,7 @@ const Me = () => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const connections = useAppSelector((s) => s.dapp.connections);
+  const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
 
   const pressableProps = {
     p: '4',
@@ -137,11 +139,12 @@ const Me = () => {
                   // TODO define service method
                   await backgroundApiProxy.walletConnect.disconnect();
                   backgroundApiProxy.dispatch(dappClearSiteConnection());
+                  backgroundApiProxy.dispatch(refreshWebviewGlobalKey());
                   backgroundApiProxy.serviceAccount.notifyAccountsChanged();
                 }}
               >
                 <Typography.Body1>
-                  断开 Dapp 连接 ({connections.length})
+                  断开 Dapp 连接 ({connections.length}) {webviewKey}
                 </Typography.Body1>
               </Pressable>
               <Pressable

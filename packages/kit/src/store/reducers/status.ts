@@ -5,6 +5,7 @@ type StatusState = {
   isUnlock: boolean;
   boardingCompleted: boolean;
   supportFaceId: boolean;
+  webviewGlobalKey: number;
 };
 
 const initialState: StatusState = {
@@ -12,6 +13,7 @@ const initialState: StatusState = {
   isUnlock: false,
   boardingCompleted: false,
   supportFaceId: true,
+  webviewGlobalKey: 0,
 };
 
 export const slice = createSlice({
@@ -37,6 +39,9 @@ export const slice = createSlice({
     ) => {
       state.lastActivity = action?.payload || Date.now();
     },
+    refreshWebviewGlobalKey: (state) => {
+      state.webviewGlobalKey = Date.now();
+    },
     reset: () => {},
   },
 });
@@ -48,6 +53,7 @@ export const {
   lock,
   unlock,
   refreshLastActivity,
+  refreshWebviewGlobalKey,
 } = slice.actions;
 
 export default slice.reducer;

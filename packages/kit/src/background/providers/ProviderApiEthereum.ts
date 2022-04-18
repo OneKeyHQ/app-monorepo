@@ -109,10 +109,21 @@ class ProviderApiEthereum extends ProviderApiBase {
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    return this.backgroundApi.serviceDapp?.openSendConfirmModal(request, {
-      encodedTx: transaction,
-    });
+    const result = await this.backgroundApi.serviceDapp?.openSendConfirmModal(
+      request,
+      {
+        encodedTx: transaction,
+      },
+    );
 
+    debugLogger.ethereum(
+      'eth_sendTransaction DONE',
+      result,
+      request,
+      transaction,
+    );
+
+    return result;
     // const isContractAddress = false;
     // if (isContractAddress) {
     //   const isApproval = false;

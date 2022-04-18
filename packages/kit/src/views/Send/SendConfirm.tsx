@@ -48,23 +48,35 @@ type: "0x0",
 value: "0x0"}]})
  */
 
+function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
+  // TODO dapp fee should be fixed by decimals
+  // TODO deepClone
+  delete encodedTx.gas;
+  delete encodedTx.gasLimit;
+  delete encodedTx.gasPrice;
+  return encodedTx;
+}
+
 const TransactionConfirm = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
+  // TODO rename to sourceInfo
+  const isFromDapp = params.sourceInfo;
   const [encodedTx, setEncodedTx] = useState<IEncodedTxEvm>(
-    params.encodedTx as IEncodedTxEvm,
+    isFromDapp
+      ? removeFeeInfoInTx(params.encodedTx as IEncodedTxEvm)
+      : (params.encodedTx as IEncodedTxEvm),
   );
   useEffect(() => {
     setEncodedTx(params.encodedTx);
   }, [params.encodedTx]);
   const { decodedTx } = useDecodedTx({ encodedTx });
   let { accountId, networkId } = useActiveWalletAccount();
-  // TODO rename to sourceInfo
-  const isFromDapp = params.sourceInfo;
+
   const dappApprove = useDappApproveAction({
-    id: params.sourceInfo?.id || '',
+    id: params.sourceInfo?.id ?? '',
     closeOnError: true,
   });
   const useFeeInTx = !isFromDapp;
@@ -128,11 +140,7 @@ const TransactionConfirm = () => {
         return;
       }
       if (isFromDapp) {
-        // TODO dapp fee should be fixed by decimals
-        // TODO deepClone
-        delete encodedTx.gas;
-        delete encodedTx.gasLimit;
-        delete encodedTx.gasPrice;
+        removeFeeInfoInTx(encodedTx);
       }
       const encodedTxWithFee =
         !useFeeInTx && feeInfoPayload
@@ -149,13 +157,13 @@ const TransactionConfirm = () => {
         accountId,
         networkId,
         // TODO onComplete
-        onSuccess: (tx) => {
+        onSuccess: async (tx) => {
           saveHistory(tx);
           backgroundApiProxy.serviceToken.fetchAccountTokens();
-          dappApprove.resolve({
+          await dappApprove.resolve({
             result: tx.txid,
           });
-          close();
+          setTimeout(() => close(), 0);
         },
       });
     },
