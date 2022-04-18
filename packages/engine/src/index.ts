@@ -1806,9 +1806,9 @@ class Engine {
     }
 
     const localHistory = await this.getHistory(networkId, accountId);
-    const localTxHistory = localHistory.filter(
-      (h) => 'rawTx' in h,
-    ) as Array<HistoryEntryTransaction>;
+    const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
+      (h): h is HistoryEntryTransaction => 'rawTx' in h,
+    );
 
     const decodedLocalTxHistory = localTxHistory.map(async (h) => {
       const decodedItem = await EVMTxDecoder.decode(h.rawTx, this);
