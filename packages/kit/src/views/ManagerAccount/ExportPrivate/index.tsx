@@ -53,7 +53,7 @@ const ExportPrivateViewModal = () => {
 
   const copyDataToClipboard = useCallback(() => {
     copyToClipboard(privateKey ?? '');
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   }, [toast, privateKey, intl]);
 
   return (

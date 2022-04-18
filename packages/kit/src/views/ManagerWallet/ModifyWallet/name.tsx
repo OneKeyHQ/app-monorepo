@@ -75,7 +75,7 @@ const ModifyWalletNameViewModal: FC = () => {
 
       setTimeout(() => dispatch(setRefreshTS()));
 
-      toast.info(intl.formatMessage({ id: 'msg__change_saved' }));
+      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();
     } else {
       setError('name', {
@@ -88,11 +88,7 @@ const ModifyWalletNameViewModal: FC = () => {
   const ImageView = useMemo(
     () => (
       <Center>
-        <Pressable
-        // onPress={() => {
-        //   toast.info(intl.formatMessage({ id: 'msg__coming_soon' }));
-        // }}
-        >
+        <Pressable>
           <ZStack width="68px" height="68px">
             <Box
               width="full"

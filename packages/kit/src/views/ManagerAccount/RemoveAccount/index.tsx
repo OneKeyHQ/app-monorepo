@@ -25,7 +25,7 @@ export default function useRemoveAccountDialog() {
     engine
       .removeAccount(accountId, password ?? '')
       .then(async () => {
-        toast.info(intl.formatMessage({ id: 'msg__removed' }));
+        toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
         setVisible(false);
 
         if (activeAccount?.id === accountId) {
@@ -33,10 +33,8 @@ export default function useRemoveAccountDialog() {
         }
         successCall?.current?.();
       })
-      .catch((e) => {
-        console.error(e);
-
-        toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+      .catch(() => {
+        toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
       });
   }, [
     accountId,

@@ -59,7 +59,7 @@ const ContractData = () => {
 
   const copyContractData = () => {
     copyToClipboard(contractData);
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   };
 
   const footer = (

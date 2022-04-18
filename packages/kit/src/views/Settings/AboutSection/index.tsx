@@ -31,12 +31,12 @@ export const AboutSection = () => {
   const settings = useSettings();
 
   const onCheckUpdate = useCallback(() => {
-    toast.info(
-      intl.formatMessage({
+    toast.show({
+      title: intl.formatMessage({
         id: 'msg__the_current_version_is_the_latest',
         defaultMessage: '👏 The current version is the latest',
       }),
-    );
+    });
   }, [intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
