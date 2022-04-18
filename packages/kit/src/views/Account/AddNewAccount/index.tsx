@@ -15,11 +15,7 @@ import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 type PrivateKeyFormValues = {
   network: string;
@@ -85,7 +81,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           title: intl.formatMessage({ id: errorKey }),
         });
       }
-
       closeDrawer();
       if (navigation.canGoBack()) {
         navigation.getParent()?.goBack?.();
@@ -96,14 +91,10 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   );
 
   const onSubmit = handleSubmit(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateAccount,
-      params: {
-        screen: CreateAccountModalRoutes.CreateAccountAuthentication,
-        params: {
-          onDone: authenticationDone,
-        },
-      },
+    console.log('onSubmit');
+
+    navigation.navigate(CreateAccountModalRoutes.CreateAccountAuthentication, {
+      onDone: authenticationDone,
     });
   });
 
@@ -145,30 +136,18 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               </Typography.Body2>
               <Pressable
                 onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateAccount,
-                    params: {
-                      screen:
-                        CreateAccountModalRoutes.CreateAccountAuthentication,
-                      params: {
-                        onDone: (password) => {
-                          const network = getValues('network');
-                          navigation.navigate(RootRoutes.Modal, {
-                            screen: ModalRoutes.CreateAccount,
-                            params: {
-                              screen:
-                                CreateAccountModalRoutes.RecoverAccountsList,
-                              params: {
-                                walletId: selectedWalletId,
-                                network,
-                                password,
-                              },
-                            },
-                          });
-                        },
+                  navigation.navigate(
+                    CreateAccountModalRoutes.CreateAccountAuthentication,
+                    {
+                      onDone: (password) => {
+                        const network = getValues('network');
+                        navigation.navigate(
+                          CreateAccountModalRoutes.RecoverAccountsList,
+                          { walletId: selectedWalletId, network, password },
+                        );
                       },
                     },
-                  });
+                  );
                 }}
               >
                 <Typography.Body2Underline color="action-primary-default">
