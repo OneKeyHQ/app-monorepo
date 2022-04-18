@@ -1,3 +1,4 @@
+import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   IBroadcastedTx,
   IFeeInfoSelected,
@@ -28,6 +29,10 @@ export type EditFeeParams = {
   backRouteName?: keyof SendRoutesParams;
 };
 
+export type SendParams = EditFeeParams & {
+  token?: Token;
+};
+
 export type TransferSendParamsPayload = {
   to: string;
   account: {
@@ -54,23 +59,23 @@ export type SendConfirmFromDappParams = {
   query?: string;
 };
 
-export type SendParams = EditFeeParams & {
+export type SendConfirmParams = EditFeeParams & {
   payloadType?: string;
   payload?: TransferSendParamsPayload | any;
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
 };
 
-export type SendAuthenticationParams = SendParams & {
+export type SendAuthenticationParams = SendConfirmParams & {
   accountId: string;
   networkId: string;
 };
 
 export type SendRoutesParams = {
-  [SendRoutes.Send]: EditFeeParams;
+  [SendRoutes.Send]: SendParams;
   [SendRoutes.SendEditFee]: EditFeeParams;
   [SendRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
   [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
-  [SendRoutes.SendConfirm]: SendParams;
+  [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
 };

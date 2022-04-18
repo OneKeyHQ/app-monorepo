@@ -1,7 +1,7 @@
 /* eslint-disable no-nested-ternary, @typescript-eslint/no-unused-vars */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { Column, Row } from 'native-base';
@@ -45,6 +45,7 @@ type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
   SendRoutes.Send
 >;
+type RouteProps = RouteProp<SendRoutesParams, SendRoutes.Send>;
 
 type TransactionValues = {
   value: string;
@@ -77,6 +78,8 @@ const Transaction = () => {
   const [buildLoading, setBuildLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
+  const route = useRoute<RouteProps>();
+  const { token: routeParamsToken } = route.params;
 
   const { control, handleSubmit, watch, trigger, getValues } =
     useForm<TransactionValues>({
@@ -157,20 +160,20 @@ const Transaction = () => {
 
   // build encodedTx
   useEffect(() => {
+    if (!transferInfo.to || !isValid) {
+      return;
+    }
     setBuildLoading(true);
+    setEncodedTx(null);
+
     buildEncodedTxFromTransferDebounced({
       networkId,
       accountId,
       transferInfo,
       callback: async (promise) => {
-        setEncodedTx(null);
-        if (!isValid) {
-          setBuildLoading(false);
-          return;
-        }
         try {
           const tx = await promise;
-          if (tx && transferInfo.to) {
+          if (tx) {
             setEncodedTx(tx);
           }
         } catch (e) {
@@ -283,9 +286,19 @@ const Transaction = () => {
   // select first token
   // TODO trigger watch allFields
   useEffect(() => {
-    if (Array.isArray(tokenOptions) && tokenOptions?.length && !selectOption)
+    if (Array.isArray(tokenOptions) && tokenOptions?.length && !selectOption) {
+      if (routeParamsToken) {
+        const option = tokenOptions.find(
+          (o) => o.value === routeParamsToken?.id,
+        );
+        if (option) {
+          setSelectOption(option);
+          return;
+        }
+      }
       setSelectOption(tokenOptions[0]);
-  }, [selectOption, tokenOptions]);
+    }
+  }, [routeParamsToken, selectOption, tokenOptions]);
 
   return (
     <Modal
@@ -362,7 +375,7 @@ const Transaction = () => {
                   }}
                   headerShown={false}
                   options={tokenOptions}
-                  defaultValue={nativeToken?.id}
+                  defaultValue={routeParamsToken?.id ?? nativeToken?.id}
                   footer={null}
                   dropdownPosition="right"
                 />
