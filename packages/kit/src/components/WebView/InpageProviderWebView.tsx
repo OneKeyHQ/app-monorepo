@@ -138,6 +138,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           'did-stop-loading',
           handleFinishMessage,
         );
+        electronWebView.addEventListener('did-fail-load', handleFinishMessage);
         return () => {
           electronWebView.removeEventListener(
             'did-start-loading',
@@ -154,6 +155,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           );
           electronWebView.removeEventListener(
             'did-stop-loading',
+            handleFinishMessage,
+          );
+          electronWebView.removeEventListener(
+            'did-fail-load',
             handleFinishMessage,
           );
         };

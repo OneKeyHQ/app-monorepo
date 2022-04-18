@@ -59,6 +59,8 @@ const Desktop: FC<ExplorerViewProps> = ({
   onSearchContentChange,
   onSearchSubmitEditing,
   explorerContent,
+  canGoBack,
+  canGoForward,
   onGoBack,
   onNext,
   onRefresh,
@@ -85,11 +87,13 @@ const Desktop: FC<ExplorerViewProps> = ({
             <IconButton
               type="plain"
               name="ArrowLeftOutline"
+              disabled={!canGoBack}
               onPress={onGoBack}
             />
             <IconButton
               type="plain"
               name="ArrowRightOutline"
+              disabled={!canGoForward}
               onPress={onNext}
             />
             <IconButton
