@@ -154,7 +154,7 @@ const TransactionDetails: FC = () => {
 
   const copyHashToClipboard = useCallback(() => {
     copyToClipboard(txInfo?.txHash ?? '');
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, txInfo?.txHash]);
 

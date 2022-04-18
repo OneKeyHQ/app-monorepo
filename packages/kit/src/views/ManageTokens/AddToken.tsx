@@ -179,7 +179,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
 }
 
 function AddTokenModal() {
-  const { info } = useToast();
+  const toast = useToast();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
@@ -196,17 +196,17 @@ function AddTokenModal() {
         activeNetwork.id,
         address,
       );
-      info(
-        intl.formatMessage({
+      toast.show({
+        title: intl.formatMessage({
           id: 'msg__token_added',
           defaultMessage: 'Token Added',
         }),
-      );
+      });
       if (navigation.canGoBack()) {
         navigation.goBack();
       }
     }
-  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
+  }, [intl, activeAccount, navigation, activeNetwork, toast, address]);
 
   return (
     <ViewTokenModal

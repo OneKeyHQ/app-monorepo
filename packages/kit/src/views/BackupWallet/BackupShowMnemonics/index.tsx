@@ -51,7 +51,7 @@ const BackupShowMnemonicsView: FC = () => {
 
   const copyContentToClipboard = useCallback(() => {
     copyToClipboard(mnemonic);
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   }, [toast, mnemonic, intl]);
 
   const mnemonicArray = useMemo(() => mnemonic.split(' '), [mnemonic]);
