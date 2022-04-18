@@ -50,7 +50,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
     );
 
     if (changedAccount) {
-      toast.info(intl.formatMessage({ id: 'msg__renamed' }));
+      toast.show({ title: intl.formatMessage({ id: 'msg__renamed' }) });
       onClose();
       onDone(account);
     } else {

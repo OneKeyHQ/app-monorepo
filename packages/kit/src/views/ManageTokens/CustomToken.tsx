@@ -35,7 +35,7 @@ type AddCustomTokenValues = {
 export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const address = route.params?.address;
   const intl = useIntl();
-  const { info } = useToast();
+  const toast = useToast();
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
@@ -83,19 +83,19 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             activeAccount.id,
             preResult[1].id,
           );
-          info(
-            intl.formatMessage({
+          toast.show({
+            title: intl.formatMessage({
               id: 'msg__token_added',
               defaultMessage: 'Token Added',
             }),
-          );
+          });
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
         }
       }
     },
-    [navigation, activeNetwork, activeAccount, intl, info],
+    [navigation, activeNetwork, activeAccount, intl, toast],
   );
 
   const onSearch = useCallback(

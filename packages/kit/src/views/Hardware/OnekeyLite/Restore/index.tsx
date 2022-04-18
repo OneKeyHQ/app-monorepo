@@ -134,8 +134,9 @@ const Restore: FC = () => {
 
                   stateNfcDone();
                 } catch (e) {
-                  console.log('error', e);
-                  toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+                  toast.show({
+                    title: intl.formatMessage({ id: 'msg__unknown_error' }),
+                  });
                   navigation.goBack();
                 }
               },
@@ -187,8 +188,9 @@ const Restore: FC = () => {
 
                 stateNfcDone();
               } catch (e) {
-                console.log('error', e);
-                toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+                toast.show({
+                  title: intl.formatMessage({ id: 'msg__unknown_error' }),
+                });
                 navigation.goBack();
               }
             },
