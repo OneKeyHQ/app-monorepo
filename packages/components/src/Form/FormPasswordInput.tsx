@@ -19,9 +19,7 @@ export const FormPasswordInput: FC<
       w="full"
       type={show ? 'text' : 'password'}
       onChangeText={onChange}
-      keyboardType={
-        Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'
-      }
+      keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : undefined}
       size="xl"
       rightCustomElement={
         <IconButton
