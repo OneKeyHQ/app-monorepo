@@ -32,11 +32,7 @@ import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -202,30 +198,18 @@ const RecoverAccounts: FC = () => {
         id: 'account__recover_Step_1_of_2',
       })}`}
       onBackActionPress={() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateAccount,
-          params: {
-            screen: CreateAccountModalRoutes.CreateAccountForm,
-            params: {
-              walletId,
-            },
-          },
+        navigation.navigate(CreateAccountModalRoutes.CreateAccountForm, {
+          walletId,
         });
       }}
       primaryActionTranslationId="action__next"
       onPrimaryActionPress={() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateAccount,
-          params: {
-            screen: CreateAccountModalRoutes.RecoverAccountsConfirm,
-            params: {
-              accounts: [
-                ...flatListData.filter((i) => !i.isDisabled && i.selected),
-              ],
-              walletId,
-              network,
-            },
-          },
+        navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
+          accounts: [
+            ...flatListData.filter((i) => !i.isDisabled && i.selected),
+          ],
+          walletId,
+          network,
         });
       }}
       primaryActionProps={{
