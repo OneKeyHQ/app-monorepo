@@ -14,15 +14,10 @@ import {
   TxDetail,
   TxStatus,
 } from '../types/covalent';
-import {
-  HistoryEntry,
-  HistoryEntryStatus,
-  HistoryEntryTransaction,
-} from '../types/history';
+import { HistoryEntryStatus, HistoryEntryTransaction } from '../types/history';
 import {
   EVMDecodedItem,
   EVMDecodedTxType,
-  EVMTxDecoder,
 } from '../vaults/impl/evm/decoder/decoder';
 
 const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';

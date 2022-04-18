@@ -678,13 +678,14 @@ class ProviderController extends BaseProviderController {
       networkId,
       pendingTxs.map((tx) => tx.id.replace(regex, '')),
     );
+    const now = Date.now();
     updatedStatuses.forEach((status, index) => {
       const { createdAt, id } = pendingTxs[index];
       if (
         status === TransactionStatus.NOT_FOUND ||
         status === TransactionStatus.INVALID
       ) {
-        if (Date.now() - createdAt > 60 * 5) {
+        if (now - createdAt > 60 * 5) {
           ret[id] = HistoryEntryStatus.DROPPED;
         }
       } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
