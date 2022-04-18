@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   Image,
   Modal,
   Text,
@@ -27,34 +28,32 @@ const Guide = () => {
   const isSmallScreen = useIsVerticalLayout();
   return (
     <Modal footer={null}>
-      <Box
-        display="flex"
-        px={isSmallScreen ? '4' : '12'}
-        height={isSmallScreen ? 'full' : 'auto'}
-      >
-        <Box
-          flex={isSmallScreen ? '1' : 'auto'}
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
+      <Box px={isSmallScreen ? 6 : 4} height={isSmallScreen ? 'full' : 'auto'}>
+        <Center flex={isSmallScreen ? '1' : 'auto'}>
           <Image size={92} source={walletAsset} />
           <Text
-            mt={{ sm: '8', md: '4' }}
-            typography={{ sm: 'DisplayMedium', md: 'DisplayXLarge' }}
+            mt={{ base: 8, md: 4 }}
+            typography={{
+              sm: 'DisplayXLarge',
+              md: 'DisplayMedium',
+            }}
           >
             {intl.formatMessage({ id: 'modal__add_wallet' })}
           </Text>
-          <Text mt={2} typography={{ sm: 'Body2', md: 'Body1' }}>
+          <Text
+            mt={2}
+            textAlign="center"
+            color="text-subdued"
+            typography={{ sm: 'Body1', md: 'Body2' }}
+          >
             {intl.formatMessage({ id: 'modal__add_wallet_desc' })}
           </Text>
-        </Box>
+        </Center>
         <Box
-          display="flex"
-          flexDirection="column"
-          mt={isSmallScreen ? '0' : '12'}
-          mb={isSmallScreen ? '12' : '0'}
+          pt={8}
+          pb={{ base: 8, md: 4 }}
+          w={{ base: 'full', md: '240px' }}
+          mx="auto"
         >
           <Button
             size={isSmallScreen ? 'xl' : 'base'}

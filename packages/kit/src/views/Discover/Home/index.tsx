@@ -25,7 +25,10 @@ import {
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { updateSyncData } from '@onekeyhq/kit/src/store/reducers/discover';
+import {
+  updateRankData,
+  updateSyncData,
+} from '@onekeyhq/kit/src/store/reducers/discover';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDiscover } from '../../../hooks/redux';
@@ -135,9 +138,12 @@ export const Discover: FC<DiscoverProps> = ({
   const [flatListData, updateFlatListData] = useState<SectionDataType[]>([]);
   const navigation = useNavigation();
   const intl = useIntl();
-  const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const { dispatch } = backgroundApiProxy;
-  const { syncData } = useDiscover();
+  const { syncData, rankData } = useDiscover();
+  const [pageStatus, setPageStatus] = useState<PageStatusType>(
+    rankData && rankData.tags.length > 0 ? 'data' : 'loading',
+  );
+
   useLayoutEffect(() => {
     if (platformEnv.isIOS) {
       navigation.setOptions({
@@ -177,10 +183,13 @@ export const Discover: FC<DiscoverProps> = ({
   );
 
   const generaListData = useCallback(
-    (syncResponceData: SyncRequestPayload, rankData: RankingsPayload) => {
+    (
+      syncResponceData: SyncRequestPayload,
+      rankResponceData: RankingsPayload,
+    ) => {
       const listData: SectionDataType[] = [];
       const { increment, banners } = syncResponceData;
-      const { tags } = rankData;
+      const { tags } = rankResponceData;
       if (increment) {
         if (banners) {
           const dAppItems = banners.map((item) => {
@@ -212,35 +221,44 @@ export const Discover: FC<DiscoverProps> = ({
   );
 
   const getData = useCallback(() => {
-    setPageStatus('loading');
+    if (rankData && rankData.tags.length > 0) {
+      setPageStatus('data');
+      updateFlatListData(() => [...generaListData(syncData, rankData)]);
+    } else {
+      setPageStatus('loading');
+    }
     if (platformEnv.isIOS) {
       requestRankings()
         .then((response2) => {
           setPageStatus('data');
+          dispatch(updateRankData(response2.data));
           updateFlatListData(() => [
             ...generaListData(syncData, response2.data),
           ]);
         })
         .catch(() => {
-          setPageStatus('network');
+          setPageStatus(rankData ? 'data' : 'network');
         });
     } else {
       requestSync(0, locale)
         .then((response) => {
-          dispatch(updateSyncData(response.data));
+          if (response.data.timestamp > syncData.timestamp) {
+            dispatch(updateSyncData(response.data));
+          }
           requestRankings()
             .then((response2) => {
               setPageStatus('data');
+              dispatch(updateRankData(response2.data));
               updateFlatListData(() => [
                 ...generaListData(response.data, response2.data),
               ]);
             })
             .catch(() => {
-              setPageStatus('network');
+              setPageStatus(rankData ? 'data' : 'network');
             });
         })
         .catch(() => {
-          setPageStatus('network');
+          setPageStatus(rankData ? 'data' : 'network');
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

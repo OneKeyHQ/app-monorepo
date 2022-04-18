@@ -2,7 +2,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { Animated, SectionListProps } from 'react-native';
+import { SectionListProps } from 'react-native';
 
 import {
   Badge,
@@ -21,7 +21,6 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
-import { useAnimation } from '@onekeyhq/kit/src/hooks/useAnimation';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
@@ -68,12 +67,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const openBlockBrowser = useOpenBlockBrowser(network);
   const { transactionRecords, isLoading, loadMore, fetchData } =
     useHistoricalRecordsData({ account, network, tokenId });
-
-  const refreshAnimation = useAnimation({
-    doAnimation: isLoading,
-    duration: 1000,
-    loop: true,
-  });
 
   const handleScrollToEnd: SectionListProps<unknown>['onEndReached'] =
     useCallback(
@@ -171,30 +164,17 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             {intl.formatMessage({ id: 'transaction__history' })}
           </Typography.Heading>
           <Box flexDirection="row">
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    rotate: refreshAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg'],
-                    }),
-                  },
-                ],
+            <IconButton
+              onPress={() => {
+                refreshData();
               }}
-            >
-              <IconButton
-                onPress={() => {
-                  refreshData();
-                }}
-                disabled={isLoading}
-                p={2}
-                size="sm"
-                name="RefreshSolid"
-                type="plain"
-                circle
-              />
-            </Animated.View>
+              isLoading={isLoading}
+              p={2}
+              size="sm"
+              name="RefreshSolid"
+              type="plain"
+              circle
+            />
 
             <IconButton
               onPress={() => {
@@ -211,19 +191,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         </Box>
       </Box>
     ),
-    [
-      account,
-      refreshAnimation,
-      headerView,
-      intl,
-      isLoading,
-      openBlockBrowser,
-      refreshData,
-    ],
+    [account, headerView, intl, isLoading, openBlockBrowser, refreshData],
   );
 
   const renderEmpty = () => (
-    <Box pb={2} pt={2} flexDirection="row" alignItems="center">
+    <Box py={4} flexDirection="row" alignItems="center">
       <Empty
         imageUrl={IconHistory}
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
@@ -237,7 +209,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   );
 
   const renderLoading = () => (
-    <Center pb={2} pt={2}>
+    <Center pb={8} pt={8}>
       <Spinner size="lg" />
     </Center>
   );
@@ -252,10 +224,10 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   return React.cloneElement(listElementType, {
     contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
     sections: transactionRecords,
-    extraData: { isLoading, refreshAnimation },
+    extraData: { isLoading },
     renderItem,
     renderSectionHeader,
-    ListHeaderComponent: header,
+    ListHeaderComponent: transactionRecords.length ? header : null,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box key="footer" h="20px" />,
     ItemSeparatorComponent: () => <Divider key="separator" />,

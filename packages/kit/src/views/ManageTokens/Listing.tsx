@@ -33,7 +33,7 @@ import { timeout } from '../../utils/helper';
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
-import type { ValuedToken } from '../../store/reducers/general';
+import type { ValuedToken } from '../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

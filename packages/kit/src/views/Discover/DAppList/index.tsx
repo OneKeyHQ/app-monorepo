@@ -59,7 +59,7 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
     [data?.length, onItemSelect],
   );
   return (
-    <Box width="100%">
+    <Box flex="1" bg="background-default">
       <FlatList
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 24 }}
         data={data}

@@ -8,7 +8,7 @@ import { Text } from 'react-native';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import { useManageTokens } from '../../hooks';
-import { ValuedToken } from '../../store/reducers/general';
+import { ValuedToken } from '../../store/typings';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */

@@ -59,6 +59,7 @@ const QRCode: FC<QRCodeProps> = ({
       for (let i = 0; i < 3; i += 1) {
         arr.push(
           <Rect
+            key={`Rect${x}${y}${i}`}
             fill={i % 2 !== 0 ? 'white' : 'black'}
             x={x1 + cellSize * i}
             y={y1 + cellSize * i}
@@ -94,6 +95,7 @@ const QRCode: FC<QRCodeProps> = ({
             ) {
               arr.push(
                 <Circle
+                  key={`circel row${i} col${j}`}
                   cx={i * cellSize + cellSize / 2}
                   cy={j * cellSize + cellSize / 2}
                   fill="black"

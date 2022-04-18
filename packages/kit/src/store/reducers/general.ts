@@ -2,7 +2,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-export type ValuedToken = Token & { balance?: string };
+import { ValuedToken } from '../typings';
 
 export type GeneralInitialState = {
   activeAccountId: string | null;
@@ -11,6 +11,10 @@ export type GeneralInitialState = {
   tokens: Record<string, Record<string, Token[]>>;
   ownedTokens: Record<string, Record<string, ValuedToken[]>>;
   tokensPrice: Record<string, Record<string, string>>;
+  tokensBalance: Record<
+    string,
+    Record<string, Record<string, string | undefined>>
+  >;
 };
 
 const initialState: GeneralInitialState = {
@@ -20,6 +24,7 @@ const initialState: GeneralInitialState = {
   tokens: {},
   ownedTokens: {},
   tokensPrice: {},
+  tokensBalance: {},
 } as const;
 
 export const generalSlice = createSlice({
@@ -87,6 +92,25 @@ export const generalSlice = createSlice({
         };
       }
     },
+    updateTokensBalance(
+      state,
+      action: PayloadAction<Record<string, string | undefined>>,
+    ) {
+      const { activeNetworkId, activeAccountId } = state;
+      if (activeNetworkId && activeAccountId) {
+        if (!state.tokensBalance) {
+          state.tokensBalance = {};
+        }
+        if (!state.tokensBalance[activeAccountId]) {
+          state.tokensBalance[activeAccountId] = {};
+        }
+        const oldState = state.tokensBalance[activeAccountId][activeNetworkId];
+        state.tokensBalance[activeAccountId][activeNetworkId] = {
+          ...oldState,
+          ...action.payload,
+        };
+      }
+    },
   },
 });
 
@@ -97,6 +121,7 @@ export const {
   changeActiveAccount,
   changeActiveNetwork,
   setActiveIds,
+  updateTokensBalance,
 } = generalSlice.actions;
 
 export default generalSlice.reducer;

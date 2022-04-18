@@ -136,7 +136,7 @@ export const light = {
   'action-critical-hovered': '#CC2F26',
   'action-critical-pressed': '#9A241D',
   'action-critical-disabled': '#E8E8ED',
-  'decorative-surface-one': '#005809',
+  'decorative-surface-one': '#D7F4DA',
   'decorative-icon-one': '#33C641',
   'backdrop': 'rgba(107, 107, 128, 0.75)',
   'divider': '#F3F3F6',

@@ -137,28 +137,34 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   const renderEmpty = React.useCallback(() => {
     if (!isSupported) {
       return (
-        <Empty
-          imageUrl={IconNFT}
-          title={intl.formatMessage({ id: 'empty__not_supported' })}
-          subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
-        />
+        <Box py={4}>
+          <Empty
+            imageUrl={IconNFT}
+            title={intl.formatMessage({ id: 'empty__not_supported' })}
+            subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
+          />
+        </Box>
       );
     }
 
     return isLoading ? (
-      <Center pb={2} pt={2}>
+      <Center pb={8} pt={8}>
         <Spinner size="lg" />
       </Center>
     ) : (
-      <Empty
-        imageUrl={IconNFT}
-        title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
-        subTitle={intl.formatMessage({
-          id: 'asset__collectibles_empty_desc',
-        })}
-      />
+      <Box py={4}>
+        <Empty
+          imageUrl={IconNFT}
+          title={intl.formatMessage({ id: 'asset__collectibles_empty_title' })}
+          subTitle={intl.formatMessage({
+            id: 'asset__collectibles_empty_desc',
+          })}
+          actionTitle={intl.formatMessage({ id: 'action__refresh' })}
+          handleAction={fetchData}
+        />
+      </Box>
     );
-  }, [intl, isLoading, isSupported]);
+  }, [intl, isLoading, isSupported, fetchData]);
 
   const renderListItem = React.useCallback<
     NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
@@ -278,7 +284,8 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       // Golden Ratio - 1
       onEndReachedThreshold: 1.618033988749894 - 1,
       refreshing: isSupported ? isLoading : undefined,
-      onRefresh: isSupported ? fetchData : undefined,
+      onRefresh: isSupported && collectibles.length ? fetchData : undefined,
+      showsVerticalScrollIndicator: false,
     }),
     [
       renderEmpty,
