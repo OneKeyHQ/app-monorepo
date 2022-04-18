@@ -27,7 +27,7 @@ import {
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
   EVMTxDecoder,
-  EVMTxType,
+  EVMDecodedTxType,
 } from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -218,7 +218,7 @@ export default class Vault extends VaultBase {
     const approveMethodID = '0x095ea7b3';
 
     const decodedTx = await this.decodeTx(encodedTx);
-    if (decodedTx.txType !== EVMTxType.TOKEN_APPROVE) {
+    if (decodedTx.txType !== EVMDecodedTxType.TOKEN_APPROVE) {
       throw new Error('Not a approve transaction.');
     }
 

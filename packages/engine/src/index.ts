@@ -43,7 +43,11 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import { getErc20TransferHistories, getTxHistories } from './managers/covalent';
+import {
+  decodedItemToTransaction,
+  getErc20TransferHistories,
+  getTxHistories,
+} from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import {
   getAccountNameInfoByImpl,
@@ -93,6 +97,7 @@ import {
   HistoryEntry,
   HistoryEntryMeta,
   HistoryEntryStatus,
+  HistoryEntryTransaction,
   HistoryEntryType,
 } from './types/history';
 import { Message } from './types/message';
@@ -106,6 +111,7 @@ import { Token } from './types/token';
 import { IEncodedTxAny, IFeeInfoUnit } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
+import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
@@ -1777,6 +1783,7 @@ class Engine {
     accountId: string,
     pageNumber: number,
     pageSize: number,
+    pending = true,
   ) {
     const [dbAccount, network] = await Promise.all([
       this.dbApi.getAccount(accountId),
@@ -1796,7 +1803,39 @@ class Engine {
     }
     const chainId = network.id.split(SEPERATOR)[1];
 
-    return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
+    if (!pending) {
+      return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
+    }
+
+    const localHistory = await this.getHistory(networkId, accountId);
+    const localTxHistory = localHistory.filter(
+      (h) => 'rawTx' in h,
+    ) as Array<HistoryEntryTransaction>;
+
+    const decodedLocalTxHistory = localTxHistory.map(async (h) => {
+      const decodedItem = await EVMTxDecoder.decode(h.rawTx, this);
+      const tx = decodedItemToTransaction(decodedItem, h);
+      return tx;
+    });
+
+    const decodedLocalTxHistoryList = await Promise.all(decodedLocalTxHistory);
+
+    const covalent = await getTxHistories(
+      chainId,
+      dbAccount.address,
+      pageNumber,
+      pageSize,
+    );
+    if (!covalent || !covalent.data.txList) {
+      throw new OneKeyInternalError('getTxHistories failed.');
+    }
+    const { txList } = covalent.data;
+    const localTxHashSet = new Set(
+      decodedLocalTxHistoryList.map((tx) => tx.txHash),
+    );
+    const filtedTxList = txList.filter((tx) => !localTxHashSet.has(tx.txHash));
+    covalent.data.txList = [...decodedLocalTxHistoryList, ...filtedTxList];
+    return covalent;
   }
 
   async getErc20TxHistories(

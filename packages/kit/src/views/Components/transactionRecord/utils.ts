@@ -1,9 +1,9 @@
 import { BigNumber } from 'bignumber.js';
 
 import {
-  TokenType,
+  EVMDecodedTxType,
+  EVMTxFromType,
   Transaction,
-  TransactionType,
 } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -26,13 +26,13 @@ function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
 
 export function getTransferNFTList(transaction: Transaction | null): string[] {
   if (
-    transaction?.tokenType === TokenType.ERC721 &&
+    transaction?.txType === EVMDecodedTxType.ERC721_TRANSFER &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
     // 721 transfer
     const tokenEvents = transaction?.tokenEvent?.filter(
-      (event) => event.tokenType === TokenType.ERC721,
+      (event) => event.txType === EVMDecodedTxType.ERC721_TRANSFER,
     );
     const nftImages = tokenEvents
       ?.map((event) => event.tokenLogoUrl)
@@ -49,15 +49,15 @@ export function getSwapTransfer(
 ): string {
   let amount;
   if (
-    transaction?.type === TransactionType.Swap &&
+    transaction?.txType === EVMDecodedTxType.SWAP &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
     // swap transfer
     const tokenEvent = transaction?.tokenEvent?.find(
-      (event) => event.transferType === TransactionType.Transfer,
+      (event) => event.fromType === EVMTxFromType.OUT,
     );
-    if (tokenEvent?.tokenType === TokenType.ERC20) {
+    if (tokenEvent?.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       amount = formatBalanceDisplay(
         tokenEvent?.tokenAmount,
         tokenEvent?.tokenSymbol,
@@ -86,15 +86,15 @@ export function getSwapReceive(
 ): string {
   let amount;
   if (
-    transaction?.type === TransactionType.Swap &&
+    transaction?.txType === EVMDecodedTxType.SWAP &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
     // swap transfer
     const tokenEvent = transaction?.tokenEvent?.find(
-      (event) => event.transferType === TransactionType.Receive,
+      (event) => event.fromType === EVMTxFromType.IN,
     );
-    if (tokenEvent?.tokenType === TokenType.ERC20) {
+    if (tokenEvent?.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       amount = formatBalanceDisplay(
         tokenEvent?.tokenAmount,
         tokenEvent?.tokenSymbol,
@@ -127,7 +127,7 @@ export function getTransferAmount(
   let fixed;
 
   if (
-    transaction?.tokenType === TokenType.ERC20 &&
+    transaction?.txType === EVMDecodedTxType.TOKEN_TRANSFER &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
@@ -138,13 +138,13 @@ export function getTransferAmount(
     unit = tokenEvent?.tokenSymbol;
     fixed = network?.tokenDisplayDecimals;
   } else if (
-    transaction?.tokenType === TokenType.ERC721 &&
+    transaction?.txType === EVMDecodedTxType.ERC721_TRANSFER &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
     // 721 transfer
     const tokenEvents = transaction?.tokenEvent?.filter(
-      (event) => event.tokenType === TokenType.ERC721,
+      (event) => event.txType === EVMDecodedTxType.ERC721_TRANSFER,
     );
     const tokenSize = tokenEvents?.length ?? 0;
     const tokenSymbol = tokenEvents[0]?.tokenSymbol ?? '';
@@ -171,13 +171,13 @@ export function getTransferAmountFiat(
 ): AmountFiatBalance {
   let amountFiat;
   if (
-    transaction?.tokenType === TokenType.ERC721 &&
+    transaction?.txType === EVMDecodedTxType.ERC721_TRANSFER &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
     amountFiat = 0;
   } else if (
-    transaction?.tokenType === TokenType.ERC20 &&
+    transaction?.txType === EVMDecodedTxType.TOKEN_TRANSFER &&
     transaction?.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
@@ -197,7 +197,7 @@ export function getFromAddress(transaction: Transaction | null) {
   let fromAddress: string = transaction?.fromAddress ?? '';
   let fromAddressLabel: string | null = transaction?.fromAddressLabel ?? '';
   if (
-    transaction?.tokenType === TokenType.ERC20 &&
+    transaction?.txType === EVMDecodedTxType.TOKEN_TRANSFER &&
     transaction.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
@@ -211,7 +211,7 @@ export function getToAddress(transaction: Transaction | null) {
   let toAddress: string = transaction?.toAddress ?? '';
   let toAddressLabel: string | null = transaction?.toAddressLabel ?? '';
   if (
-    transaction?.tokenType === TokenType.ERC20 &&
+    transaction?.txType === EVMDecodedTxType.TOKEN_TRANSFER &&
     transaction.tokenEvent &&
     transaction.tokenEvent.length > 0
   ) {
