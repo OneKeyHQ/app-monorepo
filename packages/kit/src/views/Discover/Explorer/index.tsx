@@ -198,7 +198,7 @@ const Explorer: FC = () => {
 
   const onCopyUrlToClipboard = () => {
     copyToClipboard(currentUrl ?? '');
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   };
 
   const onOpenBrowser = () => {

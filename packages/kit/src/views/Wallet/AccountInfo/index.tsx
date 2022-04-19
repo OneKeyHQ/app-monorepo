@@ -55,7 +55,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
     (address) => {
       if (!address) return;
       copyToClipboard(address);
-      toast.info(intl.formatMessage({ id: 'msg__address_copied' }));
+      toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
     },
     [toast, intl],
   );

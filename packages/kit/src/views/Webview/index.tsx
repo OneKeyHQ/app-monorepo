@@ -76,7 +76,7 @@ export const SettingsWebViews: FC = () => {
           break;
         case 'copyUrl':
           copyToClipboard(currentUrl ?? '');
-          toast.info(intl.formatMessage({ id: 'msg__copied' }));
+          toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
           setCurrentOptionType(null);
           break;
         case 'openInBrowser':

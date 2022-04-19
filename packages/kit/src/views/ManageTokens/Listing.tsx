@@ -267,7 +267,7 @@ const ListingToken: FC<ListingTokenProps> = ({
 }) => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
-  const { info } = useToast();
+  const toast = useToast();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const { updateAccountTokens, updateTokens } = useManageTokens();
@@ -283,10 +283,12 @@ const ListingToken: FC<ListingTokenProps> = ({
           5000,
         );
       } catch (e) {
-        info(intl.formatMessage({ id: 'msg__failed_to_add_token' }));
+        toast.show({
+          title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
+        });
         return;
       }
-      info(intl.formatMessage({ id: 'msg__token_added' }));
+      toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
       updateAccountTokens();
       updateTokens();
     }
@@ -294,7 +296,7 @@ const ListingToken: FC<ListingTokenProps> = ({
     intl,
     activeAccount,
     activeNetwork,
-    info,
+    toast,
     updateAccountTokens,
     updateTokens,
     item.tokenIdOnNetwork,

@@ -32,7 +32,7 @@ const BackupWalletAuthorityVerifyDone: FC<
   const navigation = useNavigation();
 
   const showError = function () {
-    toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
   };
 
   const startBackupModal = (

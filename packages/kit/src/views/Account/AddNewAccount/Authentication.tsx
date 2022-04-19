@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { FC, useEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
@@ -10,7 +9,6 @@ import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 export type EnableLocalAuthenticationProps = {
   password: string;
@@ -37,12 +35,10 @@ const HDAccountAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
     </Center>
   );
 };
-type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 export const HDAccountAuthentication: FC = () => {
   const route = useRoute<RouteProps>();
   const { onDone } = route.params;
-  const navigation = useNavigation<NavigationProps['navigation']>();
   return (
     <Modal footer={null}>
       <Protected>
@@ -51,7 +47,6 @@ export const HDAccountAuthentication: FC = () => {
             password={password}
             onDone={() => {
               onDone(password);
-              navigation?.goBack();
             }}
           />
         )}
