@@ -28,7 +28,7 @@ type SetupProps = {
 const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
   const intl = useIntl();
   const { isOk } = useLocalAuthentication();
-  const { boardingCompleted } = useStatus();
+  const { boardingCompleted, authenticationType } = useStatus();
   const {
     control,
     handleSubmit,
@@ -51,6 +51,12 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
     },
     [onOk, boardingCompleted, skipSavePassword],
   );
+  const text =
+    authenticationType === 'FACIAL'
+      ? intl.formatMessage({
+          id: 'content__face_id',
+        })
+      : intl.formatMessage({ id: 'content__touch_id' });
 
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -140,9 +146,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
               title={intl.formatMessage(
                 { id: 'content__authentication_with' },
                 {
-                  0: `${intl.formatMessage({
-                    id: 'content__face_id',
-                  })}/${intl.formatMessage({ id: 'content__touch_id' })}`,
+                  0: text,
                 },
               )}
             />
