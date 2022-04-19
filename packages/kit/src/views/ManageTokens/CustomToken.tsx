@@ -35,13 +35,13 @@ type AddCustomTokenValues = {
 export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const address = route.params?.address;
   const intl = useIntl();
-  const { info } = useToast();
+  const toast = useToast();
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
-  const { accountTokensSet } = useManageTokens();
+  const { accountTokensMap } = useManageTokens();
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',
@@ -83,19 +83,19 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             activeAccount.id,
             preResult[1].id,
           );
-          info(
-            intl.formatMessage({
+          toast.show({
+            title: intl.formatMessage({
               id: 'msg__token_added',
               defaultMessage: 'Token Added',
             }),
-          );
+          });
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
         }
       }
     },
-    [navigation, activeNetwork, activeAccount, intl, info],
+    [navigation, activeNetwork, activeAccount, intl, toast],
   );
 
   const onSearch = useCallback(
@@ -122,7 +122,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       const trimedAddress = debouncedAddress.trim();
       if (
         trimedAddress.length === 42 &&
-        !accountTokensSet.has(trimedAddress.toLowerCase()) &&
+        !accountTokensMap.has(trimedAddress.toLowerCase()) &&
         activeAccount &&
         activeNetwork
       ) {
@@ -151,7 +151,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     activeNetwork,
     onSearch,
     debouncedAddress,
-    accountTokensSet,
+    accountTokensMap,
   ]);
 
   return (
@@ -190,7 +190,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                     id: 'msg__wrong_address_format',
                   });
                 }
-                if (accountTokensSet.has(value.toLowerCase())) {
+                if (accountTokensMap.has(value.toLowerCase())) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });

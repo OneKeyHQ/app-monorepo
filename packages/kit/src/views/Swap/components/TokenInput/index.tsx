@@ -14,10 +14,10 @@ import {
 } from '@onekeyhq/components';
 
 import { useManageTokens } from '../../../../hooks/useManageTokens';
-import { ValuedToken } from '../../../../store/typings';
+import { Token as TokenType } from '../../../../store/typings';
 
 type TokenInputProps = {
-  token?: ValuedToken;
+  token?: TokenType;
   label?: string;
   inputValue?: string;
   onPress?: () => void;

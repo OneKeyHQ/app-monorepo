@@ -460,6 +460,7 @@
 					"*/RNBridge/OKLiteManager.m",
 					"*/RNBridge/RNLiteCallBackManager.h",
 					"*/RNBridge/RNLiteCallBackManager.m",
+					"*/Frameworks/GPChannelSDKCore.framework",
 				);
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

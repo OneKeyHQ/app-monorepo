@@ -1,5 +1,5 @@
 import type { Network as EngineNetwork } from '@onekeyhq/engine/src/types/network';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token as EngineToken } from '@onekeyhq/engine/src/types/token';
 
-export type ValuedToken = Token & { balance?: string };
 export type Network = EngineNetwork;
+export type Token = EngineToken;

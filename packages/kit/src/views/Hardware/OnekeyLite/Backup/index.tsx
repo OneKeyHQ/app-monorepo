@@ -83,7 +83,7 @@ const Backup: FC = () => {
 
   const startNfcScan = (overwrite = false) => {
     if (backupData.trim() === '') {
-      toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
       navigation.goBack();
       return;
     }

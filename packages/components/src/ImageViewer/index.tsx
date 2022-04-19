@@ -68,7 +68,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
       FileSystem.downloadAsync(imageUri, imagePath)
         .then(({ uri }) => {
           MediaLibrary.saveToLibraryAsync(uri);
-          toast.info(intl.formatMessage({ id: 'msg__image_saved' }));
+          toast.show({ title: intl.formatMessage({ id: 'msg__image_saved' }) });
         })
         .catch((error) => {
           console.error(error);
