@@ -445,7 +445,7 @@ const Transaction = () => {
                       ? activeNetwork?.tokenDisplayDecimals
                       : activeNetwork?.nativeDisplayDecimals
                   }
-                  rightText={selectedToken?.symbol ?? '-'}
+                  tokenSymbol={selectedToken?.symbol ?? '-'}
                   enableMaxButton
                   isMax={isMax}
                   maxText={getTokenBalance(selectedToken, '')}
