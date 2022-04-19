@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { useData, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useData, useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
@@ -46,6 +46,7 @@ export const SecuritySection = () => {
   const { enableAppLock, enableLocalAuthentication, appLockDuration } =
     useSettings();
   const { isPasswordSet } = useData();
+  const { authenticationType } = useStatus();
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();
   const lockTimerOptions = useMemo(
@@ -159,10 +160,11 @@ export const SecuritySection = () => {
                 numberOfLines={1}
                 mr="3"
               >
-                {intl.formatMessage({
-                  id: 'form__face_id',
-                  defaultMessage: 'Face ID',
-                })}
+                {authenticationType === 'FACIAL'
+                  ? intl.formatMessage({
+                      id: 'content__face_id',
+                    })
+                  : intl.formatMessage({ id: 'content__touch_id' })}
               </Text>
               <Box>
                 <Switch

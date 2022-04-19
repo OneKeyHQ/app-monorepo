@@ -31,7 +31,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const { enableLocalAuthentication } = useSettings();
-  const { supportFaceId } = useStatus();
+  const { authenticationType } = useStatus();
   const navigation = useNavigation<NavigationProps>();
 
   const { isOk, localAuthenticate, getPassword } = useLocalAuthentication();
@@ -77,7 +77,9 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   return isOk ? (
     <IconButton
       size="xl"
-      name={supportFaceId ? 'FaceIdIllus' : 'FingerPrintIllus'}
+      name={
+        authenticationType === 'FACIAL' ? 'FaceIdIllus' : 'FingerPrintIllus'
+      }
       onPress={onPress}
     />
   ) : null;

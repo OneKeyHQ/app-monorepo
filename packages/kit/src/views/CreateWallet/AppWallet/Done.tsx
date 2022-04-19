@@ -13,6 +13,8 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useDrawer, useToast } from '../../../hooks';
+import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
+import { savePassword } from '../../../utils/localAuthentication';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -22,10 +24,14 @@ type RouteProps = RouteProp<
 type DoneProps = {
   password: string;
   mnemonic?: string;
+  withEnableAuthentication?: boolean;
 };
 
-const Done: FC<DoneProps> = ({ password, mnemonic }) => {
-  const { serviceAccount } = backgroundApiProxy;
+const Done: FC<DoneProps> = ({
+  password,
+  mnemonic,
+  withEnableAuthentication,
+}) => {
   const navigation = useNavigation();
   const intl = useIntl();
   const toast = useToast();
@@ -33,10 +39,14 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
   useEffect(() => {
     async function main() {
       try {
-        await serviceAccount.createHDWallet({
+        await backgroundApiProxy.serviceAccount.createHDWallet({
           password,
           mnemonic,
         });
+        if (withEnableAuthentication) {
+          backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
+          await savePassword(password);
+        }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({ title: intl.formatMessage({ id: errorKey }) });
@@ -46,15 +56,8 @@ const Done: FC<DoneProps> = ({ password, mnemonic }) => {
       inst.goBack();
     }
     main();
-  }, [
-    navigation,
-    password,
-    serviceAccount,
-    mnemonic,
-    closeDrawer,
-    intl,
-    toast,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Center h="full" w="full">
@@ -69,7 +72,13 @@ export const AppWalletDone = () => {
   return (
     <Modal footer={null}>
       <Protected skipSavePassword>
-        {(password) => <Done password={password} mnemonic={mnemonic} />}
+        {(password, { withEnableAuthentication }) => (
+          <Done
+            password={password}
+            mnemonic={mnemonic}
+            withEnableAuthentication={withEnableAuthentication}
+          />
+        )}
       </Protected>
     </Modal>
   );

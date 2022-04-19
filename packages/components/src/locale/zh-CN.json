@@ -271,7 +271,7 @@
   "dialog__manual_backup_successful_title": "手动备份成功",
   "dialog__remove_account_desc": "该账户将会被抹除。",
   "dialog__remove_network_desc": "“ {0} ” 将从您的网络列表中移除。",
-  "dialog__remove_network_title": "移除网路",
+  "dialog__remove_network_title": "移除网络",
   "dialog__reset_network_desc": "\"{0}\" 将恢复为默认配置。",
   "dialog__reset_network_title": "重置网络",
   "dialog__skip_backup": "跳过备份",
