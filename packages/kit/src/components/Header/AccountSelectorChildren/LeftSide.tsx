@@ -26,6 +26,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import WalletAvatar from '../WalletAvatar';
 
@@ -94,7 +95,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
               .map((wallet) => (
                 <WalletItem
                   key={wallet.id}
-                  onPress={() => setSelectedWallet(wallet)}
+                  onPress={() => {
+                    setHaptics();
+                    setSelectedWallet(wallet);
+                  }}
                   isSelected={selectedWallet?.id === wallet.id}
                   avatarBgColor="#55A9D9"
                 />
@@ -112,7 +116,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
               .filter((wallet) => wallet.type === 'hw')
               .map((wallet) => (
                 <WalletItem
-                  onPress={() => setSelectedWallet(wallet)}
+                  onPress={() => {
+                    setHaptics();
+                    setSelectedWallet(wallet);
+                  }}
                   isSelected={selectedWallet?.id === wallet.id}
                   avatarBgColor="#FFE0DF"
                   walletType="hw"
@@ -129,7 +136,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
           <VStack space={2}>
             {importedWallet ? (
               <WalletItem
-                onPress={() => setSelectedWallet(importedWallet)}
+                onPress={() => {
+                  setHaptics();
+                  setSelectedWallet(importedWallet);
+                }}
                 isSelected={selectedWallet?.id === importedWallet.id}
                 walletImage="imported"
               />
@@ -140,7 +150,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
               .map((wallet) => (
                 <WalletItem
                   key={wallet.id}
-                  onPress={() => setSelectedWallet(wallet)}
+                  onPress={() => {
+                    setHaptics();
+                    setSelectedWallet(wallet);
+                  }}
                   isSelected={selectedWallet?.id === wallet.id}
                   walletImage="watching"
                 />

@@ -4,6 +4,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 
+import { setHaptics } from '../../../../kit/src/hooks/setHaptics';
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
@@ -97,7 +98,10 @@ export default function BottomTabBar({
                 alignItems="center"
                 p={0.5}
                 bg="surface-subdued"
-                onPress={onPress}
+                onPress={() => {
+                  setHaptics();
+                  onPress();
+                }}
                 _hover={{ bg: 'surface-hovered' }}
                 rounded="xl"
                 justifyContent="center"

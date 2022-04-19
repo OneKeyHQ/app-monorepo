@@ -98,8 +98,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
     <Modal
       header={symbol}
       height="560px"
-      hideSecondaryAction
-      hidePrimaryAction
+      footer={null}
       scrollViewProps={{
         children: (
           <KeyboardDismissView>
@@ -207,7 +206,8 @@ function AddTokenModal() {
         id: 'title__add_token',
         defaultMessage: 'Add Token',
       })}
-      hidePrimaryAction={false}
+      footer
+      hideSecondaryAction
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         onPromise: onPrimaryActionPress,

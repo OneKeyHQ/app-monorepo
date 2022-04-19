@@ -16,6 +16,7 @@ import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount } from '../../hooks/redux';
+import { setHaptics } from '../../hooks/setHaptics';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { useToast } from '../../hooks/useToast';
 
@@ -101,7 +102,10 @@ const ReceiveToken = () => {
                   type="plain"
                   size="xl"
                   leftIconName="DuplicateSolid"
-                  onPress={copyAddressToClipboard}
+                  onPress={() => {
+                    setHaptics();
+                    copyAddressToClipboard();
+                  }}
                 >
                   {intl.formatMessage({
                     id: 'action__copy_address',

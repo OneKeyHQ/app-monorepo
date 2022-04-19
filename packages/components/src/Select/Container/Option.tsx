@@ -99,7 +99,7 @@ function RenderSingleOption<T>({
         key={option.value as unknown as string}
         onPress={() => onChange?.(option.value, option)}
       >
-        {({ isHovered }) => (
+        {({ isHovered, isPressed }) => (
           <HStack
             alignItems="center"
             space={3}
@@ -108,7 +108,10 @@ function RenderSingleOption<T>({
             borderRadius="xl"
             bg={
               // eslint-disable-next-line no-nested-ternary
-              isHovered
+              isPressed
+                ? 'surface-pressed'
+                : // eslint-disable-next-line no-nested-ternary
+                isHovered
                 ? option.destructive
                   ? 'surface-critical-default'
                   : 'surface-hovered'

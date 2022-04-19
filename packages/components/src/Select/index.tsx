@@ -12,6 +12,7 @@ import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
 
+import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ChevronDown } from '../Icon/react/solid';
@@ -246,7 +247,13 @@ function Select<T = string>({
 
   return (
     <Box ref={triggerRef} position="relative" {...containerProps}>
-      <Pressable onPress={toggleVisible} {...triggerProps}>
+      <Pressable
+        onPress={() => {
+          setHaptics();
+          toggleVisible();
+        }}
+        {...triggerProps}
+      >
         {({ isHovered, isFocused, isPressed }) =>
           renderTrigger?.(
             activeOption,
