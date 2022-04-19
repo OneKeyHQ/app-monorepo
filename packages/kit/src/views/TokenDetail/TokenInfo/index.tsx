@@ -50,13 +50,25 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
 
   const renderAccountAmountInfo = useMemo(
     () => (
-      <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
+      <Box
+        w="100%"
+        flexDirection={isVertical ? 'column' : 'row'}
+        alignItems="center"
+      >
         <Token size={12} src={token?.logoURI ?? network?.logoURI} />
         <Box
+          width="100%"
+          flex={1}
           ml={isVertical ? 0 : 4}
           alignItems={isVertical ? 'center' : 'flex-start'}
         >
-          <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
+          <Box
+            flex={1}
+            width="100%"
+            flexDirection="row"
+            mt={2}
+            mx={isVertical ? 4 : 0}
+          >
             <FormatBalance
               balance={amount}
               suffix={token?.symbol}
@@ -65,7 +77,13 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               }}
               as={Typography.DisplayXLarge}
               render={(ele) => (
-                <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
+                <Typography.DisplayXLarge
+                  width="100%"
+                  flex={1}
+                  textAlign={isVertical ? 'center' : 'start'}
+                >
+                  {ele}
+                </Typography.DisplayXLarge>
               )}
             />
           </Box>
