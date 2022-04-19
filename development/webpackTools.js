@@ -3,7 +3,10 @@ require('./env');
 const webpack = require('webpack');
 const lodash = require('lodash');
 const notifier = require('node-notifier');
+const { getPathsAsync } = require('@expo/webpack-config/env');
+const path = require('path');
 const developmentConsts = require('./developmentConsts');
+const indexHtmlParameter = require('./indexHtmlParameter');
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -40,7 +43,32 @@ const resolveExtensions = [
   '.d.ts',
 ];
 
-function normalizeConfig({ platform, config }) {
+async function modifyExpoEnv({ env, platform }) {
+  const locations = await getPathsAsync(env.projectRoot);
+
+  const indexHtmlFile = path.resolve(
+    __dirname,
+    '../packages/shared/src/web/index.html',
+  );
+  locations.template.indexHtml = indexHtmlFile;
+  locations.template.indexHtmlTemplateParameters =
+    indexHtmlParameter.createEjsParams({
+      filename: 'index.html',
+      platform,
+    });
+
+  const newEnv = {
+    ...env,
+    // https://github.com/expo/expo-cli/issues/1977
+    locations: {
+      ...locations,
+    },
+  };
+
+  return newEnv;
+}
+
+function normalizeConfig({ platform, config, env }) {
   if (platform) {
     config.plugins = [
       ...config.plugins,
@@ -64,4 +92,5 @@ module.exports = {
   developmentConsts,
   resolveExtensions,
   normalizeConfig,
+  modifyExpoEnv,
 };
