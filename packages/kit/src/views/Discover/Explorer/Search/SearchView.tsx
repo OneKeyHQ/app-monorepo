@@ -4,8 +4,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   FlatList,
   HStack,
+  Icon,
+  Image,
   PresenceTransition,
   Pressable,
   ScrollableFlatListProps,
@@ -20,14 +23,14 @@ import DAppIcon from '../../DAppIcon';
 
 import { useSearchHistories } from './useSearchHistories';
 
-import type { DAppItemType } from '../../type';
+import type { MatchDAppItemType } from './useSearchHistories';
 
 export type SearchViewProps = {
   visible: boolean;
   searchContent: string;
   relativeComponent: any;
   onVisibleChange?: (visible: boolean) => void;
-  onSelectorItem?: (item: DAppItemType) => void;
+  onSelectorItem?: (item: MatchDAppItemType) => void;
 };
 
 const SearchView: FC<SearchViewProps> = ({
@@ -52,7 +55,7 @@ const SearchView: FC<SearchViewProps> = ({
     [searchContentTerm, allHistories, searchedHistories],
   );
 
-  const onSelectHistory = (item: DAppItemType) => {
+  const onSelectHistory = (item: MatchDAppItemType) => {
     onSelectorItem?.(item);
   };
 
@@ -60,30 +63,68 @@ const SearchView: FC<SearchViewProps> = ({
     // onVisibleChange?.(!visible);
   };
 
-  const renderItem: ScrollableFlatListProps<DAppItemType>['renderItem'] = ({
-    item,
-    index,
-  }) => (
-    <Pressable.Item
-      px={3}
-      py={2}
-      key={`${index}-${item.url}`}
-      onPress={() => {
-        onSelectHistory(item);
-      }}
-    >
-      <HStack space={3} w="100%" alignItems="center">
-        <DAppIcon size={24} favicon={item.favicon} chain={item.chain} />
+  const renderItem: ScrollableFlatListProps<MatchDAppItemType>['renderItem'] =
+    ({ item, index }) => {
+      const {
+        favicon: dappFavicon,
+        chain,
+        name,
+        url: dappUrl,
+      } = item.dapp || {};
+      const {
+        favicon: webSiteFavicon,
+        title,
+        url: webSiteUrl,
+      } = item.webSite || {};
 
-        <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-          {item.name}
-        </Text>
-        <Typography.Body2 numberOfLines={1} color="text-subdued">
-          {item.url}
-        </Typography.Body2>
-      </HStack>
-    </Pressable.Item>
-  );
+      return (
+        <Pressable.Item
+          px={3}
+          py={2}
+          key={`${index}-${item.id}`}
+          onPress={() => {
+            onSelectHistory(item);
+          }}
+        >
+          <HStack space={3} w="100%" alignItems="center">
+            {(!!dappFavicon || item.dapp) && (
+              <DAppIcon size={24} favicon={dappFavicon ?? ''} chain={chain} />
+            )}
+            {(!!webSiteFavicon || item.webSite) && (
+              <Box
+                width="24px"
+                height="24px"
+                borderRadius="8px"
+                borderWidth="1px"
+                borderColor="border-subdued"
+              >
+                <Image
+                  width="24px"
+                  height="24px"
+                  src={webSiteFavicon ?? ''}
+                  source={{ uri: webSiteFavicon }}
+                  borderRadius="8px"
+                  borderWidth="1px"
+                  borderColor="border-subdued"
+                  fallbackElement={
+                    <Center w="24px" h="24px">
+                      <Icon size={18} name="GlobeSolid" />
+                    </Center>
+                  }
+                />
+              </Box>
+            )}
+
+            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+              {name ?? title ?? 'Unknown'}
+            </Text>
+            <Typography.Body2 numberOfLines={1} color="text-subdued">
+              {dappUrl ?? webSiteUrl}
+            </Typography.Body2>
+          </HStack>
+        </Pressable.Item>
+      );
+    };
 
   const maxHeight = useMemo(() => {
     if (ele.current)
@@ -152,8 +193,8 @@ const SearchView: FC<SearchViewProps> = ({
               </Box>
             ) : null
           }
-          keyExtractor={(_item: DAppItemType, index) =>
-            `${index}-${_item.url}-${_item.name}`
+          keyExtractor={(_item: MatchDAppItemType, index) =>
+            `${index}-${_item.id}`
           }
           showsVerticalScrollIndicator={false}
         />

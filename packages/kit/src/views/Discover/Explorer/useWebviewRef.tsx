@@ -11,8 +11,9 @@ export const useWebviewRef = (
 ) => {
   const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
   const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
-  const [currentTitle, setCurrentTitle] = useState('');
-  const [currentUrl, setCurrentUrl] = useState('');
+  const [currentTitle, setCurrentTitle] = useState<string>();
+  const [currentUrl, setCurrentUrl] = useState<string>();
+  const [currentFavicon, setCurrentFavicon] = useState<string>();
 
   useEffect(() => {
     // RN Webview
@@ -26,6 +27,9 @@ export const useWebviewRef = (
         setRNCanGoForward(canGoForward);
         setCurrentTitle(title);
         setCurrentUrl(url);
+
+        const urlObj = new URL(url);
+        setCurrentFavicon(`${urlObj.protocol}//${urlObj.host}/favicon.ico`);
       } catch (e) {
         console.log(e);
       }
@@ -38,8 +42,7 @@ export const useWebviewRef = (
         // Electron Webview
 
         const electronWebView = webViewRef?.innerRef as IElectronWebView;
-        const handleMessage = (event: any) => {
-          console.log('did-finish-load event:', event);
+        const handleMessage = () => {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           setCurrentTitle(webViewRef?.innerRef?.getTitle());
@@ -49,10 +52,43 @@ export const useWebviewRef = (
           setCurrentUrl(webViewRef?.innerRef?.getURL());
         };
 
+        const handleStartLoadingMessage = () => {
+          setCurrentTitle(undefined);
+
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          setCurrentUrl(webViewRef?.innerRef?.getURL());
+        };
+
+        const handleFaviconMessage = (event: any) => {
+          // console.log('page-favicon-updated:', event);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (event.favicons && event.favicons.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            setCurrentFavicon(event.favicons[0]);
+          }
+        };
+
         console.log('RN WebView addEventListener', !!electronWebView);
 
+        electronWebView.addEventListener(
+          'did-start-loading',
+          handleStartLoadingMessage,
+        );
+        electronWebView.addEventListener(
+          'page-favicon-updated',
+          handleFaviconMessage,
+        );
         electronWebView.addEventListener('did-finish-load', handleMessage);
         return () => {
+          electronWebView.removeEventListener(
+            'did-start-loading',
+            handleStartLoadingMessage,
+          );
+          electronWebView.removeEventListener(
+            'page-favicon-updated',
+            handleFaviconMessage,
+          );
           electronWebView.removeEventListener('did-finish-load', handleMessage);
         };
       } catch (error) {
@@ -126,5 +162,6 @@ export const useWebviewRef = (
     goForward,
     title: currentTitle,
     url: currentUrl,
+    favicon: currentFavicon,
   };
 };

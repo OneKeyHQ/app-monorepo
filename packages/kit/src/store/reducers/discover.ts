@@ -2,7 +2,13 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import { RankingsPayload, SyncRequestPayload } from '../../views/Discover/type';
 
+export type WebSiteHistory = {
+  title?: string;
+  url?: string;
+  favicon?: string;
+};
 export type DiscoverHistory = {
+  webSite?: WebSiteHistory; // 手动输入的普通网站
   clicks: number;
   timestamp: number;
 };
@@ -21,6 +27,35 @@ const initialState: InitialState = {
   rankData: { tags: [] },
 };
 
+function getUrlHostName(urlStr: string | undefined): string | undefined {
+  if (!urlStr) {
+    return undefined;
+  }
+  try {
+    const url = new URL(urlStr);
+    return url.hostname.toLowerCase();
+  } catch (error) {
+    return undefined;
+  }
+}
+function diffWebSite(
+  oldWebSite: WebSiteHistory | undefined,
+  newWebSite: WebSiteHistory | undefined,
+): WebSiteHistory {
+  const {
+    title: oldTitle,
+    url: oldUrl,
+    favicon: oldFavicon,
+  } = oldWebSite || {};
+  const { title, url, favicon } = newWebSite || {};
+
+  const newUrl = url && url !== '' ? url : oldUrl;
+  const newTitle = title && title !== '' ? title : oldTitle;
+  const newFavicon = favicon && favicon !== '' ? favicon : oldFavicon;
+
+  return { title: newTitle, url: newUrl, favicon: newFavicon };
+}
+
 export const discoverSlice = createSlice({
   name: 'discover',
   initialState,
@@ -36,6 +71,70 @@ export const discoverSlice = createSlice({
         state.history[action.payload] = {
           'clicks': 1,
           'timestamp': new Date().getTime(),
+        };
+      }
+    },
+    addWebSiteHistory(
+      state,
+      action: PayloadAction<{
+        keyUrl: string | undefined;
+        webSite: WebSiteHistory;
+      }>,
+    ) {
+      let hostname = action.payload.keyUrl;
+      if (!hostname) {
+        hostname = getUrlHostName(action.payload.webSite.url);
+      }
+      if (!hostname) return;
+
+      const history = state.history[hostname];
+      if (history) {
+        state.history[hostname] = {
+          webSite: diffWebSite(history?.webSite, action?.payload?.webSite),
+          clicks: (history?.clicks ?? 1) + 1,
+          timestamp: new Date().getTime(),
+        };
+      } else {
+        state.history[hostname] = {
+          webSite: diffWebSite(undefined, action?.payload?.webSite),
+          clicks: 1,
+          timestamp: new Date().getTime(),
+        };
+      }
+    },
+    updateWebSiteHistory(
+      state,
+      action: PayloadAction<{
+        keyUrl?: string | undefined;
+        webSite: WebSiteHistory;
+      }>,
+    ) {
+      let hostname = action.payload.keyUrl;
+      if (!hostname) {
+        hostname = getUrlHostName(action.payload.webSite.url);
+      }
+      if (!hostname) return;
+
+      let url = hostname;
+      if (url.startsWith('www.')) {
+        url = url.replace('www.', '');
+      }
+      if (url.startsWith('m.')) {
+        url = url.replace('m.', '');
+      }
+
+      if (
+        action.payload.webSite.url &&
+        action.payload.webSite.url.indexOf(url) === -1
+      ) {
+        return;
+      }
+
+      const history = state.history[hostname];
+      if (history && history.webSite) {
+        state.history[hostname] = {
+          ...history,
+          webSite: diffWebSite(history?.webSite, action?.payload?.webSite),
         };
       }
     },
@@ -56,6 +155,8 @@ export const {
   updateSyncData,
   updateFirstRemindDAPP,
   updateRankData,
+  addWebSiteHistory,
+  updateWebSiteHistory,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;
