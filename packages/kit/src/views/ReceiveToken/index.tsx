@@ -14,8 +14,8 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 
+import { setHaptics } from '../../hooks/setHaptics';
 import { useToast } from '../../hooks/useToast';
-import { useHaptics } from '../../hooks/useHaptics';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
 
@@ -98,7 +98,7 @@ const ReceiveToken = () => {
                   size="xl"
                   leftIconName="DuplicateSolid"
                   onPress={() => {
-                    useHaptics();
+                    setHaptics();
                     copyAddressToClipboard();
                   }}
                 >

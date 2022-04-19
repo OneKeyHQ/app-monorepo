@@ -206,7 +206,7 @@ function AddTokenModal() {
         id: 'title__add_token',
         defaultMessage: 'Add Token',
       })}
-      footer={true}
+      footer
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{

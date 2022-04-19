@@ -8,11 +8,10 @@ import React, {
 
 import { Button as NativeBaseButton, Text } from 'native-base';
 
+import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Icon, { ICON_NAMES } from '../Icon';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
-
-import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
 
 type FontProps = ComponentProps<typeof Text>;
 
@@ -452,7 +451,6 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
         }
       });
     } else if (onPress) {
-      useHaptics();
       onPress?.();
     }
   }, [onPress, onPromise, setLoading, isLoading]);
@@ -461,7 +459,16 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
       setLoading(isLoading);
     }
   }, [isLoading]);
-  return <Button {...props} onPress={handlePress} isLoading={loading} />;
+  return (
+    <Button
+      {...props}
+      onPress={() => {
+        setHaptics();
+        handlePress();
+      }}
+      isLoading={loading}
+    />
+  );
 };
 
 export default OkButton;

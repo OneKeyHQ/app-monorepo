@@ -110,7 +110,8 @@ function RenderSingleOption<T>({
               // eslint-disable-next-line no-nested-ternary
               isPressed
                 ? 'surface-pressed'
-                : isHovered
+                : // eslint-disable-next-line no-nested-ternary
+                isHovered
                 ? option.destructive
                   ? 'surface-critical-default'
                   : 'surface-hovered'

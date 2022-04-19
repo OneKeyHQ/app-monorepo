@@ -26,11 +26,11 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import WalletAvatar from '../WalletAvatar';
 
 import type { AccountType } from './index';
-import { useHaptics } from '../../../hooks/useHaptics';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type WalletItemProps = {
@@ -96,7 +96,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                 <WalletItem
                   key={wallet.id}
                   onPress={() => {
-                    useHaptics();
+                    setHaptics();
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
@@ -117,7 +117,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
               .map((wallet) => (
                 <WalletItem
                   onPress={() => {
-                    useHaptics();
+                    setHaptics();
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
@@ -137,7 +137,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
             {importedWallet ? (
               <WalletItem
                 onPress={() => {
-                  useHaptics();
+                  setHaptics();
                   setSelectedWallet(importedWallet);
                 }}
                 isSelected={selectedWallet?.id === importedWallet.id}
@@ -151,7 +151,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                 <WalletItem
                   key={wallet.id}
                   onPress={() => {
-                    useHaptics();
+                    setHaptics();
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}

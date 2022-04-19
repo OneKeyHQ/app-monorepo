@@ -24,13 +24,13 @@ import {
   useActiveWalletAccount,
   useRuntime,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
 import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
 } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
@@ -60,7 +60,8 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
       // eslint-disable-next-line no-nested-ternary
       isSelectVisible
         ? 'surface-selected'
-        : isTriggerPressed
+        : // eslint-disable-next-line no-nested-ternary
+        isTriggerPressed
         ? 'surface-pressed'
         : isTriggerHovered
         ? 'surface-hovered'
@@ -220,7 +221,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         dropdownProps={{
           width: 248,
         }}
-        renderTrigger={(activeOption, isHovered, visible, isPressed) => (
+        renderTrigger={(activeOption, isHovered, visible) => (
           <CustomSelectTrigger
             isTriggerHovered={isHovered}
             isSelectVisible={visible}
@@ -259,7 +260,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => {
-                useHaptics();
+                setHaptics();
                 backgroundApiProxy.serviceAccount.changeActiveAccount({
                   accountId: item.id,
                   walletId: activeWallet?.id ?? '',
@@ -275,6 +276,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                   borderWidth={1}
                   borderColor={isHovered ? 'border-hovered' : 'transparent'}
                   bg={
+                    // eslint-disable-next-line no-nested-ternary
                     isPressed
                       ? 'surface-pressed'
                       : currentSelectedAccount?.id === item.id

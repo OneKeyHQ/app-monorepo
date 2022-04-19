@@ -12,6 +12,7 @@ import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
 
+import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ChevronDown } from '../Icon/react/solid';
@@ -19,8 +20,6 @@ import Pressable from '../Pressable';
 import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
 import Typography from '../Typography';
-
-import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
@@ -250,7 +249,7 @@ function Select<T = string>({
     <Box ref={triggerRef} position="relative" {...containerProps}>
       <Pressable
         onPress={() => {
-          useHaptics();
+          setHaptics();
           toggleVisible();
         }}
         {...triggerProps}

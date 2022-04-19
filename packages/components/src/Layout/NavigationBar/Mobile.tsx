@@ -4,6 +4,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 
+import { setHaptics } from '../../../../kit/src/hooks/setHaptics';
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
@@ -17,8 +18,6 @@ import Typography from '../../Typography';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type { BottomTabBarProps } from '../BottomTabs/types';
-
-import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
 
 const DEFAULT_TABBAR_HEIGHT = 55;
 
@@ -100,7 +99,7 @@ export default function BottomTabBar({
                 p={0.5}
                 bg="surface-subdued"
                 onPress={() => {
-                  useHaptics();
+                  setHaptics();
                   onPress();
                 }}
                 _hover={{ bg: 'surface-hovered' }}

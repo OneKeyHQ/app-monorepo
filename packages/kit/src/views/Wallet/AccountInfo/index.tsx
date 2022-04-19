@@ -24,7 +24,6 @@ import {
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
-import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -35,7 +34,7 @@ import {
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-
+import { setHaptics } from '../../../hooks/setHaptics';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
@@ -93,7 +92,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       <Pressable
         mt={4}
         onPress={() => {
-          useHaptics();
+          setHaptics();
           copyContentToClipboard(account?.address);
         }}
       >
@@ -103,6 +102,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
             px={{ base: 3, md: 2 }}
             rounded="xl"
             bg={
+              // eslint-disable-next-line no-nested-ternary
               isPressed
                 ? 'surface-neutral-pressed'
                 : isHovered

@@ -92,7 +92,8 @@ const ChainSelector: FC = () => {
               // eslint-disable-next-line no-nested-ternary
               visible
                 ? 'surface-selected'
-                : isPressed
+                : // eslint-disable-next-line no-nested-ternary
+                isPressed
                 ? 'surface-pressed'
                 : isHovered
                 ? 'surface-hovered'

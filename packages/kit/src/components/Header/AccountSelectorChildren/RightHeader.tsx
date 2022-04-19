@@ -49,7 +49,8 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
       // eslint-disable-next-line no-nested-ternary
       isSelectVisible
         ? 'surface-selected'
-        : isTriggerPressed
+        : // eslint-disable-next-line no-nested-ternary
+        isTriggerPressed
         ? 'surface-pressed'
         : isTriggerHovered
         ? 'surface-hovered'

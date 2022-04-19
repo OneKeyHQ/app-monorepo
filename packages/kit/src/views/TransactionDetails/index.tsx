@@ -13,7 +13,6 @@ import {
   Icon,
   IconButton,
   Modal,
-  Pressable,
   Text,
   Typography,
 } from '@onekeyhq/components';
