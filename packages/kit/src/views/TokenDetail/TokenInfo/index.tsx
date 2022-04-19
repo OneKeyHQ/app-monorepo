@@ -42,11 +42,9 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
-  const { accountTokensMap, prices } = useManageTokens();
-  const amount = accountTokensMap.get(
-    token?.tokenIdOnNetwork ?? 'main',
-  )?.balance;
+  const { prices, balances } = useManageTokens();
   const tokenPrice = prices[token?.tokenIdOnNetwork ?? 'main'];
+  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
 
   const renderAccountAmountInfo = useMemo(
     () => (

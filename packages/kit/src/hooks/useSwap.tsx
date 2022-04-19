@@ -14,7 +14,7 @@ import {
   setOutputAmount,
   update,
 } from '../store/reducers/swap';
-import { ValuedToken } from '../store/typings';
+import { Token } from '../store/typings';
 
 import { useActiveWalletAccount, useAppSelector } from './redux';
 import { useDebounce } from './useDebounce';
@@ -229,7 +229,7 @@ export const useSwap = () => {
     useAppSelector((s) => s.swap);
 
   const setIn = useCallback(
-    (token: ValuedToken) => {
+    (token: Token) => {
       dispatch(setInput(token));
     },
     [dispatch],
@@ -241,7 +241,7 @@ export const useSwap = () => {
     [dispatch],
   );
   const setOut = useCallback(
-    (token: ValuedToken) => {
+    (token: Token) => {
       dispatch(setOutput(token));
     },
     [dispatch],

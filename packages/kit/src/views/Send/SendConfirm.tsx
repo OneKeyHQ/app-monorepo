@@ -18,7 +18,6 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 
@@ -43,7 +42,6 @@ value: "0x0"}]})
  */
 
 const TransactionConfirm = () => {
-  const { updateAccountTokens } = useManageTokens();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
@@ -133,7 +131,7 @@ const TransactionConfirm = () => {
         networkId,
         onSuccess: (tx) => {
           saveHistory(tx);
-          updateAccountTokens();
+          backgroundApiProxy.serviceToken.fetchAccountTokens();
           dappApprove.resolve({
             result: tx.txid,
           });
@@ -150,7 +148,6 @@ const TransactionConfirm = () => {
       navigation,
       params,
       saveHistory,
-      updateAccountTokens,
       dappApprove,
     ],
   );
