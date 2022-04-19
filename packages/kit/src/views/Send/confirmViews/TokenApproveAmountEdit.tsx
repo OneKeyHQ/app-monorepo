@@ -112,7 +112,7 @@ function TokenApproveAmountEdit({ ...rest }) {
   );
 
   const validateRules = {
-    required: '$i18n$ 请输入授权金额',
+    required: intl.formatMessage({ id: 'form__max_spend_limit_validateRules' }),
   };
   if (isMax) {
     validateRules.required = '';
