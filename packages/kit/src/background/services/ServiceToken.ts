@@ -37,6 +37,7 @@ export default class ServiceToken extends ServiceBase {
           tokensBalance,
         }),
       );
+      return topTokens;
     }
     const prices = await engine.getPrices(
       activeNetworkId,
@@ -82,6 +83,7 @@ export default class ServiceToken extends ServiceBase {
       true,
     );
     dispatch(setPrices({ activeNetworkId, prices }));
+    return tokens;
   }
 
   @backgroundMethod()
@@ -117,6 +119,7 @@ export default class ServiceToken extends ServiceBase {
         tokensBalance,
       }),
     );
+    return tokensBalance;
   }
 
   @backgroundMethod()
@@ -144,5 +147,6 @@ export default class ServiceToken extends ServiceBase {
       Array.from(new Set(tokenIdsOnNetwork)),
     );
     dispatch(setPrices({ activeNetworkId, prices }));
+    return prices;
   }
 }
