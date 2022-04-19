@@ -60,7 +60,7 @@ export const tokensSlice = createSlice({
       if (!activeAccountId || !activeNetworkId) {
         return;
       }
-      if (!state.tokens[activeNetworkId]) {
+      if (!state.accountTokens[activeNetworkId]) {
         state.accountTokens[activeNetworkId] = {};
       }
       state.accountTokens[activeNetworkId][activeAccountId] = tokens;
