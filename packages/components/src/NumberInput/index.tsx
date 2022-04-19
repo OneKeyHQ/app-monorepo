@@ -1,22 +1,52 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { ComponentProps, FC, useState } from 'react';
+import React, { ComponentProps, FC, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import Input from '../Input';
+import RadioButton from '../RadioButton';
 
-type NumberInputProps = {
+type NumberInputProps = ComponentProps<typeof Input> & {
   decimal?: number;
   onChange?: (text: string) => void;
   onChangeText?: (text: string) => void;
+  enableMaxButton?: boolean;
+  isMax?: boolean;
+  onMaxChange?: (isMax: boolean) => void;
+  maxText?: string;
 };
 
-export const NumberInput: FC<
-  NumberInputProps & ComponentProps<typeof Input>
-> = ({ decimal, onChange, ...props }) => {
-  const { onBlur, onChangeText } = props;
-
+export const NumberInput: FC<NumberInputProps> = ({
+  decimal,
+  onChange,
+  enableMaxButton,
+  isMax,
+  onMaxChange,
+  maxText,
+  onBlur,
+  onChangeText,
+  value,
+  ...props
+}) => {
+  const intl = useIntl();
+  // eslint-disable-next-line no-param-reassign
+  maxText = maxText || '$i18n$_最大金额';
   const [v, setV] = useState('');
+
+  const maxButton = useMemo(
+    () =>
+      enableMaxButton ? (
+        <RadioButton
+          size="sm"
+          value="true"
+          isChecked={isMax}
+          onCheckedChange={onMaxChange}
+          title={intl.formatMessage({ id: 'action__max' })}
+        />
+      ) : undefined,
+    [enableMaxButton, intl, isMax, onMaxChange],
+  );
 
   const handleChange = (text: string) => {
     let result = text;
@@ -32,13 +62,13 @@ export const NumberInput: FC<
         }
       }
     }
+    setV(result);
     if (onChange) {
       onChange(result);
     }
     if (onChangeText) {
       onChangeText(result);
     }
-    setV(result);
   };
 
   const handleBlur = (e: any) => {
@@ -59,14 +89,20 @@ export const NumberInput: FC<
       onBlur(e);
     }
   };
+  let valueDisplay = value;
+  if (enableMaxButton && isMax) {
+    valueDisplay = maxText;
+  }
   return (
     <Input
       w="full"
+      keyboardType="numeric"
+      isReadOnly={enableMaxButton && isMax}
+      rightSecondaryText={maxButton}
       {...props}
+      value={valueDisplay}
       onChangeText={handleChange}
       onBlur={handleBlur}
     />
   );
 };
-
-export default NumberInput;

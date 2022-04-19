@@ -11,6 +11,7 @@ import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendRoutes, SendRoutesParams } from './types';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendAuthentication>;
@@ -112,6 +113,7 @@ export const HDAccountAuthentication = () => {
   };
   return (
     <Modal height="598px" footer={null}>
+      <DecodeTxButtonTest encodedTx={sendParams.encodedTx} />
       <Protected>
         {(password) => <SendAuth sendParams={sendParams} password={password} />}
       </Protected>

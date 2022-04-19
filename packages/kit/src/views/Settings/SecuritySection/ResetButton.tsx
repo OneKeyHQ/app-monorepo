@@ -103,8 +103,9 @@ const ResetButton = () => {
         visible={showBackupModal}
         onClose={() => setShowBackupModal(false)}
         footerButtonProps={{
+          hideSecondaryAction: true,
           onPrimaryActionPress: onBackupConfirm,
-          primaryActionTranslationId: 'action__confirm',
+          primaryActionTranslationId: 'action__i_got_it',
           primaryActionProps: { type: 'primary' },
         }}
         contentProps={{

@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/order
-import './shared';
+import './shared-polyfill';
 
 // inject css to dapp web
 // import './content-script.css';

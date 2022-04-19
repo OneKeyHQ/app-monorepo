@@ -24,7 +24,7 @@ export type PromiseContainerReject = {
   error?: unknown;
 };
 
-let latestId = -1;
+let latestId = 0;
 
 @backgroundClass()
 class ServicePromise extends ServiceBase {
@@ -97,6 +97,9 @@ class ServicePromise extends ServiceBase {
     data?: unknown;
     error?: unknown;
   }) {
+    if (!id) {
+      console.error('ServicePromise processCallback ERROR: id not exists');
+    }
     const callbackInfo = this.callbacks[id as number];
     if (callbackInfo) {
       if (method === 'reject') {

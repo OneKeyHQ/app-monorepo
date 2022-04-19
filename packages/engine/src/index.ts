@@ -103,7 +103,11 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import { IEncodedTxAny, IFeeInfoUnit } from './types/vault';
+import {
+  IEncodedTxAny,
+  IEncodedTxUpdateOptions,
+  IFeeInfoUnit,
+} from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1264,6 +1268,40 @@ class Engine {
   }) {
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
     return vault.decodeTx(encodedTx);
+  }
+
+  @backgroundMethod()
+  async updateEncodedTx({
+    networkId,
+    accountId,
+    encodedTx,
+    payload,
+    options,
+  }: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTxAny;
+    payload: any;
+    options: IEncodedTxUpdateOptions;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    return vault.updateEncodedTx(encodedTx, payload, options);
+  }
+
+  @backgroundMethod()
+  async updateEncodedTxTokenApprove({
+    networkId,
+    accountId,
+    encodedTx,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTxAny;
+    amount: string;
+  }) {
+    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    return vault.updateEncodedTxTokenApprove(encodedTx, amount);
   }
 
   @backgroundMethod()
