@@ -84,13 +84,20 @@ const ChainSelector: FC = () => {
             });
           }, 500);
         }}
-        renderTrigger={(activeOption, isHovered, visible) => (
+        renderTrigger={(activeOption, isHovered, visible, isPressed) => (
           <HStack
             p={2}
             space={1}
             bg={
               // eslint-disable-next-line no-nested-ternary
-              visible ? 'surface-selected' : isHovered ? 'surface-hovered' : ''
+              visible
+                ? 'surface-selected'
+                : // eslint-disable-next-line no-nested-ternary
+                isPressed
+                ? 'surface-pressed'
+                : isHovered
+                ? 'surface-hovered'
+                : undefined
             }
             borderRadius="xl"
             alignItems="center"

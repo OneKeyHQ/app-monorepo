@@ -26,8 +26,8 @@ const PressableItem: FC<PressableItemProps> = ({ children, ...props }) => {
         bg: 'surface-hovered',
       }}
       _pressed={{
-        bg: 'surface-selected',
-        borderColor: 'surface-selected',
+        bg: 'surface-pressed',
+        borderColor: 'surface-pressed',
       }}
       bg="surface-default"
       {...props}
