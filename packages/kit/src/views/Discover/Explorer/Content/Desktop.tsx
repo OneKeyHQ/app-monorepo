@@ -25,7 +25,6 @@ const BrowserURLInput = React.forwardRef<typeof Input, BrowserURLInputProps>(
   // eslint-disable-next-line react/prop-types
   ({ value, onClear, onChangeText, customLeftIcon, ...props }, ref) => {
     const [innerValue, setInnerValue] = useState(value);
-    const rightIconName = innerValue || value ? 'CloseCircleSolid' : undefined;
     const handleChangeText = useCallback(
       (text: string) => {
         if (typeof value === 'undefined') {
@@ -43,7 +42,7 @@ const BrowserURLInput = React.forwardRef<typeof Input, BrowserURLInputProps>(
         ref={ref}
         value={value ?? innerValue}
         leftIconName={customLeftIcon ?? 'SearchOutline'}
-        rightIconName={rightIconName}
+        // rightIconName={rightIconName}
         placeholder="Search..."
         onPressRightIcon={onClear}
         onChangeText={handleChangeText}
@@ -56,7 +55,6 @@ const BrowserURLInput = React.forwardRef<typeof Input, BrowserURLInputProps>(
 BrowserURLInput.displayName = 'BrowserURLInput';
 
 const Desktop: FC<ExplorerViewProps> = ({
-  displayInitialPage,
   searchContent,
   onSearchContentChange,
   onSearchSubmitEditing,
@@ -134,7 +132,7 @@ const Desktop: FC<ExplorerViewProps> = ({
           </HStack>
           {moreView}
           <SearchView
-            visible={historyVisible && (displayInitialPage ?? false)}
+            visible={historyVisible}
             onVisibleChange={setHistoryVisible}
             searchContent={searchContent ?? ''}
             onSelectorItem={(item) => {
