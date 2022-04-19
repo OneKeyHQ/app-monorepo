@@ -38,6 +38,7 @@ import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
 import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
+import tokensRecuder from './reducers/tokens';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
@@ -50,6 +51,7 @@ const allReducers = combineReducers({
   data: dataReducer,
   discover: discoverReducer,
   swap: swapReducer,
+  tokens: tokensRecuder,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
@@ -76,7 +78,7 @@ const persistConfig = {
   version: 1,
   // AsyncStorage not working in ext background (localStorage not available)
   storage: platformEnv.isExtensionUi ? mockStorage : appStorage,
-  whitelist: ['settings', 'status', 'dapp', 'general', 'discover'],
+  whitelist: ['settings', 'status', 'dapp', 'general', 'discover', 'tokens'],
   throttle: platformEnv.isExtension ? 1000 : 0, // default=0
 };
 

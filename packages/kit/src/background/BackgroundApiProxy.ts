@@ -16,6 +16,7 @@ import type ServiceDapp from './services/ServiceDapp';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
+import type ServiceToken from './services/ServiceToken';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -49,6 +50,8 @@ class BackgroundApiProxy
   serviceOnboarding = this._createProxyService(
     'serviceOnboarding',
   ) as ServiceOnboarding;
+
+  serviceToken = this._createProxyService('serviceToken') as ServiceToken;
 
   _createProxyService(name = 'ROOT') {
     const NOOP = new Proxy(

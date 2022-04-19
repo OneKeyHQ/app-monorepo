@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { updateTokensBalance } from '../../../../store/reducers/general';
+import { setAccountTokensBalances } from '../../../../store/reducers/tokens';
 
-import type { ValuedToken } from '../../../../store/typings';
+import type { Token } from '../../../../store/typings';
 
 export const useSearchTokens = (
   terms: string,
@@ -12,7 +12,7 @@ export const useSearchTokens = (
   accountId?: string | null,
 ) => {
   const [loading, setLoading] = useState(false);
-  const [searchedTokens, setTokens] = useState<ValuedToken[]>([]);
+  const [searchedTokens, setTokens] = useState<Token[]>([]);
   useEffect(() => {
     if (terms !== keyword) {
       setLoading(true);
@@ -37,7 +37,13 @@ export const useSearchTokens = (
         networkid,
         tokens.map((i) => i.tokenIdOnNetwork),
       );
-      backgroundApiProxy.dispatch(updateTokensBalance(balances));
+      backgroundApiProxy.dispatch(
+        setAccountTokensBalances({
+          activeAccountId: accountId,
+          activeNetworkId: networkid,
+          tokensBalance: balances,
+        }),
+      );
     }
     main();
   }, [terms, networkid, accountId]);

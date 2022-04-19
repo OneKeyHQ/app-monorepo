@@ -136,7 +136,7 @@ const Desktop: FC<ExplorerViewProps> = ({
             onVisibleChange={setHistoryVisible}
             searchContent={searchContent ?? ''}
             onSelectorItem={(item) => {
-              onSearchSubmitEditing?.(item.url);
+              onSearchSubmitEditing?.(item);
             }}
             relativeComponent={searchBar.current}
           />

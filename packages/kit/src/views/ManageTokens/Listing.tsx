@@ -33,7 +33,7 @@ import { timeout } from '../../utils/helper';
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
-import type { ValuedToken } from '../../store/typings';
+import type { Token as TokenType } from '../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -44,17 +44,18 @@ type NavigationProps = NativeStackNavigationProp<
 const isValidateAddr = (addr: string) => addr.length === 42;
 
 type HeaderTokensProps = {
-  tokens: ValuedToken[];
-  topTokens: Token[];
+  tokens: TokenType[];
+  showTopsLabel?: boolean;
   onDelToken?: (token: Token) => void;
 };
 
 const HeaderTokens: FC<HeaderTokensProps> = ({
   tokens,
-  topTokens,
+  showTopsLabel,
   onDelToken,
 }) => {
   const intl = useIntl();
+  const { balances } = useManageTokens();
   const navigation = useNavigation<NavigationProps>();
 
   const onDetail = useCallback(
@@ -136,7 +137,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                       color="text-subdued"
                     >
                       <FormatBalance
-                        balance={item?.balance ?? '0'}
+                        balance={balances[item.tokenIdOnNetwork] ?? '0'}
                         suffix={item.symbol}
                         formatOptions={{ fixed: 6 }}
                       />
@@ -154,7 +155,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
           </Box>
         </Box>
       ) : null}
-      {topTokens.length ? (
+      {showTopsLabel ? (
         <Typography.Subheading color="text-subdued" mb="2">
           {intl.formatMessage({
             id: 'form__top_50_tokens',
@@ -167,8 +168,8 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 };
 
 type HeaderProps = {
-  topTokens: Token[];
-  tokens: ValuedToken[];
+  showTopsLabel: boolean;
+  tokens: TokenType[];
   keyword: string;
   terms?: string;
   onChange: (keyword: string) => void;
@@ -177,7 +178,7 @@ type HeaderProps = {
 
 const Header: FC<HeaderProps> = ({
   tokens,
-  topTokens,
+  showTopsLabel,
   keyword,
   terms,
   onChange,
@@ -201,7 +202,7 @@ const Header: FC<HeaderProps> = ({
         <HeaderTokens
           tokens={tokens}
           onDelToken={onDelToken}
-          topTokens={topTokens}
+          showTopsLabel={showTopsLabel}
         />
       )}
     </Box>
@@ -253,7 +254,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 };
 
 type ListingTokenProps = {
-  item: ValuedToken;
+  item: TokenType;
   isOwned?: boolean;
   borderTopRadius?: string;
   borderBottomRadius?: string;
@@ -270,7 +271,6 @@ const ListingToken: FC<ListingTokenProps> = ({
   const toast = useToast();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
-  const { updateAccountTokens, updateTokens } = useManageTokens();
   const onPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
       try {
@@ -289,18 +289,10 @@ const ListingToken: FC<ListingTokenProps> = ({
         return;
       }
       toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
-      updateAccountTokens();
-      updateTokens();
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+      backgroundApiProxy.serviceToken.fetchTokens();
     }
-  }, [
-    intl,
-    activeAccount,
-    activeNetwork,
-    toast,
-    updateAccountTokens,
-    updateTokens,
-    item.tokenIdOnNetwork,
-  ]);
+  }, [intl, activeAccount, activeNetwork, toast, item.tokenIdOnNetwork]);
   const onDetail = useCallback(() => {
     const {
       name,
@@ -353,13 +345,13 @@ const ListingToken: FC<ListingTokenProps> = ({
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             maxW="56"
             numberOfLines={2}
-            color={item.balance ? 'text-disabled' : 'text-default'}
+            color={isOwned ? 'text-disabled' : 'text-default'}
           >
             {item.symbol}({item.name})
           </Text>
           <Typography.Body2
             numberOfLines={1}
-            color={item.balance ? 'text-disabled' : 'text-subdued'}
+            color={isOwned ? 'text-disabled' : 'text-subdued'}
           >
             {utils.shortenAddress(item.tokenIdOnNetwork)}
           </Typography.Body2>
@@ -387,13 +379,7 @@ const ListingToken: FC<ListingTokenProps> = ({
 export const Listing: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const {
-    accountTokens,
-    accountTokensMap,
-    allTokens,
-    updateTokens,
-    updateAccountTokens,
-  } = useManageTokens();
+  const { accountTokens, accountTokensMap, allTokens } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
   const [mylist, setMylist] = useState<Token[]>([]);
   const searchTerm = useDebounce(keyword, 1000);
@@ -404,6 +390,7 @@ export const Listing: FC = () => {
     searchTerm,
     keyword,
     activeNetwork?.id,
+    activeAccount?.id,
   );
 
   const [visible, setVisible] = useState(false);
@@ -430,25 +417,22 @@ export const Listing: FC = () => {
       );
     }
     onToggleDeleteDialog(undefined);
-    updateTokens();
-    updateAccountTokens();
-  }, [
-    activeAccount,
-    toDeletedToken,
-    updateTokens,
-    updateAccountTokens,
-    onToggleDeleteDialog,
-  ]);
+    backgroundApiProxy.serviceToken.fetchAccountTokens();
+  }, [activeAccount, toDeletedToken, onToggleDeleteDialog]);
 
-  useFocusEffect(updateTokens);
-  useFocusEffect(updateAccountTokens);
+  useFocusEffect(
+    useCallback(() => {
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+      backgroundApiProxy.serviceToken.fetchTokens();
+    }, []),
+  );
 
   const flatListData = useMemo(
     () => (searchTerm ? searchedTokens : allTokens),
     [searchTerm, searchedTokens, allTokens],
   );
 
-  const renderItem: ListRenderItem<ValuedToken> = useCallback(
+  const renderItem: ListRenderItem<TokenType> = useCallback(
     ({ item, index }) => (
       <ListingToken
         item={item}
@@ -489,7 +473,7 @@ export const Listing: FC = () => {
           ),
           ListHeaderComponent: (
             <Header
-              topTokens={allTokens}
+              showTopsLabel={allTokens.length > 0}
               tokens={mylist}
               keyword={keyword}
               terms={searchTerm}

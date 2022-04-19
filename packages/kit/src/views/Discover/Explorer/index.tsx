@@ -12,8 +12,10 @@ import { useToast } from '@onekeyhq/kit/src/hooks';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
 import {
+  addWebSiteHistory,
   updateFirstRemindDAPP,
   updateHistory,
+  updateWebSiteHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,13 +27,20 @@ import DappOpenHintDialog from './DappOpenHintDialog';
 import MoreMenuView from './MoreMenu';
 import { useWebviewRef } from './useWebviewRef';
 
-import type { DAppItemType } from '../type';
+import type { MatchDAppItemType } from './Search/useSearchHistories';
+
+type WebSiteType = {
+  url?: string;
+  title?: string;
+  favicon?: string;
+  historyId?: string;
+};
 
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
   searchContent?: string;
   onSearchContentChange?: (text: string) => void;
-  onSearchSubmitEditing?: (text: DAppItemType | string) => void;
+  onSearchSubmitEditing?: (text: MatchDAppItemType | string) => void;
   explorerContent: React.ReactNode;
   onGoBack?: () => void;
   onNext?: () => void;
@@ -61,13 +70,15 @@ const Explorer: FC = () => {
     goBack,
     goForward,
     url: webUrl,
+    title: webTitle,
+    favicon: webFavicon,
   } = useWebviewRef(webviewRef, navigationStateChangeEvent);
   const [visibleMore, setVisibleMore] = useState(false);
 
   const [displayInitialPage, setDisplayInitialPage] = useState(true);
 
-  const [searchContent, setSearchContent] = useState<string | undefined>();
-  const [currentUrl, setCurrentUrl] = useState<string | undefined>();
+  const [searchContent, setSearchContent] = useState<string>();
+  const [currentWebSite, setCurrentWebSite] = useState<WebSiteType>();
 
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
 
@@ -85,12 +96,14 @@ const Explorer: FC = () => {
     }
   }, []);
 
-  const gotoUrl = async (item: (string | DAppItemType) | undefined) => {
+  const gotoUrl = async (item: (string | MatchDAppItemType) | undefined) => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       if (typeof item === 'string') {
         openBrowser.openUrl(item);
-      } else {
-        openBrowser.openUrl(item?.url ?? '');
+      } else if (item?.dapp) {
+        openBrowser.openUrl(item?.dapp?.url ?? '');
+      } else if (item?.webSite) {
+        openBrowser.openUrl(item?.webSite?.url ?? '');
       }
       return false;
     }
@@ -100,15 +113,43 @@ const Explorer: FC = () => {
       return false;
     }
 
+    // 打开的是一个链接
     if (typeof item === 'string') {
       setDisplayInitialPage(false);
-      if (item !== currentUrl) {
-        setCurrentUrl(item ?? '');
+      if (item !== currentWebSite?.url) {
+        setCurrentWebSite({ url: item });
       }
+      dispatch(
+        addWebSiteHistory({
+          keyUrl: undefined,
+          webSite: { url: item },
+        }),
+      );
       return true;
     }
 
-    if (discover.firstRemindDAPP) {
+    // 打开的是一个手动输入的历史记录
+    if (item?.webSite) {
+      setDisplayInitialPage(false);
+      if (item?.webSite?.url !== currentWebSite?.url) {
+        setCurrentWebSite({
+          url: item?.webSite?.url,
+          title: item?.webSite?.title,
+          favicon: item?.webSite?.favicon,
+          historyId: item?.id,
+        });
+      }
+      dispatch(
+        addWebSiteHistory({
+          keyUrl: item.id,
+          webSite: {},
+        }),
+      );
+      return true;
+    }
+
+    // 打开的是 Dapp, 处理首次打开 Dapp 提示
+    if (item?.dapp && discover.firstRemindDAPP) {
       setShowDappOpenHint(true);
 
       const isConfirm = await new Promise<boolean>((resolve) => {
@@ -117,8 +158,13 @@ const Explorer: FC = () => {
 
       if (isConfirm) {
         setDisplayInitialPage(false);
-        if (item?.url !== currentUrl) {
-          setCurrentUrl(item?.url ?? '');
+        if (item?.dapp?.url !== currentWebSite?.url) {
+          setCurrentWebSite({
+            url: item?.dapp?.url,
+            title: item?.dapp?.name,
+            favicon: item?.dapp?.favicon,
+            historyId: item?.id,
+          });
         }
         if (item) {
           dispatch(updateFirstRemindDAPP(false));
@@ -129,9 +175,15 @@ const Explorer: FC = () => {
       return false;
     }
 
-    if (item) {
+    // 正常跳转 Dapp
+    if (item?.dapp) {
       setDisplayInitialPage(false);
-      setCurrentUrl(item.url ?? '');
+      setCurrentWebSite({
+        url: item?.dapp?.url,
+        title: item?.dapp?.name,
+        favicon: item?.dapp?.favicon,
+        historyId: item?.id,
+      });
       dispatch(updateHistory(item.id));
       return true;
     }
@@ -139,10 +191,28 @@ const Explorer: FC = () => {
   };
 
   useEffect(() => {
-    setSearchContent(displayInitialPage ? '' : webUrl ?? currentUrl ?? '');
-  }, [currentUrl, webUrl, displayInitialPage]);
+    let content: string;
+    if (displayInitialPage) {
+      content = '';
+    } else if (webUrl && webUrl.trim() !== '') {
+      content = webUrl;
+    } else {
+      content = currentWebSite?.url ?? '';
+    }
 
-  const onSearchSubmitEditing = (dapp: DAppItemType | string) => {
+    setSearchContent(content);
+  }, [currentWebSite, webUrl, displayInitialPage]);
+
+  useEffect(() => {
+    dispatch(
+      updateWebSiteHistory({
+        keyUrl: currentWebSite?.historyId,
+        webSite: { url: webUrl, title: webTitle, favicon: webFavicon },
+      }),
+    );
+  }, [currentWebSite, dispatch, webTitle, webUrl, webFavicon]);
+
+  const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
       console.log('onSearchSubmitEditing', dapp);
       try {
@@ -176,7 +246,7 @@ const Explorer: FC = () => {
 
   const onNext = () => {
     if (displayInitialPage === true) {
-      gotoUrl(currentUrl);
+      setDisplayInitialPage(false);
     } else {
       goForward();
     }
@@ -196,13 +266,15 @@ const Explorer: FC = () => {
     setVisibleMore(!visibleMore);
   };
 
+  const getCurrentUrl = () => webUrl ?? currentWebSite?.url ?? '';
+
   const onCopyUrlToClipboard = () => {
-    copyToClipboard(currentUrl ?? '');
+    copyToClipboard(getCurrentUrl());
     toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   };
 
   const onOpenBrowser = () => {
-    openBrowser.openUrlExternal(currentUrl ?? '');
+    openBrowser.openUrlExternal(getCurrentUrl());
   };
 
   const onShare = () => {
@@ -210,10 +282,10 @@ const Explorer: FC = () => {
       Share.share(
         Platform.OS === 'ios'
           ? {
-              url: currentUrl ?? '',
+              url: getCurrentUrl(),
             }
           : {
-              message: currentUrl ?? '',
+              message: getCurrentUrl(),
             },
       )
         .then((result) => {
@@ -231,10 +303,10 @@ const Explorer: FC = () => {
     () => (
       <Box flex={1}>
         {displayInitialPage ? (
-          <Home onItemSelect={(item) => gotoUrl(item)} />
+          <Home onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })} />
         ) : (
           <WebView
-            src={currentUrl ?? ''}
+            src={currentWebSite?.url ?? ''}
             onWebViewRef={(ref) => {
               setWebviewRef(ref);
             }}
@@ -245,7 +317,7 @@ const Explorer: FC = () => {
       </Box>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentUrl, displayInitialPage],
+    [currentWebSite, displayInitialPage],
   );
 
   const moreViewContent = useMemo(

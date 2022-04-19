@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
-import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
+import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/useSearchHistories';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -13,7 +13,7 @@ export enum DiscoverModalRoutes {
 export type DiscoverRoutesParams = {
   [DiscoverModalRoutes.SearchHistoryModal]: {
     url: string | undefined;
-    onSelectorItem?: (item: DAppItemType | string) => void;
+    onSelectorItem?: (item: MatchDAppItemType | string) => void;
   };
 };
 
