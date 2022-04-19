@@ -38,30 +38,26 @@ export const useManageTokens = ({
     return data;
   }, [tokens, activeNetworkId]);
 
-  const { accountTokens, accountTokensMap, accountTokensSet, nativeToken } =
-    useMemo(() => {
-      let data: Token[] = [];
-      const dataSet = new Set<string>();
-      const dataMap = new Map<string, Token>();
-      let dataNativeToken: Token | undefined;
-      if (activeAccountId && activeNetworkId) {
-        data = userTokens[activeNetworkId]?.[activeAccountId] ?? [];
+  const { accountTokens, accountTokensMap, nativeToken } = useMemo(() => {
+    let data: Token[] = [];
+    const dataMap = new Map<string, Token>();
+    let dataNativeToken: Token | undefined;
+    if (activeAccountId && activeNetworkId) {
+      data = userTokens[activeNetworkId]?.[activeAccountId] ?? [];
+    }
+    data.forEach((token) => {
+      if (token.tokenIdOnNetwork) {
+        dataMap.set(token.tokenIdOnNetwork, token);
+      } else {
+        dataNativeToken = token;
       }
-      data.forEach((token) => {
-        if (token.tokenIdOnNetwork) {
-          dataSet.add(token.tokenIdOnNetwork);
-          dataMap.set(token.tokenIdOnNetwork, token);
-        } else {
-          dataNativeToken = token;
-        }
-      });
-      return {
-        accountTokens: data,
-        accountTokensMap: dataMap,
-        accountTokensSet: dataSet,
-        nativeToken: dataNativeToken,
-      };
-    }, [userTokens, activeAccountId, activeNetworkId]);
+    });
+    return {
+      accountTokens: data,
+      accountTokensMap: dataMap,
+      nativeToken: dataNativeToken,
+    };
+  }, [userTokens, activeAccountId, activeNetworkId]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
@@ -81,7 +77,6 @@ export const useManageTokens = ({
   return {
     nativeToken,
     accountTokensMap,
-    accountTokensSet,
     accountTokens,
     allTokens,
     prices,
