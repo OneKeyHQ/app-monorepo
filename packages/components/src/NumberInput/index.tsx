@@ -4,8 +4,11 @@ import React, { ComponentProps, FC, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import Box from '../Box';
+import Divider from '../Divider';
 import Input from '../Input';
 import RadioButton from '../RadioButton';
+import Typography from '../Typography';
 
 type NumberInputProps = ComponentProps<typeof Input> & {
   decimal?: number;
@@ -15,6 +18,7 @@ type NumberInputProps = ComponentProps<typeof Input> & {
   isMax?: boolean;
   onMaxChange?: (isMax: boolean) => void;
   maxText?: string;
+  tokenSymbol?: string;
 };
 
 export const NumberInput: FC<NumberInputProps> = ({
@@ -26,19 +30,20 @@ export const NumberInput: FC<NumberInputProps> = ({
   maxText,
   onBlur,
   onChangeText,
+  tokenSymbol,
   value,
   ...props
 }) => {
   const intl = useIntl();
   // eslint-disable-next-line no-param-reassign
-  maxText = maxText || '$i18n$_最大金额';
+  maxText = maxText || intl.formatMessage({ id: 'form__amount_max_amount' });
   const [v, setV] = useState('');
 
   const maxButton = useMemo(
     () =>
       enableMaxButton ? (
         <RadioButton
-          size="sm"
+          size="lg"
           value="true"
           isChecked={isMax}
           onCheckedChange={onMaxChange}
@@ -98,7 +103,15 @@ export const NumberInput: FC<NumberInputProps> = ({
       w="full"
       keyboardType="numeric"
       isReadOnly={enableMaxButton && isMax}
-      rightSecondaryText={maxButton}
+      // rightSecondaryText={maxButton}
+      rightCustomElement={
+        <>
+          <Typography.Body1>{tokenSymbol}</Typography.Body1>
+          <Divider orientation="vertical" h={5} ml={5} mr={1} />
+          {maxButton}
+          <Box w={1} />
+        </>
+      }
       {...props}
       value={valueDisplay}
       onChangeText={handleChange}

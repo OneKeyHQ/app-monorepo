@@ -100,7 +100,7 @@ function Mobile<T>({
               borderTopColor="border-subdued"
             >
               <Button
-                size="lg"
+                size="xl"
                 type="plain"
                 leftIconName={footerIcon}
                 onPress={onPressFooter}

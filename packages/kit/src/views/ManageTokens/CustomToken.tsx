@@ -145,13 +145,14 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       }
     }
     doQuery();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     address,
     activeAccount,
     activeNetwork,
     onSearch,
     debouncedAddress,
-    accountTokensMap,
+    // accountTokensMap,
   ]);
 
   return (

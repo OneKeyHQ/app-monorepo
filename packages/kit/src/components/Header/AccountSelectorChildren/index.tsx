@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
@@ -44,11 +45,13 @@ export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 type CustomSelectTriggerProps = {
   isSelectVisible?: boolean;
   isTriggerHovered?: boolean;
+  isTriggerPressed?: boolean;
 };
 
 const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   isSelectVisible,
   isTriggerHovered,
+  isTriggerPressed,
 }) => (
   <Box
     p={2}
@@ -57,6 +60,9 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
       // eslint-disable-next-line no-nested-ternary
       isSelectVisible
         ? 'surface-selected'
+        : // eslint-disable-next-line no-nested-ternary
+        isTriggerPressed
+        ? 'surface-pressed'
         : isTriggerHovered
         ? 'surface-hovered'
         : 'transparent'
@@ -219,6 +225,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           <CustomSelectTrigger
             isTriggerHovered={isHovered}
             isSelectVisible={visible}
+            isTriggerPressed={visible}
           />
         )}
       />
@@ -253,6 +260,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => {
+                setHaptics();
                 backgroundApiProxy.serviceAccount.changeActiveAccount({
                   accountId: item.id,
                   walletId: activeWallet?.id ?? '',
@@ -262,13 +270,16 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                 }, 0);
               }}
             >
-              {({ isHovered }) => (
+              {({ isHovered, isPressed }) => (
                 <HStack
                   p="7px"
                   borderWidth={1}
                   borderColor={isHovered ? 'border-hovered' : 'transparent'}
                   bg={
-                    currentSelectedAccount?.id === item.id
+                    // eslint-disable-next-line no-nested-ternary
+                    isPressed
+                      ? 'surface-pressed'
+                      : currentSelectedAccount?.id === item.id
                       ? 'surface-selected'
                       : 'transparent'
                   }
@@ -325,13 +336,14 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                 });
               }}
             >
-              {({ isHovered }) => (
+              {({ isHovered, isPressed }) => (
                 <HStack
                   p={2}
                   borderRadius="xl"
                   space={3}
                   borderWidth={1}
                   borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                  bgColor={isPressed ? 'surface-pressed' : undefined}
                   borderStyle="dashed"
                   alignItems="center"
                 >

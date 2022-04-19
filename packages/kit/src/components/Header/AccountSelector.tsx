@@ -13,6 +13,8 @@ import { useNavigation } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
+import { setHaptics } from '../../hooks/setHaptics';
+
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
@@ -68,7 +70,10 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       {renderTrigger?.({ visible, handleToggleVisible }) ?? (
         <AccountSelectorTrigger
           visible={visible}
-          handleToggleVisible={handleToggleVisible}
+          handleToggleVisible={() => {
+            setHaptics();
+            handleToggleVisible();
+          }}
         />
       )}
       {child}

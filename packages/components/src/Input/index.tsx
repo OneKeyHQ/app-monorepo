@@ -3,8 +3,8 @@ import React, { ComponentProps, ReactElement, ReactNode } from 'react';
 import { Input as BaseInput, Pressable, Stack } from 'native-base';
 import { Platform } from 'react-native';
 
+import Box from '../Box';
 import Divider from '../Divider';
-import HStack from '../HStack';
 import Icon, { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
@@ -144,9 +144,14 @@ const Input = React.forwardRef<
     }
     if (rightCustomElement) {
       rightElements.push(
-        <HStack alignItems="center" mr={-3} key="rightCustomElement">
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          mr={-3}
+          key="rightCustomElement"
+        >
           {rightCustomElement}
-        </HStack>,
+        </Box>,
       );
     }
     if (rightSecondaryIconName) {

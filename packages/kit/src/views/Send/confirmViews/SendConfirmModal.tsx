@@ -106,7 +106,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
             {isWatchingAccount ? (
               <FormErrorMessage
                 message={intl.formatMessage({
-                  id: '$i18n$-观察账户无法交易' as any,
+                  id: 'form__error_trade_with_watched_acocunt' as any,
                 })}
               />
             ) : null}

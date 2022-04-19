@@ -13,6 +13,7 @@ import {
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 
@@ -137,6 +138,7 @@ const BackupShowMnemonicsView: FC = () => {
 
             <Button
               onPress={() => {
+                setHaptics();
                 copyContentToClipboard();
               }}
               type="plain"

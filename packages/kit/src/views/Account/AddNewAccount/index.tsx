@@ -91,8 +91,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   );
 
   const onSubmit = handleSubmit(() => {
-    console.log('onSubmit');
-
     navigation.navigate(CreateAccountModalRoutes.CreateAccountAuthentication, {
       onDone: authenticationDone,
     });
