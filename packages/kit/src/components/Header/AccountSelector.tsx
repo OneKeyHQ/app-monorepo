@@ -16,6 +16,8 @@ import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
+import { useHaptics } from '../../hooks/useHaptics';
+
 type AccountSelectorProps = {
   renderTrigger?: ({
     visible,
@@ -68,7 +70,10 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       {renderTrigger?.({ visible, handleToggleVisible }) ?? (
         <AccountSelectorTrigger
           visible={visible}
-          handleToggleVisible={handleToggleVisible}
+          handleToggleVisible={() => {
+            useHaptics();
+            handleToggleVisible();
+          }}
         />
       )}
       {child}

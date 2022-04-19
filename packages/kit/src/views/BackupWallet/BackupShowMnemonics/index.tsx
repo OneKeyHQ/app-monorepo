@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import { useToast } from '../../../hooks/useToast';
+import { useHaptics } from '../../../hooks/useHaptics';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 
 type RouteProps = RouteProp<
@@ -137,6 +138,7 @@ const BackupShowMnemonicsView: FC = () => {
 
             <Button
               onPress={() => {
+                useHaptics();
                 copyContentToClipboard();
               }}
               type="plain"

@@ -12,6 +12,8 @@ import Icon, { ICON_NAMES } from '../Icon';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
 
+import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
+
 type FontProps = ComponentProps<typeof Text>;
 
 export type ButtonSize = 'base' | 'xs' | 'sm' | 'lg' | 'xl';
@@ -124,11 +126,7 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
         borderColor: 'border-default',
       }}
       _pressed={{
-        background: 'action-secondary-default',
-        borderColor: 'border-default',
-      }}
-      _focus={{
-        background: 'action-secondary-default',
+        background: 'action-secondary-pressed',
         borderColor: 'border-default',
       }}
       _disabled={{
@@ -181,12 +179,12 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
       borderRadius="12"
       variant="solid"
       borderWidth="1"
-      borderColor="action-primary-default"
+      borderColor="transparent"
       _text={{ color: 'text-on-primary', ...nbTextProps }}
       bg="action-primary-default"
       _hover={{ bg: 'action-primary-hovered' }}
       _focus={{ bg: 'action-primary-default' }}
-      _pressed={{ bg: 'action-primary-hovered' }}
+      _pressed={{ bg: 'action-primary-pressed' }}
       _loading={{
         bg: 'action-primary-disabled',
         borderColor: 'action-primary-disabled',
@@ -243,7 +241,7 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
       variant="ghost"
       _text={{ color: 'text-default', ...nbTextProps }}
       _hover={{ bg: 'surface-hovered' }}
-      _pressed={{ bg: undefined }}
+      _pressed={{ bg: 'surface-pressed' }}
       _focus={{ bg: undefined }}
       _disabled={{ color: 'text-disabled', cursor: 'not-allowed' }}
       spinner={<Spinner size="sm" />}
@@ -454,6 +452,7 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
         }
       });
     } else if (onPress) {
+      useHaptics();
       onPress?.();
     }
   }, [onPress, onPromise, setLoading, isLoading]);

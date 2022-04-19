@@ -23,6 +23,7 @@ import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDebounce } from '../../hooks';
+import { useHaptics } from '../../hooks/useHaptics';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -95,6 +96,7 @@ const AddExistingWallet = () => {
   );
 
   const onPaste = useCallback(async () => {
+    useHaptics();
     const pastedText = await getClipboard();
     setValue('text', pastedText);
     trigger('text');

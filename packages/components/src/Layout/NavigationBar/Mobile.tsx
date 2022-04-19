@@ -18,6 +18,8 @@ import Typography from '../../Typography';
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type { BottomTabBarProps } from '../BottomTabs/types';
 
+import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
+
 const DEFAULT_TABBAR_HEIGHT = 55;
 
 type Options = {
@@ -97,7 +99,10 @@ export default function BottomTabBar({
                 alignItems="center"
                 p={0.5}
                 bg="surface-subdued"
-                onPress={onPress}
+                onPress={() => {
+                  useHaptics();
+                  onPress();
+                }}
                 _hover={{ bg: 'surface-hovered' }}
                 rounded="xl"
                 justifyContent="center"

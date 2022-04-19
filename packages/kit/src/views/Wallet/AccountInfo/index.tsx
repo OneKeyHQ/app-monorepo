@@ -24,6 +24,7 @@ import {
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -33,6 +34,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
@@ -94,15 +96,22 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       />
       <Pressable
         mt={4}
-        onPress={() => copyContentToClipboard(account?.address)}
+        onPress={() => {
+          useHaptics();
+          copyContentToClipboard(account?.address);
+        }}
       >
-        {({ isHovered }) => (
+        {({ isHovered, isPressed }) => (
           <Box
             py={{ base: 2, md: 1 }}
             px={{ base: 3, md: 2 }}
             rounded="xl"
             bg={
-              isHovered ? 'surface-neutral-default' : 'surface-neutral-subdued'
+              isPressed
+                ? 'surface-neutral-pressed'
+                : isHovered
+                ? 'surface-neutral-default'
+                : 'surface-neutral-subdued'
             }
             flexDirection="row"
           >

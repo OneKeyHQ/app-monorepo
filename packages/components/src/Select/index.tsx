@@ -20,6 +20,8 @@ import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
 import Typography from '../Typography';
 
+import { useHaptics } from '@onekeyhq/kit/src/hooks/useHaptics';
+
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
@@ -246,7 +248,13 @@ function Select<T = string>({
 
   return (
     <Box ref={triggerRef} position="relative" {...containerProps}>
-      <Pressable onPress={toggleVisible} {...triggerProps}>
+      <Pressable
+        onPress={() => {
+          useHaptics();
+          toggleVisible();
+        }}
+        {...triggerProps}
+      >
         {({ isHovered, isFocused, isPressed }) =>
           renderTrigger?.(
             activeOption,
