@@ -52,7 +52,8 @@ export const tokensSlice = createSlice({
       if (!activeNetworkId) {
         return;
       }
-      state.tokensPrice[activeNetworkId] = prices;
+      const oldPrices = state.tokensPrice[activeNetworkId] || {};
+      state.tokensPrice[activeNetworkId] = { ...oldPrices, ...prices };
     },
     setAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {
       const { activeAccountId, activeNetworkId, tokens } = action.payload;
@@ -76,8 +77,12 @@ export const tokensSlice = createSlice({
       if (!state.accountTokensBalance[activeNetworkId]) {
         state.accountTokensBalance[activeNetworkId] = {};
       }
-      state.accountTokensBalance[activeNetworkId][activeAccountId] =
-        tokensBalance;
+      const oldTokensBalance =
+        state.accountTokensBalance[activeNetworkId][activeAccountId] || {};
+      state.accountTokensBalance[activeNetworkId][activeAccountId] = {
+        ...oldTokensBalance,
+        ...tokensBalance,
+      };
     },
   },
 });

@@ -255,7 +255,6 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 
 type ListingTokenProps = {
   item: TokenType;
-  isOwned?: boolean;
   borderTopRadius?: string;
   borderBottomRadius?: string;
 };
@@ -264,11 +263,12 @@ const ListingToken: FC<ListingTokenProps> = ({
   item,
   borderTopRadius,
   borderBottomRadius,
-  isOwned,
 }) => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const toast = useToast();
+  const { accountTokensMap } = useManageTokens();
+  const isOwned = accountTokensMap.has(item.tokenIdOnNetwork);
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const onPress = useCallback(async () => {
@@ -301,14 +301,17 @@ const ListingToken: FC<ListingTokenProps> = ({
       decimals: decimal,
       logoURI,
     } = item;
-    navigation.navigate(ManageTokenRoutes.AddToken, {
+    const routeName = isOwned
+      ? ManageTokenRoutes.ViewToken
+      : ManageTokenRoutes.AddToken;
+    navigation.navigate(routeName, {
       name,
       symbol,
       address,
       decimal,
       logoURI,
     });
-  }, [navigation, item]);
+  }, [navigation, item, isOwned]);
   return (
     <Pressable
       borderTopRadius={borderTopRadius}
@@ -379,7 +382,7 @@ const ListingToken: FC<ListingTokenProps> = ({
 export const Listing: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { accountTokens, accountTokensMap, allTokens } = useManageTokens();
+  const { accountTokens, allTokens } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
   const [mylist, setMylist] = useState<Token[]>([]);
   const searchTerm = useDebounce(keyword, 1000);
@@ -440,10 +443,9 @@ export const Listing: FC = () => {
         borderBottomRadius={
           index === flatListData.length - 1 ? '12' : undefined
         }
-        isOwned={accountTokensMap.has(item.tokenIdOnNetwork)}
       />
     ),
-    [flatListData.length, accountTokensMap],
+    [flatListData.length],
   );
 
   return (

@@ -133,7 +133,11 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
     watch,
     formState: { isValid },
   } = useForm<PasswordsFieldValues>({
-    defaultValues: { password: '', confirmPassword: '' },
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
+      withEnableAuthentication: true,
+    },
     mode: 'onChange',
   });
   const onSubmit = useCallback(
