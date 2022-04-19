@@ -26,6 +26,7 @@ export type ITransferInfo = {
   to: string;
   amount: string;
   token?: string;
+  max?: boolean;
 };
 
 export type IApproveInfo = {
@@ -38,6 +39,22 @@ export type IApproveInfo = {
 export type IEncodedTxAny = any;
 export type IDecodedTxAny = any;
 export type IDecodedTx = EVMDecodedItem | null;
+
+export enum IEncodedTxUpdateType {
+  transfer = 'transfer',
+  tokenApprove = 'tokenApprove',
+}
+
+export type IEncodedTxUpdatePayloadTokenApprove = {
+  amount: string;
+};
+export type IEncodedTxUpdatePayloadTransfer = {
+  amount: string;
+};
+
+export type IEncodedTxUpdateOptions = {
+  type?: IEncodedTxUpdateType;
+};
 
 // TODO rename to IFeeInfoValue, IFeeInfoData, IFeeInfoDetail
 export type IFeeInfoUnit = {

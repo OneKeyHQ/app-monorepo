@@ -17,11 +17,7 @@ const Settings = () => {
       >
         Send Transaction
       </Button>
-      <WebView
-        src="https://app.uniswap.org/#/swap"
-        showWalletActions
-        showDemoActions
-      />
+      <WebView src="https://app.uniswap.org/#/swap" />
     </Box>
   );
 };

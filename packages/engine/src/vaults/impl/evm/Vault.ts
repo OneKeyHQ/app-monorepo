@@ -12,10 +12,14 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
-import { EIP1559Fee } from '../../../types/network';
+import { EIP1559Fee, EvmExtraInfo } from '../../../types/network';
 import {
   IApproveInfo,
   IEncodedTxAny,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTokenApprove,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
@@ -23,11 +27,15 @@ import {
 } from '../../../types/vault';
 import { VaultBase } from '../../VaultBase';
 
+import { Erc20MethodSelectors } from './decoder/abi';
 import {
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
+  EVMDecodedItemERC20Transfer,
   EVMTxDecoder,
   EVMTxType,
+  InfiniteAmountHex,
+  InfiniteAmountText,
 } from './decoder/decoder';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -135,32 +143,37 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
-
+    const isMax = transferInfo.max;
+    const isTransferToken = Boolean(transferInfo.token);
+    const isTransferNativeToken = !isTransferToken;
     const { amount } = transferInfo;
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
       amountBN = new BigNumber('0');
     }
+    if (isMax && isTransferNativeToken) {
+      amountBN = new BigNumber('0');
+    }
 
     // erc20 token transfer
-    if (transferInfo.token) {
+    if (isTransferToken) {
       const token = await this.engine.getOrAddToken(
         this.networkId,
         transferInfo.token ?? '',
         true,
       );
       if (!token) {
-        throw new Error(`Token not found: ${transferInfo.token}`);
+        throw new Error(`Token not found: ${transferInfo.token as string}`);
       }
       const amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
 
-      const data = `0xa9059cbb${defaultAbiCoder
+      const data = `${Erc20MethodSelectors.tokenTransfer}${defaultAbiCoder
         .encode(['address', 'uint256'], [transferInfo.to, amountHex])
         .slice(2)}`; // method_selector(transfer) + byte32_pad(address) + byte32_pad(value)
       // erc20 token transfer
       return {
         from: transferInfo.from,
-        to: transferInfo.token,
+        to: transferInfo.token ?? '',
         value: '0x0',
         data,
       };
@@ -171,8 +184,8 @@ export default class Vault extends VaultBase {
     return {
       from: transferInfo.from,
       to: transferInfo.to,
-      value: amountHex, // TODO convert to hex value
-      data: '0x', // TODO native transfer default data value
+      value: amountHex,
+      data: '0x',
     };
   }
 
@@ -198,7 +211,7 @@ export default class Vault extends VaultBase {
         : amountBN.shiftedBy(token.decimals),
     );
     // keccak256(Buffer.from('approve(address,uint256)') => '0x095ea7b3...'
-    const methodID = '0x095ea7b3';
+    const methodID = Erc20MethodSelectors.tokenApprove;
     const data = `${methodID}${defaultAbiCoder
       .encode(['address', 'uint256'], [spender, amountHex])
       .slice(2)}`;
@@ -210,12 +223,49 @@ export default class Vault extends VaultBase {
     };
   }
 
+  async updateEncodedTx(
+    encodedTx: IEncodedTxAny,
+    payload: any,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTxAny> {
+    if (options.type === IEncodedTxUpdateType.tokenApprove) {
+      const p = payload as IEncodedTxUpdatePayloadTokenApprove;
+      return this.updateEncodedTxTokenApprove(encodedTx, p.amount);
+    }
+    if (options.type === IEncodedTxUpdateType.transfer) {
+      return this.updateEncodedTxTransfer(encodedTx, payload);
+    }
+    return Promise.resolve(encodedTx);
+  }
+
+  async updateEncodedTxTransfer(
+    encodedTx: IEncodedTxEvm,
+    payload: IEncodedTxUpdatePayloadTransfer,
+  ): Promise<IEncodedTxAny> {
+    const decodedTx = await this.decodeTx(encodedTx);
+    const { amount } = payload;
+    const amountBN = new BigNumber(amount);
+    if (decodedTx.txType === EVMTxType.NATIVE_TRANSFER) {
+      const network = await this.getNetwork();
+      encodedTx.value = toBigIntHex(amountBN.shiftedBy(network.decimals));
+    }
+    if (decodedTx.txType === EVMTxType.TOKEN_TRANSFER) {
+      const info = decodedTx.info as EVMDecodedItemERC20Transfer;
+      const amountHex = toBigIntHex(amountBN.shiftedBy(info.token.decimals));
+      const data = `${Erc20MethodSelectors.tokenTransfer}${defaultAbiCoder
+        .encode(['address', 'uint256'], [info.recipient, amountHex])
+        .slice(2)}`;
+      encodedTx.data = data;
+    }
+    return encodedTx;
+  }
+
   async updateEncodedTxTokenApprove(
     encodedTx: IEncodedTxEvm,
     amount: string,
   ): Promise<IEncodedTxEvm> {
     // keccak256(Buffer.from('approve(address,uint256)') => '0x095ea7b3...'
-    const approveMethodID = '0x095ea7b3';
+    const approveMethodID = Erc20MethodSelectors.tokenApprove;
 
     const decodedTx = await this.decodeTx(encodedTx);
     if (decodedTx.txType !== EVMTxType.TOKEN_APPROVE) {
@@ -223,12 +273,17 @@ export default class Vault extends VaultBase {
     }
 
     const { token, spender } = decodedTx.info as EVMDecodedItemERC20Approve;
-
-    const amountBN = new BigNumber(amount);
-    if (amountBN.isNaN()) {
-      throw new Error(`Invalid amount input: ${amount}`);
+    let amountHex;
+    if (amount === InfiniteAmountText || amount === InfiniteAmountHex) {
+      amountHex = InfiniteAmountHex;
+    } else {
+      const amountBN = new BigNumber(amount);
+      if (amountBN.isNaN()) {
+        throw new Error(`Invalid amount input: ${amount}`);
+      }
+      amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
     }
-    const amountHex = toBigIntHex(amountBN.shiftedBy(token.decimals));
+
     const data = `${approveMethodID}${defaultAbiCoder
       .encode(['address', 'uint256'], [spender, amountHex])
       .slice(2)}`;
@@ -260,9 +315,9 @@ export default class Vault extends VaultBase {
       encodedTx,
     );
     const gasLimitFinal = gasLimit ?? gas;
-    // TODO do not shift decimals here
     // fillUnsignedTx in each impl
     const unsignedTxInfo = fillUnsignedTxObj({
+      shiftFeeDecimals: false,
       network,
       dbAccount,
       to,
@@ -300,13 +355,11 @@ export default class Vault extends VaultBase {
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxEvm): Promise<IFeeInfo> {
-    // TODO use Promise.all more fast
-    const network = await this.getNetwork();
-    const unsignedTx = await this.buildUnsignedTxFromEncodedTx(encodedTx);
-    // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
-    // [10]
-    const prices = await this.engine.getGasPrice(this.networkId);
-    const limit = unsignedTx.feeLimit?.toFixed();
+    const [network, prices, unsignedTx] = await Promise.all([
+      this.getNetwork(),
+      this.engine.getGasPrice(this.networkId),
+      this.buildUnsignedTxFromEncodedTx(encodedTx),
+    ]);
 
     const eip1559 = Boolean(
       prices?.length && prices?.every((gas) => typeof gas === 'object'),
@@ -319,6 +372,9 @@ export default class Vault extends VaultBase {
         maxFeePerGas: encodedTx.maxFeePerGas,
       } as EIP1559Fee;
     }
+    // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
+    // [10]
+    const limit = unsignedTx.feeLimit?.toFixed();
 
     return {
       nativeSymbol: network.symbol,
@@ -340,21 +396,31 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxEvm;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxEvm> {
+    const network = await this.getNetwork();
     const { encodedTx, feeInfoValue } = params;
     const encodedTxWithFee = { ...encodedTx };
     if (!isNil(feeInfoValue.limit)) {
-      // TODO to hex toBigIntHex()
-      encodedTxWithFee.gas = feeInfoValue.limit;
+      encodedTxWithFee.gas = toBigIntHex(new BigNumber(feeInfoValue.limit));
     }
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
     if (!isNil(feeInfoValue.price)) {
       if (feeInfoValue.eip1559) {
         const priceInfo = feeInfoValue.price as EIP1559Fee;
-        encodedTxWithFee.maxFeePerGas = priceInfo.maxFeePerGas;
-        encodedTxWithFee.maxPriorityFeePerGas = priceInfo.maxPriorityFeePerGas;
-        encodedTxWithFee.gasPrice = '1'; // default gasPrice required in engine api
+        encodedTxWithFee.maxFeePerGas = toBigIntHex(
+          new BigNumber(priceInfo.maxFeePerGas).shiftedBy(network.feeDecimals),
+        );
+        encodedTxWithFee.maxPriorityFeePerGas = toBigIntHex(
+          new BigNumber(priceInfo.maxPriorityFeePerGas).shiftedBy(
+            network.feeDecimals,
+          ),
+        );
+        encodedTxWithFee.gasPrice = '0x1'; // default gasPrice required in engine api
       } else {
-        encodedTxWithFee.gasPrice = feeInfoValue.price as string;
+        encodedTxWithFee.gasPrice = toBigIntHex(
+          new BigNumber(feeInfoValue.price as string).shiftedBy(
+            network.feeDecimals,
+          ),
+        );
       }
     }
     return Promise.resolve(encodedTxWithFee);

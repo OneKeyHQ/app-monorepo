@@ -60,16 +60,10 @@ function permissionRequired() {
     // is a function or not
     if (isFunction(fn)) {
       descriptor.value = function (...args: Array<any>): any {
-        console.log(`parameters: (${args.toString()})`);
-
         // if (this.chainId !== '0x1') {
         //   throw new Error(this.chainId + ' chain not matched');
         // }
-
         const result = fn.apply(this, args);
-
-        console.log('addition:', result);
-
         return result;
       };
     }

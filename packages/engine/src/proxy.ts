@@ -132,6 +132,7 @@ export function fillUnsignedTxObj({
   valueOnChain,
   token,
   extra,
+  shiftFeeDecimals = false,
 }: {
   network: Network;
   dbAccount: DBAccount;
@@ -140,6 +141,7 @@ export function fillUnsignedTxObj({
   valueOnChain?: string;
   token?: Token;
   extra?: { [key: string]: any };
+  shiftFeeDecimals?: boolean;
 }): UnsignedTx {
   let valueOnChainBN = new BigNumber(0);
   let tokenIdOnNetwork: string | undefined;
@@ -171,12 +173,17 @@ export function fillUnsignedTxObj({
     typeof maxFeePerGas === 'string' &&
     typeof maxPriorityFeePerGas === 'string'
   ) {
-    payload.maxFeePerGas = new BigNumber(maxFeePerGas).shiftedBy(
-      network.feeDecimals,
-    );
-    payload.maxPriorityFeePerGas = new BigNumber(
-      maxPriorityFeePerGas,
-    ).shiftedBy(network.feeDecimals);
+    let maxFeePerGasBN = new BigNumber(maxFeePerGas);
+    let maxPriorityFeePerGasBN = new BigNumber(maxPriorityFeePerGas);
+
+    if (shiftFeeDecimals) {
+      maxFeePerGasBN = maxFeePerGasBN.shiftedBy(network.feeDecimals);
+      maxPriorityFeePerGasBN = maxPriorityFeePerGasBN.shiftedBy(
+        network.feeDecimals,
+      );
+    }
+    payload.maxFeePerGas = maxFeePerGasBN;
+    payload.maxPriorityFeePerGas = maxPriorityFeePerGasBN;
     payload.EIP1559Enabled = true;
   }
   const input: TxInput = {
@@ -186,6 +193,11 @@ export function fillUnsignedTxObj({
   };
   if (network.impl === IMPL_STC) {
     input.publicKey = (dbAccount as DBSimpleAccount).pub;
+  }
+
+  let feePricePerUnitBN = feePricePerUnit;
+  if (shiftFeeDecimals) {
+    feePricePerUnitBN = feePricePerUnitBN?.shiftedBy(network.feeDecimals);
   }
 
   return {
@@ -200,7 +212,7 @@ export function fillUnsignedTxObj({
     type,
     nonce,
     feeLimit,
-    feePricePerUnit: feePricePerUnit?.shiftedBy(network.feeDecimals),
+    feePricePerUnit: feePricePerUnitBN,
     payload,
   };
 }

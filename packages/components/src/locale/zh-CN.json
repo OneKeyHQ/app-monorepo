@@ -303,7 +303,7 @@
   "form__alerts_uppercase": "提醒",
   "form__allow_this_site_to_uppercase": "允许本网站：",
   "form__always": "总是",
-  "form__amount_invalid": "余额不足",
+  "form__amount_invalid": "{0} 余额不足",
   "form__app_lock": "App 自动锁定",
   "form__app_lock_timer": "自动锁定时间",
   "form__app_on_android": "安卓 App",

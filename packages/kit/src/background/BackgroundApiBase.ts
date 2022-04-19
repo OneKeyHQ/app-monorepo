@@ -284,7 +284,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         data = await data({ origin: this.bridge.remoteInfo.origin });
       }
       ensureSerializable(data);
-      this.bridge.requestSync({ scope, data });
+
+      // this.bridge.requestSync({ scope, data });
+      if (this.bridge.globalOnMessageEnabled) {
+        this.bridge.requestSync({ scope, data });
+      }
     }
   };
 }

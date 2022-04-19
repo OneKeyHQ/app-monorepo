@@ -60,7 +60,7 @@ export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 export { default as KeyboardDismissView } from './KeyboardDismissView';
 export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 export { default as LottieView } from './LottieView';
-export { default as NumberInput } from './NumberInput';
+export * from './NumberInput';
 export * from './OverlayContainer';
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
