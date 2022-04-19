@@ -2,13 +2,15 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+export type TokenBalanceValue = string | undefined;
+
 export type TokenInitialState = {
   tokens: Record<string, Token[]>;
   tokensPrice: Record<string, Record<string, string>>;
   accountTokens: Record<string, Record<string, Token[]>>;
   accountTokensBalance: Record<
     string,
-    Record<string, Record<string, string | undefined>>
+    Record<string, Record<string, TokenBalanceValue>>
   >;
 };
 

@@ -75,9 +75,11 @@ export const useManageTokens = ({
   }, [pollingInterval]);
 
   const getTokenBalance = useCallback(
-    (token: Token | undefined | null, defaultValue = '') =>
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      balances[token?.tokenIdOnNetwork ?? 'main'] ?? defaultValue,
+    (token: Token | undefined | null, defaultValue = ''): string => {
+      const balance =
+        balances[token?.tokenIdOnNetwork || 'main'] ?? defaultValue;
+      return balance as string;
+    },
     [balances],
   );
 

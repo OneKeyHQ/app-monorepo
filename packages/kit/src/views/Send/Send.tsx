@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import deepEqual from 'dequal';
 import { debounce } from 'lodash';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -203,8 +204,10 @@ const Transaction = () => {
       amount: value,
       max: isMax,
     } as ITransferInfo;
-    setTransferInfo(info);
-  }, [account, getTokenBalance, getValues, isMax, selectedToken]);
+    if (!deepEqual(transferInfo, info)) {
+      setTransferInfo(info);
+    }
+  }, [account, getTokenBalance, getValues, isMax, selectedToken, transferInfo]);
 
   useEffect(() => {
     updateTransferInfo();
@@ -474,4 +477,4 @@ const Transaction = () => {
     />
   );
 };
-export default Transaction;
+export default React.memo(Transaction);
