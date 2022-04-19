@@ -18,7 +18,6 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { Token } from '@onekeyhq/engine/src/types/token';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 import {
   ModalRoutes,
@@ -26,14 +25,15 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
-import { formatNumber } from '../../../../components/Format';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { FormatBalance, FormatCurrency } from '../../../../components/Format';
 import { useDebounce, useManageTokens } from '../../../../hooks';
 import { useGeneral } from '../../../../hooks/redux';
 import { SwapRoutes } from '../../typings';
 
 import { useSearchTokens } from './hooks';
 
-import type { ValuedToken } from '../../../../store/typings';
+import type { Token as TokenType } from '../../../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -44,9 +44,9 @@ type NavigationProps = NativeStackNavigationProp<
 const isValidateAddr = (addr: string) => addr.length === 42;
 
 type HeaderTokensProps = {
-  tokens: ValuedToken[];
+  tokens: TokenType[];
   showTop50Label?: boolean;
-  onPress?: (token: ValuedToken) => void;
+  onPress?: (token: TokenType) => void;
 };
 
 const HeaderTokens: FC<HeaderTokensProps> = ({
@@ -55,6 +55,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
   onPress,
 }) => {
   const intl = useIntl();
+  const { balances, prices } = useManageTokens();
   return (
     <Box>
       {tokens.length ? (
@@ -123,15 +124,26 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   alignItems="flex-end"
                 >
                   <Typography.Body2 numberOfLines={1} color="text-default">
-                    {formatNumber(item?.balance ?? '0', { fixed: 6 })}
-                  </Typography.Body2>
-                  {/* <Typography.Body2 numberOfLines={1} color="text-subdued">
-                    $
                     <FormatBalance
-                      balance={item?.balance ?? '0'}
+                      balance={balances[item.tokenIdOnNetwork || 'main'] ?? '0'}
                       formatOptions={{ fixed: 6 }}
                     />
-                  </Typography.Body2> */}
+                  </Typography.Body2>
+                  <Typography.Body2 color="text-subdued">
+                    <FormatCurrency
+                      numbers={[
+                        prices?.[item.tokenIdOnNetwork || 'main'],
+                        balances?.[item.tokenIdOnNetwork || 'main'],
+                      ]}
+                      render={(ele) => (
+                        <Typography.Body2Strong ml={3} color="text-subdued">
+                          {prices?.[item.tokenIdOnNetwork || 'main']
+                            ? ele
+                            : '-'}
+                        </Typography.Body2Strong>
+                      )}
+                    />
+                  </Typography.Body2>
                 </Box>
               </Pressable>
             ))}
@@ -151,12 +163,12 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 };
 
 type HeaderProps = {
-  tokens: ValuedToken[];
+  tokens: TokenType[];
   keyword: string;
   terms?: string;
   showTop50Label?: boolean;
   onChange: (keyword: string) => void;
-  onPress?: (token: ValuedToken) => void;
+  onPress?: (token: TokenType) => void;
 };
 
 const Header: FC<HeaderProps> = ({
@@ -243,91 +255,102 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 };
 
 type ListingTokenProps = {
-  item: ValuedToken;
+  item: TokenType;
   borderTopRadius?: string;
   borderBottomRadius?: string;
-  onPress?: (item: ValuedToken) => void;
-  balance?: string;
+  isOwned?: boolean;
+  onPress?: (item: TokenType) => void;
 };
 
 const ListingToken: FC<ListingTokenProps> = ({
   item,
   borderTopRadius,
   borderBottomRadius,
+  isOwned,
   onPress,
-  balance,
-}) => (
-  <Pressable
-    borderTopRadius={borderTopRadius}
-    borderBottomRadius={borderBottomRadius}
-    display="flex"
-    flexDirection="row"
-    justifyContent="space-between"
-    p={4}
-    alignItems="center"
-    bg="surface-default"
-    overflow="hidden"
-    key={item.tokenIdOnNetwork}
-    onPress={() => onPress?.(item)}
-  >
-    <Box display="flex" alignItems="center" flexDirection="row">
-      <Image
-        source={{ uri: item.logoURI }}
-        alt="logoURI"
-        size="8"
-        borderRadius="full"
-        fallbackElement={
-          <Center w={8} h={8} rounded="full" bgColor="surface-neutral-default">
-            <Icon size={20} name="QuestionMarkOutline" />
-          </Center>
-        }
-      />
-      <Box ml="3">
-        <Text
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          maxW="56"
-          numberOfLines={2}
-          color={item.balance ? 'text-disabled' : 'text-default'}
-        >
-          {item.symbol}
-        </Text>
-        <Typography.Body2
-          numberOfLines={1}
-          color={item.balance ? 'text-disabled' : 'text-subdued'}
-        >
-          {item.name}
+}) => {
+  const { balances, prices } = useManageTokens();
+  return (
+    <Pressable
+      borderTopRadius={borderTopRadius}
+      borderBottomRadius={borderBottomRadius}
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      p={4}
+      alignItems="center"
+      bg="surface-default"
+      overflow="hidden"
+      key={item.tokenIdOnNetwork}
+      onPress={() => onPress?.(item)}
+    >
+      <Box display="flex" alignItems="center" flexDirection="row">
+        <Image
+          source={{ uri: item.logoURI }}
+          alt="logoURI"
+          size="8"
+          borderRadius="full"
+          fallbackElement={
+            <Center
+              w={8}
+              h={8}
+              rounded="full"
+              bgColor="surface-neutral-default"
+            >
+              <Icon size={20} name="QuestionMarkOutline" />
+            </Center>
+          }
+        />
+        <Box ml="3">
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            maxW="56"
+            numberOfLines={2}
+            color={isOwned ? 'text-disabled' : 'text-default'}
+          >
+            {item.symbol}
+          </Text>
+          <Typography.Body2
+            numberOfLines={1}
+            color={isOwned ? 'text-disabled' : 'text-subdued'}
+          >
+            {item.name}
+          </Typography.Body2>
+        </Box>
+      </Box>
+      <Box display="flex" flexDirection="column" alignItems="flex-end">
+        <Typography.Body1 numberOfLines={1} color="text-default">
+          <FormatBalance
+            balance={balances[item.tokenIdOnNetwork] ?? '0'}
+            formatOptions={{ fixed: 6 }}
+          />
+        </Typography.Body1>
+        <Typography.Body2 color="text-subdued">
+          <FormatCurrency
+            numbers={[
+              prices?.[item.tokenIdOnNetwork || 'main'],
+              balances?.[item.tokenIdOnNetwork || 'main'],
+            ]}
+            render={(ele) => (
+              <Typography.Body2Strong ml={3} color="text-subdued">
+                {prices?.[item.tokenIdOnNetwork || 'main'] ? ele : '-'}
+              </Typography.Body2Strong>
+            )}
+          />
         </Typography.Body2>
       </Box>
-    </Box>
-    <Box display="flex" flexDirection="column" alignItems="flex-end">
-      <Typography.Body2 numberOfLines={1} color="text-default">
-        {formatNumber(balance ?? '0', { fixed: 6 })}
-      </Typography.Body2>
-      {/* <Typography.Body2 numberOfLines={1} color="text-subdued">
-        $
-        <FormatBalance
-          balance={item?.balance ?? '0'}
-          formatOptions={{ fixed: 6 }}
-        />
-      </Typography.Body2> */}
-    </Box>
-  </Pressable>
-);
+    </Pressable>
+  );
+};
 
 type ListingProps = {
-  onPress?: (token: ValuedToken) => void;
-  excluded?: ValuedToken;
+  onPress?: (token: TokenType) => void;
+  excluded?: TokenType;
 };
 
 export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
   const intl = useIntl();
-  const {
-    accountTokens,
-    allTokens,
-    updateTokens,
-    updateAccountTokens,
-    balances,
-  } = useManageTokens();
+  const { accountTokens, allTokens, accountTokensMap } = useManageTokens();
   const [keyword, setKeyword] = useState<string>('');
 
   const searchTerm = useDebounce(keyword, 1000);
@@ -340,8 +363,12 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
     activeAccountId,
   );
 
-  useFocusEffect(updateTokens);
-  useFocusEffect(updateAccountTokens);
+  useFocusEffect(
+    useCallback(() => {
+      backgroundApiProxy.serviceToken.fetchTokens();
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+    }, []),
+  );
 
   const headerTokens = useMemo(
     () =>
@@ -358,7 +385,7 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
     );
   }, [searchTerm, searchedTokens, allTokens, excluded]);
 
-  const renderItem: ListRenderItem<ValuedToken> = useCallback(
+  const renderItem: ListRenderItem<TokenType> = useCallback(
     ({ item, index }) => (
       <ListingToken
         item={item}
@@ -367,10 +394,10 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
         borderBottomRadius={
           index === flatListData.length - 1 ? '12' : undefined
         }
-        balance={balances[item.tokenIdOnNetwork]}
+        isOwned={accountTokensMap.has(item.tokenIdOnNetwork)}
       />
     ),
-    [flatListData.length, onPress, balances],
+    [flatListData.length, onPress, accountTokensMap],
   );
 
   return (
@@ -385,7 +412,7 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
           // @ts-ignore
           renderItem,
           ItemSeparatorComponent: () => <Divider />,
-          keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
+          keyExtractor: (item) => (item as TokenType).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
             <ListEmptyComponent isLoading={loading} terms={searchTerm} />

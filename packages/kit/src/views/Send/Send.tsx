@@ -94,7 +94,7 @@ const Transaction = () => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 
-  const { nativeToken, accountTokens } = useManageTokens();
+  const { nativeToken, accountTokens, balances } = useManageTokens();
   // selected token
   const [selectOption, setSelectOption] = useState<Option | null>(null);
   const [inputValue, setInputValue] = useState<string>();
@@ -114,7 +114,7 @@ const Transaction = () => {
               {`${intl.formatMessage({ id: 'content__balance' })}`}
               &nbsp;&nbsp;
               <FormatBalance
-                balance={token?.balance}
+                balance={balances[token.tokenIdOnNetwork || 'main'] ?? '0'}
                 formatOptions={{
                   fixed: decimal ?? 4,
                 }}
@@ -131,6 +131,7 @@ const Transaction = () => {
       intl,
       activeNetwork?.nativeDisplayDecimals,
       activeNetwork?.tokenDisplayDecimals,
+      balances,
     ],
   );
 
@@ -387,7 +388,9 @@ const Transaction = () => {
                     const token = selectedToken;
                     if (!token) return undefined;
                     const inputBN = new BigNumber(value);
-                    const balanceBN = new BigNumber(token?.balance ?? '');
+                    const balanceBN = new BigNumber(
+                      balances[token.tokenIdOnNetwork || 'main'] ?? '0',
+                    );
                     if (inputBN.isNaN() || balanceBN.isNaN()) {
                       return intl.formatMessage({ id: 'form__amount_invalid' });
                     }

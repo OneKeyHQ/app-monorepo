@@ -3,14 +3,14 @@ import React, { useCallback } from 'react';
 import { useNavigation, useSwap, useSwapQuote } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 
-import type { ValuedToken } from '../../../store/typings';
+import type { Token } from '../../../store/typings';
 
 const Input = () => {
   const navigation = useNavigation();
   const { setIn, output } = useSwap();
   const { refresh } = useSwapQuote();
   const onPress = useCallback(
-    (token: ValuedToken) => {
+    (token: Token) => {
       setIn(token);
       refresh();
       navigation.goBack();
