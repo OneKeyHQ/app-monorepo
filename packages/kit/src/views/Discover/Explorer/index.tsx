@@ -296,6 +296,10 @@ const Explorer: FC = () => {
     setVisibleMore(!visibleMore);
   };
 
+  const onGoHomePage = () => {
+    setDisplayInitialPage(true);
+  };
+
   const getCurrentUrl = () => webUrl ?? currentWebSite?.url ?? '';
 
   const onCopyUrlToClipboard = () => {
@@ -359,6 +363,7 @@ const Explorer: FC = () => {
         onShare={onShare}
         onOpenBrowser={onOpenBrowser}
         onCopyUrlToClipboard={onCopyUrlToClipboard}
+        onGoHomePage={onGoHomePage}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps

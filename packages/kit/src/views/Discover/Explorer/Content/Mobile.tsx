@@ -51,17 +51,23 @@ const Mobile: FC<ExplorerViewProps> = ({
       {!!showExplorerBar && (
         <Box
           w="100%"
-          px={7}
-          h="48px"
+          px={6}
+          h="54px"
           bg="surface-subdued"
           flexDirection="row"
           alignItems="center"
         >
-          <Pressable onPress={onGoBack}>
+          <Pressable
+            onPress={onGoBack}
+            w={8}
+            h={8}
+            alignItems="center"
+            justifyContent="center"
+          >
             <Icon name="ChevronLeftOutline" size={24} />
           </Pressable>
 
-          <Pressable onPress={onSearch} flex={1} mx={7}>
+          <Pressable onPress={onSearch} flex={1} mx={6}>
             <Box
               w="100%"
               h={8}
@@ -86,7 +92,13 @@ const Mobile: FC<ExplorerViewProps> = ({
             </Box>
           </Pressable>
 
-          <Pressable onPress={onMore}>
+          <Pressable
+            onPress={onMore}
+            w={8}
+            h={8}
+            alignItems="center"
+            justifyContent="center"
+          >
             <Icon name="DotsHorizontalOutline" size={24} />
           </Pressable>
         </Box>
