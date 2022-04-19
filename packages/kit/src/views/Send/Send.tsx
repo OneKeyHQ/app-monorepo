@@ -103,7 +103,8 @@ const Transaction = () => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 
-  const { nativeToken, accountTokens, balances } = useManageTokens();
+  const { nativeToken, accountTokens, balances, getTokenBalance } =
+    useManageTokens();
   // selected token
   const [selectOption, setSelectOption] = useState<Option | null>(null);
   const [inputValue, setInputValue] = useState<string>();
@@ -123,7 +124,7 @@ const Transaction = () => {
               {`${intl.formatMessage({ id: 'content__balance' })}`}
               &nbsp;&nbsp;
               <FormatBalance
-                balance={balances[token.tokenIdOnNetwork || 'main'] ?? '0'}
+                balance={getTokenBalance(token, '0')}
                 formatOptions={{
                   fixed: decimal ?? 4,
                 }}
@@ -137,10 +138,10 @@ const Transaction = () => {
       }),
     [
       accountTokens,
-      intl,
-      activeNetwork?.nativeDisplayDecimals,
       activeNetwork?.tokenDisplayDecimals,
-      balances,
+      activeNetwork?.nativeDisplayDecimals,
+      intl,
+      getTokenBalance,
     ],
   );
 
@@ -192,7 +193,7 @@ const Transaction = () => {
     const from = (account as { address: string }).address;
     // max token transfer
     if (selectedToken?.tokenIdOnNetwork && isMax) {
-      value = selectedToken?.balance ?? '';
+      value = getTokenBalance(selectedToken, '');
     }
     const info = {
       from,
@@ -203,13 +204,7 @@ const Transaction = () => {
       max: isMax,
     } as ITransferInfo;
     setTransferInfo(info);
-  }, [
-    account,
-    getValues,
-    isMax,
-    selectedToken?.balance,
-    selectedToken?.tokenIdOnNetwork,
-  ]);
+  }, [account, getTokenBalance, getValues, isMax, selectedToken]);
 
   useEffect(() => {
     updateTransferInfo();
@@ -275,7 +270,7 @@ const Transaction = () => {
         logoURI: tokenConfig.logoURI,
         name: tokenConfig.name,
         symbol: tokenConfig.symbol,
-        balance: tokenConfig.balance,
+        balance: getTokenBalance(tokenConfig, '0'),
       },
     };
     const params = {
@@ -396,7 +391,9 @@ const Transaction = () => {
                   <FormatCurrencyToken
                     token={selectedToken}
                     value={
-                      isMax ? selectedToken?.balance ?? '0' : getValues('value')
+                      isMax
+                        ? getTokenBalance(selectedToken, '0')
+                        : getValues('value')
                     }
                     render={(ele) => (
                       <Typography.Body2 mt={1} color="text-subdued">
@@ -418,7 +415,7 @@ const Transaction = () => {
                     if (isMax) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(
-                      balances[token.tokenIdOnNetwork || 'main'] ?? '0',
+                      getTokenBalance(token, '0'),
                     );
                     if (inputBN.isNaN() || balanceBN.isNaN()) {
                       return intl.formatMessage(
@@ -448,7 +445,7 @@ const Transaction = () => {
                   rightText={selectedToken?.symbol ?? '-'}
                   enableMaxButton
                   isMax={isMax}
-                  maxText={selectedToken?.balance || ''}
+                  maxText={getTokenBalance(selectedToken, '')}
                   onMaxChange={(v) => {
                     setIsMax(v);
                     setTimeout(() => {

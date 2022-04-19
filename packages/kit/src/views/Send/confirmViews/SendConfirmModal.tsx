@@ -60,15 +60,15 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     updateEncodedTxBeforeConfirm,
     ...others
   } = props;
-  const { nativeToken } = useManageTokens();
+  const { nativeToken, getTokenBalance } = useManageTokens();
 
   // TODO move to validator
   const balanceInsufficient = useMemo(() => {
     const fee = feeInfoPayload?.current?.totalNative ?? '0';
-    return new BigNumber(nativeToken?.balance ?? '0').lt(
+    return new BigNumber(getTokenBalance(nativeToken, '0')).lt(
       new BigNumber(fee).plus(decodedTx?.amount ?? '0'),
     );
-  }, [decodedTx?.amount, feeInfoPayload, nativeToken?.balance]);
+  }, [decodedTx?.amount, feeInfoPayload, getTokenBalance, nativeToken]);
   const isWatchingAccount = useMemo(
     () => accountId && accountId.startsWith('watching-'),
     [accountId],

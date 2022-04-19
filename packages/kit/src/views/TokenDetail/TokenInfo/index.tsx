@@ -143,7 +143,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         )}
       </Box>
     ),
-    [intl, isVertical, wallet?.type, account, navigation],
+    [isVertical, wallet?.type, intl, navigation, token, account],
   );
 
   return useMemo(

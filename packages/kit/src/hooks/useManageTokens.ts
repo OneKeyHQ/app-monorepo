@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -78,6 +78,13 @@ export const useManageTokens = ({
     };
   }, [pollingInterval]);
 
+  const getTokenBalance = useCallback(
+    (token: Token | undefined | null, defaultValue = '') =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      balances[token?.tokenIdOnNetwork ?? 'main'] ?? defaultValue,
+    [balances],
+  );
+
   return {
     nativeToken,
     accountTokensMap,
@@ -86,5 +93,6 @@ export const useManageTokens = ({
     allTokens,
     prices,
     balances,
+    getTokenBalance,
   };
 };
