@@ -4,14 +4,15 @@ type StatusState = {
   lastActivity: number;
   isUnlock: boolean;
   boardingCompleted: boolean;
-  supportFaceId: boolean;
+  webviewGlobalKey: number;
+  authenticationType?: 'FINGERPRINT' | 'FACIAL';
 };
 
 const initialState: StatusState = {
   lastActivity: 0,
   isUnlock: false,
   boardingCompleted: false,
-  supportFaceId: true,
+  webviewGlobalKey: 0,
 };
 
 export const slice = createSlice({
@@ -21,8 +22,11 @@ export const slice = createSlice({
     setBoardingCompleted: (state) => {
       state.boardingCompleted = true;
     },
-    setSupportFaceId: (state) => {
-      state.supportFaceId = true;
+    setAuthenticationType(
+      state,
+      action: PayloadAction<'FINGERPRINT' | 'FACIAL'>,
+    ) {
+      state.authenticationType = action.payload;
     },
     unlock: (state) => {
       state.lastActivity = Date.now();
@@ -37,17 +41,19 @@ export const slice = createSlice({
     ) => {
       state.lastActivity = action?.payload || Date.now();
     },
-    reset: () => {},
+    refreshWebviewGlobalKey: (state) => {
+      state.webviewGlobalKey = Date.now();
+    },
   },
 });
 
 export const {
-  reset,
   setBoardingCompleted,
-  setSupportFaceId,
+  setAuthenticationType,
   lock,
   unlock,
   refreshLastActivity,
+  refreshWebviewGlobalKey,
 } = slice.actions;
 
 export default slice.reducer;

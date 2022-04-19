@@ -103,6 +103,8 @@ PODS:
     - expo-dev-menu/GestureHandler
     - expo-dev-menu/Reanimated
     - expo-dev-menu/SafeAreaView
+  - ExpoHaptics (11.1.1):
+    - ExpoModulesCore
   - ExpoModulesCore (0.6.5):
     - React-Core
     - ReactCommon/turbomodule/core
@@ -484,6 +486,7 @@ DEPENDENCIES:
   - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
   - expo-dev-menu (from `../../../node_modules/expo-dev-menu`)
   - expo-dev-menu-interface (from `../../../node_modules/expo-dev-menu-interface/ios`)
+  - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core/ios`)
   - EXSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
@@ -587,6 +590,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-dev-menu"
   expo-dev-menu-interface:
     :path: "../../../node_modules/expo-dev-menu-interface/ios"
+  ExpoHaptics:
+    :path: "../../../node_modules/expo-haptics/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core/ios"
   EXSecureStore:
@@ -710,6 +715,7 @@ SPEC CHECKSUMS:
   expo-dev-launcher: 875237591555e0258aa1f65442c9a557c5b61b40
   expo-dev-menu: e9fd41cef6250c7f221d032540c2cf3c4ca303be
   expo-dev-menu-interface: 395d046704878e5de471a89102ddf361cbb7e52f
+  ExpoHaptics: 0d0b69b2414755a4057ffad0a10315902c0ea1b7
   ExpoModulesCore: 32c0ccb47f477d330ee93db72505380adf0de09a
   EXSecureStore: b80c74c5ee29d0160c2aace3fd9a24a5edc20015
   EXSplashScreen: 21669e598804ee810547dbb6692c8deb5dd8dbf3
@@ -767,4 +773,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 076e690321682f7adbe0dd2465cf1ffdd614ad58
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.11.2

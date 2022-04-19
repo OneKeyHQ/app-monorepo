@@ -31,13 +31,13 @@ function FeeInfoInput({
   feeInfoPayload,
   loading,
   renderChildren,
-  disabled,
+  editable,
   backRouteName,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
-  disabled?: boolean;
+  editable?: boolean;
   backRouteName?: keyof SendRoutesParams;
   renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
 }) {
@@ -45,7 +45,7 @@ function FeeInfoInput({
 
   return (
     <Pressable
-      disabled={!feeInfoPayload || loading || disabled}
+      disabled={!feeInfoPayload || loading || !editable}
       onPress={() => {
         if (loading) {
           return;
@@ -155,6 +155,7 @@ function FeeInfoInputForTransfer({
   );
   return (
     <FeeInfoInput
+      editable
       backRouteName={SendRoutes.Send}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -168,12 +169,12 @@ function FeeInfoInputForConfirm({
   encodedTx,
   feeInfoPayload,
   loading,
-  disabled,
+  editable,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
-  disabled?: boolean;
+  editable?: boolean;
 }) {
   const intl = useIntl();
 
@@ -181,7 +182,7 @@ function FeeInfoInputForConfirm({
     ({ isHovered }) => (
       <TxTitleDetailView
         isHovered={isHovered}
-        editable={!disabled && !loading && !!feeInfoPayload}
+        arrow={editable && !loading && !!feeInfoPayload}
         title={`${intl.formatMessage({
           id: 'content__fee',
         })}(${intl.formatMessage({ id: 'content__estimated' })})`}
@@ -196,11 +197,11 @@ function FeeInfoInputForConfirm({
         }
       />
     ),
-    [disabled, feeInfoPayload, intl, loading],
+    [editable, feeInfoPayload, intl, loading],
   );
   return (
     <FeeInfoInput
-      disabled={disabled}
+      editable={editable}
       backRouteName={SendRoutes.SendConfirm}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}

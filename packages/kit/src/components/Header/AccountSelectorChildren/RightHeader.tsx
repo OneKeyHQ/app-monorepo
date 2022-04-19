@@ -34,11 +34,13 @@ type RightHeaderProps = {
 type CustomSelectTriggerProps = {
   isSelectVisible?: boolean;
   isTriggerHovered?: boolean;
+  isTriggerPressed?: boolean;
 };
 
 const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   isSelectVisible,
   isTriggerHovered,
+  isTriggerPressed,
 }) => (
   <Box
     p={2}
@@ -47,6 +49,9 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
       // eslint-disable-next-line no-nested-ternary
       isSelectVisible
         ? 'surface-selected'
+        : // eslint-disable-next-line no-nested-ternary
+        isTriggerPressed
+        ? 'surface-pressed'
         : isTriggerHovered
         ? 'surface-hovered'
         : 'transparent'
@@ -194,10 +199,11 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             dropdownProps={{
               width: 248,
             }}
-            renderTrigger={(activeOption, isHovered, visible) => (
+            renderTrigger={(activeOption, isHovered, visible, isPressed) => (
               <CustomSelectTrigger
                 isTriggerHovered={isHovered}
                 isSelectVisible={visible}
+                isTriggerPressed={isPressed}
               />
             )}
           />

@@ -34,6 +34,7 @@ import {
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
@@ -48,7 +49,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const toast = useToast();
   const { account, network: activeNetwork } = useActiveWalletAccount();
   const { prices, balances } = useManageTokens({
-    pollingInterval: 5000,
+    pollingInterval: 15000,
   });
 
   const copyContentToClipboard = useCallback(
@@ -90,15 +91,23 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       />
       <Pressable
         mt={4}
-        onPress={() => copyContentToClipboard(account?.address)}
+        onPress={() => {
+          setHaptics();
+          copyContentToClipboard(account?.address);
+        }}
       >
-        {({ isHovered }) => (
+        {({ isHovered, isPressed }) => (
           <Box
             py={{ base: 2, md: 1 }}
             px={{ base: 3, md: 2 }}
             rounded="xl"
             bg={
-              isHovered ? 'surface-neutral-default' : 'surface-neutral-subdued'
+              // eslint-disable-next-line no-nested-ternary
+              isPressed
+                ? 'surface-neutral-pressed'
+                : isHovered
+                ? 'surface-neutral-default'
+                : 'surface-neutral-subdued'
             }
             flexDirection="row"
           >

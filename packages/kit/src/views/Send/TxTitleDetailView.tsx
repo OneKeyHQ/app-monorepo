@@ -7,17 +7,17 @@ import { Icon, Text } from '@onekeyhq/components';
 function TxTitleDetailView({
   title,
   detail,
-  editable,
+  arrow,
   isHovered,
 }: {
   title: string;
   detail: string | any;
-  editable?: boolean;
+  arrow?: boolean;
   isHovered?: boolean;
 }) {
   return (
     <Row
-      bgColor={isHovered && editable ? 'surface-hovered' : undefined}
+      bgColor={isHovered && arrow ? 'surface-hovered' : undefined}
       justifyContent="space-between"
       space="16px"
       padding="16px"
@@ -41,7 +41,7 @@ function TxTitleDetailView({
       ) : (
         detail
       )}
-      {editable && <Icon key="edit icon" size={20} name="ChevronRightSolid" />}
+      {arrow && <Icon key="edit icon" size={20} name="ChevronRightSolid" />}
     </Row>
   );
 }

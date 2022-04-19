@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useState } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
@@ -17,6 +18,9 @@ function useDappApproveAction({
   getResolveData?: () => Promise<any> | any;
   closeOnError?: boolean;
 }) {
+  if (!id) {
+    console.error('useDappApproveAction ERROR: id not exists');
+  }
   const isExt = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve

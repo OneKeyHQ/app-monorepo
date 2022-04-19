@@ -7,35 +7,48 @@ import { useData } from '../../hooks/redux';
 import Setup from './Setup';
 import Validation from './Validation';
 
+type ProtectedOptions = {
+  isLocalAuthentication?: boolean;
+  withEnableAuthentication?: boolean;
+};
+
 type ProtectedProps = {
   skipSavePassword?: boolean;
-  children: (
-    password: string,
-    isLocalAuthentication?: boolean,
-  ) => React.ReactNode;
+  children: (password: string, options: ProtectedOptions) => React.ReactNode;
 };
 
 const Protected: FC<ProtectedProps> = ({ children, skipSavePassword }) => {
   const [password, setPassword] = useState('');
+  const [withEnableAuthentication, setWithEnableAuthentication] =
+    useState<boolean>();
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
 
-  const onOk = useCallback((text: string, value?: boolean) => {
+  const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
     setPassword(text);
   }, []);
+
+  const onSetupOk = useCallback((text: string, value?: boolean) => {
+    setWithEnableAuthentication(value);
+    setPassword(text);
+  }, []);
+
   if (password) {
     return (
       <Box w="full" h="full">
-        {children(password, isLocalAuthentication)}
+        {children(password, {
+          withEnableAuthentication,
+          isLocalAuthentication,
+        })}
       </Box>
     );
   }
   if (hasPassword) {
-    return <Validation onOk={onOk} />;
+    return <Validation onOk={onValidationOk} />;
   }
-  return <Setup onOk={onOk} skipSavePassword={skipSavePassword} />;
+  return <Setup onOk={onSetupOk} skipSavePassword={skipSavePassword} />;
 };
 
 export default Protected;

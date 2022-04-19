@@ -1,5 +1,5 @@
 /* eslint-disable import/order */
-import './shared';
+import './shared-polyfill';
 
 import hotReload from '../ui/hotReload';
 import popupSizeFix from '../ui/popupSizeFix';

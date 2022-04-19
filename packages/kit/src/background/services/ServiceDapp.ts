@@ -76,7 +76,7 @@ class ServiceDapp extends ServiceBase {
   openSendConfirmModal(request: IJsBridgeMessagePayload, params: any) {
     return this.openModal({
       request,
-      screens: [ModalRoutes.Send, SendRoutes.SendConfirmRedirect],
+      screens: [ModalRoutes.Send, SendRoutes.SendConfirmFromDapp],
       params,
     });
   }

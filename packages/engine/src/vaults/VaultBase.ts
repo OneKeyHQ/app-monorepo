@@ -6,6 +6,8 @@ import {
   IApproveInfo,
   IDecodedTx,
   IEncodedTxAny,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
@@ -73,6 +75,12 @@ export abstract class VaultBase extends VaultContext {
   abstract updateEncodedTxTokenApprove(
     encodedTx: IEncodedTxAny,
     amount: string,
+  ): Promise<IEncodedTxAny>;
+
+  abstract updateEncodedTx(
+    encodedTx: IEncodedTxAny,
+    payload: any,
+    options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxAny>;
 
   // buildEncodedTxFromNftTransfer

@@ -97,14 +97,16 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 borderBottomRadius={
                   index === tokens.length - 1 ? '12' : undefined
                 }
-                display="flex"
                 flexDirection="row"
                 justifyContent="space-between"
                 p="4"
                 alignItems="center"
-                bg="surface-default"
                 borderTopColor="divider"
                 borderTopWidth={index !== 0 ? '1' : undefined}
+                bg="surface-default"
+                _hover={{ bgColor: 'surface-hovered' }}
+                _pressed={{ bgColor: 'surface-pressed' }}
+                shadow="depth.2"
               >
                 <Box display="flex" alignItems="center" flexDirection="row">
                   <Image
@@ -316,15 +318,17 @@ const ListingToken: FC<ListingTokenProps> = ({
     <Pressable
       borderTopRadius={borderTopRadius}
       borderBottomRadius={borderBottomRadius}
-      display="flex"
       flexDirection="row"
       justifyContent="space-between"
       p={4}
       alignItems="center"
-      bg="surface-default"
       overflow="hidden"
       key={item.tokenIdOnNetwork}
       onPress={onDetail}
+      bg="surface-default"
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
+      shadow="depth.2"
     >
       <Box display="flex" alignItems="center" flexDirection="row">
         <Image
