@@ -41,7 +41,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const [inputDisabled, setInputDisabled] = useState(false);
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
-  const { accountTokensSet } = useManageTokens();
+  const { accountTokensMap } = useManageTokens();
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',
@@ -122,7 +122,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       const trimedAddress = debouncedAddress.trim();
       if (
         trimedAddress.length === 42 &&
-        !accountTokensSet.has(trimedAddress.toLowerCase()) &&
+        !accountTokensMap.has(trimedAddress.toLowerCase()) &&
         activeAccount &&
         activeNetwork
       ) {
@@ -151,7 +151,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     activeNetwork,
     onSearch,
     debouncedAddress,
-    accountTokensSet,
+    accountTokensMap,
   ]);
 
   return (
@@ -190,7 +190,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                     id: 'msg__wrong_address_format',
                   });
                 }
-                if (accountTokensSet.has(value.toLowerCase())) {
+                if (accountTokensMap.has(value.toLowerCase())) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });
