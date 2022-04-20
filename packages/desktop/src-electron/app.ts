@@ -2,7 +2,7 @@
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import { BrowserWindow, app, ipcMain, screen, shell } from 'electron';
+import { BrowserWindow, app, ipcMain, screen, session, shell } from 'electron';
 import isDev from 'electron-is-dev';
 
 const APP_NAME = 'OneKey Wallet';
@@ -84,6 +84,23 @@ function createMainWindow() {
     app.relaunch();
     app.exit(0);
   });
+
+  if (!isDev) {
+    const PROTOCOL = 'file';
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        let url = request.url.substr(PROTOCOL.length + 1);
+        // move to parent folder
+        url = path.join(__dirname, '..', 'build', url);
+        callback(url);
+      },
+    );
+
+    browserWindow.webContents.on('did-fail-load', () => {
+      browserWindow.loadURL(src);
+    });
+  }
 
   return browserWindow;
 }
