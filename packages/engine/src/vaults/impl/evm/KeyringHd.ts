@@ -5,8 +5,11 @@ import {
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { ETHMessageTypes } from '../../../types/message';
 import { ISignCredentialOptions } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+
+import { IUnsignedMessageEvm } from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
   async signTransaction(
@@ -26,6 +29,23 @@ export class KeyringHd extends KeyringHdBase {
       networkId,
       unsignedTx,
       signers,
+    );
+  }
+
+  async signMessage(
+    messages: IUnsignedMessageEvm[],
+    options: ISignCredentialOptions,
+  ): Promise<any> {
+    const credential = await this.getCredential(options);
+    const network = await this.getNetwork();
+    const dbAccount = await this.getDbAccount();
+
+    return this.engine.providerManager.signMessages(
+      credential,
+      options.password || '',
+      network,
+      dbAccount,
+      messages,
     );
   }
 }

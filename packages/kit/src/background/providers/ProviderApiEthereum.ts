@@ -10,7 +10,12 @@ import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
+import {
+  IEncodedTxEvm,
+  IUnsignedMessageEvm,
+} from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -276,12 +281,77 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
   }
 
+  async showSignMessageModal(
+    request: IJsBridgeMessagePayload,
+    unsignedMessage: IUnsignedMessageEvm,
+  ) {
+    const result = await this.backgroundApi.serviceDapp?.openSendConfirmModal(
+      request,
+      {
+        unsignedMessage,
+      },
+    );
+    return result;
+  }
+
   /** Sign unapproved message
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]
    */
-  eth_sign() {
-    throw web3Errors.rpc.methodNotSupported();
+  eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    console.log('eth_sign', messages, req);
+    return this.showSignMessageModal(req, {
+      type: ETHMessageTypes.ETH_SIGN,
+      message: messages[1],
+      payload: messages,
+    });
+  }
+
+  personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    console.log('personal_sign', messages, req);
+    return this.showSignMessageModal(req, {
+      type: ETHMessageTypes.PERSONAL_SIGN,
+      message: messages[2],
+      payload: messages,
+    });
+  }
+
+  // TODO personal_ecRecover
+  personal_ecRecover(req: IJsBridgeMessagePayload, message: string) {
+    console.log('personal_ecRecover: ', req, message);
+    return Promise.resolve('0xa9b4d559a98ff47c83b74522b7986146538cd4df');
+  }
+
+  eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    console.log('eth_signTypedData', messages, req);
+    return this.showSignMessageModal(req, {
+      type: ETHMessageTypes.TYPED_DATA_V1,
+      message: JSON.stringify(messages[0]),
+      payload: messages,
+    });
+  }
+
+  eth_signTypedData_v1(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    // @ts-ignore
+    return this.eth_signTypedData(req, ...messages);
+  }
+
+  eth_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    console.log('eth_signTypedData_v3', messages, req);
+    return this.showSignMessageModal(req, {
+      type: ETHMessageTypes.TYPED_DATA_V3,
+      message: messages[1],
+      payload: messages,
+    });
+  }
+
+  eth_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    console.log('eth_signTypedData_v4', messages, req);
+    return this.showSignMessageModal(req, {
+      type: ETHMessageTypes.TYPED_DATA_V4,
+      message: messages[1],
+      payload: messages,
+    });
   }
 
   async eth_chainId() {
@@ -391,11 +461,6 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  personal_sign(message: string): Promise<string> {
-    throw web3Errors.rpc.methodNotFound();
-  }
 
   // ----------------------------------------------
 

@@ -1,5 +1,6 @@
 import { useRoute } from '@react-navigation/core';
 
+import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IDappCallParams } from '../background/IBackgroundApi';
@@ -11,6 +12,7 @@ function useDappParams() {
   debugLogger.sendTx('useDappParams:', query);
   let queryInfo: {
     sourceInfo?: IDappCallParams;
+    unsignedMessage?: IUnsignedMessageEvm;
   } = {};
   if (query) {
     try {

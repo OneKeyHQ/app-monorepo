@@ -164,6 +164,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     //   code: 3881,
     //   message: 'test custom error to dapp',
     // });
+    debugLogger.ethereum('provider.handleMethods', payload);
     const result = await provider.handleMethods(payload);
     ensureSerializable(result);
     // TODO non rpc result return in some chain provider

@@ -748,6 +748,7 @@ class ProviderController extends BaseProviderController {
         `Message signing not support on ${network.name}`,
       );
     }
+    await this.getProvider(network.id);
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const defaultType = ETHMessageTypes.PERSONAL_SIGN;
     const [signer] = Object.values(

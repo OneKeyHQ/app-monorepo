@@ -37,6 +37,10 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
     return null;
   }
 
+  if (!encodedTx) {
+    return null;
+  }
+
   return <Button onPress={decodeTxTest}>DecodeTxButtonTest</Button>;
 }
 export { DecodeTxButtonTest };

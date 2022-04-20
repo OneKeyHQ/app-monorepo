@@ -12,6 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { NotImplemented } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
+import { ETHMessage, ETHMessageTypes } from '../../../types/message';
 import { EIP1559Fee, EvmExtraInfo } from '../../../types/network';
 import {
   IApproveInfo,
@@ -41,6 +42,10 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+
+export type IUnsignedMessageEvm = ETHMessage & {
+  payload?: any;
+};
 
 export type IEncodedTxEvm = {
   from: string;
