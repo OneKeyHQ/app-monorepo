@@ -30,7 +30,7 @@ const TxDetailDemo: FC = () => {
     <Modal
       scrollViewProps={{
         pt: 4,
-        children: (
+        children: decodedTx && (
           <TokenApprove
             tx={decodedTx}
             sourceInfo={{

@@ -20,12 +20,8 @@ const getHeaderIconInfo = (
     | Network
     | TxStatus
     | Token
-    | { iconUrl: string; iconName: string }
-    | null
-    | undefined,
+    | { iconUrl: string; iconName: string },
 ) => {
-  console.count('getHeaderIconInfo');
-  console.log(headerInfo);
   let isStatus = false;
   let statusTitle:
     | 'transaction__failed'
@@ -38,19 +34,6 @@ const getHeaderIconInfo = (
 
   let iconUrl = '';
   let iconName = '';
-
-  if (!headerInfo) {
-    return {
-      isStatus,
-      statusTitle,
-      statusIconName,
-      iconColor,
-      iconContainerColor,
-      textColor,
-      iconUrl,
-      iconName,
-    };
-  }
 
   if (typeof headerInfo === 'string') {
     isStatus = true;
@@ -106,9 +89,7 @@ const HeaderIcon: FC<{
     | Network
     | TxStatus
     | Token
-    | { iconUrl: string; iconName: string }
-    | null
-    | undefined;
+    | { iconUrl: string; iconName: string };
 }> = ({ headerInfo }) => {
   const intl = useIntl();
 

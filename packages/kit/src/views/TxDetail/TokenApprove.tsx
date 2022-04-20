@@ -13,11 +13,11 @@ import { IDappCallParams } from '../../background/IBackgroundApi';
 import HeaderIcon from './HeaderIcon';
 
 const TokenApprove: FC<{
-  tx: EVMDecodedItem | null;
+  tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
 }> = ({ tx, sourceInfo }) => {
   const intl = useIntl();
-  const info = tx?.info as EVMDecodedItemERC20Approve | null;
+  const info = tx.info as EVMDecodedItemERC20Approve;
 
   return (
     <Box
@@ -26,17 +26,17 @@ const TokenApprove: FC<{
       alignItems="center"
       mb={{ base: 4, md: 0 }}
     >
-      <HeaderIcon headerInfo={info?.token} />
+      <HeaderIcon headerInfo={info.token} />
 
       {/* Token Approval Details */}
       <Container.Box mt={6}>
         <Container.Item
           title={intl.formatMessage({ id: 'content__from' })}
-          describe={tx?.fromAddress}
+          describe={tx.fromAddress}
         />
         <Container.Item
           title={intl.formatMessage({ id: 'content__to' })}
-          describe={tx?.toAddress}
+          describe={tx.toAddress}
         />
         <Container.Item
           title={intl.formatMessage({ id: 'content__spend_limit_amount' })}
@@ -57,7 +57,7 @@ const TokenApprove: FC<{
       <Container.Box mt={6}>
         <Container.Item
           title={intl.formatMessage({ id: 'form__fee_estimated' })}
-          describe={tx ? `${tx.gasSpend} ${tx.symbol}` : ''}
+          describe={`${tx.gasSpend} ${tx.symbol}`}
           hasArrow
         />
       </Container.Box>
@@ -69,7 +69,7 @@ const TokenApprove: FC<{
       <Container.Box mt={6}>
         <Container.Item
           title={intl.formatMessage({ id: 'form__contract_data' })}
-          describe={tx?.data}
+          describe={tx.data}
           hasArrow
         />
       </Container.Box>
