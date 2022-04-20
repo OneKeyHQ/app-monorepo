@@ -104,7 +104,6 @@ const BackupShowMnemonicsView: FC = () => {
                 id: 'backup__manual_backup_warning_never_ask',
               })}`}
               alertType="SeriousWarning"
-              expand={false}
               dismiss={false}
             />
 

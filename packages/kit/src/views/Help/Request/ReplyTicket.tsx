@@ -211,6 +211,7 @@ export const ReplyTicket: FC = () => {
       }}
       primaryActionTranslationId="action__submit"
       scrollViewProps={{
+        height: '560px',
         children: (
           <Form>
             <Form.Item

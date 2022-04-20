@@ -31,7 +31,6 @@ const AlertGallery = () => (
 
     <Box margin="10px" w="384px">
       <Alert
-        expand={false}
         alertType="success"
         title="Warning"
         description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
