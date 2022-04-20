@@ -10,3 +10,7 @@ cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injecte
 
 # copy to Native injectedCode
 cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js   ./packages/kit/src/components/WebView/injectedNative.text-js
+
+# copy index html
+cp ./packages/shared/src/web/index.html.ejs ./packages/shared/src/web/index.html
+

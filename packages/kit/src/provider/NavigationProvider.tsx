@@ -15,11 +15,13 @@ const NavigationApp = () => {
   const linking = {
     prefixes: [prefix],
   };
-  const enableLinkingRoute =
-    platformEnv.isNative ||
-    platformEnv.isExtensionUiPopup ||
-    platformEnv.isExtensionUiStandaloneWindow ||
-    platformEnv.isDev;
+  let enableLinkingRoute =
+    platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
+  // firefox popup window resize issue
+  if (platformEnv.isExtensionUiPopup && platformEnv.isFirefox) {
+    enableLinkingRoute = false;
+  }
+
   const [bgColor, textColor, bgDefault] = useThemeValue([
     'surface-subdued',
     'text-default',
