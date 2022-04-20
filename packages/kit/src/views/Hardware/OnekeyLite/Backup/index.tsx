@@ -36,7 +36,9 @@ const Backup: FC = () => {
     useRoute<RouteProps>().params;
 
   const [pinRetryCount, setPinRetryCount] = useState('');
-  const [title] = useState('Onekey Lite');
+  const [title] = useState(
+    intl.formatMessage({ id: 'app__hardware_name_onekey_lite' }),
+  );
   const [actionPressStyle, setActionPressStyle] =
     useState<ButtonType>('primary');
   const [actionPressContent, setActionPressContent] = useState(

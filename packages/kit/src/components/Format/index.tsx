@@ -13,6 +13,8 @@ import { Token } from '../../store/typings';
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
   unit?: number;
+  /** 单位显示最大位数 */
+  unitMaxLength?: number;
   /** 保留小数位数 */
   fixed?: number;
   /** 是否完整显示，为 false 时抹零 */
@@ -80,10 +82,19 @@ export function formatBalanceDisplay(
   formatOptions?: FormatOptions,
 ) {
   const { unit, fixed, fullPrecision } = formatOptions || {};
+
+  let newUnit = suffix ? suffix.toUpperCase().trim() : undefined;
+
+  // Example: a data error causes the unit to be too long.
+  // If it's too long, just take the first 11 characters.
+  if (newUnit && newUnit.length > (formatOptions?.unitMaxLength ?? 20)) {
+    newUnit = `${newUnit.slice(0, formatOptions?.unitMaxLength ?? 11)}...`;
+  }
+
   if (isNil(balance)) {
     return {
       amount: undefined,
-      unit: suffix ? suffix.toUpperCase().trim() : undefined,
+      unit: newUnit,
     };
   }
   const amount = formatNumber(balance, {
@@ -94,7 +105,7 @@ export function formatBalanceDisplay(
 
   return {
     amount: amount || '0',
-    unit: suffix ? suffix.toUpperCase().trim() : undefined,
+    unit: newUnit,
   };
 }
 

@@ -12,6 +12,7 @@ import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
+import ContainerGallery from '@onekeyhq/kit/src/views/Components/stories/Container';
 import DappModalsGallery from '@onekeyhq/kit/src/views/Components/stories/DappModals';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
@@ -94,6 +95,7 @@ export enum StackRoutes {
   ComponentRestfulRequest = 'component/restful-request',
   ComponentImageViewer = 'component/imageViewer',
   ComponentEmojiList = 'component/EmojiList',
+  ComponentContentBox = 'component/ContentBox',
 }
 
 export type StackBasicRoutesParams = {
@@ -141,6 +143,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentRestfulRequest]: undefined;
   [StackRoutes.ComponentImageViewer]: undefined;
   [StackRoutes.ComponentEmojiList]: undefined;
+  [StackRoutes.ComponentContentBox]: undefined;
 };
 
 export const stackScreenList = [
@@ -200,6 +203,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentEmojiList,
     component: EmojiGallery,
+  },
+  {
+    name: StackRoutes.ComponentContentBox,
+    component: ContainerGallery,
   },
 ];
 

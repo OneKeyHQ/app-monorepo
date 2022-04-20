@@ -52,6 +52,7 @@ const Outer: FC<OuterContainerProps> = ({
 
   return (
     <Modal
+      avoidKeyboard
       backdropColor="rgba(0, 0, 0, 0.6)"
       animationOut="fadeOut"
       animationIn="fadeIn"
