@@ -12,6 +12,7 @@ export type RadioFeeItemProps = {
   titleSecond: string | React.ReactElement<any>;
   describe: string | React.ReactElement<any>;
   describeSecond: string | React.ReactElement<any>;
+  describeThird?: string | React.ReactElement<any>;
 } & RadioBoxProps;
 
 export type RadioFeeProps = {
@@ -55,6 +56,11 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
               color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
             >
               {item.describeSecond}
+            </Typography.Body2>
+            <Typography.Body2
+              color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+            >
+              {item.describeThird}
             </Typography.Body2>
           </Box>
         </RadioBox>,

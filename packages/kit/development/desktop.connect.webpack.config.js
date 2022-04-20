@@ -7,18 +7,18 @@ const RemovePlugin = require('remove-files-webpack-plugin');
 
 const path = require('path');
 
-const SRC = 'node_modules/@onekeyfe/connect';
+const SRC = 'node_modules/@onekeyfe/js-sdk';
 const DATA_SRC = `${SRC}/data`;
 
 // iframe is not in npm, so we have its template in suite-data
 const HTML_SRC = path.resolve(__dirname, 'iframe.html');
 
-const DIST = path.resolve(__dirname, '../../desktop/public/static', 'connect');
+const DIST = path.resolve(__dirname, '../../desktop/public/static', 'js-sdk');
 
 module.exports = {
   mode: 'production',
   entry: {
-    iframe: `./node_modules/@onekeyfe/connect/lib/iframe/iframe.js`,
+    iframe: `./node_modules/@onekeyfe/js-sdk/lib/iframe/iframe.js`,
   },
   output: {
     filename: 'js/[name].[hash].js',

@@ -8,7 +8,7 @@ import OneKeyConnect, {
   Features,
   TRANSPORT_EVENT,
   UI_EVENT,
-} from '@onekeyfe/connect';
+} from '@onekeyfe/js-sdk';
 
 import {
   Button,

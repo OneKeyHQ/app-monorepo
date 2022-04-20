@@ -56,7 +56,6 @@ const RestoreHardwareWalletModal: FC = () => {
           title={intl.formatMessage({
             id: 'alert_only_use_a_recovery_seed_from_device',
           })}
-          expand={false}
           dismiss={false}
         />
       </VStack>

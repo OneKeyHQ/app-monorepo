@@ -15,7 +15,7 @@ import OneKeyConnect, {
   EthereumAddress,
   EthereumTransaction,
   Features,
-} from '@onekeyfe/connect';
+} from '@onekeyfe/js-sdk';
 
 import { IMPL_EVM, SEPERATOR } from './constants';
 import {
