@@ -1667,17 +1667,17 @@
   dependencies:
     jsbi "^3.1.4"
 
+"@conflux-dev/conflux-address-js@^1.2.1", "@conflux-dev/conflux-address-js@^1.3.12", "@conflux-dev/conflux-address-js@^1.3.13":
+  version "1.3.13"
+  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
+  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
+  dependencies:
+    jsbi "^3.1.4"
+
 "@conflux-dev/conflux-address-js@^1.3.11":
   version "1.3.11"
   resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.11.tgz#d600bb3f3b111a3e122e05ab0cb06f54d235f056"
   integrity sha512-j8Gc4usgH3jvMDtJL7vImPyPn0NOJWLwhIURbHefw5g5dyCOjgmjVscTew3choeGlFX57CH3lYkvDl8kZffBUg==
-  dependencies:
-    jsbi "^3.1.4"
-
-"@conflux-dev/conflux-address-js@^1.3.13":
-  version "1.3.13"
-  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
-  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
   dependencies:
     jsbi "^3.1.4"
 
@@ -2932,6 +2932,13 @@
     webpack-manifest-plugin "~2.2.0"
     webpackbar "^4.0.0"
 
+"@findeth/abi@^0.3.0":
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/@findeth/abi/-/abi-0.3.1.tgz#fe9a25211bc0c840c8bc53f937fd9af7278b9dab"
+  integrity sha512-T9HUVEjEgM0MzVLY4gs52ffz5AlHeC3CSGFcEzL4ojKMVzMxa3na1GW/XCmunrhnWP2cDh4fE2MhqLxA0CHqTw==
+  dependencies:
+    keccak "^3.0.0"
+
 "@formatjs/ecma402-abstract@1.11.0":
   version "1.11.0"
   resolved "https://registry.yarnpkg.com/@formatjs/ecma402-abstract/-/ecma402-abstract-1.11.0.tgz#7e91e6cc7cfebdc07171e00a3288719705e0108c"
@@ -3620,14 +3627,13 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@^0.0.28":
-  version "0.0.28"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.28.tgz#ef705a87dd3f4350d21939893542bac3c5690970"
-  integrity sha512-n6/RtfFYHKvvjW9T2TcX/Q0mYi/Y5OCIDmnvpp/++fB0+Yrvqz0ZaEuftWBDQy/sBXanmUXVcbYI9O7A2DRNmw==
+"@onekeyfe/blockchain-libs@0.0.29":
+  version "0.0.29"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.29.tgz#e7e14f35b0a2fc99f914a8e8c6057bcb72f6e970"
+  integrity sha512-RtZrvlCkTfSPIyT6vurlg8Crx9YeommFegi9vYFbi1QCgEZ0RbZ9nxTO+NDH2XokNVtDqIl7OvmmF7dUAOfx3g==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@metamask/eth-sig-util" "^4.0.0"
-    "@onekeyfe/connect" "^8.7.5-extended"
     "@solana/spl-token" "^0.1.8"
     "@solana/web3.js" "^1.29.2"
     "@starcoin/starcoin" "^1.6.2"
@@ -3640,6 +3646,7 @@
     bitcoinjs-lib "^6.0.1"
     bitcoinjs-message "^2.2.0"
     bs58 "^4.0.1"
+    cip-23 "^0.2.0"
     cosmjs-types "^0.4.0"
     cross-fetch "^3.1.4"
     elliptic "^6.5.4"
@@ -3663,64 +3670,6 @@
     ripple-lib "1.8.2"
     tiny-worker "^2.3.0"
     ws "^7.4.0"
-
-"@onekeyfe/connect@8.7.0-extended":
-  version "8.7.0-extended"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/connect/-/connect-8.7.0-extended.tgz#4507776b48e94de970c462474dac43acb7b2ffac"
-  integrity sha512-4zVWEE/w24zUdcNR9YxYj0fBy5um5V2nOZGZLjYlkIpO3B4FbOfXAvj0bPi4c+VFJkj3MlxMOMtq1NZwGWOYUQ==
-  dependencies:
-    "@babel/runtime" "^7.12.5"
-    "@onekeyfe/blockchain-link" "1.0.19"
-    "@onekeyfe/link" "1.7.5"
-    "@onekeyfe/rollout" "1.0.6"
-    "@sentry/browser" "^6.4.0"
-    "@sentry/integrations" "^6.4.0"
-    "@sentry/tracing" "^6.4.0"
-    "@trezor/utxo-lib" "^0.1.2"
-    base58-js "^1.0.0"
-    bchaddrjs "0.4.9"
-    bignumber.js "^9.0.1"
-    bowser "^2.11.0"
-    eth-sig-util "3.0.1"
-    events "^3.2.0"
-    hd-wallet "9.1.0"
-    keccak "^3.0.1"
-    node-fetch "^2.6.1"
-    parse-uri "^1.0.3"
-    patch-package "^6.2.2"
-    postinstall-postinstall "^2.1.0"
-    tiny-worker "^2.3.0"
-    url-join "^4.0.1"
-    whatwg-fetch "^3.5.0"
-
-"@onekeyfe/connect@^8.7.5-extended":
-  version "8.7.5-extended"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/connect/-/connect-8.7.5-extended.tgz#f2c2e28528cc26cbedc9eed251261cf5592fa3d5"
-  integrity sha512-HpSl6QKoNcPw9LYfl0KSsUVl1zVY7UXMAHQ1sBXgIivgE85EQWRZzlm0qUHiVi5rM6cez3LyMqBgIHt0lhAq9A==
-  dependencies:
-    "@babel/runtime" "^7.12.5"
-    "@onekeyfe/blockchain-link" "1.0.19"
-    "@onekeyfe/link" "1.7.5"
-    "@onekeyfe/rollout" "1.0.6"
-    "@sentry/browser" "^6.4.0"
-    "@sentry/integrations" "^6.4.0"
-    "@sentry/tracing" "^6.4.0"
-    "@trezor/utxo-lib" "^0.1.2"
-    base58-js "^1.0.0"
-    bchaddrjs "0.4.9"
-    bignumber.js "^9.0.1"
-    bowser "^2.11.0"
-    eth-sig-util "3.0.1"
-    events "^3.2.0"
-    hd-wallet "9.1.0"
-    keccak "^3.0.1"
-    node-fetch "^2.6.1"
-    parse-uri "^1.0.3"
-    patch-package "^6.2.2"
-    postinstall-postinstall "^2.1.0"
-    tiny-worker "^2.3.0"
-    url-join "^4.0.1"
-    whatwg-fetch "^3.5.0"
 
 "@onekeyfe/cross-inpage-provider-core@^0.0.7":
   version "0.0.7"
@@ -3795,6 +3744,36 @@
     "@onekeyfe/cross-inpage-provider-types" "^0.0.7"
     "@onekeyfe/onekey-eth-provider" "^0.0.7"
     "@onekeyfe/onekey-private-provider" "^0.0.7"
+
+"@onekeyfe/js-sdk@1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/js-sdk/-/js-sdk-1.0.2.tgz#e591914e0bd364b0526d87ef512816e55f845fb7"
+  integrity sha512-nuh/bY7NN4N+1zwVUfT2Gpk3cYOBSJudsuxHqIetR/H6dg4iSjS3/2KcXtnTATL1BHmAG7sdKtuAJPBSIA8e2Q==
+  dependencies:
+    "@babel/runtime" "^7.12.5"
+    "@conflux-dev/conflux-address-js" "^1.3.12"
+    "@onekeyfe/blockchain-link" "1.0.19"
+    "@onekeyfe/link" "1.7.5"
+    "@onekeyfe/rollout" "1.0.6"
+    "@sentry/browser" "^6.4.0"
+    "@sentry/integrations" "^6.4.0"
+    "@sentry/tracing" "^6.4.0"
+    "@trezor/utxo-lib" "^0.1.2"
+    base58-js "^1.0.0"
+    bchaddrjs "0.4.9"
+    bignumber.js "^9.0.1"
+    bowser "^2.11.0"
+    eth-sig-util "3.0.1"
+    events "^3.2.0"
+    hd-wallet "9.1.0"
+    keccak "^3.0.1"
+    node-fetch "^2.6.1"
+    parse-uri "^1.0.3"
+    patch-package "^6.2.2"
+    postinstall-postinstall "^2.1.0"
+    tiny-worker "^2.3.0"
+    url-join "^4.0.1"
+    whatwg-fetch "^3.5.0"
 
 "@onekeyfe/link@1.7.5":
   version "1.7.5"
@@ -8708,6 +8687,16 @@ ci-info@^3.1.1, ci-info@^3.2.0:
   version "3.3.0"
   resolved "https://registry.yarnpkg.com/ci-info/-/ci-info-3.3.0.tgz#b4ed1fb6818dea4803a55c623041f9165d2066b2"
   integrity sha512-riT/3vI5YpVH6/qomlDnJow6TBee2PBKSEpx3O32EGPYbWGIRsIlGRms3Sm74wYE1JMo8RnO04Hb12+v1J5ICw==
+
+cip-23@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/cip-23/-/cip-23-0.2.0.tgz#b99c52e92a874cdf80c7202e3af803594b327853"
+  integrity sha512-+IFurloZF+Ud0ZGp1yGzvHYXrQbH/zATBHCwz9sUgelieDwdV+n9s+fWoWnUWjJx1OEbh6mKU2ZAvksedcDvyw==
+  dependencies:
+    "@conflux-dev/conflux-address-js" "^1.2.1"
+    "@findeth/abi" "^0.3.0"
+    keccak "^3.0.1"
+    superstruct "^0.10.12"
 
 cipher-base@^1.0.0, cipher-base@^1.0.1, cipher-base@^1.0.3:
   version "1.0.4"
@@ -22303,6 +22292,11 @@ superagent@^6.1.0:
     qs "^6.9.4"
     readable-stream "^3.6.0"
     semver "^7.3.2"
+
+superstruct@^0.10.12:
+  version "0.10.13"
+  resolved "https://registry.yarnpkg.com/superstruct/-/superstruct-0.10.13.tgz#705535a5598ff231bd976601a7b6b534a71a821b"
+  integrity sha512-W4SitSZ9MOyMPbHreoZVEneSZyPEeNGbdfJo/7FkJyRs/M3wQRFzq+t3S/NBwlrFSWdx1ONLjLb9pB+UKe4IqQ==
 
 superstruct@^0.14.2:
   version "0.14.2"

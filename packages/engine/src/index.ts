@@ -11,8 +11,8 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { Features } from '@onekeyfe/connect';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { Features } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import natsort from 'natsort';

@@ -4,8 +4,8 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@onekeyfe/connect": "8.7.0-extended",
     "@onekeyhq/components": "*",
+    "@onekeyfe/js-sdk": "1.0.2",
     "@reduxjs/toolkit": "^1.6.2",
     "date-fns": "^2.27.0",
     "expo": "^44.0.0",
