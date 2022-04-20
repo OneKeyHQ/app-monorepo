@@ -1197,6 +1197,7 @@ class IndexedDBApi implements DBAPI {
                       importedCredential.password,
                       Buffer.from(DEFAULT_VERIFY_STRING),
                     ).toString('hex');
+                    transaction.objectStore(CONTEXT_STORE_NAME).put(context);
                   }
                   wallet.nextAccountIds.global += 1;
                   walletStore.put(wallet);
