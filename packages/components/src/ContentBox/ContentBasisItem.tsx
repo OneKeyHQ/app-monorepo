@@ -1,11 +1,12 @@
 import React, { FC } from 'react';
 
+import { Center } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
 
 import Box from '../Box';
 import Divider from '../Divider';
 import Icon, { ICON_NAMES } from '../Icon';
-import Pressable from '../Pressable';
+import IconButton from '../IconButton';
 import PressableItem from '../Pressable/PressableItem';
 import Typography, { Text } from '../Typography';
 
@@ -93,17 +94,15 @@ const Item: FC<ContentItemProps> = ({
           subDescribe.length > 0 &&
           (subDescribe instanceof Array ? (
             subDescribe.map((describeItem, index) => (
-              <>
-                <Typography.Body2
-                  key={`subDescribe-${index}`}
-                  w="100%"
-                  flexWrap="wrap"
-                  color="text-subdued"
-                  textAlign="right"
-                >
-                  {describeItem}
-                </Typography.Body2>
-              </>
+              <Typography.Body2
+                key={`subDescribe-${index}`}
+                w="100%"
+                flexWrap="wrap"
+                color="text-subdued"
+                textAlign="right"
+              >
+                {describeItem}
+              </Typography.Body2>
             ))
           ) : (
             <Typography.Body2
@@ -126,12 +125,20 @@ const Item: FC<ContentItemProps> = ({
           </Box>
         )}
       </Box>
-      {(hasArrow || !!customArrowIconName) && (
-        <Pressable onPress={() => onArrowIconPress?.()}>
-          <Box ml={3}>
-            <Icon name={customArrowIconName ?? 'ChevronRightSolid'} size={20} />
-          </Box>
-        </Pressable>
+      {(hasArrow || !!customArrowIconName) && onArrowIconPress ? (
+        <Center my={-1} ml={2} mr={-1}>
+          <IconButton
+            size="xs"
+            circle
+            name={customArrowIconName ?? 'ChevronRightSolid'}
+            type="plain"
+            onPress={onArrowIconPress}
+          />
+        </Center>
+      ) : (
+        <Box ml={3}>
+          <Icon name={customArrowIconName ?? 'ChevronRightSolid'} size={20} />
+        </Box>
       )}
     </Box>
     {hasDivider && <Divider />}
