@@ -69,6 +69,8 @@ interface EVMDecodedItem {
   gasPrice: string;
   maxPriorityFeePerGas: string;
   maxFeePerGas: string;
+  gasSpend: string; // in ether
+  data: string;
 
   contractCallInfo?: {
     contractAddress: string;
@@ -91,6 +93,7 @@ class EVMTxDecoder {
     const networkId = `evm--${tx.chainId}`;
     itemBuilder.symbol = (await engine.getNetwork(networkId)).symbol;
     itemBuilder.amount = ethers.utils.formatEther(tx.value);
+    itemBuilder.gasSpend = this.parseGasSpend(tx);
 
     this.fillTxInfo(itemBuilder, tx);
 
@@ -203,6 +206,7 @@ class EVMTxDecoder {
     itemBuilder.maxPriorityFeePerGas =
       tx.maxPriorityFeePerGas?.toString() ?? '';
     itemBuilder.maxFeePerGas = tx.maxFeePerGas?.toString() ?? '';
+    itemBuilder.data = tx.data;
   }
 
   private static formatValue(
@@ -213,6 +217,13 @@ class EVMTxDecoder {
       return InfiniteAmountText;
     }
     return ethers.utils.formatUnits(value, decimals) ?? '';
+  }
+
+  private static parseGasSpend(tx: ethers.Transaction): string {
+    const { gasLimit, gasPrice, maxFeePerGas } = tx;
+    const priceInWei = gasPrice || maxFeePerGas || ethers.constants.Zero;
+    const gasSpendInWei = gasLimit.mul(priceInWei);
+    return ethers.utils.formatEther(gasSpendInWei);
   }
 
   private static parseERC20(
