@@ -41,4 +41,4 @@ type HistoryEntryMeta = HistoryEntryTransactionMeta | HistoryEntryMessageMeta;
 type HistoryEntry = HistoryEntryTransaction | HistoryEntryMessage;
 
 export { HistoryEntryType, HistoryEntryStatus };
-export type { HistoryEntry, HistoryEntryMeta };
+export type { HistoryEntry, HistoryEntryMeta, HistoryEntryTransaction };
