@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,22 +10,17 @@ import {
   Form,
   Icon,
   Input,
-  KeyboardAvoidingView,
   KeyboardDismissView,
+  Pressable,
   Typography,
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import { unlock as mUnlock } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
-
-type UnlockButtonProps = {
-  onOk?: (passowrd: string) => void;
-};
 
 type FieldValues = { password: string };
 
@@ -39,13 +34,17 @@ const ForgetPasswordButton = () => {
   }, []);
   return (
     <>
-      <Button
-        rightIconName="ArrowNarrowRightSolid"
-        type="plain"
-        onPress={() => setVisible(true)}
-      >
-        {intl.formatMessage({ id: 'action__forget_password' })}
-      </Button>
+      <Box justifyContent="center" alignItems="center" pb="10">
+        <Typography.Body2 color="text-subdued" mb="5 ">
+          {intl.formatMessage({ id: 'action__forget_password' })}
+        </Typography.Body2>
+        <Pressable onPress={() => setVisible(true)} flexDirection="row">
+          <Typography.Body1Strong color="interactive-default" mr="2">
+            {intl.formatMessage({ id: 'form__reset_app' })}
+          </Typography.Body1Strong>
+          <Icon color="interactive-default" name="ArrowNarrowRightSolid" />
+        </Pressable>
+      </Box>
       <Dialog
         hasFormInsideDialog
         visible={visible}
@@ -83,16 +82,6 @@ const ForgetPasswordButton = () => {
     </>
   );
 };
-
-const UnlockButton: FC<UnlockButtonProps> = ({ onOk }) => (
-  <Box pb="4">
-    {platformEnv.isExtension ? (
-      <ForgetPasswordButton />
-    ) : (
-      <LocalAuthenticationButton onOk={onOk} />
-    )}
-  </Box>
-);
 
 const Unlock = () => {
   const intl = useIntl();
@@ -142,6 +131,7 @@ const Unlock = () => {
           flexDirection="column"
           alignItems="center"
           justifyContent={justifyContent}
+          position="relative"
         >
           <Box width="full" py={py}>
             <Box display="flex" flexDirection="column" alignItems="center">
@@ -181,12 +171,13 @@ const Unlock = () => {
                 })}
               </Button>
             </Form>
+            <Center mt="8">
+              <LocalAuthenticationButton onOk={onOk} />
+            </Center>
           </Box>
-          {isSmall ? (
-            <KeyboardAvoidingView>
-              <UnlockButton onOk={onOk} />
-            </KeyboardAvoidingView>
-          ) : undefined}
+          <Center position={isSmall ? 'relative' : 'absolute'} bottom="0">
+            <ForgetPasswordButton />
+          </Center>
         </Box>
       </Center>
     </KeyboardDismissView>

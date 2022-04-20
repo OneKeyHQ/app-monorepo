@@ -55,8 +55,6 @@ const Container: FC = ({ children }) => {
 
 const App = () => {
   const intl = useIntl();
-  const { dispatch } = backgroundApiProxy;
-
   useEffect(() => {
     if (Platform.OS === 'ios') {
       KeyboardManager.setEnable(true);
@@ -72,27 +70,6 @@ const App = () => {
       KeyboardManager.setShouldPlayInputClicks(true);
     }
   }, [intl]);
-
-  useEffect(() => {
-    if (platformEnv.isNative) {
-      LocalAuthentication.supportedAuthenticationTypesAsync().then((types) => {
-        // OPPO phone return [1,2]
-        // iphone 11 return [2]
-        // The fingerprint identification is preferred (android)
-        if (
-          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
-        ) {
-          dispatch(setAuthenticationType('FINGERPRINT'));
-        } else if (
-          types.includes(
-            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
-          )
-        ) {
-          dispatch(setAuthenticationType('FACIAL'));
-        }
-      });
-    }
-  }, [dispatch]);
 
   return (
     <Container>
@@ -124,6 +101,27 @@ const RootStackNavigator = () => {
         }),
       );
   }, [dispatch, hasVersionSet, versionChanged]);
+
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      LocalAuthentication.supportedAuthenticationTypesAsync().then((types) => {
+        // OPPO phone return [1,2]
+        // iphone 11 return [2]
+        // The fingerprint identification is preferred (android)
+        if (
+          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+        ) {
+          dispatch(setAuthenticationType('FINGERPRINT'));
+        } else if (
+          types.includes(
+            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+          )
+        ) {
+          dispatch(setAuthenticationType('FACIAL'));
+        }
+      });
+    }
+  }, [dispatch]);
 
   return boardingCompleted ? <App /> : <OnboardingScreen />;
 };
