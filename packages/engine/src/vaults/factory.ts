@@ -36,7 +36,9 @@ export function createVaultHelperInstance(
 
 export async function createKeyringInstance(vault: VaultBase) {
   const { accountId } = vault;
+
   let keyring: KeyringBase | null = null;
+
   // TODO dbAccount type: "simple"
   if (accountId.startsWith('hd-')) {
     keyring = new vault.keyringMap.hd(vault);
@@ -44,7 +46,7 @@ export async function createKeyringInstance(vault: VaultBase) {
   if (accountId.startsWith('hw-')) {
     keyring = new vault.keyringMap.hw(vault);
   }
-  if (accountId.startsWith('watching-')) {
+  if (!accountId || accountId.startsWith('watching-')) {
     keyring = new vault.keyringMap.watching(vault);
   }
   if (accountId.startsWith('imported-')) {
