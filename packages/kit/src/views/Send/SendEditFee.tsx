@@ -63,15 +63,15 @@ type NavigationProps = NativeStackNavigationProp<
 export function FeeSpeedLabel({ index }: { index: number | string }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
-  let title = intl.formatMessage({ id: 'content__normal' });
+  let title = `🚗️ ${intl.formatMessage({ id: 'content__normal' })}`;
   if (indexInt === 0) {
-    title = intl.formatMessage({ id: 'content__slow' });
+    title = `🛴 ${intl.formatMessage({ id: 'content__slow' })}`;
   }
   if (indexInt === 1) {
-    title = intl.formatMessage({ id: 'content__normal' });
+    title = `🚗️ ${intl.formatMessage({ id: 'content__normal' })}`;
   }
   if (indexInt === 2) {
-    title = intl.formatMessage({ id: 'content__fast' });
+    title = `🚀 ${intl.formatMessage({ id: 'content__fast' })}`;
   }
   return <>{title}</>;
 }
@@ -238,13 +238,51 @@ const StandardFee = ({
     const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
     if (isEIP1559Fee) {
       return gasList.map((gas, index) => {
-        const gasInfo = gas as EIP1559Fee;
+        // const gasInfo = gas as EIP1559Fee;
+        const { min, max } = calculateTotalFeeRange({
+          eip1559: true,
+          limit: feeInfoPayload?.info?.limit,
+          price: gas,
+        });
+        const minFee = min;
+        const totalFee = max;
+        const totalFeeNative = calculateTotalFeeNative({
+          amount: totalFee,
+          info: feeInfoPayload?.info,
+        });
+
+        const minFeeNative = calculateTotalFeeNative({
+          amount: minFee,
+          info: feeInfoPayload?.info,
+        });
+
         return {
           value: index.toString(),
           title: <FeeSpeedLabel index={index} />,
-          titleSecond: `Base: ${gasInfo.baseFee}`,
-          describe: `${gasInfo.maxFeePerGas} ${feeSymbol}`,
-          describeSecond: `Max Priority: ${gasInfo.maxPriorityFeePerGas} ${feeSymbol}`,
+          titleSecond: ``,
+          describe: (
+            <FormatCurrencyNative
+              value={minFeeNative}
+              render={(ele) => (
+                <Typography.Body2 mt={1} color="text-subdued">
+                  ~ {!minFeeNative ? '-' : ele}
+                </Typography.Body2>
+              )}
+            />
+          ),
+          describeSecond: (
+            <FormatCurrencyNative
+              value={totalFeeNative}
+              render={(ele) => (
+                <Typography.Body2 mt={1} color="text-subdued">
+                  Max Fee: {!totalFeeNative ? '-' : ele}
+                </Typography.Body2>
+              )}
+            />
+          ),
+          describeThird: `${totalFeeNative}${
+            feeInfoPayload.info.nativeSymbol ?? ''
+          }`,
         };
       });
     }
