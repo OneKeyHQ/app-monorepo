@@ -118,6 +118,7 @@ const TransactionConfirm = () => {
           contract: payload.token?.idOnNetwork || '',
           target: payload.to,
           value: payload.value,
+          // TODO add ref
           rawTx: tx.rawTx,
         },
       });
