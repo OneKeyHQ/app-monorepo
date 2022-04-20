@@ -70,7 +70,10 @@ module.exports = {
     'gatekeeperAssess': false,
     'darkModeSupport': false,
     'category': 'productivity',
-    'target': [{ target: 'dmg', arch: ['x64', 'arm64'] }, { target: 'zip', arch: ['x64', 'arm64'] }],
+    'target': [
+      { target: 'dmg', arch: ['x64', 'arm64'] },
+      { target: 'zip', arch: ['x64', 'arm64'] },
+    ],
   },
   'win': {
     'extraResources': [
