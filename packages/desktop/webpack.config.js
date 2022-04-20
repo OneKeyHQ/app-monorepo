@@ -3,12 +3,16 @@ const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
 const webpackTools = require('../../development/webpackTools');
 
 console.log('============ webpack.version ', webpack.version);
+const platform = webpackTools.developmentConsts.platforms.desktop;
 
 module.exports = async function (env, argv) {
+  // eslint-disable-next-line no-param-reassign
+  env = await webpackTools.modifyExpoEnv({ env, platform });
   let config = await createWebpackConfigAsync(env, argv);
   config = webpackTools.normalizeConfig({
-    platform: webpackTools.developmentConsts.platforms.desktop,
+    platform,
     config,
+    env,
   });
   return config;
 };

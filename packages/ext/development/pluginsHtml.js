@@ -1,18 +1,43 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
+const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
+const lodash = require('lodash');
+const indexHtmlParameter = require('../../../development/indexHtmlParameter');
+const developmentConsts = require('../../../development/developmentConsts');
+const devUtils = require('./devUtils');
 
+const platform = developmentConsts.platforms.ext;
+
+// https://github.com/facebook/create-react-app/blob/main/packages/react-dev-utils/InterpolateHtmlPlugin.js
 function createHtmlPlugin({ name }) {
-  return new HtmlWebpackPlugin({
-    // MUST BE .shtml different with withExpo() builtin .html
-    template: path.join(__dirname, `../src/entry/ui.shtml`),
-    filename: `${name}.html`,
+  const filename = `${name}.html`;
+  const htmlLoader = `!!ejs-loader?esModule=false!`;
+  const createParamsOptions = {
+    filename,
+    platform,
+    browser: devUtils.getBuildTargetBrowser(),
+  };
+  const htmlWebpackPlugin = new HtmlWebpackPlugin({
+    // MUST BE .shtml different with withExpo() builtin .html loader
+    template: `${htmlLoader}${path.join(
+      __dirname,
+      `../../shared/src/web/index.html.ejs`,
+    )}`,
+    templateParameters: indexHtmlParameter.createEjsParams(createParamsOptions),
+    // output filename
+    filename,
     chunks: [name],
     cache: false,
     hash: true,
   });
+  const interpolateHtmlPlugin = new InterpolateHtmlPlugin(
+    HtmlWebpackPlugin,
+    indexHtmlParameter.createInterpolateParams(createParamsOptions),
+  );
+  return [htmlWebpackPlugin, interpolateHtmlPlugin];
 }
 
-const uiHtml = [
+let uiHtml = [
   'ui-popup', // main ui
   'ui-expand-tab',
   'ui-standalone-window',
@@ -22,8 +47,10 @@ const uiHtml = [
   // 'ui-devtools',
   // 'ui-devtools-panel',
 ].map((name) => createHtmlPlugin({ name }));
+uiHtml = lodash.flatten(uiHtml);
 
-const backgroundHtml = ['background'].map((name) => createHtmlPlugin({ name }));
+let backgroundHtml = ['background'].map((name) => createHtmlPlugin({ name }));
+backgroundHtml = lodash.flatten(backgroundHtml);
 
 module.exports = {
   uiHtml,
