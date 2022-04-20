@@ -1213,6 +1213,11 @@ class IndexedDBApi implements DBAPI {
                 return;
             }
 
+            if (addingImported) {
+              // wallet and account should be updated/added if password check passed.
+              return;
+            }
+
             walletStore.put(wallet);
             transaction.objectStore(ACCOUNT_STORE_NAME).add(account).onsuccess =
               (_aevent) => {
