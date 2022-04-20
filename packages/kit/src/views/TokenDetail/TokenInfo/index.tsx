@@ -30,6 +30,8 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { SendRoutes } from '../../Send/types';
+
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
 export type TokenInfoProps = {
@@ -42,11 +44,9 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
-  const { accountTokensMap, prices } = useManageTokens();
-  const amount = accountTokensMap.get(
-    token?.tokenIdOnNetwork ?? 'main',
-  )?.balance;
+  const { prices, balances } = useManageTokens();
   const tokenPrice = prices[token?.tokenIdOnNetwork ?? 'main'];
+  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -96,6 +96,17 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
           minW={{ base: '126px', md: 'auto' }}
           isDisabled={wallet?.type === 'watching'}
           type="basic"
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
+              params: {
+                screen: SendRoutes.Send,
+                params: {
+                  token: token as TokenDO,
+                },
+              },
+            });
+          }}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
@@ -132,7 +143,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         )}
       </Box>
     ),
-    [intl, isVertical, wallet?.type, account, navigation],
+    [isVertical, wallet?.type, intl, navigation, token, account],
   );
 
   return useMemo(

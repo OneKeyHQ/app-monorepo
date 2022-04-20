@@ -10,6 +10,7 @@ import { DBAccount } from '../../../types/account';
 import {
   IApproveInfo,
   IEncodedTxAny,
+  IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
@@ -107,5 +108,13 @@ export default class Vault extends VaultBase {
       fillUnsignedTx(network, dbAccount, to, valueBN, token, extraCombined),
     );
     return this.signAndSendTransaction(unsignedTx, options);
+  }
+
+  async updateEncodedTx(
+    encodedTx: IEncodedTxAny,
+    payload: any,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTxAny> {
+    throw new Error('Method not implemented.');
   }
 }

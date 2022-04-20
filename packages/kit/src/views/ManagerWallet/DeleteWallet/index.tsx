@@ -67,16 +67,18 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
                 await serviceAccount.autoChangeWallet();
               }
               dispatch(setRefreshTS());
-              toast.info(
-                intl.formatMessage(
+              toast.show({
+                title: intl.formatMessage(
                   { id: 'msg__wallet_deleted' },
                   { 0: wallet.name },
                 ),
-              );
+              });
               onClose?.();
             })
             .catch((e) => {
-              toast.info(intl.formatMessage({ id: 'msg__unknown_error' }));
+              toast.show({
+                title: intl.formatMessage({ id: 'msg__unknown_error' }),
+              });
               console.log(e);
             })
             .finally(() => {

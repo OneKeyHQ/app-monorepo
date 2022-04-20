@@ -9,11 +9,12 @@ import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
-import Icon from '../Icon';
 import IconButton from '../IconButton';
 import Stack from '../Stack';
 import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';
+
+import { FormErrorMessage } from './FormErrorMessage';
 
 type InternalActionList = 'paste';
 
@@ -105,19 +106,8 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
               </Typography.Body2>
             </FormControl.HelperText>
           ) : null}
-          {error ? (
-            <Box display="flex" flexDirection="row" mt="2">
-              <Box mr="2">
-                <Icon
-                  size={20}
-                  name="ExclamationCircleSolid"
-                  color="icon-critical"
-                />
-              </Box>
-              <Typography.Body2 color="text-critical">
-                {error?.message}
-              </Typography.Body2>
-            </Box>
+          {error && error?.message ? (
+            <FormErrorMessage message={error?.message} />
           ) : null}
         </FormControl>
       )}

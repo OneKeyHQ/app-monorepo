@@ -13,6 +13,8 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
 import { useDrawer, useToast } from '../../../hooks';
+import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
+import { savePassword } from '../../../utils/localAuthentication';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -24,10 +26,16 @@ type DoneProps = {
   privatekey: string;
   name: string;
   networkId: string;
+  withEnableAuthentication?: boolean;
 };
 
-const Done: FC<DoneProps> = ({ privatekey, name, networkId, password }) => {
-  const { serviceAccount } = backgroundApiProxy;
+const Done: FC<DoneProps> = ({
+  privatekey,
+  name,
+  networkId,
+  password,
+  withEnableAuthentication,
+}) => {
   const intl = useIntl();
   const toast = useToast();
   const { closeDrawer } = useDrawer();
@@ -35,21 +43,25 @@ const Done: FC<DoneProps> = ({ privatekey, name, networkId, password }) => {
   useEffect(() => {
     async function main() {
       try {
-        await serviceAccount.addImportedAccount(
+        await backgroundApiProxy.serviceAccount.addImportedAccount(
           password,
           networkId,
           privatekey,
           name,
         );
-        closeDrawer();
-        const inst = navigation.getParent() || navigation;
-        inst.goBack();
+        if (withEnableAuthentication) {
+          backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
+          await savePassword(password);
+        }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
           title: intl.formatMessage({ id: errorKey }),
         });
       }
+      closeDrawer();
+      const inst = navigation.getParent() || navigation;
+      inst.goBack();
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,8 +79,9 @@ export const AddImportedAccountDone = () => {
   return (
     <Modal footer={null}>
       <Protected skipSavePassword>
-        {(password) => (
+        {(password, { withEnableAuthentication }) => (
           <Done
+            withEnableAuthentication={withEnableAuthentication}
             privatekey={privatekey}
             name={name}
             networkId={networkId}

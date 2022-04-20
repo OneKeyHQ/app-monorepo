@@ -13,7 +13,11 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useActiveWalletAccount } from '../../hooks/redux';
+import { setHaptics } from '../../hooks/setHaptics';
+import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { useToast } from '../../hooks/useToast';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
@@ -30,10 +34,12 @@ const ReceiveToken = () => {
 
   const { address, name } = route.params;
   const isSmallScreen = useIsVerticalLayout();
+  const { network, account } = useActiveWalletAccount();
+  const openBlockBrowser = useOpenBlockBrowser(network);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(address);
-    toast.info(intl.formatMessage({ id: 'msg__address_copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
   }, [toast, address, intl]);
 
   return (
@@ -96,12 +102,25 @@ const ReceiveToken = () => {
                   type="plain"
                   size="xl"
                   leftIconName="DuplicateSolid"
-                  onPress={copyAddressToClipboard}
+                  onPress={() => {
+                    setHaptics();
+                    copyAddressToClipboard();
+                  }}
                 >
                   {intl.formatMessage({
                     id: 'action__copy_address',
                   })}
                 </Button>
+                {platformEnv.isDev && (
+                  <Button
+                    size="xs"
+                    onPress={() =>
+                      openBlockBrowser.openAddressDetails(account?.address)
+                    }
+                  >
+                    BlockBrowser
+                  </Button>
+                )}
               </Box>
             </Box>
           ),

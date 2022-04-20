@@ -1,3 +1,4 @@
+import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   IBroadcastedTx,
   IFeeInfoSelected,
@@ -8,14 +9,28 @@ import { IDappCallParams } from '../../background/IBackgroundApi';
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
-  SendConfirmRedirect = 'SendConfirmRedirect',
+  SendConfirmFromDapp = 'SendConfirmFromDapp',
   SendEditFee = 'SendEditFee',
+  TokenApproveAmountEdit = 'TokenApproveAmountEdit',
   SendAuthentication = 'SendAuthentication',
 }
+
+export type TokenApproveAmountEditParams = {
+  tokenApproveAmount: string;
+  isMaxAmount: boolean;
+  sourceInfo?: IDappCallParams | undefined;
+  encodedTx?: any;
+  decodedTx?: any;
+};
+
 export type EditFeeParams = {
   encodedTx?: any;
   feeInfoSelected?: IFeeInfoSelected;
   backRouteName?: keyof SendRoutesParams;
+};
+
+export type SendParams = EditFeeParams & {
+  token?: Token;
 };
 
 export type TransferSendParamsPayload = {
@@ -30,34 +45,37 @@ export type TransferSendParamsPayload = {
     name: string;
   };
   value: string;
+  isMax: boolean;
   token: {
     idOnNetwork: string;
     logoURI: string;
     name: string;
     symbol: string;
+    balance?: string;
   };
 };
 
-export type SendConfirmRedirectParams = {
+export type SendConfirmFromDappParams = {
   query?: string;
 };
 
-export type SendParams = EditFeeParams & {
+export type SendConfirmParams = EditFeeParams & {
   payloadType?: string;
   payload?: TransferSendParamsPayload | any;
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
 };
 
-export type SendAuthenticationParams = SendParams & {
+export type SendAuthenticationParams = SendConfirmParams & {
   accountId: string;
   networkId: string;
 };
 
 export type SendRoutesParams = {
-  [SendRoutes.Send]: EditFeeParams;
+  [SendRoutes.Send]: SendParams;
   [SendRoutes.SendEditFee]: EditFeeParams;
-  [SendRoutes.SendConfirm]: SendParams;
-  [SendRoutes.SendConfirmRedirect]: SendConfirmRedirectParams;
+  [SendRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
+  [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
+  [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
 };

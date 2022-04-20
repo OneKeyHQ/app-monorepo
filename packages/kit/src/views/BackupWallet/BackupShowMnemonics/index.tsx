@@ -13,6 +13,7 @@ import {
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 
@@ -51,7 +52,7 @@ const BackupShowMnemonicsView: FC = () => {
 
   const copyContentToClipboard = useCallback(() => {
     copyToClipboard(mnemonic);
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   }, [toast, mnemonic, intl]);
 
   const mnemonicArray = useMemo(() => mnemonic.split(' '), [mnemonic]);
@@ -137,6 +138,7 @@ const BackupShowMnemonicsView: FC = () => {
 
             <Button
               onPress={() => {
+                setHaptics();
                 copyContentToClipboard();
               }}
               type="plain"

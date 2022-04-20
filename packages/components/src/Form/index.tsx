@@ -1,3 +1,5 @@
+import { NumberInput } from '../NumberInput';
+
 import { Form as BaseForm } from './Form';
 import { FormCheckBox } from './FormCheckBox';
 import { FormInput } from './FormInput';
@@ -14,6 +16,7 @@ import { FormTextarea } from './FormTextarea';
 const Base: any = BaseForm;
 Base.Item = FormItem;
 Base.Input = FormInput;
+Base.NumberInput = NumberInput;
 Base.Textarea = FormTextarea;
 Base.CheckBox = FormCheckBox;
 Base.Switch = FormSwitch;
@@ -25,6 +28,7 @@ Base.PasswordInput = FormPasswordInput;
 type IFormComponentType = typeof BaseForm & {
   Item: typeof FormItem;
   Input: typeof FormInput;
+  NumberInput: typeof NumberInput;
   Textarea: typeof FormTextarea;
   CheckBox: typeof FormCheckBox;
   Switch: typeof FormSwitch;

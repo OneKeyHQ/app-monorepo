@@ -14,7 +14,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
-import { setSupportFaceId } from '@onekeyhq/kit/src/store/reducers/status';
+import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ModalStackNavigator from '../Modal';
@@ -76,13 +76,19 @@ const App = () => {
   useEffect(() => {
     if (platformEnv.isNative) {
       LocalAuthentication.supportedAuthenticationTypesAsync().then((types) => {
+        // OPPO phone return [1,2]
+        // iphone 11 return [2]
+        // The fingerprint identification is preferred (android)
         if (
+          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+        ) {
+          dispatch(setAuthenticationType('FINGERPRINT'));
+        } else if (
           types.includes(
             LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
-          ) ||
-          types.includes(LocalAuthentication.AuthenticationType.IRIS)
+          )
         ) {
-          dispatch(setSupportFaceId());
+          dispatch(setAuthenticationType('FACIAL'));
         }
       });
     }

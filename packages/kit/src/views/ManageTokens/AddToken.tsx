@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,8 +16,8 @@ import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useManageTokens, useToast } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import { useToast } from '../../hooks/useToast';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -37,7 +37,7 @@ type ListItem = { label: string; value: string };
 
 export type IViewTokenModalProps = ModalProps;
 function ViewTokenModal(props: IViewTokenModalProps) {
-  const [balance, setBalance] = useState<string | undefined>();
+  const { balances } = useManageTokens();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const intl = useIntl();
@@ -75,28 +75,21 @@ function ViewTokenModal(props: IViewTokenModalProps) {
         value: String(decimal),
       },
     ];
-    if (balance) {
+    if (balances[address]) {
       data.push({
         label: intl.formatMessage({
           id: 'content__balance',
           defaultMessage: 'Balance',
         }),
-        value: balance,
+        value: balances[address] ?? '0',
       });
     }
     return data;
-  }, [name, symbol, address, decimal, balance, intl]);
+  }, [name, symbol, address, decimal, balances, intl]);
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {
-        const res = await backgroundApiProxy.engine.preAddToken(
-          activeAccount?.id,
-          activeNetwork.id,
-          address,
-        );
-        if (res?.[0]) {
-          setBalance(res?.[0].toString());
-        }
+        await backgroundApiProxy.serviceToken.fetchTokenBalance([address]);
       }
     }
     fetchBalance();
@@ -105,8 +98,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
     <Modal
       header={symbol}
       height="560px"
-      hideSecondaryAction
-      hidePrimaryAction
+      footer={null}
       scrollViewProps={{
         children: (
           <KeyboardDismissView>
@@ -179,7 +171,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
 }
 
 function AddTokenModal() {
-  const { info } = useToast();
+  const toast = useToast();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
@@ -196,17 +188,17 @@ function AddTokenModal() {
         activeNetwork.id,
         address,
       );
-      info(
-        intl.formatMessage({
+      toast.show({
+        title: intl.formatMessage({
           id: 'msg__token_added',
           defaultMessage: 'Token Added',
         }),
-      );
+      });
       if (navigation.canGoBack()) {
         navigation.goBack();
       }
     }
-  }, [intl, activeAccount, navigation, activeNetwork, info, address]);
+  }, [intl, activeAccount, navigation, activeNetwork, toast, address]);
 
   return (
     <ViewTokenModal
@@ -214,7 +206,8 @@ function AddTokenModal() {
         id: 'title__add_token',
         defaultMessage: 'Add Token',
       })}
-      hidePrimaryAction={false}
+      footer
+      hideSecondaryAction
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         onPromise: onPrimaryActionPress,

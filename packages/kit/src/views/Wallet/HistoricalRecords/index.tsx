@@ -154,44 +154,54 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       // Warning: Each child in a list should have a unique "key" prop.
       <Box key="header">
         <Box>{headerView}</Box>
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          pb={3}
-        >
-          <Typography.Heading>
-            {intl.formatMessage({ id: 'transaction__history' })}
-          </Typography.Heading>
-          <Box flexDirection="row">
-            <IconButton
-              onPress={() => {
-                refreshData();
-              }}
-              isLoading={isLoading}
-              p={2}
-              size="sm"
-              name="RefreshSolid"
-              type="plain"
-              circle
-            />
+        {Boolean(transactionRecords.length) && (
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            pb={3}
+          >
+            <Typography.Heading>
+              {intl.formatMessage({ id: 'transaction__history' })}
+            </Typography.Heading>
+            <Box flexDirection="row">
+              <IconButton
+                onPress={() => {
+                  refreshData();
+                }}
+                isLoading={isLoading}
+                p={2}
+                size="sm"
+                name="RefreshSolid"
+                type="plain"
+                circle
+              />
 
-            <IconButton
-              onPress={() => {
-                openBlockBrowser.openAddressDetails(account?.address);
-              }}
-              ml={3}
-              p={2}
-              size="sm"
-              name="ExternalLinkSolid"
-              type="plain"
-              circle
-            />
+              <IconButton
+                onPress={() => {
+                  openBlockBrowser.openAddressDetails(account?.address);
+                }}
+                ml={3}
+                p={2}
+                size="sm"
+                name="ExternalLinkSolid"
+                type="plain"
+                circle
+              />
+            </Box>
           </Box>
-        </Box>
+        )}
       </Box>
     ),
-    [account, headerView, intl, isLoading, openBlockBrowser, refreshData],
+    [
+      account?.address,
+      headerView,
+      intl,
+      isLoading,
+      openBlockBrowser,
+      refreshData,
+      transactionRecords.length,
+    ],
   );
 
   const renderEmpty = () => (
@@ -227,7 +237,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     extraData: { isLoading },
     renderItem,
     renderSectionHeader,
-    ListHeaderComponent: transactionRecords.length ? header : null,
+    ListHeaderComponent: header,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box key="footer" h="20px" />,
     ItemSeparatorComponent: () => <Divider key="separator" />,

@@ -12,7 +12,9 @@ const Portfolio = () => {
   const { themeVariant } = useTheme();
   const { locale } = useLocale();
   // const url = `https://portfolio.test.onekey.so/?theme=${themeVariant}&locale=${locale}`;
-  const url = `https://metamask.github.io/test-dapp/`;
+  // const url = `https://metamask.github.io/test-dapp/`;
+  // const url = `https://swap.onekey.so/?utm_source=onekey#/swap`;
+  const url = `https://app.uniswap.org/#/swap?chain=mainnet`;
   const [offline, setOffline] = useState(false);
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {

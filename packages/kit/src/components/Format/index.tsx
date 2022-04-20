@@ -8,7 +8,7 @@ import { Text } from 'react-native';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import { useManageTokens } from '../../hooks';
-import { ValuedToken } from '../../store/typings';
+import { Token } from '../../store/typings';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
@@ -182,7 +182,7 @@ export const FormatCurrency: FC<{
 };
 
 export const FormatCurrencyToken: FC<{
-  token?: ValuedToken | null;
+  token?: Token | null;
   value: BigNumber.Value | string | undefined;
   formatOptions?: FormatOptions;
   render: (c: JSX.Element) => JSX.Element;

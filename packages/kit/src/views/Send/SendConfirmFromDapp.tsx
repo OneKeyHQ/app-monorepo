@@ -12,12 +12,13 @@ import { SendRoutes, SendRoutesParams } from './types';
 
 type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
-function SendConfirmRedirect() {
+function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
   // @ts-ignore
   const { sourceInfo, encodedTx } = useDappParams();
   useEffect(() => {
     navigation.dispatch(
+      // replace router to SendConfirm
       StackActions.replace(SendRoutes.SendConfirm, {
         sourceInfo,
         encodedTx,
@@ -28,4 +29,4 @@ function SendConfirmRedirect() {
   return null;
 }
 
-export { SendConfirmRedirect };
+export { SendConfirmFromDapp };

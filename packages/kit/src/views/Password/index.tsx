@@ -12,11 +12,17 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import { useLocalAuthentication, useToast } from '../../hooks';
-import { useAppDispatch, useData, useSettings } from '../../hooks/redux';
+import {
+  useAppDispatch,
+  useData,
+  useSettings,
+  useStatus,
+} from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import { savePassword } from '../../utils/localAuthentication';
 
@@ -120,6 +126,7 @@ type PasswordsFieldValues = {
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
   const toast = useToast();
+  const { authenticationType } = useStatus();
   const { enableLocalAuthentication } = useSettings();
   const { isOk } = useLocalAuthentication();
   const dispatch = useAppDispatch();
@@ -133,12 +140,23 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
     watch,
     formState: { isValid },
   } = useForm<PasswordsFieldValues>({
-    defaultValues: { password: '', confirmPassword: '' },
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
+      withEnableAuthentication: true,
+    },
     mode: 'onChange',
   });
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
-      await serviceApp.updatePassword(oldPassword, values.password);
+      try {
+        await serviceApp.updatePassword(oldPassword, values.password);
+      } catch (e) {
+        const errorKey = (e as { key: LocaleIds }).key;
+        toast.show({ title: intl.formatMessage({ id: errorKey }) });
+        return;
+      }
+
       if (values.withEnableAuthentication) {
         dispatch(setEnableLocalAuthentication(true));
         savePassword(values.password);
@@ -189,6 +207,13 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       setValue('confirmPassword', confirmPassword);
     }
   }, [watchedPassword, setValue]);
+
+  const text =
+    authenticationType === 'FACIAL'
+      ? intl.formatMessage({
+          id: 'content__face_id',
+        })
+      : intl.formatMessage({ id: 'content__touch_id' });
 
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -282,9 +307,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
               title={intl.formatMessage(
                 { id: 'content__authentication_with' },
                 {
-                  0: `${intl.formatMessage({
-                    id: 'content__face_id',
-                  })}/${intl.formatMessage({ id: 'content__touch_id' })}`,
+                  0: text,
                 },
               )}
             />

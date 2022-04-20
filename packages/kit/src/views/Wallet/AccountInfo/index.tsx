@@ -34,6 +34,7 @@ import {
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { setHaptics } from '../../../hooks/setHaptics';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
@@ -47,15 +48,15 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
   const toast = useToast();
   const { account, network: activeNetwork } = useActiveWalletAccount();
-  const { prices, nativeToken } = useManageTokens({
-    pollingInterval: 5000,
+  const { prices, balances } = useManageTokens({
+    pollingInterval: 15000,
   });
 
   const copyContentToClipboard = useCallback(
     (address) => {
       if (!address) return;
       copyToClipboard(address);
-      toast.info(intl.formatMessage({ id: 'msg__address_copied' }));
+      toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
     },
     [toast, intl],
   );
@@ -67,7 +68,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
       </Typography.Subheading>
       <Box flexDirection="row" mt={2}>
         <FormatBalance
-          balance={nativeToken?.balance}
+          balance={balances.main}
           suffix={activeNetwork?.symbol?.toUpperCase?.()}
           as={Typography.DisplayXLarge}
           formatOptions={{
@@ -75,34 +76,38 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           }}
           render={(ele) => (
             <Typography.DisplayXLarge>
-              {!nativeToken?.balance ? '-' : ele}
+              {!balances.main ? '-' : ele}
             </Typography.DisplayXLarge>
           )}
         />
       </Box>
       <FormatCurrency
-        numbers={[
-          prices?.main,
-          nativeToken?.balance,
-          !nativeToken?.balance ? undefined : 1,
-        ]}
+        numbers={[prices?.main, balances.main, !balances.main ? undefined : 1]}
         render={(ele) => (
           <Typography.Body2 mt={1}>
-            {!nativeToken?.balance ? '-' : ele}
+            {!balances.main ? '-' : ele}
           </Typography.Body2>
         )}
       />
       <Pressable
         mt={4}
-        onPress={() => copyContentToClipboard(account?.address)}
+        onPress={() => {
+          setHaptics();
+          copyContentToClipboard(account?.address);
+        }}
       >
-        {({ isHovered }) => (
+        {({ isHovered, isPressed }) => (
           <Box
             py={{ base: 2, md: 1 }}
             px={{ base: 3, md: 2 }}
             rounded="xl"
             bg={
-              isHovered ? 'surface-neutral-default' : 'surface-neutral-subdued'
+              // eslint-disable-next-line no-nested-ternary
+              isPressed
+                ? 'surface-neutral-pressed'
+                : isHovered
+                ? 'surface-neutral-default'
+                : 'surface-neutral-subdued'
             }
             flexDirection="row"
           >

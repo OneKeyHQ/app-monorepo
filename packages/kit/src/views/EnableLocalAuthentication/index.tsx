@@ -60,7 +60,7 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
 export const EnableLocalAuthentication = () => (
   <Modal footer={null}>
     <Protected>
-      {(password, isLocalAuthentication) => (
+      {(password, { isLocalAuthentication }) => (
         <EnableLocalAuthenticationDone
           password={password}
           isLocalAuthentication={isLocalAuthentication}

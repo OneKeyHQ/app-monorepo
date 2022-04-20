@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLocalAuthentication } from '../../hooks';
 import { useStatus } from '../../hooks/redux';
 
 type FieldValues = {
@@ -21,13 +22,13 @@ type FieldValues = {
 
 type SetupProps = {
   skipSavePassword?: boolean;
-  onOk?: (text: string, isLocalAuthentication?: boolean) => void;
+  onOk?: (text: string, withEnableAuthentication?: boolean) => void;
 };
 
 const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
   const intl = useIntl();
-  const { boardingCompleted } = useStatus();
-  const { serviceApp } = backgroundApiProxy;
+  const { isOk } = useLocalAuthentication();
+  const { boardingCompleted, authenticationType } = useStatus();
   const {
     control,
     handleSubmit,
@@ -35,17 +36,27 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
     getValues,
   } = useForm<FieldValues>({
     mode: 'onChange',
-    defaultValues: { password: '', confirmPassword: '' },
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
+      withEnableAuthentication: true,
+    },
   });
   const onSubmit = useCallback(
     async (values: FieldValues) => {
       if (boardingCompleted && !skipSavePassword) {
-        await serviceApp.updatePassword('', values.password);
+        await backgroundApiProxy.serviceApp.updatePassword('', values.password);
       }
-      onOk?.(values.password, false);
+      onOk?.(values.password, values.withEnableAuthentication);
     },
-    [onOk, boardingCompleted, skipSavePassword, serviceApp],
+    [onOk, boardingCompleted, skipSavePassword],
   );
+  const text =
+    authenticationType === 'FACIAL'
+      ? intl.formatMessage({
+          id: 'content__face_id',
+        })
+      : intl.formatMessage({ id: 'content__touch_id' });
 
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -129,6 +140,18 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
             onSubmitEditing={handleSubmit(onSubmit)}
           />
         </Form.Item>
+        {isOk ? (
+          <Form.Item name="withEnableAuthentication" control={control}>
+            <Form.CheckBox
+              title={intl.formatMessage(
+                { id: 'content__authentication_with' },
+                {
+                  0: text,
+                },
+              )}
+            />
+          </Form.Item>
+        ) : null}
         <Button
           type="primary"
           size="xl"

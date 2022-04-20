@@ -11,8 +11,8 @@ import {
   Center,
   Container,
   Icon,
+  IconButton,
   Modal,
-  Pressable,
   Text,
   Typography,
 } from '@onekeyhq/components';
@@ -157,7 +157,7 @@ const TransactionDetails: FC = () => {
 
   const copyHashToClipboard = useCallback(() => {
     copyToClipboard(txInfo?.txHash ?? '');
-    toast.info(intl.formatMessage({ id: 'msg__copied' }));
+    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, txInfo?.txHash]);
 
@@ -458,9 +458,15 @@ const TransactionDetails: FC = () => {
                   <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
                     {shortenAddress(txInfo?.txHash ?? '', 8)}
                   </Text>
-                  <Pressable ml={3} onPress={copyHashToClipboard}>
-                    <Icon size={20} name="DuplicateSolid" />
-                  </Pressable>
+                  <Center my={-1} ml={2} mr={-1}>
+                    <IconButton
+                      size="xs"
+                      circle
+                      name="DuplicateSolid"
+                      type="plain"
+                      onPress={copyHashToClipboard}
+                    />
+                  </Center>
                 </Box>
               </Container.Item>
 

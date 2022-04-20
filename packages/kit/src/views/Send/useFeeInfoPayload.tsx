@@ -186,6 +186,10 @@ export function useFeeInfoPayload({
     setLoading(true);
     fetchFeeInfo()
       .then((info) => setFeeInfoPayload(info))
+      .catch((error) => {
+        setFeeInfoPayload(null);
+        console.error(error);
+      })
       .finally(() => {
         setLoading(false);
       });

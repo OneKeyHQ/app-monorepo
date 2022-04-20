@@ -1,8 +1,9 @@
 /* eslint-disable no-nested-ternary, @typescript-eslint/no-unused-vars */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import deepEqual from 'dequal';
 import { debounce } from 'lodash';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -11,6 +12,7 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 import {
   Box,
   Button,
+  Divider,
   Form,
   Modal,
   NumberInput,
@@ -31,7 +33,11 @@ import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
-import { SendRoutes, SendRoutesParams } from './types';
+import {
+  SendRoutes,
+  SendRoutesParams,
+  TransferSendParamsPayload,
+} from './types';
 import { useFeeInfoPayload } from './useFeeInfoPayload';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -40,6 +46,7 @@ type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
   SendRoutes.Send
 >;
+type RouteProps = RouteProp<SendRoutesParams, SendRoutes.Send>;
 
 type TransactionValues = {
   value: string;
@@ -71,8 +78,11 @@ const Transaction = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
+  const [isMax, setIsMax] = useState(false);
+  const route = useRoute<RouteProps>();
+  const { token: routeParamsToken } = route.params;
 
-  const { control, handleSubmit, watch, trigger, getValues } =
+  const { control, handleSubmit, watch, trigger, getValues, setValue } =
     useForm<TransactionValues>({
       mode: 'onBlur',
       reValidateMode: 'onBlur',
@@ -94,7 +104,8 @@ const Transaction = () => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 
-  const { nativeToken, accountTokens } = useManageTokens();
+  const { nativeToken, accountTokens, balances, getTokenBalance } =
+    useManageTokens();
   // selected token
   const [selectOption, setSelectOption] = useState<Option | null>(null);
   const [inputValue, setInputValue] = useState<string>();
@@ -114,7 +125,7 @@ const Transaction = () => {
               {`${intl.formatMessage({ id: 'content__balance' })}`}
               &nbsp;&nbsp;
               <FormatBalance
-                balance={token?.balance}
+                balance={getTokenBalance(token, '0')}
                 formatOptions={{
                   fixed: decimal ?? 4,
                 }}
@@ -128,9 +139,10 @@ const Transaction = () => {
       }),
     [
       accountTokens,
-      intl,
-      activeNetwork?.nativeDisplayDecimals,
       activeNetwork?.tokenDisplayDecimals,
+      activeNetwork?.nativeDisplayDecimals,
+      intl,
+      getTokenBalance,
     ],
   );
 
@@ -142,34 +154,26 @@ const Transaction = () => {
     [accountTokens, selectOption?.value],
   );
 
-  // TODO watch performance
-  const formFields = watch();
-
-  // build transferInfo
-  // TODO move to watch useEffect below
-  const transferInfo: ITransferInfo = useDeepCompareMemo(() => {
-    // TODO token undefined
-    const { to, value } = formFields;
-    const from = (account as { address: string }).address;
-    const info = {
-      from,
-      to,
-      // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
-      token: selectedToken?.tokenIdOnNetwork,
-      amount: value,
-    };
-    return info;
-  }, [account, formFields, selectedToken]);
+  const [transferInfo, setTransferInfo] = useState<ITransferInfo>({
+    from: '',
+    to: '',
+    amount: '',
+  });
 
   // build encodedTx
   useEffect(() => {
+    if (!transferInfo.to || !isValid) {
+      return;
+    }
+    setBuildLoading(true);
+    setEncodedTx(null);
+
     buildEncodedTxFromTransferDebounced({
       networkId,
       accountId,
       transferInfo,
       callback: async (promise) => {
         try {
-          setBuildLoading(true);
           const tx = await promise;
           if (tx) {
             setEncodedTx(tx);
@@ -182,28 +186,63 @@ const Transaction = () => {
         }
       },
     });
-  }, [accountId, networkId, transferInfo]);
+  }, [accountId, isValid, networkId, transferInfo]);
+
+  const updateTransferInfo = useCallback(() => {
+    const formValues = getValues();
+    let { to, value } = formValues;
+    const from = (account as { address: string }).address;
+    // max token transfer
+    if (selectedToken?.tokenIdOnNetwork && isMax) {
+      value = getTokenBalance(selectedToken, '');
+    }
+    const info = {
+      from,
+      to,
+      // TODO use tokenId instead, and get tokenIdOnNetwork from buildEncodedTxFromTransfer
+      token: selectedToken?.tokenIdOnNetwork,
+      amount: value,
+      max: isMax,
+    } as ITransferInfo;
+    if (!deepEqual(transferInfo, info)) {
+      setTransferInfo(info);
+    }
+  }, [account, getTokenBalance, getValues, isMax, selectedToken, transferInfo]);
+
+  useEffect(() => {
+    updateTransferInfo();
+  }, [isMax, updateTransferInfo]);
 
   // form data changed watch handler
   useEffect(() => {
     const subscription = watch((formValues, { name, type }) => {
+      updateTransferInfo();
       if (type === 'change' && name === 'token') {
         const option = tokenOptions.find((o) => o.value === formValues.token);
-        if (option) setSelectOption(option);
+        if (option) {
+          setSelectOption(option);
+          // setValue('value', '');
+          setTimeout(() => {
+            trigger('value');
+          }, 300);
+        }
       }
       if (type === 'change' && name === 'value') {
         setInputValue(formValues.value);
+        setTimeout(() => {
+          trigger('value');
+        }, 300);
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions]);
+  }, [watch, tokenOptions, trigger, updateTransferInfo, setValue]);
 
   const submitButtonDisabled =
     !isValid ||
     feeInfoLoading ||
     !feeInfoPayload ||
-    !formFields.to ||
-    !formFields.value ||
+    !getValues('to') ||
+    (!getValues('value') && !isMax) ||
     !encodedTx;
   const onSubmit = handleSubmit(async (data) => {
     const tokenConfig = selectedToken ?? nativeToken;
@@ -216,7 +255,7 @@ const Transaction = () => {
         encodedTx,
         feeInfoValue: feeInfoPayload?.current.value,
       });
-    const payload = {
+    const payload: TransferSendParamsPayload = {
       to: data.to,
       account: {
         id: account.id,
@@ -228,11 +267,13 @@ const Transaction = () => {
         name: activeNetwork?.name ?? '',
       },
       value: data.value,
+      isMax,
       token: {
         idOnNetwork: tokenConfig.tokenIdOnNetwork,
         logoURI: tokenConfig.logoURI,
         name: tokenConfig.name,
         symbol: tokenConfig.symbol,
+        balance: getTokenBalance(tokenConfig, '0'),
       },
     };
     const params = {
@@ -249,52 +290,31 @@ const Transaction = () => {
   // select first token
   // TODO trigger watch allFields
   useEffect(() => {
-    if (Array.isArray(tokenOptions) && tokenOptions?.length && !selectOption)
+    if (Array.isArray(tokenOptions) && tokenOptions?.length && !selectOption) {
+      if (routeParamsToken) {
+        const option = tokenOptions.find(
+          (o) => o.value === routeParamsToken?.id,
+        );
+        if (option) {
+          setSelectOption(option);
+          return;
+        }
+      }
       setSelectOption(tokenOptions[0]);
-  }, [selectOption, tokenOptions]);
+    }
+  }, [routeParamsToken, selectOption, tokenOptions]);
 
   return (
     <Modal
       height="598px"
-      hidePrimaryAction
       hideSecondaryAction
+      primaryActionTranslationId="action__continue"
+      primaryActionProps={{
+        isDisabled: submitButtonDisabled,
+        onPress: onSubmit,
+      }}
       header={intl.formatMessage({ id: 'action__send' })}
       headerDescription={activeNetwork?.name ?? ''}
-      footer={
-        <Column>
-          <Row
-            justifyContent="space-between"
-            alignItems="center"
-            px={{ base: 4, md: 6 }}
-            pt={4}
-            pb={4 + bottom}
-            borderTopWidth={1}
-            borderTopColor="border-subdued"
-          >
-            <Column flex={1} overflow="hidden">
-              <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'content__amount' })}
-              </Typography.Body2>
-              <Typography.Body1Strong>
-                {inputValue || '-'}&nbsp;&nbsp;
-                {selectOption?.label}
-              </Typography.Body1Strong>
-              {/* <Typography.Caption color="text-subdued">
-                3 min
-              </Typography.Caption> */}
-            </Column>
-            <Button
-              type="primary"
-              size={isSmallScreen ? 'xl' : 'base'}
-              isDisabled={submitButtonDisabled}
-              onPromise={onSubmit}
-              // isLoading={feeInfoPayloadLoading}
-            >
-              {intl.formatMessage({ id: 'action__continue' })}
-            </Button>
-          </Row>
-        </Column>
-      }
       scrollViewProps={{
         children: (
           <>
@@ -359,7 +379,7 @@ const Transaction = () => {
                   }}
                   headerShown={false}
                   options={tokenOptions}
-                  defaultValue={nativeToken?.id}
+                  defaultValue={routeParamsToken?.id ?? nativeToken?.id}
                   footer={null}
                   dropdownPosition="right"
                 />
@@ -373,7 +393,11 @@ const Transaction = () => {
                 helpText={
                   <FormatCurrencyToken
                     token={selectedToken}
-                    value={getValues('value')}
+                    value={
+                      isMax
+                        ? getTokenBalance(selectedToken, '0')
+                        : getValues('value')
+                    }
                     render={(ele) => (
                       <Typography.Body2 mt={1} color="text-subdued">
                         {ele}
@@ -382,48 +406,55 @@ const Transaction = () => {
                   />
                 }
                 rules={{
-                  required: intl.formatMessage({ id: 'form__amount_invalid' }),
+                  required: isMax
+                    ? ''
+                    : intl.formatMessage(
+                        { id: 'form__amount_invalid' },
+                        { 0: selectedToken?.symbol ?? '' },
+                      ),
                   validate: (value) => {
                     const token = selectedToken;
                     if (!token) return undefined;
+                    if (isMax) return undefined;
                     const inputBN = new BigNumber(value);
-                    const balanceBN = new BigNumber(token?.balance ?? '');
+                    const balanceBN = new BigNumber(
+                      getTokenBalance(token, '0'),
+                    );
                     if (inputBN.isNaN() || balanceBN.isNaN()) {
-                      return intl.formatMessage({ id: 'form__amount_invalid' });
+                      return intl.formatMessage(
+                        { id: 'form__amount_invalid' },
+                        { 0: selectedToken?.symbol ?? '' },
+                      );
                     }
                     if (balanceBN.isLessThan(inputBN)) {
-                      return intl.formatMessage({ id: 'form__amount_invalid' });
+                      return intl.formatMessage(
+                        { id: 'form__amount_invalid' },
+                        { 0: selectedToken?.symbol ?? '' },
+                      );
                     }
                     return undefined;
                   },
                 }}
-                // helpText="0 USD"
               >
-                <NumberInput
+                <Form.NumberInput
                   maxLength={40}
                   w="100%"
                   size="xl"
-                  keyboardType="numeric"
                   decimal={
                     selectedToken && selectedToken.tokenIdOnNetwork
                       ? activeNetwork?.tokenDisplayDecimals
                       : activeNetwork?.nativeDisplayDecimals
                   }
-                  rightCustomElement={
-                    <>
-                      <Typography.Body1 mr={4} color="text-subdued">
-                        {selectOption?.label ?? '-'}
-                      </Typography.Body1>
-                      {/* <Divider
-                        orientation="vertical"
-                        bg="border-subdued"
-                        h={5}
-                      />
-                      <Button type="plain" size="xl">
-                        {intl.formatMessage({ id: 'action__max' })}
-                      </Button> */}
-                    </>
-                  }
+                  tokenSymbol={selectedToken?.symbol ?? '-'}
+                  enableMaxButton
+                  isMax={isMax}
+                  maxText={getTokenBalance(selectedToken, '')}
+                  onMaxChange={(v) => {
+                    setIsMax(v);
+                    setTimeout(() => {
+                      trigger('value');
+                    }, 300);
+                  }}
                 />
               </Form.Item>
               <Box>
@@ -446,4 +477,4 @@ const Transaction = () => {
     />
   );
 };
-export default Transaction;
+export default React.memo(Transaction);
