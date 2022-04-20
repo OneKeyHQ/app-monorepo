@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { FC, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -141,6 +140,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               params: {
                 screen: ReceiveTokenRoutes.ReceiveToken,
                 params: {
+                  // Todo: account conversion
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                   address: (account as any)?.address,
                   name: '',
                 },

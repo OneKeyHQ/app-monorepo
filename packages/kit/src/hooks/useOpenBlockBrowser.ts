@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -72,5 +72,12 @@ export default function useOpenBlockBrowser(
     [intl, network, webview],
   );
 
-  return { openTransactionDetails, openAddressDetails, openBlockDetails };
+  return useMemo(
+    () => ({
+      openTransactionDetails,
+      openAddressDetails,
+      openBlockDetails,
+    }),
+    [openAddressDetails, openBlockDetails, openTransactionDetails],
+  );
 }
