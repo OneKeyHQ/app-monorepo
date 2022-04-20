@@ -20,7 +20,7 @@ function DebugLoggerSettings() {
       const allKeys = Object.keys(debugLogger).filter((key) => key !== 'debug');
       setKeys(allKeys);
 
-      debugLogger.debug?.load().then((ns) => {
+      debugLogger?.debug?.load().then((ns) => {
         const savedNs = ns || '';
         setSavedStr(savedNs);
         setGroupValue(savedNs.split(',').filter((k) => allKeys.includes(k)));
@@ -41,7 +41,7 @@ function DebugLoggerSettings() {
           ].sort();
           const savedValues = valuesWithWildcards.join(',');
           setSavedStr(savedValues);
-          debugLogger.debug?.enable(savedValues);
+          debugLogger?.debug?.enable(savedValues);
         }}
         alignItems="flex-start"
       >
