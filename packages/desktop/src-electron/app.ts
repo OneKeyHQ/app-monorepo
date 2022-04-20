@@ -1,42 +1,21 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
 import { BrowserWindow, app, ipcMain, screen, shell } from 'electron';
 import isDev from 'electron-is-dev';
 
-import Logger, {
-  LogLevel,
-  defaultOptions as loggerDefaults,
-} from './libs/logger';
-import modules from './libs/modules';
-import * as store from './libs/store';
-
 const APP_NAME = 'OneKey Wallet';
 let mainWindow: BrowserWindow | null;
 
-// Logger
-const log = {
-  level:
-    app.commandLine.getSwitchValue('log-level') || (isDev ? 'debug' : 'error'),
-  writeToConsole: !app.commandLine.hasSwitch('log-no-print'),
-  writeToDisk: app.commandLine.hasSwitch('log-write'),
-  outputFile:
-    app.commandLine.getSwitchValue('log-file') || loggerDefaults.outputFile,
-  outputPath:
-    app.commandLine.getSwitchValue('log-path') || loggerDefaults.outputPath,
-};
-
-const logger = new Logger(log.level as LogLevel, { ...log });
-
-global.logger = logger;
-global.resourcesPath = process.resourcesPath;
+(global as any).resourcesPath = process.resourcesPath;
 const staticPath = isDev
   ? path.join(__dirname, '../public/static')
-  : path.join(global.resourcesPath, 'static');
+  : path.join((global as any).resourcesPath, 'static');
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
 
-async function createMainWindow() {
+function createMainWindow() {
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
@@ -106,47 +85,34 @@ async function createMainWindow() {
     app.exit(0);
   });
 
-  // Modules
-  await modules({
-    mainWindow: browserWindow,
-    src,
-    store,
-  });
-
   return browserWindow;
 }
 
-// https://www.electronjs.org/docs/all#apprequestsingleinstancelock
 const singleInstance = app.requestSingleInstanceLock();
 
 if (!singleInstance && !process.mas) {
-  logger.warn('main', 'Second instance detected, quitting...');
   app.quit();
 } else {
-  logger.info('main', 'Application starting');
-
   app.on('second-instance', () => {
-    // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
   });
 
-  app.name = APP_NAME; // overrides @onekey/desktop app name in menu
-  app.on('ready', async () => {
-    mainWindow = await createMainWindow();
+  app.name = APP_NAME;
+  app.on('ready', () => {
+    mainWindow = createMainWindow();
   });
 }
 
-app.on('activate', async () => {
+app.on('activate', () => {
   if (mainWindow === null) {
-    mainWindow = await createMainWindow();
+    mainWindow = createMainWindow();
   }
 });
 
 app.on('before-quit', () => {
   if (!mainWindow) return;
   mainWindow.removeAllListeners();
-  logger.exit();
 });
