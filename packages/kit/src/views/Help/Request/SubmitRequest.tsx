@@ -404,6 +404,7 @@ export const SubmitRequest: FC = () => {
         ),
       }}
       scrollViewProps={{
+        height: '560px',
         children: (
           <Form>
             <Box zIndex={999}>

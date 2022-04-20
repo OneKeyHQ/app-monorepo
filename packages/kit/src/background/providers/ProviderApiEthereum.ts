@@ -161,11 +161,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     return true;
   }
 
-  async wallet_getDebugLoggerSettings() {
-    const result = (await debugLogger.debug?.load()) || '';
-    return result;
-  }
-
   // Not gonna do in this schedule but this method allow us to open ConnectionModal when connected account has cached
   // Select permitted accounts, update permissions and return accounts as result to DApp
   async wallet_requestPermissions(

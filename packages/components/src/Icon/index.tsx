@@ -3,14 +3,14 @@ import React, { FC } from 'react';
 import { SvgProps } from 'react-native-svg';
 
 import { useThemeValue } from '../Provider/hooks';
-import { ThemeValues } from '../Provider/theme';
+import { ThemeToken } from '../Provider/theme';
 
 import ICON_CONFIG, { ICON_NAMES } from './Icons';
 
 export type IconProps = Omit<SvgProps, 'color'> & {
   name: ICON_NAMES;
   size?: number;
-  color?: keyof ThemeValues;
+  color?: ThemeToken;
 };
 
 const defaultProps = { size: 24 } as const;

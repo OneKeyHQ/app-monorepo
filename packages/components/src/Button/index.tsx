@@ -10,6 +10,7 @@ import { Button as NativeBaseButton, Text } from 'native-base';
 
 import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Icon, { ICON_NAMES } from '../Icon';
+import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
 
@@ -28,6 +29,7 @@ type ButtonPropsWithoutType = {
   isLoading?: boolean;
   isDisabled?: boolean;
   iconSize?: number;
+  iconColor?: ThemeToken;
   leftIconName?: ICON_NAMES;
   rightIconName?: ICON_NAMES;
   textProps?: FontProps;
@@ -93,18 +95,19 @@ const BasicButton: FC<ButtonPropsWithoutType> = ({
   children,
   ...props
 }) => {
+  const { iconColor } = props;
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-default'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-default'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   const nbTextProps = { ...getTextProps(size), ...textProps };
@@ -155,18 +158,19 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
   ...props
 }) => {
   const nbTextProps = { ...getTextProps(size), ...textProps };
+  const { iconColor } = props;
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-on-primary'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-on-primary'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   return (
@@ -216,18 +220,19 @@ const PlainButton: FC<ButtonPropsWithoutType> = ({
   ...props
 }) => {
   const nbTextProps = { ...getTextProps(size), ...textProps };
+  const { iconColor } = props;
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-default'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-default'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   return (
@@ -263,18 +268,19 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
   ...props
 }) => {
   const nbTextProps = { ...getTextProps(size), ...textProps };
+  const { iconColor } = props;
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-on-critical'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-on-critical'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   return (
@@ -331,18 +337,19 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
   ...props
 }) => {
   const nbTextProps = { ...getTextProps(size), ...textProps };
+  const { iconColor } = props;
   const leftIcon = leftIconName ? (
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-critical'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={isDisabled ? 'icon-disabled' : 'icon-critical'}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
     />
   ) : undefined;
   return (
