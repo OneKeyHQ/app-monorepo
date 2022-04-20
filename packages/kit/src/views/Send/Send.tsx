@@ -38,7 +38,10 @@ import {
   SendRoutesParams,
   TransferSendParamsPayload,
 } from './types';
-import { useFeeInfoPayload } from './useFeeInfoPayload';
+import {
+  FEE_INFO_POLLING_INTERVAL,
+  useFeeInfoPayload,
+} from './useFeeInfoPayload';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -100,6 +103,7 @@ const Transaction = () => {
   } = useActiveWalletAccount();
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     encodedTx,
+    pollingInterval: FEE_INFO_POLLING_INTERVAL,
   });
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
