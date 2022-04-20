@@ -15,9 +15,9 @@ import {
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
-  TokenType,
+  EVMDecodedTxType,
+  EVMTxFromType,
   Transaction,
-  TransactionType,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -75,36 +75,31 @@ const getTransactionTypeStr = (
   intl: IntlShape,
   transaction: Transaction,
 ): string => {
-  // if (transaction.type === 'Approve' && transaction?.approveInfo?.token) {
-  //   return intl.formatMessage(
-  //     { id: 'transaction__approve_token_spend_limit' },
-  //     { token: transaction.approveInfo.token },
-  //   );
-  // }
+  const { txType, fromType } = transaction;
+  let id: LocaleIds = 'action__send';
 
-  const stringKeys: Record<TransactionType, LocaleIds> = {
-    'Transfer': 'action__send',
-    'Receive': 'action__receive',
-    'Swap': 'transaction__exchange',
-    'ContractExecution': 'transaction__multicall',
-    // 'Approve': 'action__send',
-  };
-  return intl.formatMessage({
-    id: stringKeys[transaction.type ?? 'Transfer'],
-  });
+  if (fromType === EVMTxFromType.IN) {
+    id = 'action__receive';
+  } else if (txType === EVMDecodedTxType.SWAP) {
+    id = 'transaction__exchange';
+  } else if (txType === EVMDecodedTxType.TRANSACTION) {
+    id = 'transaction__contract_interaction';
+  }
+  return intl.formatMessage({ id });
 };
 
-const getTransactionTypeIcon = (
-  state: TransactionType = TransactionType.Transfer,
-): ICON_NAMES => {
-  const stringKeys: Record<TransactionType, ICON_NAMES> = {
-    'Transfer': 'ArrowUpSolid',
-    'Receive': 'ArrowDownSolid',
-    'Swap': 'SwitchHorizontalSolid',
-    'ContractExecution': 'ArrowUpSolid',
-    // 'Approve': 'BadgeCheckSolid',
-  };
-  return stringKeys[state];
+const getTransactionTypeIcon = (transaction: Transaction): ICON_NAMES => {
+  const { txType, fromType } = transaction;
+  let icon: ICON_NAMES = 'ArrowUpSolid';
+
+  if (fromType === EVMTxFromType.IN) {
+    icon = 'ArrowDownSolid';
+  } else if (txType === EVMDecodedTxType.SWAP) {
+    icon = 'SwitchHorizontalSolid';
+  } else if (txType === EVMDecodedTxType.TRANSACTION) {
+    icon = 'ArrowUpSolid';
+  }
+  return icon;
 };
 
 const TransactionRecord: FC<TransactionRecordProps> = ({
@@ -148,17 +143,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   }, [transaction]);
 
   // 转账、收款、合约执行 展示余额
-  const displayAmount = useCallback(() => {
-    if (
-      transaction.type === 'Receive' ||
-      transaction.type === 'Transfer' ||
-      transaction.type === 'Swap' ||
-      transaction.type === 'ContractExecution'
-    ) {
-      return true;
-    }
-    return false;
-  }, [transaction.type]);
+  const displayAmount = useCallback(() => true, []);
 
   const basicInfo = useCallback(
     () => (
@@ -186,7 +171,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   ]);
 
   const amountInfo = useCallback(() => {
-    if (transaction?.type === TransactionType.Swap) {
+    if (transaction?.txType === EVMDecodedTxType.SWAP) {
       return (
         <Box alignItems="flex-end" minW="156px" maxW="156px" textAlign="right">
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
@@ -214,12 +199,12 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           textAlign="right"
         >
-          {transaction.type === TransactionType.Transfer && '-'}
+          {transaction.fromType === EVMTxFromType.OUT && '-'}
           {`${amount.amount ?? '-'} ${amount.unit ?? ''}`}
         </Text>
         <Typography.Body2 color="text-subdued" textAlign="right">
-          {transaction.type === TransactionType.Transfer &&
-            transaction.tokenType !== TokenType.ERC721 &&
+          {transaction.fromType === EVMTxFromType.OUT &&
+            transaction.txType !== EVMDecodedTxType.ERC721_TRANSFER &&
             '-'}
           {`${amountFiat.amount ?? '-'} ${amountFiat.unit ?? ''}`}
         </Typography.Body2>
@@ -279,7 +264,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
         size={8}
         bg="surface-neutral-default"
       >
-        <Icon size={20} name={getTransactionTypeIcon(transaction.type)} />
+        <Icon size={20} name={getTransactionTypeIcon(transaction)} />
       </Center>
 
       <Box flexDirection="column" flex={1} ml={3}>

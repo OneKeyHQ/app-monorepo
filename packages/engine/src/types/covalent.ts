@@ -1,19 +1,20 @@
-enum TransactionType {
-  Transfer = 'Transfer',
-  Receive = 'Receive',
-  ContractExecution = 'ContractExecution',
-  Swap = 'Swap',
-}
-enum TokenType {
-  ERC20 = 'ERC20',
-  ERC721 = 'ERC721',
-  native = 'native',
-}
+import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/decoder';
+
+import type {
+  EVMDecodedItemERC20Approve,
+  EVMDecodedItemERC20Transfer,
+} from '../vaults/impl/evm/decoder/decoder';
 
 enum TxStatus {
   Pending = 'Pending',
   Confirmed = 'Confirmed',
   Failed = 'Failed',
+}
+
+enum EVMTxFromType {
+  IN = 'in', // received
+  OUT = 'out', // sent
+  SELF = 'self', // sent to self
 }
 
 type HistoryDetailList = {
@@ -150,9 +151,13 @@ type Transaction = {
   /** gas cost in USD / native currency exchange rate at that tx confirm time */
   gasQuoteRate: number;
   /**  Transaction type, enum [ Transfer, Receive, ContractExecution] */
-  type: TransactionType;
-  tokenType: TokenType;
+
+  fromType: EVMTxFromType;
+  txType: EVMDecodedTxType;
+
   tokenEvent: Array<Erc20TransferEvent>;
+  source: 'local' | 'covalent';
+  info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
 };
 
 type Erc20TransferEvent = {
@@ -169,8 +174,10 @@ type Erc20TransferEvent = {
   tokenDecimals: number;
   tokenAmount: string;
   tokenId: string;
-  transferType: TransactionType;
-  tokenType: TokenType;
+
+  fromType: EVMTxFromType;
+  txType: EVMDecodedTxType;
+
   balance: number;
   /** The current balance converted to fiat in quote-currency. */
   balanceQuote: number;
@@ -200,7 +207,7 @@ type NftMetadata = {
   contractAddress: string;
   supportsErc: Array<string>;
   logoUrl: string;
-  type: TokenType;
+  txType: EVMDecodedTxType;
   nftData: Array<NftData>;
 };
 
@@ -242,4 +249,4 @@ export type {
   NftMetadata,
   BlockTransactionWithLogEvents,
 };
-export { TxStatus, TokenType, TransactionType };
+export { TxStatus, EVMDecodedTxType, EVMTxFromType };
