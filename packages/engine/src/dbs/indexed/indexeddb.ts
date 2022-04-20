@@ -1074,15 +1074,7 @@ class IndexedDBApi implements DBAPI {
     account: DBAccount,
     importedCredential?: PrivateKeyCredential,
   ): Promise<DBAccount> {
-    let addingImported = false;
-    if (walletIsImported(walletId)) {
-      if (typeof importedCredential === 'undefined') {
-        throw new OneKeyInternalError(
-          'Imported credential required for adding imported accounts.',
-        );
-      }
-      addingImported = true;
-    }
+    const addingImported = walletIsImported(walletId);
 
     let ret: DBAccount;
     return this.ready.then(
@@ -1180,8 +1172,15 @@ class IndexedDBApi implements DBAPI {
                   }
                   const context: OneKeyContext =
                     getMainContextRequest.result as OneKeyContext;
-                  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                  if (!checkPassword(context, importedCredential!.password)) {
+                  if (!importedCredential) {
+                    reject(
+                      new OneKeyInternalError(
+                        'Imported credential required for adding imported accounts.',
+                      ),
+                    );
+                    return;
+                  }
+                  if (!checkPassword(context, importedCredential.password)) {
                     reject(new WrongPassword());
                     return;
                   }
@@ -1190,9 +1189,15 @@ class IndexedDBApi implements DBAPI {
                     credential: JSON.stringify({
                       privateKey:
                         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                        importedCredential!.privateKey.toString('hex'),
+                        importedCredential.privateKey.toString('hex'),
                     }),
                   });
+                  if (context.verifyString === DEFAULT_VERIFY_STRING) {
+                    context.verifyString = encrypt(
+                      importedCredential.password,
+                      Buffer.from(DEFAULT_VERIFY_STRING),
+                    ).toString('hex');
+                  }
                   wallet.nextAccountIds.global += 1;
                   walletStore.put(wallet);
                   transaction
@@ -1206,11 +1211,6 @@ class IndexedDBApi implements DBAPI {
               default:
                 reject(new NotImplemented());
                 return;
-            }
-
-            if (addingImported) {
-              // wallet and account should be updated/added if password check passed.
-              return;
             }
 
             walletStore.put(wallet);
