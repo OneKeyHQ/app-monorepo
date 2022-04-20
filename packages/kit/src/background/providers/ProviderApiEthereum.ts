@@ -308,10 +308,16 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    console.log('personal_sign', messages, req);
+    let message = messages[0] as string;
+
+    // TODO remove convert hex to utf8 test
+    const buffer = Buffer.from(message.substr(2), 'hex');
+    message = buffer.toString('utf8');
+
+    console.log('personal_sign', message, messages, req);
     return this.showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
-      message: messages[0],
+      message,
       payload: messages,
     });
   }
@@ -319,7 +325,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO personal_ecRecover
   personal_ecRecover(req: IJsBridgeMessagePayload, message: string) {
     console.log('personal_ecRecover: ', req, message);
-    return Promise.resolve('0xa9b4d559a98ff47c83b74522b7986146538cd4df');
+    return Promise.resolve('0x76f3f64cb3cd19debee51436df630a342b736c24');
   }
 
   eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {
