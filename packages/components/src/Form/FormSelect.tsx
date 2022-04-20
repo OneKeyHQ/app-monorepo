@@ -7,4 +7,4 @@ type FormSelectProps = ComponentProps<typeof Select>;
 export const FormSelect: FC<FormSelectProps> = ({
   triggerProps = {},
   ...rest
-}) => <Select {...rest} triggerProps={{ ...triggerProps, py: '0.5' }} />;
+}) => <Select {...rest} triggerProps={{ ...triggerProps }} />;

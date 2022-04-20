@@ -4,6 +4,7 @@ import { ControllerProps, FieldValues } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
@@ -19,6 +20,7 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   const intl = useIntl();
   const { enabledNetworks: networks } = useManageNetworks();
   const { activeNetworkId: currentNetworkId } = useGeneral();
+  const isSmallScreen = useIsVerticalLayout();
 
   let defaultNetworkId = currentNetworkId;
   // If selectableNetworks is specified and currenct selected network not in
@@ -89,14 +91,10 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
       <Form.Select
         title={intl.formatMessage({ id: 'network__network' })}
         footer={null}
-        containerProps={{
-          padding: 0,
-        }}
-        triggerProps={{
-          py: 2,
-        }}
+        triggerSize={isSmallScreen ? 'xl' : 'default'}
         options={options}
-        dropdownProps={{ width: '352px', maxHeight: '400px' }}
+        headerShown={false}
+        dropdownProps={!isSmallScreen ? { maxHeight: '272px' } : undefined}
         dropdownPosition="right"
       />
     </Form.Item>
