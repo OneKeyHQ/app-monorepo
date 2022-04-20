@@ -23,9 +23,9 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
-  TokenType,
+  EVMDecodedTxType,
+  EVMTxFromType,
   Transaction,
-  TransactionType,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -59,18 +59,21 @@ const getTransactionTypeStr = (
   intl: IntlShape,
   transaction: Transaction | null,
 ): string => {
-  const stringKeys: Record<TransactionType, LocaleIds> = {
-    'Transfer': 'action__send',
-    'Receive': 'action__receive',
-    'Swap': 'transaction__exchange',
-    'ContractExecution': 'transaction__multicall',
-    // 'Approve': 'action__send',
-  };
-  return intl.formatMessage({
-    id: stringKeys[transaction?.type ?? TransactionType.Transfer],
-  });
-};
+  let id: LocaleIds = 'action__send';
+  if (!transaction) {
+    return intl.formatMessage({ id });
+  }
+  const { txType, fromType } = transaction;
 
+  if (fromType === EVMTxFromType.IN) {
+    id = 'action__receive';
+  } else if (txType === EVMDecodedTxType.SWAP) {
+    id = 'transaction__exchange';
+  } else if (txType === EVMDecodedTxType.TRANSACTION) {
+    id = 'transaction__contract_interaction';
+  }
+  return intl.formatMessage({ id });
+};
 /**
  * 交易详情
  */
@@ -227,9 +230,9 @@ const TransactionDetails: FC = () => {
       return (
         <Container.Item
           title={intl.formatMessage({ id: titleKey })}
-          describe={`${
-            txInfo?.type === TransactionType.Transfer ? '-' : ''
-          }${`${amount.amount ?? '-'} ${amount.unit ?? ''}`}`}
+          describe={`${txInfo?.fromType === EVMTxFromType.OUT ? '-' : ''}${`${
+            amount.amount ?? '-'
+          } ${amount.unit ?? ''}`}`}
           custom={
             <Box
               flexDirection="row"
@@ -270,8 +273,8 @@ const TransactionDetails: FC = () => {
 
   const useRenderTotalAmount = useMemo(() => {
     if (
-      txInfo?.type !== TransactionType.Swap &&
-      txInfo?.tokenType === TokenType.ERC20 &&
+      txInfo?.txType !== EVMDecodedTxType.SWAP &&
+      txInfo?.txType === EVMDecodedTxType.TOKEN_TRANSFER &&
       txInfo?.tokenEvent &&
       txInfo.tokenEvent.length > 0
     ) {
@@ -341,8 +344,7 @@ const TransactionDetails: FC = () => {
     txInfo?.gasPrice,
     txInfo?.gasSpent,
     txInfo?.tokenEvent,
-    txInfo?.tokenType,
-    txInfo?.type,
+    txInfo?.txType,
     txInfo?.value,
   ]);
 
@@ -472,27 +474,29 @@ const TransactionDetails: FC = () => {
 
               {renderToAddress}
 
-              {txInfo?.type !== TransactionType.Swap &&
+              {txInfo?.txType !== EVMDecodedTxType.SWAP &&
                 renderAmount('content__amount')}
 
-              {txInfo?.type === TransactionType.Swap && (
+              {txInfo?.txType === EVMDecodedTxType.SWAP && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__send' })}
                   describe={`-${getSwapTransfer(txInfo, network)}`}
                 />
               )}
 
-              {txInfo?.type === TransactionType.Swap && (
+              {txInfo?.txType === EVMDecodedTxType.SWAP && (
                 <Container.Item
                   title={intl.formatMessage({ id: 'action__receive' })}
                   describe={`${getSwapReceive(txInfo, network)}`}
                 />
               )}
 
-              <Container.Item
-                title={intl.formatMessage({ id: 'form__trading_time' })}
-                describe={formatDate.formatDate(txInfo?.blockSignedAt ?? '')}
-              />
+              {!!txInfo?.blockSignedAt && (
+                <Container.Item
+                  title={intl.formatMessage({ id: 'form__trading_time' })}
+                  describe={formatDate.formatDate(txInfo?.blockSignedAt)}
+                />
+              )}
 
               {renderTransactionFee}
 
@@ -505,7 +509,7 @@ const TransactionDetails: FC = () => {
             <Container.Box mt={2}>
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_limit' })}
-                describe={txInfo?.gasOffered.toString()}
+                describe={txInfo?.gasOffered?.toString()}
               />
               <Container.Item
                 title={intl.formatMessage({ id: 'content__gas_used' })}

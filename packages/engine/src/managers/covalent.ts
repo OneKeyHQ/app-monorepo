@@ -3,18 +3,22 @@ import camelcase from 'camelcase-keys';
 
 import {
   BlockTransactionWithLogEvents,
+  EVMTxFromType,
   HistoryDetailList,
   LogEvent,
   NftDetail,
   NftMetadata,
-  TokenType,
   Transaction,
-  TransactionType,
   Transfer,
   TransferEvent,
   TxDetail,
   TxStatus,
 } from '../types/covalent';
+import { HistoryEntryStatus, HistoryEntryTransaction } from '../types/history';
+import {
+  EVMDecodedItem,
+  EVMDecodedTxType,
+} from '../vaults/impl/evm/decoder/decoder';
 
 const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
 
@@ -44,7 +48,7 @@ function nativeTransferEvent(
   from: string,
   to: string,
   value: string,
-  transferType: TransactionType,
+  fromType: EVMTxFromType,
 ): TransferEvent {
   return {
     topics: [],
@@ -60,14 +64,14 @@ function nativeTransferEvent(
     tokenSymbol: '',
     tokenDecimals: 0,
     tokenId: '',
-    transferType,
-    tokenType: TokenType.native,
     balance: 0,
     balanceQuote: 0,
     quoteRate: 0,
     delta: '',
     deltaQuote: 0,
     eventLength: 0,
+    fromType,
+    txType: EVMDecodedTxType.NATIVE_TRANSFER,
   };
 }
 
@@ -86,17 +90,15 @@ function transferLogToTransferEvent(transfer: Transfer): TransferEvent {
     tokenSymbol: transfer.contractTickerSymbol,
     tokenDecimals: transfer.contractDecimals,
     tokenId: transfer.tokenId,
-    transferType:
-      transfer.transferType === 'IN'
-        ? TransactionType.Receive
-        : TransactionType.Transfer,
-    tokenType: TokenType.ERC20,
     balance: 0,
     balanceQuote: 0,
     quoteRate: transfer.quoteRate,
     delta: transfer.delta,
     deltaQuote: transfer.deltaQuote,
     eventLength: 0,
+    fromType:
+      transfer.transferType === 'IN' ? EVMTxFromType.IN : EVMTxFromType.OUT,
+    txType: EVMDecodedTxType.TOKEN_TRANSFER,
   };
 }
 
@@ -112,11 +114,6 @@ function erc20TransferEventAdapter(user: string, log: LogEvent): TransferEvent {
     tokenName: log.senderName,
     tokenSymbol: log.senderContractTickerSymbol,
     tokenDecimals: log.senderContractDecimals,
-    transferType:
-      log.decoded.params[0].value === user
-        ? TransactionType.Transfer
-        : TransactionType.Receive,
-    tokenType: TokenType.ERC20,
     balance: 0,
     balanceQuote: 0,
     quoteRate: 0,
@@ -126,6 +123,11 @@ function erc20TransferEventAdapter(user: string, log: LogEvent): TransferEvent {
     toAddressLabel: '',
     eventLength: 0,
     tokenId: '',
+    fromType:
+      log.decoded.params[0].value === user
+        ? EVMTxFromType.OUT
+        : EVMTxFromType.IN,
+    txType: EVMDecodedTxType.TOKEN_TRANSFER,
   };
 
   return transferEvent;
@@ -165,14 +167,14 @@ function eventAdapter(
   logs: Array<LogEvent>,
   transfers: Array<Transfer>,
 ): {
-  tokenType: TokenType;
-  type: TransactionType;
+  txType: EVMDecodedTxType;
+  fromType: EVMTxFromType;
   events: Array<TransferEvent> | null;
   nftToken: Array<{ contractAddress: string; tokenId: string }>;
 } {
   const transferEvent: TransferEvent[] = [];
-  let type = TransactionType.ContractExecution;
-  let tokenType = TokenType.native;
+  let txType = EVMDecodedTxType.TRANSACTION;
+  let fromType = EVMTxFromType.OUT;
   let isSwap = false;
   const nftToken = [];
   if (logs !== undefined) {
@@ -199,15 +201,14 @@ function eventAdapter(
 
             event = erc20TransferEventAdapter(user, log);
             transferEvent.push(event);
-            tokenType = TokenType.ERC20;
             if (event.fromAddress === user) {
-              type = TransactionType.Transfer;
+              fromType = EVMTxFromType.OUT;
             } else {
-              type = TransactionType.Receive;
+              fromType = EVMTxFromType.IN;
             }
             if (event.topics.length === 4) {
-              tokenType = TokenType.ERC721;
-              event.tokenType = TokenType.ERC721;
+              txType = EVMDecodedTxType.ERC721_TRANSFER;
+              event.txType = EVMDecodedTxType.ERC721_TRANSFER;
               event.tokenId = parseInt(log.rawLogTopics[3], 16).toString();
               nftToken.push({
                 contractAddress: log.senderAddress,
@@ -228,9 +229,7 @@ function eventAdapter(
                 user === from ? user : from,
                 log.rawLogTopics[1].replace('000000000000000000000000', ''),
                 value,
-                user === from
-                  ? TransactionType.Transfer
-                  : TransactionType.Receive,
+                user === from ? EVMTxFromType.OUT : EVMTxFromType.IN,
               ),
             );
             break;
@@ -243,7 +242,7 @@ function eventAdapter(
                 log.rawLogTopics[1].replace('000000000000000000000000', ''),
                 user,
                 value,
-                TransactionType.Receive,
+                EVMTxFromType.IN,
               ),
             );
             break;
@@ -258,25 +257,26 @@ function eventAdapter(
     }
   }
   if (transfers !== undefined) {
-    tokenType = TokenType.ERC20;
-    type = transferEvent[0].transferType;
+    txType = EVMDecodedTxType.TOKEN_TRANSFER;
+    fromType = transferEvent[0].fromType;
   } else if (logs !== undefined) {
     if (isSwap) {
-      type = TransactionType.Swap;
-    } else if (value !== '0' || type === TransactionType.ContractExecution) {
+      txType = EVMDecodedTxType.SWAP;
+      fromType = EVMTxFromType.OUT;
+    } else if (value !== '0' || txType === EVMDecodedTxType.TRANSACTION) {
       if (logs.length === 0) {
         if (from === user) {
-          type = TransactionType.Transfer;
+          fromType = EVMTxFromType.OUT;
         } else {
-          type = TransactionType.Receive;
+          fromType = EVMTxFromType.IN;
         }
       } else if (logs.length >= 0) {
-        type = TransactionType.ContractExecution;
+        fromType = EVMTxFromType.OUT;
       }
     }
   }
 
-  return { tokenType, type, events: transferEvent, nftToken };
+  return { events: transferEvent, nftToken, txType, fromType };
 }
 
 async function txAdapter(
@@ -299,10 +299,12 @@ async function txAdapter(
     gasPrice: tx.gasPrice,
     gasQuote: tx.gasQuote,
     gasQuoteRate: tx.gasQuoteRate,
-    type: TransactionType.ContractExecution,
     tokenEvent: [],
-    tokenType: TokenType.native,
     fromAddressLabel: '',
+    fromType: EVMTxFromType.OUT,
+    txType: EVMDecodedTxType.TRANSACTION,
+    source: 'covalent',
+    info: null,
   };
 
   const adapter = eventAdapter(
@@ -314,8 +316,8 @@ async function txAdapter(
     tx.transfers,
   );
 
-  txDetail.type = adapter.type;
-  txDetail.tokenType = adapter.tokenType;
+  txDetail.txType = adapter.txType;
+  txDetail.fromType = adapter.fromType;
   if (adapter.events !== null) {
     txDetail.tokenEvent = adapter.events;
   }
@@ -328,7 +330,7 @@ async function txAdapter(
 
   if (txDetail.tokenEvent && txDetail.tokenEvent.length > 0) {
     for (let i = 0; i < txDetail.tokenEvent.length; i += 1) {
-      if (txDetail.tokenEvent[i].tokenType === TokenType.ERC721) {
+      if (txDetail.tokenEvent[i].txType === EVMDecodedTxType.ERC721_TRANSFER) {
         for (let k = 0; k < metadata.length; k += 1) {
           if (
             txDetail.tokenEvent[i].tokenAddress ===
@@ -483,4 +485,71 @@ function getTxDetail(
     });
 }
 
-export { getTxHistories, getErc20TransferHistories, getTxDetail, getNftDetail };
+function updateLocalTransactions(
+  localHistory: Transaction[],
+  txList: Transaction[],
+) {
+  const localHistoryMap: Record<string, Transaction> = {};
+  for (const h of localHistory) {
+    localHistoryMap[h.txHash] = h;
+  }
+
+  const confirmeds = txList.filter(
+    (tx) => tx.successful === TxStatus.Confirmed,
+  );
+  for (const confirmed of confirmeds) {
+    const { txHash, gasSpent } = confirmed;
+    if (localHistoryMap[txHash]) {
+      localHistoryMap[txHash].gasSpent = gasSpent;
+    }
+  }
+}
+
+function decodedItemToTransaction(
+  item: EVMDecodedItem,
+  historyEntry: HistoryEntryTransaction,
+): Transaction {
+  const { createdAt, status } = historyEntry;
+  const blockSignedAt = new Date(createdAt).toISOString();
+
+  let successful: TxStatus;
+  if (status === HistoryEntryStatus.SUCCESS) {
+    successful = TxStatus.Confirmed;
+  } else if (status === HistoryEntryStatus.PENDING) {
+    successful = TxStatus.Pending;
+  } else {
+    successful = TxStatus.Failed;
+  }
+
+  return {
+    blockHeight: 0,
+    blockSignedAt,
+    txHash: item.txHash,
+    successful,
+    fromAddress: item.fromAddress,
+    fromAddressLabel: '',
+    toAddress: item.toAddress,
+    toAddressLabel: '',
+    value: item.value,
+    valueQuote: 0,
+    gasOffered: item.gasLimit,
+    gasPrice: Number(item.gasPrice),
+    gasSpent: 0,
+    gasQuote: 0,
+    gasQuoteRate: 0,
+    fromType: EVMTxFromType.OUT,
+    txType: item.txType,
+    tokenEvent: [],
+    source: 'local',
+    info: item.info,
+  };
+}
+
+export {
+  getTxHistories,
+  getErc20TransferHistories,
+  getTxDetail,
+  getNftDetail,
+  decodedItemToTransaction,
+  updateLocalTransactions,
+};
