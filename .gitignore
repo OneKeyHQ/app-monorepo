@@ -19,9 +19,9 @@ yarn-error.log
 .yarn
 .yarnrc
 
-packages/desktop/public/static/connect
-packages/kit/src/public/static/connect
-packages/app/src/public/static/connect
+/packages/desktop/public/static/connect
+/packages/kit/src/public/static/connect
+/packages/app/src/public/static/connect
 
 .env
 webpack.config.preview.json
@@ -35,3 +35,4 @@ webpack.config.preview.devServer.json
 *.orig.*
 web-build/
 /inpage-provider-bak
+/packages/shared/src/web/index.html

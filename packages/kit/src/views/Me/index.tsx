@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -49,6 +49,7 @@ const Me = () => {
   const intl = useIntl();
   const connections = useAppSelector((s) => s.dapp.connections);
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
+  const { width, height } = useWindowDimensions();
 
   const pressableProps = {
     p: '4',
@@ -156,6 +157,27 @@ const Me = () => {
                 }}
               >
                 <Typography.Body1>Logger 设置</Typography.Body1>
+              </Pressable>
+              <Pressable
+                {...pressableProps}
+                onPress={() => {
+                  if (platformEnv.isBrowser) {
+                    console.log({
+                      innerWidth: window.innerWidth,
+                      innerHeight: window.innerHeight,
+                      outerWidth: window.outerWidth,
+                      outerHeight: window.outerHeight,
+                      clientWidth: window.document.documentElement.clientWidth,
+                      clientHeight:
+                        window.document.documentElement.clientHeight,
+                    });
+                    // console.log(document.documentElement.outerHTML);
+                  }
+                }}
+              >
+                <Typography.Body1>
+                  useWindowDimensions {width}x{height}
+                </Typography.Body1>
               </Pressable>
               <HStack>
                 <Input
