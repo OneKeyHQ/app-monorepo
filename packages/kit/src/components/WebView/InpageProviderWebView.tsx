@@ -35,6 +35,7 @@ const isApp = isNative;
 
 export type InpageProviderWebViewProps = InpageWebViewProps & {
   onNavigationStateChange?: (event: any) => void;
+  showProgress?: boolean;
   allowpopups?: boolean;
 };
 
@@ -45,6 +46,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onSrcChange,
       receiveHandler,
       onNavigationStateChange,
+      showProgress,
       allowpopups,
     }: InpageProviderWebViewProps,
     ref: any,
@@ -99,6 +101,73 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [webviewRef.current, webviewRef.current?.innerRef]);
 
+    useEffect(() => {
+      const webview = webviewRef.current?.innerRef;
+
+      if (!webview || !isDesktop) {
+        return;
+      }
+
+      try {
+        const electronWebView = webview as IElectronWebView;
+
+        const handleStartMessage = () => {
+          setProgress(20);
+        };
+        const handleCommitMessage = () => {
+          setProgress(40);
+        };
+        const handleReadyMessage = () => {
+          setProgress(80);
+        };
+        const handleFinishMessage = () => {
+          setProgress(100);
+        };
+
+        electronWebView.addEventListener(
+          'did-start-loading',
+          handleStartMessage,
+        );
+        electronWebView.addEventListener('load-commit', handleCommitMessage);
+        electronWebView.addEventListener('dom-ready', handleReadyMessage);
+        electronWebView.addEventListener(
+          'did-finish-load',
+          handleFinishMessage,
+        );
+        electronWebView.addEventListener(
+          'did-stop-loading',
+          handleFinishMessage,
+        );
+        electronWebView.addEventListener('did-fail-load', handleFinishMessage);
+        return () => {
+          electronWebView.removeEventListener(
+            'did-start-loading',
+            handleStartMessage,
+          );
+          electronWebView.removeEventListener(
+            'load-commit',
+            handleCommitMessage,
+          );
+          electronWebView.removeEventListener('dom-ready', handleReadyMessage);
+          electronWebView.removeEventListener(
+            'did-finish-load',
+            handleFinishMessage,
+          );
+          electronWebView.removeEventListener(
+            'did-stop-loading',
+            handleFinishMessage,
+          );
+          electronWebView.removeEventListener(
+            'did-fail-load',
+            handleFinishMessage,
+          );
+        };
+      } catch (error) {
+        console.error(error);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [webviewRef.current, webviewRef.current?.innerRef]);
+
     const onRefresh = () => {
       try {
         setKey(Math.random().toString());
@@ -137,7 +206,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
 
     return (
       <Box flex={1}>
-        {isApp && progress < 100 && (
+        {!!showProgress && progress < 100 && (
           <Progress
             value={progress}
             position="absolute"
@@ -202,5 +271,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   },
 );
 InpageProviderWebView.displayName = 'InpageProviderWebView';
+
+InpageProviderWebView.defaultProps = {
+  showProgress: true,
+};
 
 export default InpageProviderWebView;
