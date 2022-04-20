@@ -26,7 +26,6 @@ jobs:
 
       - name: Setup keys secret
         run: |
-          echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/ios/OneKeyWallet/RNBridge/NFCENV.m
           echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
 
       - name: Setup Credentials
