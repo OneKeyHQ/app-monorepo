@@ -1,4 +1,4 @@
-import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/connect';
+import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/js-sdk';
 
 import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/ble/utils';
 
@@ -65,9 +65,9 @@ class BleOnekeyConnect {
       });
 
       try {
+        // @ts-ignore
         await OneKeyConnect.init({
           env: 'react-native',
-          // @ts-ignore
           ble: BLEHandler,
           debug: false,
         });

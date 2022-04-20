@@ -58,7 +58,7 @@ function createMainWindow() {
 
   browserWindow.webContents.on('did-finish-load', () => {
     browserWindow.webContents.send('SET_ONEKEY_DESKTOP_GLOBALS', {
-      resourcesPath: global.resourcesPath,
+      resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
       preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
     });

@@ -23,6 +23,10 @@ yarn-error.log
 /packages/kit/src/public/static/connect
 /packages/app/src/public/static/connect
 
+/packages/desktop/public/static/js-sdk
+/packages/kit/src/public/static/js-sdk
+/packages/app/src/public/static/js-sdk
+
 .env
 webpack.config.preview.json
 webpack.config.preview.devServer.json

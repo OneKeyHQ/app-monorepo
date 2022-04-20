@@ -25,7 +25,7 @@ function normalizeConfig({ platform, config }) {
     moduleResolver = {
       root: ['./'],
       alias: {
-        '@onekeyfe/connect': './src/public/static/connect/index.js',
+        '@onekeyfe/js-sdk': './src/public/static/js-sdk/index.js',
       },
     };
   }

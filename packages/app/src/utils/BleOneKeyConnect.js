@@ -1,4 +1,4 @@
-const OneKeyConnect = require('@onekeyfe/connect');
+const OneKeyConnect = require('@onekeyfe/js-sdk');
 const { Handler } = require('./BleHandler');
 
 class BleOnekeyConnect {
