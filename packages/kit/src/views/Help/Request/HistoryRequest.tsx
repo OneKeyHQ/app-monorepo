@@ -1,12 +1,13 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
+import { ListRenderItem, useWindowDimensions } from 'react-native';
 
 import {
+  Alert,
   Box,
   Divider,
   Empty,
@@ -45,11 +46,11 @@ export const HistoryRequest: FC = () => {
   const intl = useIntl();
   const { instanceId } = useSettings();
   const { formatDate } = useFormatDate();
+  const { width } = useWindowDimensions();
 
   const navigation = useNavigation<NavigationProps>();
   const [historyList, updateHistoryList] = useState<TicketType[]>([]);
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
-
   const getData = useCallback(() => {
     setPageStatus('loading');
     axios
@@ -84,6 +85,19 @@ export const HistoryRequest: FC = () => {
     }
   };
 
+  const HintView = useMemo(
+    () => (
+      <Alert
+        dismiss
+        alertType="info"
+        title={intl.formatMessage({
+          id: 'conten__please_be_patient_as_net_work',
+        })}
+      />
+    ),
+    [intl],
+  );
+
   const noData = () => {
     switch (pageStatus) {
       case 'network':
@@ -102,17 +116,22 @@ export const HistoryRequest: FC = () => {
         );
       case 'empty':
         return (
-          <Empty
-            imageUrl={IconRequest}
-            title={intl.formatMessage({ id: 'title__no_request_history' })}
-            subTitle={intl.formatMessage({
-              id: 'title__no_request_history_desc',
-            })}
-            actionTitle={intl.formatMessage({
-              id: 'form__submit_a_request',
-            })}
-            handleAction={SubmitRequestAction}
-          />
+          <>
+            <Empty
+              imageUrl={IconRequest}
+              title={intl.formatMessage({ id: 'title__no_request_history' })}
+              subTitle={intl.formatMessage({
+                id: 'title__no_request_history_desc',
+              })}
+              actionTitle={intl.formatMessage({
+                id: 'form__submit_a_request',
+              })}
+              handleAction={SubmitRequestAction}
+            />
+            <Box position="absolute" top={0} width={`${width - 32}px`}>
+              {HintView}
+            </Box>
+          </>
         );
       case 'loading':
         return <Spinner size="sm" />;
@@ -195,6 +214,7 @@ export const HistoryRequest: FC = () => {
 
   return (
     <Modal
+      height="560px"
       header={intl.formatMessage({ id: 'form__s_request_history' })}
       footer={pageStatus === 'data' ? undefined : null}
       hideSecondaryAction
@@ -208,9 +228,11 @@ export const HistoryRequest: FC = () => {
       flatListProps={
         pageStatus === 'data'
           ? {
+              height: '560px',
               data: historyList,
               // @ts-ignore
               renderItem,
+              ListHeaderComponent: () => <Box mb="16px">{HintView}</Box>,
               ItemSeparatorComponent: () => (
                 <Divider height="24px" bgColor="surface-subdued" />
               ),
