@@ -1,14 +1,39 @@
+<p align="center">
+<img width="300" src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_logo_badge_border.png"/>
+</p>
 
+---
 ### 🙋‍♂️ We are hiring many roles (Remote) !
 
-> * Remote (Live anywhere)
-> * Global Pay (Literally)
-> * ESOP (For everybody)
-> * Open Source (As you see)
-> * Awesome Colleagues (Hell Yeah!)
+* Remote (Live anywhere)
+* Global Pay (Literally)
+* ESOP (For everybody)
+* Open Source (As you see)
+* Awesome Colleagues (Hell Yeah!)
 
 [👉 Click here to check all open positions](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
-# OneKey App Monorepo [English]
+
+<p align="center">
+<img src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_monorepo_desktop.png"/>
+</p>
+
+
+## Community & Support
+
+- [Community Forum](https://github.com/orgs/OneKeyHQ/discussions). Best for: help with building, discussion about best practices.
+- [GitHub Issues](https://github.com/OneKeyHQ/app-monorepo/issues). Best for: bugs and errors you encounter using OneKey.
+- [Discord](https://discord.gg/onekey). Best for: sharing your ideas and hanging out with the community.
+
+## Status
+
+- [x] Alpha: We are testing Supabase with a closed set of customers
+- [ ] Public: Production-ready
+
+We really need your support, star or watch this repo for latest updates.
+
+<kbd><img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_star.gif" alt="Star this repo"/></kbd>
+
+# Getting Onboard [English]
 
 ## 🌍 Environment Configuration
 
@@ -59,7 +84,7 @@ Some of the dependencies have native parts, so you need to go into the `packages
 
 Clear the packaging tool cache with the `--reset-cache` command in `yarn native` in the root directory. Also run `yarn clean` in the root directory to clear all dependencies and generated files and then re-run `yarn` to install the dependencies.
 
-# OneKey App Monorepo [Chinese]
+# Getting Onboard [Chinese]
 
 ## 🌍 环境配置
 
