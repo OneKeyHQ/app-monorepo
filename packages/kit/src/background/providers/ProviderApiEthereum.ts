@@ -311,7 +311,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     console.log('personal_sign', messages, req);
     return this.showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
-      message: messages[2],
+      message: messages[0],
       payload: messages,
     });
   }
