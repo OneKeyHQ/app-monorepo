@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -97,7 +97,7 @@ export const useWebviewRef = (
     }
   }, [webViewRef?.innerRef]);
 
-  const canGoBack = (): boolean => {
+  const canGoBack = useCallback((): boolean => {
     if (webViewRef?.innerRef) {
       try {
         if (rnCanGoBack !== undefined) {
@@ -111,9 +111,9 @@ export const useWebviewRef = (
       }
     }
     return false;
-  };
+  }, [rnCanGoBack, webViewRef?.innerRef]);
 
-  const goBack = () => {
+  const goBack = useCallback(() => {
     if (webViewRef?.innerRef) {
       try {
         // @ts-expect-error
@@ -123,9 +123,9 @@ export const useWebviewRef = (
         console.log(e);
       }
     }
-  };
+  }, [webViewRef?.innerRef]);
 
-  const canGoForward = (): boolean => {
+  const canGoForward = useCallback((): boolean => {
     if (webViewRef?.innerRef) {
       try {
         if (rnCanGoForward !== undefined) {
@@ -140,9 +140,9 @@ export const useWebviewRef = (
       }
     }
     return false;
-  };
+  }, [rnCanGoForward, webViewRef?.innerRef]);
 
-  const goForward = () => {
+  const goForward = useCallback(() => {
     if (webViewRef?.innerRef) {
       try {
         // @ts-expect-error
@@ -153,15 +153,26 @@ export const useWebviewRef = (
       }
       return false;
     }
-  };
+  }, [webViewRef?.innerRef]);
 
-  return {
-    canGoBack,
-    goBack,
-    canGoForward,
-    goForward,
-    title: currentTitle,
-    url: currentUrl,
-    favicon: currentFavicon,
-  };
+  return useMemo(
+    () => ({
+      canGoBack,
+      goBack,
+      canGoForward,
+      goForward,
+      title: currentTitle,
+      url: currentUrl,
+      favicon: currentFavicon,
+    }),
+    [
+      canGoBack,
+      canGoForward,
+      currentTitle,
+      currentUrl,
+      currentFavicon,
+      goBack,
+      goForward,
+    ],
+  );
 };

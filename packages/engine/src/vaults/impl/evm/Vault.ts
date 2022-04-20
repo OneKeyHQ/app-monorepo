@@ -32,8 +32,8 @@ import {
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
+  EVMDecodedTxType,
   EVMTxDecoder,
-  EVMTxType,
   InfiniteAmountHex,
   InfiniteAmountText,
 } from './decoder/decoder';
@@ -245,11 +245,11 @@ export default class Vault extends VaultBase {
     const decodedTx = await this.decodeTx(encodedTx);
     const { amount } = payload;
     const amountBN = new BigNumber(amount);
-    if (decodedTx.txType === EVMTxType.NATIVE_TRANSFER) {
+    if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
       const network = await this.getNetwork();
       encodedTx.value = toBigIntHex(amountBN.shiftedBy(network.decimals));
     }
-    if (decodedTx.txType === EVMTxType.TOKEN_TRANSFER) {
+    if (decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       const info = decodedTx.info as EVMDecodedItemERC20Transfer;
       const amountHex = toBigIntHex(amountBN.shiftedBy(info.token.decimals));
       const data = `${Erc20MethodSelectors.tokenTransfer}${defaultAbiCoder
@@ -268,7 +268,7 @@ export default class Vault extends VaultBase {
     const approveMethodID = Erc20MethodSelectors.tokenApprove;
 
     const decodedTx = await this.decodeTx(encodedTx);
-    if (decodedTx.txType !== EVMTxType.TOKEN_APPROVE) {
+    if (decodedTx.txType !== EVMDecodedTxType.TOKEN_APPROVE) {
       throw new Error('Not a approve transaction.');
     }
 
