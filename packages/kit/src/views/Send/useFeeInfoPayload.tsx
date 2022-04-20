@@ -17,6 +17,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
+export const FEE_INFO_POLLING_INTERVAL = 5000;
+
 export function calculateTotalFeeNative({
   amount,
   info,
@@ -74,9 +76,11 @@ export function calculateTotalFee(feeValue: IFeeInfoUnit) {
 export function useFeeInfoPayload({
   encodedTx,
   useFeeInTx = false, // do not set useFeeInTx=true if encodedTx generated from dapp
+  pollingInterval = 0,
 }: {
   encodedTx: IEncodedTxAny;
   useFeeInTx?: boolean;
+  pollingInterval?: number;
 }) {
   const { accountId, networkId } = useActiveWalletAccount();
   const [feeInfoPayload, setFeeInfoPayload] = useState<IFeeInfoPayload | null>(
@@ -84,6 +88,9 @@ export function useFeeInfoPayload({
   );
   const [loading, setLoading] = useState(true);
   const route = useRoute();
+  const feeInfoSelectedInRouteParams = (
+    route.params as { feeInfoSelected?: IFeeInfoSelected }
+  )?.feeInfoSelected;
   // TODO use standalone function
   const getSelectedFeeInfoUnit = useCallback(
     ({
@@ -113,9 +120,7 @@ export function useFeeInfoPayload({
       return null;
     }
     const DEFAULT_PRESET_INDEX = '1';
-    let feeInfoSelected = (
-      route.params as { feeInfoSelected?: IFeeInfoSelected }
-    )?.feeInfoSelected;
+    let feeInfoSelected = feeInfoSelectedInRouteParams;
 
     // TODO rename to FeeInfoMeta
     const info = await backgroundApiProxy.engine.fetchFeeInfo({
@@ -177,9 +182,9 @@ export function useFeeInfoPayload({
   }, [
     accountId,
     encodedTx,
+    feeInfoSelectedInRouteParams,
     getSelectedFeeInfoUnit,
     networkId,
-    route.params,
     useFeeInTx,
   ]);
   useEffect(() => {
@@ -194,6 +199,29 @@ export function useFeeInfoPayload({
         setLoading(false);
       });
   }, [encodedTx, fetchFeeInfo, setFeeInfoPayload]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (pollingInterval) {
+      timer = setInterval(async () => {
+        if (loading) {
+          return;
+        }
+        if (feeInfoSelectedInRouteParams?.type === 'custom') {
+          return;
+        }
+        const info = await fetchFeeInfo();
+        setFeeInfoPayload(info);
+      }, pollingInterval);
+    }
+    return () => {
+      clearInterval(timer);
+    };
+  }, [
+    feeInfoSelectedInRouteParams?.type,
+    fetchFeeInfo,
+    loading,
+    pollingInterval,
+  ]);
   return {
     feeInfoPayload,
     feeInfoLoading: loading,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { format as fnsFormat, parseISO } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
@@ -100,5 +100,8 @@ export default function useFormatDate() {
     [format],
   );
 
-  return { format, formatDate, formatMonth };
+  return useMemo(
+    () => ({ format, formatDate, formatMonth }),
+    [format, formatDate, formatMonth],
+  );
 }

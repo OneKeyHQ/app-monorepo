@@ -102,6 +102,7 @@
       break;
   }
   self.setMnemonicCallback = nil;
+  [RNLiteCallBackManager clearLiteInfo];
   return;
 }
 
@@ -125,7 +126,7 @@
       }
       break;
     case OKNFCLiteGetMncStatusError:
-      if (lite.status == OKNFCLiteStatusNewCard) {
+      if (lite.status == OKNFCLiteStatusNewCard && lite.SN != nil) {
         self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsNotInitialized),@"message":@""},[NSNull null],[NSNull null]]);
       } else {
         self.getMnemonicCallback(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);
@@ -169,7 +170,7 @@
           callBack(@[@{@"code":@(NFCLiteExceptionsPasswordWrong),@"message":@""},[NSNull null],cardInfo]);
         } break;
         case OKNFCLiteChangePinStatusError: {
-          if (lite.status == OKNFCLiteStatusNewCard) {
+          if (lite.status == OKNFCLiteStatusNewCard && lite.SN != nil) {
               callBack(@[@{@"code":@(NFCLiteExceptionsNotInitialized),@"message":@""},[NSNull null],[NSNull null]]);
           } else {
             callBack(@[@{@"code":@(NFCLiteExceptionsConnectionFail),@"message":@""},[NSNull null],[NSNull null]]);

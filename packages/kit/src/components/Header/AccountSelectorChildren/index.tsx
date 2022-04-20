@@ -150,7 +150,6 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
           } else {
             showVerify(
               (pwd) => {
-                console.log('---------', pwd);
                 showRemoveAccountDialog(
                   selectedWallet?.id ?? '',
                   item.id,

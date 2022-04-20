@@ -2,7 +2,12 @@ import React, { FC, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Form, useForm } from '@onekeyhq/components';
+import {
+  Dialog,
+  Form,
+  useForm,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import DialogCommon from '@onekeyhq/components/src/Dialog/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
 
@@ -29,6 +34,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
   const { serviceAccount } = backgroundApiProxy;
 
   const [isLoading, setIsLoading] = React.useState(false);
+  const isSmallScreen = useIsVerticalLayout();
 
   const { control, handleSubmit, setError, reset } = useForm<FieldValues>({
     defaultValues: { name: '' },
@@ -84,6 +90,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
               }}
             >
               <Form.Input
+                size={isSmallScreen ? 'xl' : 'default'}
                 autoFocus
                 focusable
                 placeholder={account?.name ?? ''}

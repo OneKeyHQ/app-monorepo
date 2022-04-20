@@ -42,7 +42,7 @@ const FooterButton: FC<FooterButtonProps> = ({
     if (buttonSize) return buttonSize;
 
     if (['SMALL', 'NORMAL'].includes(size)) {
-      return 'lg';
+      return 'xl';
     }
     return 'base';
   }, [buttonSize, size]);

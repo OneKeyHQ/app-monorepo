@@ -20,6 +20,7 @@ import {
   Spinner,
   Typography,
   useForm,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -83,6 +84,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
       defaultValues: { name, rpcURL, chainId, symbol, exploreUrl, id },
     });
   const [resetOpened, setResetOpened] = useState(false);
+  const isSmallScreen = useIsVerticalLayout();
 
   const watchedRpcURL = watch('rpcURL');
 
@@ -189,7 +191,10 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                   })}
                   control={control}
                 >
-                  <Form.Input isDisabled />
+                  <Form.Input
+                    isDisabled
+                    size={isSmallScreen ? 'xl' : 'default'}
+                  />
                 </Form.Item>
                 <Form.Item
                   name="rpcURL"
@@ -221,6 +226,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     options={options}
                     dropdownProps={{ width: '352px' }}
                     dropdownPosition="right"
+                    triggerSize={isSmallScreen ? 'xl' : 'default'}
                   />
                 </Form.Item>
                 {impl === 'evm' ? (
@@ -235,6 +241,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                     <Form.Input
                       placeholder={intl.formatMessage({ id: 'form__chain_id' })}
                       isDisabled
+                      size={isSmallScreen ? 'xl' : 'default'}
                     />
                   </Form.Item>
                 ) : null}
@@ -254,7 +261,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                   }
                   control={control}
                 >
-                  <Form.Input placeholder="ETH" isDisabled />
+                  <Form.Input
+                    placeholder="ETH"
+                    isDisabled
+                    size={isSmallScreen ? 'xl' : 'default'}
+                  />
                 </Form.Item>
                 <Form.Item
                   name="exploreUrl"
@@ -272,11 +283,14 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                   }
                   control={control}
                 >
-                  <Form.Input isDisabled />
+                  <Form.Input
+                    isDisabled
+                    size={isSmallScreen ? 'xl' : 'default'}
+                  />
                 </Form.Item>
                 <Button
                   w="full"
-                  size="lg"
+                  size={isSmallScreen ? 'xl' : 'lg'}
                   onPress={onButtonPress}
                   isDisabled={watchedRpcURL === rpcURL}
                 >
