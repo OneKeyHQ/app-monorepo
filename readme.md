@@ -1,5 +1,5 @@
 <p align="center">
-<img width="300" src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_logo_badge_border.png"/>
+<img width="200" src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_logo_badge_border.png"/>
 </p>
 
 ---
