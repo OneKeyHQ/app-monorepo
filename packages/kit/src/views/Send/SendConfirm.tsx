@@ -14,7 +14,7 @@ import {
   HistoryEntryType,
 } from '@onekeyhq/engine/src/types/history';
 import { IBroadcastedTx } from '@onekeyhq/engine/src/types/vault';
-import { EVMTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -207,13 +207,13 @@ const TransactionConfirm = () => {
     );
   }
 
-  if (decodedTx.txType === EVMTxType.TOKEN_APPROVE) {
+  if (decodedTx.txType === EVMDecodedTxType.TOKEN_APPROVE) {
     return <TxConfirmTokenApprove {...sharedProps} />;
   }
 
   if (
-    decodedTx.txType === EVMTxType.NATIVE_TRANSFER ||
-    decodedTx.txType === EVMTxType.TOKEN_TRANSFER
+    decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
+    decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER
   ) {
     return (
       <TxConfirmTransfer

@@ -42,6 +42,8 @@ export type ExplorerViewProps = {
   onSearchContentChange?: (text: string) => void;
   onSearchSubmitEditing?: (text: MatchDAppItemType | string) => void;
   explorerContent: React.ReactNode;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
   onGoBack?: () => void;
   onNext?: () => void;
   onRefresh?: () => void;
@@ -65,8 +67,12 @@ const Explorer: FC = () => {
   >(null);
   const [webviewRef, setWebviewRef] = useState<IWebViewWrapperRef | null>(null);
 
+  const [canGoBack, setCanGoBack] = useState<boolean>(false);
+  const [canGoForward, setCanGoForward] = useState<boolean>(false);
+
   const {
     canGoBack: webCanGoBack,
+    canGoForward: webCanGoForward,
     goBack,
     goForward,
     url: webUrl,
@@ -201,7 +207,29 @@ const Explorer: FC = () => {
     }
 
     setSearchContent(content);
-  }, [currentWebSite, webUrl, displayInitialPage]);
+
+    if (displayInitialPage === false || webCanGoBack()) {
+      setCanGoBack(true);
+    } else {
+      setCanGoBack(false);
+    }
+
+    if (displayInitialPage === true) {
+      if (webCanGoForward() || currentWebSite) {
+        setCanGoForward(true);
+      } else {
+        setCanGoForward(false);
+      }
+    } else {
+      setCanGoForward(false);
+    }
+  }, [
+    currentWebSite,
+    webUrl,
+    displayInitialPage,
+    webCanGoBack,
+    webCanGoForward,
+  ]);
 
   useEffect(() => {
     dispatch(
@@ -210,7 +238,9 @@ const Explorer: FC = () => {
         webSite: { url: webUrl, title: webTitle, favicon: webFavicon },
       }),
     );
-  }, [currentWebSite, dispatch, webTitle, webUrl, webFavicon]);
+    // currentWebSite 变动不更新 history
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, webTitle, webUrl, webFavicon]);
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
@@ -264,6 +294,10 @@ const Explorer: FC = () => {
 
   const onMore = () => {
     setVisibleMore(!visibleMore);
+  };
+
+  const onGoHomePage = () => {
+    setDisplayInitialPage(true);
   };
 
   const getCurrentUrl = () => webUrl ?? currentWebSite?.url ?? '';
@@ -329,6 +363,7 @@ const Explorer: FC = () => {
         onShare={onShare}
         onOpenBrowser={onOpenBrowser}
         onCopyUrlToClipboard={onCopyUrlToClipboard}
+        onGoHomePage={onGoHomePage}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,6 +380,7 @@ const Explorer: FC = () => {
             onSearchContentChange={setSearchContent}
             onSearchSubmitEditing={onSearchSubmitEditing}
             explorerContent={explorerContent}
+            canGoBack={canGoBack}
             onGoBack={onGoBack}
             onNext={onNext}
             onRefresh={onRefresh}
@@ -360,6 +396,8 @@ const Explorer: FC = () => {
             onSearchContentChange={setSearchContent}
             onSearchSubmitEditing={onSearchSubmitEditing}
             explorerContent={explorerContent}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
             onGoBack={onGoBack}
             onNext={onNext}
             onRefresh={onRefresh}

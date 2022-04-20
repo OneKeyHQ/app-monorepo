@@ -11,6 +11,7 @@ export type MoreViewProps = {
   onShare: () => void;
   onCopyUrlToClipboard: () => void;
   onOpenBrowser: () => void;
+  onGoHomePage: () => void;
 };
 
 const MoreView: FC<MoreViewProps> = ({
@@ -20,6 +21,7 @@ const MoreView: FC<MoreViewProps> = ({
   onShare,
   onCopyUrlToClipboard,
   onOpenBrowser,
+  onGoHomePage,
 }) => {
   const intl = useIntl();
 
@@ -44,6 +46,10 @@ const MoreView: FC<MoreViewProps> = ({
           break;
         case 'openInBrowser':
           onOpenBrowser();
+          setCurrentOptionType(null);
+          break;
+        case 'goHome':
+          onGoHomePage();
           setCurrentOptionType(null);
           break;
         default:
@@ -101,6 +107,13 @@ const MoreView: FC<MoreViewProps> = ({
           }),
           value: 'openInBrowser',
           iconProps: { name: 'GlobeAltOutline' },
+        },
+        {
+          label: intl.formatMessage({
+            id: 'action__back_to_home_page',
+          }),
+          value: 'goHome',
+          iconProps: { name: 'HomeOutline' },
         },
       ]}
     />

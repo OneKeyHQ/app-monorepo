@@ -49,6 +49,10 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
+input {
+  outline: none;
+}
+
 /* Enable for apps that support dark-theme */
 /*@media (prefers-color-scheme: dark) {
   body {
