@@ -664,30 +664,7 @@ class RealmDB implements DBAPI {
     account: DBAccount,
     importedCredential?: PrivateKeyCredential,
   ): Promise<DBAccount> {
-    let addingImported = false;
-    if (walletIsImported(walletId)) {
-      if (typeof importedCredential === 'undefined') {
-        throw new OneKeyInternalError(
-          'Imported credential required for adding imported accounts.',
-        );
-      }
-      addingImported = true;
-    }
-
     try {
-      if (addingImported) {
-        const context = this.realm!.objectForPrimaryKey<ContextSchema>(
-          'Context',
-          MAIN_CONTEXT,
-        );
-        if (typeof context === 'undefined') {
-          return Promise.reject(new OneKeyInternalError('Context not found.'));
-        }
-        if (!checkPassword(context, importedCredential!.password)) {
-          return Promise.reject(new WrongPassword());
-        }
-      }
-
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
         walletId,
@@ -761,12 +738,37 @@ class RealmDB implements DBAPI {
             if (wallet.accounts!.size > IMPORTED_ACCOUNT_MAX_NUM) {
               throw new TooManyImportedAccounts(IMPORTED_ACCOUNT_MAX_NUM);
             }
+            const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+              'Context',
+              MAIN_CONTEXT,
+            );
+            if (!context) {
+              return Promise.reject(
+                new OneKeyInternalError('Context not found.'),
+              );
+            }
+            if (!importedCredential) {
+              return Promise.reject(
+                new OneKeyInternalError(
+                  'Imported credential required for adding imported accounts.',
+                ),
+              );
+            }
+            if (!checkPassword(context, importedCredential.password)) {
+              return Promise.reject(new WrongPassword());
+            }
             this.realm!.create('Credential', {
               id: account.id,
               credential: JSON.stringify({
-                privateKey: importedCredential!.privateKey.toString('hex'),
+                privateKey: importedCredential.privateKey.toString('hex'),
               }),
             });
+            if (context.verifyString === DEFAULT_VERIFY_STRING) {
+              context.verifyString = encrypt(
+                importedCredential.password,
+                Buffer.from(DEFAULT_VERIFY_STRING),
+              ).toString('hex');
+            }
             wallet.nextAccountIds!.global += 1;
             break;
           }
