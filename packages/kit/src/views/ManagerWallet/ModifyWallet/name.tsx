@@ -155,7 +155,7 @@ const ModifyWalletNameViewModal: FC = () => {
               },
             }}
           >
-            <Form.Input autoFocus placeholder={wallet?.name ?? ''} />
+            <Form.Input size="xl" autoFocus placeholder={wallet?.name ?? ''} />
           </Form.Item>
           <Button
             type="primary"

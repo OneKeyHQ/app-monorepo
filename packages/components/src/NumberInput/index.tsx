@@ -103,10 +103,12 @@ export const NumberInput: FC<NumberInputProps> = ({
       w="full"
       keyboardType="numeric"
       isReadOnly={enableMaxButton && isMax}
-      // rightSecondaryText={maxButton}
+      size="xl"
       rightCustomElement={
         <>
-          <Typography.Body1>{tokenSymbol}</Typography.Body1>
+          <Typography.Body1 color="text-subdued">
+            {tokenSymbol}
+          </Typography.Body1>
           <Divider orientation="vertical" h={5} ml={5} mr={1} />
           {maxButton}
           <Box w={1} />

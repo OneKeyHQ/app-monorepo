@@ -4,9 +4,11 @@ import React, { FC, useCallback, useEffect, useMemo } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
+import { Box, Form, Modal, useForm } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import { Text } from '@onekeyhq/components/src/Typography';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useDrawer, useToast } from '@onekeyhq/kit/src/hooks';
@@ -50,6 +52,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     [selectedWalletId, wallets],
   );
   const watchNetwork = watch('network', (networks ?? [])[0].id);
+  const isSmallScreen = useIsVerticalLayout();
 
   useEffect(() => {
     const selectedNetwork =
@@ -124,14 +127,17 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               label={intl.formatMessage({ id: 'form__account_name' })}
               control={control}
             >
-              <Form.Input />
+              <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
             </Form.Item>
-            <Box alignItems="center" mt="6">
-              <Typography.Body2>
+            <Box alignItems="center">
+              <Text
+                typography={{ sm: 'Body1', md: 'Body2' }}
+                color="text-subdued"
+              >
                 {intl.formatMessage({
                   id: 'account__restore_a_previously_used_account',
                 })}
-              </Typography.Body2>
+              </Text>
               <Pressable
                 onPress={() => {
                   navigation.navigate(
@@ -148,11 +154,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                   );
                 }}
               >
-                <Typography.Body2Underline color="action-primary-default">
+                <Text
+                  typography={{ sm: 'Body1', md: 'Body2' }}
+                  color="action-primary-default"
+                >
                   {intl.formatMessage({
                     id: 'action__recover_accounts',
                   })}
-                </Typography.Body2Underline>
+                </Text>
               </Pressable>
             </Box>
           </Form>
