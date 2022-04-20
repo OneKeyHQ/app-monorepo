@@ -49,7 +49,9 @@ const Restore: FC = () => {
   const [pinRetryCount, setPinRetryCount] = useState<string>('');
   const [restoreData, setRestoreData] = useState<string>();
 
-  const [title] = useState('Onekey Lite');
+  const [title] = useState(
+    intl.formatMessage({ id: 'app__hardware_name_onekey_lite' }),
+  );
   const [actionPressStyle, setActionPressStyle] =
     useState<ButtonType>('primary');
   const [actionPressContent, setActionPressContent] = useState(

@@ -17,9 +17,9 @@ import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ChevronDown } from '../Icon/react/solid';
 import Pressable from '../Pressable';
-import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
+import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
-import Typography from '../Typography';
+import { Text } from '../Typography';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
@@ -80,6 +80,7 @@ export type SelectProps<T = string> = {
   onPressFooter?: () => void;
   onModalHide?: () => void;
   isTriggerPlain?: boolean;
+  triggerSize?: 'xl' | 'default' | string | undefined;
   activatable?: boolean;
   visible?: boolean | undefined;
   onVisibleChange?: (visible: boolean) => void;
@@ -102,6 +103,7 @@ export type ChildProps<T> = Pick<
   | 'headerShown'
   | 'onModalHide'
   | 'isTriggerPlain'
+  | 'triggerSize'
   | 'activatable'
   | 'dropdownPosition'
   | 'triggerEle'
@@ -117,6 +119,7 @@ const defaultProps = {
   headerShown: true,
   dropdownPosition: 'center',
   isTriggerPlain: false,
+  triggerSize: 'default',
   activatable: true,
   visible: undefined,
   onVisibleChange: null,
@@ -139,6 +142,7 @@ function Select<T = string>({
   onPressFooter,
   headerShown,
   isTriggerPlain,
+  triggerSize,
   activatable,
   dropdownPosition,
   visible: selectVisible,
@@ -149,7 +153,6 @@ function Select<T = string>({
   const triggerRef = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
-  const isSmallScreen = useIsVerticalLayout();
   const toggleVisible = useCallback(() => {
     // if (platformEnv.isBrowser) {
     //   const event = new Event('click');
@@ -266,7 +269,7 @@ function Select<T = string>({
               display="flex"
               flexDirection="row"
               alignItems="center"
-              py="2"
+              py={triggerSize === 'xl' ? 3 : 2}
               pl="3"
               pr="2.5"
               borderWidth={isTriggerPlain ? undefined : '1'}
@@ -296,10 +299,10 @@ function Select<T = string>({
             >
               <Box
                 display="flex"
+                flex={1}
                 flexDirection="row"
                 alignItems="center"
                 mr="1"
-                w="full"
               >
                 {!!activeOption.tokenProps && (
                   <Box mr="3">
@@ -315,19 +318,23 @@ function Select<T = string>({
                   </Box>
                 )}
                 <Box flex={1}>
-                  {isSmallScreen ? (
-                    <Typography.Body1 numberOfLines={1} flex={1} isTruncated>
-                      {activeOption.label ?? '-'}
-                    </Typography.Body1>
-                  ) : (
-                    <Typography.Body2 numberOfLines={1} flex={1} isTruncated>
-                      {activeOption.label ?? '-'}
-                    </Typography.Body2>
-                  )}
+                  <Text
+                    typography={
+                      triggerSize === 'xl'
+                        ? 'Body1'
+                        : // triggerSize === 'default'
+                          { sm: 'Body1', md: 'Body2' }
+                    }
+                    numberOfLines={1}
+                    flex={1}
+                    isTruncated
+                  >
+                    {activeOption.label ?? '-'}
+                  </Text>
                   {activeOption.description && (
-                    <Typography.Body2 color="text-subdued">
+                    <Text typography="Body2" color="text-subdued">
                       {activeOption.description ?? '-'}
-                    </Typography.Body2>
+                    </Text>
                   )}
                 </Box>
               </Box>

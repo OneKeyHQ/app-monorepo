@@ -106,7 +106,9 @@ const Me = () => {
             >
               <HStack space="4">
                 <Icon name="CreditCardOutline" />
-                <Typography.Body1>OneKey Lite</Typography.Body1>
+                <Typography.Body1>
+                  {intl.formatMessage({ id: 'app__hardware_name_onekey_lite' })}
+                </Typography.Body1>
               </HStack>
               <Icon name="ChevronRightSolid" size={20} />
             </Pressable>

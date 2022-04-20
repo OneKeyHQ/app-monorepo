@@ -147,11 +147,11 @@ export const ListView: FC<ListViewProps> = ({ onPress }) => {
         renderItem,
         ListFooterComponent: (
           <Button
-            mt="6"
+            mt="4"
             leftIconName="PlusOutline"
             type="plain"
             w="full"
-            size={isSmallScreen ? 'lg' : 'base'}
+            size={isSmallScreen ? 'xl' : 'base'}
             onPress={() => {
               navigation.navigate(ManageNetworkRoutes.AddNetwork);
             }}

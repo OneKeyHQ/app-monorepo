@@ -9,6 +9,7 @@ import {
   Modal,
   Typography,
   useForm,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -37,6 +38,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const toast = useToast();
+  const isSmallScreen = useIsVerticalLayout();
 
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
     connected: false,
@@ -168,7 +170,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     },
                   }}
                 >
-                  <Form.Input />
+                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                 </Form.Item>
                 <Form.Item
                   name="rpcURL"
@@ -202,7 +204,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     validate: () => rpcUrlStatus.error,
                   }}
                 >
-                  <Form.Input />
+                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                 </Form.Item>
                 <Form.Item
                   name="chainId"
@@ -212,7 +214,10 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     defaultMessage: 'Chain ID',
                   })}
                 >
-                  <Form.Input isDisabled />
+                  <Form.Input
+                    isDisabled
+                    size={isSmallScreen ? 'xl' : 'default'}
+                  />
                 </Form.Item>
                 <Form.Item
                   name="symbol"
@@ -238,7 +243,10 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     },
                   }}
                 >
-                  <Form.Input placeholder="ETH" />
+                  <Form.Input
+                    size={isSmallScreen ? 'xl' : 'default'}
+                    placeholder="ETH"
+                  />
                 </Form.Item>
                 <Form.Item
                   name="explorerURL"
@@ -271,7 +279,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     },
                   }}
                 >
-                  <Form.Input />
+                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                 </Form.Item>
               </Form>
             </KeyboardDismissView>

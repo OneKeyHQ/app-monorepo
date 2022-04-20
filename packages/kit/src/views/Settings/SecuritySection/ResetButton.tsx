@@ -9,6 +9,7 @@ import {
   Input,
   Pressable,
   Text,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,6 +23,7 @@ const ResetButton = () => {
     await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
   }, []);
+  const isSmallScreen = useIsVerticalLayout();
 
   const onOpenResetModal = useCallback(async () => {
     const wallets = await backgroundApiProxy.engine.getWallets();
@@ -93,6 +95,7 @@ const ResetButton = () => {
               <Input
                 w="full"
                 value={input}
+                size={isSmallScreen ? 'xl' : 'default'}
                 onChangeText={(text) => setInput(text.trim())}
               />
             </Box>

@@ -12,6 +12,7 @@ import {
   Modal,
   Typography,
   useForm,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -73,6 +74,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
     mode: 'onChange',
   });
   const [removeOpend, setRemoveOpened] = useState(false);
+  const isSmallScreen = useIsVerticalLayout();
 
   const onShowRemoveModal = useCallback(() => {
     setRemoveOpened(true);
@@ -190,7 +192,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     },
                   }}
                 >
-                  <Form.Input />
+                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                 </Form.Item>
                 <Form.Item
                   name="rpcURL"
@@ -223,7 +225,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     validate: () => rpcUrlStatus.error,
                   }}
                 >
-                  <Form.Input />
+                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                 </Form.Item>
                 <Form.Item
                   name="chainId"
@@ -239,6 +241,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                       id: 'form__chain_id',
                       defaultMessage: 'Chain ID',
                     })}
+                    size={isSmallScreen ? 'xl' : 'default'}
                   />
                 </Form.Item>
                 <Form.Item
@@ -265,7 +268,10 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     },
                   }}
                 >
-                  <Form.Input placeholder="ETH" />
+                  <Form.Input
+                    placeholder="ETH"
+                    size={isSmallScreen ? 'xl' : 'default'}
+                  />
                 </Form.Item>
                 <Form.Item
                   name="exploreUrl"
@@ -298,12 +304,12 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     },
                   }}
                 >
-                  <Form.Input />
+                  <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
                 </Form.Item>
                 {network?.id !== id ? (
                   <Button
                     w="full"
-                    size="lg"
+                    size={isSmallScreen ? 'xl' : 'lg'}
                     type="outline"
                     onPress={onShowRemoveModal}
                   >

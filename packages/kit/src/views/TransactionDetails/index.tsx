@@ -11,9 +11,7 @@ import {
   Center,
   Container,
   Icon,
-  IconButton,
   Modal,
-  Text,
   Typography,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
@@ -235,10 +233,11 @@ const TransactionDetails: FC = () => {
           } ${amount.unit ?? ''}`}`}
           custom={
             <Box
+              flex={1}
               flexDirection="row"
-              mt={list.length > 0 ? 2 : 0}
-              justifyContent="flex-end"
               flexWrap="wrap"
+              justifyContent="flex-end"
+              mt={list.length > 0 ? 2 : 0}
             >
               {list.map((item) => (
                 <Box m={1}>
@@ -448,27 +447,10 @@ const TransactionDetails: FC = () => {
             <Container.Box mt={6}>
               <Container.Item
                 title={intl.formatMessage({ id: 'content__hash' })}
-              >
-                <Box
-                  flexDirection="row"
-                  justifyContent="flex-end"
-                  w="100%"
-                  flexWrap="wrap"
-                >
-                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                    {shortenAddress(txInfo?.txHash ?? '', 8)}
-                  </Text>
-                  <Center my={-1} ml={2} mr={-1}>
-                    <IconButton
-                      size="xs"
-                      circle
-                      name="DuplicateSolid"
-                      type="plain"
-                      onPress={copyHashToClipboard}
-                    />
-                  </Center>
-                </Box>
-              </Container.Item>
+                describe={shortenAddress(txInfo?.txHash ?? '', 8)}
+                customArrowIconName="DuplicateSolid"
+                onArrowIconPress={copyHashToClipboard}
+              />
 
               {renderFromAddress}
 

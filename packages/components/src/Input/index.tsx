@@ -20,7 +20,7 @@ type Props = {
   rightIconName?: ICON_NAMES;
   rightCustomElement?: ReactNode;
   rightSecondaryIconName?: ICON_NAMES;
-  size?: string;
+  size?: 'xl' | 'default' | string | undefined;
   textSize?: TypographyStyle;
   onPressLeftText?: () => void;
   onPressRightText?: () => void;

@@ -9,6 +9,7 @@ import {
   Modal,
   useForm,
 } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -42,6 +43,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const { accountTokensMap } = useManageTokens();
+  const isSmallScreen = useIsVerticalLayout();
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',
@@ -220,7 +222,10 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             defaultValue=""
             control={control}
           >
-            <Form.Input isDisabled={inputDisabled} />
+            <Form.Input
+              size={isSmallScreen ? 'xl' : 'default'}
+              isDisabled={inputDisabled}
+            />
           </Form.Item>
           <Form.Item
             name="decimal"
@@ -236,7 +241,10 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
               }),
             }}
           >
-            <Form.Input isDisabled={inputDisabled} />
+            <Form.Input
+              size={isSmallScreen ? 'xl' : 'default'}
+              isDisabled={inputDisabled}
+            />
           </Form.Item>
         </Form>
       </KeyboardDismissView>

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -37,14 +37,17 @@ export default function useOpenBrowser() {
     }
   }, []);
 
-  return {
-    /**
-     * Open the URL inside the application.
-     */
-    openUrl: open,
-    /**
-     * Open the URL with a third-party browser.
-     */
-    openUrlExternal,
-  };
+  return useMemo(
+    () => ({
+      /**
+       * Open the URL inside the application.
+       */
+      openUrl: open,
+      /**
+       * Open the URL with a third-party browser.
+       */
+      openUrlExternal,
+    }),
+    [open, openUrlExternal],
+  );
 }

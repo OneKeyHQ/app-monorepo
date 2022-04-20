@@ -24,10 +24,6 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
-      - name: Setup keys secret
-        run: |
-          echo ${{ secrets.IOS_KEYS_ENV }} | base64 -d > packages/app/ios/OneKeyWallet/RNBridge/NFCENV.m
-
       - name: Setup Credentials
         run: |
           mkdir packages/app/ios/certs
