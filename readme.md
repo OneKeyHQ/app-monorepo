@@ -1,5 +1,5 @@
 <p align="center">
-<img width="200" src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_logo_badge_border.png"/>
+<img width="200" src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_logo_badge_border.png?raw=trueg"/>
 </p>
 
 ---
@@ -14,7 +14,7 @@
 [👉 Click here to check all open positions](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
 
 <p align="center">
-<img src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_monorepo_desktop.png"/>
+<img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_desktop_transparent.png?raw=true"/>
 </p>
 
 
@@ -31,7 +31,7 @@
 
 We really need your support, star or watch this repo for latest updates.
 
-<kbd><img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_star.gif" alt="Star this repo"/></kbd>
+<kbd><img src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_monorepo_star.gif?raw=true" alt="Star this repo"/></kbd>
 
 # Getting Onboard [English]
 
