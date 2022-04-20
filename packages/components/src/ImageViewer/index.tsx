@@ -157,9 +157,11 @@ const ImageViewer: FC<ImageViewerProps> = ({
     if (imageUri) {
       RNImage.getSize(imageUri, (width, height) => {
         // calculate image width and height
-        const scaleFactor = width / screenWidth;
-        const imageHeight = height / scaleFactor;
-        setImageSize({ width: screenWidth, height: imageHeight });
+        if (width > 0 && height > 0) {
+          const scaleFactor = width / screenWidth;
+          const imageHeight = height / scaleFactor;
+          setImageSize({ width: screenWidth, height: imageHeight });
+        }
       });
     }
   }, [imageUri, screenWidth]);

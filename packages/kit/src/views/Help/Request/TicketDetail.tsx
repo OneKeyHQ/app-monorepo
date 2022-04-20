@@ -1,17 +1,18 @@
-import React, { FC, useEffect, useMemo, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
-import { Column, Row, SimpleGrid } from 'native-base';
+import axios from 'axios';
+import { SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ScrollView } from 'react-native';
-import useSWR from 'swr';
+import { ListRenderItem } from 'react-native';
 
 import { Box, Image, Modal, Text } from '@onekeyhq/components';
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -28,26 +29,40 @@ type RouteProps = RouteProp<
 
 const Attachment: FC<AttachmentsType> = ({ id, size }) => {
   const { instanceId } = useSettings();
+  const [data, updateData] = useState('');
 
-  const { data } = useSWR<RequestPayload<string>>(
-    attachmentUri(id, instanceId),
+  useEffect(() => {
+    axios
+      .get<{ data: string }>(attachmentUri(id, instanceId))
+      .then((response) => {
+        if (response.data) {
+          updateData(response.data.data);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+  return (
+    <>
+      {data.length > 0 ? (
+        <Image
+          key={data}
+          width={size}
+          height={size}
+          src={data}
+          borderRadius="12px"
+          preview
+          bgColor="surface-selected"
+        />
+      ) : (
+        <Box
+          width={size}
+          height={size}
+          bgColor="surface-selected"
+          borderRadius="12px"
+        />
+      )}
+    </>
   );
-
-  const attachment = useMemo(() => {
-    if (!data?.data) return null;
-
-    return (
-      <Image
-        key={data.data}
-        width={size}
-        height={size}
-        src={data.data}
-        borderRadius="12px"
-        preview
-      />
-    );
-  }, [data?.data, size]);
-  return attachment;
 };
 
 type NavigationProps = NativeStackNavigationProp<
@@ -55,38 +70,107 @@ type NavigationProps = NativeStackNavigationProp<
   HistoryRequestRoutes.ReplyTicketModel
 >;
 
+function platformValue(): string {
+  if (platformEnv.isIOS) {
+    return 'App on iOS';
+  }
+  if (platformEnv.isAndroid) {
+    return 'App on Android';
+  }
+  if (platformEnv.isDesktop) {
+    return 'App on Desktop';
+  }
+  if (platformEnv.isBrowser) {
+    return 'App on Browser';
+  }
+  return 'Hardware';
+}
+
 function isMe(submitterId: number, authorId: number) {
   return submitterId === authorId;
 }
 export const TicketDetail: FC = () => {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const route = useRoute<RouteProps>();
   const { id } = route?.params.order;
   const submitterId = route.params.order.submitter_id;
   const imageSize = (260 - 16) / 3;
   const navigation = useNavigation<NavigationProps>();
-  const isFocused = useIsFocused();
+  const { version } = useSettings();
   const { instanceId } = useSettings();
   const { formatDate } = useFormatDate();
+  const [comments, updateComments] = useState<CommentType[]>([]);
 
-  const { data, mutate } = useSWR<RequestPayload<CommentType[]>>(
-    commentsUri(id, instanceId),
+  const renderItem: ListRenderItem<CommentType> = useCallback(
+    ({ item, index }) => {
+      const isMine = isMe(item.author_id, submitterId);
+      let { body } = item;
+      if (index === 0) {
+        const platform = platformValue();
+        body = `${body}\n\n${platform}\nAppVersion: ${version}`;
+      }
+      return (
+        <Box
+          flex={1}
+          flexDirection="row"
+          justifyContent={isMine ? 'flex-end' : 'flex-start'}
+        >
+          <Box flexDirection="column" paddingBottom="24px">
+            <Box
+              flexDirection="column"
+              bgColor="surface-default"
+              padding="16px"
+              borderRadius="12px"
+              flex={1}
+            >
+              <Text
+                selectable
+                maxWidth="260px"
+                typography={{ sm: 'Body1', md: 'Body2' }}
+                mb={item.attachments.length > 0 ? '12px' : '0px'}
+              >
+                {body}
+              </Text>
+              {item.attachments.length > 0 ? (
+                <SimpleGrid columns={3} spacingX={2} spacingY={3} mt="12px">
+                  {item.attachments.map((attachment, _index) => (
+                    <Box key={`attachment${_index}`} size={imageSize}>
+                      <Attachment {...attachment} size={imageSize} />
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              ) : null}
+            </Box>
+            <Text
+              mt="8px"
+              typography="Body2"
+              color="text-subdued"
+              textAlign={isMine ? 'right' : 'left'}
+            >
+              {formatDate(item.created_at, { hideYear: true })}
+            </Text>
+          </Box>
+        </Box>
+      );
+    },
+    [formatDate, imageSize, submitterId, version],
   );
 
-  let comments: CommentType[] = [];
-
-  if (data) {
-    comments = data.data;
-  }
-  const scrollViewRef = useRef<ScrollView>();
+  const getData = useCallback(() => {
+    axios
+      .get<RequestPayload<CommentType[]>>(commentsUri(id, instanceId))
+      .then((response) => {
+        updateComments(response.data.data);
+      })
+      .catch(() => {});
+  }, [id, instanceId]);
 
   useEffect(() => {
     if (isFocused) {
-      mutate();
+      getData();
     }
-  }, [isFocused, mutate]);
-
-  const { version } = useSettings();
+  }, [getData, isFocused]);
 
   return (
     <Modal
@@ -101,65 +185,12 @@ export const TicketDetail: FC = () => {
           order: route?.params.order,
         });
       }}
-      scrollViewProps={{
-        ref: scrollViewRef,
-        onContentSizeChange: () =>
-          scrollViewRef?.current?.scrollToEnd?.({ animated: false }),
-        children: (
-          <Column space="24px" paddingBottom="40px">
-            {comments.map((item, index) => {
-              const isMine = isMe(item.author_id, submitterId);
-              let { body } = item;
-              if (index === 0) {
-                body = `${body}\n\nApp on iOS\nAppVersion: ${version}`;
-              }
-              return (
-                <Row
-                  justifyContent={isMine ? 'flex-end' : 'flex-start'}
-                  key={item.id}
-                >
-                  <Column paddingBottom="24px" space="8px">
-                    <Column
-                      bgColor="surface-default"
-                      padding="16px"
-                      borderRadius="12px"
-                      flex={1}
-                    >
-                      <Text
-                        selectable
-                        maxWidth="260px"
-                        typography={{ sm: 'Body1', md: 'Body2' }}
-                      >
-                        {body}
-                      </Text>
-                      {item.attachments.length > 0 ? (
-                        <SimpleGrid
-                          columns={3}
-                          spacingX={2}
-                          spacingY={3}
-                          mt="12px"
-                        >
-                          {item.attachments.map((attachment, _index) => (
-                            <Box key={`attachment${_index}`} size={imageSize}>
-                              <Attachment {...attachment} size={imageSize} />
-                            </Box>
-                          ))}
-                        </SimpleGrid>
-                      ) : null}
-                    </Column>
-                    <Text
-                      typography="Body2"
-                      color="text-subdued"
-                      textAlign={isMine ? 'right' : 'left'}
-                    >
-                      {formatDate(item.created_at, { hideYear: true })}
-                    </Text>
-                  </Column>
-                </Row>
-              );
-            })}
-          </Column>
-        ),
+      flatListProps={{
+        height: '420px',
+        data: comments,
+        // @ts-ignore
+        renderItem,
+        keyExtractor: (item) => (item as CommentType).created_at,
       }}
     />
   );
