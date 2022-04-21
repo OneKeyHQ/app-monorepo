@@ -1667,17 +1667,17 @@
   dependencies:
     jsbi "^3.1.4"
 
-"@conflux-dev/conflux-address-js@^1.2.1", "@conflux-dev/conflux-address-js@^1.3.12", "@conflux-dev/conflux-address-js@^1.3.13":
-  version "1.3.13"
-  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
-  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
-  dependencies:
-    jsbi "^3.1.4"
-
 "@conflux-dev/conflux-address-js@^1.3.11":
   version "1.3.11"
   resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.11.tgz#d600bb3f3b111a3e122e05ab0cb06f54d235f056"
   integrity sha512-j8Gc4usgH3jvMDtJL7vImPyPn0NOJWLwhIURbHefw5g5dyCOjgmjVscTew3choeGlFX57CH3lYkvDl8kZffBUg==
+  dependencies:
+    jsbi "^3.1.4"
+
+"@conflux-dev/conflux-address-js@^1.3.12", "@conflux-dev/conflux-address-js@^1.3.13":
+  version "1.3.13"
+  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
+  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
   dependencies:
     jsbi "^3.1.4"
 
@@ -2932,13 +2932,6 @@
     webpack-manifest-plugin "~2.2.0"
     webpackbar "^4.0.0"
 
-"@findeth/abi@^0.3.0":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/@findeth/abi/-/abi-0.3.1.tgz#fe9a25211bc0c840c8bc53f937fd9af7278b9dab"
-  integrity sha512-T9HUVEjEgM0MzVLY4gs52ffz5AlHeC3CSGFcEzL4ojKMVzMxa3na1GW/XCmunrhnWP2cDh4fE2MhqLxA0CHqTw==
-  dependencies:
-    keccak "^3.0.0"
-
 "@formatjs/ecma402-abstract@1.11.0":
   version "1.11.0"
   resolved "https://registry.yarnpkg.com/@formatjs/ecma402-abstract/-/ecma402-abstract-1.11.0.tgz#7e91e6cc7cfebdc07171e00a3288719705e0108c"
@@ -3627,10 +3620,10 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@0.0.29":
-  version "0.0.29"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.29.tgz#e7e14f35b0a2fc99f914a8e8c6057bcb72f6e970"
-  integrity sha512-RtZrvlCkTfSPIyT6vurlg8Crx9YeommFegi9vYFbi1QCgEZ0RbZ9nxTO+NDH2XokNVtDqIl7OvmmF7dUAOfx3g==
+"@onekeyfe/blockchain-libs@0.0.30":
+  version "0.0.30"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.30.tgz#d3efba563b7cf6ac730769ad05614127bf205c58"
+  integrity sha512-6m1pdWwMa1VixsEX8dxS3RKIxcKxHN1wyXZdS0jEb4dEaMX/qkQCsTsSc+nCmmVt3i1K85qtNlM0UY7yMgv2RA==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@metamask/eth-sig-util" "^4.0.0"
@@ -3646,7 +3639,6 @@
     bitcoinjs-lib "^6.0.1"
     bitcoinjs-message "^2.2.0"
     bs58 "^4.0.1"
-    cip-23 "^0.2.0"
     cosmjs-types "^0.4.0"
     cross-fetch "^3.1.4"
     elliptic "^6.5.4"
@@ -8687,16 +8679,6 @@ ci-info@^3.1.1, ci-info@^3.2.0:
   version "3.3.0"
   resolved "https://registry.yarnpkg.com/ci-info/-/ci-info-3.3.0.tgz#b4ed1fb6818dea4803a55c623041f9165d2066b2"
   integrity sha512-riT/3vI5YpVH6/qomlDnJow6TBee2PBKSEpx3O32EGPYbWGIRsIlGRms3Sm74wYE1JMo8RnO04Hb12+v1J5ICw==
-
-cip-23@^0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/cip-23/-/cip-23-0.2.0.tgz#b99c52e92a874cdf80c7202e3af803594b327853"
-  integrity sha512-+IFurloZF+Ud0ZGp1yGzvHYXrQbH/zATBHCwz9sUgelieDwdV+n9s+fWoWnUWjJx1OEbh6mKU2ZAvksedcDvyw==
-  dependencies:
-    "@conflux-dev/conflux-address-js" "^1.2.1"
-    "@findeth/abi" "^0.3.0"
-    keccak "^3.0.1"
-    superstruct "^0.10.12"
 
 cipher-base@^1.0.0, cipher-base@^1.0.1, cipher-base@^1.0.3:
   version "1.0.4"
@@ -22292,11 +22274,6 @@ superagent@^6.1.0:
     qs "^6.9.4"
     readable-stream "^3.6.0"
     semver "^7.3.2"
-
-superstruct@^0.10.12:
-  version "0.10.13"
-  resolved "https://registry.yarnpkg.com/superstruct/-/superstruct-0.10.13.tgz#705535a5598ff231bd976601a7b6b534a71a821b"
-  integrity sha512-W4SitSZ9MOyMPbHreoZVEneSZyPEeNGbdfJo/7FkJyRs/M3wQRFzq+t3S/NBwlrFSWdx1ONLjLb9pB+UKe4IqQ==
 
 superstruct@^0.14.2:
   version "0.14.2"
