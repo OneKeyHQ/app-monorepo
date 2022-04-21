@@ -90,3 +90,8 @@ input {
 textarea {
   outline: none;
 }
+
+/* data-testid="Segment_Button" */
+[data-testid=Segment_Button] {
+  width: 100%;
+}

@@ -1,9 +1,11 @@
 import React, { ComponentProps, FC, useCallback } from 'react';
 
-import { Pressable, View } from 'native-base';
+import { View } from 'native-base';
 import { Keyboard } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import Pressable from '../Pressable';
 
 export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
   children,
