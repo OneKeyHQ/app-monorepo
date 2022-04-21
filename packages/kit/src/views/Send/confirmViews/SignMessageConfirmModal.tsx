@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { Modal } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-import { IEncodedTxAny } from '@onekeyhq/engine/src/types/vault';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import { IDappCallParams } from '../../../background/IBackgroundApi';

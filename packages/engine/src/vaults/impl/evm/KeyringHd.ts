@@ -5,11 +5,10 @@ import {
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ETHMessageTypes } from '../../../types/message';
 import { ISignCredentialOptions } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { IUnsignedMessageEvm } from './Vault';
+import type { IUnsignedMessageEvm } from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
   async signTransaction(

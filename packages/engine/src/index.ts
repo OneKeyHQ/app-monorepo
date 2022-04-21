@@ -1242,7 +1242,7 @@ class Engine {
     encodedTx: any;
   }) {
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-
+    // throw new Error('test fetch fee info error');
     return vault.fetchFeeInfo(encodedTx);
   }
 

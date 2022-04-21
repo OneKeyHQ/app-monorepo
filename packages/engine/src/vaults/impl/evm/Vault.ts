@@ -391,7 +391,7 @@ export default class Vault extends VaultBase {
       eip1559,
       tx: {
         eip1559,
-        limit: encodedTx.gas,
+        limit: encodedTx.gas ?? encodedTx.gasLimit,
         price: priceInfo,
       },
     };

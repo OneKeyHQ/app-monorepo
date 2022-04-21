@@ -22,6 +22,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 import { ITransferInfo } from '@onekeyhq/engine/src/types/vault';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -108,7 +109,7 @@ const Transaction = () => {
     networkId,
     network: activeNetwork,
   } = useActiveWalletAccount();
-  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
+  const { feeInfoPayload, feeInfoLoading, feeInfoError } = useFeeInfoPayload({
     encodedTx,
     pollingInterval: FEE_INFO_POLLING_INTERVAL,
   });
@@ -264,6 +265,7 @@ const Transaction = () => {
     !isValid ||
     feeInfoLoading ||
     !feeInfoPayload ||
+    !feeInfoPayload.current.total ||
     !getValues('to') ||
     (!getValues('value') && !isMax) ||
     !encodedTx;
@@ -487,6 +489,7 @@ const Transaction = () => {
                   feeInfoPayload={feeInfoPayload}
                   loading={feeInfoLoading}
                 />
+                <FormErrorMessage message={feeInfoError?.message ?? ''} />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />
