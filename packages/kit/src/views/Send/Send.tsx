@@ -85,15 +85,22 @@ const Transaction = () => {
   const route = useRoute<RouteProps>();
   const { token: routeParamsToken } = route.params;
 
-  const { control, handleSubmit, watch, trigger, getValues, setValue } =
-    useForm<TransactionValues>({
-      mode: 'onBlur',
-      reValidateMode: 'onBlur',
-      defaultValues: {
-        to: '',
-        value: '', // TODO rename to amount
-      },
-    });
+  const {
+    control,
+    handleSubmit,
+    watch,
+    trigger,
+    getValues,
+    setValue,
+    clearErrors,
+  } = useForm<TransactionValues>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    defaultValues: {
+      to: '',
+      value: '', // TODO rename to amount
+    },
+  });
   const { isValid } = useFormState({ control });
   const {
     account,
@@ -217,6 +224,16 @@ const Transaction = () => {
     updateTransferInfo();
   }, [isMax, updateTransferInfo]);
 
+  const revalidateAmountInput = useCallback(() => {
+    setTimeout(() => {
+      if (getValues('value')) {
+        trigger('value');
+      } else {
+        clearErrors('value');
+      }
+    }, 300);
+  }, [clearErrors, getValues, trigger]);
+
   // form data changed watch handler
   useEffect(() => {
     const subscription = watch((formValues, { name, type }) => {
@@ -225,21 +242,23 @@ const Transaction = () => {
         const option = tokenOptions.find((o) => o.value === formValues.token);
         if (option) {
           setSelectOption(option);
-          // setValue('value', '');
-          setTimeout(() => {
-            trigger('value');
-          }, 300);
+          revalidateAmountInput();
         }
       }
       if (type === 'change' && name === 'value') {
         setInputValue(formValues.value);
-        setTimeout(() => {
-          trigger('value');
-        }, 300);
+        revalidateAmountInput();
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions, trigger, updateTransferInfo, setValue]);
+  }, [
+    watch,
+    tokenOptions,
+    trigger,
+    updateTransferInfo,
+    setValue,
+    revalidateAmountInput,
+  ]);
 
   const submitButtonDisabled =
     !isValid ||
@@ -454,9 +473,7 @@ const Transaction = () => {
                   maxText={getTokenBalance(selectedToken, '')}
                   onMaxChange={(v) => {
                     setIsMax(v);
-                    setTimeout(() => {
-                      trigger('value');
-                    }, 300);
+                    revalidateAmountInput();
                   }}
                 />
               </Form.Item>

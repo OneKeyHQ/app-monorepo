@@ -63,15 +63,15 @@ type NavigationProps = NativeStackNavigationProp<
 export function FeeSpeedLabel({ index }: { index: number | string }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
-  let title = `🚗️ ${intl.formatMessage({ id: 'content__normal' })}`;
+  let title = `🚗️  ${intl.formatMessage({ id: 'content__normal' })}`;
   if (indexInt === 0) {
-    title = `🛴 ${intl.formatMessage({ id: 'content__slow' })}`;
+    title = `🛴  ${intl.formatMessage({ id: 'content__slow' })}`;
   }
   if (indexInt === 1) {
-    title = `🚗️ ${intl.formatMessage({ id: 'content__normal' })}`;
+    title = `🚗️  ${intl.formatMessage({ id: 'content__normal' })}`;
   }
   if (indexInt === 2) {
-    title = `🚀 ${intl.formatMessage({ id: 'content__fast' })}`;
+    title = `🚀  ${intl.formatMessage({ id: 'content__fast' })}`;
   }
   return <>{title}</>;
 }
