@@ -20,45 +20,54 @@ type NavigationProps = NavigationProp<
   SendRoutes.SendAuthentication
 >;
 type EnableLocalAuthenticationProps = {
-  sendParams: {
-    networkId: string;
-    accountId: string;
-    encodedTx: any;
-  };
   password: string;
 };
 
-const SendAuth: FC<EnableLocalAuthenticationProps> = ({
-  sendParams,
-  password,
-}) => {
+const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
   const navigation = useNavigation<NavigationProps>();
   const toast = useToast();
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { dispatch } = backgroundApiProxy;
+  const { networkId, accountId, onSuccess, encodedTx, unsignedMessage } =
+    route.params;
 
   const sendTx = useCallback(async () => {
-    debugLogger.sendTx('Authentication sendTx:', sendParams);
+    debugLogger.sendTx('Authentication sendTx:', route.params);
     // TODO needs wait rpc call finished, close Modal will cause tx send fail
     const result = await backgroundApiProxy.engine.signAndSendEncodedTx({
       password,
-      networkId: sendParams.networkId,
-      accountId: sendParams.accountId,
-      encodedTx: sendParams.encodedTx,
+      networkId,
+      accountId,
+      encodedTx,
     });
-    if (route.params.onSuccess) {
-      route.params.onSuccess(result);
-    }
-    debugLogger.sendTx('Authentication sendTx DONE:', sendParams, result);
-    return true;
-  }, [password, sendParams]);
+    debugLogger.sendTx('Authentication sendTx DONE:', route.params, result);
+    return result;
+  }, [password]);
+  const signMsg = useCallback(async () => {
+    // TODO accountId check if equals to unsignedMessage
+    const result = await backgroundApiProxy.engine.signMessage({
+      password,
+      networkId,
+      accountId,
+      unsignedMessage,
+    });
+    return result;
+  }, []);
 
   useEffect(() => {
     async function main() {
       try {
-        const result = await sendTx();
+        let result: any;
+        if (encodedTx) {
+          result = await sendTx();
+        }
+        if (unsignedMessage) {
+          result = await signMsg();
+          console.log('>>>>>>>> unsignedMessage ', unsignedMessage, result);
+        }
         if (result) {
+          onSuccess?.(result);
           if (navigation.canGoBack()) {
             // onSuccess will close() modal, goBack() is NOT needed here.
             // navigation.getParent()?.goBack?.();
@@ -106,17 +115,12 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
-  const sendParams = {
-    networkId: params.networkId,
-    accountId: params.accountId,
-    encodedTx: params.encodedTx,
-  };
+
+  // TODO all Modal close should reject dapp call
   return (
     <Modal height="598px" footer={null}>
-      <DecodeTxButtonTest encodedTx={sendParams.encodedTx} />
-      <Protected>
-        {(password) => <SendAuth sendParams={sendParams} password={password} />}
-      </Protected>
+      <DecodeTxButtonTest encodedTx={params.encodedTx} />
+      <Protected>{(password) => <SendAuth password={password} />}</Protected>
     </Modal>
   );
 };

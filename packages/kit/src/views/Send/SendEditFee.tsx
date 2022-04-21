@@ -63,15 +63,15 @@ type NavigationProps = NativeStackNavigationProp<
 export function FeeSpeedLabel({ index }: { index: number | string }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
-  let title = `🚗️ ${intl.formatMessage({ id: 'content__normal' })}`;
+  let title = `🚗️  ${intl.formatMessage({ id: 'content__normal' })}`;
   if (indexInt === 0) {
-    title = `🛴 ${intl.formatMessage({ id: 'content__slow' })}`;
+    title = `🛴  ${intl.formatMessage({ id: 'content__slow' })}`;
   }
   if (indexInt === 1) {
-    title = `🚗️ ${intl.formatMessage({ id: 'content__normal' })}`;
+    title = `🚗️  ${intl.formatMessage({ id: 'content__normal' })}`;
   }
   if (indexInt === 2) {
-    title = `🚀 ${intl.formatMessage({ id: 'content__fast' })}`;
+    title = `🚀  ${intl.formatMessage({ id: 'content__fast' })}`;
   }
   return <>{title}</>;
 }
@@ -359,9 +359,11 @@ const TransactionEditFee = ({ ...rest }) => {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { encodedTx, backRouteName } = route.params;
-  const { feeInfoPayload, getSelectedFeeInfoUnit } = useFeeInfoPayload({
-    encodedTx,
-  });
+  const { feeInfoPayload, feeInfoLoading, getSelectedFeeInfoUnit } =
+    useFeeInfoPayload({
+      encodedTx,
+      fetchAnyway: true,
+    });
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
 
   useEffect(() => {
@@ -382,12 +384,12 @@ const TransactionEditFee = ({ ...rest }) => {
     if (!radioValue && type === 'preset') {
       type = 'custom';
     }
-    let priceInfo: string | EIP1559Fee = data.gasPrice;
+    let priceInfo: string | EIP1559Fee = data.gasPrice || '0';
     if (isEIP1559Fee) {
       priceInfo = {
-        baseFee: data.baseFee,
-        maxPriorityFeePerGas: data.maxPriorityFeePerGas,
-        maxFeePerGas: data.maxFeePerGas,
+        baseFee: data.baseFee || '0',
+        maxPriorityFeePerGas: data.maxPriorityFeePerGas || '0',
+        maxFeePerGas: data.maxFeePerGas || '0',
       };
     }
     const feeInfoSelected = {
@@ -396,7 +398,7 @@ const TransactionEditFee = ({ ...rest }) => {
       custom: {
         eip1559: isEIP1559Fee,
         price: priceInfo,
-        limit: data.gasLimit,
+        limit: data.gasLimit || '0',
       },
     };
     debugLogger.sendTx('SendEditFee Confirm >>>> ', feeInfoSelected);
@@ -452,12 +454,12 @@ const TransactionEditFee = ({ ...rest }) => {
   ]);
 
   useEffect(() => {
-    if (!feeInfoPayload) {
-      return;
-    }
     const selected = feeInfoPayload?.selected;
-    const type = selected?.type ?? 'preset';
-    if (type === 'preset') {
+    let type = selected?.type ?? 'preset';
+    if (!feeInfoPayload || !feeInfoPayload?.info?.prices?.length) {
+      type = 'custom';
+    }
+    if (feeInfoPayload && type === 'preset') {
       let presetValue = selected?.preset || '1';
       // preset fix / presetFix
       if (feeInfoPayload?.info?.prices?.length < 2) {
@@ -465,9 +467,8 @@ const TransactionEditFee = ({ ...rest }) => {
       }
       setRadioValue(presetValue);
       setFeeType(FeeType.standard);
-    }
-    if (type === 'custom') {
-      const customValues = selected?.custom;
+    } else if (type === 'custom') {
+      const customValues = selected?.custom ?? {};
       setFeeType(FeeType.advanced);
       if (customValues) {
         setFormValuesFromFeeInfo(customValues);
@@ -511,8 +512,16 @@ const TransactionEditFee = ({ ...rest }) => {
       <Spinner size="lg" />
     </Center>
   );
-  if (feeInfoPayload && feeType) {
-    content = (
+
+  if (feeType && !feeInfoLoading) {
+    const customFeeForm = (
+      <CustomFeeForm
+        feeInfoPayload={feeInfoPayload}
+        control={control}
+        watch={watch}
+      />
+    );
+    content = feeInfoPayload ? (
       <>
         <EditFeeTabs
           type={feeType}
@@ -530,13 +539,13 @@ const TransactionEditFee = ({ ...rest }) => {
               }}
             />
           ) : (
-            <CustomFeeForm
-              feeInfoPayload={feeInfoPayload}
-              control={control}
-              watch={watch}
-            />
+            customFeeForm
           )}
         </Box>
+      </>
+    ) : (
+      <>
+        <Box>{customFeeForm}</Box>
       </>
     );
   }

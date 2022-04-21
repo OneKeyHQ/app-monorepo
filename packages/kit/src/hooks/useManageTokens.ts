@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
+
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -9,6 +11,8 @@ import { useAppSelector } from './redux';
 export const useManageTokens = ({
   pollingInterval = 0,
 }: { pollingInterval?: number } = {}) => {
+  const isFocused = useIsFocused();
+
   const { activeAccountId, activeNetworkId } = useAppSelector((s) => s.general);
   const {
     tokens,
@@ -61,7 +65,7 @@ export const useManageTokens = ({
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (pollingInterval) {
+    if (pollingInterval && isFocused) {
       backgroundApiProxy.serviceToken.fetchAccountTokens();
       timer = setInterval(() => {
         backgroundApiProxy.serviceToken.fetchAccountTokens();
@@ -72,7 +76,7 @@ export const useManageTokens = ({
         clearInterval(timer);
       }
     };
-  }, [pollingInterval]);
+  }, [isFocused, pollingInterval]);
 
   const getTokenBalance = useCallback(
     (token: Token | undefined | null, defaultValue = ''): string => {

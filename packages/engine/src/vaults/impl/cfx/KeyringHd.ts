@@ -5,8 +5,9 @@ import {
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ISignCredentialOptions } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+
+import type { ISignCredentialOptions } from '../../../types/vault';
 
 export class KeyringHd extends KeyringHdBase {
   async signTransaction(
@@ -27,5 +28,9 @@ export class KeyringHd extends KeyringHdBase {
       unsignedTx,
       signers,
     );
+  }
+
+  signMessage(messages: any[], options: ISignCredentialOptions): any {
+    console.log(messages, options);
   }
 }

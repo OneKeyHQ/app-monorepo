@@ -22,6 +22,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 import { ITransferInfo } from '@onekeyhq/engine/src/types/vault';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -85,15 +86,22 @@ const Transaction = () => {
   const route = useRoute<RouteProps>();
   const { token: routeParamsToken } = route.params;
 
-  const { control, handleSubmit, watch, trigger, getValues, setValue } =
-    useForm<TransactionValues>({
-      mode: 'onBlur',
-      reValidateMode: 'onBlur',
-      defaultValues: {
-        to: '',
-        value: '', // TODO rename to amount
-      },
-    });
+  const {
+    control,
+    handleSubmit,
+    watch,
+    trigger,
+    getValues,
+    setValue,
+    clearErrors,
+  } = useForm<TransactionValues>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    defaultValues: {
+      to: '',
+      value: '', // TODO rename to amount
+    },
+  });
   const { isValid } = useFormState({ control });
   const {
     account,
@@ -101,7 +109,7 @@ const Transaction = () => {
     networkId,
     network: activeNetwork,
   } = useActiveWalletAccount();
-  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
+  const { feeInfoPayload, feeInfoLoading, feeInfoError } = useFeeInfoPayload({
     encodedTx,
     pollingInterval: FEE_INFO_POLLING_INTERVAL,
   });
@@ -217,6 +225,16 @@ const Transaction = () => {
     updateTransferInfo();
   }, [isMax, updateTransferInfo]);
 
+  const revalidateAmountInput = useCallback(() => {
+    setTimeout(() => {
+      if (getValues('value')) {
+        trigger('value');
+      } else {
+        clearErrors('value');
+      }
+    }, 300);
+  }, [clearErrors, getValues, trigger]);
+
   // form data changed watch handler
   useEffect(() => {
     const subscription = watch((formValues, { name, type }) => {
@@ -225,26 +243,29 @@ const Transaction = () => {
         const option = tokenOptions.find((o) => o.value === formValues.token);
         if (option) {
           setSelectOption(option);
-          // setValue('value', '');
-          setTimeout(() => {
-            trigger('value');
-          }, 300);
+          revalidateAmountInput();
         }
       }
       if (type === 'change' && name === 'value') {
         setInputValue(formValues.value);
-        setTimeout(() => {
-          trigger('value');
-        }, 300);
+        revalidateAmountInput();
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions, trigger, updateTransferInfo, setValue]);
+  }, [
+    watch,
+    tokenOptions,
+    trigger,
+    updateTransferInfo,
+    setValue,
+    revalidateAmountInput,
+  ]);
 
   const submitButtonDisabled =
     !isValid ||
     feeInfoLoading ||
     !feeInfoPayload ||
+    !feeInfoPayload.current.total ||
     !getValues('to') ||
     (!getValues('value') && !isMax) ||
     !encodedTx;
@@ -454,9 +475,7 @@ const Transaction = () => {
                   maxText={getTokenBalance(selectedToken, '')}
                   onMaxChange={(v) => {
                     setIsMax(v);
-                    setTimeout(() => {
-                      trigger('value');
-                    }, 300);
+                    revalidateAmountInput();
                   }}
                 />
               </Form.Item>
@@ -470,6 +489,7 @@ const Transaction = () => {
                   feeInfoPayload={feeInfoPayload}
                   loading={feeInfoLoading}
                 />
+                <FormErrorMessage message={feeInfoError?.message ?? ''} />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

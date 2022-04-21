@@ -18,6 +18,7 @@ import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -59,5 +60,5 @@ export type IDappCallParams = {
   id: string | number;
   origin: string;
   scope: IInjectedProviderNamesStrings;
-  data: string;
+  data: IJsonRpcRequest;
 };
