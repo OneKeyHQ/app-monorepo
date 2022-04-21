@@ -11,6 +11,7 @@ import {
   Icon,
   IconButton,
   Pressable,
+  Skeleton,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -75,18 +76,18 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
             fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
           }}
           render={(ele) => (
-            <Typography.DisplayXLarge>
-              {!balances.main ? '-' : ele}
-            </Typography.DisplayXLarge>
+            <Skeleton isLoaded={!!balances.main}>
+              <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
+            </Skeleton>
           )}
         />
       </Box>
       <FormatCurrency
         numbers={[prices?.main, balances.main, !balances.main ? undefined : 1]}
         render={(ele) => (
-          <Typography.Body2 mt={1}>
-            {!balances.main ? '-' : ele}
-          </Typography.Body2>
+          <Skeleton isLoaded={!!prices.main}>
+            <Typography.Body2 mt={1}>{ele}</Typography.Body2>
+          </Skeleton>
         )}
       />
       <Pressable
