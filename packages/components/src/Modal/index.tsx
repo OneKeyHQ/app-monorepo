@@ -224,7 +224,7 @@ const Modal: FC<ModalProps> = ({
     <>
       {triggerNode}
       {modalContainer}
-      <Toast bottomOffset={120} />
+      {/* <Toast bottomOffset={120} /> */}
     </>
   );
 };
