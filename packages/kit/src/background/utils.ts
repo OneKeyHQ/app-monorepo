@@ -23,6 +23,7 @@ export function throwCrossError(msg: string, ...args: any) {
 }
 
 export function toPlainErrorObject(error: {
+  className?: any;
   name?: any;
   code?: any;
   data?: any;
@@ -30,6 +31,7 @@ export function toPlainErrorObject(error: {
   stack?: any;
 }) {
   return {
+    className: error.className,
     name: error.name,
     code: error.code,
     data: error.data,
