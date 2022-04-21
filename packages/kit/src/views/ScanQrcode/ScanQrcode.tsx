@@ -1,10 +1,12 @@
 import React, { FC, useEffect, useState } from 'react';
 
-import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Camera } from 'expo-camera';
+
+import * as ImagePicker from 'expo-image-picker';
+
 import {
   Center,
   Icon,
@@ -14,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import SvgScanArea from './SvgScanArea';
+import { scanFromURLAsync } from './scanFromURLAsync';
 
 const { isDesktop, isWeb, isExtension, isNative: isApp } = platformEnv;
 
@@ -25,9 +28,24 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [scanned, setScanned] = useState(false);
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    });
+
+    if (!result.cancelled) {
+      const scanResult = await scanFromURLAsync(result.uri);
+      if (scanResult) {
+        handleBarCodeScanned(scanResult);
+      } else {
+        // TODO invalid code
+      }
+    }
+  };
+
   useEffect(() => {
     (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === 'granted');
     })();
   }, []);
@@ -45,6 +63,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
       header={intl.formatMessage({ id: 'title__scan_qr_code' })}
       footer={
         <Button
+          onPress={pickImage}
           h={isApp ? '55px' : '45px'}
           variant="unstyled"
           leftIcon={<Icon name="PhotographSolid" size={isApp ? 19 : 15} />}
@@ -60,7 +79,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
         <Camera
           onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
           barCodeScannerSettings={{
-            barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
+            barCodeTypes: ['qr'],
           }}
         >
           <Center top={0} bottom={0} left={0} right={0} position="absolute">
