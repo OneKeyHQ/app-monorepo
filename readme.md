@@ -45,8 +45,11 @@ After pulling the latest code via the git command line tool, install the project
 
 ```
 # Install all JS dependencies and submodule dependencies
+
 yarn
+
 # Install the expo command line tool globally
+
 npm install -g expo-cli
 ```
 
