@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,36 +14,41 @@ import {
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  useNavigation,
-  useSwap,
-  useSwapEnabled,
-  useSwapQuote,
-} from '../../hooks';
+import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { SendRoutes } from '../Send/types';
 
 import TokenInput from './components/TokenInput';
 import ExchangeRate from './ExchangeRate';
+import {
+  ApprovalState,
+  SwapError,
+  useSwap,
+  useSwapActionHandlers,
+  useSwapEnabled,
+  useSwapState,
+} from './hooks/useSwap';
+import { useTransactionAdder } from './hooks/useTransactions';
 import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
+  const { inputToken, outputToken } = useSwapState();
   const isSwapEnabled = useSwapEnabled();
+  const addTransaction = useTransactionAdder();
+  const { onUserInput, onSwitchTokens, onReset } = useSwapActionHandlers();
   const { account, network } = useActiveWalletAccount();
   const {
-    input,
-    output,
+    swapQuote,
+    formattedAmounts,
+    isSwapLoading,
+    error,
+    approveState,
     inputAmount,
     outputAmount,
-    setInAmount,
-    setOutAmount,
-    setIndependentField,
-    switchInputOutput,
   } = useSwap();
-  const { refresh, data, isLoading, error } = useSwapQuote();
   const navigation = useNavigation();
-  const onInputPress = useCallback(() => {
+  const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
@@ -52,7 +56,7 @@ const SwapContent = () => {
       },
     });
   }, [navigation]);
-  const onOutputPress = useCallback(() => {
+  const onSelectOutput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
@@ -60,97 +64,100 @@ const SwapContent = () => {
       },
     });
   }, [navigation]);
-  const onInputChange = useCallback(
+  const onChangeInput = useCallback(
     (value: string) => {
-      setInAmount(value);
-      setIndependentField('INPUT');
-      refresh();
+      onUserInput('INPUT', value);
     },
-    [setInAmount, setIndependentField, refresh],
+    [onUserInput],
   );
-  const onOutputChange = useCallback(
+  const onChangeOutput = useCallback(
     (value: string) => {
-      setOutAmount(value);
-      setIndependentField('OUTPUT');
-      refresh();
+      onUserInput('OUTPUT', value);
     },
-    [setOutAmount, setIndependentField, refresh],
+    [onUserInput],
   );
-  const onSwitch = useCallback(() => {
-    switchInputOutput();
-    refresh();
-  }, [switchInputOutput, refresh]);
 
-  const onSubmit = useCallback(async () => {
-    if (data) {
-      // check approve
-      if (
-        data.needApprove &&
-        data.sellTokenAddress !== '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
-      ) {
-        if (account && network) {
-          const allowance = await backgroundApiProxy.engine.getTokenAllowance({
-            networkId: network?.id,
-            accountId: account.id,
-            tokenIdOnNetwork: data.sellTokenAddress,
-            spender: data.allowanceTarget,
-          });
-          const bnAllowance = new BigNumber(allowance || '0');
-          const bnInput = new BigNumber(data.sellAmount || '0');
-          if (bnAllowance.lt(bnInput)) {
-            const encodedTx =
-              await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-                networkId: network.id,
-                accountId: account.id,
-                spender: data.allowanceTarget,
-                token: data.sellTokenAddress,
-                amount: 'unlimited',
-              });
-            console.log('encodedTx', encodedTx);
-            //  approve transaction
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Send,
-              params: {
-                screen: SendRoutes.SendConfirm,
-                params: {
-                  encodedTx: { ...encodedTx, from: account?.address },
-                  sourceInfo: {
-                    id: '0',
-                    origin: 'Swap Token Approve',
-                    scope: 'ethereum',
-                    data: { method: '' },
-                  },
-                },
-              },
-            });
-            return;
-          }
-        }
-      }
+  const onSubmit = useCallback(() => {
+    if (swapQuote && account && inputAmount && outputAmount) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
-            encodedTx: { ...data, from: account?.address },
+            encodedTx: { ...swapQuote, from: account.address },
             sourceInfo: {
               id: '0',
               origin: 'OneKey Swap',
               scope: 'ethereum',
               data: { method: '' },
             },
+            // payload: swapQuote,
+            onSuccess: (tx) => {
+              addTransaction({
+                hash: tx.txid,
+                summary: `${inputAmount.value.toFixed(
+                  2,
+                )} ${inputAmount?.token.symbol.toUpperCase()} → ${outputAmount.value.toFixed(
+                  2,
+                )} ${outputAmount.token.symbol.toUpperCase()}`,
+              });
+              onReset();
+            },
           },
         },
       });
     }
-  }, [data, account, navigation, network]);
+  }, [
+    swapQuote,
+    navigation,
+    account,
+    addTransaction,
+    inputAmount,
+    outputAmount,
+    onReset,
+  ]);
 
-  let buttonText = intl.formatMessage({ id: 'title__swap' });
+  const onApprove = useCallback(async () => {
+    if (account && network && swapQuote && inputAmount) {
+      const encodedTx: { data: string } =
+        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+          spender: swapQuote?.allowanceTarget,
+          networkId: network.id,
+          accountId: account.id,
+          token: inputAmount.token.tokenIdOnNetwork,
+          amount: 'unlimited',
+        });
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendConfirm,
+          params: {
+            encodedTx: { ...encodedTx, from: account?.address },
+            sourceInfo: {
+              id: '0',
+              origin: 'Swap Token Approve',
+              scope: 'ethereum',
+              data: { method: '' },
+            },
+            onSuccess(tx) {
+              addTransaction({
+                hash: tx.txid,
+                approval: {
+                  tokenAddress: inputAmount.token.tokenIdOnNetwork,
+                  spender: swapQuote.allowanceTarget,
+                },
+                summary: `${inputAmount.token.symbol.toUpperCase()} Approved`,
+              });
+            },
+          },
+        },
+      });
+    }
+  }, [account, network, inputAmount, swapQuote, navigation, addTransaction]);
 
-  if (error) {
-    buttonText = error;
-  } else if (data?.needApprove) {
-    buttonText = 'Approved';
+  let buttonTitle = intl.formatMessage({ id: 'title__swap' });
+  if (error === SwapError.InsufficientBalance) {
+    buttonTitle = intl.formatMessage({ id: 'form__amount_invalid' });
   }
 
   return (
@@ -173,10 +180,10 @@ const SwapContent = () => {
         >
           <TokenInput
             label={intl.formatMessage({ id: 'content__from' })}
-            token={input}
-            inputValue={inputAmount}
-            onChange={onInputChange}
-            onPress={onInputPress}
+            token={inputToken}
+            inputValue={formattedAmounts.INPUT}
+            onChange={onChangeInput}
+            onPress={onSelectInput}
           />
           <Box w="full" h="10" position="relative">
             <Box position="absolute" w="full" h="full">
@@ -193,16 +200,16 @@ const SwapContent = () => {
                 borderColor="border-disabled"
                 borderWidth="0.5"
                 bg="surface-default"
-                onPress={onSwitch}
+                onPress={onSwitchTokens}
               />
             </Center>
           </Box>
           <TokenInput
             label={intl.formatMessage({ id: 'content__to' })}
-            token={output}
-            inputValue={outputAmount}
-            onChange={onOutputChange}
-            onPress={onOutputPress}
+            token={outputToken}
+            inputValue={formattedAmounts.OUTPUT}
+            onChange={onChangeOutput}
+            onPress={onSelectOutput}
           />
           {!isSwapEnabled ? (
             <Box w="full" h="full" position="absolute" />
@@ -220,11 +227,11 @@ const SwapContent = () => {
             {intl.formatMessage({ id: 'Rate' })}
           </Typography.Body2>
           <Typography.Body2 color="text-default">
-            {data && input?.symbol && output?.symbol ? (
+            {swapQuote && inputToken?.symbol && outputToken?.symbol ? (
               <ExchangeRate
-                inputSymbol={input?.symbol}
-                outputSymbol={output?.symbol}
-                price={data.price}
+                inputSymbol={inputToken?.symbol}
+                outputSymbol={outputToken?.symbol}
+                price={swapQuote.price}
               />
             ) : (
               '---'
@@ -243,15 +250,28 @@ const SwapContent = () => {
             />
           </Box>
         ) : null}
-        <Button
-          size="lg"
-          type="primary"
-          isDisabled={!!error || !isSwapEnabled || !data}
-          isLoading={isLoading}
-          onPress={onSubmit}
-        >
-          {buttonText}
-        </Button>
+        {approveState === ApprovalState.NOT_APPROVED ||
+        approveState === ApprovalState.PENDING ? (
+          <Button
+            size="lg"
+            type="primary"
+            isDisabled={!!error || !isSwapEnabled || !swapQuote}
+            isLoading={approveState === ApprovalState.PENDING}
+            onPress={onApprove}
+          >
+            {intl.formatMessage({ id: 'title__approve' })}
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            type="primary"
+            isDisabled={!!error || !isSwapEnabled || !swapQuote}
+            isLoading={isSwapLoading}
+            onPress={onSubmit}
+          >
+            {buttonTitle}
+          </Button>
+        )}
       </Box>
     </Center>
   );

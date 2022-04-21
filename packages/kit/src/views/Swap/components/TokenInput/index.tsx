@@ -7,7 +7,7 @@ import {
   Center,
   HStack,
   Icon,
-  Input,
+  NumberInput,
   Pressable,
   Token,
   Typography,
@@ -52,13 +52,14 @@ const TokenInput: FC<TokenInputProps> = ({
         alignItems="center"
       >
         <Box flex="1">
-          <Input
+          <NumberInput
             borderWidth={0}
             placeholder="0.00"
             pl="0"
             bg="transparent"
             _hover={{ bg: 'transparent' }}
             _focus={{ bg: 'transparent' }}
+            defaultValue=""
             value={inputValue}
             onChangeText={onChange}
           />

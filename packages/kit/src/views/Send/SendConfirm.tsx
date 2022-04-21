@@ -169,6 +169,9 @@ const TransactionConfirm = () => {
           await dappApprove.resolve({
             result: tx.txid,
           });
+          if (params.onSuccess) {
+            params.onSuccess(tx);
+          }
           setTimeout(() => close(), 0);
         },
       });
