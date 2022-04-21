@@ -51,9 +51,9 @@ const NavigationApp = () => {
         <Navigator />
       </NavigationContainer>
       <Box
-        overflow='hidden'
-        pointerEvents='none'
-        position='absolute'
+        overflow="hidden"
+        pointerEvents="none"
+        position="absolute"
         top={0}
         bottom={0}
         left={0}
