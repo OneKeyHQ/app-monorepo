@@ -60,11 +60,13 @@ const Desktop: FC<ExplorerViewProps> = ({
   onSearchContentChange,
   onSearchSubmitEditing,
   explorerContent,
+  loading,
   canGoBack,
   canGoForward,
   onGoBack,
   onNext,
   onRefresh,
+  onStopLoading,
   moreView,
   showExplorerBar,
 }) => {
@@ -117,8 +119,8 @@ const Desktop: FC<ExplorerViewProps> = ({
             />
             <IconButton
               type="plain"
-              name="RefreshOutline"
-              onPress={onRefresh}
+              name={loading ? 'CloseOutline' : 'RefreshOutline'}
+              onPress={loading ? onStopLoading : onRefresh}
             />
 
             <BrowserURLInput

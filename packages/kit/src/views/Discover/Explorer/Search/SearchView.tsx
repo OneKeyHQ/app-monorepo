@@ -176,6 +176,7 @@ const SearchView: FC<SearchViewProps> = ({
         borderColor="border-subdued"
         borderWidth={flatListData.length > 0 ? '1px' : '0px'}
         shadow="depth.3"
+        overflow="hidden"
       >
         <FlatList
           data={flatListData}
