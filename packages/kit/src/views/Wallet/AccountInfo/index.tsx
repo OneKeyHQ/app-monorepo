@@ -47,6 +47,7 @@ type AccountAmountInfoProps = { isCenter: boolean };
 const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
   const intl = useIntl();
   const toast = useToast();
+
   const { account, network: activeNetwork } = useActiveWalletAccount();
   const { prices, balances } = useManageTokens({
     pollingInterval: 15000,
