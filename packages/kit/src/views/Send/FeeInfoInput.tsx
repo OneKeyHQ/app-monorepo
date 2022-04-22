@@ -4,6 +4,7 @@ import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Icon,
   Pressable,
   Spinner,
@@ -106,42 +107,34 @@ function FeeInfoInputForTransfer({
         >
           <Column>
             <Row>
-              <Text
-                typography={{
-                  sm: 'Body1Strong',
-                  md: 'Body2Strong',
-                }}
-              >
-                {isPreset ? (
-                  <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
-                ) : null}{' '}
-                {totalDetailText}
-              </Text>
+              <Box>
+                <Text
+                  typography={{
+                    sm: 'Body1Strong',
+                    md: 'Body2Strong',
+                  }}
+                >
+                  {isPreset ? (
+                    <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
+                  ) : null}{' '}
+                  {/* {totalDetailText} */}
+                </Text>
+              </Box>
+              <Box>
+                <FormatCurrencyNative
+                  value={feeInfoPayload?.current?.totalNative}
+                  render={(ele) => (
+                    <Typography.Body2 mt={1} color="text-subdued">
+                      (~ {!feeInfoPayload?.current?.totalNative ? '-' : ele})
+                    </Typography.Body2>
+                  )}
+                />
+              </Box>
             </Row>
             <Row>
-              <FormatBalance
-                formatOptions={{
-                  fixed: feeInfoPayload?.info.nativeDecimals,
-                  unit: feeInfoPayload?.info.decimals,
-                }}
-                balance={feeInfoPayload?.current?.total ?? ''}
-                suffix={feeInfoPayload?.info.nativeSymbol}
-                render={(ele) => (
-                  <Typography.Body2 mt={1} color="text-subdued">
-                    {!feeInfoPayload?.current?.total ? '-' : ele}
-                  </Typography.Body2>
-                )}
-              />
-            </Row>
-            <Row>
-              <FormatCurrencyNative
-                value={feeInfoPayload?.current?.totalNative}
-                render={(ele) => (
-                  <Typography.Body2 mt={1} color="text-subdued">
-                    {!feeInfoPayload?.current?.totalNative ? '-' : ele}
-                  </Typography.Body2>
-                )}
-              />
+              <Box>
+                <Text color="text-subdued">Likely in 15s</Text>
+              </Box>
             </Row>
 
             {/* <Typography.Body2 color="text-subdued">

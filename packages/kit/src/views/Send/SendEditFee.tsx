@@ -508,21 +508,23 @@ const StandardFee = ({
       return {
         value: index.toString(),
         title: <FeeSpeedLabel index={index} />,
-        titleSecond: `≈ ${totalFee} ${feeSymbol}`,
-        describe: `${gas as string} ${feeSymbol}`,
-        describeSecond: (
+        titleSecond: <FeeSpeedTime index={index} />,
+        describe: (
           <FormatCurrencyNative
             value={totalFeeNative}
             render={(ele) => (
               <Typography.Body2 mt={1} color="text-subdued">
-                {!totalFeeNative ? '-' : ele}
+                ~ {!totalFeeNative ? '-' : ele}
               </Typography.Body2>
             )}
           />
         ),
+        describeSecond: `${totalFeeNative}${
+          feeInfoPayload?.info?.nativeSymbol ?? ''
+        }`,
       };
     });
-  }, [feeInfoPayload?.info, feeSymbol, gasList]);
+  }, [feeInfoPayload?.info, gasList]);
 
   return (
     <RadioFee
