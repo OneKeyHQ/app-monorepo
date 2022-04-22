@@ -697,7 +697,7 @@ class ProviderController extends BaseProviderController {
         status === TransactionStatus.NOT_FOUND ||
         status === TransactionStatus.INVALID
       ) {
-        if (now - createdAt > 60 * 5) {
+        if (now - createdAt > 60 * 5 * 1000) {
           ret[id] = HistoryEntryStatus.DROPPED;
         }
       } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
