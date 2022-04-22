@@ -163,14 +163,14 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
     />
   ) : undefined;
   return (
@@ -273,14 +273,14 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
     />
   ) : undefined;
   return (
@@ -342,14 +342,14 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
     />
   ) : undefined;
   return (

@@ -15,16 +15,26 @@ type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
   // @ts-ignore
-  const { sourceInfo, encodedTx } = useDappParams();
+  const { sourceInfo, encodedTx, unsignedMessage } = useDappParams();
   useEffect(() => {
-    navigation.dispatch(
+    let action: any;
+    if (encodedTx) {
       // replace router to SendConfirm
-      StackActions.replace(SendRoutes.SendConfirm, {
+      action = StackActions.replace(SendRoutes.SendConfirm, {
         sourceInfo,
         encodedTx,
-      }),
-    );
-  }, [encodedTx, navigation, sourceInfo]);
+      });
+    }
+    if (unsignedMessage) {
+      action = StackActions.replace(SendRoutes.SignMessageConfirm, {
+        sourceInfo,
+        unsignedMessage,
+      });
+    }
+    if (action) {
+      navigation.dispatch(action);
+    }
+  }, [encodedTx, navigation, sourceInfo, unsignedMessage]);
 
   return null;
 }

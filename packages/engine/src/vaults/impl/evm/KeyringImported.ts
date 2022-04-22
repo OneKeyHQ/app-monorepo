@@ -29,4 +29,8 @@ export class KeyringImported extends KeyringImportedBase {
       signers,
     );
   }
+
+  signMessage(messages: any[], options: ISignCredentialOptions): any {
+    console.log(messages, options);
+  }
 }
