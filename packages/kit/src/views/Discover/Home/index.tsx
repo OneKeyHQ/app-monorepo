@@ -15,7 +15,7 @@ import {
   Box,
   Empty,
   FlatList,
-  Image,
+  NetImage,
   Pressable,
   Spinner,
   Typography,
@@ -71,11 +71,11 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
             borderRadius="12px"
             padding="12px"
           >
-            <Image
+            <NetImage
               width={isSmallScreen ? '270px' : `${cardWidth - 24}px`}
               height={isSmallScreen ? '134px' : '177px'}
-              src={url}
-              borderRadius="12px"
+              uri={url}
+              borderRadius={12}
             />
             <Box mt="12px" flexDirection="row" alignItems="center">
               <DAppIcon size={28} favicon={item.favicon} chain={item.chain} />
