@@ -38,15 +38,6 @@ ChangeLogModal.defaultProps = ChangeLogModalDefaultProps;
 
 // The Stories Gallery
 const AppUpdateGallery = () => {
-  const features = [
-    {
-      emoji: '🚀',
-      heading: 'Feature One. Keep it Short and Simple',
-      description: 'Lorem Ipsum is simply dummy text of the printing.',
-      image: 'http://placehold.jp/3d4070/ffffff/400x300.png?text=4%3A3',
-    },
-  ];
-
   const md = `
   # What’s new in OneKey 1.0.3
 

@@ -49,7 +49,6 @@ import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
-
 import renderCustomSubStackHeader from '../Stack/Header';
 
 export enum StackRoutes {
