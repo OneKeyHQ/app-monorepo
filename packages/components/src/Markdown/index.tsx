@@ -31,8 +31,12 @@ const Markdown: FC = ({ children }) => {
     paragraph: {
       marginVertical: 4,
     },
-    heading1: { color: headingColor, ...(DisplayMediumProps as TextStyle) },
-    heading2: {
+    heading1: {
+      marginTop: 12,
+      color: headingColor,
+      ...(DisplayMediumProps as TextStyle),
+    },
+    heading3: {
       marginTop: 24,
       marginBottom: 4,
       color: headingColor,
@@ -43,7 +47,8 @@ const Markdown: FC = ({ children }) => {
       flexDirection: 'row',
     },
     hr: {
-      marginVertical: 24,
+      marginTop: 24,
+      marginBottom: 12,
       backgroundColor: horizontalRulesColor,
       height: 1,
     },

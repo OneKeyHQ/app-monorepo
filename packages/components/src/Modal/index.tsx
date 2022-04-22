@@ -236,7 +236,16 @@ const Modal: FC<ModalProps> = ({
         {modalContent}
       </Desktop>
     );
-  }, [size, header, visible, handleClose, rest, modalContent, modalHeight]);
+  }, [
+    size,
+    header,
+    headerShown,
+    visible,
+    handleClose,
+    rest,
+    modalContent,
+    modalHeight,
+  ]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;
