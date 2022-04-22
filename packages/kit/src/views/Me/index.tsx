@@ -72,6 +72,30 @@ const Me = () => {
         marginX="auto"
       >
         <VStack space="3">
+          {platformEnv.isDev && (
+            <Pressable
+              p="4"
+              bg="surface-default"
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() => {
+                navigation.navigate(HomeRoutes.Dev, {
+                  screen: StackRoutes.Developer,
+                  params: {
+                    ts: new Date().getTime(),
+                  },
+                });
+              }}
+            >
+              <HStack space="4">
+                <Icon name="DesktopComputerSolid" />
+                <Typography.Body1>Developer</Typography.Body1>
+              </HStack>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Pressable>
+          )}
           {/* <Pressable
             p="4"
             bg="surface-default"
@@ -228,30 +252,6 @@ const Me = () => {
                 <Typography.Body1>Dapp Token Approve</Typography.Body1>
               </Pressable>
             </VStack>
-          )}
-          {platformEnv.isDev && (
-            <Pressable
-              p="4"
-              bg="surface-default"
-              borderRadius="12px"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="space-between"
-              onPress={() => {
-                navigation.navigate(HomeRoutes.Dev, {
-                  screen: StackRoutes.Developer,
-                  params: {
-                    ts: new Date().getTime(),
-                  },
-                });
-              }}
-            >
-              <HStack space="4">
-                <Icon name="DesktopComputerSolid" />
-                <Typography.Body1>Developer</Typography.Body1>
-              </HStack>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Pressable>
           )}
         </VStack>
       </Box>
