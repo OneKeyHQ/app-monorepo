@@ -34,7 +34,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
         >
           <Box alignItems="flex-start">
             <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}
             >
               {item.title}
@@ -47,7 +47,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
           </Box>
           <Box alignItems="flex-end">
             <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}
             >
               {item.describe}
