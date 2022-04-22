@@ -86,6 +86,21 @@ export function FeeSpeedLabel({ index }: { index: number | string }) {
   return <>{title}</>;
 }
 
+export function FeeSpeedTime({ index }: { index: number | string }) {
+  const indexInt = parseInt(index as string, 10);
+  let title = 'Likely < 15s';
+  if (indexInt === 0) {
+    title = `Maybe in 30s`;
+  }
+  if (indexInt === 1) {
+    title = `Likely < 15s`;
+  }
+  if (indexInt === 2) {
+    title = `Very Likely < 15s`;
+  }
+  return <>{title}</>;
+}
+
 const CustomFeeForm = ({
   feeInfoPayload,
   control,
@@ -452,7 +467,7 @@ const StandardFee = ({
         return {
           value: index.toString(),
           title: <FeeSpeedLabel index={index} />,
-          titleSecond: ``,
+          titleSecond: <FeeSpeedTime index={index} />,
           describe: (
             <FormatCurrencyNative
               value={minFeeNative}
