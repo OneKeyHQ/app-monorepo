@@ -26,17 +26,20 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [scanned, setScanned] = useState(false);
 
+  function handleBarCodeScanned(data: string | null) {
+    setScanned(true);
+    alert(data);
+  }
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: isWeb,
+      allowsMultipleSelection: false,
     });
 
     if (!result.cancelled) {
       const scanResult = await scanFromURLAsync(result.uri);
       if (scanResult) {
         handleBarCodeScanned(scanResult);
-      } else {
-        // TODO invalid code
       }
     }
   };
@@ -47,11 +50,6 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
       setHasPermission(status === 'granted');
     })();
   }, []);
-
-  const handleBarCodeScanned = ({ type, data }) => {
-    setScanned(true);
-    alert(`Bar code with type ${type} and data ${data} has been scanned!`);
-  };
 
   const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
   return (
@@ -81,7 +79,9 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
             justifyContent: 'center',
             alignItems: 'center',
           }}
-          onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+          onBarCodeScanned={
+            scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
+          }
           barCodeScannerSettings={{
             barCodeTypes: ['qr'],
           }}
