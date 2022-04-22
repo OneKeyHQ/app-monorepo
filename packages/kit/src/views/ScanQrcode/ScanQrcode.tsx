@@ -1,22 +1,20 @@
 import React, { FC, useEffect, useState } from 'react';
 
+import { Camera } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Camera } from 'expo-camera';
-
-import * as ImagePicker from 'expo-image-picker';
-
 import {
-  Center,
   Icon,
   Modal,
   Typography,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import SvgScanArea from './SvgScanArea';
+
 import { scanFromURLAsync } from './scanFromURLAsync';
+import SvgScanArea from './SvgScanArea';
 
 const { isDesktop, isWeb, isExtension, isNative: isApp } = platformEnv;
 
@@ -29,7 +27,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
   const [scanned, setScanned] = useState(false);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
 
@@ -63,6 +61,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
       header={intl.formatMessage({ id: 'title__scan_qr_code' })}
       footer={
         <Button
+          style={{ marginBottom: bottom }}
           onPress={pickImage}
           h={isApp ? '55px' : '45px'}
           variant="unstyled"
@@ -73,18 +72,25 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
           </ChooseImageText>
         </Button>
       }
-      staticChildrenProps={{ width: '100%', height: 209 }}
+      staticChildrenProps={isApp ? { flex: 1 } : { width: '100%', height: 209 }}
     >
       {hasPermission && (
         <Camera
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
           onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
           barCodeScannerSettings={{
             barCodeTypes: ['qr'],
           }}
         >
-          <Center top={0} bottom={0} left={0} right={0} position="absolute">
-            <SvgScanArea width={144} height={144} />
-          </Center>
+          <SvgScanArea
+            style={{ position: 'absolute' }}
+            width={144}
+            height={144}
+          />
         </Camera>
       )}
     </Modal>
