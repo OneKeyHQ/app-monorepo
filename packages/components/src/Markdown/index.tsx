@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
 import { StyleSheet, TextStyle } from 'react-native';
 import RNMarkdown from 'react-native-markdown-display';
@@ -21,51 +21,45 @@ const Markdown: FC = ({ children }) => {
   const isSmallScreen = useIsVerticalLayout();
   const horizontalRulesColor = useThemeValue('divider');
 
-  const styles = StyleSheet.create({
-    body: {
-      color: bodyTextColor,
-      ...(isSmallScreen
-        ? (Body1Props as TextStyle)
-        : (Body2Props as TextStyle)),
-    },
-    paragraph: {
-      marginVertical: 4,
-    },
-    heading1: {
-      marginTop: 12,
-      color: headingColor,
-      ...(DisplayMediumProps as TextStyle),
-    },
-    heading3: {
-      marginTop: 24,
-      marginBottom: 4,
-      color: headingColor,
-      ...(DisplaySmallProps as TextStyle),
-    },
-    list_item: {
-      marginVertical: 4,
-      flexDirection: 'row',
-    },
-    hr: {
-      marginTop: 24,
-      marginBottom: 12,
-      backgroundColor: horizontalRulesColor,
-      height: 1,
-    },
-  });
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        body: {
+          color: bodyTextColor,
+          ...(isSmallScreen
+            ? (Body1Props as TextStyle)
+            : (Body2Props as TextStyle)),
+        },
+        paragraph: {
+          marginVertical: 4,
+        },
+        heading1: {
+          marginTop: 12,
+          color: headingColor,
+          ...(DisplayMediumProps as TextStyle),
+        },
+        heading3: {
+          marginTop: 24,
+          marginBottom: 4,
+          color: headingColor,
+          ...(DisplaySmallProps as TextStyle),
+        },
+        list_item: {
+          marginVertical: 4,
+          flexDirection: 'row',
+        },
+        hr: {
+          marginTop: 24,
+          marginBottom: 12,
+          backgroundColor: horizontalRulesColor,
+          height: 1,
+        },
+      }),
+    [bodyTextColor, headingColor, horizontalRulesColor, isSmallScreen],
+  );
 
   return (
-    <RNMarkdown
-      mergeStyle={false}
-      style={styles}
-      // style={{
-      //   body: { color: primaryTextColor },
-      //   code_inline: { padding: 2, backgroundColor: bgColor, borderWidth: 0 },
-      //   blockquote: { backgroundColor: bgColor, borderWidth: 0 },
-      //   code_block: { backgroundColor: bgColor, borderWidth: 0 },
-      //   fence: { backgroundColor: bgColor, borderWidth: 0 },
-      // }}
-    >
+    <RNMarkdown mergeStyle={false} style={styles}>
       {children}
     </RNMarkdown>
   );
