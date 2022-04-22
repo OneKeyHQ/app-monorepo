@@ -134,11 +134,7 @@ export const discoverSlice = createSlice({
       }
       if (!hostname) return;
 
-      console.log('begin updateWebSiteHistory', hostname);
-
       if (!compareDomainNames(hostname, action.payload.webSite.url)) return;
-
-      console.log('end updateWebSiteHistory', action.payload);
 
       const history = state.history[hostname];
       if (history && history.webSite) {

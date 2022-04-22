@@ -8,6 +8,7 @@ import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import AccountGallery from '@onekeyhq/kit/src/views/Components/stories/Account';
 import AddressGallery from '@onekeyhq/kit/src/views/Components/stories/Address';
 import AlertGallery from '@onekeyhq/kit/src/views/Components/stories/Alert';
+import AppUpdateGallery from '@onekeyhq/kit/src/views/Components/stories/AppUpdate';
 import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
@@ -96,6 +97,7 @@ export enum StackRoutes {
   ComponentImageViewer = 'component/imageViewer',
   ComponentEmojiList = 'component/EmojiList',
   ComponentContentBox = 'component/ContentBox',
+  ComponentAppUpdate = 'component/AppUpdate',
 }
 
 export type StackBasicRoutesParams = {
@@ -144,6 +146,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentImageViewer]: undefined;
   [StackRoutes.ComponentEmojiList]: undefined;
   [StackRoutes.ComponentContentBox]: undefined;
+  [StackRoutes.ComponentAppUpdate]: undefined;
 };
 
 export const stackScreenList = [
@@ -183,6 +186,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentSegmentedControl, component: SegmentedControl },
   { name: StackRoutes.ComponentShadow, component: ShadowsGallery },
   { name: StackRoutes.ComponentPinCode, component: PinCodeGallery },
+  { name: StackRoutes.ComponentAppUpdate, component: AppUpdateGallery },
   { name: StackRoutes.ComponentRestfulRequest, component: RestfulRequest },
   {
     name: StackRoutes.ComponentHeaderTabViewContainerGallery,

@@ -29,8 +29,10 @@ const DesktopModal: FC<ModalProps> = ({
   onPrimaryActionPress,
   onSecondaryActionPress,
   header,
+  headerShown,
   size,
   height,
+  maxHeight,
   headerDescription,
   closeAction,
 }) => {
@@ -73,57 +75,60 @@ const DesktopModal: FC<ModalProps> = ({
       <Box
         width={modalSizing(size)}
         height={height}
+        maxHeight={maxHeight}
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"
       >
-        <Box
-          pt={4}
-          pr={4}
-          pl={index ? 4 : 6}
-          pb={header ? 4 : 0}
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          borderBottomColor="border-subdued"
-          borderBottomWidth={header ? 1 : undefined}
-        >
-          {index ? (
-            <IconButton
-              size="base"
-              name="ArrowLeftSolid"
-              type="plain"
-              circle
-              onPress={() => {
-                if (onBackActionPress) {
-                  onBackActionPress();
-                  return;
-                }
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                }
-              }}
-            />
-          ) : null}
-          <Box flex="1" ml={index ? 4 : undefined}>
-            <Typography.Heading>{header}</Typography.Heading>
-            {!!headerDescription && (
-              <Typography.Caption color="text-subdued">
-                {headerDescription}
-              </Typography.Caption>
+        {!!headerShown && (
+          <Box
+            pt={4}
+            pr={4}
+            pl={index ? 4 : 6}
+            pb={header ? 4 : 0}
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            borderBottomColor="border-subdued"
+            borderBottomWidth={header ? 1 : undefined}
+          >
+            {index ? (
+              <IconButton
+                size="base"
+                name="ArrowLeftSolid"
+                type="plain"
+                circle
+                onPress={() => {
+                  if (onBackActionPress) {
+                    onBackActionPress();
+                    return;
+                  }
+                  if (navigation.canGoBack()) {
+                    navigation.goBack();
+                  }
+                }}
+              />
+            ) : null}
+            <Box flex="1" ml={index ? 4 : undefined}>
+              <Typography.Heading>{header}</Typography.Heading>
+              {!!headerDescription && (
+                <Typography.Caption color="text-subdued">
+                  {headerDescription}
+                </Typography.Caption>
+              )}
+            </Box>
+            {!!closeable && (
+              <IconButton
+                size="base"
+                name="CloseSolid"
+                type="plain"
+                circle
+                onPress={closeAction || close}
+              />
             )}
           </Box>
-          {!!closeable && (
-            <IconButton
-              size="base"
-              name="CloseSolid"
-              type="plain"
-              circle
-              onPress={closeAction || close}
-            />
-          )}
-        </Box>
+        )}
         {children}
         {isValidElement(footer) || footer === null ? (
           footer

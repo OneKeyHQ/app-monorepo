@@ -2,6 +2,7 @@ import React, {
   ComponentProps,
   FC,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -59,18 +60,38 @@ const Desktop: FC<ExplorerViewProps> = ({
   onSearchContentChange,
   onSearchSubmitEditing,
   explorerContent,
+  loading,
   canGoBack,
   canGoForward,
   onGoBack,
   onNext,
   onRefresh,
+  onStopLoading,
   moreView,
   showExplorerBar,
 }) => {
   const intl = useIntl();
 
   const [historyVisible, setHistoryVisible] = React.useState(false);
+  const [httpSafeState, setHttpSafeState] = useState<ICON_NAMES>(
+    'ExclamationCircleSolid',
+  );
   const searchBar = useRef<any>(null);
+
+  useEffect(() => {
+    try {
+      if (!searchContent) setHttpSafeState('ExclamationCircleSolid');
+
+      const url = new URL(searchContent ?? '');
+      if (url.protocol === 'https:') {
+        setHttpSafeState('LockClosedSolid');
+      } else {
+        setHttpSafeState('ExclamationCircleSolid');
+      }
+    } catch (e) {
+      setHttpSafeState('ExclamationCircleSolid');
+    }
+  }, [searchContent]);
 
   return (
     <Box flex="1" zIndex={3}>
@@ -98,8 +119,8 @@ const Desktop: FC<ExplorerViewProps> = ({
             />
             <IconButton
               type="plain"
-              name="RefreshOutline"
-              onPress={onRefresh}
+              name={loading ? 'CloseOutline' : 'RefreshOutline'}
+              onPress={loading ? onStopLoading : onRefresh}
             />
 
             <BrowserURLInput
@@ -109,7 +130,7 @@ const Desktop: FC<ExplorerViewProps> = ({
               placeholder={intl.formatMessage({
                 id: 'content__search_or_enter_dapp_url',
               })}
-              customLeftIcon="LockClosedSolid"
+              customLeftIcon={httpSafeState}
               size="base"
               value={searchContent}
               onClear={() => onSearchContentChange?.('')}
