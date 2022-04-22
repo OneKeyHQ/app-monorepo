@@ -56,6 +56,9 @@ export type ExplorerViewProps = {
 
 let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 
+// 空白页面 URL
+const BrowserPage = 'about:blank';
+
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -126,14 +129,29 @@ const Explorer: FC = () => {
     if (typeof item === 'string') {
       setDisplayInitialPage(false);
 
-      setCurrentWebSite({ url: item });
+      try {
+        let url = item;
+        if (!url.startsWith('http') && url.indexOf('.') !== -1 && url) {
+          url = `http://${url}`;
+        }
+        url = new URL(url).toString();
 
-      dispatch(
-        addWebSiteHistory({
-          keyUrl: undefined,
-          webSite: { url: item },
-        }),
-      );
+        if (url) {
+          setCurrentWebSite({ url });
+
+          dispatch(
+            addWebSiteHistory({
+              keyUrl: undefined,
+              webSite: { url },
+            }),
+          );
+        }
+      } catch (error) {
+        setCurrentWebSite({ url: BrowserPage });
+        setSearchContent(item);
+        console.log('not a url', error);
+      }
+
       return true;
     }
 
@@ -209,7 +227,7 @@ const Explorer: FC = () => {
       content = currentWebSite?.url ?? '';
     }
 
-    setSearchContent(content);
+    if (content !== BrowserPage) setSearchContent(content);
 
     if (displayInitialPage === false || webCanGoBack()) {
       setCanGoBack(true);
@@ -248,21 +266,8 @@ const Explorer: FC = () => {
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
       console.log('onSearchSubmitEditing', dapp);
-      try {
-        let url = dapp;
-        if (!url.startsWith('http') && url.indexOf('.') !== -1 && url) {
-          url = `http://${url}`;
-        }
-        url = new URL(url).toString();
-
-        if (url) gotoUrl(url);
-      } catch (error) {
-        gotoUrl(`https://www.google.com/search?q=${dapp}`);
-        console.log('not a url', error);
-      }
-    } else if (dapp) {
-      gotoUrl(dapp);
     }
+    gotoUrl(dapp);
   };
 
   const onGoBack = () => {
