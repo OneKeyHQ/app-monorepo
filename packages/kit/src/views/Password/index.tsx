@@ -143,7 +143,6 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
     defaultValues: {
       password: '',
       confirmPassword: '',
-      withEnableAuthentication: true,
     },
     mode: 'onChange',
   });
@@ -302,7 +301,11 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
           />
         </Form.Item>
         {isOk && !oldPassword ? (
-          <Form.Item name="withEnableAuthentication" control={control}>
+          <Form.Item
+            name="withEnableAuthentication"
+            defaultValue={isOk}
+            control={control}
+          >
             <Form.CheckBox
               title={intl.formatMessage(
                 { id: 'content__authentication_with' },

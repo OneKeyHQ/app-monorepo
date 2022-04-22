@@ -16,6 +16,9 @@
     "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh"
   },
   "dependencies": {
+    "@formatjs/intl-getcanonicallocales": "^1.9.2",
+    "@formatjs/intl-locale": "^2.4.47",
+    "@formatjs/intl-pluralrules": "^4.3.3",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@react-native-async-storage/async-storage": "^1.15.14",
