@@ -10,6 +10,7 @@ import useRemoteConsole from '@onekeyhq/remote-console/src/useRemoteConsole';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '../background/utils';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import store from '../store';
 
 import EngineApp from './EngineProvider';
@@ -83,7 +84,9 @@ const KitProvider: FC = () => {
         <ThemeApp>
           <WaitBackgroundReady loading={undefined}>
             <EngineApp>
-              <NavigationApp />
+              <ErrorBoundary>
+                <NavigationApp />
+              </ErrorBoundary>
             </EngineApp>
           </WaitBackgroundReady>
         </ThemeApp>
