@@ -53,9 +53,20 @@ export const NumberInput: FC<NumberInputProps> = ({
     [enableMaxButton, intl, isMax, onMaxChange],
   );
 
-  const handleChange = (text: string) => {
-    let result = text;
+  const handleChange = (t: string) => {
+    let text = t.replace(/[^\\.0-9]/g, '');
+    try {
+      if (text.startsWith('.')) {
+        const b = new BigNumber(text);
+        if (!b.isNaN()) {
+          text = b.toString();
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    }
 
+    let result = text;
     if (text) {
       result = text.replace(/^\D*(\d*(?:\.\d*)?).*$/g, '$1');
 

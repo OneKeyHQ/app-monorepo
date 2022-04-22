@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/naming-convention */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
@@ -12,6 +14,7 @@ import {
   Center,
   Form,
   Modal,
+  NumberInput,
   RadioFee,
   SegmentedControl,
   Spinner,
@@ -20,6 +23,11 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import {
+  OneKeyErrorClassNames,
+  OneKeyValidatorError,
+  OneKeyValidatorTip,
+} from '@onekeyhq/engine/src/errors';
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import {
   IFeeInfo,
@@ -27,9 +35,11 @@ import {
   IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/types/vault';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { FormatCurrencyNative } from '../../components/Format';
+import { useActiveWalletAccount } from '../../hooks/redux';
 
 import { SendRoutes, SendRoutesParams } from './types';
 import {
@@ -80,16 +90,102 @@ const CustomFeeForm = ({
   feeInfoPayload,
   control,
   watch,
+  selectIndex,
 }: {
   feeInfoPayload: IFeeInfoPayload | null;
   control: Control<FeeValues>;
   watch: UseFormWatch<FeeValues>;
+  selectIndex: string;
 }) => {
   const intl = useIntl();
   const feeSymbol = feeInfoPayload?.info?.symbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const formValues = watch();
   const isSmallScreen = useIsVerticalLayout();
+  const { networkId } = useActiveWalletAccount();
+
+  const [gasLimitTip, setGasLimitTip] = useState('');
+  const [maxFeeTip, setMaxFeeTip] = useState('');
+  const [maxPriorityFeeTip, setMaxPriorityFeeTip] = useState('');
+
+  useEffect(() => {
+    async function validateGasLimit() {
+      try {
+        await backgroundApiProxy.validator.validateGasLimit(
+          networkId,
+          formValues.gasLimit,
+          feeInfoPayload?.info?.limit ?? 21000,
+        );
+      } catch (error) {
+        const e = error as OneKeyValidatorTip;
+        if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
+          setGasLimitTip(e.key);
+          return;
+        }
+      }
+      setGasLimitTip('');
+    }
+    validateGasLimit();
+  }, [feeInfoPayload?.info?.limit, formValues.gasLimit, networkId]);
+
+  useEffect(() => {
+    async function validateMaxFee() {
+      try {
+        const fee = feeInfoPayload?.info?.prices[
+          selectIndex as unknown as number
+        ] as EIP1559Fee;
+        await backgroundApiProxy.validator.validateMaxFee(
+          networkId,
+          formValues.maxFeePerGas,
+          formValues.maxPriorityFeePerGas,
+          fee.maxFeePerGas,
+        );
+      } catch (error) {
+        const e = error as OneKeyValidatorTip;
+        if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
+          setMaxFeeTip(e.key);
+          return;
+        }
+      }
+      setMaxFeeTip('');
+    }
+    validateMaxFee();
+  }, [
+    feeInfoPayload?.info?.prices,
+    formValues.maxFeePerGas,
+    formValues.maxPriorityFeePerGas,
+    networkId,
+    selectIndex,
+  ]);
+
+  useEffect(() => {
+    async function validateMaxPriortyFee() {
+      try {
+        const fee = feeInfoPayload?.info?.prices[
+          selectIndex as unknown as number
+        ] as EIP1559Fee;
+        await backgroundApiProxy.validator.validateMaxPriortyFee(
+          networkId,
+          formValues.maxPriorityFeePerGas,
+          fee.maxPriorityFeePerGas,
+        );
+      } catch (error) {
+        const e = error as OneKeyValidatorTip;
+        if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
+          setMaxPriorityFeeTip(e.key);
+          return;
+        }
+      }
+      setMaxPriorityFeeTip('');
+    }
+    validateMaxPriortyFee();
+  }, [
+    feeInfoPayload?.info?.prices,
+    formValues.maxFeePerGas,
+    formValues.maxPriorityFeePerGas,
+    networkId,
+    selectIndex,
+  ]);
 
   // MIN: (baseFee + maxPriorityFeePerGas) * limit
   // MAX: maxFeePerGas * limit
@@ -150,9 +246,39 @@ const CustomFeeForm = ({
             required: intl.formatMessage({
               id: 'form__max_priority_fee_invalid_min',
             }),
+            validate: async (value) => {
+              try {
+                await backgroundApiProxy.validator.validateMaxPriortyFee(
+                  networkId,
+                  value,
+                );
+              } catch (error) {
+                const e = error as OneKeyValidatorError;
+                if (
+                  e?.className === OneKeyErrorClassNames.OneKeyValidatorError
+                ) {
+                  return intl.formatMessage({
+                    id: e.key as any,
+                  });
+                }
+
+                return intl.formatMessage({
+                  id: 'form__max_priority_fee_invalid_min',
+                });
+              }
+              return true;
+            },
+          }}
+          helpText={() => {
+            if (maxPriorityFeeTip !== '') {
+              return intl.formatMessage({
+                id: maxPriorityFeeTip as any,
+              });
+            }
+            return '';
           }}
         >
-          <Form.Input
+          <NumberInput
             w="100%"
             rightText="-"
             size={isSmallScreen ? 'xl' : undefined}
@@ -171,9 +297,40 @@ const CustomFeeForm = ({
             required: intl.formatMessage({
               id: 'form__max_fee_invalid_too_low',
             }),
+            validate: async (value) => {
+              try {
+                await backgroundApiProxy.validator.validateMaxFee(
+                  networkId,
+                  value,
+                  formValues.maxPriorityFeePerGas,
+                );
+              } catch (error) {
+                const e = error as OneKeyValidatorError;
+                if (
+                  e?.className === OneKeyErrorClassNames.OneKeyValidatorError
+                ) {
+                  return intl.formatMessage({
+                    id: e.key as any,
+                  });
+                }
+
+                return intl.formatMessage({
+                  id: 'form__max_fee_invalid_too_low',
+                });
+              }
+              return true;
+            },
+          }}
+          helpText={() => {
+            if (maxFeeTip !== '') {
+              return intl.formatMessage({
+                id: maxFeeTip as any,
+              });
+            }
+            return '';
           }}
         >
-          <Form.Input
+          <NumberInput
             w="100%"
             rightText="-"
             size={isSmallScreen ? 'xl' : undefined}
@@ -186,10 +343,16 @@ const CustomFeeForm = ({
           label={intl.formatMessage({ id: 'content__gas_price' })}
           control={control}
           name="gasPrice"
-          // TODO required rules
+          rules={{
+            required: intl.formatMessage({ id: 'content__gas_price' }),
+          }}
           defaultValue=""
         >
-          <Form.Input w="100%" size={isSmallScreen ? 'xl' : undefined} />
+          <NumberInput
+            w="100%"
+            size={isSmallScreen ? 'xl' : undefined}
+            decimal={3}
+          />
         </Form.Item>
       )}
 
@@ -197,10 +360,40 @@ const CustomFeeForm = ({
         label={intl.formatMessage({ id: 'content__gas_limit' })}
         control={control}
         name="gasLimit"
-        // TODO required rules
+        rules={{
+          required: intl.formatMessage({
+            id: 'form__gas_limit_invalid_min',
+          }),
+          validate: async (value) => {
+            try {
+              await backgroundApiProxy.validator.validateGasLimit(
+                networkId,
+                value,
+                feeInfoPayload?.info?.limit ?? 21000,
+              );
+            } catch (error) {
+              const e = error as OneKeyValidatorError;
+              if (e?.className === OneKeyErrorClassNames.OneKeyValidatorError) {
+                return intl.formatMessage({
+                  id: e.key as any,
+                });
+              }
+
+              return intl.formatMessage({ id: 'form__gas_limit_invalid_min' });
+            }
+
+            return true;
+          },
+        }}
         defaultValue=""
+        helpText={() => {
+          if (gasLimitTip !== '') {
+            return intl.formatMessage({ id: gasLimitTip as any });
+          }
+          return '';
+        }}
       >
-        <Form.Input w="100%" size={isSmallScreen ? 'xl' : undefined} />
+        <NumberInput w="100%" size={isSmallScreen ? 'xl' : undefined} />
       </Form.Item>
 
       <Form.Item
@@ -519,6 +712,7 @@ const TransactionEditFee = ({ ...rest }) => {
         feeInfoPayload={feeInfoPayload}
         control={control}
         watch={watch}
+        selectIndex={radioValue}
       />
     );
     content = feeInfoPayload ? (
