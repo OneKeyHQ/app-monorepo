@@ -45,7 +45,7 @@ function FeeInfoInput({
 
   return (
     <Pressable
-      disabled={!feeInfoPayload || loading || !editable}
+      disabled={loading || !editable || !encodedTx}
       onPress={() => {
         if (loading) {
           return;
@@ -80,7 +80,12 @@ function FeeInfoInputForTransfer({
       if (isPreset) {
         totalDetailText = `(${totalDetailText})`;
       }
-      let icon = null;
+      let icon: React.ReactElement | null = (
+        <Icon size={20} name="PencilSolid" />
+      );
+      if (!encodedTx) {
+        icon = null;
+      }
       if (feeInfoPayload) {
         icon = <Icon size={20} name="PencilSolid" />;
       }
@@ -151,7 +156,7 @@ function FeeInfoInputForTransfer({
         </Row>
       );
     },
-    [feeInfoPayload, loading],
+    [encodedTx, feeInfoPayload, loading],
   );
   return (
     <FeeInfoInput

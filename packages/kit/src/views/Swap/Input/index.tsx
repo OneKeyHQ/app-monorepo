@@ -1,23 +1,23 @@
 import React, { useCallback } from 'react';
 
-import { useNavigation, useSwap, useSwapQuote } from '../../../hooks';
+import { useNavigation } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
+import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
 
 import type { Token } from '../../../store/typings';
 
 const Input = () => {
   const navigation = useNavigation();
-  const { setIn, output } = useSwap();
-  const { refresh } = useSwapQuote();
+  const { outputToken } = useSwapState();
+  const { onSelectToken } = useSwapActionHandlers();
   const onPress = useCallback(
     (token: Token) => {
-      setIn(token);
-      refresh();
+      onSelectToken(token, 'INPUT');
       navigation.goBack();
     },
-    [navigation, refresh, setIn],
+    [navigation, onSelectToken],
   );
-  return <TokenSelector onPress={onPress} excluded={output} />;
+  return <TokenSelector onPress={onPress} excluded={outputToken} />;
 };
 
 export default Input;

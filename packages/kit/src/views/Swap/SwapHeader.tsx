@@ -15,24 +15,23 @@ import {
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import { useSwapQuote } from '../../hooks';
-
+import { useSwapActionHandlers } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
 
 const SwapHeader = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { refresh } = useSwapQuote();
+  const { onRefresh } = useSwapActionHandlers();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const onRefresh = useCallback(() => {
-    refresh();
+  const onHandleRefresh = useCallback(() => {
+    onRefresh();
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,
       useNativeDriver: true,
     }).start();
-  }, [refresh, fadeAnim]);
+  }, [onRefresh, fadeAnim]);
   const onSetting = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -54,7 +53,7 @@ const SwapHeader = () => {
           {intl.formatMessage({ id: 'title__swap' })}
         </Typography.DisplayLarge>
         <HStack>
-          <Button type="plain" onPress={onRefresh} pl="2" pr="2">
+          <Button type="plain" onPress={onHandleRefresh} pl="2" pr="2">
             <Animated.View
               style={{
                 transform: [

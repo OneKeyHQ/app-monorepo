@@ -2,73 +2,135 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import { Token } from '../typings';
 
+export interface TransactionDetails {
+  hash: string;
+  approval?: { tokenAddress: string; spender: string };
+  summary?: string;
+  claim?: { recipient: string };
+  lastCheckedBlockNumber?: number;
+  addedTime: number;
+  confirmedTime?: number;
+  from: string;
+}
+
 type SwapState = {
-  input?: Token;
-  output?: Token;
-  inputAmount: string;
-  outputAmount: string;
+  inputToken?: Token;
+  outputToken?: Token;
+  typedValue: string;
   independentField: 'INPUT' | 'OUTPUT';
-  value: number;
+  refreshRef: number;
+  transactions: {
+    [networkid: string]: {
+      [txHash: string]: TransactionDetails;
+    };
+  };
 };
 
 const initialState: SwapState = {
-  input: undefined,
-  output: undefined,
-  inputAmount: '',
-  outputAmount: '',
+  inputToken: undefined,
+  outputToken: undefined,
+  typedValue: '',
   independentField: 'INPUT',
-  value: 0,
+  refreshRef: 0,
+  transactions: {},
 };
 
 export const swapSlice = createSlice({
   name: 'swap',
   initialState,
   reducers: {
-    setInput(state, action: PayloadAction<Token>) {
-      state.input = action.payload;
+    setTypedValue(
+      state,
+      action: PayloadAction<{
+        typedValue: string;
+        independentField: 'INPUT' | 'OUTPUT';
+      }>,
+    ) {
+      state.typedValue = action.payload.typedValue;
+      state.independentField = action.payload.independentField;
     },
-    setInputAmount(state, action: PayloadAction<string>) {
-      state.inputAmount = action.payload;
+    setInputToken(state, action: PayloadAction<Token>) {
+      state.inputToken = action.payload;
     },
-    setOutput(state, action: PayloadAction<Token>) {
-      state.output = action.payload;
+    setOutputToken(state, action: PayloadAction<Token>) {
+      state.outputToken = action.payload;
     },
-    setOutputAmount(state, action: PayloadAction<string>) {
-      state.outputAmount = action.payload;
-    },
-    setIndependentField(state, action: PayloadAction<'INPUT' | 'OUTPUT'>) {
-      state.independentField = action.payload;
-    },
-    update(state) {
-      state.value += 1;
-    },
-    switchInputOutput(state) {
-      const { output } = state;
-      const { outputAmount } = state;
-      state.output = state.input;
-      state.outputAmount = state.inputAmount;
-      state.input = output;
-      state.inputAmount = outputAmount;
+    switchTokens(state) {
+      const token = state.inputToken;
+      state.inputToken = state.outputToken;
+      state.outputToken = token;
+      state.independentField =
+        state.independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
     },
     reset(state) {
-      state.output = undefined;
-      state.outputAmount = '';
-      state.input = undefined;
-      state.inputAmount = '';
+      state.inputToken = undefined;
+      state.outputToken = undefined;
       state.independentField = 'INPUT';
+      state.typedValue = '';
+    },
+    refresh(state) {
+      state.refreshRef += 1;
+    },
+    addTransaction(
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        transaction: TransactionDetails;
+      }>,
+    ) {
+      const { networkId, transaction } = action.payload;
+      if (!state.transactions[networkId]) {
+        state.transactions[networkId] = {};
+      }
+      state.transactions[networkId][transaction.hash] = transaction;
+    },
+    cleanAllTransaction(state, action: PayloadAction<{ networkId: string }>) {
+      const { networkId } = action.payload;
+      state.transactions[networkId] = {};
+    },
+    cleanAllConfirmedTransaction(
+      state,
+      action: PayloadAction<{ networkId: string }>,
+    ) {
+      const { networkId } = action.payload;
+      const transactions = state.transactions[networkId] || {};
+      const result: { [txHash: string]: TransactionDetails } = {};
+      Object.values(transactions).forEach((tx) => {
+        if (!tx.confirmedTime) {
+          result[tx.hash] = tx;
+        }
+      });
+      state.transactions[networkId] = result;
+    },
+    finalizeTransaction(
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        hash: string;
+        confirmedTime: number;
+      }>,
+    ) {
+      const { networkId, hash, confirmedTime } = action.payload;
+      const tx = state.transactions[networkId]?.[hash];
+      if (!tx) {
+        return;
+      }
+      tx.confirmedTime = confirmedTime;
     },
   },
 });
 
 export const {
-  setInput,
-  setOutput,
-  setInputAmount,
-  setOutputAmount,
-  setIndependentField,
-  update,
-  switchInputOutput,
+  setTypedValue,
+  setInputToken,
+  setOutputToken,
+  switchTokens,
   reset,
+  refresh,
+  addTransaction,
+  cleanAllTransaction,
+  cleanAllConfirmedTransaction,
+  finalizeTransaction,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

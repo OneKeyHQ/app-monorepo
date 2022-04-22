@@ -12,6 +12,7 @@ export const useWebviewRef = (
   const [rnCanGoBack, setRNCanGoBack] = useState<boolean>();
   const [rnCanGoForward, setRNCanGoForward] = useState<boolean>();
   const [currentTitle, setCurrentTitle] = useState<string>();
+  const [isLoading, setLoading] = useState<boolean>(false);
   const [currentUrl, setCurrentUrl] = useState<string>();
   const [currentFavicon, setCurrentFavicon] = useState<string>();
 
@@ -20,13 +21,14 @@ export const useWebviewRef = (
 
     if (platformEnv.isNative) {
       try {
-        const { canGoBack, canGoForward, title, url } =
+        const { canGoBack, canGoForward, loading, title, url } =
           navigationStateChangeEvent;
 
         setRNCanGoBack(canGoBack);
         setRNCanGoForward(canGoForward);
         setCurrentTitle(title);
         setCurrentUrl(url);
+        setLoading(loading);
 
         const urlObj = new URL(url);
         setCurrentFavicon(`${urlObj.protocol}//${urlObj.host}/favicon.ico`);
@@ -50,14 +52,13 @@ export const useWebviewRef = (
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           setCurrentUrl(webViewRef?.innerRef?.getURL());
+          setLoading(false);
         };
 
         const handleStartLoadingMessage = () => {
           setCurrentTitle(undefined);
-
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          setCurrentUrl(webViewRef?.innerRef?.getURL());
+          setCurrentUrl(undefined);
+          setLoading(true);
         };
 
         const handleFaviconMessage = (event: any) => {
@@ -67,6 +68,13 @@ export const useWebviewRef = (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             setCurrentFavicon(event.favicons[0]);
           }
+        };
+
+        const handleLoadFailMessage = () => {
+          setLoading(false);
+        };
+        const handleLoadStopMessage = () => {
+          setLoading(false);
         };
 
         console.log('RN WebView addEventListener', !!electronWebView);
@@ -80,6 +88,15 @@ export const useWebviewRef = (
           handleFaviconMessage,
         );
         electronWebView.addEventListener('did-finish-load', handleMessage);
+        electronWebView.addEventListener(
+          'did-stop-loading',
+          handleLoadStopMessage,
+        );
+        electronWebView.addEventListener(
+          'did-fail-load',
+          handleLoadFailMessage,
+        );
+
         return () => {
           electronWebView.removeEventListener(
             'did-start-loading',
@@ -90,6 +107,14 @@ export const useWebviewRef = (
             handleFaviconMessage,
           );
           electronWebView.removeEventListener('did-finish-load', handleMessage);
+          electronWebView.removeEventListener(
+            'did-fail-load',
+            handleLoadFailMessage,
+          );
+          electronWebView.removeEventListener(
+            'did-stop-loading',
+            handleLoadStopMessage,
+          );
         };
       } catch (error) {
         console.log(error);
@@ -155,12 +180,26 @@ export const useWebviewRef = (
     }
   }, [webViewRef?.innerRef]);
 
+  const stopLoading = useCallback(() => {
+    if (webViewRef?.innerRef) {
+      try {
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        webViewRef?.innerRef?.stop();
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  }, [webViewRef?.innerRef]);
+
   return useMemo(
     () => ({
       canGoBack,
       goBack,
       canGoForward,
       goForward,
+      stopLoading,
+      loading: isLoading,
       title: currentTitle,
       url: currentUrl,
       favicon: currentFavicon,
@@ -168,11 +207,13 @@ export const useWebviewRef = (
     [
       canGoBack,
       canGoForward,
+      isLoading,
       currentTitle,
       currentUrl,
       currentFavicon,
       goBack,
       goForward,
+      stopLoading,
     ],
   );
 };

@@ -117,6 +117,7 @@ import {
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
 import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
+import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
@@ -1186,6 +1187,28 @@ class Engine {
   }
 
   @backgroundMethod()
+  async signMessage({
+    unsignedMessage,
+    password,
+    networkId,
+    accountId,
+  }: {
+    unsignedMessage?: IUnsignedMessageEvm;
+    password: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+    const [signedMessage] = await vault.keyring.signMessage([unsignedMessage], {
+      password,
+    });
+    return signedMessage;
+  }
+
+  @backgroundMethod()
   async signAndSendEncodedTx({
     encodedTx,
     password,
@@ -1219,7 +1242,7 @@ class Engine {
     encodedTx: any;
   }) {
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-
+    // throw new Error('test fetch fee info error');
     return vault.fetchFeeInfo(encodedTx);
   }
 
@@ -1510,7 +1533,7 @@ class Engine {
   }
 
   @backgroundMethod()
-  async signMessage(
+  async signMessageLegacy(
     password: string,
     networkId: string,
     accountId: string,

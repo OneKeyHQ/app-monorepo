@@ -2,6 +2,7 @@ import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyInternalError } from '../../../errors';
+import { ISignCredentialOptions } from '../../../types/vault';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
 export class KeyringWatching extends KeyringWatchingBase {
@@ -11,5 +12,9 @@ export class KeyringWatching extends KeyringWatchingBase {
       txid: '1111',
       rawTx: '999999999999999999999',
     });
+  }
+
+  signMessage(messages: any[], options: ISignCredentialOptions): any {
+    console.log(messages, options);
   }
 }
