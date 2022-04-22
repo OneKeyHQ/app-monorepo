@@ -15,6 +15,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 
 const { isDesktop, isWeb, isExtension, isNative: isApp } = platformEnv;
 
@@ -26,11 +28,25 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [scanned, setScanned] = useState(false);
 
-  function handleBarCodeScanned(data: string | null) {
+  async function handleBarCodeScanned(data: string | null) {
+    if (!data) {
+      return;
+    }
+
     setScanned(true);
-    alert(data);
+    if (data.startsWith('https://') || data.startsWith('http://')) {
+      // TODO http url
+      return;
+    }
+    const { category, possibleNetworks } =
+      await backgroundApiProxy.validator.validateCreateInput(data);
+    if (category === UserCreateInputCategory.ADDRESS) {
+      // TODO address
+      return;
+    }
+    // TODO others
   }
-  const pickImage = async () => {
+  async function pickImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
       base64: isWeb,
       allowsMultipleSelection: false,
@@ -42,7 +58,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
         handleBarCodeScanned(scanResult);
       }
     }
-  };
+  }
 
   useEffect(() => {
     (async () => {
