@@ -87,16 +87,17 @@ export function FeeSpeedLabel({ index }: { index: number | string }) {
 }
 
 export function FeeSpeedTime({ index }: { index: number | string }) {
+  const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
-  let title = 'Likely < 15s';
+  let title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
   if (indexInt === 0) {
-    title = `Maybe in 30s`;
+    title = intl.formatMessage({ id: 'content__maybe_in_30s' });
   }
   if (indexInt === 1) {
-    title = `Likely < 15s`;
+    title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
   }
   if (indexInt === 2) {
-    title = `Very Likely < 15s`;
+    title = intl.formatMessage({ id: 'content__very_likely_less_than_15s' });
   }
   return <>{title}</>;
 }
@@ -436,7 +437,6 @@ const StandardFee = ({
   value: string;
   onChange: (v: string) => void;
 }) => {
-  const feeSymbol = feeInfoPayload?.info?.symbol || '';
   const gasList = useMemo(
     () => feeInfoPayload?.info?.prices ?? [],
     [feeInfoPayload?.info?.prices],
@@ -471,21 +471,13 @@ const StandardFee = ({
           describe: (
             <FormatCurrencyNative
               value={minFeeNative}
-              render={(ele) => (
-                <Typography.Body2 mt={1} color="text-subdued">
-                  ~ {!minFeeNative ? '-' : ele}
-                </Typography.Body2>
-              )}
+              render={(ele) => <>~ {!minFeeNative ? '-' : ele}</>}
             />
           ),
           describeSecond: (
             <FormatCurrencyNative
               value={totalFeeNative}
-              render={(ele) => (
-                <Typography.Body2 mt={1} color="text-subdued">
-                  Max Fee: {!totalFeeNative ? '-' : ele}
-                </Typography.Body2>
-              )}
+              render={(ele) => <>Max Fee: {!totalFeeNative ? '-' : ele}</>}
             />
           ),
           describeThird: `${totalFeeNative}${
@@ -512,11 +504,7 @@ const StandardFee = ({
         describe: (
           <FormatCurrencyNative
             value={totalFeeNative}
-            render={(ele) => (
-              <Typography.Body2 mt={1} color="text-subdued">
-                ~ {!totalFeeNative ? '-' : ele}
-              </Typography.Body2>
-            )}
+            render={(ele) => <>~ {!totalFeeNative ? '-' : ele}</>}
           />
         ),
         describeSecond: `${totalFeeNative}${

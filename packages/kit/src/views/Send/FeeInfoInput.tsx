@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 
-import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,10 +12,10 @@ import {
 } from '@onekeyhq/components';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 
-import { FormatBalance, FormatCurrencyNative } from '../../components/Format';
+import { FormatCurrencyNative } from '../../components/Format';
 import useNavigation from '../../hooks/useNavigation';
 
-import { FeeSpeedLabel } from './SendEditFee';
+import { FeeSpeedLabel, FeeSpeedTime } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
 import { SendRoutes, SendRoutesParams } from './types';
 
@@ -72,6 +71,7 @@ function FeeInfoInputForTransfer({
   feeInfoPayload: IFeeInfoPayload | null;
   loading: boolean;
 }) {
+  const intl = useIntl();
   const renderChildren = useCallback(
     ({ isHovered }) => {
       let totalDetailText = `${feeInfoPayload?.current?.total ?? '-'} ${
@@ -95,9 +95,10 @@ function FeeInfoInputForTransfer({
       }
       return (
         // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
-        <Row
+        <Box
           justifyContent="space-between"
           alignItems="center"
+          flexDirection="row"
           bgColor={isHovered ? 'surface-hovered' : 'surface-default'}
           borderColor="border-default"
           borderWidth="1px"
@@ -105,51 +106,44 @@ function FeeInfoInputForTransfer({
           paddingX="12px"
           paddingY="8px"
         >
-          <Column>
-            <Row>
-              <Box>
+          <Box flex={1}>
+            <Box flexDirection="row">
+              {isPreset && (
                 <Text
                   typography={{
                     sm: 'Body1Strong',
                     md: 'Body2Strong',
                   }}
+                  mr={1}
                 >
-                  {isPreset ? (
-                    <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
-                  ) : null}{' '}
-                  {/* {totalDetailText} */}
+                  <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
                 </Text>
-              </Box>
-              <Box>
+              )}
+              {feeInfoPayload?.current?.totalNative && (
                 <FormatCurrencyNative
                   value={feeInfoPayload?.current?.totalNative}
                   render={(ele) => (
-                    <Typography.Body2 mt={1} color="text-subdued">
-                      (~ {!feeInfoPayload?.current?.totalNative ? '-' : ele})
+                    <Typography.Body2 color="text-subdued">
+                      (~ {ele})
                     </Typography.Body2>
                   )}
                 />
-              </Box>
-            </Row>
-            <Row>
-              <Box>
-                <Text color="text-subdued">Likely in 15s</Text>
-              </Box>
-            </Row>
-
-            {/* <Typography.Body2 color="text-subdued">
-                          0.001694 ETH ~ 0.001977 ETH
-                        </Typography.Body2> */}
-            {/* <Typography.Body2 color="text-subdued">
-                          3 min
-                        </Typography.Body2> */}
-          </Column>
-
+              )}
+            </Box>
+            <Text color="text-subdued" flex={1}>
+              {/* eslint-disable-next-line no-nested-ternary */}
+              {feeInfoPayload?.current?.totalNative
+                ? intl.formatMessage({ id: 'content__likely_less_than_15s' })
+                : loading
+                ? intl.formatMessage({ id: 'content__just_a_moment' })
+                : intl.formatMessage({ id: 'content__calculate_fee' })}
+            </Text>
+          </Box>
           {icon}
-        </Row>
+        </Box>
       );
     },
-    [encodedTx, feeInfoPayload, loading],
+    [encodedTx, feeInfoPayload, intl, loading],
   );
   return (
     <FeeInfoInput
