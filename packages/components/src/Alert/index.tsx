@@ -14,6 +14,7 @@ export type AlertProps = {
   title: string;
   description?: string;
   alertType: AlertType;
+  onDismiss?: () => void;
   dismiss?: boolean;
 };
 
@@ -79,6 +80,7 @@ const Alert: FC<AlertProps> = ({
   title,
   description,
   alertType,
+  onDismiss,
   dismiss = true,
 }) => {
   const alertTypeProps = alertPropWithType(alertType);
@@ -133,6 +135,7 @@ const Alert: FC<AlertProps> = ({
           name="CloseOutline"
           iconColor={alertTypeProps.iconColor}
           onPress={() => {
+            onDismiss?.();
             setDisplay(false);
           }}
         />

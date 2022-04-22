@@ -109,7 +109,9 @@ export const NumberInput: FC<NumberInputProps> = ({
           <Typography.Body1 color="text-subdued">
             {tokenSymbol}
           </Typography.Body1>
-          <Divider orientation="vertical" h={5} ml={5} mr={1} />
+          {enableMaxButton ? (
+            <Divider orientation="vertical" h={5} ml={5} mr={1} />
+          ) : null}
           {maxButton}
           <Box w={1} />
         </>
