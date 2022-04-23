@@ -18,6 +18,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import Skeleton, { Rect } from '@onekeyhq/components/src/Skeleton';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import {
   FormatBalance,
@@ -113,43 +114,67 @@ const AssetsList = () => {
         <Box w="100%" flexDirection="row" alignItems="center">
           <Token size={8} src={item.logoURI} />
           <Box mx={3} flexDirection="column" flex={1}>
-            <FormatBalance
-              balance={balances[item.tokenIdOnNetwork || 'main']}
-              suffix={item.symbol}
-              formatOptions={{
-                fixed: decimal ?? 4,
-              }}
-              render={(ele) => (
-                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {!balances[item.tokenIdOnNetwork || 'main'] ? '-' : ele}
-                </Text>
-              )}
-            />
-            <FormatCurrency
-              numbers={[
-                balances[item.tokenIdOnNetwork || 'main'],
-                prices?.[mapKey],
-              ]}
-              render={(ele) => (
-                <Typography.Body2 color="text-subdued">
-                  {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey]
-                    ? ele
-                    : '-'}
-                </Typography.Body2>
-              )}
-            />
+            {balances[item.tokenIdOnNetwork || 'main'] ? (
+              <FormatBalance
+                balance={balances[item.tokenIdOnNetwork || 'main']}
+                suffix={item.symbol}
+                formatOptions={{
+                  fixed: decimal ?? 4,
+                }}
+                render={(ele) => (
+                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                    {ele}
+                  </Text>
+                )}
+              />
+            ) : (
+              <Skeleton width={120} height={isSmallScreen ? 24 : 20}>
+                <Rect
+                  x="0"
+                  y="2"
+                  rx={isSmallScreen ? '12' : '10'}
+                  ry={isSmallScreen ? '12' : '10'}
+                  width="120"
+                  height={isSmallScreen ? '20' : '16'}
+                />
+              </Skeleton>
+            )}
+            {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey] ? (
+              <FormatCurrency
+                numbers={[
+                  balances[item.tokenIdOnNetwork || 'main'],
+                  prices?.[mapKey],
+                ]}
+                render={(ele) => (
+                  <Typography.Body2 color="text-subdued">
+                    {ele}
+                  </Typography.Body2>
+                )}
+              />
+            ) : (
+              <Skeleton width={80} height={20}>
+                <Rect x="0" y="4" rx="6" ry="6" width="80" height="12" />
+              </Skeleton>
+            )}
           </Box>
           {!isSmallScreen && (
             <Box mr={3} flexDirection="row" flex={1}>
               {/* <Icon size={20} name="ActivityOutline" /> */}
-              <FormatCurrency
-                numbers={[prices?.[mapKey]]}
-                render={(ele) => (
-                  <Typography.Body2Strong ml={3}>
-                    {prices?.[mapKey] ? ele : '-'}
-                  </Typography.Body2Strong>
-                )}
-              />
+
+              {prices?.[mapKey] ? (
+                <FormatCurrency
+                  numbers={[prices?.[mapKey]]}
+                  render={(ele) => (
+                    <Typography.Body2Strong ml={3}>
+                      {ele}
+                    </Typography.Body2Strong>
+                  )}
+                />
+              ) : (
+                <Skeleton width={80} height={20}>
+                  <Rect x="0" y="4" rx="6" ry="6" width="80" height="12" />
+                </Skeleton>
+              )}
             </Box>
           )}
           {item.tokenIdOnNetwork ? (

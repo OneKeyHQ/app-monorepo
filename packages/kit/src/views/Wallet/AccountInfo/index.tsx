@@ -11,7 +11,6 @@ import {
   Icon,
   IconButton,
   Pressable,
-  Skeleton,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -37,6 +36,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { setHaptics } from '../../../hooks/setHaptics';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
+
+import Skeleton, { Rect } from '@onekeyhq/components/src/Skeleton';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -68,28 +69,38 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
         {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
       </Typography.Subheading>
       <Box flexDirection="row" mt={2}>
-        <FormatBalance
-          balance={balances.main}
-          suffix={activeNetwork?.symbol?.toUpperCase?.()}
-          as={Typography.DisplayXLarge}
-          formatOptions={{
-            fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
-          }}
-          render={(ele) => (
-            <Skeleton isLoaded={!!balances.main}>
+        {!!balances.main ? (
+          <FormatBalance
+            balance={balances.main}
+            suffix={activeNetwork?.symbol?.toUpperCase?.()}
+            as={Typography.DisplayXLarge}
+            formatOptions={{
+              fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
+            }}
+            render={(ele) => (
               <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
-            </Skeleton>
-          )}
-        />
-      </Box>
-      <FormatCurrency
-        numbers={[prices?.main, balances.main, !balances.main ? undefined : 1]}
-        render={(ele) => (
-          <Skeleton isLoaded={!!prices.main}>
-            <Typography.Body2 mt={1}>{ele}</Typography.Body2>
+            )}
+          />
+        ) : (
+          <Skeleton width={120} height={36}>
+            <Rect x="0" y="6" rx="12" ry="12" width="120" height="24" />
           </Skeleton>
         )}
-      />
+      </Box>
+      {!!prices.main ? (
+        <FormatCurrency
+          numbers={[
+            prices?.main,
+            balances.main,
+            !balances.main ? undefined : 1,
+          ]}
+          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+        />
+      ) : (
+        <Skeleton width={80} height={24}>
+          <Rect x="0" y="6" rx="8" ry="8" width="80" height="16" />
+        </Skeleton>
+      )}
       <Pressable
         mt={4}
         onPress={() => {
