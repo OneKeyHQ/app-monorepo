@@ -39,6 +39,7 @@ type WebSiteType = {
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
   searchContent?: string;
+  loading?: boolean;
   onSearchContentChange?: (text: string) => void;
   onSearchSubmitEditing?: (text: MatchDAppItemType | string) => void;
   explorerContent: React.ReactNode;
@@ -47,6 +48,7 @@ export type ExplorerViewProps = {
   onGoBack?: () => void;
   onNext?: () => void;
   onRefresh?: () => void;
+  onStopLoading?: () => void;
   onMore?: () => void;
   moreView: React.ReactNode;
   showExplorerBar?: boolean;
@@ -75,6 +77,8 @@ const Explorer: FC = () => {
     canGoForward: webCanGoForward,
     goBack,
     goForward,
+    stopLoading,
+    loading: webLoading,
     url: webUrl,
     title: webTitle,
     favicon: webFavicon,
@@ -122,9 +126,9 @@ const Explorer: FC = () => {
     // 打开的是一个链接
     if (typeof item === 'string') {
       setDisplayInitialPage(false);
-      if (item !== currentWebSite?.url) {
-        setCurrentWebSite({ url: item });
-      }
+
+      setCurrentWebSite({ url: item });
+
       dispatch(
         addWebSiteHistory({
           keyUrl: undefined,
@@ -292,6 +296,10 @@ const Explorer: FC = () => {
     console.log('onRefresh');
   };
 
+  const onStopLoading = () => {
+    stopLoading();
+  };
+
   const onMore = () => {
     setVisibleMore(!visibleMore);
   };
@@ -398,9 +406,11 @@ const Explorer: FC = () => {
             explorerContent={explorerContent}
             canGoBack={canGoBack}
             canGoForward={canGoForward}
+            loading={webLoading}
             onGoBack={onGoBack}
             onNext={onNext}
             onRefresh={onRefresh}
+            onStopLoading={onStopLoading}
             onMore={onMore}
             moreView={moreViewContent}
             showExplorerBar={showExplorerBar}

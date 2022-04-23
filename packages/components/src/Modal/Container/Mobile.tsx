@@ -35,6 +35,7 @@ const MobileModal: FC<ModalProps> = ({
   onPrimaryActionPress,
   onSecondaryActionPress,
   header,
+  headerShown,
   headerDescription,
   closeAction,
 }) => {
@@ -56,51 +57,53 @@ const MobileModal: FC<ModalProps> = ({
       bg="surface-subdued"
       pt={platformEnv.isAndroid ? `${top}px` : 0}
     >
-      <Box
-        pt={1}
-        pr={2}
-        pl={currentStackIndex ? 2 : '56px'}
-        pb={header ? 1 : 0}
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        borderBottomColor="border-subdued"
-        borderBottomWidth={header ? 1 : undefined}
-      >
-        {currentStackIndex && navigation.canGoBack() ? (
+      {!!headerShown && (
+        <Box
+          pt={1}
+          pr={2}
+          pl={currentStackIndex ? 2 : '56px'}
+          pb={header ? 1 : 0}
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          borderBottomColor="border-subdued"
+          borderBottomWidth={header ? 1 : undefined}
+        >
+          {currentStackIndex && navigation.canGoBack() ? (
+            <IconButton
+              size="xl"
+              name="ChevronLeftOutline"
+              type="plain"
+              circle
+              onPress={() => {
+                if (onBackActionPress) {
+                  onBackActionPress();
+                  return;
+                }
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
+            />
+          ) : null}
+          <Box flex="1">
+            <Typography.Heading textAlign="center">{header}</Typography.Heading>
+            {!!headerDescription && (
+              <Typography.Caption textAlign="center" color="text-subdued">
+                {headerDescription}
+              </Typography.Caption>
+            )}
+          </Box>
           <IconButton
             size="xl"
-            name="ChevronLeftOutline"
+            name="CloseOutline"
             type="plain"
             circle
-            onPress={() => {
-              if (onBackActionPress) {
-                onBackActionPress();
-                return;
-              }
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              }
-            }}
+            onPress={closeAction || close}
           />
-        ) : null}
-        <Box flex="1">
-          <Typography.Heading textAlign="center">{header}</Typography.Heading>
-          {!!headerDescription && (
-            <Typography.Caption textAlign="center" color="text-subdued">
-              {headerDescription}
-            </Typography.Caption>
-          )}
         </Box>
-        <IconButton
-          size="xl"
-          name="CloseOutline"
-          type="plain"
-          circle
-          onPress={closeAction || close}
-        />
-      </Box>
+      )}
       {children}
       {isValidElement(footer) || footer === null ? (
         footer

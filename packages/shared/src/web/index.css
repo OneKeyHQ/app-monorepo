@@ -49,10 +49,6 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
-input {
-  outline: none;
-}
-
 /* Enable for apps that support dark-theme */
 /*@media (prefers-color-scheme: dark) {
   body {
@@ -89,4 +85,9 @@ input {
 
 textarea {
   outline: none;
+}
+
+/* data-testid="Segment_Button" */
+[data-testid=Segment_Button] {
+  width: 100%;
 }

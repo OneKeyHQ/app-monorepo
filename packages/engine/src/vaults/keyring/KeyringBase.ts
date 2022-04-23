@@ -27,6 +27,11 @@ export abstract class KeyringBase extends VaultContext {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx>;
+
+  abstract signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]>;
 }
 
 // @ts-ignore

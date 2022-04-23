@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.util.Log;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.ViewModelStore;
 import androidx.lifecycle.ViewModelStoreOwner;
@@ -63,6 +64,19 @@ public class MainApplication extends Application implements ReactApplication , V
   @Override
   public ReactNativeHost getReactNativeHost() {
     return mReactNativeHost;
+  }
+
+  /**
+   * 摆脱魅族系统的夜间模式「自动反色」系统
+   *
+   * 1. 表示由系统处理（默认）
+   * 2. 表示禁止针对该view在夜间模式下进行颜色处理
+   * 3. 表示夜间模式下直接针对该 view 进行反色处理
+   * 4. 表示夜间模式下直接针对该 view 进行降低亮度
+   */
+  @Keep
+  public int mzNightModeUseOf() {
+    return 2;
   }
 
   @Override

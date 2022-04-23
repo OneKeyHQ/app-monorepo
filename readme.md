@@ -13,6 +13,16 @@
 
 [👉 Click here to check all open positions](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
 
+#### 我们正在招人 (远程或深圳) !
+
+* 远程 (生活在哪个城市都可以)
+* 全球一致的薪酬 (真的)
+* 全员持股计划 (每个人都有)
+* 开源 (如你所见)
+* 超级棒的同事 (爽呆!)
+
+[👉 点击此处查看所有职位](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
+
 <p align="center">
 <img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_desktop_transparent.png?raw=true"/>
 </p>
@@ -37,16 +47,19 @@ We really need your support, star or watch this repo for latest updates.
 
 ## 🌍 Environment Configuration
 
-- Install [node.js LTS version  (>= 16)](https://nodejs.org/en/)
-- Install [yarn package management tool](https://yarnpkg.com/)
-- Install [git lfs](https://git-lfs.github.com/) (some binaries are required for pulling and updating)
+1. Install [node.js LTS version  (>= 16)](https://nodejs.org/en/)
+2. Install [yarn package management tool](https://yarnpkg.com/)
+3. Install [git lfs](https://git-lfs.github.com/) (some binaries are required for pulling and updating)
 
 After pulling the latest code via the git command line tool, install the project dependencies in the root directory via the `yarn` command
 
 ```
 # Install all JS dependencies and submodule dependencies
+
 yarn
+
 # Install the expo command line tool globally
+
 npm install -g expo-cli
 ```
 
@@ -88,16 +101,19 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
 
 ## 🌍 环境配置
 
-- 安装 [node.js LTS 版本（>= 16）](https://nodejs.org/en/)
-- 安装 [yarn 包管理工具](https://yarnpkg.com/)
-- 安装 [git lfs](https://git-lfs.github.com/)（部分二进制文件在拉取和更新时需要）
+1. 安装 [node.js LTS 版本（>= 16）](https://nodejs.org/en/)
+2. 安装 [yarn 包管理工具](https://yarnpkg.com/)
+3. 安装 [git lfs](https://git-lfs.github.com/)（部分二进制文件在拉取和更新时需要）
 
 通过 git 命令行工具拉取最新的代码之后，通过 `yarn` 命令在根目录安装项目依赖
 
 ```
 # 安装所有 JS 依赖及子模块依赖
+
 yarn
+
 # 全局安装 expo 命令行工具
+
 npm install -g expo-cli
 ```
 

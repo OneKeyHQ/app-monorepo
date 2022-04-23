@@ -23,9 +23,11 @@
     "@types/redux-logger": "^3.0.9",
     "swr": "^1.1.2",
     "@walletconnect/client": "^1.7.5",
-    "fuse.js": "^6.5.3"
+    "fuse.js": "^6.5.3",
+    "json-toy": "^2.0.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+  },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules"

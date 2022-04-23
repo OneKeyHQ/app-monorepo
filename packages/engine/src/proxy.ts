@@ -697,7 +697,7 @@ class ProviderController extends BaseProviderController {
         status === TransactionStatus.NOT_FOUND ||
         status === TransactionStatus.INVALID
       ) {
-        if (now - createdAt > 60 * 5) {
+        if (now - createdAt > 60 * 5 * 1000) {
           ret[id] = HistoryEntryStatus.DROPPED;
         }
       } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
@@ -748,6 +748,7 @@ class ProviderController extends BaseProviderController {
         `Message signing not support on ${network.name}`,
       );
     }
+    await this.getProvider(network.id);
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const defaultType = ETHMessageTypes.PERSONAL_SIGN;
     const [signer] = Object.values(

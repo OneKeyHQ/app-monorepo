@@ -25,7 +25,14 @@ import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
 export type ModalProps = {
+  /* 
+    we might change Header to Title in future
+  */
   header?: string;
+  /* 
+    we might change headerShown to Header in future
+  */
+  headerShown?: boolean;
   headerDescription?: string;
   trigger?: ReactElement<any>;
   visible?: boolean;
@@ -56,6 +63,10 @@ export type ModalProps = {
   staticChildrenProps?: ComponentProps<typeof Box>;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   height?: number | string;
+  /*
+    maxHeight work for Desktop Modal
+  */
+  maxHeight?: number | string;
   modalHeight?: string | number | 'full';
 };
 
@@ -63,7 +74,9 @@ const defaultProps = {
   closeable: true,
   size: 'xs',
   height: 'auto',
+  maxHeight: '90%',
   modalHeight: 'full',
+  headerShown: true,
 } as const;
 
 const Modal: FC<ModalProps> = ({
@@ -76,6 +89,7 @@ const Modal: FC<ModalProps> = ({
   staticChildrenProps,
   sortableListProps,
   header,
+  headerShown,
   modalHeight,
   ...rest
 }) => {
@@ -102,7 +116,8 @@ const Modal: FC<ModalProps> = ({
         <SectionList
           contentContainerStyle={{
             paddingBottom: 24,
-            paddingTop: header ? 24 : 0,
+            // eslint-disable-next-line no-nested-ternary
+            paddingTop: headerShown ? (header ? 24 : 0) : 24,
           }}
           px={{ base: 4, md: 6 }}
           {...sectionListProps}
@@ -115,7 +130,8 @@ const Modal: FC<ModalProps> = ({
         <FlatList
           contentContainerStyle={{
             paddingBottom: 24,
-            paddingTop: header ? 24 : 0,
+            // eslint-disable-next-line no-nested-ternary
+            paddingTop: headerShown ? (header ? 24 : 0) : 24,
           }}
           px={{ base: 4, md: 6 }}
           {...flatListProps}
@@ -128,7 +144,8 @@ const Modal: FC<ModalProps> = ({
         <ScrollView
           contentContainerStyle={{
             paddingBottom: 24,
-            paddingTop: header ? 24 : 0,
+            // eslint-disable-next-line no-nested-ternary
+            paddingTop: headerShown ? (header ? 24 : 0) : 24,
           }}
           px={{ base: 4, md: 6 }}
           {...scrollViewProps}
@@ -159,7 +176,13 @@ const Modal: FC<ModalProps> = ({
     }
 
     return (
-      <Box pt={header ? 6 : 0} pb={6} px={{ base: 4, md: 6 }} flex="1">
+      <Box
+        // eslint-disable-next-line no-nested-ternary
+        pt={headerShown ? (header ? 6 : 0) : 6}
+        pb={6}
+        px={{ base: 4, md: 6 }}
+        flex="1"
+      >
         {rest.children}
       </Box>
     );
@@ -171,6 +194,7 @@ const Modal: FC<ModalProps> = ({
     sortableListProps,
     rest.children,
     header,
+    headerShown,
   ]);
 
   const modalContainer = useMemo(() => {
@@ -188,6 +212,7 @@ const Modal: FC<ModalProps> = ({
             overflow="hidden"
           >
             <Mobile
+              headerShown={headerShown}
               header={header}
               visible={visible}
               onClose={handleClose}
@@ -202,6 +227,7 @@ const Modal: FC<ModalProps> = ({
 
     return (
       <Desktop
+        headerShown={headerShown}
         header={header}
         visible={visible}
         onClose={handleClose}
@@ -210,7 +236,16 @@ const Modal: FC<ModalProps> = ({
         {modalContent}
       </Desktop>
     );
-  }, [size, header, visible, handleClose, rest, modalContent, modalHeight]);
+  }, [
+    size,
+    header,
+    headerShown,
+    visible,
+    handleClose,
+    rest,
+    modalContent,
+    modalHeight,
+  ]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;
