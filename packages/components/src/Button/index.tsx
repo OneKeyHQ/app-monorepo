@@ -6,7 +6,8 @@ import React, {
   useState,
 } from 'react';
 
-import { Button as NativeBaseButton, Text } from 'native-base';
+import { Text } from 'native-base';
+import  NativeBaseButton from './ButtonCapture'
 
 import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Icon, { ICON_NAMES } from '../Icon';

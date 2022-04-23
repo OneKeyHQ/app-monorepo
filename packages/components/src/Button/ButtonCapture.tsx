@@ -1,11 +1,11 @@
 import React, { FC } from 'react';
 
-import { Pressable as NBPressable } from 'native-base';
+import { Button } from 'native-base';
+import type { IButtonProps } from 'native-base';
 import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
-export type PressableItemProps = React.ComponentProps<typeof NBPressable>;
 
-const PressableCapture: FC<PressableItemProps> = (props) => {
+const ButtonCapture: FC<IButtonProps> = (props) => {
   const onPressOverride = React.useCallback(
     (e) => {
       // console.log('capture press');
@@ -15,11 +15,11 @@ const PressableCapture: FC<PressableItemProps> = (props) => {
     [props.onPress],
   );
   return (
-    <NBPressable
+    <Button
       {...props}
       onPress={onPressOverride}
     />
   );
 };
 
-export { PressableCapture as default };
+export { ButtonCapture as default };

@@ -18,6 +18,9 @@ import { setHaptics } from '../../hooks/setHaptics';
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
 
+import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
+import { addNewRef, removeOldRef } from '@onekeyhq/components/src/utils/SelectAutoHide';
+
 type AccountSelectorProps = {
   renderTrigger?: ({
     visible,
@@ -45,12 +48,26 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     setVisible((v) => !v);
   }, [navigation, isVerticalLayout]);
 
+  const desktopRef = React.useRef<DesktopRef | null>(null);
+  const setRef = React.useCallback((ref: DesktopRef | null) => {
+    // Since we know there's a ref, we'll update `refs` to use it.
+    if (ref) {
+      // store the ref in this toast instance to be able to remove it from the array later when the ref becomes null.
+      desktopRef.current = ref;
+      addNewRef(ref);
+    } else {
+      // remove the this ref, wherever it is in the array.
+      removeOldRef(desktopRef.current);
+    }
+  }, []);
+
   const child = useMemo(() => {
     if (isVerticalLayout) {
       return null;
     }
     return (
       <AccountSelectorDesktop
+        ref={setRef}
         triggerEle={triggerRef?.current}
         visible={visible}
         toggleVisible={handleToggleVisible}

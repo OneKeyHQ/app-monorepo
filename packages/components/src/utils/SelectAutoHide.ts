@@ -25,7 +25,7 @@ export function removeOldRef(oldRef: DesktopRef | null) {
 export function autoHideSelectFunc(event: any) {
   if (platformEnv.isBrowser) {
     for (let t of desktopRefs) {
-      console.log('domid=', t.domId, ' ', t.getVisible())
+      // console.log('domid=', t.domId, ' ', t.getVisible())
       if (t.getVisible() === true) {
         const container = document.getElementById(t.domId);
         if (
@@ -34,7 +34,7 @@ export function autoHideSelectFunc(event: any) {
           event.target &&
           domContains(container, event.target as HTMLElement)
         ) {
-          console.log('inner click, return')
+          // console.log('inner click, return')
           return;
         }
         t.toggleVisible()

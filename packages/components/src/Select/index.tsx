@@ -21,8 +21,11 @@ import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
 import { Text } from '../Typography';
 
-import Desktop from './Container/Desktop';
+import DesktopWithRef from './Container/Desktop';
+import type { DesktopRef } from './Container/Desktop';
 import Mobile from './Container/Mobile';
+import { addNewRef, removeOldRef } from '../utils/SelectAutoHide';
+
 
 export type SelectItem<T = string> = {
   label: string;
@@ -200,6 +203,21 @@ function Select<T = string>({
     onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
+  const DesktopWithRefComp = DesktopWithRef<T>();
+
+  const desktopRef = React.useRef<DesktopRef | null>(null);
+  const setRef = React.useCallback((ref: DesktopRef | null) => {
+    // Since we know there's a ref, we'll update `refs` to use it.
+    if (ref) {
+      // store the ref in this toast instance to be able to remove it from the array later when the ref becomes null.
+      desktopRef.current = ref;
+      addNewRef(ref);
+    } else {
+      // remove the this ref, wherever it is in the array.
+      removeOldRef(desktopRef.current);
+    }
+  }, []);
+
   const container = useMemo(() => {
     const childContainerProps = {
       visible: selectVisible === undefined ? visible : selectVisible,
@@ -225,7 +243,7 @@ function Select<T = string>({
     if (['SMALL', 'NORMAL'].includes(size)) {
       return <Mobile<T> {...childContainerProps} />;
     }
-    return <Desktop<T> {...childContainerProps} />;
+    return <DesktopWithRefComp ref={setRef} {...childContainerProps} />;
   }, [
     selectVisible,
     visible,

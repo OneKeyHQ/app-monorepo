@@ -11,24 +11,33 @@ import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocume
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
+import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
 
 type ChildDropdownProps = {
   visible: boolean;
-  toggleVisible?: (...args: any) => any;
+  toggleVisible: (...args: any) => any;
   triggerEle?: HTMLElement | null;
 };
 
-const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
+const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(({
   visible,
   toggleVisible,
   triggerEle,
-}) => {
+}, ref) => {
   const translateY = 4;
   const { domId } = useClickDocumentClose({
     name: 'AccountSelectorDesktop',
     visible,
     toggleVisible,
   });
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      toggleVisible,
+      getVisible: () => visible,
+      domId
+    })
+  );
   const { position, toPxPositionValue } = useDropdownPosition({
     triggerEle,
     domId,
@@ -75,6 +84,6 @@ const AccountSelectorDesktop: FC<ChildDropdownProps> = ({
   // return content;
   //    Error: Couldn't find a drawer. Is your component inside a drawer navigator?
   return <OverlayContainer>{content}</OverlayContainer>;
-};
+})
 
 export default AccountSelectorDesktop;
