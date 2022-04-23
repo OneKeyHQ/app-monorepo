@@ -7,6 +7,8 @@ import {
   ScanQrcodeRoutesParams,
 } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 
+import ScanQrcodeResult from '../../views/ScanQrcode/ScanQrcodeResult';
+
 import createStackNavigator from './createStackNavigator';
 
 const ScanQrcodeNavigator = createStackNavigator<ScanQrcodeRoutes>();
@@ -16,6 +18,7 @@ const modalRoutes = [
     name: ScanQrcodeRoutes.ScanQrcode,
     component: ScanQrcode,
   },
+  { name: ScanQrcodeRoutes.ScanQrcodeResult, component: ScanQrcodeResult },
 ];
 
 const ScanQrcodeStack = () => {

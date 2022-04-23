@@ -1,5 +1,11 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import {
+  NavigationProp,
+  RouteProp,
+  useIsFocused,
+  useRoute,
+} from '@react-navigation/core';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Button } from 'native-base';
@@ -11,42 +17,66 @@ import {
   Typography,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import useNavigation from '../../hooks/useNavigation';
 
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
+import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
 
-const { isDesktop, isWeb, isExtension, isNative: isApp } = platformEnv;
+const { isWeb, isNative: isApp } = platformEnv;
 
-export type ScanQrcodeProps = {};
-
-const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
+type ScanQrcodeRouteProp = RouteProp<
+  ScanQrcodeRoutesParams,
+  ScanQrcodeRoutes.ScanQrcode
+>;
+type ScanQrcodeNavProp = NavigationProp<
+  ScanQrcodeRoutesParams,
+  ScanQrcodeRoutes.ScanQrcodeResult
+>;
+const ScanQrcode: FC = () => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [scanned, setScanned] = useState(false);
+  const isFocused = useIsFocused();
 
-  async function handleBarCodeScanned(data: string | null) {
-    if (!data) {
-      return;
-    }
+  const navigation = useNavigation<ScanQrcodeNavProp>();
+  const route = useRoute<ScanQrcodeRouteProp>();
+  const onScanCompleted = route.params?.onScanCompleted;
 
-    setScanned(true);
-    if (data.startsWith('https://') || data.startsWith('http://')) {
-      // TODO http url
-      return;
-    }
-    const { category, possibleNetworks } =
-      await backgroundApiProxy.validator.validateCreateInput(data);
-    if (category === UserCreateInputCategory.ADDRESS) {
-      // TODO address
-      return;
-    }
-    // TODO others
-  }
-  async function pickImage() {
+  const handleBarCodeScanned = useCallback(
+    async (data: string | null) => {
+      if (!data) {
+        return;
+      }
+      setScanned(true);
+      if (onScanCompleted) {
+        onScanCompleted(data);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        navigation.goBack();
+        return;
+      }
+      const scanResult: ScanResult = { type: 'other', data };
+      if (data.startsWith('https://') || data.startsWith('http://')) {
+        scanResult.type = 'url';
+      } else {
+        const { category, possibleNetworks } =
+          await backgroundApiProxy.validator.validateCreateInput(data);
+        if (category === UserCreateInputCategory.ADDRESS) {
+          scanResult.type = 'address';
+          scanResult.possibleNetworks = possibleNetworks;
+        }
+      }
+      navigation.navigate(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
+    },
+    [navigation, onScanCompleted],
+  );
+
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       base64: isWeb,
       allowsMultipleSelection: false,
@@ -58,7 +88,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
         handleBarCodeScanned(scanResult);
       }
     }
-  }
+  }, [handleBarCodeScanned]);
 
   useEffect(() => {
     (async () => {
@@ -66,6 +96,13 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
       setHasPermission(status === 'granted');
     })();
   }, []);
+
+  useEffect(() => {
+    if (isFocused) {
+      // 页面返回时重新激活扫码功能
+      setScanned(false);
+    }
+  }, [isFocused]);
 
   const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
   return (
@@ -88,7 +125,7 @@ const ScanQrcode: FC<ScanQrcodeProps> = ({}: ScanQrcodeProps) => {
       }
       staticChildrenProps={isApp ? { flex: 1 } : { width: '100%', height: 209 }}
     >
-      {hasPermission && (
+      {hasPermission && isFocused && (
         <Camera
           style={{
             flex: 1,
