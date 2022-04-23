@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
@@ -91,6 +92,7 @@ export function useFeeInfoPayload({
   pollingInterval?: number;
   fetchAnyway?: boolean;
 }) {
+  const isFocused = useIsFocused();
   const { network } = useActiveWalletAccount();
   const [feeInfoError, setFeeInfoError] = useState<Error | null>(null);
   const { accountId, networkId } = useActiveWalletAccount();
@@ -243,7 +245,7 @@ export function useFeeInfoPayload({
   }, [encodedTx, fetchFeeInfo, setFeeInfoPayload]);
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    if (pollingInterval) {
+    if (pollingInterval && isFocused) {
       timer = setInterval(async () => {
         if (loading) {
           return;
@@ -268,6 +270,7 @@ export function useFeeInfoPayload({
     fetchFeeInfo,
     loading,
     pollingInterval,
+    isFocused,
   ]);
   return {
     feeInfoError,
