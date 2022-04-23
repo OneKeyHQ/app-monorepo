@@ -6,6 +6,7 @@ import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 import { getSupportedImpls } from './constants';
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
+import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
 import { implToAccountType } from './managers/impl';
 import { ProviderController } from './proxy';
@@ -190,6 +191,110 @@ class Validators {
     const dbAccounts = await this.dbApi.getAccounts(accounts);
     const addresses = dbAccounts.map((acc) => acc.address?.toLowerCase());
     return addresses.includes(address.toLowerCase());
+  }
+
+  @backgroundMethod()
+  async validateGasLimit(
+    networkId: string,
+    limit: string | BigNumber,
+    max: string | number,
+  ): Promise<void> {
+    try {
+      const v = typeof limit === 'string' ? new BigNumber(limit) : limit;
+      // TODO 21000 may relate to network
+      if (v.isNaN() || v.isLessThan(new BigNumber(21000))) {
+        throw new OneKeyValidatorError('form__gas_limit_invalid_min');
+      }
+      const maxLimit = new BigNumber(max);
+      if (v.isGreaterThan(maxLimit.multipliedBy(new BigNumber(20)))) {
+        throw new OneKeyValidatorTip('form__gas_limit_invalid_too_much');
+      }
+    } catch (e) {
+      if (
+        e instanceof OneKeyValidatorError ||
+        e instanceof OneKeyValidatorTip
+      ) {
+        throw e;
+      }
+      throw new OneKeyValidatorError('form__gas_limit_invalid_min');
+    }
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async validateMaxFee(
+    networkId: string,
+    maxFee: string | BigNumber,
+    maxPriorityFee: string | BigNumber,
+    networkMaxFee?: string,
+  ): Promise<void> {
+    try {
+      const v = typeof maxFee === 'string' ? new BigNumber(maxFee) : maxFee;
+      // TODO  may relate to network
+      if (v.isNaN() || v.isLessThan(new BigNumber(0))) {
+        throw new OneKeyValidatorError('form__max_fee_invalid_too_low');
+      }
+      const pv =
+        typeof maxPriorityFee === 'string'
+          ? new BigNumber(maxPriorityFee)
+          : maxPriorityFee;
+      if (v.isLessThan(pv)) {
+        throw new OneKeyValidatorError('form__max_fee_invalid_min');
+      }
+
+      if (networkMaxFee) {
+        const networkMax = new BigNumber(networkMaxFee);
+        if (v.isGreaterThan(networkMax.multipliedBy(new BigNumber(4)))) {
+          throw new OneKeyValidatorTip('form__max_fee_invalid_too_much');
+        }
+        if (v.isLessThan(networkMax)) {
+          throw new OneKeyValidatorTip('form__max_fee_invalid_too_low');
+        }
+      }
+    } catch (e) {
+      if (
+        e instanceof OneKeyValidatorError ||
+        e instanceof OneKeyValidatorTip
+      ) {
+        throw e;
+      }
+      throw new OneKeyValidatorError('form__max_fee_invalid_too_low');
+    }
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async validateMaxPriortyFee(
+    networkId: string,
+    maxPriorityFee: string | BigNumber,
+    networkMaxPriorityFee?: string,
+  ): Promise<void> {
+    try {
+      const v =
+        typeof maxPriorityFee === 'string'
+          ? new BigNumber(maxPriorityFee)
+          : maxPriorityFee;
+      // TODO  may relate to network
+      if (v.isNaN() || v.isLessThan(new BigNumber(0))) {
+        throw new OneKeyValidatorError('form__max_priority_fee_invalid_min');
+      }
+      if (networkMaxPriorityFee) {
+        if (v.isLessThan(new BigNumber(networkMaxPriorityFee))) {
+          throw new OneKeyValidatorTip(
+            'form__max_priority_fee_invalid_too_low',
+          );
+        }
+      }
+    } catch (e) {
+      if (
+        e instanceof OneKeyValidatorError ||
+        e instanceof OneKeyValidatorTip
+      ) {
+        throw e;
+      }
+      throw new OneKeyValidatorError('form__max_priority_fee_invalid_min');
+    }
+    return Promise.resolve();
   }
 }
 

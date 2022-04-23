@@ -115,7 +115,7 @@ function RenderSingleOption<T>({
                 ? option.destructive
                   ? 'surface-critical-default'
                   : 'surface-hovered'
-                : ''
+                : undefined
             }
           >
             {(!!option.tokenProps || !!option.iconProps) && (
