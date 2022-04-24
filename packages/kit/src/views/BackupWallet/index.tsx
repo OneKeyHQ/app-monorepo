@@ -114,6 +114,14 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
       scrollViewProps={{
         children: (
           <Column space={4} p={0.5}>
+            <BackupItem
+              imageSrc={RecoveryPhrase}
+              title={intl.formatMessage({ id: 'backup__manual_backup' })}
+              describe={intl.formatMessage({
+                id: 'backup__manual_backup_desc',
+              })}
+              onPress={() => onManualBackup('Manual')}
+            />
             {hasSupportNFC && (
               <BackupItem
                 imageSrc={OneKeyLite}
@@ -126,15 +134,6 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
                 onPress={() => onManualBackup('OnekeyLite')}
               />
             )}
-
-            <BackupItem
-              imageSrc={RecoveryPhrase}
-              title={intl.formatMessage({ id: 'backup__manual_backup' })}
-              describe={intl.formatMessage({
-                id: 'backup__manual_backup_desc',
-              })}
-              onPress={() => onManualBackup('Manual')}
-            />
           </Column>
         ),
       }}
