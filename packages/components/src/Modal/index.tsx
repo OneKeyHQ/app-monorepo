@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import ReactDOM from 'react-dom';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -23,6 +24,13 @@ import Toast from '../Toast/Custom';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
+
+let modalRoot: HTMLElement | null = null;
+if (platformEnv.isBrowser) {
+  modalRoot = document.createElement('DIV');
+  document.body.appendChild(modalRoot)
+}
+
 
 export type ModalProps = {
   /* 
@@ -255,13 +263,15 @@ const Modal: FC<ModalProps> = ({
     });
   }, [trigger, handleOpen]);
 
-  return (
+  const node = (
     <>
       {triggerNode}
       {modalContainer}
       {platformEnv.isNative && <Toast bottomOffset={120} />}
     </>
-  );
+  )
+
+  return modalRoot ? ReactDOM.createPortal(node, modalRoot) : node;
 };
 
 Modal.defaultProps = defaultProps;
