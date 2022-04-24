@@ -8,7 +8,7 @@ import {
 } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner, utils } from '@onekeyhq/components';
+import { Center, Spinner } from '@onekeyhq/components';
 import {
   HistoryEntryStatus,
   HistoryEntryType,
@@ -61,7 +61,6 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 }
 
 const TransactionConfirm = () => {
-  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
@@ -82,9 +81,16 @@ const TransactionConfirm = () => {
     id: params.sourceInfo?.id ?? '',
     closeOnError: true,
   });
-  // TODO   const useFeeInTx = false
+  // TODO useFeeInTx has some bugs
   const useFeeInTx = !isFromDapp;
-  const feeInfoEditable = !useFeeInTx;
+  const isCancelOrSpeedUp =
+    params.actionType === 'cancel' || params.actionType === 'speedUp';
+  // const useFeeInTx = false;
+
+  let feeInfoEditable = !useFeeInTx;
+  if (isCancelOrSpeedUp) {
+    feeInfoEditable = true;
+  }
 
   let payload = params.payload as TransferSendParamsPayload;
   if (payload) {
@@ -150,7 +156,7 @@ const TransactionConfirm = () => {
         removeFeeInfoInTx(encodedTx);
       }
       const encodedTxWithFee =
-        !useFeeInTx && feeInfoPayload
+        feeInfoEditable && feeInfoPayload
           ? await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
               networkId,
               accountId,
@@ -179,7 +185,7 @@ const TransactionConfirm = () => {
     },
     [
       isFromDapp,
-      useFeeInTx,
+      feeInfoEditable,
       feeInfoPayload,
       networkId,
       accountId,
@@ -219,8 +225,8 @@ const TransactionConfirm = () => {
   }
 
   // handle speed up / cancel.
-  if (params.actionType === 'cancel' || params.actionType === 'speedUp') {
-    return <TxConfirmBlind {...sharedProps} feeInfoEditable />;
+  if (isCancelOrSpeedUp) {
+    return <TxConfirmBlind {...sharedProps} />;
   }
 
   if (decodedTx.txType === EVMDecodedTxType.TOKEN_APPROVE) {
@@ -231,14 +237,9 @@ const TransactionConfirm = () => {
     decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
     decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER
   ) {
-    return (
-      <TxConfirmTransfer
-        {...sharedProps}
-        headerDescription={`${intl.formatMessage({
-          id: 'content__to',
-        })}:${utils.shortenAddress(encodedTx.to)}`}
-      />
-    );
+    // TODO from dapp: feeInfoEditable=true
+    //      from internal transfer: feeInfoEditable=false
+    return <TxConfirmTransfer {...sharedProps} feeInfoEditable={false} />;
   }
 
   // Dapp blind sign
