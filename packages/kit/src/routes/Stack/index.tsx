@@ -5,7 +5,7 @@ import React, { useCallback, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Box, useThemeValue } from '@onekeyhq/components';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
@@ -24,6 +24,8 @@ import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';
+import { MARK_ID_FOR_SELECT_HIDE } from '@onekeyhq/components/src/utils/SelectAutoHide';
+
 
 export const stackScreenList = [
   {
@@ -168,4 +170,8 @@ const MainScreen = () => {
   return isUnlock && isDataUnlock ? <Dashboard /> : <Unlock />;
 };
 
-export default MainScreen;
+function WrappedMainScreen() {
+  return <Box w='full' h='full' nativeID={MARK_ID_FOR_SELECT_HIDE}><MainScreen /></Box>
+}
+
+export default WrappedMainScreen;

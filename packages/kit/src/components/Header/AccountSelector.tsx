@@ -89,7 +89,10 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           visible={visible}
           handleToggleVisible={() => {
             setHaptics();
-            handleToggleVisible();
+            if(!visible) {
+              handleToggleVisible();
+            }
+            // handleToggleVisible();
           }}
         />
       )}
