@@ -15,7 +15,7 @@ import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 import { FormatCurrencyNative } from '../../components/Format';
 import useNavigation from '../../hooks/useNavigation';
 
-import { FeeSpeedLabel, FeeSpeedTime } from './SendEditFee';
+import { FeeSpeedLabel } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
 import { SendRoutes, SendRoutesParams } from './types';
 
@@ -93,6 +93,21 @@ function FeeInfoInputForTransfer({
       if (loading) {
         icon = <Spinner size="sm" />;
       }
+      let feeSpeedTime = '';
+      if (feeInfoPayload?.selected?.type === 'preset') {
+        if (feeInfoPayload?.selected?.preset === '0')
+          feeSpeedTime = intl.formatMessage({
+            id: 'content__maybe_in_30s',
+          });
+        if (feeInfoPayload?.selected?.preset === '1')
+          feeSpeedTime = intl.formatMessage({
+            id: 'content__likely_less_than_15s',
+          });
+        if (feeInfoPayload?.selected?.preset === '2')
+          feeSpeedTime = intl.formatMessage({
+            id: 'content__very_likely_less_than_15s',
+          });
+      }
       return (
         // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
         <Box
@@ -107,33 +122,26 @@ function FeeInfoInputForTransfer({
           paddingY="8px"
         >
           <Box flex={1}>
-            <Box flexDirection="row">
-              {isPreset && (
-                <Text
-                  typography={{
-                    sm: 'Body1Strong',
-                    md: 'Body2Strong',
-                  }}
-                  mr={1}
-                >
-                  <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
-                </Text>
-              )}
-              {feeInfoPayload?.current?.totalNative && (
-                <FormatCurrencyNative
-                  value={feeInfoPayload?.current?.totalNative}
-                  render={(ele) => (
-                    <Typography.Body2 color="text-subdued">
-                      (~ {ele})
-                    </Typography.Body2>
-                  )}
-                />
-              )}
-            </Box>
+            {isPreset && (
+              <Text
+                typography={{
+                  sm: 'Body1Strong',
+                  md: 'Body2Strong',
+                }}
+              >
+                <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+                {feeInfoPayload?.current?.totalNative && (
+                  <FormatCurrencyNative
+                    value={feeInfoPayload?.current?.totalNative}
+                    render={(ele) => <>(~ {ele})</>}
+                  />
+                )}
+              </Text>
+            )}
             <Text color="text-subdued" flex={1}>
               {/* eslint-disable-next-line no-nested-ternary */}
               {feeInfoPayload?.current?.totalNative
-                ? intl.formatMessage({ id: 'content__likely_less_than_15s' })
+                ? feeSpeedTime
                 : loading
                 ? intl.formatMessage({ id: 'content__just_a_moment' })
                 : intl.formatMessage({ id: 'content__calculate_fee' })}
