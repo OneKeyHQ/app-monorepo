@@ -86,29 +86,25 @@ const ListViewDesktop: FC<SectionDataType> = ({
         width={cardWidth}
         maxWidth={cardWidth}
         minWidth={cardWidth}
-        height="96px"
-        paddingX="8px"
-        paddingY="8px"
+        height="92px"
+        paddingY="6px"
       >
         <Pressable
+          flexDirection="row"
+          padding="16px"
+          _hover={{ bg: 'surface-hovered', borderRadius: '12px' }}
           onPress={() => {
             if (onItemSelect) {
               onItemSelect(item);
             }
           }}
         >
-          <Box flexDirection="row" padding="16px">
-            <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
-            <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
-              <Typography.Caption
-                color="text-subdued"
-                numberOfLines={1}
-                mt="4px"
-              >
-                {item.subtitle}
-              </Typography.Caption>
-            </Box>
+          <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
+          <Box flexDirection="column" ml="12px" flex={1}>
+            <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+            <Typography.Caption color="text-subdued" numberOfLines={1} mt="4px">
+              {item.subtitle}
+            </Typography.Caption>
           </Box>
         </Pressable>
       </Box>
@@ -123,7 +119,7 @@ const ListViewDesktop: FC<SectionDataType> = ({
         bgColor="surface-default"
         borderRadius="12px"
         paddingX="8px"
-        paddingY="8px"
+        paddingY="10px"
         data={filterData}
         renderItem={renderItem}
         numColumns={numColumns}

@@ -56,23 +56,32 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
     ({ item }) => {
       const url = imageUrl(item.pic ?? '');
       return (
-        <Pressable
-          onPress={() => {
-            if (onItemSelect) {
-              onItemSelect(item);
-            }
-          }}
+        <Box
+          padding="8px"
+          justifyContent="center"
+          alignItems="center"
+          width={isSmallScreen ? '310px' : `${cardWidth + 16}px`}
+          height={isSmallScreen ? '258px' : `285px`}
         >
-          <Box
+          <Pressable
+            onPress={() => {
+              if (onItemSelect) {
+                onItemSelect(item);
+              }
+            }}
             width={isSmallScreen ? '294px' : `${cardWidth}px`}
             height="100%"
             bgColor="surface-default"
-            ml="16px"
             borderRadius="12px"
             padding="12px"
+            _hover={{
+              bg: 'surface-hovered',
+              width: isSmallScreen ? '294px' : `${cardWidth * 1.03}px`,
+              height: 291,
+              shadow: 'depth.3',
+            }}
           >
             <NetImage
-              width={isSmallScreen ? '270px' : `${cardWidth - 24}px`}
               height={isSmallScreen ? '134px' : '177px'}
               uri={url}
               borderRadius={12}
@@ -90,8 +99,8 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
             >
               {item.subtitle}
             </Typography.Caption>
-          </Box>
-        </Pressable>
+          </Pressable>
+        </Box>
       );
     },
     [cardWidth, isSmallScreen, onItemSelect],
@@ -104,9 +113,9 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
         })}
       </Typography.PageHeading>
       <FlatList
-        mt="32px"
+        mt="24px"
         contentContainerStyle={{
-          paddingLeft: isSmallScreen ? 0 : 16,
+          paddingLeft: isSmallScreen ? 8 : 24,
           paddingRight: 16,
         }}
         showsHorizontalScrollIndicator={false}
