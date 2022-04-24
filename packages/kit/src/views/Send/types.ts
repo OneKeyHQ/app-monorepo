@@ -66,6 +66,7 @@ export type SendConfirmParams = EditFeeParams & {
   payload?: TransferSendParamsPayload | any;
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
+  actionType?: 'speedUp' | 'cancel';
 };
 
 export type SendAuthenticationParams = SendConfirmParams & {

@@ -57,6 +57,7 @@ export type IEncodedTxEvm = {
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+  nonce?: number;
 };
 
 export enum IDecodedTxEvmType {
@@ -313,6 +314,7 @@ export default class Vault extends VaultBase {
       gasPrice,
       maxFeePerGas,
       maxPriorityFeePerGas,
+      nonce,
       ...others
     } = encodedTx;
     debugLogger.sendTx(
@@ -335,6 +337,7 @@ export default class Vault extends VaultBase {
         feePricePerUnit: !isNil(gasPrice) ? new BigNumber(gasPrice) : undefined,
         maxFeePerGas,
         maxPriorityFeePerGas,
+        nonce,
         ...others,
       },
     });

@@ -220,6 +220,7 @@ const TransactionConfirm = () => {
     return <TxConfirmTokenApprove {...sharedProps} />;
   }
 
+  // TODO: handle speed up / cancel.
   if (
     decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
     decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER

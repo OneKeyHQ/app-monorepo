@@ -1866,7 +1866,12 @@ class Engine {
       return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
     }
 
-    const localHistory = await this.getHistory(networkId, accountId);
+    const localHistory = await this.getHistory(
+      networkId,
+      accountId,
+      undefined,
+      true,
+    );
     const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
       (h): h is HistoryEntryTransaction => 'rawTx' in h,
     );

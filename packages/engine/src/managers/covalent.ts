@@ -509,7 +509,7 @@ function decodedItemToTransaction(
   item: EVMDecodedItem,
   historyEntry: HistoryEntryTransaction,
 ): Transaction {
-  const { createdAt, status } = historyEntry;
+  const { createdAt, status, rawTx } = historyEntry;
   const blockSignedAt = new Date(createdAt).toISOString();
 
   let successful: TxStatus;
@@ -542,6 +542,7 @@ function decodedItemToTransaction(
     tokenEvent: [],
     source: 'local',
     info: item.info,
+    rawTx,
   };
 }
 

@@ -159,9 +159,9 @@ export function fillUnsignedTxObj({
 
   const { type, nonce, feeLimit, feePricePerUnit, ...payload } = extra as {
     type: string;
-    nonce: number;
-    feeLimit: BigNumber;
-    feePricePerUnit: BigNumber;
+    nonce?: number;
+    feeLimit?: BigNumber;
+    feePricePerUnit?: BigNumber;
     [key: string]: any;
   };
   const { maxFeePerGas, maxPriorityFeePerGas } = payload as {
