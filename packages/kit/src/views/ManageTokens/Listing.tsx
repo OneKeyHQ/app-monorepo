@@ -12,8 +12,8 @@ import {
   Empty,
   Icon,
   IconButton,
-  Image,
   Modal,
+  NetImage,
   Pressable,
   Searchbar,
   Spinner,
@@ -109,22 +109,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 shadow="depth.2"
               >
                 <Box display="flex" alignItems="center" flexDirection="row">
-                  <Image
-                    source={{ uri: item.logoURI }}
-                    alt="logoURI"
-                    size="8"
-                    borderRadius="full"
-                    fallbackElement={
-                      <Center
-                        w={8}
-                        h={8}
-                        rounded="full"
-                        bgColor="surface-neutral-default"
-                      >
-                        <Icon size={20} name="QuestionMarkOutline" />
-                      </Center>
-                    }
-                  />
+                  <NetImage uri={item.logoURI} size="32px" borderRadius={16} />
                   <Box ml="3">
                     <Text
                       maxW={56}
@@ -331,22 +316,7 @@ const ListingToken: FC<ListingTokenProps> = ({
       shadow="depth.2"
     >
       <Box display="flex" alignItems="center" flexDirection="row">
-        <Image
-          source={{ uri: item.logoURI }}
-          alt="logoURI"
-          size="8"
-          borderRadius="full"
-          fallbackElement={
-            <Center
-              w={8}
-              h={8}
-              rounded="full"
-              bgColor="surface-neutral-default"
-            >
-              <Icon size={20} name="QuestionMarkOutline" />
-            </Center>
-          }
-        />
+        <NetImage uri={item.logoURI} size="32px" borderRadius={16} />
         <Box ml="3">
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}

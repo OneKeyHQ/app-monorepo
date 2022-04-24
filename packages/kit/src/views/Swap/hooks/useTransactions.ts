@@ -75,7 +75,7 @@ export function useCleanAllConfirmedTransaction() {
  * @param tx to check for recency
  */
 export function isTransactionRecent(tx: TransactionDetails): boolean {
-  return new Date().getTime() - tx.addedTime < 86_400_000;
+  return new Date().getTime() - tx.addedTime < 86400000;
 }
 
 export function useAllTransactions(): { [txHash: string]: TransactionDetails } {
