@@ -58,11 +58,13 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
             >
               {item.describeSecond}
             </Typography.Body2>
-            <Typography.Body2
-              color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-            >
-              {item.describeThird}
-            </Typography.Body2>
+            {!!item.describeThird && (
+              <Typography.Body2
+                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+              >
+                {item.describeThird}
+              </Typography.Body2>
+            )}
           </Box>
         </RadioBox>,
       );
