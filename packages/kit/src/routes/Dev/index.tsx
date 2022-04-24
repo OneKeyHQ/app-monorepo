@@ -14,7 +14,6 @@ import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
 import ContainerGallery from '@onekeyhq/kit/src/views/Components/stories/Container';
-import DappModalsGallery from '@onekeyhq/kit/src/views/Components/stories/DappModals';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
@@ -156,7 +155,6 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentAddress, component: AddressGallery },
   { name: StackRoutes.ComponentInput, component: InputGallery },
   { name: StackRoutes.ComponentCard, component: NftCardGallery },
-  { name: StackRoutes.ComponentDappModals, component: DappModalsGallery },
   { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
   { name: StackRoutes.ComponentToken, component: TokenGallery },
