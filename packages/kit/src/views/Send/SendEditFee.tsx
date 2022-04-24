@@ -73,15 +73,31 @@ type NavigationProps = NativeStackNavigationProp<
 export function FeeSpeedLabel({ index }: { index: number | string }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
-  let title = `🚗️  ${intl.formatMessage({ id: 'content__normal' })}`;
+  let title = `🚅  ${intl.formatMessage({ id: 'content__fast' })}`;
   if (indexInt === 0) {
-    title = `🛴  ${intl.formatMessage({ id: 'content__slow' })}`;
+    title = `🚗  ${intl.formatMessage({ id: 'content__normal' })}`;
   }
   if (indexInt === 1) {
-    title = `🚗️  ${intl.formatMessage({ id: 'content__normal' })}`;
+    title = `🚅  ${intl.formatMessage({ id: 'content__fast' })}`;
   }
   if (indexInt === 2) {
-    title = `🚀  ${intl.formatMessage({ id: 'content__fast' })}`;
+    title = `🚀  ${intl.formatMessage({ id: 'content__rapid' })}`;
+  }
+  return <>{title}</>;
+}
+
+export function FeeSpeedTime({ index }: { index: number | string }) {
+  const intl = useIntl();
+  const indexInt = parseInt(index as string, 10);
+  let title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
+  if (indexInt === 0) {
+    title = intl.formatMessage({ id: 'content__maybe_in_30s' });
+  }
+  if (indexInt === 1) {
+    title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
+  }
+  if (indexInt === 2) {
+    title = intl.formatMessage({ id: 'content__very_likely_less_than_15s' });
   }
   return <>{title}</>;
 }
@@ -421,7 +437,6 @@ const StandardFee = ({
   value: string;
   onChange: (v: string) => void;
 }) => {
-  const feeSymbol = feeInfoPayload?.info?.symbol || '';
   const gasList = useMemo(
     () => feeInfoPayload?.info?.prices ?? [],
     [feeInfoPayload?.info?.prices],
@@ -452,25 +467,17 @@ const StandardFee = ({
         return {
           value: index.toString(),
           title: <FeeSpeedLabel index={index} />,
-          titleSecond: ``,
+          titleSecond: <FeeSpeedTime index={index} />,
           describe: (
             <FormatCurrencyNative
               value={minFeeNative}
-              render={(ele) => (
-                <Typography.Body2 mt={1} color="text-subdued">
-                  ~ {!minFeeNative ? '-' : ele}
-                </Typography.Body2>
-              )}
+              render={(ele) => <>~ {!minFeeNative ? '-' : ele}</>}
             />
           ),
           describeSecond: (
             <FormatCurrencyNative
               value={totalFeeNative}
-              render={(ele) => (
-                <Typography.Body2 mt={1} color="text-subdued">
-                  Max Fee: {!totalFeeNative ? '-' : ele}
-                </Typography.Body2>
-              )}
+              render={(ele) => <>Max Fee: {!totalFeeNative ? '-' : ele}</>}
             />
           ),
           describeThird: `${totalFeeNative}${
@@ -493,21 +500,19 @@ const StandardFee = ({
       return {
         value: index.toString(),
         title: <FeeSpeedLabel index={index} />,
-        titleSecond: `≈ ${totalFee} ${feeSymbol}`,
-        describe: `${gas as string} ${feeSymbol}`,
-        describeSecond: (
+        titleSecond: <FeeSpeedTime index={index} />,
+        describe: (
           <FormatCurrencyNative
             value={totalFeeNative}
-            render={(ele) => (
-              <Typography.Body2 mt={1} color="text-subdued">
-                {!totalFeeNative ? '-' : ele}
-              </Typography.Body2>
-            )}
+            render={(ele) => <>~ {!totalFeeNative ? '-' : ele}</>}
           />
         ),
+        describeSecond: `${totalFeeNative}${
+          feeInfoPayload?.info?.nativeSymbol ?? ''
+        }`,
       };
     });
-  }, [feeInfoPayload?.info, feeSymbol, gasList]);
+  }, [feeInfoPayload?.info, gasList]);
 
   return (
     <RadioFee
@@ -746,7 +751,7 @@ const TransactionEditFee = ({ ...rest }) => {
 
   return (
     <Modal
-      height="598px"
+      maxHeight="640px"
       trigger={trigger}
       primaryActionTranslationId="action__confirm"
       secondaryActionTranslationId="action__reject"
