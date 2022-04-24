@@ -95,7 +95,7 @@ class EVMTxDecoder {
 
     if (txDesc) {
       itemBuilder.contractCallInfo = {
-        contractAddress: tx.to ?? '',
+        contractAddress: tx.to?.toLowerCase() ?? '',
         functionName: txDesc.name,
         functionSignature: txDesc.signature,
         // TODO args not serializable
@@ -119,7 +119,7 @@ class EVMTxDecoder {
       switch (txType) {
         case EVMDecodedTxType.TOKEN_TRANSFER: {
           // transfer(address _to, uint256 _value)
-          const recipient = txDesc?.args[0] as string;
+          const recipient = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
           const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
@@ -133,7 +133,7 @@ class EVMTxDecoder {
         }
         case EVMDecodedTxType.TOKEN_APPROVE: {
           // approve(address _spender, uint256 _value)
-          const spender = txDesc?.args[0] as string;
+          const spender = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
           const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
@@ -156,7 +156,9 @@ class EVMTxDecoder {
     return itemBuilder;
   }
 
-  static staticDecode(rawTx: string | ethers.Transaction): EVMBaseDecodedItem {
+  private static staticDecode(
+    rawTx: string | ethers.Transaction,
+  ): EVMBaseDecodedItem {
     const itemBuilder = {} as EVMBaseDecodedItem;
 
     let tx: ethers.Transaction;
@@ -190,8 +192,8 @@ class EVMTxDecoder {
     tx: ethers.Transaction,
   ) {
     itemBuilder.value = tx.value.toString();
-    itemBuilder.fromAddress = tx.from ?? '';
-    itemBuilder.toAddress = tx.to ?? '';
+    itemBuilder.fromAddress = tx.from?.toLowerCase() ?? '';
+    itemBuilder.toAddress = tx.to?.toLowerCase() ?? '';
     itemBuilder.txHash = tx.hash ?? '';
     itemBuilder.is1559 = tx.type === 2;
     itemBuilder.gasLimit = tx.gasLimit.toNumber();
