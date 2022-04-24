@@ -1,6 +1,6 @@
 import React, { ComponentProps, FC } from 'react';
 
-import { Box, Image } from '@onekeyhq/components';
+import { Box, Image, NetImage } from '@onekeyhq/components';
 import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
 import DAppIconBG from '@onekeyhq/kit/assets/DAppIcon_bg.png';
 
@@ -77,7 +77,11 @@ const DAppIcon: FC<DAppIconProps> = ({ favicon, chain, size, ...rest }) => {
       {...rest}
     >
       <Box width={`${innerSize}px`} height={`${innerSize}px`}>
-        <Image flex={1} src={url} borderRadius={`${innerRadius}px`} />
+        <NetImage
+          uri={url}
+          size={`${innerSize}px`}
+          borderRadius={innerRadius}
+        />
         {!!chain && (
           <>
             <Image
@@ -88,14 +92,17 @@ const DAppIcon: FC<DAppIconProps> = ({ favicon, chain, size, ...rest }) => {
               height={`${size * 0.4375}px`}
               source={DAppIconBG}
             />
-            <Image
+            <Box
               position="absolute"
               bottom={`${chainIconPadding ?? 0}px`}
               right={`${chainIconPadding ?? 0}px`}
-              width={`${size * 0.2}px`}
-              height={`${size * 0.2}px`}
-              src={chainUrl(chain)}
-            />
+            >
+              <NetImage
+                width={`${size * 0.2}px`}
+                height={`${size * 0.2}px`}
+                uri={chainUrl(chain)}
+              />
+            </Box>
           </>
         )}
       </Box>
