@@ -26,7 +26,6 @@ import { getClipboard } from '../utils/ClipboardUtils';
 import { FormErrorMessage } from './FormErrorMessage';
 
 type InternalActionList = 'paste' | 'scan';
-type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 type FormItemProps = {
   label?: string;
@@ -58,7 +57,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
     }
   }, []);
 
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation = useNavigation();
   return (
     <Controller
       name={name}
