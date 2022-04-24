@@ -46,7 +46,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
               {item.titleSecond}
             </Typography.Body2>
           </Box>
-          <Box textAlign="right">
+          <Box alignItems="flex-end">
             <Text
               typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}

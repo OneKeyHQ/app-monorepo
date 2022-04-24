@@ -2,14 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Icon,
-  Pressable,
-  Spinner,
-  Text,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 
 import { FormatCurrencyNative } from '../../components/Format';
@@ -74,13 +67,7 @@ function FeeInfoInputForTransfer({
   const intl = useIntl();
   const renderChildren = useCallback(
     ({ isHovered }) => {
-      let totalDetailText = `${feeInfoPayload?.current?.total ?? '-'} ${
-        feeInfoPayload?.info?.symbol ?? ''
-      }`;
       const isPreset = feeInfoPayload?.selected?.type === 'preset';
-      if (isPreset) {
-        totalDetailText = `(${totalDetailText})`;
-      }
       let icon: React.ReactElement | null = (
         <Icon size={20} name="PencilSolid" />
       );
