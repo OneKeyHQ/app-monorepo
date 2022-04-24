@@ -1,11 +1,13 @@
 /* eslint max-classes-per-file: "off" */
+import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
 
 export enum OneKeyErrorClassNames {
   OneKeyError,
   OneKeyValidatorError,
   OneKeyValidatorTip,
 }
-export class OneKeyError extends Error {
+
+export class OneKeyError extends Web3RpcError<undefined> {
   className = OneKeyErrorClassNames.OneKeyError;
 
   info: Record<string, string>;
@@ -13,7 +15,7 @@ export class OneKeyError extends Error {
   key = 'onekey_error';
 
   constructor(message?: string, info?: Record<string, string>) {
-    super(message);
+    super(-99999, message || 'Unknown onekey internal error.');
     this.info = info || {};
   }
 
