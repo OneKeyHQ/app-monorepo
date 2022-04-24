@@ -6,7 +6,6 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 import { Center, Spinner } from '@onekeyhq/components';
 import {
