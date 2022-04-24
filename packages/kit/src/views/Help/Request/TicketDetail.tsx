@@ -7,7 +7,7 @@ import { SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, Image, Modal, Text } from '@onekeyhq/components';
+import { Box, Modal, NetImage, Text } from '@onekeyhq/components';
 import {
   HistoryRequestModalRoutesParams,
   HistoryRequestRoutes,
@@ -44,12 +44,11 @@ const Attachment: FC<AttachmentsType> = ({ id, size }) => {
   return (
     <>
       {data.length > 0 ? (
-        <Image
+        <NetImage
           key={data}
-          width={size}
-          height={size}
-          src={data}
-          borderRadius="12px"
+          size={`${size}px`}
+          uri={data}
+          borderRadius={12}
           preview
           bgColor="surface-selected"
         />
