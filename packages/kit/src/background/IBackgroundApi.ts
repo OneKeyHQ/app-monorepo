@@ -21,6 +21,7 @@ import type {
   IJsonRpcRequest,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from "@onekeyfe/cross-inpage-provider-types";
 
 export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
@@ -33,7 +34,7 @@ export interface IBackgroundApiBridge {
   getState: () => Promise<{ state: any; bootstrapped: boolean }>;
   appSelector: IAppSelector;
 
-  providers: Record<string, ProviderApiBase>;
+  providers: Record<IInjectedProviderNames, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods(
     payload: IJsBridgeMessagePayload,

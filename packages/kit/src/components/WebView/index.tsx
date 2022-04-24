@@ -54,13 +54,14 @@ function WebView({
     // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
 
-    // Native App needs instance notify
-    if (platformEnv.isNative || platformEnv.isDesktop) {
+    // Native App needs notify immediately
+    if (platformEnv.isNative) {
       debugLogger.webview('webview notify changed events1', src);
       backgroundApiProxy.serviceAccount.notifyAccountsChanged();
       backgroundApiProxy.serviceNetwork.notifyChainChanged();
     }
 
+    // TODO use webview dom-ready event: https://github.com/electron/electron/blob/main/docs/api/webview-tag.md#methods
     // Desktop needs timeout wait for webview DOM ready
     //  FIX: Error: The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called.
     const timer = setTimeout(() => {

@@ -44,7 +44,8 @@
     "@onekeyfe/extension-bridge-hosted": "^0.0.7",
     "@onekeyfe/onekey-cross-webview": "^0.0.7",
     "commitizen": "^4.2.4",
-    "global": "^4.4.0"
+    "global": "^4.4.0",
+    "events": "^3.3.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
