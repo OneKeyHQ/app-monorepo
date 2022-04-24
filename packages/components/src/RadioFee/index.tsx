@@ -32,14 +32,15 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
           mt={3}
           key={item.value}
         >
-          <Box alignItems="flex-start">
+          <Box alignSelf="stretch">
             <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}
             >
               {item.title}
             </Text>
             <Typography.Body2
+              mt="auto"
               color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
             >
               {item.titleSecond}
@@ -47,7 +48,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
           </Box>
           <Box alignItems="flex-end">
             <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
               color={item.isDisabled ? 'text-disabled' : 'text-default'}
             >
               {item.describe}
@@ -57,11 +58,13 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
             >
               {item.describeSecond}
             </Typography.Body2>
-            <Typography.Body2
-              color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-            >
-              {item.describeThird}
-            </Typography.Body2>
+            {!!item.describeThird && (
+              <Typography.Body2
+                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+              >
+                {item.describeThird}
+              </Typography.Body2>
+            )}
           </Box>
         </RadioBox>,
       );
