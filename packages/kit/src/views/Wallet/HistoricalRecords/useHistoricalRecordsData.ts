@@ -120,7 +120,9 @@ export const useHistoricalRecordsData = ({
       throw new Error(history?.errorMessage ?? '');
     }
 
-    return history.data.txList;
+    const result = history.data.txList;
+    // console.log('getTxHistories', result);
+    return result;
   });
 
   return useMemo(() => {

@@ -82,6 +82,7 @@ const TransactionConfirm = () => {
     id: params.sourceInfo?.id ?? '',
     closeOnError: true,
   });
+  // TODO   const useFeeInTx = false
   const useFeeInTx = !isFromDapp;
   const feeInfoEditable = !useFeeInTx;
 
@@ -206,6 +207,7 @@ const TransactionConfirm = () => {
     decodedTx,
   };
 
+  // waiting for tx decode
   if (!decodedTx) {
     return (
       <SendConfirmModal {...sharedProps} confirmDisabled>
@@ -216,11 +218,15 @@ const TransactionConfirm = () => {
     );
   }
 
+  // handle speed up / cancel.
+  if (params.actionType === 'cancel' || params.actionType === 'speedUp') {
+    return <TxConfirmBlind {...sharedProps} feeInfoEditable />;
+  }
+
   if (decodedTx.txType === EVMDecodedTxType.TOKEN_APPROVE) {
     return <TxConfirmTokenApprove {...sharedProps} />;
   }
 
-  // TODO: handle speed up / cancel.
   if (
     decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
     decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER

@@ -33,7 +33,7 @@ import { useNavigation } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { SendRoutes } from '../../Send/types';
+import { SendConfirmActionType, SendRoutes } from '../../Send/types';
 import NFTView from '../nftView';
 
 import {
@@ -267,7 +267,7 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
   const navigation = useNavigation();
 
   const updateTx = useCallback(
-    async (actionType: 'cancel' | 'speedUp') => {
+    async (actionType: SendConfirmActionType) => {
       const vaultHelper = createVaultHelperInstance({
         networkId,
         accountId,

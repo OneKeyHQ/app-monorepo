@@ -2942,7 +2942,7 @@
 
 "@formatjs/ecma402-abstract@1.11.4":
   version "1.11.4"
-  resolved "https://mirrors.cloud.tencent.com/npm/@formatjs%2fecma402-abstract/-/ecma402-abstract-1.11.4.tgz#b962dfc4ae84361f9f08fbce411b4e4340930eda"
+  resolved "https://registry.yarnpkg.com/@formatjs/ecma402-abstract/-/ecma402-abstract-1.11.4.tgz#b962dfc4ae84361f9f08fbce411b4e4340930eda"
   integrity sha512-EBikYFp2JCdIfGEb5G9dyCkTGDmC57KSHhRQOC3aYxoPWVZvfWCDjZwkGYHN7Lis/fmuWl906bnNTJifDQ3sXw==
   dependencies:
     "@formatjs/intl-localematcher" "0.2.25"
@@ -2983,7 +2983,7 @@
 
 "@formatjs/intl-getcanonicallocales@1.9.2", "@formatjs/intl-getcanonicallocales@^1.9.2":
   version "1.9.2"
-  resolved "https://mirrors.cloud.tencent.com/npm/@formatjs%2fintl-getcanonicallocales/-/intl-getcanonicallocales-1.9.2.tgz#5aab5f6ac2d923933538085eec20a19c393b6ebf"
+  resolved "https://registry.yarnpkg.com/@formatjs/intl-getcanonicallocales/-/intl-getcanonicallocales-1.9.2.tgz#5aab5f6ac2d923933538085eec20a19c393b6ebf"
   integrity sha512-69WTStIJI2ikErOU1Il4NQKLVV8f2x6awr7+/dZz0uihuI7uQRcZtI6k/BBt4EtYaEl6w65YjUF93VuE015C0w==
   dependencies:
     tslib "^2.1.0"
@@ -2999,7 +2999,7 @@
 
 "@formatjs/intl-locale@^2.4.47":
   version "2.4.47"
-  resolved "https://mirrors.cloud.tencent.com/npm/@formatjs%2fintl-locale/-/intl-locale-2.4.47.tgz#7bf66960e55e7dfa77fcc7c02ee06aea29f92eb6"
+  resolved "https://registry.yarnpkg.com/@formatjs/intl-locale/-/intl-locale-2.4.47.tgz#7bf66960e55e7dfa77fcc7c02ee06aea29f92eb6"
   integrity sha512-yEpjx6RgVVG3pPsxb/jydhnq/A02KmjMste5U/wWxscRK0sny8LPIoBwgkOQycRoMRLNlLemJaQB7VbHZJ9OVg==
   dependencies:
     "@formatjs/ecma402-abstract" "1.11.4"
@@ -3015,14 +3015,14 @@
 
 "@formatjs/intl-localematcher@0.2.25":
   version "0.2.25"
-  resolved "https://mirrors.cloud.tencent.com/npm/@formatjs%2fintl-localematcher/-/intl-localematcher-0.2.25.tgz#60892fe1b271ec35ba07a2eb018a2dd7bca6ea3a"
+  resolved "https://registry.yarnpkg.com/@formatjs/intl-localematcher/-/intl-localematcher-0.2.25.tgz#60892fe1b271ec35ba07a2eb018a2dd7bca6ea3a"
   integrity sha512-YmLcX70BxoSopLFdLr1Ds99NdlTI2oWoLbaUW2M406lxOIPzE1KQhRz2fPUkq34xVZQaihCoU29h0KK7An3bhA==
   dependencies:
     tslib "^2.1.0"
 
 "@formatjs/intl-pluralrules@^4.3.3":
   version "4.3.3"
-  resolved "http://mirrors.cloud.tencent.com/npm/@formatjs%2fintl-pluralrules/-/intl-pluralrules-4.3.3.tgz#9dc5a96175d89c8887f003eacef457a1f3003caf"
+  resolved "https://registry.yarnpkg.com/@formatjs/intl-pluralrules/-/intl-pluralrules-4.3.3.tgz#9dc5a96175d89c8887f003eacef457a1f3003caf"
   integrity sha512-NLZN8gf2qLpCuc0m565IbKLNUarEGOzk0mkdTkE4XTuNCofzoQTurW6lL3fmDlneAoYl2FiTdHa5q4o2vZF50g==
   dependencies:
     "@formatjs/ecma402-abstract" "1.11.4"
