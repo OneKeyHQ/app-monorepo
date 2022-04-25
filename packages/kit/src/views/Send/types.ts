@@ -60,12 +60,13 @@ export type TransferSendParamsPayload = {
 export type SendConfirmFromDappParams = {
   query?: string;
 };
-
+export type SendConfirmActionType = 'speedUp' | 'cancel';
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string;
   payload?: TransferSendParamsPayload | any;
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
+  actionType?: SendConfirmActionType;
 };
 
 export type SendAuthenticationParams = SendConfirmParams & {

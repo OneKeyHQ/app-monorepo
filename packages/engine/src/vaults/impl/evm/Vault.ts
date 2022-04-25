@@ -5,7 +5,7 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -57,6 +57,7 @@ export type IEncodedTxEvm = {
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+  nonce?: number;
 };
 
 export enum IDecodedTxEvmType {
@@ -313,6 +314,7 @@ export default class Vault extends VaultBase {
       gasPrice,
       maxFeePerGas,
       maxPriorityFeePerGas,
+      nonce,
       ...others
     } = encodedTx;
     debugLogger.sendTx(
@@ -335,6 +337,7 @@ export default class Vault extends VaultBase {
         feePricePerUnit: !isNil(gasPrice) ? new BigNumber(gasPrice) : undefined,
         maxFeePerGas,
         maxPriorityFeePerGas,
+        nonce,
         ...others,
       },
     });
@@ -359,6 +362,11 @@ export default class Vault extends VaultBase {
     return unsignedTx;
   }
 
+  _toNormalAmount(value: string, decimals: number) {
+    const valueBN = ethers.BigNumber.from(value);
+    return ethers.utils.formatUnits(valueBN, decimals);
+  }
+
   async fetchFeeInfo(encodedTx: IEncodedTxEvm): Promise<IFeeInfo> {
     const [network, prices, unsignedTx] = await Promise.all([
       this.getNetwork(),
@@ -369,13 +377,26 @@ export default class Vault extends VaultBase {
     const eip1559 = Boolean(
       prices?.length && prices?.every((gas) => typeof gas === 'object'),
     );
-    let priceInfo: string | EIP1559Fee | undefined = encodedTx.gasPrice;
+    let priceInfo: string | EIP1559Fee | undefined = encodedTx.gasPrice
+      ? this._toNormalAmount(encodedTx.gasPrice, network.feeDecimals)
+      : undefined;
     if (eip1559) {
-      priceInfo = {
-        ...(prices[0] as EIP1559Fee),
-        maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
-        maxFeePerGas: encodedTx.maxFeePerGas,
-      } as EIP1559Fee;
+      priceInfo = merge(
+        {
+          ...(prices[0] as EIP1559Fee),
+        },
+        {
+          maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas
+            ? this._toNormalAmount(
+                encodedTx.maxPriorityFeePerGas,
+                network.feeDecimals,
+              )
+            : undefined,
+          maxFeePerGas: encodedTx.maxFeePerGas
+            ? this._toNormalAmount(encodedTx.maxFeePerGas, network.feeDecimals)
+            : undefined,
+        },
+      ) as EIP1559Fee;
     }
     // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
     // [10]

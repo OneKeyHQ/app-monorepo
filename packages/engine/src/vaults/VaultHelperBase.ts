@@ -6,4 +6,8 @@ import type { IDecodedTxAny, IEncodedTxAny } from '../types/vault';
 export abstract class VaultHelperBase extends VaultContextBase {
   // convert encodedTx to nativeTx (web3 sdk tx)
   abstract parseToNativeTx(encodedTx: IEncodedTxAny): Promise<IDecodedTxAny>;
+
+  abstract parseToEncodedTx(
+    rawTxOrEncodedTx: IEncodedTxAny,
+  ): Promise<IEncodedTxAny>;
 }

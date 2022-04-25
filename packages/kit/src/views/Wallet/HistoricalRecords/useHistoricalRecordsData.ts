@@ -29,6 +29,8 @@ type UseHistoricalRecordsDataReturn = {
 const PAGE_SIZE = 10;
 const FIRST_PAGE_SIZE = 20;
 
+const PAGE_SIZE_ALL = 10000;
+
 const toTransactionSection = (
   queueStr: string,
   _data: Transaction[] | null | undefined,
@@ -68,12 +70,18 @@ export const useHistoricalRecordsData = ({
   const formatDate = useFormatDate();
 
   const hasNoParams = !account || !network;
+  const fetchAllAtOnce = !tokenId;
 
   const getKey = (size: number, previousPageData: Transaction[]) => {
     // reached the end
     const isEndOfData = previousPageData && !previousPageData?.length;
 
     if (isEndOfData || hasNoParams) return null;
+
+    let pageSize = size === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
+    if (fetchAllAtOnce) {
+      pageSize = PAGE_SIZE_ALL;
+    }
 
     const params = {
       accountId: account.id,
@@ -84,7 +92,7 @@ export const useHistoricalRecordsData = ({
       //   size > 0 ? FIRST_PAGE_SIZE + (size - 1) * PAGE_SIZE : FIRST_PAGE_SIZE,
       // limit: size === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE,
       pageNumber: size > 0 ? size + 1 : 0,
-      pageSize: size === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE,
+      pageSize,
     };
     return params;
   };
@@ -112,7 +120,9 @@ export const useHistoricalRecordsData = ({
       throw new Error(history?.errorMessage ?? '');
     }
 
-    return history.data.txList;
+    const result = history.data.txList;
+    // console.log('getTxHistories', result);
+    return result;
   });
 
   return useMemo(() => {
@@ -145,6 +155,9 @@ export const useHistoricalRecordsData = ({
     );
 
     const loadMore = () => {
+      if (fetchAllAtOnce) {
+        return;
+      }
       const isEmpty = !data?.length;
       const isReachingEnd =
         isEmpty || (data && data[data.length - 1].length < PAGE_SIZE);
@@ -160,5 +173,5 @@ export const useHistoricalRecordsData = ({
       fetchData: mutate,
       isLoading: isValidating,
     };
-  }, [assetsSwr, formatDate, hasNoParams, intl]);
+  }, [assetsSwr, fetchAllAtOnce, formatDate, hasNoParams, intl]);
 };
