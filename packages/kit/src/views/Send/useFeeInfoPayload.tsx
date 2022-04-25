@@ -1,5 +1,5 @@
 // TODO auto update feeInfo
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';

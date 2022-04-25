@@ -81,7 +81,7 @@ const Transaction = () => {
   const [encodedTx, setEncodedTx] = useState(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [transferError, setTransferError] = useState<Error | null>(null);
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
@@ -190,10 +190,10 @@ const Transaction = () => {
           const tx = await promise;
           if (tx) {
             setEncodedTx(tx);
-            setError(null);
+            setTransferError(null);
           }
         } catch (e) {
-          setError(e as Error);
+          setTransferError(e as Error);
         } finally {
           setBuildLoading(false);
         }
@@ -364,7 +364,7 @@ const Transaction = () => {
                         networkId,
                         toAddress,
                       );
-                    } catch (error) {
+                    } catch (error0) {
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });
@@ -474,6 +474,8 @@ const Transaction = () => {
                   enableMaxButton
                   isMax={isMax}
                   maxText={getTokenBalance(selectedToken, '')}
+                  maxTextIsNumber
+                  maxModeCanEdit
                   onMaxChange={(v) => {
                     setIsMax(v);
                     revalidateAmountInput();
@@ -491,7 +493,7 @@ const Transaction = () => {
                   loading={feeInfoLoading}
                 />
                 <FormErrorMessage message={feeInfoError?.message ?? ''} />
-                <FormErrorMessage message={error?.message ?? ''} />
+                <FormErrorMessage message={transferError?.message ?? ''} />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

@@ -11,7 +11,6 @@ import {
   setTheme,
   setThemePreloadToLocalStorage,
 } from '@onekeyhq/kit/src/store/reducers/settings';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SelectTrigger } from '../SelectTrigger';
