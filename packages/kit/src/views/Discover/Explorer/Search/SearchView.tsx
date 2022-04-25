@@ -1,6 +1,15 @@
-import React, { FC, useMemo, useRef } from 'react';
+import React, {
+  FC,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
@@ -23,14 +32,19 @@ import DAppIcon from '../../DAppIcon';
 
 import { useSearchHistories } from './useSearchHistories';
 
+import type { SearchContentType } from '..';
+import type { KeyEventType } from '../Content/Desktop';
 import type { MatchDAppItemType } from './useSearchHistories';
 
 export type SearchViewProps = {
   visible: boolean;
-  searchContent: string;
+  searchContent: SearchContentType | undefined;
   relativeComponent: any;
   onVisibleChange?: (visible: boolean) => void;
   onSelectorItem?: (item: MatchDAppItemType) => void;
+  onHoverItem?: (item: MatchDAppItemType) => void;
+  forwardedRef?: any;
+  onKeyPress?: (event: KeyEventType) => void;
 };
 
 const SearchView: FC<SearchViewProps> = ({
@@ -38,22 +52,35 @@ const SearchView: FC<SearchViewProps> = ({
   searchContent,
   relativeComponent,
   onSelectorItem,
+  onHoverItem,
+  forwardedRef,
 }) => {
   const intl = useIntl();
   const translateY = 2;
 
-  const searchContentTerm = useDebounce(searchContent, 150);
+  const visibleMemo = useDeepCompareMemo(() => visible, [visible]);
+  const [selectItemIndex, setSelectItemIndex] = useState<number>();
+  const [tempSearchContent, setTempSearchContent] = useState<string>();
+
+  const searchContentTerm = useDebounce(tempSearchContent ?? '', 150);
+
   const ele = useRef<HTMLDivElement>(null);
 
   const { searchedHistories, allHistories } = useSearchHistories(
     searchContentTerm,
-    searchContent,
+    searchContent?.searchContent ?? '',
   );
 
   const flatListData = useMemo(
     () => (searchContentTerm ? searchedHistories : allHistories),
     [searchContentTerm, allHistories, searchedHistories],
   );
+
+  useEffect(() => {
+    if (!searchContent?.donSearch) {
+      setTempSearchContent(searchContent?.searchContent ?? '');
+    }
+  }, [searchContent]);
 
   const onSelectHistory = (item: MatchDAppItemType) => {
     onSelectorItem?.(item);
@@ -79,8 +106,16 @@ const SearchView: FC<SearchViewProps> = ({
 
       return (
         <Pressable.Item
+          focusable={selectItemIndex === index}
           px={3}
           py={2}
+          borderColor={
+            selectItemIndex === index
+              ? 'border-success-subdued'
+              : 'surface-default'
+          }
+          borderWidth={1}
+          borderRadius={12}
           key={`${index}-${item.id}`}
           onPress={() => {
             onSelectHistory(item);
@@ -150,6 +185,44 @@ const SearchView: FC<SearchViewProps> = ({
     autoAdjust: false,
   });
 
+  const onKeyPress = (keyEvent: KeyEventType) => {
+    if (!keyEvent) return;
+
+    if (keyEvent === 'ArrowDown') {
+      if (
+        selectItemIndex !== undefined &&
+        selectItemIndex < flatListData.length - 1
+      ) {
+        setSelectItemIndex(selectItemIndex + 1);
+      } else if (selectItemIndex === undefined) {
+        setSelectItemIndex(0);
+      }
+    } else if (keyEvent === 'ArrowUp') {
+      if (selectItemIndex !== undefined && selectItemIndex > 0) {
+        setSelectItemIndex(selectItemIndex - 1);
+      } else if (selectItemIndex === 0) {
+        setSelectItemIndex(undefined);
+      }
+    }
+  };
+
+  useEffect(() => {
+    setSelectItemIndex(undefined);
+  }, [visibleMemo, tempSearchContent]);
+
+  useEffect(() => {
+    if (selectItemIndex !== undefined) {
+      onHoverItem?.(flatListData[selectItemIndex]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectItemIndex]);
+
+  useImperativeHandle(forwardedRef, () => ({
+    onKeyPress: (event: KeyEventType) => {
+      onKeyPress(event);
+    },
+  }));
+
   return (
     <PresenceTransition
       visible={visible}
@@ -197,6 +270,7 @@ const SearchView: FC<SearchViewProps> = ({
           keyExtractor={(_item: MatchDAppItemType, index) =>
             `${index}-${_item.id}`
           }
+          extraData={selectItemIndex}
           showsVerticalScrollIndicator={false}
         />
       </Box>
@@ -204,4 +278,10 @@ const SearchView: FC<SearchViewProps> = ({
   );
 };
 
-export { SearchView };
+const SearchViewRef = forwardRef<typeof SearchView, SearchViewProps>(
+  ({ ...props }, ref) => <SearchView {...props} forwardedRef={ref} />,
+);
+
+SearchViewRef.displayName = 'SearchViewRef';
+
+export default SearchViewRef;
