@@ -122,7 +122,7 @@ class ServiceAccount extends ServiceBase {
     if (!previousWalletId || !isValidNetworkId) {
       const defaultWallet =
         wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
-      return defaultWallet?.id ?? null;
+      return defaultWallet?.id ?? wallets[0]?.id ?? null;
     }
     return previousWalletId;
   }
