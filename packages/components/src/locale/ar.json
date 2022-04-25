@@ -1,0 +1,729 @@
+{
+  "Confirm_password": "تأكيد كلمة المرور",
+  "Estimated_Gas": "الغاز المقدر",
+  "Handling_Fee": "رسوم المعالجة",
+  "Minimum_Received": "تلقى الحد الأدنى",
+  "Only_you_can_unlock_your_wallet": "يمكنك فقط فتح محفظتك",
+  "Rate": "معدل",
+  "Verify_Password": "اكد كلمة المرور",
+  "Verify_password_to_continue": "تحقق من كلمة المرور للمتابعة",
+  "account__recover_2_of_2": "الخطوة 2 من 2",
+  "account__recover_Step_1_of_2": "الخطوة 1 من 2",
+  "account__recover_select_accounts": "حدد الحسابات",
+  "account__recover_select_paths": "حدد المسارات",
+  "account__restore_a_previously_used_account": "استعادة حساب سبق استخدامه؟ محاولة",
+  "action__accept": "قبول",
+  "action__add": "يضيف",
+  "action__add_account": "إنشاء حساب",
+  "action__add_custom_tokens": "أضف رمز مخصص",
+  "action__add_network": "إضافة شبكة EVM",
+  "action__add_new": "اضف جديد",
+  "action__add_new_address": "أضف عنوان جديد",
+  "action__add_to_favorites": "اضافة الى المفضلة",
+  "action__add_wallet": "أضف المحفظة",
+  "action__allow": "السماح",
+  "action__back": "خلف",
+  "action__back_to_home_page": "العودة إلى الصفحة الرئيسية",
+  "action__back_up_now": "اعمل نسخة احتياطية الان",
+  "action__back_up_to_onekey_lite": "نسخ احتياطي إلى OneKey Lite",
+  "action__backup": "دعم",
+  "action__buy": "يشتري",
+  "action__cancel": "يلغي",
+  "action__change_pin": "تغيير PIN",
+  "action__checking": "تدقيق...",
+  "action__choose_an_image": "اختر صورة",
+  "action__choose_from_library": "اختر من المكتبة",
+  "action__clear_all": "امسح الكل",
+  "action__clear_all_history": "مسح كافة المحفوظات",
+  "action__close": "يغلق",
+  "action__close_all": "أغلق الكل",
+  "action__confirm": "يتأكد",
+  "action__connect": "الاتصال",
+  "action__connect_device": "قم بتوصيل الجهاز",
+  "action__contact": "اتصال",
+  "action__continue": "يكمل",
+  "action__copy": "ينسخ",
+  "action__copy_address": "نسخ العنوان",
+  "action__copy_to_clipboard": "نسخ إلى الحافظة",
+  "action__copy_url": "إنسخ الرابط",
+  "action__create": "خلق",
+  "action__create_account": "إنشاء حساب",
+  "action__create_new_wallet": "إنشاء محفظة جديدة",
+  "action__create_wallet": "إنشاء المحفظة",
+  "action__customize_network": "تخصيص الشبكة",
+  "action__delete": "حذف",
+  "action__delete_wallet": "حذف المحفظة",
+  "action__deny": "ينكر",
+  "action__discard": "تجاهل",
+  "action__done": "منتهي",
+  "action__edit": "تعديل",
+  "action__edit_fee": "تحرير الرسوم",
+  "action__enable": "ممكن",
+  "action__export_private_key": "تصدير المفتاح الخاص",
+  "action__forget_password": "هل نسيت كلمة السر؟",
+  "action__get_started": "البدء",
+  "action__go_to_address_book": "انتقل إلى دفتر العناوين",
+  "action__go_to_setting": "اذهب للاعدادات",
+  "action__go_to_view": "اذهب إلى عرض",
+  "action__go_tobackup": "انتقل إلى النسخ الاحتياطي",
+  "action__grid_view": "عرض شبكي",
+  "action__i_already_have_a_wallet": "إضافة المحفظة الحالية",
+  "action__i_got_it": "فهمت",
+  "action__i_understand": "أفهم",
+  "action__import": "يستورد",
+  "action__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "action__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
+  "action__learn_more": "يتعلم أكثر",
+  "action__list_view": "عرض القائمة",
+  "action__local_picture": "اختر من الألبوم",
+  "action__manage_address": "إدارة العنوان",
+  "action__max": "الأعلى",
+  "action__next": "التالي",
+  "action__notnow": "ليس الآن",
+  "action__ok": "نعم",
+  "action__ok_im_done": "نعم. منتهي!",
+  "action__open_in_browser": "افتح في المتصفح",
+  "action__overwrite": "الكتابة فوق",
+  "action__paste": "معجون",
+  "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
+  "action__receive": "تسلم",
+  "action__recover": "استعادة",
+  "action__recover_accounts": "استعادة الحسابات",
+  "action__refresh": "تحديث",
+  "action__reject": "رفض",
+  "action__remove": "إزالة",
+  "action__remove_account": "إزالة الحساب",
+  "action__remove_from_favorites": "إزالة من المفضلة",
+  "action__remove_wallet": "إزالة المحفظة",
+  "action__rename": "إعادة تسمية",
+  "action__reply": "رد",
+  "action__reset": "إعادة ضبط",
+  "action__reset_onekey_lite": "إعادة تعيين OneKey Lite",
+  "action__restore": "يعيد",
+  "action__restore_from_icloud": "استعادة من iCloud",
+  "action__restore_from_onekey_lite": "الاستعادة من OneKey Lite",
+  "action__restore_wallet": "استعادة المحفظة",
+  "action__restore_with_onekey_lite": "استعادة مع OneKey Lite",
+  "action__restore_with_recovery_seed": "استعادة مع عبارة الاسترداد",
+  "action__retry": "أعد المحاولة",
+  "action__save": "يحفظ",
+  "action__see_all": "اظهار الكل",
+  "action__select_token": "حدد رمز",
+  "action__sell": "يبيع",
+  "action__send": "يرسل",
+  "action__share": "شارك",
+  "action__show_more": "أظهر المزيد",
+  "action__sign": "وقع",
+  "action__skip": "يتخطى",
+  "action__speed_up": "اسرع",
+  "action__submit": "إرسال",
+  "action__unlock": "الغاء القفل",
+  "action__update": "تحديث",
+  "action__view_details": "عرض التفاصيل",
+  "action__view_device_details": "تفاصيل الجهاز",
+  "action__view_in_explorer": "عرض في المستكشف",
+  "action__view_on_somewhere": "عرض في {where}",
+  "action__view_recovery_phrase": "عرض عبارة الاسترداد",
+  "action__view_recovery_seed": "مشاهدة عبارة الاسترداد",
+  "action__watch_lowercase": "راقب",
+  "action_retry": "أعد المحاولة",
+  "alert__some_of_words_you_typed_are_wrong": "بعض الكلمات التي كتبتها خاطئة",
+  "alert_only_use_a_recovery_seed_from_device": "قم فقط بتدوين عبارات الاسترداد التي عرضها جهازك أثناء الإعداد.",
+  "app__app_name": "مفتاح واحد",
+  "app__hardware_name_onekey_lite": "OneKey Lite",
+  "asset__collectibles": "المقتنيات",
+  "asset__collectibles_empty_desc": "ستظهر NFTs هنا.",
+  "asset__collectibles_empty_title": "لا مقتنيات",
+  "asset__tokens": "الرموز",
+  "asset__total_balance": "إجمالي الرصيد",
+  "backup__icloud_backup": "iCloud النسخ الاحتياطي",
+  "backup__icloud_backup_desc": "النسخ الاحتياطي أسهل وأسرع.",
+  "backup__manual_backup": "النسخ الاحتياطي اليدوي",
+  "backup__manual_backup_advice_title": "لعمل نسخة احتياطية من عبارة الاسترداد:",
+  "backup__manual_backup_advice_write_on_paper": "إما أن تكتبها على ورقة ستخزنها في مكان آمن.",
+  "backup__manual_backup_advice_write_sync": "أو قم بمزامنتها مع iCloud و Google Drive و OneKey Lite ومدير كلمات المرور ...).",
+  "backup__manual_backup_desc": "اكتب عبارة الاسترداد وقم بتخزين الورقة في مكان آمن.",
+  "backup__manual_backup_warning": "تحذير",
+  "backup__manual_backup_warning_heading": "سيعرض OneKey الآن عبارة الاسترداد الخاصة بك.",
+  "backup__manual_backup_warning_never_ask": "لن يطلب OneKey أبدًا عبارة الاسترداد الخاصة بك.",
+  "backup__manual_backup_warning_never_share": "لا تشارك عبارة الاسترداد الخاصة بك مع أي شخص.",
+  "backup__manual_backup_what_it_is": "هذه هي كلمة مرورك والطريقة الوحيدة لاستعادة محفظتك.",
+  "backup__onekey_lite_backup": "OneKey Lite النسخ الاحتياطي",
+  "backup__onekey_lite_backup_desc": "طريقة آمنة للغاية لتخزين الأصول الخاصة بك في وضع عدم الاتصال.",
+  "badge__backed_up": "استعيدت",
+  "badge__coming_soon": "قريبا",
+  "checkbox__manual_backup_warning": "أدرك أنني إذا فقدت عبارة الاسترداد الخاصة بي ، فسوف أفقد أموالي.",
+  "conten__please_be_patient_as_net_work": "يرجى التحلي بالصبر لأن التذكرة الجديدة قد تستغرق بعض الوقت لتظهر على هذه الصفحة بسبب مشاكل في الشبكة.",
+  "content__activated": "مفعل",
+  "content__activity_logs": "سجلات النشاط",
+  "content__advance": "يتقدم",
+  "content__advanced": "متقدم",
+  "content__agree_to_user_agreement_and_privacy_policy": "من خلال الاستمرار في استخدام التطبيق ، فإنك توافق على <a> اتفاقية خدمة المستخدم </a> و <b> سياسة الخصوصية </b> .",
+  "content__all_addresses_are_stored_locally": "يتم تخزين جميع العناوين محليًا ، يرجى عمل نسخة احتياطية قبل الحذف.",
+  "content__amount": "مقدار",
+  "content__app_wallet_desc": "أضف محفظتك الصغيرة المعتادة.",
+  "content__asset": "أصل",
+  "content__attributes": "صفات",
+  "content__authentication_with": "مصادقة مع {0}",
+  "content__balance": "الرصيد",
+  "content__balance_str": "التوازن: {0}",
+  "content__base_fee": "الرسوم الأساسية",
+  "content__blockchain": "بلوكشين",
+  "content__btc_dominance": "هيمنة BTC",
+  "content__calculate_fee": "🚀 سيحسب OneKey الرسوم بعد إدخال العنوان والمبلغ.",
+  "content__confirmed": "مؤكد",
+  "content__created": "مخلوق",
+  "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
+  "content__custom": "مخصص",
+  "content__description": "وصف",
+  "content__details": "تفاصيل",
+  "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
+  "content__enter_onekey_lite_pin_to_continue": "أدخل رقم التعريف الشخصي OneKey Lite للمتابعة",
+  "content__enter_your_recovery_seed": "أدخل عبارة الاسترداد الخاصة بك",
+  "content__enter_your_recovery_seed_desc": "أدخل عبارة الاسترداد التي كتبتها من قبل ، وتحقق منها.",
+  "content__estimated": "مُقدَّر",
+  "content__ether_price": "سعر الأثير",
+  "content__every_time_we_find_the_best_prices": "نجد دائمًا أفضل السيولة والأسعار من الموردين. يتضمن كل عرض أسعار 1٪ رسوم لمساعدة OneKey على تقديم خدمة أفضل لك.",
+  "content__face_id": "معرف الوجه",
+  "content__fast": "سريع",
+  "content__fee": "مصاريف",
+  "content__follow_instructions": "اتبع التعليمات",
+  "content__follow_instructions_desc": "عد إلى هنا لاتباع التعليمات بعد إنشاء المحفظة بنجاح.",
+  "content__follow_instructions_restore_desc": "عد إلى هنا لاتباع التعليمات بعد استعادة المحفظة بنجاح.",
+  "content__for_both_inputs_the_pin_must_be_the_same": "لكلا الإدخالين ، يجب أن يكون رقم التعريف الشخصي هو نفسه.",
+  "content__for_people_who_dont_have_hardware_wallet": "للأشخاص الذين ليس لديهم محفظة أجهزة.",
+  "content__for_people_who_have_hardware_wallet": "للأشخاص الذين لديهم محفظة أجهزة.",
+  "content__from": "من عند",
+  "content__gas_limit": "حد الغاز",
+  "content__gas_price": "سعر الغاز",
+  "content__gas_used": "الغاز المستخدم",
+  "content__hardware_wallet_desc": "تخزين الأصول الخاصة بك في وضع عدم الاتصال. التأكيد على الجهاز عند إجراء التحويلات والتوقيع.",
+  "content__hardware_wallets_do_not_support_this_feature": "محافظ الأجهزة غير مدعومة.",
+  "content__hardware_wallets_do_not_support_this_feature_desc": "هذه الوظيفة متاحة فقط للمدفوعات السريعة باستخدام محفظة التطبيق.",
+  "content__hash": "تجزئة",
+  "content__i_am_aware_of_the_above_risks": "أنا على علم بالمخاطر المذكورة أعلاه",
+  "content__if_the_price_drifts_against_you": "إذا انحرف السعر ضدك بأكثر من هذه النسبة المئوية ، يتم إنهاء الصفقة.",
+  "content__if_you_choose_max": "إذا اخترت الحد الأقصى ، فإن الحد الأقصى للمبلغ الذي قد تنفقه على {0} لا نهائي.",
+  "content__import_a_single_chain_wallet": "قم باستيراد محفظة أحادية السلسلة",
+  "content__import_a_single_chain_wallet_desc": "قم باستيراد محفظتك ذات السلسلة الواحدة باستخدام مفتاح خاص أو ملف تخزين المفاتيح.",
+  "content__import_or_watch_an_account": "{import} أو {watch} حساب",
+  "content__info": "معلومات",
+  "content__interact_with": "يتفاعل مع",
+  "content__just_a_moment": "لحظة واحدة",
+  "content__likely_less_than_15s": "من المحتمل أن يكون عمره < من 15 ثانية",
+  "content__max_fee": "الحد الأقصى للرسوم",
+  "content__max_priority_fee": "رسوم الأولوية القصوى",
+  "content__maybe_in_30s": "ربما في الثلاثينيات",
+  "content__min": "دقيقة",
+  "content__more_details": "المزيد من التفاصيل",
+  "content__no_need_to_enter_a_password_for_each_transaction": "لا توجد كلمة مرور مطلوبة.",
+  "content__no_need_to_enter_a_password_for_each_transaction_desc": "ومع ذلك ، لا ينبغي تمكين هذه الميزة للأصول الرئيسية أو الهواتف العامة.",
+  "content__no_results": "لا نتائج",
+  "content__no_results_desc": "لم يتم العثور على الرمز الذي بحثت عنه",
+  "content__nonce": "نونس",
+  "content__normal": "طبيعي",
+  "content__not_actived": "غير نشط",
+  "content__or_lowercase": "أو",
+  "content__path": "طريق",
+  "content__pin_error_the_data_of_this_device_will_be_erased_after_str_more_wrong_tries": "خطأ رقم التعريف الشخصي ، سيتم مسح بيانات هذا الجهاز بعد {count} من المحاولات الخاطئة",
+  "content__place_your_onekey_lite_close_to_the_back_of_here": "ضع OneKey Lite الخاص بك\n بالقرب من الجزء الخلفي من هنا",
+  "content__preset_rpc": "عناوين URL محددة مسبقًا لـ RPC",
+  "content__price_updates_after_str": "تحديثات الأسعار بعد {0}",
+  "content__rapid": "سريعون",
+  "content__rocket_fast": "🚀 سريع",
+  "content__search": "بحث...",
+  "content__search_cryptos": "البحث في التشفير",
+  "content__search_or_enter_dapp_url": "ابحث أو أدخل عنوان URL لـ DApp ...",
+  "content__sec": "ثانية",
+  "content__select_create_new_wallet": "حدد \"إنشاء محفظة جديدة\"",
+  "content__select_create_new_wallet_desc": "اتبع التعليمات التي تظهر على الشاشة لبدء إنشاء محفظة جديدة.",
+  "content__select_restore_wallet": "حدد \"استعادة المحفظة\"",
+  "content__select_restore_wallet_desc": "اتبع التعليمات التي تظهر على الشاشة لبدء استعادة مفاتيحك الخاصة على جهاز جديد.",
+  "content__select_wallet_type": "اختر نوعًا للإعداد",
+  "content__set_a_pin_code": "قم بتعيين رمز PIN",
+  "content__set_a_pin_code_desc": "قم بتعيين رمز PIN بنفسك ، والذي يشبه رمز السحب الخاص ببطاقة مصرفية.",
+  "content__spend_limit_amount": "مبلغ حد الإنفاق",
+  "content__standard": "اساسي",
+  "content__str_price_uppercase": "{0} السعر",
+  "content__str_succeeded": "{0} تم النجاح!",
+  "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, zero {} one {معاملة # قيد التقدم ...} two {} few {} many {} other {# المعاملات قيد التقدم ...}}",
+  "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, zero {} one {نجحت معاملة # !} two {} few {} many {} other {نجحت معاملات # !}}",
+  "content__submitted": "مُقَدَّم",
+  "content__the_current_statistical_content_only_includes_the_assets": "يتضمن المحتوى الإحصائي الحالي الأصول الموجودة على شبكة {0} فقط ، وسيتوفر قريبًا المزيد من الشبكات.",
+  "content__the_decentralized_web_awaits": "شبكة الإنترنت اللامركزية تنتظر",
+  "content__these_information_may_be_found": "يمكن العثور على هذه المعلومات على صفحة حول الجهاز.",
+  "content__to": "ل",
+  "content__total": "المجموع",
+  "content__touch_id": "معرف اتصال",
+  "content__type": "يكتب",
+  "content__up_to_100_accounts": "ما يصل إلى 100 حساب",
+  "content__very_likely_less_than_15s": "محتمل جدًا < 15 ثانية",
+  "content__view_the_address_of_your_permitted_accounts_required": "اعرض عنوان حساباتك المسموح بها (مطلوب).",
+  "content__watch_a_public_address": "مشاهدة عنوان عام",
+  "content__we_dont_store_any_of_your_information": "لا نقوم بتخزين أي من معلوماتك ، لذلك إذا نسيت رقم التعريف الشخصي الخاص بك ، فلا يمكننا مساعدتك في استعادتها.",
+  "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
+  "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
+  "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
+  "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
+  "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
+  "content__your_profit_will_show_up_here": "سيظهر ربحك هنا.",
+  "content__your_str_will_appear_here": "سيظهر {0} الخاص بك هنا",
+  "dialog__backup_wallet_desc": "نسخة احتياطية من عبارة الاسترداد الخاصة بك قبل الحذف.",
+  "dialog__backup_wallet_title": "المحفظة الاحتياطية",
+  "dialog__delete_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. تأكد من أن لديك النسخة الاحتياطية قبل الحذف.",
+  "dialog__discard_changes_desc": "هل أنت متأكد من تجاهل التغييرات غير المحفوظة؟",
+  "dialog__discard_changes_title": "تجاهل التغييرات",
+  "dialog__manual_backup_successful_desc": "يمكنك استعادة محفظتك بعبارة الاسترداد.",
+  "dialog__manual_backup_successful_title": "تم النسخ الاحتياطي اليدوي بنجاح",
+  "dialog__remove_account_desc": "سيتم حذف هذا الحساب.",
+  "dialog__remove_network_desc": "ستتم إزالة \" {0} \" من قائمة الشبكات الخاصة بك.",
+  "dialog__remove_network_title": "إزالة الشبكة",
+  "dialog__reset_network_desc": "ستتم إعادة \" {0} \" إلى التكوين الافتراضي.",
+  "dialog__reset_network_title": "إعادة تعيين الشبكة",
+  "dialog__skip_backup": "تخطي النسخ الاحتياطي",
+  "emoji_type_activities": "أنشطة",
+  "emoji_type_animals_nature": "الحيوانات والطبيعة",
+  "emoji_type_flags": "أعلام",
+  "emoji_type_food_drink": "طعام شراب",
+  "emoji_type_objects": "أشياء",
+  "emoji_type_recent": "الأخيرة",
+  "emoji_type_smileys_people": "الوجوه الضاحكة والأشخاص",
+  "emoji_type_symbols": "حرف او رمز",
+  "emoji_type_travel_places": "السفر والأماكن",
+  "empty__no_account_desc": "لا يوجد حساب للشبكة المختارة.",
+  "empty__no_account_title": "لا حساب",
+  "empty__no_recoverable_account_desc": "لم يتم العثور على حسابات قابلة للاسترداد.",
+  "empty__no_wallet_desc": "ابدأ بإنشاء محفظة جديدة.",
+  "empty__no_wallet_title": "لا توجد محفظة",
+  "empty__not_supported": "غير مدعوم",
+  "empty__not_supported_desc": "هذه الشبكة لا تدعم NFT حتى الآن",
+  "form__about_uppercase": "حول",
+  "form__account": "الحساب",
+  "form__account_name": "إسم الحساب",
+  "form__account_name_invalid_characters_limit": "ما يصل إلى {0} من الأحرف.",
+  "form__account_name_invalid_exists": "الاسم موجود بالفعل.",
+  "form__add_to_address_book": "أضف إلى دفتر العناوين",
+  "form__address": "عنوان",
+  "form__address_helperText": "يمكنك \"مشاهدة\" أي عنوان عام دون الكشف عن مفتاحك الخاص. يتيح لك هذا عرض الرصيد والمعاملات ، ولكن لا يتيح لك إرسال المعاملات.",
+  "form__address_invalid": "عنوان غير صحيح.",
+  "form__address_type_label": "نوع العنوان",
+  "form__address_type_legacy_helperText": "يعد تجزئة المفتاح العام القديم (P2PKH) النوع الأساسي من المعاملات المستخدمة في البيتكوين والعملات المشفرة الأخرى المماثلة.",
+  "form__address_type_native_segwit_helperText": "يستخدم Bech32 تنسيق عنوان حديث يسمح برسوم معاملات أصغر. اعلم أنه قد لا يكون متوافقًا مع الخدمات القديمة.",
+  "form__address_type_segwit_helperText": "الدفع مقابل تجزئة البرنامج النصي (P2SH) هو نوع متقدم من المعاملات المستخدمة في البيتكوين والعملات المشفرة الأخرى المماثلة. على عكس P2PKH ، فإنه يسمح للمرسل بتخصيص الأموال إلى تجزئة نص تعسفي صالح.",
+  "form__alerts_uppercase": "التنبيهات",
+  "form__allow_this_site_to_uppercase": "السماح لهذا الموقع بـ:",
+  "form__always": "دائماً",
+  "form__amount_invalid": "رصيد {0} غير كافٍ",
+  "form__amount_max_amount": "الحد الأقصى للمبلغ",
+  "form__app_lock": "القفل التلقائي للتطبيق",
+  "form__app_lock_timer": "مؤقت القفل التلقائي",
+  "form__app_on_android": "التطبيق على Android",
+  "form__app_on_browser": "التطبيق على المتصفح",
+  "form__app_on_desktop": "التطبيق على سطح المكتب",
+  "form__app_on_ios": "التطبيق على iOS",
+  "form__app_unlock": "فتح التطبيق",
+  "form__app_unlock_desc": "افتح التطبيق باستخدام Face ID بدلاً من كلمة المرور",
+  "form__app_version": "نسخة التطبيق",
+  "form__auto": "نظام",
+  "form__base_str": "القاعدة: {0}",
+  "form__beginner_guide": "دليل المبتدئين",
+  "form__ble_version": "إصدار BLE",
+  "form__blockchain_explorer_url": "URL مستكشف Blockchain",
+  "form__blockchain_explorer_url_invalid": "يتطلب URL البادئة http أو https.",
+  "form__chain_id": "معرف السلسلة",
+  "form__chain_id_invalid": "معرف السلسلة غير صالح!",
+  "form__change_password": "غير كلمة السر",
+  "form__check_for_updates": "تحقق من وجود تحديثات",
+  "form__check_recovery_seed_placeholder": "كلمة {0}",
+  "form__chinese_simplified": "الصينية المبسطة",
+  "form__chinese_traditional": "تقاليد صينية",
+  "form__contact_name": "اسم جهة الاتصال",
+  "form__contract": "اتفافية",
+  "form__contract_data": "بيانات العقد",
+  "form__dark": "داكن",
+  "form__decimal": "عدد عشري",
+  "form__english": "إنجليزي",
+  "form__ens_name": "اسم ENS",
+  "form__enter_address": "أدخل العنوان",
+  "form__enter_address_name": "أدخل اسم العنوان",
+  "form__enter_or_paste_contract_address": "أدخل أو الصق عنوان العقد",
+  "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
+  "form__estomated_gas": "الغاز المقدر",
+  "form__explorer": "إكسبلورر",
+  "form__face_id": "معرف الوجه / معرف اللمس",
+  "form__fee_estimated": "الرسوم (تقديرية)",
+  "form__fiat_currency": "عملة ورقية",
+  "form__field_is_required": "مطلوب هذا المجال.",
+  "form__firmware_version": "نسخة برنامج ثابت",
+  "form__fully_diluted_value": "القيمة المخففة بالكامل",
+  "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
+  "form__gas_limit_invalid_too_much": "حد الغاز أعلى من اللازم.",
+  "form__general_uppercase": "جنرال لواء",
+  "form__handling_fee": "رسوم المعالجة",
+  "form__hardware": "المعدات",
+  "form__hardware_wallet_manuals": "كتيبات محفظة الأجهزة",
+  "form__help_support": "ساعد لدعم",
+  "form__hint_optional": "اختياري",
+  "form__hot_cryptos_uppercase": "التشفير الساخن",
+  "form__hot_tokens": "الرموز الساخنة",
+  "form__imported_as_a_watch_account": "استيراد كحساب مراقب",
+  "form__keystore": "كيستور",
+  "form__keystore_helperText": "عدة أسطر من النص تبدأ بـ \" {...} \".",
+  "form__keystore_invalid": "تنسيق Keystore / JSON غير صحيح.",
+  "form__keystore_password": "كلمة مرور Keystore",
+  "form__language": "لغة",
+  "form__light": "خفيفة",
+  "form__market_cap": "القيمة السوقية",
+  "form__max_fee_invalid_min": "لا يمكن أن يكون الحد الأقصى للرسوم أقل من رسوم الأولوية القصوى.",
+  "form__max_fee_invalid_too_low": "الحد الأقصى للرسوم منخفض جدًا بالنسبة لظروف الشبكة.",
+  "form__max_fee_invalid_too_much": "الحد الأقصى للرسوم أعلى من اللازم.",
+  "form__max_priority_fee_invalid_min": "يجب أن يكون الحد الأقصى لرسوم الأولوية أكبر من 0 Gwei.",
+  "form__max_priority_fee_invalid_too_low": "رسوم الأولوية القصوى منخفضة لظروف الشبكة الحالية.",
+  "form__max_priority_fee_invalid_too_much": "الحد الأقصى لرسوم الأولوية أعلى من اللازم. قد تدفع أكثر من المطلوب.",
+  "form__max_priority_str": "أقصى أولوية: {0}",
+  "form__max_spend_limit": "حد الإنفاق الأقصى",
+  "form__max_spend_limit_validateRules": "الرجاء إدخال مبلغ حد الإنفاق.",
+  "form__max_str": "الحد الأقصى: {0}",
+  "form__message_uppercase": "رسالة",
+  "form__minimum_received": "تلقى الحد الأدنى",
+  "form__my_cryptos_uppercase": "التشفير الخاص بي",
+  "form__my_tokens": "الرموز الخاصة بي",
+  "form__my_wallet": "محفظتى",
+  "form__name": "اسم",
+  "form__network_helperText": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
+  "form__network_name": "اسم الشبكة",
+  "form__network_name_invalid": "يجب أن يتكون الاسم من 30 حرفًا أو أقل.",
+  "form__one_year_high": "1 سنة عالية",
+  "form__one_year_low": "1 سنة منخفضة",
+  "form__overwrite_metamask": "الكتابة فوق MetaMask",
+  "form__password": "كلمه السر",
+  "form__password_free_payment": "الدفع بدون كلمة مرور",
+  "form__password_free_payment_desc": "ادفع باستخدام Face ID بدلاً من كلمة المرور (محفظة البرنامج فقط)",
+  "form__password_helperText": "كلمة المرور التي استخدمتها لفتح Keystore.",
+  "form__password_invalid": "كلمة سر خاطئة.",
+  "form__pin_error": "خطأ في رمز PIN. سيتم مسح بيانات هذا الجهاز بعد {0} المزيد من محاولات PIN الفاشلة.",
+  "form__privacy_policy": "سياسة الخصوصية",
+  "form__private_key": "مفتاح سري",
+  "form__private_key_helperText": "عادة 64 حرفًا أبجديًا رقميًا.",
+  "form__private_key_invalid": "مفتاح خاص غير صحيح.",
+  "form__quests": "أسئلة",
+  "form__rate": "معدل",
+  "form__recovery_phrase": "عبارة الاسترداد",
+  "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
+  "form__recovery_seed_placeholder": "اكتب كلمات عبارة الاسترداد الخاصة بك هنا",
+  "form__release_notes": "ملاحظات الإصدار:",
+  "form__request_type": "نوع الطلب",
+  "form__reset_app": "إعادة تعيين التطبيق",
+  "form__rpc_fetched_failed": "فشل جلب RPC.",
+  "form__rpc_url": "عنوان URL لـ RPC",
+  "form__rpc_url_connecting": "اتصال RPC ...",
+  "form__rpc_url_fetched": "تم جلب معلومات RPC!",
+  "form__rpc_url_invalid": "عنوان URL غير صالح لـ RPC.",
+  "form__rpc_url_invalid_exist": "يتم استخدام عنوان URL هذا حاليًا بواسطة شبكة {name} .",
+  "form__rpc_url_spped": "سرعة RPC: {value} مللي ثانية",
+  "form__rpc_url_wrong_format": "يتطلب URL البادئة http أو https.",
+  "form__s_request_history": "طلب التاريخ",
+  "form__se_version": "إصدار SE",
+  "form__search_tokens": "بحث عن الرموز",
+  "form__searching_token": "جاري البحث في الرمز المميز ...",
+  "form__security_uppercase": "الأمان",
+  "form__select_all": "اختر الكل",
+  "form__send_tokens": "إرسال الرموز",
+  "form__show_all": "عرض الكل",
+  "form__slippage_tolerance": "تحمل الانزلاق",
+  "form__str_accounts": "{count} حسابات",
+  "form__str_day": "{0} أيام",
+  "form__str_hour": "{0} ساعات",
+  "form__str_minute": "{0} دقيقة",
+  "form__submit_a_request": "تقديم طلب",
+  "form__symbol": "رمز",
+  "form__symbol_invalid": "يجب أن يتكون الرمز من 15 حرفًا أو أقل.",
+  "form__theme": "سمة",
+  "form__token_symbol": "رمز الرمز",
+  "form__top_50_tokens": "أفضل 50 توكينز",
+  "form__total_amount_fee": "الإجمالي (المبلغ + الرسوم)",
+  "form__trading_time": "وقت التداول",
+  "form__unconnected_account": "حساب غير متصل",
+  "form__unconnected_account_desc": "عند تصفح موقع ويب مع تحديد حساب غير متصل",
+  "form__unlimited": "غير محدود",
+  "form__use_removed_api": "استخدام إزالة API",
+  "form__use_removed_api_desc": "عندما يحاول موقع ويب استخدام واجهة برمجة تطبيقات window.web3 التي تمت إزالتها",
+  "form__user_agreement": "اتفاقية المستخدم",
+  "form__validator_max_length": "يجب أن يتكون هذا الحقل من {value} من الأحرف أو أقل",
+  "form__value": "قيمة",
+  "form__valued_str": "قيم ≥ {0}",
+  "form__version": "الإصدار",
+  "form__view_in_explore": "عرض في استكشاف",
+  "form__website": "موقع الكتروني",
+  "form__whitepaper": "ورق ابيض",
+  "form__with_str": "مع {0}",
+  "form__your_email": "بريدك الالكتروني",
+  "form__your_question_is": "سؤالك هو ...",
+  "form__your_reply": "ردك",
+  "form__your_request": "طلبك",
+  "history__queue": "طابور",
+  "loading__confirming": "التأكد",
+  "modal__add_wallet": "أضف المحفظة",
+  "modal__add_wallet_desc": "ابدأ رحلة Web3 من هنا.",
+  "modal__back_up_your_wallet": "قم بعمل نسخة احتياطية من محفظتك",
+  "modal__back_up_your_wallet_desc": "قبل إعادة تعيين التطبيق ، تأكد من عمل نسخة احتياطية لجميع محافظك.",
+  "modal__backup_interrupted": "توقف النسخ الاحتياطي",
+  "modal__backup_interrupted_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
+  "modal__camera_access_not_granted": "لم يتم منح الوصول إلى الكاميرا",
+  "modal__camera_access_not_granted_desc": "انتقل إلى \"الإعدادات\" لتشغيل الوصول إلى الكاميرا.",
+  "modal__charts": "الرسوم البيانية",
+  "modal__check_the_box_contents": "تحقق من محتويات العبوة",
+  "modal__check_the_box_contents_desc": "لن نضع أي أرقام تعريف شخصية أو عبارات استرداد تم إنشاؤها مسبقًا في الحزمة ، إذا عثرت عليها ، فلا تستخدم الجهاز واتصل بخدمة عملاء OneKey على الفور.",
+  "modal__clear_all_history": "مسح كافة المحفوظات؟",
+  "modal__clear_all_history_desc": "سيؤدي هذا إلى حذف كل سجلك في متصفحك",
+  "modal__close_all_windows": "هل تريد إغلاق كافة النوافذ؟",
+  "modal__close_all_windows_desc": "سيتم إغلاق جميع الصفحات المفتوحة",
+  "modal__connect_and_unlock_device": "قم بتوصيل وإلغاء قفل جهازك",
+  "modal__create_the_first_account_desc": "إنشاء محفظة جديدة",
+  "modal__delete_this_token": "هل تريد حذف هذا الرمز المميز؟",
+  "modal__delete_this_token_desc": "ستتم إزالة {token} من الرموز المميزة الخاصة بي",
+  "modal__detecting_onekey_bridge_instalation": "الكشف عن تثبيت OneKey Bridge",
+  "modal__device_status_check": "فحص حالة الجهاز",
+  "modal__edit_wallet": "تحرير المحفظة",
+  "modal__enter_pin": "أدخل رقم التعريف الشخصي",
+  "modal__enter_pin_desc": "تحقق من شاشة جهازك باستخدام تخطيط لوحة المفاتيح العشوائي",
+  "modal__failed_to_connect": "فشل الاتصال",
+  "modal__failed_to_connect_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
+  "modal__finish_backup": "إنهاء النسخ الاحتياطي",
+  "modal__finish_backup_desc": "تحقق من أنك قمت بعمل نسخة احتياطية صحيحة عن طريق إدخال الكلمات المقابلة من عبارة الاسترداد أدناه.",
+  "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
+  "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
+  "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
+  "modal__keep_device_close": "أبقِ الجهاز قريبًا",
+  "modal__looking_for_devices": "أبحث عن الأجهزة",
+  "modal__looking_for_devices_desc": "يرجى التأكد من تمكين البلوتوث الخاص بك.",
+  "modal__looking_for_devices_result": "وجدنا هذه الأجهزة",
+  "modal__onekey_lite_has_been_reset": "تمت إعادة تعيين OneKey Lite",
+  "modal__onekey_lite_has_been_reset_desc": "تم إدخال رقم التعريف الشخصي الحالي بشكل غير صحيح أكثر من 10 مرات ، وتم مسح بيانات هذا الجهاز لمنع تصدع بيانات النسخ الاحتياطي بالقوة الغاشمة",
+  "modal__onekey_wants_to_use_nfc": "يريد مفتاح \"OneKey\" استخدام NFC",
+  "modal__onekey_wants_to_use_nfc_desc": "أذونات NFC مطلوبة للاتصال بـ OneKey Lite.",
+  "modal__pin_change_failed": "فشل تغيير رقم التعريف الشخصي",
+  "modal__pin_change_failed_desc": "ليست هناك حاجة لتغيير رقم التعريف الشخصي على بطاقة OneKey Lite الجديدة هذه",
+  "modal__preview": "معاينة",
+  "modal__reset_app_desc": "سيؤدي هذا إلى حذف جميع البيانات التي قمت بإنشائها في OneKey ، أدخل \"إعادة تعيين\" لإعادة تعيين التطبيق",
+  "modal__reset_failed": "فشل إعادة التعيين",
+  "modal__reset_failed_desc": "هذه بطاقة OneKey Lite جديدة تمامًا ولا تحتاج إلى إعادة تعيين",
+  "modal__reset_onekey_lite_desc": "سيتم مسح عبارة الاسترداد التي قمت بتخزينها على هذا الجهاز ، ولن تكون متاحة بعد الآن لاستعادة الحساب ، أدخل \"RESET\" لإعادة تعيين OneKey Lite.",
+  "modal__restore_wallet": "استعادة المحفظة",
+  "modal__restore_wallet_desc": "استخدام عبارة استرداد موجودة لاستعادة مفاتيحك الخاصة على جهاز جديد!",
+  "modal__rug_warning": "تحذير البساط",
+  "modal__rug_warning_desc": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال ، هل ما زلت تريد المتابعة؟",
+  "modal__setup_complete": "الإعداد الكامل!",
+  "modal__setup_complete_desc": "جهازك جاهز للاستخدام.",
+  "modal__setup_new_device": "إعداد المحفظة الجديدة",
+  "modal__setup_new_device_desc": "لنبدأ ونقوم بإعداد جهازك!",
+  "modal__this_device_contains_backup": "يحتوي هذا الجهاز على نسخة احتياطية",
+  "modal__this_device_contains_backup_desc": "إذا تابعت ، فسيتم استبدال النسخة الاحتياطية السابقة بالكامل وستفقد إلى الأبد.",
+  "modal__this_device_has_no_backup_inbside": "هذا الجهاز ليس لديه نسخة احتياطية في الداخل",
+  "modal__this_device_has_no_backup_inbside_desc": "استبدلها بآخر يحتوي على نسخة احتياطية ، وحاول مرة أخرى",
+  "modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices": "قم بتشغيل NFC ودع \"OneKey\" يقوم بتوصيل أجهزتك",
+  "modal__unable_to_connect": "غير قادر على الاتصال",
+  "modal__unable_to_connect_desc": "جهازك الحالي لا يدعم NFC ، استبدله بجهاز مزود بتقنية NFC وحاول مرة أخرى",
+  "modal__you_are_visiting_third_party_dapps": "أنت تزور DApps لجهة خارجية",
+  "modal__you_are_visiting_third_party_dapps_desc": "سينطبق استخدامك لـ DAP لجهة خارجية على سياسة خصوصية DAPP واتفاقية المستخدم الخاصة بالطرف الثالث ، ويكون DAP للجهة الخارجية مسؤولاً بشكل مباشر ومنفرداً تجاهك.",
+  "modal__your_recovery_seed": "عبارة الاسترداد الخاصة بك",
+  "modal_remind_back_up_wallet": "النسخ الاحتياطي للمحفظة",
+  "modal_remind_back_up_wallet_desc": "من أجل سلامة الأصول الخاصة بك ، يرجى عدم نقل أي عملات معدنية إلى هذه المحفظة قبل الانتهاء من النسخ الاحتياطي.",
+  "model__keep_device_close_desc": "تأكد من تشغيل الجهاز وتواجده في النطاق ، واستمر في الضغط عليه وانقر فوق الزر أدناه لبدء الاتصال.",
+  "msg__account_created": "تم إنشاء الحساب!",
+  "msg__account_imported": "تم استيراد الحساب!",
+  "msg__added": "مضاف",
+  "msg__added_to_overview": "تمت الإضافة إلى نظرة عامة",
+  "msg__address_added": "تمت إضافة العنوان!",
+  "msg__address_changed": "تم تغيير العنوان!",
+  "msg__address_copied": "تم نسخ العنوان!",
+  "msg__address_deleted": "تم حذف العنوان!",
+  "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
+  "msg__change_saved": "تم حفظ التغيير!",
+  "msg__coming_soon": "قريبا",
+  "msg__copied": "نسخ!",
+  "msg__engine__account_already_exists": "الحساب موجود بالفعل.",
+  "msg__engine__account_name_length_error": "طول اسم الحساب خارج عن الحد.",
+  "msg__engine__failed_to_transfer": "فشل التحويل.",
+  "msg__engine__incorrect_address": "عنوان غير صحيح",
+  "msg__engine__incorrect_password": "كلمة سر خاطئة.",
+  "msg__engine__incorrect_token_address": "عنوان الرمز غير صحيح",
+  "msg__engine__incorrect_transfer_value": "قيمة التحويل غير صحيحة",
+  "msg__engine__internal_error": "خطأ داخلي.",
+  "msg__engine__invalid_mnemonic": "ذاكري غير صالح",
+  "msg__engine__not_implemented": "لم تنفذ.",
+  "msg__engine__too_many_derived_accounts": "حسابات كثيرة جدًا",
+  "msg__engine__too_many_hd_wallets": "عدد كبير جدًا من المحافظ",
+  "msg__engine__too_many_hw_wallets": "عدد كبير جدًا من محافظ الأجهزة",
+  "msg__engine__too_many_imported_accounts": "تم استيراد عدد كبير جدًا من الحسابات",
+  "msg__engine__wallet_name_length_error": "طول اسم المحفظة خارج عن الحد.",
+  "msg__engine_too_many_watching_accounts": "عدد كبير جدًا من حسابات المشاهدة",
+  "msg__enter_a_valid_slippage_percentage": "أدخل نسبة انزلاق سعرية صالحة",
+  "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
+  "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
+  "msg__history_deleted": "تم حذف السجل",
+  "msg__image_saved": "تم حفظ الصورة",
+  "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "msg__network_added": "تمت إضافة الشبكة!",
+  "msg__network_removed": "إزالة الشبكة!",
+  "msg__network_reset": "إعادة تعيين الشبكة!",
+  "msg__offline": "غير متصل على الانترنت",
+  "msg__password_changed": "تم تغيير كلمة السر",
+  "msg__password_has_been_set": "تم تعيين كلمة المرور",
+  "msg__password_needs_to_be_the_same": "يجب أن تكون كلمة المرور هي نفسها لكلا الإدخالين.",
+  "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 24 رقمًا.",
+  "msg__removed": "إزالة!",
+  "msg__renamed": "أعيدت تسميته!",
+  "msg__submitted_successfully": "تم الإرسال بنجاح",
+  "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
+  "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
+  "msg__this_site_is_identified_as_a_scam": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال",
+  "msg__token_added": "تمت إضافة الرمز",
+  "msg__token_already_existed": "الرمز موجود بالفعل!",
+  "msg__transaction_submitted": "تم إرسال المعاملة",
+  "msg__unknown_error": "خطأ غير معروف",
+  "msg__upload_failed": "التحميل فشل",
+  "msg__url_copied": "تم نسخ URL",
+  "msg__verification_failure": "فشل التحقق",
+  "msg__wallet_deleted": "تم حذف المحفظة \" {0} \"",
+  "msg__wrong_address_format": "عنوان العقد غير صحيح.",
+  "msg__wrong_email_format": "تنسيق بريد إلكتروني خاطئ.",
+  "msg__wrong_network": "شبكة خاطئة",
+  "msg__wrong_network_desc": "Swap لا يدعم الشبكة الحالية ، يرجى التبديل إلى شبكة متاحة والمحاولة مرة أخرى.",
+  "msg__wrong_password": "كلمة مرور خاطئة.",
+  "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
+  "msg__your_transaction_may_fail": "قد تفشل معاملتك",
+  "network__network": "شبكة",
+  "network__networks": "الشبكات",
+  "onboarding__landing_encryption_desc": "يستخدم OneKey تقنية تشفير رائدة في الصناعة لتخزين معلوماتك محليًا. يمكنك فقط فك تشفير المعلومات.",
+  "onboarding__landing_encryption_title": "التشفير التام بين الأطراف",
+  "onboarding__landing_opensource_desc": "لن يقوم OneKey بتخزين مفتاحك الخاص أو عبارة الاسترداد ، وجميع الأجهزة والبرامج التي صنعناها مفتوحة المصدر.",
+  "onboarding__landing_opensource_title": "أصولك ،\n فقط بين يديك",
+  "onboarding__landing_welcome_desc": "مكان واحد لكل ما تبذلونه من العملات المشفرة.",
+  "onboarding__landing_welcome_title": "مرحبًا بك في OneKey!",
+  "option__all": "الجميع",
+  "select__options": "خيارات",
+  "terms__desc": "يرجى مراجعة اتفاقية المستخدم وسياسة الخصوصية الخاصة بنا.",
+  "terms__privacy_policy": "سياسة الخصوصية",
+  "terms__title": "البنود و الظروف",
+  "terms__user_agreement": "اتفاقية المستخدم",
+  "title__New_Collection": "مجموعة جديدة",
+  "title__about": "عن",
+  "title__activity": "نشاط",
+  "title__add_token": "أضف رمز",
+  "title__address_book": "دليل العناوين",
+  "title__all_tokens": "كل الرموز",
+  "title__app_update": "تحديث التطبيق",
+  "title__approve": "يوافق",
+  "title__asset__display": "عرض الأصول",
+  "title__assets": "أصول",
+  "title__backup_completed": "اكتمل النسخ الاحتياطي!",
+  "title__backup_completed_desc": "يمكنك استرداد محفظتك باستخدام هذه البطاقة ورقم التعريف الشخصي في جميع الأوقات.",
+  "title__backups": "النسخ الاحتياطية",
+  "title__backups_desc": "لم يتم نسخ المحافظ التالية احتياطيًا بعد ، يرجى نسخ محافظك احتياطيًا أو المخاطرة بفقدان أصولك",
+  "title__buy_onekey_hardware": "شراء أجهزة OneKey",
+  "title__buy_str": "شراء {0}",
+  "title__client_download": "تحميل العميل",
+  "title__connect_to_str": "اتصال بـ {0}",
+  "title__cryptos": "التشفير",
+  "title__edit_address": "تعديل العنوان",
+  "title__enter_current_pin": "أدخل رقم التعريف الشخصي الحالي",
+  "title__enter_current_pin_desc": "أدخل رقم التعريف الشخصي الحالي لـ OneKey Lite قبل إعادة تعيينه",
+  "title__enter_password": "أدخل كلمة المرور",
+  "title__explore": "يستكشف",
+  "title__explore_dapps": "اكتشف DApps",
+  "title__farm": "مزرعة",
+  "title__favorite": "مفضل",
+  "title__favorites": "المفضلة",
+  "title__filter": "منقي",
+  "title__help": "مساعدة",
+  "title__home": "مسكن",
+  "title__invest": "استثمار",
+  "title__manage_cryptos": "إدارة التشفير",
+  "title__manage_tokens": "إدارة الرموز",
+  "title__market": "سوق",
+  "title__me": "أنا",
+  "title__news": "أخبار",
+  "title__nfc_data_has_been_read": "الانتعاش جاهز",
+  "title__nfc_data_has_been_read_desc": "أدخل كلمة مرور التطبيق لإكمال استعادة المحفظة",
+  "title__no_cantact": "لا اتصال",
+  "title__no_cantact_desc": "لا توجد جهات اتصال في دفتر العناوين حتى الآن.",
+  "title__no_connection": "لا يوجد اتصال",
+  "title__no_connection_desc": "يرجى إعادة المحاولة أو التحقق من الشبكة",
+  "title__no_favorite_dapp": "لا يوجد DApp مفضل",
+  "title__no_favorite_dapp_desc": "سيظهر DApp المفضل لديك هنا.",
+  "title__no_favorite_tokens": "لا توجد رموز مفضلة",
+  "title__no_favorite_tokens_desc": "ستظهر الرموز المميزة المفضلة لديك هنا",
+  "title__no_history": "لا تاريخ",
+  "title__no_history_desc": "سيظهر سجل المتصفح هنا.",
+  "title__no_request_history": "لا يوجد تاريخ طلب",
+  "title__no_request_history_desc": "أنت لم تقدم أي طلبات.",
+  "title__official_website": "الموقع الرسمي",
+  "title__onekey_lite_pin": "OneKey Lite PIN",
+  "title__pin_changed": "تم تغيير رقم التعريف الشخصي!",
+  "title__pin_changed_desc": "تمت إعادة تعيين رقم التعريف الشخصي الخاص بـ OneKey Lite",
+  "title__place_your_card_as_shown_below": "ضع بطاقتك كما هو موضح أدناه",
+  "title__place_your_card_as_shown_below_desc": "يرجى إبقاء Lite في وضع الهاتف ، ثم النقر فوق زر الاتصال",
+  "title__pool": "حوض السباحة",
+  "title__portfolio": "مَلَفّ",
+  "title__qr_code_info": "معلومات رمز الاستجابة السريعة",
+  "title__reconnecting": "جاري إعادة الاتصال ...",
+  "title__reconnecting_desc": "يرجى إعادة توصيل الجهاز لتأكيد العملية",
+  "title__recovery_completed": "اكتمل الاسترداد!",
+  "title__recovery_completed_desc": "يمكنك الآن رؤية هذه المحفظة في تطبيق OneKey الخاص بك",
+  "title__recovery_interrupted": "توقف الاسترداد",
+  "title__request_details": "طلب تفاصيل",
+  "title__scan_qr_code": "مسح رمز الاستجابة السريعة",
+  "title__search_results": "نتائج البحث",
+  "title__searching": "يبحث...",
+  "title__searching_desc": "يرجى الاحتفاظ بـ Lite في الهاتف حتى يتم العثور على الجهاز",
+  "title__select_a_token": "حدد رمزًا مميزًا",
+  "title__select_an_account_and_network_to_continue": "حدد حسابًا وشبكة للمتابعة",
+  "title__select_contact": "حدد جهة اتصال",
+  "title__sell_str": "بيع {0}",
+  "title__set_password": "ضبط كلمة السر",
+  "title__set_up_new_pin": "قم بإعداد PIN الجديد",
+  "title__set_up_new_pin_desc": "قم بتعيين PIN لـ OneKey Lite",
+  "title__settings": "إعدادات",
+  "title__signature_request": "طلب التوقيع",
+  "title__stats": "احصائيات",
+  "title__swap": "تبديل",
+  "title__the_device_has_been_reset": "تم إعادة ضبط الجهاز!",
+  "title__this_is_an_address_you_want_multiline": "هذا عنوان ،\n انت تريد...",
+  "title__top_gainers": "أعلى الرابحين",
+  "title__top_losers": "كبار الخاسرين",
+  "title__top_picks": "أعلى اللقطات",
+  "title__transferring_data": "جاري نقل البيانات ...",
+  "title__transferring_data_desc": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",
+  "title__trending": "الشائع",
+  "title__url": "URL",
+  "title__verified_token": "رمز تم التحقق منه",
+  "title__verified_token_desc": "تشير العلامة الخضراء إلى أنه تم التحقق من هذا الرمز المميز في قائمتين مميزتين على الأقل.",
+  "title__verify_new_pin": "تحقق من رقم التعريف الشخصي الجديد",
+  "title__verify_new_pin_desc": "تحقق من رقم التعريف الشخصي الجديد لـ OneKey Lite",
+  "title__welcome": "أهلا بك",
+  "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
+  "title__whats_new": "ما هو الجديد",
+  "title_select_wallet": "حدد Wallet",
+  "transaction__approve_token_spend_limit": "الموافقة على حد الإنفاق {token}",
+  "transaction__contract_address": "عنوان العقد",
+  "transaction__contract_interaction": "تفاعل العقد",
+  "transaction__dropped": "إسقاط",
+  "transaction__exchange": "تبادل",
+  "transaction__failed": "باءت بالفشل",
+  "transaction__history": "تاريخ",
+  "transaction__history_empty_desc": "سيظهر سجل المعاملات هنا.",
+  "transaction__history_empty_title": "لا تاريخ",
+  "transaction__multicall": "متعدد المكالمات",
+  "transaction__not_confirmed": "غير مؤكد",
+  "transaction__pending": "قيد الانتظار",
+  "transaction__register_with_config": "التسجيل مع Config",
+  "transaction__success": "نجاح",
+  "transaction__transaction_confirm": "تأكيد المعاملة",
+  "transaction__transaction_details": "تفاصيل الصفقه",
+  "wallet__app_wallet": "محفظة APP",
+  "wallet__hardware_wallet": "محفظة الأجهزة",
+  "wallet__imported_accounts": "الحسابات المستوردة",
+  "wallet__wallet": "محفظة",
+  "wallet__watched_accounts": "حسابات مراقب"
+}

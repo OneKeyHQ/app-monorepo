@@ -117,6 +117,7 @@ class ServiceApp extends ServiceBase {
     const isMasterPasswordSet = await engine.isMasterPasswordSet();
     if (isMasterPasswordSet) {
       dispatch(passwordSet());
+      dispatch(setBoardingCompleted());
     }
   }
 
