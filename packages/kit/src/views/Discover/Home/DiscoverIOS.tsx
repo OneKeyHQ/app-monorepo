@@ -9,6 +9,7 @@ import {
   Divider,
   Empty,
   FlatList,
+  Image,
   Pressable,
   Spinner,
   Typography,
@@ -17,6 +18,7 @@ import {
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
 import ExploreIMG from '@onekeyhq/kit/assets/explore.png';
+import ExploreBG from '@onekeyhq/kit/assets/Explore_bg.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   updateRankData,
@@ -55,7 +57,6 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
 
     Object.entries(history).forEach(([key]) => {
       const dAppItem = { ...syncData.increment[key], id: key };
-
       if (dAppItem) dappHistoryArray.push(dAppItem);
     });
 
@@ -80,10 +81,14 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
             width="100%"
             height="220px"
             bgColor="surface-default"
-            borderColor="border-subdued"
             borderRadius="12px"
-            borderWidth={1}
           >
+            <Image
+              width="100%"
+              height="220px"
+              position="absolute"
+              source={ExploreBG}
+            />
             <Empty
               imageUrl={ExploreIMG}
               title={intl.formatMessage({
