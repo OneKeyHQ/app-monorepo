@@ -85,8 +85,12 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
 
       try {
         const electronWebView = webview as IElectronWebView;
-        const handleMessage = () => {
-          setDesktopLoadError(true);
+        const handleMessage = (event: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (event.errorCode !== -3) {
+            console.log('electronWebView load error');
+            setDesktopLoadError(true);
+          }
         };
 
         electronWebView.addEventListener('did-fail-load', handleMessage);

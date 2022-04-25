@@ -1,7 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-var-requires,global-require */
 import React, { useMemo } from 'react';
 
-// @ts-ignore
-import jsonToy from 'json-toy';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -12,11 +11,33 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+
+import { IDappCallParams } from '../../../background/IBackgroundApi';
 
 import {
   ISignMessageConfirmViewProps,
   SignMessageConfirmModal,
 } from './SignMessageConfirmModal';
+
+function stringifyMessage(
+  unsignedMessage: IUnsignedMessageEvm,
+  sourceInfo?: IDappCallParams,
+) {
+  // **** jsonToy may cause iOS building memory leak ****
+  // const jsonToy = require('json-toy');
+  // return (jsonToy as { treeify: (data: any, options: any) => string }).treeify(
+  //   unsignedMessage,
+  //   {
+  //     space: 2,
+  //     vSpace: 0,
+  //     jsonName: sourceInfo?.data?.method || 'SIGN_DATA',
+  //     needValueOut: true,
+  //   },
+  // );
+
+  return JSON.stringify(unsignedMessage, null, 4);
+}
 
 function MsgConfirmBlind(props: ISignMessageConfirmViewProps) {
   const intl = useIntl();
@@ -24,17 +45,8 @@ function MsgConfirmBlind(props: ISignMessageConfirmViewProps) {
   const { unsignedMessage, sourceInfo } = props;
 
   const msgText = useMemo(
-    () =>
-      (jsonToy as { treeify: (data: any, options: any) => string }).treeify(
-        unsignedMessage,
-        {
-          space: 2,
-          vSpace: 0,
-          jsonName: sourceInfo?.data?.method || 'SIGN_DATA',
-          needValueOut: true,
-        },
-      ),
-    [sourceInfo?.data?.method, unsignedMessage],
+    () => stringifyMessage(unsignedMessage, sourceInfo),
+    [sourceInfo, unsignedMessage],
   );
   return (
     <SignMessageConfirmModal {...props}>

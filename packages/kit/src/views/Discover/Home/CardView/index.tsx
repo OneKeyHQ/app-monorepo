@@ -90,34 +90,41 @@ const CardViewDesktop: FC<SectionDataType> = ({
         minWidth={cardWidth}
         height={176}
         paddingX="8px"
+        justifyContent="center"
+        alignItems="center"
       >
         <Pressable
+          bgColor="surface-default"
+          flexDirection="column"
+          borderRadius="12px"
+          padding="16px"
+          width={cardWidth - 16}
+          height={164}
+          shadow="depth.2"
+          _hover={{
+            bg: 'surface-hovered',
+            width: (cardWidth - 16) * 1.03,
+            height: 176 * 1.03,
+            shadow: 'depth.3',
+          }}
           onPress={() => {
             if (onItemSelect) {
               onItemSelect(item);
             }
           }}
         >
-          <Box
-            bgColor="surface-default"
-            flexDirection="column"
-            borderRadius="12px"
-            padding="16px"
-            height={164}
+          <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
+          <Typography.Body2Strong numberOfLines={1} mt="12px">
+            {item.name}
+          </Typography.Body2Strong>
+          <Typography.Caption
+            numberOfLines={3}
+            mt="4px"
+            textAlign="left"
+            color="text-subdued"
           >
-            <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
-            <Typography.Body2Strong numberOfLines={1} mt="12px">
-              {item.name}
-            </Typography.Body2Strong>
-            <Typography.Caption
-              numberOfLines={3}
-              mt="4px"
-              textAlign="left"
-              color="text-subdued"
-            >
-              {item.subtitle}
-            </Typography.Caption>
-          </Box>
+            {item.subtitle}
+          </Typography.Caption>
         </Pressable>
       </Box>
     ),
