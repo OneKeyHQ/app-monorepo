@@ -21,7 +21,7 @@ type SettingsState = {
 };
 
 const initialState: SettingsState = {
-  theme: 'dark',
+  theme: 'system',
   locale: 'zh-CN',
   version: process.env.VERSION ?? '1.0.0',
   buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
