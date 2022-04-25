@@ -1,4 +1,3 @@
-/* eslint-disable */
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/prefer-regexp-exec */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -7,14 +6,17 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable no-plusplus */
 /* eslint-disable no-bitwise */
-import { Alert, Platform, NativeModules } from 'react-native';
-import { BleManager, ScanMode, Device } from 'react-native-ble-plx';
-import * as Location from 'expo-location';
-const { OKPermissionManager } = NativeModules;
 import { Buffer } from 'buffer';
-import state from './state';
+
+import * as Location from 'expo-location';
+import { Alert, NativeModules, Platform } from 'react-native';
+import { BleManager, Device, ScanMode } from 'react-native-ble-plx';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import state from './state';
+
+const { OKPermissionManager } = NativeModules;
 
 const SERVICE_ID = '00000001-0000-1000-8000-00805f9b34fb';
 const WRITE_NO_RESPONSE_ID = '00000002-0000-1000-8000-00805f9b34fb';
@@ -28,17 +30,39 @@ class BleUtils {
   // 蓝牙是否连接
   isConnecting: boolean;
 
-  manager: BleManager;
+  manager: BleManager | null = null;
 
-  peripheralId: string | undefined = 'BD193FF4-694A-C083-0A3E-224B1613E432';
+  peripheralId: string | undefined = undefined;
 
   constructor() {
     this.isConnecting = false;
-    this.manager = new BleManager();
+  }
+
+  async getManager(): Promise<BleManager> {
+    if (this.manager) return Promise.resolve(this.manager);
+
+    const manager = new BleManager();
+    return new Promise((resolve) => {
+      // console.log('------manager', await manager.state());
+      // try {
+      //   manager.stopDeviceScan();
+      // } catch (e) {
+      //   console.log(e);
+      // }
+      // console.log('------manager', await manager.state());
+      const subscription = manager.onStateChange((managerState) => {
+        if (managerState === 'PoweredOn') {
+          this.manager = manager;
+          subscription.remove();
+          resolve(manager);
+        }
+      }, true);
+    });
   }
 
   async findConnectedDevices(): Promise<Device[]> {
-    return this.manager.connectedDevices([SERVICE_ID]);
+    const manager = await this.getManager();
+    return manager.connectedDevices([SERVICE_ID]);
   }
 
   /**
@@ -48,7 +72,9 @@ class BleUtils {
     listener: (device: Device | null) => void,
   ): Promise<void> {
     await this.checkPermission();
-    this.manager.startDeviceScan(
+    const manager = await this.getManager();
+    console.log('------------');
+    manager.startDeviceScan(
       null,
       {
         scanMode: ScanMode.LowLatency,
@@ -60,10 +86,8 @@ class BleUtils {
             this.alert('请打开手机蓝牙后再搜索');
           }
           throw error;
-        } else {
-          if (device_1) {
-            listener(device_1);
-          }
+        } else if (device_1) {
+          listener(device_1);
         }
       },
     );
@@ -72,9 +96,10 @@ class BleUtils {
   /**
    * 停止搜索蓝牙
    * */
-  stopScan() {
+  async stopScan() {
     console.log('stopDeviceScan');
-    this.manager.stopDeviceScan();
+    const manager = await this.getManager();
+    manager.stopDeviceScan();
   }
 
   /**
@@ -83,13 +108,15 @@ class BleUtils {
   async connect(id: string) {
     console.log('isConneting:', id);
     this.isConnecting = true;
+    const manager = await this.getManager();
     try {
       await this.checkPermission();
-      const connected = await this.manager.isDeviceConnected(id);
+      const connected = await manager.isDeviceConnected(id);
+      console.log('-------', connected);
       if (connected) {
         return;
       }
-      const device = await this.manager.connectToDevice(id, {
+      const device = await manager.connectToDevice(id, {
         timeout: 3000,
         requestMTU: 512,
       });
@@ -108,7 +135,8 @@ class BleUtils {
    * 断开蓝牙
    * */
   async disconnect(deviceId: string) {
-    return await this.manager.cancelDeviceConnection(deviceId);
+    const manager = await this.getManager();
+    return manager.cancelDeviceConnection(deviceId);
   }
 
   async checkPermission() {
@@ -129,10 +157,12 @@ class BleUtils {
   /**
    * 写数据 withoutResponse
    * */
-  writeWithoutResponse(formatValue: string) {
+  async writeWithoutResponse(formatValue: string) {
+    if (!this.peripheralId) return null;
     const transactionId = 'writeWithoutResponse';
+    const manager = await this.getManager();
     return new Promise((resolve, reject) => {
-      this.manager
+      manager
         .writeCharacteristicWithoutResponseForDevice(
           this.peripheralId!,
           SERVICE_ID,
@@ -156,9 +186,10 @@ class BleUtils {
     });
   }
 
-  startNotification() {
+  async startNotification() {
     const transactionId = 'notification';
-    this.manager.monitorCharacteristicForDevice(
+    const manager = await this.getManager();
+    manager.monitorCharacteristicForDevice(
       this.peripheralId!,
       SERVICE_ID,
       NOTIFICATION_ID,
@@ -183,8 +214,9 @@ class BleUtils {
   /**
    * 卸载蓝牙管理器
    * */
-  destroy() {
-    this.manager.destroy();
+  async destroy() {
+    const manager = await this.getManager();
+    manager.destroy();
   }
 
   alert(text: string) {

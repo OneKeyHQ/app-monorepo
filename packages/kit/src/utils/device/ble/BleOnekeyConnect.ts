@@ -1,12 +1,13 @@
-import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/js-sdk';
+import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/device/ble/utils';
+import getDeviceConnection from '@onekeyhq/kit/src/utils/device/deviceConnection';
 
-import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/ble/utils';
+// import { navigationRef } from '../../navigator';
+// import { OnekeyHardwareModalRoutes } from '../../routes/Modal/HardwareOnekey';
+// import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
-import { navigationRef } from '../../navigator';
-import { OnekeyHardwareModalRoutes } from '../../routes/Modal/HardwareOnekey';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import BLEHandler from './handler';
 
-import { BLEHandler } from './handler';
+import type { Features, UiResponse } from '@onekeyfe/js-sdk';
 
 class BleOnekeyConnect {
   initialized = false;
@@ -17,7 +18,7 @@ class BleOnekeyConnect {
         switch (action.type) {
           case 'ui-cancel-popup-request':
             // 临时解决方案，等待 UI_EVENT 发送完成后再关闭弹窗
-            navigationRef.current?.goBack();
+            // navigationRef.current?.goBack();
             console.log('UI_EVENT', '设备需要升级');
             break;
           // case 'ui-device_firmware_outdated':
@@ -26,13 +27,13 @@ class BleOnekeyConnect {
           case 'ui-request_pin':
             console.log('UI_EVENT', '输入 Pin 码', action.payload.type);
 
-            navigationRef.current?.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyHardware,
-              params: {
-                screen: OnekeyHardwareModalRoutes.OnekeyHardwarePinCodeModal,
-                params: { type: action.payload.type },
-              },
-            });
+            // navigationRef.current?.navigate(RootRoutes.Modal, {
+            //   screen: ModalRoutes.OnekeyHardware,
+            //   params: {
+            //     screen: OnekeyHardwareModalRoutes.OnekeyHardwarePinCodeModal,
+            //     params: { type: action.payload.type },
+            //   },
+            // });
             break;
 
           default:
@@ -84,8 +85,8 @@ class BleOnekeyConnect {
   async getFeatures(device: BleDevice): Promise<Features | null> {
     await bleUtils?.connect(device.id);
     await this.init();
-
-    const features = await OneKeyConnect.getFeatures();
+    const connection = await getDeviceConnection();
+    const features = await connection.getFeatures();
     console.log('OneKeyConnect features', features);
     if (features.success) {
       return features.payload;
@@ -97,15 +98,17 @@ class BleOnekeyConnect {
     await bleUtils?.connect(device.id);
     await this.init();
 
-    const response = await OneKeyConnect.backupDevice();
+    const connection = await getDeviceConnection();
+    const response = await connection.backupDevice();
     if (response) {
       return response.payload;
     }
     return null;
   }
 
-  sendResponse(params: UiResponse) {
-    OneKeyConnect.uiResponse(params);
+  async sendResponse(params: UiResponse) {
+    const connection = await getDeviceConnection();
+    connection.uiResponse(params);
   }
 }
 

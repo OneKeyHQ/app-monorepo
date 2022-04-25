@@ -32,7 +32,7 @@ const SetupSuccessModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const isSmallScreen = useIsVerticalLayout();
+  // const isSmallScreen = useIsVerticalLayout();
 
   const { device } = route?.params;
 
@@ -50,14 +50,14 @@ const SetupSuccessModal: FC = () => {
         </Typography.Body1>
       </Center>
       <Center>
-        <Button
+        {/* <Button
           type="plain"
           size={isSmallScreen ? 'lg' : 'base'}
           mt={6}
           rightIconName="ChevronRightSolid"
         >
           {intl.formatMessage({ id: 'action__view_device_details' })}
-        </Button>
+        </Button> */}
       </Center>
     </>
   );

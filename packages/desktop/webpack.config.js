@@ -9,10 +9,12 @@ module.exports = async function (env, argv) {
   // eslint-disable-next-line no-param-reassign
   env = await webpackTools.modifyExpoEnv({ env, platform });
   let config = await createWebpackConfigAsync(env, argv);
+  console.log('--------', JSON.stringify(config.output));
   config = webpackTools.normalizeConfig({
     platform,
     config,
     env,
   });
+  console.log('--------', JSON.stringify(config.output));
   return config;
 };

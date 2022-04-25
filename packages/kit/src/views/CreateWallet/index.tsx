@@ -75,11 +75,7 @@ const CreateWalletModal: FC = () => {
         >
           <HStack justifyContent="space-between" alignItems="center">
             <Image source={img2} width="10" height="12" alt="icon" />
-            <Badge
-              title={intl.formatMessage({ id: 'badge__coming_soon' })}
-              size="sm"
-              type="default"
-            />
+            <Icon name="ChevronRightOutline" size={24} />
           </HStack>
           <VStack space={1} mt={6}>
             <Typography.Body1Strong>

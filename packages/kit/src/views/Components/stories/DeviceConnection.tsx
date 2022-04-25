@@ -21,7 +21,7 @@ import * as buildUtils from '@onekeyhq/shared/src/platformEnv';
 // import ble from '../../utils/ble/handler';
 
 const CONNECT_URL = buildUtils.isDev()
-  ? 'https://localhost:8088/'
+  ? 'https://connect.onekey.so/'
   : 'https://connect.onekey.so/';
 
 let hasInitOneKeyConnect: boolean | null = null;
@@ -47,7 +47,7 @@ export const init = async (): Promise<void> => {
     console.log('blockchain action:', action);
   });
 
-  const CONNECT_SRC = buildUtils.isDesktop() ? '/static/connect/' : CONNECT_URL;
+  const CONNECT_SRC = buildUtils.isDesktop() ? '/static/js-sdk/' : CONNECT_URL;
 
   await OneKeyConnect.init({
     connectSrc: CONNECT_SRC,

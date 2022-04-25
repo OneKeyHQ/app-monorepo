@@ -1,9 +1,13 @@
 import React, { FC, useEffect } from 'react';
 
+import OneKeyConnect from '@onekeyfe/js-sdk';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -14,10 +18,10 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import getDeviceConnectionInstance from '@onekeyhq/kit/src/utils/device/deviceConnection';
+import deviceUtilInstance from '@onekeyhq/kit/src/utils/device/deviceUtils';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
-import { onekeyBleConnect } from '../../../utils/ble/BleOnekeyConnect';
+import type { Features } from '@onekeyfe/js-sdk';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -28,47 +32,30 @@ type RouteProps = RouteProp<
 
 const DeviceStatusCheckModal: FC = () => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
-  const { network } = useActiveWalletAccount();
-  const { engine } = backgroundApiProxy;
-
+  const { serviceAccount } = backgroundApiProxy;
   useEffect(() => {
-    // Check device status
-
-    // If device and account are ready, go to success page
     async function main() {
-      const features = await onekeyBleConnect.getFeatures(device.device);
-
-      if (!features) return; // error
-      if (!network) return; // error
-
-      await engine.upsertDevice(features, device.device.id);
+      await deviceUtilInstance?.connect(device.device.id);
+      console.log('------start method');
+      const response = await OneKeyConnect.getFeatures();
+      const features = response?.payload as Features;
+      console.log('------features', features);
+      try {
+        await serviceAccount.createHWWallet(features);
+      } catch (e) {
+        const errorKey = (e as { key: LocaleIds }).key;
+        toast.show({
+          title: intl.formatMessage({ id: errorKey }),
+        });
+        const inst = navigation.getParent() || navigation;
+        inst.goBack();
+        return;
+      }
 
       if (features.initialized) {
-        let wallet = null;
-        let account = null;
-        try {
-          wallet = await engine.createHWWallet();
-          const accounts = await engine.addHDAccounts(
-            'Undefined',
-            wallet.id,
-            network.id,
-          );
-          if (accounts.length > 0) {
-            const $account = accounts[0];
-            account = $account;
-            console.log(account);
-          }
-        } catch (e) {
-          console.log(e);
-        }
-
-        // serviceAccount.changeActiveAccount({
-        //   account,
-        //   wallet,
-        // });
-
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
