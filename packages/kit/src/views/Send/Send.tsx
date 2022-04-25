@@ -352,8 +352,12 @@ const Transaction = () => {
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
-                  required: intl.formatMessage({ id: 'form__address_invalid' }),
+                  // required is NOT needed, as submit button should be disabled
+                  // required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async (toAddress) => {
+                    if (!toAddress) {
+                      return undefined;
+                    }
                     try {
                       await backgroundApiProxy.validator.validateAddress(
                         networkId,
@@ -431,16 +435,12 @@ const Transaction = () => {
                   />
                 }
                 rules={{
-                  required: isMax
-                    ? ''
-                    : intl.formatMessage(
-                        { id: 'form__amount_invalid' },
-                        { 0: selectedToken?.symbol ?? '' },
-                      ),
+                  // required is NOT needed, as submit button should be disable
                   validate: (value) => {
                     const token = selectedToken;
                     if (!token) return undefined;
                     if (isMax) return undefined;
+                    if (!value) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(
                       getTokenBalance(token, '0'),
