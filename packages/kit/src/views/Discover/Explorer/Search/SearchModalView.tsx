@@ -108,7 +108,10 @@ const SearchModalView: FC = () => {
             )}
 
             <Box mx={3} flexDirection="column" flex={1}>
-              <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+              <Text
+                numberOfLines={1}
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              >
                 {name ?? title ?? 'Unknown'}
               </Text>
               <Typography.Body2 numberOfLines={1} color="text-subdued">

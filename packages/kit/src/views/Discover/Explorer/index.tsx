@@ -36,11 +36,16 @@ type WebSiteType = {
   historyId?: string;
 };
 
+export type SearchContentType = {
+  searchContent: string;
+  dapp?: MatchDAppItemType; // don`t search dapp
+};
+
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
-  searchContent?: string;
+  searchContent?: SearchContentType;
   loading?: boolean;
-  onSearchContentChange?: (text: string) => void;
+  onSearchContentChange?: (text: SearchContentType) => void;
   onSearchSubmitEditing?: (text: MatchDAppItemType | string) => void;
   explorerContent: React.ReactNode;
   canGoBack?: boolean;
@@ -89,7 +94,8 @@ const Explorer: FC = () => {
   const [visibleMore, setVisibleMore] = useState(false);
 
   const [displayInitialPage, setDisplayInitialPage] = useState(true);
-  const [searchContent, setSearchContent] = useState<string>();
+
+  const [searchContent, setSearchContent] = useState<SearchContentType>();
   const [currentWebSite, setCurrentWebSite] = useState<WebSiteType>();
 
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
@@ -148,7 +154,7 @@ const Explorer: FC = () => {
         }
       } catch (error) {
         setCurrentWebSite({ url: BrowserPage });
-        setSearchContent(item);
+        setSearchContent({ searchContent: item });
         console.log('not a url', error);
       }
 
@@ -227,7 +233,7 @@ const Explorer: FC = () => {
       content = currentWebSite?.url ?? '';
     }
 
-    if (content !== BrowserPage) setSearchContent(content);
+    if (content !== BrowserPage) setSearchContent({ searchContent: content });
 
     if (displayInitialPage === false || webCanGoBack()) {
       setCanGoBack(true);
