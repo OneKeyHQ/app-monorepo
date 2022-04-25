@@ -10,8 +10,10 @@ import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
+import * as Linking from 'expo-linking';
 
 import {
+  Dialog,
   Icon,
   Modal,
   Typography,
@@ -27,7 +29,11 @@ import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
 
-const { isWeb, isNative: isApp } = platformEnv;
+import Constants from 'expo-constants';
+import * as IntentLauncher from 'expo-intent-launcher';
+import { PermissionStatus } from 'expo-modules-core';
+
+const { isWeb, isNative: isApp, isIOS } = platformEnv;
 
 type ScanQrcodeRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
@@ -40,7 +46,9 @@ type ScanQrcodeNavProp = NavigationProp<
 const ScanQrcode: FC = () => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
+    PermissionStatus.UNDETERMINED,
+  );
   const [scanned, setScanned] = useState(false);
   const isFocused = useIsFocused();
 
@@ -93,7 +101,7 @@ const ScanQrcode: FC = () => {
   useEffect(() => {
     (async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
+      setCurrentPermission(status);
     })();
   }, []);
 
@@ -105,49 +113,97 @@ const ScanQrcode: FC = () => {
   }, [isFocused]);
 
   const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
-  return (
-    <Modal
-      hidePrimaryAction
-      hideSecondaryAction
-      header={intl.formatMessage({ id: 'title__scan_qr_code' })}
-      footer={
-        <Button
-          style={{ marginBottom: bottom }}
-          onPress={pickImage}
-          h={isApp ? '55px' : '45px'}
-          variant="unstyled"
-          leftIcon={<Icon name="PhotographSolid" size={isApp ? 19 : 15} />}
-        >
-          <ChooseImageText>
-            {intl.formatMessage({ id: 'action__choose_an_image' })}
-          </ChooseImageText>
-        </Button>
-      }
-      staticChildrenProps={isApp ? { flex: 1 } : { width: '100%', height: 209 }}
-    >
-      {hasPermission && isFocused && (
-        <Camera
-          style={{
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          onBarCodeScanned={
-            scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
-          }
-          barCodeScannerSettings={{
-            barCodeTypes: ['qr'],
-          }}
-        >
-          <SvgScanArea
-            style={{ position: 'absolute' }}
-            width={144}
-            height={144}
-          />
-        </Camera>
-      )}
-    </Modal>
-  );
+  if (currentPermission === PermissionStatus.GRANTED) {
+    return (
+      <Modal
+        hidePrimaryAction
+        hideSecondaryAction
+        header={intl.formatMessage({ id: 'title__scan_qr_code' })}
+        footer={
+          <Button
+            style={{ marginBottom: bottom }}
+            onPress={pickImage}
+            h={isApp ? '55px' : '45px'}
+            variant="unstyled"
+            leftIcon={<Icon name="PhotographSolid" size={isApp ? 19 : 15} />}
+          >
+            <ChooseImageText>
+              {intl.formatMessage({ id: 'action__choose_an_image' })}
+            </ChooseImageText>
+          </Button>
+        }
+        staticChildrenProps={
+          isApp ? { flex: 1 } : { width: '100%', height: 209 }
+        }
+      >
+        {isFocused && (
+          <Camera
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            onBarCodeScanned={
+              scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
+            }
+            barCodeScannerSettings={{
+              barCodeTypes: ['qr'],
+            }}
+          >
+            <SvgScanArea
+              style={{ position: 'absolute' }}
+              width={144}
+              height={144}
+            />
+          </Camera>
+        )}
+      </Modal>
+    );
+  }
+  if (currentPermission === PermissionStatus.DENIED) {
+    return (
+      <Dialog
+        visible
+        onClose={() => {
+          navigation.getParent()?.goBack();
+        }}
+        contentProps={{
+          icon: <Icon name="ExclamationOutline" size={48} />,
+          title: intl.formatMessage({
+            id: 'modal__camera_access_not_granted',
+          }),
+          content: intl.formatMessage({
+            id: 'modal__camera_access_not_granted_desc',
+          }),
+        }}
+        footerButtonProps={
+          isWeb
+            ? { hidePrimaryAction: true }
+            : {
+                primaryActionProps: {
+                  children: intl.formatMessage({ id: 'action__go_to_setting' }),
+                },
+                onPrimaryActionPress: ({ onClose }) => {
+                  onClose?.();
+                  if (isIOS) {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    const pkg = Constants?.manifest?.releaseChannel
+                      ? Constants?.manifest?.android?.package
+                      : 'host.exp.exponent';
+                    IntentLauncher.startActivityAsync(
+                      IntentLauncher.ActivityAction
+                        .APPLICATION_DETAILS_SETTINGS,
+                      { data: 'package:' + pkg },
+                    );
+                  }
+                },
+              }
+        }
+      />
+    );
+  }
+  return null;
 };
 ScanQrcode.displayName = 'ScanQrcode';
 

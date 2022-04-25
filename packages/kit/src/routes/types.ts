@@ -13,6 +13,7 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
+import { ScanQrcodeRoutesParams } from './Modal/ScanQrcode';
 
 export { ModalRoutes };
 
@@ -43,6 +44,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.OnekeyHardware]: NavigatorScreenParams<SubModalRoutesParams.OnekeyHardwareRoutesParams>;
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
   [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
+
+  [ModalRoutes.ScanQrcode]: NavigatorScreenParams<ScanQrcodeRoutesParams.SwapRoutesParams>;
 };
 /** Modal */
 
