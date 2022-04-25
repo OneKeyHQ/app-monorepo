@@ -134,14 +134,16 @@ function FeeInfoInputForTransfer({
                 )}
               </Text>
             )}
-            <Text color="text-subdued" flex={1}>
-              {/* eslint-disable-next-line no-nested-ternary */}
-              {feeInfoPayload?.current?.totalNative
-                ? feeSpeedTime
-                : loading
-                ? intl.formatMessage({ id: 'content__just_a_moment' })
-                : intl.formatMessage({ id: 'content__calculate_fee' })}
-            </Text>
+            {isPreset && (
+              <Text color="text-subdued" flex={1}>
+                {/* eslint-disable-next-line no-nested-ternary */}
+                {feeInfoPayload?.current?.totalNative
+                  ? feeSpeedTime
+                  : loading
+                  ? intl.formatMessage({ id: 'content__just_a_moment' })
+                  : intl.formatMessage({ id: 'content__calculate_fee' })}
+              </Text>
+            )}
           </Box>
           {icon}
         </Box>
