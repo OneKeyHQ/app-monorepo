@@ -38,7 +38,7 @@ type WebSiteType = {
 
 export type SearchContentType = {
   searchContent: string;
-  donSearch?: boolean;
+  dapp?: MatchDAppItemType; // don`t search dapp
 };
 
 export type ExplorerViewProps = {

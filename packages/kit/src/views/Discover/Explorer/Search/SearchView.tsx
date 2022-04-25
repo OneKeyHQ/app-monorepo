@@ -14,7 +14,6 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 import {
   Box,
   Center,
-  FlatList,
   HStack,
   Icon,
   Image,
@@ -24,6 +23,7 @@ import {
   Text,
   Typography,
 } from '@onekeyhq/components';
+import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocumentClose';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
@@ -65,6 +65,7 @@ const SearchView: FC<SearchViewProps> = ({
   const searchContentTerm = useDebounce(tempSearchContent ?? '', 150);
 
   const ele = useRef<HTMLDivElement>(null);
+  const flatListRef = useRef<any>(null);
 
   const { searchedHistories, allHistories } = useSearchHistories(
     searchContentTerm,
@@ -77,7 +78,7 @@ const SearchView: FC<SearchViewProps> = ({
   );
 
   useEffect(() => {
-    if (!searchContent?.donSearch) {
+    if (!searchContent?.dapp) {
       setTempSearchContent(searchContent?.searchContent ?? '');
     }
   }, [searchContent]);
@@ -167,7 +168,8 @@ const SearchView: FC<SearchViewProps> = ({
     if (window) return window.innerHeight * 0.6;
 
     return 0;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ele.current]);
 
   const { domId } = useClickDocumentClose({
     name: 'SelectSearch',
@@ -213,6 +215,12 @@ const SearchView: FC<SearchViewProps> = ({
   useEffect(() => {
     if (selectItemIndex !== undefined) {
       onHoverItem?.(flatListData[selectItemIndex]);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call
+      flatListRef?.current?.scrollToIndex({
+        index: selectItemIndex,
+        viewOffset: maxHeight / 2,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectItemIndex]);
@@ -251,8 +259,10 @@ const SearchView: FC<SearchViewProps> = ({
         shadow="depth.3"
         overflow="hidden"
       >
-        <FlatList
+        <FlatListRef
+          ref={flatListRef}
           data={flatListData}
+          // @ts-expect-error
           renderItem={renderItem}
           ListHeaderComponent={
             flatListData.length > 0 ? (
@@ -267,6 +277,7 @@ const SearchView: FC<SearchViewProps> = ({
               </Box>
             ) : null
           }
+          // @ts-expect-error
           keyExtractor={(_item: MatchDAppItemType, index) =>
             `${index}-${_item.id}`
           }

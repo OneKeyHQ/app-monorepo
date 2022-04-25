@@ -149,10 +149,14 @@ const Desktop: FC<ExplorerViewProps> = ({
                 onSearchContentChange?.({ searchContent: text })
               }
               onSubmitEditing={(event) => {
-                onSearchContentChange?.({
-                  searchContent: event.nativeEvent.text,
-                });
-                onSearchSubmitEditing?.(event.nativeEvent.text);
+                if (searchContent?.dapp) {
+                  onSearchSubmitEditing?.(searchContent.dapp);
+                } else {
+                  onSearchContentChange?.({
+                    searchContent: event.nativeEvent.text,
+                  });
+                  onSearchSubmitEditing?.(event.nativeEvent.text);
+                }
               }}
               onKeyPress={(event) => {
                 const { key } = event.nativeEvent;
@@ -198,7 +202,7 @@ const Desktop: FC<ExplorerViewProps> = ({
               if (url)
                 onSearchContentChange?.({
                   searchContent: url,
-                  donSearch: true,
+                  dapp: item,
                 });
             }}
             relativeComponent={searchBar.current}
