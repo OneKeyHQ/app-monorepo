@@ -2,6 +2,7 @@
 import React, { FC, useState } from 'react';
 
 import { Pressable } from 'native-base';
+// import FastImage from 'react-native-fast-image';
 
 import { ImageViewer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,6 +35,7 @@ export const Image: FC<ImageProps> = ({ ...rest }) => {
   const { uri, resizeMode, preview, priority, borderRadius, bgColor } = rest;
   const width = rest.width ?? rest.size;
   const height = rest.height ?? rest.size;
+  // console.log('FastImage >>> ', FastImage, OKImage);
   if (platformEnv.isNative && !!FastImage) {
     return (
       <FastImage
