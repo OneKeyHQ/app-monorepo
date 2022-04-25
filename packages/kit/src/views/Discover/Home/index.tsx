@@ -82,7 +82,7 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
             }}
           >
             <NetImage
-              height={isSmallScreen ? '134px' : '177px'}
+              height={isSmallScreen ? 134 : 177}
               uri={url}
               borderRadius={12}
             />
