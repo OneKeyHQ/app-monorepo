@@ -36,11 +36,11 @@ jobs:
           echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
 
       - name: Setup Expo
-        uses: expo/expo-github-action@v5
+        uses: expo/expo-github-action@v7
         with:
-          expo-version: 4.x
-          expo-token: ${{ secrets.EXPO_TOKEN }}
-          expo-cache: true
+          expo-version: 5.x
+          eas-version: 0.51.x
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup ENV BUILD_NUMBER to 1
         if: ${{ !github.event.workflow_run }}
@@ -89,11 +89,11 @@ jobs:
         if: ${{ github.event.workflow_run }}
         run: |
           cd packages/app
-          npx eas-cli build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
 
       - name: Build on EAS
         if: ${{ !github.event.workflow_run }}
         run: |
           cd packages/app
-          npx eas-cli build --profile=production-store --platform ios --non-interactive --no-wait
+          eas build --profile=production-store --platform ios --non-interactive --no-wait
 

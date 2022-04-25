@@ -70,8 +70,11 @@ export const useWebviewRef = (
           }
         };
 
-        const handleLoadFailMessage = () => {
-          setLoading(false);
+        const handleLoadFailMessage = (event: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (event.errorCode !== -3) {
+            setLoading(false);
+          }
         };
         const handleLoadStopMessage = () => {
           setLoading(false);

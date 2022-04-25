@@ -24,13 +24,28 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
+      
+      - name: Setup keys secret
+        run: |
+          echo ${{ secrets.AUTO_SUBMIT_GOOGLE_PLAY_KEY }} | base64 -d > packages/app/pc-api-8644398719570171123-0-dcae07e2afab.json
+          echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
+
+      - name: Setup Credentials
+        run: |
+          mkdir packages/app/ios/certs
+          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > packages/app/credentials.json
+          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > packages/app/ios/certs/dist-cert.p12
+          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
 
       - name: Setup Expo
-        uses: expo/expo-github-action@v5
+        uses: expo/expo-github-action@v7
         with:
-          expo-version: 4.x
-          expo-token: ${{ secrets.EXPO_TOKEN }}
-          expo-cache: true
+          expo-version: 5.x
+          eas-version: 0.51.x
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: yarn
 
       - name: Load .env file
         uses: xom9ikk/dotenv@v1.0.2
@@ -48,10 +63,10 @@ jobs:
         if: ${{ github.event.inputs.platform }}
         run: |
           cd packages/app
-          npx eas-cli build --profile=development --platform ${{ github.event.inputs.platform }} --non-interactive --no-wait > eas-build.log
+          eas build --profile=development --platform ${{ github.event.inputs.platform }} --non-interactive --no-wait
 
       - name: Build on EAS schedule
         if: ${{ !github.event.inputs.platform }}
         run: |
           cd packages/app
-          npx eas-cli build --profile=development --platform all --non-interactive --no-wait
+          eas build --profile=development --platform all --non-interactive --no-wait

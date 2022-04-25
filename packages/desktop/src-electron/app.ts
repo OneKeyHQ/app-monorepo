@@ -133,3 +133,6 @@ app.on('before-quit', () => {
   if (!mainWindow) return;
   mainWindow.removeAllListeners();
 });
+
+// Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
+app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
