@@ -58,7 +58,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     req: IJsBridgeMessagePayload,
     { time = 0 }: { time?: number } = {},
   ) {
-    const manifest = chrome.runtime.getManifest();
+    // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
     const debugLoggerSettings = (await debugLogger?.debug?.load?.()) ?? '';
     const ethereum = this.backgroundApi.providers
@@ -75,10 +75,10 @@ class ProviderApiPrivate extends ProviderApiBase {
         ],
       },
       walletInfo: {
-        name: manifest.name,
-        version: manifest.version,
+        platform: process.env.PLATFORM_NAME,
+        version: process.env.VERSION,
+        buildNumber: process.env.BUILD_NUMBER,
         isLegacy: false,
-        platform: 'extension',
       },
       providerState: await ethereum.metamask_getProviderState(req),
     };
