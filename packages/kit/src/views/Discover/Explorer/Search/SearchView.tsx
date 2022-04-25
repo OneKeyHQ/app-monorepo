@@ -99,11 +99,20 @@ const SearchView: FC<SearchViewProps> = ({
         name,
         url: dappUrl,
       } = item.dapp || {};
+
       const {
         favicon: webSiteFavicon,
         title,
         url: webSiteUrl,
       } = item.webSite || {};
+
+      const itemTitle = () => {
+        const itemName = name ?? title ?? 'Unknown';
+        if (itemName.length > 24) {
+          return `${itemName.slice(0, 24)}...`;
+        }
+        return itemName;
+      };
 
       return (
         <Pressable.Item
@@ -151,10 +160,13 @@ const SearchView: FC<SearchViewProps> = ({
               </Box>
             )}
 
-            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-              {name ?? title ?? 'Unknown'}
+            <Text
+              flexWrap="wrap"
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            >
+              {itemTitle()}
             </Text>
-            <Typography.Body2 numberOfLines={1} color="text-subdued">
+            <Typography.Body2 flex={1} numberOfLines={1} color="text-subdued">
               {dappUrl ?? webSiteUrl}
             </Typography.Body2>
           </HStack>
