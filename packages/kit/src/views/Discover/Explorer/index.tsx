@@ -346,28 +346,22 @@ const Explorer: FC = () => {
   };
 
   const explorerContent = useMemo(
-    () => {
-      console.log('explorerContent render');
-
-      return (
-        <Box flex={1}>
-          {displayInitialPage ? (
-            <Home
-              onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })}
-            />
-          ) : (
-            <WebView
-              src={currentWebSite?.url ?? ''}
-              onWebViewRef={(ref) => {
-                setWebviewRef(ref);
-              }}
-              onNavigationStateChange={setNavigationStateChangeEvent}
-              allowpopups={false}
-            />
-          )}
-        </Box>
-      );
-    },
+    () => (
+      <Box flex={1}>
+        {displayInitialPage ? (
+          <Home onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })} />
+        ) : (
+          <WebView
+            src={currentWebSite?.url ?? ''}
+            onWebViewRef={(ref) => {
+              setWebviewRef(ref);
+            }}
+            onNavigationStateChange={setNavigationStateChangeEvent}
+            allowpopups={false}
+          />
+        )}
+      </Box>
+    ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentWebSite, displayInitialPage],
   );
