@@ -9,7 +9,9 @@ import {
   setLocale,
   setSelectedFiatMoneySymbol,
   setTheme,
+  setThemePreloadToLocalStorage,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SelectTrigger } from '../SelectTrigger';
@@ -43,7 +45,10 @@ export const GenaralSection = () => {
               footer={null}
               headerShown={false}
               defaultValue={theme}
-              onChange={(value) => dispatch(setTheme(value))}
+              onChange={(value) => {
+                dispatch(setTheme(value));
+                setThemePreloadToLocalStorage(value);
+              }}
               options={[
                 {
                   label: intl.formatMessage({
