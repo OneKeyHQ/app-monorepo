@@ -158,6 +158,7 @@ type Transaction = {
   tokenEvent: Array<Erc20TransferEvent>;
   source: 'local' | 'covalent';
   info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
+  rawTx?: string;
 };
 
 type Erc20TransferEvent = {

@@ -2999,7 +2999,7 @@
 
 "@formatjs/intl-locale@^2.4.47":
   version "2.4.47"
-  resolved "https://mirrors.cloud.tencent.com/npm/@formatjs%2fintl-locale/-/intl-locale-2.4.47.tgz#7bf66960e55e7dfa77fcc7c02ee06aea29f92eb6"
+  resolved "https://registry.yarnpkg.com/@formatjs/intl-locale/-/intl-locale-2.4.47.tgz#7bf66960e55e7dfa77fcc7c02ee06aea29f92eb6"
   integrity sha512-yEpjx6RgVVG3pPsxb/jydhnq/A02KmjMste5U/wWxscRK0sny8LPIoBwgkOQycRoMRLNlLemJaQB7VbHZJ9OVg==
   dependencies:
     "@formatjs/ecma402-abstract" "1.11.4"
