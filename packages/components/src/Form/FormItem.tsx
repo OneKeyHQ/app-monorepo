@@ -111,7 +111,15 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         onPress={() => {
                           navigation.navigate(RootRoutes.Modal, {
                             screen: ModalRoutes.ScanQrcode,
-                            params: { screen: ScanQrcodeRoutes.ScanQrcode },
+                            params: {
+                              screen: ScanQrcodeRoutes.ScanQrcode,
+                              params: {
+                                onScanCompleted: (result: string) => {
+                                  onChange(result);
+                                  onLabelAddonPress?.();
+                                },
+                              },
+                            },
                           });
                         }}
                       />
