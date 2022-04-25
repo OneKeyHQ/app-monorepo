@@ -81,6 +81,7 @@ const Transaction = () => {
   const [encodedTx, setEncodedTx] = useState(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
@@ -189,10 +190,10 @@ const Transaction = () => {
           const tx = await promise;
           if (tx) {
             setEncodedTx(tx);
+            setError(null);
           }
         } catch (e) {
-          // TODO display static form error message
-          console.error(e);
+          setError(e as Error);
         } finally {
           setBuildLoading(false);
         }
@@ -490,6 +491,7 @@ const Transaction = () => {
                   loading={feeInfoLoading}
                 />
                 <FormErrorMessage message={feeInfoError?.message ?? ''} />
+                <FormErrorMessage message={error?.message ?? ''} />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

@@ -24,6 +24,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
+  OneKeyError,
   OneKeyErrorClassNames,
   OneKeyValidatorError,
   OneKeyValidatorTip,
@@ -102,6 +103,16 @@ export function FeeSpeedTime({ index }: { index: number | string }) {
   return <>{title}</>;
 }
 
+function printError(error: OneKeyError | any) {
+  const e = error as OneKeyError;
+  console.error({
+    message: e.message,
+    key: e.key,
+    info: e.info,
+    className: e.className,
+  });
+}
+
 const CustomFeeForm = ({
   feeInfoPayload,
   control,
@@ -111,6 +122,7 @@ const CustomFeeForm = ({
   feeInfoPayload: IFeeInfoPayload | null;
   control: Control<FeeValues>;
   watch: UseFormWatch<FeeValues>;
+  // TODO use last choice to calculate
   selectIndex: string;
 }) => {
   const intl = useIntl();
@@ -133,6 +145,7 @@ const CustomFeeForm = ({
           feeInfoPayload?.info?.limit ?? 21000,
         );
       } catch (error) {
+        printError(error);
         const e = error as OneKeyValidatorTip;
         if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
           setGasLimitTip(e.key);
@@ -157,6 +170,7 @@ const CustomFeeForm = ({
           fee.maxFeePerGas,
         );
       } catch (error) {
+        printError(error);
         const e = error as OneKeyValidatorTip;
         if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
           setMaxFeeTip(e.key);
@@ -186,6 +200,7 @@ const CustomFeeForm = ({
           fee.maxPriorityFeePerGas,
         );
       } catch (error) {
+        printError(error);
         const e = error as OneKeyValidatorTip;
         if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
           setMaxPriorityFeeTip(e.key);
@@ -269,6 +284,7 @@ const CustomFeeForm = ({
                   value,
                 );
               } catch (error) {
+                printError(error);
                 const e = error as OneKeyValidatorError;
                 if (
                   e?.className === OneKeyErrorClassNames.OneKeyValidatorError
@@ -321,6 +337,7 @@ const CustomFeeForm = ({
                   formValues.maxPriorityFeePerGas,
                 );
               } catch (error) {
+                printError(error);
                 const e = error as OneKeyValidatorError;
                 if (
                   e?.className === OneKeyErrorClassNames.OneKeyValidatorError
@@ -388,6 +405,7 @@ const CustomFeeForm = ({
                 feeInfoPayload?.info?.limit ?? 21000,
               );
             } catch (error) {
+              printError(error);
               const e = error as OneKeyValidatorError;
               if (e?.className === OneKeyErrorClassNames.OneKeyValidatorError) {
                 return intl.formatMessage({
