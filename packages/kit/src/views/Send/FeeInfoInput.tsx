@@ -109,19 +109,28 @@ function FeeInfoInputForTransfer({
           paddingY="8px"
         >
           <Box flex={1}>
-            {isPreset && (
+            {(isPreset || feeInfoPayload?.current?.totalNative) && (
               <Text
                 typography={{
                   sm: 'Body1Strong',
                   md: 'Body2Strong',
                 }}
               >
-                <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-                {feeInfoPayload?.current?.totalNative && (
-                  <FormatCurrencyNative
-                    value={feeInfoPayload?.current?.totalNative}
-                    render={(ele) => <>(~ {ele})</>}
-                  />
+                {isPreset ? (
+                  <>
+                    <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+                    <FormatCurrencyNative
+                      value={feeInfoPayload?.current?.totalNative}
+                      render={(ele) => <>(~ {ele})</>}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <FormatCurrencyNative
+                      value={feeInfoPayload?.current?.totalNative}
+                      render={(ele) => <>{ele}</>}
+                    />
+                  </>
                 )}
               </Text>
             )}
