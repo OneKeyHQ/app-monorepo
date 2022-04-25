@@ -217,6 +217,9 @@ const Input = React.forwardRef<
         _focus={{
           bg: 'action-secondary-default',
           borderColor: 'focused-default',
+          _hover: {
+            borderColor: 'focused-default',
+          },
         }}
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}

@@ -47,7 +47,7 @@ export const GenaralSection = () => {
               options={[
                 {
                   label: intl.formatMessage({
-                    id: 'form__system',
+                    id: 'form__auto',
                     defaultMessage: 'System',
                   }),
                   value: 'system',
