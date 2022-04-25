@@ -35,14 +35,6 @@ import DappMulticallStack, {
   DappMulticallModalRoutes,
   DappMulticallRoutesParams,
 } from './DappMulticall';
-import DappSendStack, {
-  DappSendModalRoutes,
-  DappSendRoutesParams,
-} from './DappSend';
-import DappSignatureStack, {
-  DappSignatureModalRoutes,
-  DappSignatureRoutesParams,
-} from './DappSignature';
 import DiscoverModal from './Discover';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
 import OnekeyHardwareModal, {
@@ -177,14 +169,6 @@ const modalStackScreenList = [
     component: DappMulticallStack,
   },
   {
-    name: ModalRoutes.DappSendConfirmModal,
-    component: DappSendStack,
-  },
-  {
-    name: ModalRoutes.DappSignatureModal,
-    component: DappSignatureStack,
-  },
-  {
     name: ModalRoutes.Collectibles,
     component: CollectibleModal,
   },
@@ -241,8 +225,6 @@ export type ModalTypes = {
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
   [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
   [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;
-  [DappSendModalRoutes.SendConfirmModal]: NavigatorScreenParams<DappSendRoutesParams>;
-  [DappSignatureModalRoutes.SignatureModal]: NavigatorScreenParams<DappSignatureRoutesParams>;
 };
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

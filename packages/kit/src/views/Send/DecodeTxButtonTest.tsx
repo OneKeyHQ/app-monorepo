@@ -30,10 +30,14 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
       networkId,
       encodedTx,
     });
-    console.log('tx3', tx3);
+    console.log('tx3', tx3, encodedTx);
   }, [networkId, accountId, encodedTx]);
 
   if (!platformEnv.isDev) {
+    return null;
+  }
+
+  if (!encodedTx) {
     return null;
   }
 

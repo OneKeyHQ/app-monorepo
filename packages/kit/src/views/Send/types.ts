@@ -3,6 +3,7 @@ import {
   IBroadcastedTx,
   IFeeInfoSelected,
 } from '@onekeyhq/engine/src/types/vault';
+import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
@@ -13,6 +14,7 @@ export enum SendRoutes {
   SendEditFee = 'SendEditFee',
   TokenApproveAmountEdit = 'TokenApproveAmountEdit',
   SendAuthentication = 'SendAuthentication',
+  SignMessageConfirm = 'SignMessageConfirm',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -69,6 +71,13 @@ export type SendConfirmParams = EditFeeParams & {
 export type SendAuthenticationParams = SendConfirmParams & {
   accountId: string;
   networkId: string;
+  unsignedMessage?: IUnsignedMessageEvm;
+  encodedTx?: any;
+};
+
+export type SignMessageConfirmParams = {
+  sourceInfo?: IDappCallParams;
+  unsignedMessage: IUnsignedMessageEvm;
 };
 
 export type SendRoutesParams = {
@@ -78,4 +87,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
   [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
+  [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
 };

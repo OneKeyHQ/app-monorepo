@@ -1,12 +1,21 @@
 /* eslint max-classes-per-file: "off" */
+import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
 
-export class OneKeyError extends Error {
+export enum OneKeyErrorClassNames {
+  OneKeyError,
+  OneKeyValidatorError,
+  OneKeyValidatorTip,
+}
+
+export class OneKeyError extends Web3RpcError<undefined> {
+  className = OneKeyErrorClassNames.OneKeyError;
+
   info: Record<string, string>;
 
   key = 'onekey_error';
 
   constructor(message?: string, info?: Record<string, string>) {
-    super(message);
+    super(-99999, message || 'Unknown onekey internal error.');
     this.info = info || {};
   }
 
@@ -52,6 +61,28 @@ export class OneKeyInternalError extends OneKeyError {
 
 export class OneKeyHardwareError extends OneKeyError {
   key = 'onekey_error_hardware';
+}
+
+export class OneKeyValidatorError extends OneKeyError {
+  className = OneKeyErrorClassNames.OneKeyValidatorError;
+
+  key = 'onekey_error_validator';
+
+  constructor(key: string, info?: Record<string, string>, message?: string) {
+    super(message, info);
+    this.key = key;
+  }
+}
+
+export class OneKeyValidatorTip extends OneKeyError {
+  className = OneKeyErrorClassNames.OneKeyValidatorTip;
+
+  key = 'onekey_tip_validator';
+
+  constructor(key: string, info?: Record<string, string>, message?: string) {
+    super(message, info);
+    this.key = key;
+  }
 }
 
 export class FailedToTransfer extends OneKeyError {

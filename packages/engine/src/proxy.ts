@@ -41,6 +41,7 @@ import {
   Signer as ISigner,
   Verifier as IVerifier,
 } from '@onekeyfe/blockchain-libs/dist/types/secret';
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -289,6 +290,29 @@ class Signer extends Verifier implements ISigner {
     }
     return Promise.resolve([signature, 0]);
   }
+}
+
+// blockchain-libs can throw ResponseError and JSONResponseError upon rpc call
+// errors/failures. Each error has both message & response properties.
+// We read the possible error, categorize it by its message and decide
+// what to throw to upper layer.
+function extractResponseError(e: unknown): unknown {
+  const { message, response } = e as { message?: string; response?: any };
+  if (typeof message === 'undefined' || typeof response === 'undefined') {
+    // not what we expected, throw original error out.
+    return e;
+  }
+  if (message === 'Error JSON PRC response') {
+    // TODO: avoid this stupid string comparison and there is even an unbearable typo.
+    // this is what blockchain-libs can throw upon a JSON RPC call failure
+    const { error: rpcError } = response;
+    if (typeof rpcError !== 'undefined') {
+      return web3Errors.rpc.internal({ data: rpcError });
+    }
+  }
+  // Otherwise, throw the original error out.
+  // TODO: see whether to wrap it into a gerinic OneKeyError.
+  return e;
 }
 
 class ProviderController extends BaseProviderController {
@@ -697,7 +721,7 @@ class ProviderController extends BaseProviderController {
         status === TransactionStatus.NOT_FOUND ||
         status === TransactionStatus.INVALID
       ) {
-        if (now - createdAt > 60 * 5) {
+        if (now - createdAt > 60 * 5 * 1000) {
           ret[id] = HistoryEntryStatus.DROPPED;
         }
       } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
@@ -729,10 +753,14 @@ class ProviderController extends BaseProviderController {
       default:
         throw new NotImplemented();
     }
-    return client.rpc.call(
-      request.method,
-      request.params as Record<string, any> | Array<any>,
-    );
+    try {
+      return await client.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
   }
 
   async signMessages(
@@ -748,6 +776,7 @@ class ProviderController extends BaseProviderController {
         `Message signing not support on ${network.name}`,
       );
     }
+    await this.getProvider(network.id);
     dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
     const defaultType = ETHMessageTypes.PERSONAL_SIGN;
     const [signer] = Object.values(
@@ -883,6 +912,30 @@ class ProviderController extends BaseProviderController {
         throw new NotImplemented();
     }
     return Promise.resolve(ret);
+  }
+
+  // Wrap to throw JSON RPC errors
+  async buildUnsignedTx(
+    networkId: string,
+    unsignedTx: UnsignedTx,
+  ): Promise<UnsignedTx> {
+    try {
+      return await super.buildUnsignedTx(networkId, unsignedTx);
+    } catch (e) {
+      throw extractResponseError(e);
+    }
+  }
+
+  // Wrap to throw JSON RPC errors
+  async broadcastTransaction(
+    networkId: string,
+    rawTx: string,
+  ): Promise<string> {
+    try {
+      return await super.broadcastTransaction(networkId, rawTx);
+    } catch (e) {
+      throw extractResponseError(e);
+    }
   }
 }
 
