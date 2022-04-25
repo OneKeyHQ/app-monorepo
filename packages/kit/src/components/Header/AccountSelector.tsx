@@ -12,14 +12,16 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
+import {
+  addNewRef,
+  removeOldRef,
+} from '@onekeyhq/components/src/utils/SelectAutoHide';
 
 import { setHaptics } from '../../hooks/setHaptics';
 
 import AccountSelectorDesktop from './AccountSelectorDesktop';
 import AccountSelectorTrigger from './AccountSelectorTrigger';
-
-import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
-import { addNewRef, removeOldRef } from '@onekeyhq/components/src/utils/SelectAutoHide';
 
 type AccountSelectorProps = {
   renderTrigger?: ({
@@ -73,7 +75,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
         toggleVisible={handleToggleVisible}
       />
     );
-  }, [isVerticalLayout, visible, handleToggleVisible]);
+  }, [isVerticalLayout, visible, handleToggleVisible, setRef]);
 
   return (
     <Box
@@ -89,7 +91,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           visible={visible}
           handleToggleVisible={() => {
             setHaptics();
-            if(!visible) {
+            if (!visible) {
               handleToggleVisible();
             }
             // handleToggleVisible();
