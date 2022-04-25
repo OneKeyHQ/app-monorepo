@@ -5,6 +5,7 @@ import { IntlShape, useIntl } from 'react-intl';
 import {
   Address,
   Box,
+  Button,
   Center,
   HStack,
   Icon,
@@ -21,12 +22,18 @@ import {
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import {
   formatBalanceDisplay,
   useFormatAmount,
 } from '../../../components/Format';
+import { useNavigation } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { SendConfirmActionType, SendRoutes } from '../../Send/types';
 import NFTView from '../nftView';
 
 import {
@@ -256,6 +263,49 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
     );
   }, [amountInfo, basicInfo, displayAmount, size, transaction.toAddress]);
 
+  const { accountId, networkId } = useActiveWalletAccount();
+  const navigation = useNavigation();
+
+  const updateTx = useCallback(
+    async (actionType: SendConfirmActionType) => {
+      const vaultHelper = createVaultHelperInstance({
+        networkId,
+        accountId,
+      });
+      const encodedTx = (await vaultHelper.parseToEncodedTx(
+        transaction.rawTx,
+      )) as IEncodedTxEvm;
+
+      let { to, value, data, from } = encodedTx;
+      if (actionType === 'cancel') {
+        to = from;
+        value = '0';
+        data = '0x';
+      }
+
+      const newEncodedTx = {
+        ...encodedTx,
+        to,
+        value,
+        data,
+      };
+
+      console.log(actionType, newEncodedTx);
+
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendConfirm,
+          params: {
+            encodedTx: newEncodedTx,
+            actionType,
+          },
+        },
+      });
+    },
+    [accountId, navigation, networkId, transaction.rawTx],
+  );
+
   return (
     <Box flexDirection="row">
       <Center
@@ -272,17 +322,16 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
 
         {renderNFTImages()}
 
-        {/* {transaction.state === 'pending' && (
+        {transaction.successful === TxStatus.Pending && (
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>
-              {transaction.confirmed < 6 &&
-                intl.formatMessage({ id: 'transaction__not_confirmed' })}
+              {intl.formatMessage({ id: 'transaction__not_confirmed' })}
             </Typography.Caption>
             <Button
               size="xs"
               ml={2}
               onPress={() => {
-                console.log('Click: Cancel');
+                updateTx('cancel');
               }}
             >
               {intl.formatMessage({ id: 'action__cancel' })}
@@ -292,13 +341,13 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
               size="xs"
               ml={2}
               onPress={() => {
-                console.log('Click: Speed Up');
+                updateTx('speedUp');
               }}
             >
               {intl.formatMessage({ id: 'action__speed_up' })}
             </Button>
           </Box>
-        )} */}
+        )}
       </Box>
     </Box>
   );
