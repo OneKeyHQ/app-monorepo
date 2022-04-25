@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "기기가 휴대전화의 NFC 모듈에 가까이 있는지 확인하고 다시 시도하세요.",
   "modal__finish_backup": "백업 완료",
   "modal__finish_backup_desc": "아래의 복구 문구에 해당 단어를 입력하여 올바른 백업을 했는지 확인하십시오.",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "장치에 PIN을 입력하십시오",
   "modal__install_onekey_bridge": "OneKey 브리지 설치",
   "modal__install_onekey_bridge_desc": "OneKey Bridge는 OneKey와 인터넷 브라우저 간의 연결을 용이하게 하는 통신 도구입니다.",

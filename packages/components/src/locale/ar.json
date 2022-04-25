@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
   "modal__finish_backup": "إنهاء النسخ الاحتياطي",
   "modal__finish_backup_desc": "تحقق من أنك قمت بعمل نسخة احتياطية صحيحة عن طريق إدخال الكلمات المقابلة من عبارة الاسترداد أدناه.",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
