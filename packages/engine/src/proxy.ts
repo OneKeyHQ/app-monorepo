@@ -159,7 +159,7 @@ export function fillUnsignedTxObj({
   }
 
   const { type, nonce, feeLimit, feePricePerUnit, ...payload } = extra as {
-    type: string;
+    type?: string;
     nonce?: number;
     feeLimit?: BigNumber;
     feePricePerUnit?: BigNumber;

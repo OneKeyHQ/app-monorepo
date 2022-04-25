@@ -43,6 +43,11 @@ export default class VaultHelper extends VaultHelperBase {
     console.log('parseToNativeTx ', encodedTx);
     if (isString(encodedTx)) {
       ethersTx = ethers.utils.parseTransaction(encodedTx as any);
+      ethersTx = {
+        ...ethersTx,
+        from: ethersTx.from?.toLocaleLowerCase(),
+        to: ethersTx.to?.toLocaleLowerCase(),
+      };
     } else {
       // @ts-ignore
       ethersTx = {

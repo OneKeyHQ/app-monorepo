@@ -93,13 +93,7 @@ import {
   DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
-import {
-  BlockTransactionWithLogEvents,
-  HistoryDetailList,
-  Pagination,
-  Transaction,
-  TransactionsRawData,
-} from './types/covalent';
+import { HistoryDetailList } from './types/covalent';
 import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
