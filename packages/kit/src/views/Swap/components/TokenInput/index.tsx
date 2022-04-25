@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,6 +22,7 @@ type TokenInputProps = {
   inputValue?: string;
   onPress?: () => void;
   onChange?: (text: string) => void;
+  containerProps?: ComponentProps<typeof Box>;
 };
 
 const TokenInput: FC<TokenInputProps> = ({
@@ -30,20 +31,26 @@ const TokenInput: FC<TokenInputProps> = ({
   onPress,
   token,
   onChange,
+  containerProps,
 }) => {
   const intl = useIntl();
   const { balances } = useManageTokens();
   const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : 0;
   return (
-    <Box h="20" px="3" py="4">
-      <Box display="flex" flexDirection="row" justifyContent="space-between">
-        <Typography.Caption>{label}</Typography.Caption>
-        <Typography.Caption>
+    <Box px="3" {...containerProps}>
+      <Box
+        display="flex"
+        flexDirection="row"
+        justifyContent="space-between"
+        mb="2"
+      >
+        <Typography.Body2 color="text-subdued">{label}</Typography.Body2>
+        <Typography.Body2 color="text-subdued">
           {intl.formatMessage(
             { id: 'content__balance_str' },
-            { '0': Number(value).toFixed(2) },
+            { '0': Number(value) === 0 ? '0' : Number(value).toFixed(8) },
           )}
-        </Typography.Caption>
+        </Typography.Body2>
       </Box>
       <Box
         display="flex"
@@ -55,13 +62,18 @@ const TokenInput: FC<TokenInputProps> = ({
           <NumberInput
             borderWidth={0}
             placeholder="0.00"
-            pl="0"
+            fontSize={24}
+            fontWeight="bold"
             bg="transparent"
             _hover={{ bg: 'transparent' }}
             _focus={{ bg: 'transparent' }}
             defaultValue=""
             value={inputValue}
             onChangeText={onChange}
+            pt="0"
+            pb="0"
+            pl="0"
+            h="auto"
           />
         </Box>
         <Pressable onPress={onPress}>
@@ -79,7 +91,7 @@ const TokenInput: FC<TokenInputProps> = ({
                   <Typography.Body1>{token.symbol}</Typography.Body1>
                 </HStack>
                 <Center w="5" h="5">
-                  <Icon size={10} name="ChevronDownOutline" />
+                  <Icon size={20} name="ChevronDownSolid" />
                 </Center>
               </HStack>
             ) : (
@@ -88,7 +100,7 @@ const TokenInput: FC<TokenInputProps> = ({
                   {intl.formatMessage({ id: 'title__select_a_token' })}
                 </Typography.Body1>
                 <Center w="5" h="5">
-                  <Icon size={10} name="ChevronDownOutline" />
+                  <Icon size={20} name="ChevronDownSolid" />
                 </Center>
               </HStack>
             )}
