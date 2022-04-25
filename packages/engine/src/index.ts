@@ -324,22 +324,25 @@ class Engine {
         typeof mnemonic !== 'undefined',
         name,
       );
-      try {
-        const supportedImpls = getSupportedImpls();
-        const addedImpl = new Set();
-        const networks: Array<string> = [];
-        (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
-          if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
-            addedImpl.add(impl);
-            networks.push(networkId);
-          }
-        });
-        for (const networkId of networks) {
-          await this.addHDAccounts(password, wallet.id, networkId);
+
+      const supportedImpls = getSupportedImpls();
+      const addedImpl = new Set();
+      const networks: Array<string> = [];
+      (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
+        if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
+          addedImpl.add(impl);
+          networks.push(networkId);
         }
-      } catch (e) {
-        console.error(e);
-      }
+      });
+      await Promise.all(
+        networks.map((networkId) =>
+          this.addHDAccounts(password, wallet.id, networkId).then(
+            undefined,
+            (e) => console.error(e),
+          ),
+        ),
+      );
+
       return this.dbApi.getWallet(wallet.id) as Promise<Wallet>;
     }
 
