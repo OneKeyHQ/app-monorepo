@@ -93,6 +93,7 @@ import {
   DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
+import { HistoryDetailList } from './types/covalent';
 import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
@@ -1730,7 +1731,12 @@ class Engine {
       return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
     }
 
-    const localHistory = await this.getHistory(networkId, accountId);
+    const localHistory = await this.getHistory(
+      networkId,
+      accountId,
+      undefined,
+      true,
+    );
     const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
       (h): h is HistoryEntryTransaction => 'rawTx' in h,
     );
@@ -1743,24 +1749,52 @@ class Engine {
 
     const decodedLocalTxHistoryList = await Promise.all(decodedLocalTxHistory);
 
-    const covalent = await getTxHistories(
-      chainId,
-      dbAccount.address,
-      pageNumber,
-      pageSize,
-    );
-    if (!covalent || !covalent.data.txList) {
-      throw new OneKeyInternalError('getTxHistories failed.');
+    let result: HistoryDetailList = {
+      error: false,
+      errorMessage: null,
+      errorCode: null,
+      data: {
+        address: '',
+        updatedAt: '',
+        nextUpdateAt: '',
+        quoteCurrency: '',
+        chainId: Number(chainId),
+        pagination: {
+          hasMore: false,
+          pageNumber: 1,
+          pageSize: 1,
+          totalCount: 1,
+        },
+        items: [],
+        txList: [],
+      },
+    };
+    let txList = result.data.txList ?? [];
+    try {
+      const covalent = await getTxHistories(
+        chainId,
+        dbAccount.address,
+        pageNumber,
+        pageSize,
+      );
+      if (covalent) {
+        result = covalent;
+        // if (!covalent || !covalent.data.txList) {
+        //   throw new OneKeyInternalError('getTxHistories failed.');
+        // }
+        txList = covalent?.data?.txList ?? [];
+        updateLocalTransactions(decodedLocalTxHistoryList, txList);
+      }
+    } catch (error) {
+      console.error(error);
     }
-    const { txList } = covalent.data;
-    updateLocalTransactions(decodedLocalTxHistoryList, txList);
 
     const localTxHashSet = new Set(
       decodedLocalTxHistoryList.map((tx) => tx.txHash),
     );
     const filtedTxList = txList.filter((tx) => !localTxHashSet.has(tx.txHash));
-    covalent.data.txList = [...decodedLocalTxHistoryList, ...filtedTxList];
-    return covalent;
+    result.data.txList = [...decodedLocalTxHistoryList, ...filtedTxList];
+    return result;
   }
 
   async getErc20TxHistories(
