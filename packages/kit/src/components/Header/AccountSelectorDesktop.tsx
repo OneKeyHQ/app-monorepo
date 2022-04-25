@@ -7,7 +7,7 @@ import {
   OverlayContainer,
   PresenceTransition,
 } from '@onekeyhq/components';
-import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocumentClose';
+import { useDomID } from '@onekeyhq/components/src/hooks/useClickDocumentClose';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
@@ -25,11 +25,7 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
   triggerEle,
 }, ref) => {
   const translateY = 4;
-  const { domId } = useClickDocumentClose({
-    name: 'AccountSelectorDesktop',
-    visible,
-    toggleVisible,
-  });
+  const { domId } = useDomID('AccountSelectorDesktop');
   React.useImperativeHandle(
     ref,
     () => ({

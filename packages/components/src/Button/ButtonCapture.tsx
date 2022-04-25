@@ -1,25 +1,21 @@
 import React, { FC } from 'react';
 
 import { Button } from 'native-base';
-import type { IButtonProps } from 'native-base';
+
 import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
+import type { IButtonProps } from 'native-base';
 
-const ButtonCapture: FC<IButtonProps> = (props) => {
+const ButtonCapture: FC<IButtonProps> = ({ onPress, ...props }) => {
   const onPressOverride = React.useCallback(
     (e) => {
       // console.log('capture press');
       autoHideSelectFunc(e);
-      props.onPress?.(e);
+      onPress?.(e);
     },
-    [props.onPress],
+    [onPress],
   );
-  return (
-    <Button
-      {...props}
-      onPress={onPressOverride}
-    />
-  );
+  return <Button {...props} onPress={onPressOverride} />;
 };
 
 export { ButtonCapture as default };

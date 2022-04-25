@@ -20,12 +20,12 @@ import Pressable from '../Pressable';
 import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
 import { Text } from '../Typography';
-
-import DesktopWithRef from './Container/Desktop';
-import type { DesktopRef } from './Container/Desktop';
-import Mobile from './Container/Mobile';
 import { addNewRef, removeOldRef } from '../utils/SelectAutoHide';
 
+import DesktopWithRef from './Container/Desktop';
+import Mobile from './Container/Mobile';
+
+import type { DesktopRef } from './Container/Desktop';
 
 export type SelectItem<T = string> = {
   label: string;
@@ -203,7 +203,8 @@ function Select<T = string>({
     onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
-  const DesktopWithRefComp = DesktopWithRef<T>();
+  // const DesktopWithRefComp = DesktopWithRef<T>();
+  const DesktopWithRefComp = React.useRef(DesktopWithRef<T>()).current;
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {
@@ -264,6 +265,8 @@ function Select<T = string>({
     setPositionOnlyMounted,
     positionTranslateY,
     size,
+    DesktopWithRefComp,
+    setRef,
   ]);
 
   return (

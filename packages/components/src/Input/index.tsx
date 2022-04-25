@@ -6,9 +6,10 @@ import { Platform } from 'react-native';
 import Box from '../Box';
 import Divider from '../Divider';
 import Icon, { ICON_NAMES } from '../Icon';
+import Pressable from '../Pressable';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
-import Pressable from '../Pressable';
+
 import type { TypographyStyle } from '../Typography';
 
 type Props = {

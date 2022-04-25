@@ -1,19 +1,24 @@
 import React, { FC, useState } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
+
 import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
 export type PressableItemProps = React.ComponentProps<typeof NBPressable>;
 
-const PressableItem: FC<PressableItemProps> = ({ children, ...props }) => {
+const PressableItem: FC<PressableItemProps> = ({
+  children,
+  onPress,
+  ...props
+}) => {
   const [isFocused, setFocused] = useState(false);
   const onPressOverride = React.useCallback(
     (e) => {
       // console.log('capture press');
       autoHideSelectFunc(e);
-      props.onPress?.(e);
+      onPress?.(e);
     },
-    [props.onPress],
+    [onPress],
   );
 
   // TODO: use child function to check hover state

@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
-import { Icon, Select, Pressable } from '@onekeyhq/components';
+import { Icon, Pressable, Select } from '@onekeyhq/components';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

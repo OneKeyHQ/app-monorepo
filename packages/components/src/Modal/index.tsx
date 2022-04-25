@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+
 import ReactDOM from 'react-dom';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,9 +29,8 @@ import Mobile from './Container/Mobile';
 let modalRoot: HTMLElement | null = null;
 if (platformEnv.isBrowser) {
   modalRoot = document.createElement('DIV');
-  document.body.appendChild(modalRoot)
+  document.body.appendChild(modalRoot);
 }
-
 
 export type ModalProps = {
   /* 
@@ -269,7 +269,7 @@ const Modal: FC<ModalProps> = ({
       {modalContainer}
       {platformEnv.isNative && <Toast bottomOffset={120} />}
     </>
-  )
+  );
 
   return modalRoot ? ReactDOM.createPortal(node, modalRoot) : node;
 };

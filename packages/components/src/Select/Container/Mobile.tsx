@@ -6,14 +6,14 @@ import Box from '../../Box';
 import Button from '../../Button';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
+import RBSheet from '../../RBSheet';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
-import RBSheet from '../../RBSheet';
-import type { RBSheetRef } from '../../RBSheet';
 
 import { renderOptions } from './Option';
 
 import type { ChildProps } from '..';
+import type { RBSheetRef } from '../../RBSheet';
 
 function Mobile<T>({
   dropdownProps,

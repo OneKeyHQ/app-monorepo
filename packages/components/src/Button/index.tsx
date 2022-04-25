@@ -7,13 +7,14 @@ import React, {
 } from 'react';
 
 import { Text } from 'native-base';
-import  NativeBaseButton from './ButtonCapture'
 
 import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
+
+import NativeBaseButton from './ButtonCapture';
 
 type FontProps = ComponentProps<typeof Text>;
 
