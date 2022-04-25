@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
@@ -12,6 +13,7 @@ import {
   IFeeInfoSelected,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/types/vault';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -91,6 +93,7 @@ export function useFeeInfoPayload({
   pollingInterval?: number;
   fetchAnyway?: boolean;
 }) {
+  const isFocused = useIsFocused();
   const { network } = useActiveWalletAccount();
   const [feeInfoError, setFeeInfoError] = useState<Error | null>(null);
   const { accountId, networkId } = useActiveWalletAccount();
@@ -99,6 +102,7 @@ export function useFeeInfoPayload({
   );
   const [loading, setLoading] = useState(true);
   const route = useRoute();
+  const toast = useToast();
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
   )?.feeInfoSelected;
@@ -233,6 +237,16 @@ export function useFeeInfoPayload({
         setFeeInfoPayload(info);
       })
       .catch((error) => {
+        // TODO: only an example implementation about showing rpc error
+        const { code: errCode } = error as { code?: number };
+        if (errCode === -32603) {
+          const {
+            data: { message },
+          } = error;
+          if (typeof message === 'string') {
+            toast.show({ title: message });
+          }
+        }
         setFeeInfoPayload(null);
         setFeeInfoError(error);
         console.error(error);
@@ -240,10 +254,11 @@ export function useFeeInfoPayload({
       .finally(() => {
         setLoading(false);
       });
-  }, [encodedTx, fetchFeeInfo, setFeeInfoPayload]);
+  }, [encodedTx, fetchFeeInfo, setFeeInfoPayload, toast]);
+
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    if (pollingInterval) {
+    if (pollingInterval && isFocused) {
       timer = setInterval(async () => {
         if (loading) {
           return;
@@ -268,7 +283,9 @@ export function useFeeInfoPayload({
     fetchFeeInfo,
     loading,
     pollingInterval,
+    isFocused,
   ]);
+
   return {
     feeInfoError,
     feeInfoPayload,

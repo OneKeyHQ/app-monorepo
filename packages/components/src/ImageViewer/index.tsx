@@ -21,6 +21,9 @@ import uuid from 'react-native-uuid';
 
 import { Icon, Select } from '@onekeyhq/components';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Image as NetImage } from '../NetImage';
 
 type ImageViewerProps = {
   visible: boolean;
@@ -96,13 +99,22 @@ const ImageViewer: FC<ImageViewerProps> = ({
     () => (
       <Box>
         <Pressable onPress={handleClose}>
-          <Image
-            alt="-"
-            {...rest}
-            width={`${imageSize.width}px`}
-            height={`${imageSize.height}px`}
-            resizeMode="cover"
-          />
+          {platformEnv.isNative && rest.src ? (
+            <NetImage
+              width={`${imageSize.width}px`}
+              height={`${imageSize.height}px`}
+              resizeMode="cover"
+              uri={rest.src}
+            />
+          ) : (
+            <Image
+              alt="-"
+              {...rest}
+              width={`${imageSize.width}px`}
+              height={`${imageSize.height}px`}
+              resizeMode="cover"
+            />
+          )}
         </Pressable>
       </Box>
     ),

@@ -96,10 +96,23 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         //  already known
         setTimeout(() => {
           console.error(e);
-          const error = e as { key?: string; message?: string };
-          toast.show({
-            title: error?.key ?? error?.message ?? '',
-          });
+          const error = e as {
+            key?: string;
+            message?: string;
+            code?: number;
+            data?: { message?: string };
+          };
+          // TODO: better error displaying
+          if (
+            error?.code === -32603 &&
+            typeof error?.data?.message === 'string'
+          ) {
+            toast.show({ title: error.data.message });
+          } else {
+            toast.show({
+              title: error?.key ?? error?.message ?? '',
+            });
+          }
         }, 600);
       }
     }
