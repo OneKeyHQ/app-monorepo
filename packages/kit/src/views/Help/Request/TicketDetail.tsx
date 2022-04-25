@@ -46,7 +46,7 @@ const Attachment: FC<AttachmentsType> = ({ id, size }) => {
       {data.length > 0 ? (
         <NetImage
           key={data}
-          size={`${size}px`}
+          size={size}
           uri={data}
           borderRadius={12}
           preview
