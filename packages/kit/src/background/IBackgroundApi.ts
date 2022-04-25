@@ -1,4 +1,6 @@
 // import type only here to avoid cycle-deps error
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
@@ -21,7 +23,6 @@ import type {
   IJsonRpcRequest,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { IInjectedProviderNames } from "@onekeyfe/cross-inpage-provider-types";
 
 export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
