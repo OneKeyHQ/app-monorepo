@@ -1,42 +1,96 @@
 import React from 'react';
 
-import { Alert, Box, Center } from '@onekeyhq/components';
+import { Alert, Center, ScrollView, VStack } from '@onekeyhq/components';
 
 const AlertGallery = () => (
-  <Center flex="1" bg="background-hovered">
-    <Box margin="10px" w="384px">
-      <Alert
-        dismiss={false}
-        alertType="info"
-        title="Infomation"
-        description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
-      />
-    </Box>
+  <ScrollView>
+    <Center flex="1" bg="background-hovered" p="4" w="full">
+      <VStack maxW="384px" space="3" py="4">
+        <Alert alertType="info" title="Warning" />
+        <Alert
+          alertType="success"
+          title="Warning"
+          action="Update firmware"
+          actionType="right"
+          dismiss={false}
+        />
+        <Alert
+          alertType="warn"
+          title="Warning"
+          action="Update firmware"
+          actionType="right"
+        />
+        <Alert
+          alertType="error"
+          title="Warning"
+          action="Update firmware"
+          actionType="right"
+        />
+        <Alert
+          alertType="info"
+          title="Warning"
+          action="Update firmware"
+          actionType="bottom"
+        />
+        <Alert
+          alertType="success"
+          title="Warning"
+          action="Update firmware"
+          actionType="bottom"
+          dismiss={false}
+        />
+        <Alert
+          alertType="warn"
+          title="Warning"
+          action="Update firmware"
+          actionType="bottom"
+        />
+        <Alert
+          alertType="error"
+          title="Warning"
+          action="Update firmware"
+          actionType="bottom"
+        />
 
-    <Box margin="10px" w="384px">
-      <Alert
-        alertType="warn"
-        title="Warning"
-        description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
-      />
-    </Box>
+        <Alert
+          dismiss={false}
+          alertType="info"
+          title="Infomation"
+          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
+        />
+        <Alert
+          alertType="warn"
+          title="Warning"
+          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
+        />
 
-    <Box margin="10px" w="384px">
-      <Alert
-        alertType="error"
-        title="Warning"
-        description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
-      />
-    </Box>
-
-    <Box margin="10px" w="384px">
-      <Alert
-        alertType="success"
-        title="Warning"
-        description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
-      />
-    </Box>
-  </Center>
+        <Alert
+          alertType="error"
+          title="Warning"
+          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
+        />
+        <Alert
+          alertType="success"
+          title="Warning"
+          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
+        />
+        <Alert
+          action="Update firmware"
+          actionType="bottom"
+          alertType="success"
+          title="Warning"
+          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
+        />
+        <Alert
+          action="Update firmware"
+          actionType="right"
+          alertType="success"
+          title="Warning"
+          description="Lorem ipsum dolor sit amet consectetur adipisicing elit. Aliquid pariatur, ipsum similique veniam quo totam eius aperiam dolorum."
+        />
+      </VStack>
+    </Center>
+  </ScrollView>
 );
 
 export default AlertGallery;
