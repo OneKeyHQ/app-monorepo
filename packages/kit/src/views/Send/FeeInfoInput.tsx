@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 
-import { StackActions, useNavigation,useRoute } from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
