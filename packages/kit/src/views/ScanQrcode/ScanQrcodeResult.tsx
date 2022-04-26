@@ -19,13 +19,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
+import { CreateWalletModalRoutes, CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToast } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
+import { ModalScreenProps } from '../../routes/types';
 
 const { isWeb, isNative: isApp } = platformEnv;
 
@@ -37,7 +38,7 @@ const pressableProps = {
   alignItems: 'center',
   justifyContent: 'space-between',
   shadow: 'depth.2',
-} as any;
+} as const;
 
 function CopyButton({ data }: { data: string }) {
   const intl = useIntl();
@@ -67,6 +68,7 @@ type SelectAccAndNetworkNavProp = NavigationProp<
   ScanQrcodeRoutesParams,
   ScanQrcodeRoutes.SelectAccountAndNetwork
 >;
+type RootModalNavProps = ModalScreenProps<CreateWalletRoutesParams>;
 const ScanQrcodeResult: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<SelectAccAndNetworkNavProp>();
@@ -118,7 +120,7 @@ const ScanQrcodeResult: FC = () => {
           borderTopRadius={0}
           mb="16px"
           onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
+            (navigation as any as RootModalNavProps['navigation']).navigate(RootRoutes.Modal, {
               screen: ModalRoutes.CreateWallet,
               params: {
                 screen: CreateWalletModalRoutes.AddExistingWalletModal,
