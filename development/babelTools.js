@@ -7,6 +7,7 @@ function fullPath(pathStr) {
 }
 
 function normalizeConfig({ platform, config }) {
+  process.env.PLATFORM_NAME = platform;
   let moduleResolver = null;
   if (platform === developmentConsts.platforms.ext) {
     moduleResolver = {
@@ -64,6 +65,7 @@ function normalizeConfig({ platform, config }) {
           'REMOTE_CONSOLE_SERVER',
           'VERSION',
           'BUILD_NUMBER',
+          'PLATFORM_NAME',
         ],
       },
     ],
