@@ -10,7 +10,7 @@ const modalDomManager: ModalDomManager = { modalRoot: null, base: null };
 export function initModalDom() {
   if (platformEnv.isBrowser) {
     const modalRoot = document.createElement('DIV');
-    modalRoot.setAttribute('id', 'modal-root-xsdr');
+    modalRoot.setAttribute('id', 'modal-root-kaidon-wong');
     const base = document.querySelector('#root>div>div>div');
     modalDomManager.modalRoot = modalRoot;
     modalDomManager.base = base;
