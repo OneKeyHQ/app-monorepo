@@ -149,6 +149,8 @@ const SwapContent = () => {
       { id: 'form__amount_invalid' },
       { '0': inputToken?.symbol },
     );
+  } else if (error === SwapError.QuoteFailed) {
+    buttonTitle = intl.formatMessage({ id: 'transaction__failed' });
   }
 
   useEffect(() => {
