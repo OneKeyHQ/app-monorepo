@@ -124,14 +124,24 @@ const SwapContent = () => {
                   tokenAddress: inputAmount.token.tokenIdOnNetwork,
                   spender: swapQuote.allowanceTarget,
                 },
-                summary: `${inputAmount.token.symbol.toUpperCase()} Approved`,
+                summary: `${intl.formatMessage({
+                  id: 'title__approve',
+                })} ${inputAmount.token.symbol.toUpperCase()}`,
               });
             },
           },
         },
       });
     }
-  }, [account, network, inputAmount, swapQuote, navigation, addTransaction]);
+  }, [
+    account,
+    network,
+    inputAmount,
+    swapQuote,
+    navigation,
+    addTransaction,
+    intl,
+  ]);
 
   let buttonTitle = intl.formatMessage({ id: 'title__swap' });
   if (error === SwapError.InsufficientBalance) {
@@ -149,7 +159,7 @@ const SwapContent = () => {
       }
     }, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [network]);
 
   return (
     <Center px="4">
@@ -239,8 +249,9 @@ const SwapContent = () => {
             />
           </Box>
         ) : null}
-        {approveState === ApprovalState.NOT_APPROVED ||
-        approveState === ApprovalState.PENDING ? (
+        {!error &&
+        (approveState === ApprovalState.NOT_APPROVED ||
+          approveState === ApprovalState.PENDING) ? (
           <Button
             size="lg"
             type="primary"
