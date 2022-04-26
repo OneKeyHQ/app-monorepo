@@ -44,6 +44,9 @@ export const useWebviewRef = (
         // Electron Webview
 
         const electronWebView = webViewRef?.innerRef as IElectronWebView;
+        if (!electronWebView) {
+          return;
+        }
         const handleMessage = () => {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -70,8 +73,11 @@ export const useWebviewRef = (
           }
         };
 
-        const handleLoadFailMessage = () => {
-          setLoading(false);
+        const handleLoadFailMessage = (event: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (event.errorCode !== -3) {
+            setLoading(false);
+          }
         };
         const handleLoadStopMessage = () => {
           setLoading(false);
@@ -117,7 +123,7 @@ export const useWebviewRef = (
           );
         };
       } catch (error) {
-        console.log(error);
+        console.error(error);
       }
     }
   }, [webViewRef?.innerRef]);

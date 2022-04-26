@@ -85,6 +85,7 @@ function createConfig() {
       publicPath: ASSET_PATH,
       globalObject: 'this', // FIX: window is not defined in service-worker background
     },
+    // externalsType: 'module', // 'node-commonjs'
     module: {
       rules: [
         {

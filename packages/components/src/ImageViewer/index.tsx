@@ -101,8 +101,8 @@ const ImageViewer: FC<ImageViewerProps> = ({
         <Pressable onPress={handleClose}>
           {platformEnv.isNative && rest.src ? (
             <NetImage
-              width={`${imageSize.width}px`}
-              height={`${imageSize.height}px`}
+              width={imageSize.width}
+              height={imageSize.height}
               resizeMode="cover"
               uri={rest.src}
             />

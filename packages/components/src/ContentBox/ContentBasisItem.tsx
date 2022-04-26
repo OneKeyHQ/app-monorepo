@@ -125,21 +125,22 @@ const Item: FC<ContentItemProps> = ({
           </Box>
         )}
       </Box>
-      {(hasArrow || !!customArrowIconName) && onArrowIconPress ? (
-        <Center my={-1} ml={2} mr={-1}>
-          <IconButton
-            size="xs"
-            circle
-            name={customArrowIconName ?? 'ChevronRightSolid'}
-            type="plain"
-            onPress={onArrowIconPress}
-          />
-        </Center>
-      ) : (
-        <Box ml={3}>
-          <Icon name={customArrowIconName ?? 'ChevronRightSolid'} size={20} />
-        </Box>
-      )}
+      {(hasArrow || !!customArrowIconName) &&
+        (onArrowIconPress ? (
+          <Center my={-1} ml={2} mr={-1}>
+            <IconButton
+              size="xs"
+              circle
+              name={customArrowIconName ?? 'ChevronRightSolid'}
+              type="plain"
+              onPress={onArrowIconPress}
+            />
+          </Center>
+        ) : (
+          <Box ml={3}>
+            <Icon name={customArrowIconName ?? 'ChevronRightSolid'} size={20} />
+          </Box>
+        ))}
     </Box>
     {hasDivider && <Divider />}
   </Box>

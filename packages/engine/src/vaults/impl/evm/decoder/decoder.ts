@@ -62,6 +62,7 @@ interface EVMDecodedItem {
 
   fromAddress: string;
   toAddress: string;
+  nonce?: number;
   txHash: string;
   is1559: boolean;
   gasLimit: number;
@@ -194,6 +195,7 @@ class EVMTxDecoder {
     itemBuilder.value = tx.value.toString();
     itemBuilder.fromAddress = tx.from?.toLowerCase() ?? '';
     itemBuilder.toAddress = tx.to?.toLowerCase() ?? '';
+    itemBuilder.nonce = tx.nonce;
     itemBuilder.txHash = tx.hash ?? '';
     itemBuilder.is1559 = tx.type === 2;
     itemBuilder.gasLimit = tx.gasLimit.toNumber();

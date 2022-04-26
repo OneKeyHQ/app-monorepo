@@ -5,13 +5,17 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented } from '../../../errors';
+import { NotImplemented, PendingQueueTooLong } from '../../../errors';
 import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
+import {
+  HistoryEntryStatus,
+  HistoryEntryTransaction,
+} from '../../../types/history';
 import { ETHMessage, ETHMessageTypes } from '../../../types/message';
 import { EIP1559Fee, EvmExtraInfo } from '../../../types/network';
 import {
@@ -43,6 +47,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 
+const PENDING_QUEUE_MAX_LENGTH = 10;
+
 export type IUnsignedMessageEvm = ETHMessage & {
   payload?: any;
 };
@@ -57,6 +63,7 @@ export type IEncodedTxEvm = {
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+  nonce?: number;
 };
 
 export enum IDecodedTxEvmType {
@@ -313,6 +320,7 @@ export default class Vault extends VaultBase {
       gasPrice,
       maxFeePerGas,
       maxPriorityFeePerGas,
+      nonce,
       ...others
     } = encodedTx;
     debugLogger.sendTx(
@@ -335,6 +343,10 @@ export default class Vault extends VaultBase {
         feePricePerUnit: !isNil(gasPrice) ? new BigNumber(gasPrice) : undefined,
         maxFeePerGas,
         maxPriorityFeePerGas,
+        nonce:
+          typeof nonce !== 'undefined'
+            ? nonce
+            : await this.getNextNonce(network.id, dbAccount),
         ...others,
       },
     });
@@ -359,23 +371,49 @@ export default class Vault extends VaultBase {
     return unsignedTx;
   }
 
+  _toNormalAmount(value: string, decimals: number) {
+    const valueBN = ethers.BigNumber.from(value);
+    return ethers.utils.formatUnits(valueBN, decimals);
+  }
+
   async fetchFeeInfo(encodedTx: IEncodedTxEvm): Promise<IFeeInfo> {
+    // NOTE: for fetching gas limit, we don't want blockchain-libs to fetch
+    // other info such as gas price and nonce. Therefore the hack here to
+    // avoid redundant network requests.
+    const encodedTxWithFakePriceAndNonce = {
+      ...encodedTx,
+      nonce: 1,
+      gasPrice: '1',
+    };
     const [network, prices, unsignedTx] = await Promise.all([
       this.getNetwork(),
       this.engine.getGasPrice(this.networkId),
-      this.buildUnsignedTxFromEncodedTx(encodedTx),
+      this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 
     const eip1559 = Boolean(
       prices?.length && prices?.every((gas) => typeof gas === 'object'),
     );
-    let priceInfo: string | EIP1559Fee | undefined = encodedTx.gasPrice;
+    let priceInfo: string | EIP1559Fee | undefined = encodedTx.gasPrice
+      ? this._toNormalAmount(encodedTx.gasPrice, network.feeDecimals)
+      : undefined;
     if (eip1559) {
-      priceInfo = {
-        ...(prices[0] as EIP1559Fee),
-        maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
-        maxFeePerGas: encodedTx.maxFeePerGas,
-      } as EIP1559Fee;
+      priceInfo = merge(
+        {
+          ...(prices[0] as EIP1559Fee),
+        },
+        {
+          maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas
+            ? this._toNormalAmount(
+                encodedTx.maxPriorityFeePerGas,
+                network.feeDecimals,
+              )
+            : undefined,
+          maxFeePerGas: encodedTx.maxFeePerGas
+            ? this._toNormalAmount(encodedTx.maxFeePerGas, network.feeDecimals)
+            : undefined,
+        },
+      ) as EIP1559Fee;
     }
     // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
     // [10]
@@ -429,5 +467,45 @@ export default class Vault extends VaultBase {
       }
     }
     return Promise.resolve(encodedTxWithFee);
+  }
+
+  private async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    const onChainNonce =
+      (
+        await this.engine.providerManager.getAddresses(networkId, [
+          dbAccount.address,
+        ])
+      )[0]?.nonce ?? 0;
+
+    // TODO: Although 100 history items should be enough to cover all the
+    // pending transactions, we need to find a more reliable way.
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const nextNonce = Math.max(
+      ...(await Promise.all(
+        historyItems
+          .filter((entry) => entry.status === HistoryEntryStatus.PENDING)
+          .map((historyItem) =>
+            EVMTxDecoder.decode(
+              (historyItem as HistoryEntryTransaction).rawTx,
+              this.engine,
+            ).then(({ nonce }) => (nonce ?? 0) + 1),
+          ),
+      )),
+      onChainNonce,
+    );
+
+    if (nextNonce - onChainNonce >= PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
   }
 }

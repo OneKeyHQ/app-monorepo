@@ -7,6 +7,8 @@ import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault'
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
+import type { SwapQuote } from '../Swap/typings';
+
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
@@ -15,6 +17,7 @@ export enum SendRoutes {
   TokenApproveAmountEdit = 'TokenApproveAmountEdit',
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
+  SwapPreview = 'SwapPreview',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -35,7 +38,7 @@ export type SendParams = EditFeeParams & {
   token?: Token;
 };
 
-export type TransferSendParamsPayload = {
+export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
   account: {
     id: string;
@@ -60,12 +63,20 @@ export type TransferSendParamsPayload = {
 export type SendConfirmFromDappParams = {
   query?: string;
 };
-
+export type SendConfirmActionType = 'speedUp' | 'cancel';
+export type SendConfirmPayloadBase = {
+  payloadType: 'Transfer' | 'InternalSwap';
+};
+export type SendConfirmPayload =
+  | SendConfirmPayloadBase
+  | TransferSendParamsPayload
+  | SwapQuote;
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string;
-  payload?: TransferSendParamsPayload | any;
+  payload?: SendConfirmPayload;
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
+  actionType?: SendConfirmActionType;
 };
 
 export type SendAuthenticationParams = SendConfirmParams & {
@@ -88,4 +99,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
+  [SendRoutes.SwapPreview]: undefined;
 };

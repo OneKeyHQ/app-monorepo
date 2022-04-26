@@ -24,7 +24,7 @@ export type PromiseContainerReject = {
   error?: unknown;
 };
 
-let latestId = 0;
+let latestId = 1;
 
 @backgroundClass()
 class ServicePromise extends ServiceBase {
@@ -46,7 +46,7 @@ class ServicePromise extends ServiceBase {
     data,
   }: PromiseContainerCallbackCreate) {
     latestId += 1;
-    if (latestId < 0) {
+    if (latestId <= 0) {
       throw new Error(
         `PromiseContainer ERROR: callback id can NOT negative, id=${latestId}`,
       );

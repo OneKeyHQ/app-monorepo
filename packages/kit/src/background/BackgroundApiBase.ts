@@ -38,6 +38,15 @@ function isPrivateAllowedOrigin(origin?: string) {
   );
 }
 
+function isPrivateAllowedMethod(method?: string) {
+  return (
+    method &&
+    ['wallet_getConnectWalletInfo', 'wallet_sendSiteMetadata'].includes(
+      method || '',
+    )
+  );
+}
+
 function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
   const { internal, origin } = payload;
   const request = payload.data as IJsonRpcRequest;
@@ -69,9 +78,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   bridgeExtBg: JsBridgeExtBackground | null = null;
 
-  providers: Record<string, ProviderApiBase> = createBackgroundProviders({
-    backgroundApi: this,
-  });
+  providers: Record<IInjectedProviderNames, ProviderApiBase> =
+    createBackgroundProviders({
+      backgroundApi: this,
+    });
 
   // @ts-ignore
   _persistorUnsubscribe: () => void;
@@ -136,7 +146,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   protected rpcResult(result: any): IJsonRpcResponse<any> {
     return {
-      id: undefined,
+      id: Date.now(),
       jsonrpc: '2.0',
       result,
     };
@@ -146,7 +156,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     payload: IJsBridgeMessagePayload,
   ): Promise<IJsonRpcResponse<any>> {
     const { scope, origin } = payload;
-    const provider: ProviderApiBase | null = this.providers[scope as string];
+    const payloadData = payload?.data as IJsonRpcRequest;
+    const provider: ProviderApiBase | null =
+      this.providers[scope as IInjectedProviderNames];
     if (!provider) {
       throw new Error(
         `[${scope as string}] ProviderApi instance is not found.`,
@@ -154,21 +166,36 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
     if (
       scope === IInjectedProviderNames.$private &&
-      !isPrivateAllowedOrigin(origin)
+      !isPrivateAllowedOrigin(origin) &&
+      !isPrivateAllowedMethod(payloadData?.method)
     ) {
       throw new Error(
-        `${origin as string} is not allowed to call $private methods.`,
+        `${origin as string} is not allowed to call $private methods: ${
+          payloadData?.method
+        }`,
       );
     }
     // throw web3Errors.provider.custom({
     //   code: 3881,
     //   message: 'test custom error to dapp',
     // });
-    debugLogger.ethereum('provider.handleMethods', payload);
+    debugLogger.ethereum(
+      'provider.handleMethods ====> ',
+      payloadData.method,
+      payload,
+    );
     const result = await provider.handleMethods(payload);
     ensureSerializable(result);
     // TODO non rpc result return in some chain provider
-    return this.rpcResult(result);
+    const resultWrapped = this.rpcResult(result);
+    debugLogger.ethereum(
+      'provider.handleMethods RESULT:',
+      payloadData,
+      '\r\n ----> \r\n',
+      resultWrapped,
+      payload,
+    );
+    return resultWrapped;
   }
 
   async _bridgeReceiveHandler(payload: IJsBridgeMessagePayload): Promise<any> {

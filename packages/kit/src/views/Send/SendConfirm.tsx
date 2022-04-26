@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   NavigationProp,
@@ -6,9 +6,8 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
-import { Center, Spinner, utils } from '@onekeyhq/components';
+import { Center, Spinner } from '@onekeyhq/components';
 import {
   HistoryEntryStatus,
   HistoryEntryType,
@@ -22,6 +21,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
+import { SwapQuote } from '../Swap/typings';
 
 import {
   ITxConfirmViewProps,
@@ -32,6 +32,7 @@ import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
 import { TxConfirmTokenApprove } from './confirmViews/TxConfirmTokenApprove';
 import { TxConfirmTransfer } from './confirmViews/TxConfirmTransfer';
 import {
+  SendConfirmPayloadBase,
   SendRoutes,
   SendRoutesParams,
   TransferSendParamsPayload,
@@ -61,7 +62,6 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 }
 
 const TransactionConfirm = () => {
-  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
@@ -82,16 +82,32 @@ const TransactionConfirm = () => {
     id: params.sourceInfo?.id ?? '',
     closeOnError: true,
   });
+  // TODO useFeeInTx has some bugs
   const useFeeInTx = !isFromDapp;
-  const feeInfoEditable = !useFeeInTx;
+  const isCancelOrSpeedUp =
+    params.actionType === 'cancel' || params.actionType === 'speedUp';
+  // const useFeeInTx = false;
 
-  let payload = params.payload as TransferSendParamsPayload;
-  if (payload) {
-    accountId = payload.account.id;
-    networkId = payload.network.id;
-  } else {
-    // TODO parse encodedTx to payload
-    payload = {} as TransferSendParamsPayload;
+  let feeInfoEditable = !useFeeInTx;
+  if (isCancelOrSpeedUp) {
+    feeInfoEditable = true;
+  }
+
+  const payload = useMemo(
+    () => (params.payload || {}) as SendConfirmPayloadBase,
+    [params.payload],
+  );
+
+  const isTransferTypeTx =
+    decodedTx?.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
+    decodedTx?.txType === EVMDecodedTxType.TOKEN_TRANSFER;
+
+  const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
+
+  if (isTransferTypeTx) {
+    const payloadTransfer = payload as TransferSendParamsPayload;
+    accountId = payloadTransfer?.account?.id;
+    networkId = payloadTransfer?.network?.id;
   }
 
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
@@ -112,28 +128,36 @@ const TransactionConfirm = () => {
   const saveHistory = useCallback(
     (tx: IBroadcastedTx) => {
       const historyId = `${networkId}--${tx.txid}`;
-      // TODO addHistoryEntryFromEncodedTx({ type, encodedTx, signedTx, payload })
-      backgroundApiProxy.engine.addHistoryEntry({
-        id: historyId,
-        accountId,
-        networkId,
-        type: HistoryEntryType.TRANSFER,
-        status: HistoryEntryStatus.PENDING,
-        meta: {
-          contract: payload.token?.idOnNetwork || '',
-          target: payload.to,
-          value: payload.value,
-          // TODO add ref
-          rawTx: tx.rawTx,
-        },
-      });
+      // save transfer type history
+      if (isTransferTypeTx) {
+        const payloadTransfer = payload as TransferSendParamsPayload;
+        const { to, token, value } = payloadTransfer;
+        backgroundApiProxy.engine.addHistoryEntry({
+          id: historyId,
+          accountId,
+          networkId,
+          type: HistoryEntryType.TRANSFER,
+          status: HistoryEntryStatus.PENDING,
+          meta: {
+            contract: token?.idOnNetwork || '',
+            target: to,
+            value,
+            ref: params?.sourceInfo?.origin || '', // dapp domain
+            rawTx: tx.rawTx,
+          },
+        });
+      }
+      if (isInternalSwapTx) {
+        // TODO save internal swap history
+      }
     },
     [
       accountId,
+      isTransferTypeTx,
       networkId,
-      payload.to,
-      payload.token?.idOnNetwork,
-      payload.value,
+      params?.sourceInfo?.origin,
+      payload,
+      isInternalSwapTx,
     ],
   );
 
@@ -149,7 +173,7 @@ const TransactionConfirm = () => {
         removeFeeInfoInTx(encodedTx);
       }
       const encodedTxWithFee =
-        !useFeeInTx && feeInfoPayload
+        feeInfoEditable && feeInfoPayload
           ? await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
               networkId,
               accountId,
@@ -178,7 +202,7 @@ const TransactionConfirm = () => {
     },
     [
       isFromDapp,
-      useFeeInTx,
+      feeInfoEditable,
       feeInfoPayload,
       networkId,
       accountId,
@@ -206,6 +230,7 @@ const TransactionConfirm = () => {
     decodedTx,
   };
 
+  // waiting for tx decode
   if (!decodedTx) {
     return (
       <SendConfirmModal {...sharedProps} confirmDisabled>
@@ -216,22 +241,25 @@ const TransactionConfirm = () => {
     );
   }
 
+  // handle speed up / cancel.
+  if (isCancelOrSpeedUp) {
+    return <TxConfirmBlind {...sharedProps} />;
+  }
+
   if (decodedTx.txType === EVMDecodedTxType.TOKEN_APPROVE) {
     return <TxConfirmTokenApprove {...sharedProps} />;
   }
 
-  if (
-    decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
-    decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER
-  ) {
-    return (
-      <TxConfirmTransfer
-        {...sharedProps}
-        headerDescription={`${intl.formatMessage({
-          id: 'content__to',
-        })}:${utils.shortenAddress(encodedTx.to)}`}
-      />
-    );
+  if (isInternalSwapTx) {
+    // TODO internal swap confirm view
+    const payloadInternalSwap = payload as SwapQuote;
+    return <TxConfirmBlind {...sharedProps} payload={payloadInternalSwap} />;
+  }
+
+  if (isTransferTypeTx) {
+    // TODO from dapp: feeInfoEditable=true
+    //      from internal transfer: feeInfoEditable=false
+    return <TxConfirmTransfer {...sharedProps} feeInfoEditable={false} />;
   }
 
   // Dapp blind sign
