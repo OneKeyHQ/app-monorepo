@@ -14,6 +14,7 @@ import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
 import ContainerGallery from '@onekeyhq/kit/src/views/Components/stories/Container';
+import DeviceConnection from '@onekeyhq/kit/src/views/Components/stories/DeviceConnection';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
@@ -97,6 +98,7 @@ export enum StackRoutes {
   ComponentEmojiList = 'component/EmojiList',
   ComponentContentBox = 'component/ContentBox',
   ComponentAppUpdate = 'component/AppUpdate',
+  ComponentDeviceConnection = 'component/device-connection',
 }
 
 export type StackBasicRoutesParams = {
@@ -146,6 +148,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentEmojiList]: undefined;
   [StackRoutes.ComponentContentBox]: undefined;
   [StackRoutes.ComponentAppUpdate]: undefined;
+  [StackRoutes.ComponentDeviceConnection]: undefined;
 };
 
 export const stackScreenList = [
@@ -186,6 +189,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentPinCode, component: PinCodeGallery },
   { name: StackRoutes.ComponentAppUpdate, component: AppUpdateGallery },
   { name: StackRoutes.ComponentRestfulRequest, component: RestfulRequest },
+  { name: StackRoutes.ComponentDeviceConnection, component: DeviceConnection },
   {
     name: StackRoutes.ComponentHeaderTabViewContainerGallery,
     component: HeaderTabViewContainerGallery,

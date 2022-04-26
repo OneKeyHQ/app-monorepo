@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, global-require, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires */
-import React, { LegacyRef } from 'react';
+import React, { LegacyRef, useEffect, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
 
@@ -31,12 +31,20 @@ type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
 };
 
 const LottieView = ({ source, ...props }: LottieViewProps) => {
+  const animationRef = useRef<AnimatedLottieView | null>();
+
+  useEffect(() => {
+    setTimeout(() => {
+      animationRef.current?.play?.();
+    }, 50);
+  }, []);
+
   if (platformEnv.isNative && !!LottieViewNative) {
     return (
       <LottieViewNative
         source={source}
         {...props}
-        ref={props.ref as LegacyRef<AnimatedLottieView>}
+        ref={animationRef as LegacyRef<AnimatedLottieView>}
       />
     );
   }

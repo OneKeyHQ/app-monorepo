@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "确保设备放在靠近手机的 NFC 模块的位置，然后再试一次",
   "modal__finish_backup": "完成备份",
   "modal__finish_backup_desc": "在下方输入相应的助记词，以检查您是否做了正确的备份。",
+  "modal__follow_the_instructions_on_your_device_screen": "请按照设备屏幕上的说明进行操作",
   "modal__input_pin_code": "请在设备上输入 PIN 码",
   "modal__install_onekey_bridge": "安装 OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge 是一个能够将设备和浏览器连接的工具。",

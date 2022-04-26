@@ -81,6 +81,7 @@ const Transaction = () => {
   const [encodedTx, setEncodedTx] = useState(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
+  const [transferError, setTransferError] = useState<Error | null>(null);
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
@@ -189,10 +190,10 @@ const Transaction = () => {
           const tx = await promise;
           if (tx) {
             setEncodedTx(tx);
+            setTransferError(null);
           }
         } catch (e) {
-          // TODO display static form error message
-          console.error(e);
+          setTransferError(e as Error);
         } finally {
           setBuildLoading(false);
         }
@@ -281,6 +282,7 @@ const Transaction = () => {
         feeInfoValue: feeInfoPayload?.current.value,
       });
     const payload: TransferSendParamsPayload = {
+      payloadType: 'Transfer',
       to: data.to,
       account: {
         id: account.id,
@@ -352,14 +354,18 @@ const Transaction = () => {
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
-                  required: intl.formatMessage({ id: 'form__address_invalid' }),
+                  // required is NOT needed, as submit button should be disabled
+                  // required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async (toAddress) => {
+                    if (!toAddress) {
+                      return undefined;
+                    }
                     try {
                       await backgroundApiProxy.validator.validateAddress(
                         networkId,
                         toAddress,
                       );
-                    } catch (error) {
+                    } catch (error0) {
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });
@@ -431,16 +437,12 @@ const Transaction = () => {
                   />
                 }
                 rules={{
-                  required: isMax
-                    ? ''
-                    : intl.formatMessage(
-                        { id: 'form__amount_invalid' },
-                        { 0: selectedToken?.symbol ?? '' },
-                      ),
+                  // required is NOT needed, as submit button should be disable
                   validate: (value) => {
                     const token = selectedToken;
                     if (!token) return undefined;
                     if (isMax) return undefined;
+                    if (!value) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(
                       getTokenBalance(token, '0'),
@@ -473,6 +475,8 @@ const Transaction = () => {
                   enableMaxButton
                   isMax={isMax}
                   maxText={getTokenBalance(selectedToken, '')}
+                  maxTextIsNumber
+                  maxModeCanEdit
                   onMaxChange={(v) => {
                     setIsMax(v);
                     revalidateAmountInput();
@@ -490,6 +494,7 @@ const Transaction = () => {
                   loading={feeInfoLoading}
                 />
                 <FormErrorMessage message={feeInfoError?.message ?? ''} />
+                <FormErrorMessage message={transferError?.message ?? ''} />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

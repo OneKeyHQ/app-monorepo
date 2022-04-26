@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "Төхөөрөмж нь утасны NFC модульд ойрхон байгаа эсэхийг шалгаад дахин оролдоно уу",
   "modal__finish_backup": "Нөөцлөлтийг дуусгах",
   "modal__finish_backup_desc": "Доорх сэргээх хэллэгт тохирох үгсийг оруулж, зөв нөөцлөлт хийсэн эсэхээ шалгана уу.",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "Төхөөрөмж дээрээ PIN кодоо оруулна уу",
   "modal__install_onekey_bridge": "OneKey Bridge суулгана уу",
   "modal__install_onekey_bridge_desc": "OneKey Bridge нь таны OneKey болон таны интернет хөтөч хоорондын холболтыг хөнгөвчлөх харилцааны хэрэгсэл юм.",

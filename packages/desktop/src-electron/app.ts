@@ -85,6 +85,19 @@ function createMainWindow() {
     app.exit(0);
   });
 
+  const filter = {
+    urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
+  };
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    filter,
+    (details, callback) => {
+      // @ts-ignore electron declares requestHeaders as an empty interface
+      details.requestHeaders.Origin = 'https://connect.onekey.so';
+
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    },
+  );
+
   if (!isDev) {
     const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
@@ -136,3 +149,8 @@ app.on('before-quit', () => {
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
+if (isDev) {
+  app.commandLine.appendSwitch('ignore-certificate-errors');
+  app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
+  app.commandLine.appendSwitch('disable-site-isolation-trials');
+}
