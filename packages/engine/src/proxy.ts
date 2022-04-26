@@ -31,6 +31,7 @@ import {
   sign,
   uncompressPublicKey,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
 import {
   TransactionStatus,
@@ -270,9 +271,10 @@ class Signer extends Verifier implements ISigner {
     super(N(curve, encryptedPrivateKey, password).key.toString('hex'), curve);
   }
 
-  getPrvkey() {
-    // Not used.
-    return Promise.resolve(Buffer.from([]));
+  getPrvkey(): Promise<Buffer> {
+    return Promise.resolve(
+      decrypt(this.password, this.encryptedPrivateKey.key),
+    );
   }
 
   sign(digest: Buffer): Promise<[Buffer, number]> {
