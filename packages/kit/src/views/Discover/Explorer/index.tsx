@@ -3,6 +3,7 @@ import React, { FC, useEffect, useMemo, useState } from 'react';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Box, useIsSmallLayout } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -36,11 +37,16 @@ type WebSiteType = {
   historyId?: string;
 };
 
+export type SearchContentType = {
+  searchContent: string;
+  dapp?: MatchDAppItemType; // don`t search dapp
+};
+
 export type ExplorerViewProps = {
   displayInitialPage?: boolean;
-  searchContent?: string;
+  searchContent?: SearchContentType;
   loading?: boolean;
-  onSearchContentChange?: (text: string) => void;
+  onSearchContentChange?: (text: SearchContentType) => void;
   onSearchSubmitEditing?: (text: MatchDAppItemType | string) => void;
   explorerContent: React.ReactNode;
   canGoBack?: boolean;
@@ -89,7 +95,8 @@ const Explorer: FC = () => {
   const [visibleMore, setVisibleMore] = useState(false);
 
   const [displayInitialPage, setDisplayInitialPage] = useState(true);
-  const [searchContent, setSearchContent] = useState<string>();
+
+  const [searchContent, setSearchContent] = useState<SearchContentType>();
   const [currentWebSite, setCurrentWebSite] = useState<WebSiteType>();
 
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
@@ -148,7 +155,7 @@ const Explorer: FC = () => {
         }
       } catch (error) {
         setCurrentWebSite({ url: BrowserPage });
-        setSearchContent(item);
+        setSearchContent({ searchContent: item });
         console.log('not a url', error);
       }
 
@@ -227,7 +234,7 @@ const Explorer: FC = () => {
       content = currentWebSite?.url ?? '';
     }
 
-    if (content !== BrowserPage) setSearchContent(content);
+    if (content !== BrowserPage) setSearchContent({ searchContent: content });
 
     if (displayInitialPage === false || webCanGoBack()) {
       setCanGoBack(true);
@@ -345,6 +352,10 @@ const Explorer: FC = () => {
     }
   };
 
+  const currentWebSiteMemo = useDeepCompareMemo(
+    () => currentWebSite,
+    [currentWebSite],
+  );
   const explorerContent = useMemo(
     () => (
       <Box flex={1}>
@@ -352,7 +363,7 @@ const Explorer: FC = () => {
           <Home onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })} />
         ) : (
           <WebView
-            src={currentWebSite?.url ?? ''}
+            src={currentWebSiteMemo?.url ?? ''}
             onWebViewRef={(ref) => {
               setWebviewRef(ref);
             }}
@@ -363,7 +374,7 @@ const Explorer: FC = () => {
       </Box>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentWebSite, displayInitialPage],
+    [currentWebSiteMemo, displayInitialPage],
   );
 
   const moreViewContent = useMemo(

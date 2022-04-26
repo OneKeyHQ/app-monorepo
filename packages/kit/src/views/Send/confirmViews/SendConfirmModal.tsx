@@ -15,7 +15,7 @@ import {
 import { IDappCallParams } from '../../../background/IBackgroundApi';
 import { useManageTokens } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
-import { TransferSendParamsPayload } from '../types';
+import { SendConfirmPayload } from '../types';
 
 export type ITxConfirmViewPropsHandleConfirm = ({
   onClose,
@@ -41,7 +41,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoPayload: IFeeInfoPayload | null;
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
-  payload?: any | TransferSendParamsPayload;
+  payload?: SendConfirmPayload;
   children?: React.ReactElement;
 };
 

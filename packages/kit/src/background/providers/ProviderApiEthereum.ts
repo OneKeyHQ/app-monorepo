@@ -369,20 +369,17 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // TODO @publicMethod()
   async metamask_getProviderState(request: IJsBridgeMessagePayload) {
-    // pass debugLoggerSettings to dapp injected provider
-    const debugLoggerSettings = (await debugLogger?.debug?.load?.()) ?? '';
     return {
       accounts: await this.eth_accounts(request),
       chainId: await this.eth_chainId(),
       networkVersion: await this.net_version(),
       isUnlocked: await this._getCurrentUnlockState(),
-      debugLoggerSettings,
     };
   }
 
   // get and save Dapp site icon & title
   metamask_sendDomainMetadata() {
-    // TODO save to DB
+    // TODO
     return {};
   }
 
@@ -425,12 +422,16 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
     const { networkId } = getActiveWalletAccount();
+    debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
     // TODO error if networkId empty, or networkImpl not EVM
     const result = await this.backgroundApi.engine.proxyRPCCall(
       networkId,
       request,
     );
-    debugLogger.ethereum('BgApi rpcCall:', request, { networkId, result });
+    debugLogger.ethereum('BgApi rpcCall RESULT:', request, {
+      networkId,
+      result,
+    });
     return result;
   }
 

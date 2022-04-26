@@ -11,7 +11,7 @@ import { ThemeToken } from '../Provider/theme';
 
 let FastImage: typeof import('react-native-fast-image').default | undefined;
 try {
-  FastImage = require('react-native-fast-image').default;
+  FastImage = require('react-native-fast-image');
 } catch (e) {
   // Ignore
   console.debug('Error on require `react-native-fast-image` module', e);
@@ -19,9 +19,9 @@ try {
 
 type ImageProps = {
   alt?: string;
-  width?: string | undefined;
-  height?: string | undefined;
-  size?: string | undefined;
+  width?: number | undefined;
+  height?: number | undefined;
+  size?: number | undefined;
   borderRadius?: number;
   bgColor?: ThemeToken;
   resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
@@ -48,8 +48,8 @@ export const Image: FC<ImageProps> = ({ ...rest }) => {
   }
   return (
     <OKImage
-      width={width}
-      height={height}
+      width={`${width ?? 0}px`}
+      height={`${height ?? 0}px`}
       src={uri}
       resizeMode={resizeMode}
       preview={preview}
