@@ -84,7 +84,12 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 borderTopWidth={index !== 0 ? '1' : undefined}
                 onPress={() => onPress?.(item)}
               >
-                <Box display="flex" alignItems="center" flexDirection="row">
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  flexDirection="row"
+                  flex="1"
+                >
                   <Image
                     source={{ uri: item.logoURI }}
                     alt="logoURI"
