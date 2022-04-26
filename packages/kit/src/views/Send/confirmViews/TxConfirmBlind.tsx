@@ -24,6 +24,7 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
     feeInfoEditable,
     encodedTx,
     sourceInfo,
+    payload,
   } = props;
   const intl = useIntl();
   const cardBgColor = useThemeValue('surface-default');
@@ -105,7 +106,26 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
           <Typography.Subheading mt="24px" color="text-subdued">
             {intl.formatMessage({ id: 'content__more_details' })}
           </Typography.Subheading>
+
           <Column bg={cardBgColor} borderRadius="12px" mt="2">
+            {payload?.payloadType ? (
+              <Row justifyContent="space-between" space="16px" padding="16px">
+                <Text
+                  color="text-subdued"
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                >
+                  payloadType
+                </Text>
+                <Text
+                  textAlign="right"
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                  flex={1}
+                  noOfLines={3}
+                >
+                  {payload?.payloadType}
+                </Text>
+              </Row>
+            ) : null}
             <Row justifyContent="space-between" space="16px" padding="16px">
               <Text
                 color="text-subdued"

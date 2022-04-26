@@ -1348,6 +1348,7 @@ class Engine {
     accountId: string;
     transferInfo: ITransferInfo;
   }) {
+    // throw new Error('build encodedtx error test');
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfo);
     debugLogger.sendTx('buildEncodedTxFromTransfer: ', transferInfo, result, {

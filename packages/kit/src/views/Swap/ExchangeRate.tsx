@@ -23,7 +23,7 @@ const ExchangeRate: FC<ExchangeRateProps> = ({ tokenA, tokenB, quote }) => {
   if (!isSwitched) {
     const title = `1${symbolA} = ${Number(price).toFixed(4)}${symbolB}`;
     return (
-      <Box flexDirection="row" alignItems="center">
+      <Box flexDirection="row" alignItems="center" justifyContent="flex-end">
         <Typography.Body2>{title}</Typography.Body2>
         <IconButton
           size="xs"
@@ -36,7 +36,7 @@ const ExchangeRate: FC<ExchangeRateProps> = ({ tokenA, tokenB, quote }) => {
   }
   const title = `1${symbolB} = ${(1 / Number(price)).toFixed(4)}${symbolA}`;
   return (
-    <Box flexDirection="row" alignItems="center">
+    <Box flexDirection="row" alignItems="center" justifyContent="flex-end">
       <Typography.Body2>{title}</Typography.Body2>
       <IconButton
         size="xs"

@@ -41,7 +41,7 @@ const PendingTransactions = () => {
   const intl = useIntl();
   const allTransactions = useAllTransactions();
   const pendings = Object.values(allTransactions).filter(
-    (tx) => !tx.approval && !tx.confirmedTime,
+    (tx) => !tx.confirmedTime,
   );
   return pendings.length ? (
     <Box mb="4">
@@ -68,7 +68,7 @@ const ConfirmedTransactions = () => {
   const allTransactions = useAllTransactions();
   const cleanAllConfirmedTransaction = useCleanAllConfirmedTransaction();
   const confirmedTxs = Object.values(allTransactions).filter(
-    (tx) => !tx.approval && tx.confirmedTime,
+    (tx) => tx.confirmedTime,
   );
   if (confirmedTxs.length === 0) {
     return <></>;

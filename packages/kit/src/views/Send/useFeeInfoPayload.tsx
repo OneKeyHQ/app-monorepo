@@ -94,9 +94,8 @@ export function useFeeInfoPayload({
   fetchAnyway?: boolean;
 }) {
   const isFocused = useIsFocused();
-  const { network } = useActiveWalletAccount();
+  const { network, accountId, networkId } = useActiveWalletAccount();
   const [feeInfoError, setFeeInfoError] = useState<Error | null>(null);
-  const { accountId, networkId } = useActiveWalletAccount();
   const [feeInfoPayload, setFeeInfoPayload] = useState<IFeeInfoPayload | null>(
     null,
   );
@@ -137,12 +136,17 @@ export function useFeeInfoPayload({
       }
       const DEFAULT_PRESET_INDEX = '1';
       let feeInfoSelected = feeInfoSelectedInRouteParams;
-
+      const {
+        decimals: nativeDecimals,
+        symbol: nativeSymbol,
+        feeDecimals,
+        feeSymbol,
+      } = network ?? {};
       let info: IFeeInfo = {
-        nativeDecimals: network?.decimals,
-        nativeSymbol: network?.symbol,
-        decimals: network?.feeDecimals,
-        symbol: network?.feeSymbol,
+        nativeDecimals,
+        nativeSymbol,
+        decimals: feeDecimals,
+        symbol: feeSymbol,
         prices: [],
       };
       let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
@@ -157,12 +161,10 @@ export function useFeeInfoPayload({
             networkId,
             encodedTx,
           });
-          if (feeInfoError) {
-            setFeeInfoError(null);
-          }
+          setFeeInfoError(null);
         } catch (error: any) {
           setFeeInfoError(error);
-          console.error(error);
+          console.error('engine.fetchFeeInfo ERROR: ', error);
         }
       }
       let currentInfoUnit: IFeeInfoUnit = {
@@ -219,14 +221,10 @@ export function useFeeInfoPayload({
     }, [
       accountId,
       encodedTx,
-      feeInfoError,
       feeInfoSelectedInRouteParams,
       fetchAnyway,
       getSelectedFeeInfoUnit,
-      network?.decimals,
-      network?.feeDecimals,
-      network?.feeSymbol,
-      network?.symbol,
+      network,
       networkId,
       useFeeInTx,
     ]);
@@ -271,7 +269,7 @@ export function useFeeInfoPayload({
           setFeeInfoPayload(info);
         } catch (error: any) {
           setFeeInfoError(error);
-          console.error(error);
+          console.error('feeInfoPollingInterval ERROR: ', error);
         }
       }, pollingInterval);
     }

@@ -15,7 +15,10 @@ import store from '../store';
 
 import EngineApp from './EngineProvider';
 import NavigationApp from './NavigationProvider';
+import { themePreload } from './themePreload';
 import ThemeApp from './ThemeProvider';
+
+themePreload();
 
 function WaitBackgroundReady({
   loading,

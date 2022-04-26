@@ -1,3 +1,5 @@
+import type { SendConfirmPayloadBase } from '../Send/types';
+
 export enum SwapRoutes {
   Swap = 'Swap',
   Input = 'Input',
@@ -16,7 +18,7 @@ export type SwapRoutesParams = {
   [SwapRoutes.CustomToken]: { address?: string } | undefined;
 };
 
-export type SwapQuote = {
+export type SwapQuote = SendConfirmPayloadBase & {
   price: string;
   guaranteedPrice: string;
   to: string;

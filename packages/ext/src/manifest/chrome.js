@@ -11,4 +11,6 @@ module.exports = {
     // TODO move js file to root, as some browsers will not working
     'service_worker': 'background.bundle.js',
   },
+  // Not allowed for manifest V3: Invalid value for 'content_security_policy'.
+  // 'content_security_policy': "script-src 'self'; object-src 'self';",
 };

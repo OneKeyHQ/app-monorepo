@@ -73,6 +73,7 @@ const Header: FC<HeaderProps> = ({
         })}
         mb="6"
         autoFocus
+        selectTextOnFocus
         value={keyword}
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
