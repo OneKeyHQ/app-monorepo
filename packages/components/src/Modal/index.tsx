@@ -271,7 +271,9 @@ const Modal: FC<ModalProps> = ({
     </>
   );
 
-  return modalRoot ? ReactDOM.createPortal(node, modalRoot) : node;
+  return modalRoot && !['SMALL', 'NORMAL'].includes(size)
+    ? ReactDOM.createPortal(node, modalRoot)
+    : node;
 };
 
 Modal.defaultProps = defaultProps;
