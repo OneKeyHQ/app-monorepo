@@ -89,7 +89,9 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
-                  avatarBgColor="#55A9D9"
+                  walletImage="hd"
+                  // TODO:avatar={wallet.avatar}
+                  avatarBgColor="#FFE0DF"
                 />
               ))}
 

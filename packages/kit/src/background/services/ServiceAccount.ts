@@ -14,6 +14,7 @@ import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setEnableAppLock } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
+import { Avatar } from '../../utils/emojiUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
@@ -154,9 +155,11 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     password,
     mnemonic,
+    avatar,
   }: {
     password: string;
     mnemonic?: string;
+    avatar?: Avatar;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;

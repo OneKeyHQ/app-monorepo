@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
+import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 type FieldValues = { name: string };
 
@@ -97,8 +98,9 @@ const ModifyWalletNameViewModal: FC = () => {
               alignItems="center"
             >
               <WalletAvatar
-                avatarBgColor="#55A9D9"
-                walletImage="🤑"
+                // TODO:avatar={wallet.avatar}
+                avatar={randomAvatar()}
+                walletImage="hd"
                 size="xl"
               />
               {/* <Image

@@ -25,6 +25,7 @@ import {
   TabRoutes,
   TabRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
@@ -129,9 +130,11 @@ const Restore: FC = () => {
             {
               onSuccess: async (password) => {
                 try {
+                  const avatar = randomAvatar();
                   await serviceAccount.createHDWallet({
                     password,
                     mnemonic: data.trim(),
+                    avatar,
                   });
 
                   stateNfcDone();
@@ -183,9 +186,11 @@ const Restore: FC = () => {
           {
             onSuccess: async (password) => {
               try {
+                const avatar = randomAvatar();
                 await serviceAccount.createHDWallet({
                   password,
                   mnemonic: restoreData.trim(),
+                  avatar,
                 });
 
                 stateNfcDone();
