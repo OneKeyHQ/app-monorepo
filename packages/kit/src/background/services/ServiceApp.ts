@@ -78,8 +78,8 @@ class ServiceApp extends ServiceBase {
       activeWalletId,
       activeNetworkId,
     );
-
     const activeAccountId = serviceAccount.initCheckingAccount(accounts);
+
     dispatch(
       setActiveIds({
         activeAccountId,

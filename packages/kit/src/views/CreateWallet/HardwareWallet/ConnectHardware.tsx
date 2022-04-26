@@ -3,7 +3,6 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import isOnekeyDevice from '@onekeyhq/app/src/utils/OnekeyHardware';
 import {
   Box,
   Center,
@@ -30,6 +29,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import isOnekeyDevice from '@onekeyhq/kit/src/utils/ble/OnekeyHardware';
 import Platform from '@onekeyhq/shared/src/platformEnv';
 
 import bleUtils, { BleDevice } from '../../../utils/ble/utils';

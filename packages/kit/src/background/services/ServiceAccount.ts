@@ -1,3 +1,5 @@
+import { Features } from '@onekeyfe/js-sdk';
+
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
@@ -122,7 +124,7 @@ class ServiceAccount extends ServiceBase {
     if (!previousWalletId || !isValidNetworkId) {
       const defaultWallet =
         wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
-      return defaultWallet?.id ?? wallets[0]?.id ?? null;
+      return defaultWallet?.id ?? null;
     }
     return previousWalletId;
   }
@@ -286,6 +288,47 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+  }
+
+  @backgroundMethod()
+  async createHWWallet(features: Features) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const networkId = appSelector((s) => s.general.activeNetworkId);
+    const id =
+      features?.serial_no ||
+      features?.onekey_serial ||
+      `OneKey Hardware ${features?.session_id?.slice(0, 4) ?? ''}`;
+
+    let wallet = null;
+    let account = null;
+
+    await engine.upsertDevice(features, id);
+    wallet = await engine.createHWWallet();
+    const accounts = await engine.addHDAccounts(
+      'Undefined',
+      wallet.id,
+      networkId,
+    );
+    if (accounts.length > 0) {
+      const $account = accounts[0];
+      account = $account;
+      console.log(account);
+    }
+
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
+    dispatch(unlock());
+    dispatch(mUnlock());
+
+    await this.initWallets();
+    serviceAccount.changeActiveAccount({
+      accountId: account?.id ?? null,
+      walletId: wallet?.id ?? null,
+    });
+    return wallet;
   }
 
   @backgroundMethod()
