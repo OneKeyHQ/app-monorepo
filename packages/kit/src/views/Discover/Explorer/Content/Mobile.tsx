@@ -84,10 +84,11 @@ const Mobile: FC<ExplorerViewProps> = ({
                 color={searchContent ? 'text-default' : 'text-subdued'}
                 numberOfLines={1}
               >
-                {searchContent ||
-                  intl.formatMessage({
-                    id: 'content__search',
-                  })}
+                {searchContent?.searchContent
+                  ? searchContent?.searchContent
+                  : intl.formatMessage({
+                      id: 'content__search',
+                    })}
               </Typography.Caption>
             </Box>
           </Pressable>
