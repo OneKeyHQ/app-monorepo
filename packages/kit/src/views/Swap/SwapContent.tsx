@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,29 +14,31 @@ import {
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../hooks';
+import { useManageTokens, useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { SendRoutes } from '../Send/types';
 
 import TokenInput from './components/TokenInput';
 import ExchangeRate from './ExchangeRate';
 import {
-  ApprovalState,
-  SwapError,
   useSwap,
   useSwapActionHandlers,
   useSwapEnabled,
+  useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
 import { useTransactionAdder } from './hooks/useTransactions';
-import { SwapRoutes } from './typings';
+import { ApprovalState, SwapError, SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
   const { inputToken, outputToken } = useSwapState();
   const isSwapEnabled = useSwapEnabled();
+  const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const addTransaction = useTransactionAdder();
-  const { onUserInput, onSwitchTokens, onReset } = useSwapActionHandlers();
+  const { nativeToken } = useManageTokens();
+  const { onUserInput, onSwitchTokens, onSelectToken } =
+    useSwapActionHandlers();
   const { account, network } = useActiveWalletAccount();
   const {
     swapQuote,
@@ -82,40 +84,16 @@ const SwapContent = () => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.SendConfirm,
-          params: {
-            encodedTx: { ...swapQuote, from: account.address },
-            sourceInfo: {
-              id: '0',
-              origin: 'OneKey Swap',
-              scope: 'ethereum',
-              data: { method: '' },
-            },
-            // payload: swapQuote,
-            onSuccess: (tx) => {
-              addTransaction({
-                hash: tx.txid,
-                summary: `${inputAmount.value.toFixed(
-                  2,
-                )} ${inputAmount?.token.symbol.toUpperCase()} → ${outputAmount.value.toFixed(
-                  2,
-                )} ${outputAmount.token.symbol.toUpperCase()}`,
-              });
-              onReset();
-            },
-          },
+          screen: SendRoutes.SwapPreview,
         },
       });
     }
-  }, [
-    swapQuote,
-    navigation,
-    account,
-    addTransaction,
-    inputAmount,
-    outputAmount,
-    onReset,
-  ]);
+  }, [swapQuote, navigation, account, inputAmount, outputAmount]);
+
+  useEffect(() => {
+    onSwapQuoteCallback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSwapQuoteCallback]);
 
   const onApprove = useCallback(async () => {
     if (account && network && swapQuote && inputAmount) {
@@ -157,8 +135,21 @@ const SwapContent = () => {
 
   let buttonTitle = intl.formatMessage({ id: 'title__swap' });
   if (error === SwapError.InsufficientBalance) {
-    buttonTitle = intl.formatMessage({ id: 'form__amount_invalid' });
+    buttonTitle = intl.formatMessage(
+      { id: 'form__amount_invalid' },
+      { '0': inputToken?.symbol },
+    );
   }
+
+  useEffect(() => {
+    // select native token, when switch chain that is supported
+    setTimeout(() => {
+      if (isSwapEnabled && nativeToken) {
+        onSelectToken(nativeToken, 'INPUT');
+      }
+    }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Center px="4">
@@ -184,6 +175,7 @@ const SwapContent = () => {
             inputValue={formattedAmounts.INPUT}
             onChange={onChangeInput}
             onPress={onSelectInput}
+            containerProps={{ pt: '4', pb: '2' }}
           />
           <Box w="full" h="10" position="relative">
             <Box position="absolute" w="full" h="full">
@@ -210,6 +202,7 @@ const SwapContent = () => {
             inputValue={formattedAmounts.OUTPUT}
             onChange={onChangeOutput}
             onPress={onSelectOutput}
+            containerProps={{ pb: '4', pt: '2' }}
           />
           {!isSwapEnabled ? (
             <Box w="full" h="full" position="absolute" />
@@ -227,15 +220,11 @@ const SwapContent = () => {
             {intl.formatMessage({ id: 'Rate' })}
           </Typography.Body2>
           <Typography.Body2 color="text-default">
-            {swapQuote && inputToken?.symbol && outputToken?.symbol ? (
-              <ExchangeRate
-                inputSymbol={inputToken?.symbol}
-                outputSymbol={outputToken?.symbol}
-                price={swapQuote.price}
-              />
-            ) : (
-              '---'
-            )}
+            <ExchangeRate
+              tokenA={inputToken}
+              tokenB={outputToken}
+              quote={swapQuote}
+            />
           </Typography.Body2>
         </Box>
         {!isSwapEnabled ? (

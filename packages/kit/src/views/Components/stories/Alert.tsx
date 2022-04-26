@@ -6,6 +6,15 @@ const AlertGallery = () => (
   <ScrollView>
     <Center flex="1" bg="background-hovered" p="4" w="full">
       <VStack maxW="384px" space="3" py="4">
+        <Alert
+          alertType="warn"
+          title="Too long a title needs to be wrapped. Too long a title needs to be wrapped. Too long a title needs to be wrapped."
+        />
+        <Alert
+          dismiss={false}
+          alertType="success"
+          title="Too long a title needs to be wrapped. Too long a title needs to be wrapped. Too long a title needs to be wrapped."
+        />
         <Alert alertType="info" title="Warning" />
         <Alert
           alertType="success"

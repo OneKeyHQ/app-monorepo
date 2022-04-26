@@ -13,6 +13,7 @@ import {
 
 import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenApproveAmountEdit';
 import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
+import SwapPreiview from '../../views/Swap/Preview/index';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -46,6 +47,10 @@ const modalRoutes = [
   {
     name: SendRoutes.SignMessageConfirm,
     component: SignMessageConfirm,
+  },
+  {
+    name: SendRoutes.SwapPreview,
+    component: SwapPreiview,
   },
 ];
 
