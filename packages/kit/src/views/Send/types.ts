@@ -7,6 +7,8 @@ import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault'
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
+import type { SwapQuote } from '../Swap/typings';
+
 export enum SendRoutes {
   Send = 'Send',
   SendConfirm = 'SendConfirm',
@@ -36,7 +38,7 @@ export type SendParams = EditFeeParams & {
   token?: Token;
 };
 
-export type TransferSendParamsPayload = {
+export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
   account: {
     id: string;
@@ -62,9 +64,16 @@ export type SendConfirmFromDappParams = {
   query?: string;
 };
 export type SendConfirmActionType = 'speedUp' | 'cancel';
+export type SendConfirmPayloadBase = {
+  payloadType: 'Transfer' | 'InternalSwap';
+};
+export type SendConfirmPayload =
+  | SendConfirmPayloadBase
+  | TransferSendParamsPayload
+  | SwapQuote;
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string;
-  payload?: TransferSendParamsPayload | any;
+  payload?: SendConfirmPayload;
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
   actionType?: SendConfirmActionType;
