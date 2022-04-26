@@ -18,6 +18,7 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import HardwareConnect, { OperateType } from '../../BaseConnect';
@@ -27,12 +28,15 @@ type RouteProps = RouteProp<
   CreateWalletRoutesParams,
   CreateWalletModalRoutes.OnekeyLiteBackupModal
 >;
+
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+
 const Backup: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const { dispatch } = backgroundApiProxy;
-  const { walletId, pwd, backupData, onRetry, onSuccess } =
+  const { walletId, pinCode, backupData, onSuccess } =
     useRoute<RouteProps>().params;
 
   const [pinRetryCount, setPinRetryCount] = useState('');
@@ -94,7 +98,7 @@ const Backup: FC = () => {
     OnekeyLite.cancel();
     OnekeyLite.setMnemonic(
       backupData,
-      pwd,
+      pinCode,
       async (error: CallbackError, data: boolean | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
@@ -188,18 +192,25 @@ const Backup: FC = () => {
       <ErrorDialog
         code={errorCode}
         pinRetryCount={pinRetryCount}
-        onRetry={() => {
-          onRetry?.();
-        }}
+        onRetry={() =>
+          navigation.replace(
+            CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,
+            {
+              walletId,
+              backupData,
+              onSuccess,
+            },
+          )
+        }
         onRetryConnect={() => {
           startNfcScan(true);
         }}
         onExit={() => {
-          navigation.goBack();
+          navigation.getParent()?.canGoBack();
         }}
         onIntoNfcSetting={() => {
           OnekeyLite.intoSetting();
-          navigation.goBack();
+          navigation.getParent()?.canGoBack();
         }}
         onDialogClose={() => setErrorCode(0)}
       />

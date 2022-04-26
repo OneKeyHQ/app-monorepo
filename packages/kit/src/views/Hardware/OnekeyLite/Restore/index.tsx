@@ -45,7 +45,7 @@ const Restore: FC = () => {
   const { serviceAccount } = backgroundApiProxy;
   const toast = useToast();
 
-  const { pwd, onRetry } = useRoute<RouteProps>().params;
+  const { pinCode } = useRoute<RouteProps>().params;
   const [pinRetryCount, setPinRetryCount] = useState<string>('');
   const [restoreData, setRestoreData] = useState<string>();
 
@@ -118,7 +118,7 @@ const Restore: FC = () => {
     stateNfcSearch();
     OnekeyLite.cancel();
     OnekeyLite.getMnemonicWithPin(
-      pwd,
+      pinCode,
       (error: CallbackError, data: string | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
@@ -260,7 +260,11 @@ const Restore: FC = () => {
         code={errorCode}
         pinRetryCount={pinRetryCount}
         onRetryConnect={() => startNfcScan()}
-        onRetry={() => onRetry?.()}
+        onRetry={() =>
+          navigation.replace(
+            CreateWalletModalRoutes.OnekeyLiteRestorePinCodeVerifyModal,
+          )
+        }
         onExit={() => {
           navigation.goBack();
         }}

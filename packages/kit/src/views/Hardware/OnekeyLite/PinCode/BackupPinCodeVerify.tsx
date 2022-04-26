@@ -3,29 +3,25 @@ import React, { FC } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-  OnekeyLiteChangePinRoutesParams,
-} from '@onekeyhq/kit/src/routes';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import HardwarePinCode from '../../BasePinCode';
 
-type NavigationProps = ModalScreenProps<OnekeyLiteChangePinRoutesParams>;
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+
+type RouteProps = RouteProp<
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal
+>;
+
 const OnekeyLitePinCode: FC = () => {
   const intl = useIntl();
-  const route =
-    useRoute<
-      RouteProp<
-        CreateWalletRoutesParams,
-        CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal
-      >
-    >();
-
-  const { callBack } = route.params;
 
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const route = useRoute<RouteProps>();
+  const { walletId, backupData, onSuccess } = route.params;
 
   return (
     <HardwarePinCode
@@ -37,8 +33,12 @@ const OnekeyLitePinCode: FC = () => {
         id: 'content__we_dont_store_any_of_your_information',
       })}
       onComplete={(pinCode) => {
-        navigation.goBack();
-        callBack(pinCode);
+        navigation.replace(CreateWalletModalRoutes.OnekeyLiteBackupModal, {
+          walletId,
+          pinCode,
+          backupData,
+          onSuccess,
+        });
         return Promise.resolve(true);
       }}
     />
