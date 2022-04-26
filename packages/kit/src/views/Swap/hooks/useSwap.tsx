@@ -14,35 +14,18 @@ import { useManageTokens } from '../../../hooks/useManageTokens';
 import {
   refresh,
   reset,
+  setError,
   setInputToken,
+  setLoading,
   setOutputToken,
+  setQuote,
   setTypedValue,
   switchTokens,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
+import { ApprovalState, SwapError, SwapQuote } from '../typings';
 
 import { useHasPendingApproval } from './useTransactions';
-
-export type SwapQuote = {
-  price: string;
-  guaranteedPrice: string;
-  to: string;
-  data?: string;
-  value?: string;
-  gasPrice?: string;
-  gas?: string;
-  estimatedGas?: string;
-  protocolFee?: string;
-  minimumProtocolFee?: string;
-  buyAmount: string;
-  sellAmount: string;
-  sources?: string;
-  buyTokenAddress: string;
-  sellTokenAddress: string;
-  estimatedGasTokenRefund?: string;
-  allowanceTarget: string;
-  needApprove?: boolean;
-};
 
 type QuoteRequestParams = {
   sellToken?: string;
@@ -87,11 +70,6 @@ const NETWORKS: Record<string, string> = {
   [Chains.AVALANCHE]:
     'https://defi.onekey.so/onestep/api/v1/trade_order/quote?chainID=avalanche',
 };
-
-export enum SwapError {
-  QuoteFailed = 'QuoteFailed',
-  InsufficientBalance = 'InsufficientBalance',
-}
 class TokenAmount {
   amount: BigNumber;
 
@@ -200,7 +178,7 @@ export function useTokenBalance(token?: Token): BigNumber | undefined {
   return new TokenAmount(token, balance).toNumber();
 }
 
-export function useQuoteRequestParams(): QuoteRequestParams | undefined {
+export function useSwapQuoteRequestParams(): QuoteRequestParams | undefined {
   const { inputToken, outputToken, independentField, typedValue } =
     useSwapState();
   const { swapSlippagePercent } = useSettings();
@@ -230,38 +208,37 @@ export function useQuoteRequestParams(): QuoteRequestParams | undefined {
   ]);
 }
 
-export function useSwapQuote(params?: QuoteRequestParams) {
-  const [swapQuote, setSwapQuote] = useState<SwapQuote>();
-  const [isSwapLoading, setSwapLoading] = useState(false);
-  const [swapError, setSwapErr] = useState<SwapError>();
+export const useSwapQuoteCallback = function (
+  options: { silent: boolean } = { silent: true },
+) {
+  const requestParams = useSwapQuoteRequestParams();
+  const { silent } = options;
+  const params = useDebounce(requestParams, 1000);
   const baseUrl = useSwapQuoteBaseUrl();
-  const { refreshRef } = useSwapState();
-
-  useEffect(() => {
-    async function main() {
-      if (!params) {
-        setSwapQuote(undefined);
-        return;
-      }
-      setSwapLoading(true);
-      setSwapErr(undefined);
-      try {
-        const result = await client.get(baseUrl, { params });
-        // eslint-disable-next-line
-        const quoteData = result.data.data as SwapQuote;
-        setSwapQuote(quoteData);
-      } catch (_) {
-        setSwapErr(SwapError.QuoteFailed);
-      } finally {
-        setSwapLoading(false);
+  const onSwapQuote = useCallback(async () => {
+    if (!params) {
+      backgroundApiProxy.dispatch(setQuote(undefined));
+      return;
+    }
+    if (!silent) {
+      backgroundApiProxy.dispatch(setLoading(true));
+    }
+    backgroundApiProxy.dispatch(setError(undefined));
+    try {
+      const result = await client.get(baseUrl, { params });
+      // eslint-disable-next-line
+      const quoteData = result.data.data as SwapQuote;
+      backgroundApiProxy.dispatch(setQuote(quoteData));
+    } catch (_) {
+      backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
+    } finally {
+      if (!silent) {
+        backgroundApiProxy.dispatch(setLoading(false));
       }
     }
-    main();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, baseUrl, refreshRef]);
-
-  return { swapQuote, isSwapLoading, swapError };
-}
+  }, [params, silent, baseUrl]);
+  return onSwapQuote;
+};
 
 export function useTokenAllowance(token?: Token, spender?: string) {
   const { accountId, networkId } = useActiveWalletAccount();
@@ -293,13 +270,6 @@ export function useTokenAllowance(token?: Token, spender?: string) {
   return allowance;
 }
 
-export enum ApprovalState {
-  UNKNOWN = 'UNKNOWN',
-  NOT_APPROVED = 'NOT_APPROVED',
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-}
-
 export function useApproveState(token?: Token, spender?: string) {
   const allowance = useTokenAllowance(token, spender);
   const pendingApproval = useHasPendingApproval(
@@ -322,13 +292,17 @@ export function useApproveState(token?: Token, spender?: string) {
 }
 
 export function useSwap() {
-  const { independentField, typedValue, inputToken, outputToken } =
-    useSwapState();
+  const {
+    independentField,
+    typedValue,
+    inputToken,
+    outputToken,
+    loading: isSwapLoading,
+    quote: swapQuote,
+    error: swapError,
+  } = useSwapState();
   const inputBalance = useTokenBalance(inputToken);
   const outputBalance = useTokenBalance(outputToken);
-  const params = useQuoteRequestParams();
-  const debounceParams = useDebounce(params, 1000);
-  const { isSwapLoading, swapQuote, swapError } = useSwapQuote(debounceParams);
   const inputAmount = useTokenAmount(inputToken, swapQuote?.sellAmount);
   const outputAmount = useTokenAmount(outputToken, swapQuote?.buyAmount);
   const approveState = useApproveState(inputToken, swapQuote?.allowanceTarget);
