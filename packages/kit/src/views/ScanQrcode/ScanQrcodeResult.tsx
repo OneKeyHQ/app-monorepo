@@ -1,6 +1,11 @@
 import React, { FC, useCallback } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import {
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,10 +19,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToast } from '../../hooks';
-import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
@@ -58,9 +63,13 @@ type ScanQrcodeResultRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
   ScanQrcodeRoutes.ScanQrcodeResult
 >;
+type SelectAccAndNetworkNavProp = NavigationProp<
+  ScanQrcodeRoutesParams,
+  ScanQrcodeRoutes.SelectAccountAndNetwork
+>;
 const ScanQrcodeResult: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<SelectAccAndNetworkNavProp>();
   const { bottom } = useSafeAreaInsets();
   const route = useRoute<ScanQrcodeResultRouteProp>();
   const { type, data, possibleNetworks } = route.params;
@@ -71,7 +80,16 @@ const ScanQrcodeResult: FC = () => {
     header = intl.formatMessage({ id: 'form__address' });
     actions = (
       <>
-        <Pressable {...pressableProps} borderBottomRadius={0}>
+        <Pressable
+          {...pressableProps}
+          borderBottomRadius={0}
+          onPress={() => {
+            navigation.navigate(ScanQrcodeRoutes.SelectAccountAndNetwork, {
+              address: data,
+              possibleNetworks,
+            });
+          }}
+        >
           <HStack space="4">
             <Icon name="ArrowUpSolid" />
             <Typography.Body1>
@@ -100,7 +118,6 @@ const ScanQrcodeResult: FC = () => {
           borderTopRadius={0}
           mb="16px"
           onPress={() => {
-            // TODO 关闭扫码窗口？
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.CreateWallet,
               params: {
