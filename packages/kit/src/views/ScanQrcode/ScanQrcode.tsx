@@ -31,6 +31,7 @@ import useNavigation from '../../hooks/useNavigation';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 
 const { isWeb, isNative: isApp, isIOS } = platformEnv;
 
@@ -146,7 +147,7 @@ const ScanQrcode: FC = () => {
               scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
             }
             barCodeScannerSettings={{
-              barCodeTypes: ['qr'],
+              barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
             }}
           >
             <SvgScanArea
