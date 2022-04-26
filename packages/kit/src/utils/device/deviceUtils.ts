@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bleUtils, { BleDevice } from '../ble/utils';
 
 import { getDeviceType } from './ble/OnekeyHardware';
+import './deviceConnection';
 
 let timeoutId: ReturnType<typeof setInterval>;
 
@@ -43,5 +44,5 @@ class DeviceUtils {
   }
 }
 
-const deviceUtilInstance = platformEnv.isBrowser ? new DeviceUtils() : bleUtils;
+const deviceUtilInstance = platformEnv.isNative ? bleUtils : new DeviceUtils();
 export default deviceUtilInstance;

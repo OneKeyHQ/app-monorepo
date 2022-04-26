@@ -3,9 +3,9 @@ import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/js-sdk';
 import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/ble/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { navigationRef } from '../../navigator';
-import { OnekeyHardwareModalRoutes } from '../../routes/Modal/HardwareOnekey';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+// import { navigationRef } from '../../navigator';
+// import { OnekeyHardwareModalRoutes } from '../../routes/Modal/HardwareOnekey';
+// import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import BLEHandler from './handler';
 
@@ -13,7 +13,8 @@ class BleOnekeyConnect {
   initialized = false;
 
   async init(): Promise<boolean> {
-    if (!this.initialized && platformEnv.isNative) {
+    if (platformEnv.isBrowser) return false;
+    if (!this.initialized) {
       // OneKeyConnect.on('UI_EVENT', ({ event: _, ...action }) => {
       //   switch (action.type) {
       //     case 'ui-cancel-popup-request':
@@ -87,7 +88,6 @@ class BleOnekeyConnect {
     await this.init();
 
     const features = await OneKeyConnect.getFeatures();
-    console.log('--------OneKeyConnect features', features);
     if (features.success) {
       return features.payload;
     }

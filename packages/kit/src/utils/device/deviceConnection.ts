@@ -11,7 +11,6 @@ const CONNECT_URL = platformEnv.isDev
   : 'https://connect.onekey.so/';
 
 const getConnectInstance = async (): Promise<typeof OneKeyConnect> => {
-  if (!platformEnv.isBrowser) return OneKeyConnect;
   // TODO: 需要 promise chain 确保 connect 完成之后再去进行下一步，否则这里需要 try catch
   if (hasInitOneKeyConnect) return OneKeyConnect;
 

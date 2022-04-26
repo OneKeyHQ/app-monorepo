@@ -1,16 +1,20 @@
 /* eslint-disable */
 // @ts-nocheck
-import { Buffer } from 'buffer';
-
+/* eslint-disable @typescript-eslint/prefer-regexp-exec */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable no-plusplus */
+/* eslint-disable no-bitwise */
+import { Alert, Platform, NativeModules } from 'react-native';
+import { BleManager, ScanMode, Device } from 'react-native-ble-plx';
 import * as Location from 'expo-location';
-import { Alert, NativeModules, Platform } from 'react-native';
-import { BleManager, Device, ScanMode } from 'react-native-ble-plx';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+const { OKPermissionManager } = NativeModules;
+import { Buffer } from 'buffer';
 import state from './state';
 
-const { OKPermissionManager } = NativeModules;
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const SERVICE_ID = '00000001-0000-1000-8000-00805f9b34fb';
 const WRITE_NO_RESPONSE_ID = '00000002-0000-1000-8000-00805f9b34fb';
@@ -24,12 +28,16 @@ class BleUtils {
   // 蓝牙是否连接
   isConnecting: boolean;
 
-  manager: BleManager | null = null;
+  manager: BleManager;
 
-  peripheralId: string | undefined = undefined;
+  peripheralId: string | undefined = '';
 
   constructor() {
     this.isConnecting = false;
+  }
+
+  async findConnectedDevices(): Promise<Device[]> {
+    return this.manager.connectedDevices([SERVICE_ID]);
   }
 
   async getManager(): Promise<BleManager> {
@@ -45,11 +53,6 @@ class BleUtils {
         }
       }, true);
     });
-  }
-
-  async findConnectedDevices(): Promise<Device[]> {
-    const manager = await this.getManager();
-    return manager.connectedDevices([SERVICE_ID]);
   }
 
   /**
@@ -72,8 +75,11 @@ class BleUtils {
             this.alert('请打开手机蓝牙后再搜索');
           }
           throw error;
-        } else if (device_1) {
-          listener(device_1);
+        } else {
+          console.log('-----device_1', device_1)
+          if (device_1) {
+            listener(device_1);
+          }
         }
       },
     );
@@ -83,7 +89,6 @@ class BleUtils {
    * 停止搜索蓝牙
    * */
   async stopScan() {
-    console.log('stopDeviceScan');
     const manager = await this.getManager();
     manager.stopDeviceScan();
   }
@@ -93,8 +98,9 @@ class BleUtils {
    * */
   async connect(id: string) {
     console.log('isConneting:', id);
-    this.isConnecting = true;
+
     const manager = await this.getManager();
+    this.isConnecting = true;
     try {
       await this.checkPermission();
       const connected = await manager.isDeviceConnected(id);
@@ -143,9 +149,8 @@ class BleUtils {
    * 写数据 withoutResponse
    * */
   async writeWithoutResponse(formatValue: string) {
-    if (!this.peripheralId) return null;
-    const transactionId = 'writeWithoutResponse';
     const manager = await this.getManager();
+    const transactionId = 'writeWithoutResponse';
     return new Promise((resolve, reject) => {
       manager
         .writeCharacteristicWithoutResponseForDevice(
@@ -247,7 +252,7 @@ class BleUtils {
     const _arr = arr;
     for (let i = 0; i < _arr.length; i++) {
       const one = _arr[i].toString(2);
-      const v = /^1+?(?=0)/.exec(one);
+      const v = one.match(/^1+?(?=0)/);
       if (v && one.length === 8) {
         const bytesLength = v[0].length;
         let store = _arr[i].toString(2).slice(7 - bytesLength);
