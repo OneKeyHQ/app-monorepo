@@ -136,10 +136,12 @@ function FeeInfoInputForTransfer({
             )}
             {isPreset && (
               <Text color="text-subdued" flex={1}>
-                {/* eslint-disable-next-line no-nested-ternary */}
-                {feeInfoPayload?.current?.totalNative
-                  ? feeSpeedTime
-                  : loading
+                {feeInfoPayload?.current?.totalNative && feeSpeedTime}
+              </Text>
+            )}
+            {!feeInfoPayload?.current?.totalNative && (
+              <Text color="text-subdued" flex={1}>
+                {loading
                   ? intl.formatMessage({ id: 'content__just_a_moment' })
                   : intl.formatMessage({ id: 'content__calculate_fee' })}
               </Text>
