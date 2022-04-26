@@ -1,7 +1,6 @@
-import {
-  IOneKeyDeviceFeatures,
-  IOneKeyDeviceType,
-} from '@onekeyhq/shared/types';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+
+import type { Features } from '@onekeyfe/js-sdk';
 
 const isOnekeyDevice = (name: string | null, id?: string): boolean => {
   if (id?.startsWith?.('MI')) {
@@ -18,7 +17,7 @@ const isOnekeyDevice = (name: string | null, id?: string): boolean => {
 };
 
 export const getDeviceType = (
-  features?: Partial<IOneKeyDeviceFeatures>,
+  features?: Partial<Features>,
 ): IOneKeyDeviceType => {
   if (!features || typeof features !== 'object' || !features.serial_no) {
     return 'classic';

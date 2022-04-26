@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "確保設備靠近手機的 NFC 模塊，然後重試",
   "modal__finish_backup": "完成備份",
   "modal__finish_backup_desc": "通過在下面的恢復短語中輸入相應的單詞來檢查您是否進行了正確的備份。",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "請在設備上輸入 PIN",
   "modal__install_onekey_bridge": "安裝一鍵橋",
   "modal__install_onekey_bridge_desc": "OneKey Bridge 是一種通信工具，用於促進 OneKey 和 Internet 瀏覽器之間的連接。",

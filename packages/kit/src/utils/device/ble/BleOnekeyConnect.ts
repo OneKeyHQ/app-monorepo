@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // import { OnekeyHardwareModalRoutes } from '../../routes/Modal/HardwareOnekey';
 // import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
-import { BLEHandler } from './handler';
+import BLEHandler from './handler';
 
 class BleOnekeyConnect {
   initialized = false;
@@ -22,9 +22,9 @@ class BleOnekeyConnect {
       //       navigationRef.current?.goBack();
       //       console.log('UI_EVENT', '设备需要升级');
       //       break;
-      //     case 'ui-device_firmware_outdated':
-      //       console.log('UI_EVENT', '设备需要升级');
-      //       break;
+      //     // case 'ui-device_firmware_outdated':
+      //     //   console.log('UI_EVENT', '设备需要升级');
+      //     //   break;
       //     case 'ui-request_pin':
       //       console.log('UI_EVENT', '输入 Pin 码', action.payload.type);
 
@@ -88,7 +88,6 @@ class BleOnekeyConnect {
     await this.init();
 
     const features = await OneKeyConnect.getFeatures();
-    console.log('OneKeyConnect features', features);
     if (features.success) {
       return features.payload;
     }

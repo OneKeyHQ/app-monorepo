@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "Đảm bảo thiết bị ở gần mô-đun NFC của điện thoại, sau đó thử lại",
   "modal__finish_backup": "Hoàn tất sao lưu",
   "modal__finish_backup_desc": "Kiểm tra xem bạn đã sao lưu chính xác chưa bằng cách nhập các từ tương ứng tạo thành cụm từ khôi phục của bạn bên dưới.",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "Vui lòng nhập mã PIN trên thiết bị",
   "modal__install_onekey_bridge": "Cài đặt OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge là một công cụ giao tiếp để tạo điều kiện kết nối giữa OneKey và trình duyệt internet của bạn.",
