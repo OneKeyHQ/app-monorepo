@@ -1,4 +1,6 @@
 // import type only here to avoid cycle-deps error
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
@@ -33,7 +35,7 @@ export interface IBackgroundApiBridge {
   getState: () => Promise<{ state: any; bootstrapped: boolean }>;
   appSelector: IAppSelector;
 
-  providers: Record<string, ProviderApiBase>;
+  providers: Record<IInjectedProviderNames, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods(
     payload: IJsBridgeMessagePayload,

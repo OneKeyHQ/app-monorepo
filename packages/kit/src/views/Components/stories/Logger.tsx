@@ -46,9 +46,11 @@ function DebugLoggerSettings() {
         alignItems="flex-start"
       >
         {keys.map((key) => (
-          <CheckBox key={key} value={key}>
-            {key}
-          </CheckBox>
+          <Box py={1}>
+            <CheckBox key={key} value={key}>
+              {key}
+            </CheckBox>
+          </Box>
         ))}
       </CheckBox.Group>
       <Box _text={{ color: 'text-default' }}>{`config = ${savedStr}`}</Box>

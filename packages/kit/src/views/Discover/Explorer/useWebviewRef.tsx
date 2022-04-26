@@ -44,6 +44,9 @@ export const useWebviewRef = (
         // Electron Webview
 
         const electronWebView = webViewRef?.innerRef as IElectronWebView;
+        if (!electronWebView) {
+          return;
+        }
         const handleMessage = () => {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -120,7 +123,7 @@ export const useWebviewRef = (
           );
         };
       } catch (error) {
-        console.log(error);
+        console.error(error);
       }
     }
   }, [webViewRef?.innerRef]);
