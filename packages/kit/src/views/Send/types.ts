@@ -15,6 +15,7 @@ export enum SendRoutes {
   TokenApproveAmountEdit = 'TokenApproveAmountEdit',
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
+  SwapPreview = 'SwapPreview',
 }
 
 export type TokenApproveAmountEditParams = {
@@ -89,4 +90,5 @@ export type SendRoutesParams = {
   [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
+  [SendRoutes.SwapPreview]: undefined;
 };
