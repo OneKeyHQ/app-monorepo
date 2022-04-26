@@ -3,6 +3,7 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
+import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 import {
   EVMDecodedItem,
   EVMDecodedItemERC20Transfer,
@@ -11,11 +12,13 @@ import {
 
 import Address from './Address';
 import HeaderIcon from './HeaderIcon';
+import TotalFee from './TotalFee';
 
 const TxConfirmDetail: FC<{
   tx: EVMDecodedItem;
   feeInput?: any;
-}> = ({ tx, feeInput }) => {
+  feeInfoPayload?: IFeeInfoPayload | null;
+}> = ({ tx, feeInput, feeInfoPayload }) => {
   const intl = useIntl();
   const info = tx.info as EVMDecodedItemERC20Transfer;
   const isNative = tx.txType === EVMDecodedTxType.NATIVE_TRANSFER;
@@ -48,15 +51,8 @@ const TxConfirmDetail: FC<{
           describe={`${amount} ${tx.symbol}`}
         />
         <Container.Item title="" wrap={feeInput} />
-        {!!isNative && (
-          <Container.Item
-            title={`${intl.formatMessage({
-              id: 'content__total',
-            })}(${intl.formatMessage({
-              id: 'content__amount',
-            })} + ${intl.formatMessage({ id: 'content__fee' })})`}
-            describe={`${tx.total} ${tx.symbol}`}
-          />
+        {!!feeInfoPayload && isNative && (
+          <TotalFee tx={tx} feeInfoPayload={feeInfoPayload} />
         )}
       </Container.Box>
     </Box>

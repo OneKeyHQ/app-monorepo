@@ -3,18 +3,21 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
+import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
 import Address from './Address';
 import HeaderIcon from './HeaderIcon';
+import TotalFee from './TotalFee';
 
 const TxConfirmBlindDetail: FC<{
   tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
   feeInput?: any;
-}> = ({ tx, sourceInfo, feeInput }) => {
+  feeInfoPayload?: IFeeInfoPayload | null;
+}> = ({ tx, sourceInfo, feeInput, feeInfoPayload }) => {
   const intl = useIntl();
 
   return (
@@ -48,15 +51,8 @@ const TxConfirmBlindDetail: FC<{
           describe={`${tx.amount} ${tx.symbol}`}
         />
         <Container.Item title="" wrap={feeInput} />
-        {parseInt(tx.value) !== 0 && (
-          <Container.Item
-            title={`${intl.formatMessage({
-              id: 'content__total',
-            })}(${intl.formatMessage({
-              id: 'content__amount',
-            })} + ${intl.formatMessage({ id: 'content__fee' })})`}
-            describe={`${tx.total} ${tx.symbol}`}
-          />
+        {!!feeInfoPayload && parseInt(tx.value) !== 0 && (
+          <TotalFee tx={tx} feeInfoPayload={feeInfoPayload} />
         )}
       </Container.Box>
 

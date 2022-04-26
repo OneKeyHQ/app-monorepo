@@ -2,12 +2,13 @@ import React from 'react';
 
 import { Spinner } from '@onekeyhq/components';
 
-import TxConfirmBlindDetail from '../../TxDetail/TxConfirmBlindDetail';
+import { SwapQuote } from '../../Swap/typings';
+import TxSwapConfirmDetail from '../../TxDetail/TxSwapConfirmDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 
 import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 
-function TxConfirmBlind(props: ITxConfirmViewProps) {
+function TxSwapConfirm(props: ITxConfirmViewProps) {
   const {
     feeInfoPayload,
     feeInfoLoading,
@@ -15,12 +16,14 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
     encodedTx,
     sourceInfo,
     decodedTx,
+    payload,
   } = props;
 
-  if (!decodedTx) {
+  if (!decodedTx || !payload || payload.payloadType !== 'InternalSwap') {
     // TODO: make sure decodedTx is always set
     return <Spinner />;
   }
+  const swapQuote = payload as SwapQuote;
 
   const feeInput = (
     <FeeInfoInputForConfirm
@@ -33,14 +36,15 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
 
   return (
     <SendConfirmModal {...props}>
-      <TxConfirmBlindDetail
+      <TxSwapConfirmDetail
         tx={decodedTx}
+        swapQuote={swapQuote}
         sourceInfo={sourceInfo}
-        feeInput={feeInput}
         feeInfoPayload={feeInfoPayload}
+        feeInput={feeInput}
       />
     </SendConfirmModal>
   );
 }
 
-export { TxConfirmBlind };
+export { TxSwapConfirm };

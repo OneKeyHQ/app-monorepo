@@ -84,7 +84,13 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
         return Promise.resolve(tx);
       }}
     >
-      {decodedTx && <TxConfirmDetail tx={decodedTx} feeInput={feeInput} />}
+      {decodedTx && (
+        <TxConfirmDetail
+          tx={decodedTx}
+          feeInput={feeInput}
+          feeInfoPayload={feeInfoPayload}
+        />
+      )}
     </SendConfirmModal>
   );
 }
