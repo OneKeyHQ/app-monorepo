@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useState } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
@@ -16,7 +16,7 @@ export type ToastProps = {
   dismiss?: boolean;
   error?: boolean;
   status?: ToastStatus;
-  onClose?: (callBack: (display: boolean) => void) => void;
+  onClose?: () => void;
 } & ComponentProps<typeof Box>;
 
 export type ToastStatusProps = {
@@ -73,71 +73,79 @@ export const Toast: FC<ToastProps> = ({
   ...rest
 }) => {
   const toastStatusProps = toastPropWithStatus(status);
-  const bgColor = error ? 'surface-critical-default' : 'text-default';
-  const textColor = error ? 'text-on-critical' : 'surface-default';
-  const iconColor = error ? 'text-on-primary' : 'surface-neutral-default';
-  const [display, setDisplay] = useState(true);
+  const textColor = error ? 'text-critical' : 'text-default';
+  const iconColor = error ? 'icon-critical' : 'icon-default';
+
+  const bgColor = () => {
+    if (status) {
+      return 'surface-default';
+    }
+    if (error) {
+      return 'surface-critical-subdued';
+    }
+    // BaseToast
+    return 'surface-neutral-default';
+  };
 
   return (
     <Box
+      flexDirection="row"
       width="auto"
-      bg={status ? 'surface-default' : bgColor}
-      px={status ? '17px' : '12px'}
-      py={status ? '17px' : '8px'}
-      borderRadius="12px"
-      borderWidth={1}
-      borderColor="border-default"
-      display={display ? 'flex' : 'none'}
+      px={status ? 4 : 3}
+      py={status ? 4 : 2}
+      bg={bgColor()}
+      borderRadius="xl"
+      borderWidth={0.5}
+      borderColor={status ? 'border-subdued' : 'border-default'}
+      shadow="depth.4"
       {...rest}
     >
-      <Box flexDirection="row" flex={1}>
-        <Box flexDirection="row" flex={1}>
-          {status ? (
-            <Box mr="12px">
-              <Icon
-                size={24}
-                name={toastStatusProps.iconName}
-                color={toastStatusProps?.iconColor}
-              />
-            </Box>
-          ) : null}
-          <Box flexDirection="column" flex={1}>
-            <Text
-              typography={status ? 'Body2' : 'Body1'}
-              color={status ? 'text-default' : textColor}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            <Box display={description ? 'flex' : 'none'} mt="4px" flex={1}>
-              <Text typography="Body2" color="text-subdued">
-                {description}
-              </Text>
-            </Box>
-          </Box>
+      {status && (
+        <Box mr="12px">
+          <Icon
+            size={24}
+            name={toastStatusProps.iconName}
+            color={toastStatusProps?.iconColor}
+          />
         </Box>
-        {dismiss ? (
-          <Pressable
-            onPress={() => {
-              if (onClose) {
-                onClose((outterDisplay) => {
-                  setDisplay(outterDisplay);
-                });
-              } else {
-                setDisplay(false);
-              }
-            }}
+      )}
+      <Box flex={1} mt={status && 0.5}>
+        <Text
+          flex={1}
+          typography={status ? 'Body2Strong' : 'Body1Strong'}
+          color={status ? 'text-default' : textColor}
+        >
+          {title}
+        </Text>
+        {description && (
+          <Text
+            flex={1}
+            mt={1}
+            textAlign={status ? undefined : 'center'}
+            typography="Body2"
+            color="text-subdued"
           >
-            <Box ml="16px" padding="2px" display={dismiss ? 'flex' : 'none'}>
-              <Icon
-                size={20}
-                name="CloseOutline"
-                color={status ? 'icon-default' : iconColor}
-              />
-            </Box>
-          </Pressable>
-        ) : null}
+            {description}
+          </Text>
+        )}
       </Box>
+      {dismiss && (
+        <Pressable
+          ml={4}
+          padding={0.5}
+          onPress={onClose}
+          rounded="full"
+          _hover={{ bgColor: 'surface-hovered' }}
+          _pressed={{ bgColor: 'surface-pressed' }}
+          alignSelf="start"
+        >
+          <Icon
+            size={20}
+            name="CloseOutline"
+            color={status ? 'icon-default' : iconColor}
+          />
+        </Pressable>
+      )}
     </Box>
   );
 };
