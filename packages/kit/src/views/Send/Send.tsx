@@ -282,6 +282,7 @@ const Transaction = () => {
         feeInfoValue: feeInfoPayload?.current.value,
       });
     const payload: TransferSendParamsPayload = {
+      payloadType: 'Transfer',
       to: data.to,
       account: {
         id: account.id,
