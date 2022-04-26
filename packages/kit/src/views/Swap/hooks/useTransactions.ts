@@ -97,8 +97,8 @@ export function useHasPendingApproval(
       Object.keys(allTransactions).some((hash) => {
         const tx = allTransactions[hash];
         if (!tx) return false;
-        const { approval } = tx;
-        if (!approval) return false;
+        const { approval, confirmedTime } = tx;
+        if (!approval || confirmedTime) return false;
         return (
           approval.spender === spender &&
           approval.tokenAddress === tokenAddress &&
