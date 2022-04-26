@@ -12,7 +12,7 @@ export function useToast() {
         text1: props.title,
         position: 'bottom',
       });
-    }, 150);
+    }, 500);
   }, []);
 
   const toast = useMemo(() => ({ show }), [show]);
