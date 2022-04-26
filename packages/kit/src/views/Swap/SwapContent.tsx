@@ -149,7 +149,7 @@ const SwapContent = () => {
       }
     }, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [network]);
 
   return (
     <Center px="4">

@@ -69,7 +69,7 @@ const SwapHeader = () => {
               <Icon name="RefreshOutline" size={20} />
             </Animated.View>
           </Button>
-          <IconButton type="plain" name="CogOutline" onPress={onSetting} />
+          <IconButton type="plain" name="CogSolid" onPress={onSetting} />
         </HStack>
       </Box>
     </Center>
