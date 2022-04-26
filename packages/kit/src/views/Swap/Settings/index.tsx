@@ -1,6 +1,7 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Box,
@@ -18,15 +19,15 @@ import { setSwapSlippagePercent } from '../../../store/reducers/settings';
 const Setting = () => {
   const intl = useIntl();
   const { swapSlippagePercent } = useSettings();
-  const [slippage, setSlippage] = useState(swapSlippagePercent || '3') 
+  const [slippage, setSlippage] = useState(swapSlippagePercent || '3');
   const onChange = useCallback((text: string) => {
-    setSlippage(text.trim())
+    setSlippage(text.trim());
   }, []);
   useEffect(() => {
     if (slippage) {
       backgroundApiProxy.dispatch(setSwapSlippagePercent(slippage));
     }
-  }, [slippage])
+  }, [slippage]);
   return (
     <Modal header={intl.formatMessage({ id: 'title__settings' })} footer={null}>
       <Box>
