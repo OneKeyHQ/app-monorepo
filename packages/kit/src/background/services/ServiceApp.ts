@@ -50,6 +50,9 @@ class ServiceApp extends ServiceBase {
     persistor.pause();
     await persistor.purge();
     await engine.resetApp();
+    if (platformEnv.isBrowser) {
+      localStorage.clear();
+    }
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();

@@ -2,9 +2,9 @@
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
 
 export enum OneKeyErrorClassNames {
-  OneKeyError,
-  OneKeyValidatorError,
-  OneKeyValidatorTip,
+  OneKeyError = 'OneKeyError',
+  OneKeyValidatorError = 'OneKeyValidatorError',
+  OneKeyValidatorTip = 'OneKeyValidatorTip',
 }
 
 export class OneKeyError extends Web3RpcError<undefined> {
