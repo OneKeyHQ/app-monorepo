@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "सुनिश्चित करें कि डिवाइस फोन के एनएफसी मॉड्यूल के करीब है, फिर पुनः प्रयास करें",
   "modal__finish_backup": "बैकअप समाप्त करें",
   "modal__finish_backup_desc": "नीचे दिए गए पुनर्प्राप्ति वाक्यांश से संबंधित शब्दों को दर्ज करके जांचें कि आपने सही बैकअप बनाया है।",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "कृपया डिवाइस पर पिन डालें",
   "modal__install_onekey_bridge": "वनकी ब्रिज स्थापित करें",
   "modal__install_onekey_bridge_desc": "OneKey Bridge आपके OneKey और आपके इंटरनेट ब्राउज़र के बीच कनेक्शन को सुगम बनाने के लिए एक संचार उपकरण है।",

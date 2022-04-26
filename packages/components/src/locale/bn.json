@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "ডিভাইসটি ফোনের NFC মডিউলের কাছাকাছি আছে তা নিশ্চিত করুন, তারপর আবার চেষ্টা করুন",
   "modal__finish_backup": "ব্যাকআপ শেষ করুন",
   "modal__finish_backup_desc": "নীচে আপনার পুনরুদ্ধার বাক্যাংশের অনুরূপ শব্দগুলি প্রবেশ করে আপনি একটি সঠিক ব্যাকআপ করেছেন তা পরীক্ষা করুন৷",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "অনুগ্রহ করে ডিভাইসে পিন লিখুন",
   "modal__install_onekey_bridge": "ওয়ানকি ব্রিজ ইনস্টল করুন",
   "modal__install_onekey_bridge_desc": "OneKey Bridge হল আপনার OneKey এবং আপনার ইন্টারনেট ব্রাউজারের মধ্যে সংযোগ সহজতর করার জন্য একটি যোগাযোগের টুল।",
