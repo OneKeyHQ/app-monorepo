@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   NavigationProp,
   RouteProp,
+  StackActions,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
@@ -29,6 +30,7 @@ import {
   SendConfirmModal,
 } from './confirmViews/SendConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
+import { TxConfirmSpeedUpOrCancel } from './confirmViews/TxConfirmSpeedUpOrCancel';
 import { TxConfirmTokenApprove } from './confirmViews/TxConfirmTokenApprove';
 import { TxConfirmTransfer } from './confirmViews/TxConfirmTransfer';
 import {
@@ -76,7 +78,7 @@ const TransactionConfirm = () => {
     setEncodedTx(params.encodedTx);
   }, [params.encodedTx]);
   const { decodedTx } = useDecodedTx({ encodedTx });
-  let { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const dappApprove = useDappApproveAction({
     id: params.sourceInfo?.id ?? '',
@@ -104,10 +106,11 @@ const TransactionConfirm = () => {
 
   const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
 
+  // TODO remove
   if (isTransferTypeTx) {
-    const payloadTransfer = payload as TransferSendParamsPayload;
-    accountId = payloadTransfer?.account?.id;
-    networkId = payloadTransfer?.network?.id;
+    // const payloadTransfer = payload as TransferSendParamsPayload;
+    // accountId = payloadTransfer?.account?.id || accountId;
+    // networkId = payloadTransfer?.network?.id || networkId;
   }
 
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
@@ -181,13 +184,13 @@ const TransactionConfirm = () => {
               feeInfoValue: feeInfoPayload?.current.value,
             })
           : encodedTx;
-      return navigation.navigate(SendRoutes.SendAuthentication, {
+      const routeParams = {
         ...params,
         encodedTx: encodedTxWithFee,
         accountId,
         networkId,
         // TODO onComplete
-        onSuccess: async (tx) => {
+        onSuccess: async (tx: IBroadcastedTx) => {
           saveHistory(tx);
           backgroundApiProxy.serviceToken.fetchAccountTokens();
           await dappApprove.resolve({
@@ -198,7 +201,15 @@ const TransactionConfirm = () => {
           }
           setTimeout(() => close(), 0);
         },
-      });
+      };
+      if (params.autoConfirmAfterFeeSaved) {
+        const action = StackActions.replace(
+          SendRoutes.SendAuthentication,
+          routeParams,
+        );
+        return navigation.dispatch(action);
+      }
+      return navigation.navigate(SendRoutes.SendAuthentication, routeParams);
     },
     [
       isFromDapp,
@@ -243,7 +254,7 @@ const TransactionConfirm = () => {
 
   // handle speed up / cancel.
   if (isCancelOrSpeedUp) {
-    return <TxConfirmBlind {...sharedProps} />;
+    return <TxConfirmSpeedUpOrCancel {...sharedProps} />;
   }
 
   if (decodedTx.txType === EVMDecodedTxType.TOKEN_APPROVE) {
