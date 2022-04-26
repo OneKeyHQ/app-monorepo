@@ -4,14 +4,7 @@ import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Center,
-  Icon,
-  Modal,
-  Typography,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Center, Icon, Modal, Typography } from '@onekeyhq/components';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -32,7 +25,7 @@ const SetupSuccessModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const isSmallScreen = useIsVerticalLayout();
+  // const isSmallScreen = useIsVerticalLayout();
 
   const { device } = route?.params;
 
@@ -50,14 +43,14 @@ const SetupSuccessModal: FC = () => {
         </Typography.Body1>
       </Center>
       <Center>
-        <Button
+        {/* <Button
           type="plain"
           size={isSmallScreen ? 'lg' : 'base'}
           mt={6}
           rightIconName="ChevronRightSolid"
         >
           {intl.formatMessage({ id: 'action__view_device_details' })}
-        </Button>
+        </Button> */}
       </Center>
     </>
   );

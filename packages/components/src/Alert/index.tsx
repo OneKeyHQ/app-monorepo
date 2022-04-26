@@ -14,7 +14,7 @@ type AlertType = 'info' | 'warn' | 'error' | 'success' | 'SeriousWarning';
 type ActionType = 'bottom' | 'right';
 
 export type AlertProps = {
-  title: string;
+  title: string | React.ReactNode;
   description?: string;
   alertType: AlertType;
   dismiss?: boolean;
@@ -112,16 +112,17 @@ const Alert: FC<AlertProps> = ({
         pr={dismiss ? '2.5' : '4'}
         pb="2.5"
         pt="2.5"
-        alignItems="start"
+        alignItems="flex-start"
       >
         <Box flex="1">
           <Box
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
-            h="8"
+            minH="8"
+            w="full"
           >
-            <Box flexDirection="row">
+            <Box flexDirection="row" flex={1}>
               <Box>
                 <Icon
                   size={20}
@@ -129,11 +130,9 @@ const Alert: FC<AlertProps> = ({
                   color={alertTypeProps.iconColor}
                 />
               </Box>
-              <Box ml="3">
-                <Typography.Body2Strong flex={1}>
-                  {title}
-                </Typography.Body2Strong>
-              </Box>
+              <Typography.Body2Strong ml="3" flex={1}>
+                {title}
+              </Typography.Body2Strong>
             </Box>
           </Box>
           {description || (action && actionType === 'bottom') ? (

@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "Make sure the device is close to the phone's NFC module, then try again",
   "modal__finish_backup": "Finish Backup",
   "modal__finish_backup_desc": "Check you have made a correct backup by entering the corresponding words form your recovery phrase below.",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "Please Enter PIN on Device",
   "modal__install_onekey_bridge": "Install OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge is a communication tool to facilitate the connection between your OneKey and your internet browser.",

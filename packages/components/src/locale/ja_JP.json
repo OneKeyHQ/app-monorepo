@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "デバイスが携帯電話のNFCモジュールに近いことを確認してから、もう一度試してみてください",
   "modal__finish_backup": "バックアップを終了する",
   "modal__finish_backup_desc": "以下のリカバリーフレーズに対応する単語を入力し、正しくバックアップされていることを確認してください。",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "デバイスにPINを入力してください",
   "modal__install_onekey_bridge": "OneKeyBridgeをインストールする",
   "modal__install_onekey_bridge_desc": "OneKey Bridgeは、OneKeyとインターネットブラウザ間の接続を容易にするためのコミュニケーションツールです。",

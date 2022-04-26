@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { SwapError, SwapQuote } from '../../views/Swap/typings';
 import { Token } from '../typings';
 
 export interface TransactionDetails {
@@ -24,6 +25,10 @@ type SwapState = {
       [txHash: string]: TransactionDetails;
     };
   };
+  quote?: SwapQuote;
+  quoteTime?: number;
+  loading: boolean;
+  error?: SwapError;
 };
 
 const initialState: SwapState = {
@@ -33,6 +38,7 @@ const initialState: SwapState = {
   independentField: 'INPUT',
   refreshRef: 0,
   transactions: {},
+  loading: false,
 };
 
 export const swapSlice = createSlice({
@@ -67,6 +73,11 @@ export const swapSlice = createSlice({
       state.outputToken = undefined;
       state.independentField = 'INPUT';
       state.typedValue = '';
+
+      state.quote = undefined;
+      state.quoteTime = undefined;
+      state.loading = false;
+      state.error = undefined;
     },
     refresh(state) {
       state.refreshRef += 1;
@@ -117,6 +128,20 @@ export const swapSlice = createSlice({
       }
       tx.confirmedTime = confirmedTime;
     },
+    setQuote(state, action: PayloadAction<SwapQuote | undefined>) {
+      state.quote = action.payload;
+      if (action.payload) {
+        state.quoteTime = Date.now();
+      } else {
+        state.quoteTime = undefined;
+      }
+    },
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload;
+    },
+    setError(state, action: PayloadAction<SwapError | undefined>) {
+      state.error = action.payload;
+    },
   },
 });
 
@@ -131,6 +156,9 @@ export const {
   cleanAllTransaction,
   cleanAllConfirmedTransaction,
   finalizeTransaction,
+  setQuote,
+  setLoading,
+  setError,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;
