@@ -92,7 +92,7 @@ class TokenAmount {
   }
 
   toFormat() {
-    return this.toNumber().toFormat({ groupSeparator: '' });
+    return this.toNumber().toFixed(0);
   }
 }
 
@@ -271,25 +271,28 @@ export function useTokenAllowance(token?: Token, spender?: string) {
   return allowance;
 }
 
-export function useApproveState(token?: Token, spender?: string) {
+export function useApproveState(
+  token?: Token,
+  spender?: string,
+  target?: string,
+) {
   const allowance = useTokenAllowance(token, spender);
   const pendingApproval = useHasPendingApproval(
     token?.tokenIdOnNetwork,
     spender,
   );
-  const balance = useTokenBalance(token);
   return useMemo(() => {
-    if (!allowance || !balance) {
+    if (!allowance || !target) {
       return ApprovalState.UNKNOWN;
     }
-    if (allowance.gte(balance)) {
+    if (allowance.gte(target)) {
       return ApprovalState.APPROVED;
     }
     if (pendingApproval) {
       return ApprovalState.PENDING;
     }
     return ApprovalState.NOT_APPROVED;
-  }, [allowance, balance, pendingApproval]);
+  }, [allowance, target, pendingApproval]);
 }
 
 export function useSwap() {
@@ -306,7 +309,11 @@ export function useSwap() {
   const outputBalance = useTokenBalance(outputToken);
   const inputAmount = useTokenAmount(inputToken, swapQuote?.sellAmount);
   const outputAmount = useTokenAmount(outputToken, swapQuote?.buyAmount);
-  const approveState = useApproveState(inputToken, swapQuote?.allowanceTarget);
+  const approveState = useApproveState(
+    inputToken,
+    swapQuote?.allowanceTarget,
+    swapQuote?.sellAmount,
+  );
   const balanceError =
     inputAmount && inputBalance && inputBalance.lt(inputAmount.toNumber())
       ? SwapError.InsufficientBalance
