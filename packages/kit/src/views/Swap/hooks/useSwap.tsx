@@ -226,8 +226,9 @@ export const useSwapQuoteCallback = function (
     backgroundApiProxy.dispatch(setError(undefined));
     try {
       const result = await client.get(baseUrl, { params });
-      // eslint-disable-next-line
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const quoteData = result.data.data as SwapQuote;
+      quoteData.payloadType = 'InternalSwap';
       backgroundApiProxy.dispatch(setQuote(quoteData));
     } catch (_) {
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));

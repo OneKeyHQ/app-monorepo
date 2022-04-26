@@ -45,6 +45,7 @@ const Preview = () => {
           screen: SendRoutes.SendConfirm,
           params: {
             encodedTx: { ...swapQuote, from: account.address },
+            payload: swapQuote,
             sourceInfo: {
               id: '0',
               origin: 'OneKey Swap',
