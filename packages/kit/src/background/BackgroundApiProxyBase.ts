@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 import platformEnv, { isExtensionUi } from '@onekeyhq/shared/src/platformEnv';
 
 import { INTERNAL_METHOD_PREFIX } from './decorators';
+import ProviderApiBase from './providers/ProviderApiBase';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -27,7 +30,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
 
   bridge = {} as JsBridgeBase;
 
-  providers = {};
+  providers = {} as Record<IInjectedProviderNames, ProviderApiBase>;
 
   // TODO add custom eslint rule to force method name match
   dispatch = (action: any) => {

@@ -433,7 +433,7 @@
   "form__submit_a_request": "Submit a Request",
   "form__symbol": "Symbol",
   "form__symbol_invalid": "Symbol must be 15 characters or fewer.",
-  "form__system": "System",
+  "form__auto": "Auto",
   "form__theme": "Theme",
   "form__token_symbol": "Token Symbol",
   "form__top_50_tokens": "TOP 50 Tokens",
