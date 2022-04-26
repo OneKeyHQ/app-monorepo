@@ -137,7 +137,7 @@ export const Toast: FC<ToastProps> = ({
           rounded="full"
           _hover={{ bgColor: 'surface-hovered' }}
           _pressed={{ bgColor: 'surface-pressed' }}
-          alignSelf="start"
+          alignSelf="flex-start"
         >
           <Icon
             size={20}
