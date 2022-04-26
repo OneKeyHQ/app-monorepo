@@ -300,6 +300,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
               )}
             </Pressable>
           )}
+          ItemSeparatorComponent={() => <Box h={2} />}
           ListFooterComponent={
             <Pressable
               mt={2}
