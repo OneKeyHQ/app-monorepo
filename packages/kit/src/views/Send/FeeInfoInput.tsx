@@ -109,30 +109,41 @@ function FeeInfoInputForTransfer({
           paddingY="8px"
         >
           <Box flex={1}>
-            {isPreset && (
+            {(isPreset || feeInfoPayload?.current?.totalNative) && (
               <Text
                 typography={{
                   sm: 'Body1Strong',
                   md: 'Body2Strong',
                 }}
               >
-                <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-                {feeInfoPayload?.current?.totalNative && (
-                  <FormatCurrencyNative
-                    value={feeInfoPayload?.current?.totalNative}
-                    render={(ele) => <>(~ {ele})</>}
-                  />
+                {isPreset ? (
+                  <>
+                    <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+                    <FormatCurrencyNative
+                      value={feeInfoPayload?.current?.totalNative}
+                      render={(ele) => <>(~ {ele})</>}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <FormatCurrencyNative
+                      value={feeInfoPayload?.current?.totalNative}
+                      render={(ele) => <>{ele}</>}
+                    />
+                  </>
                 )}
               </Text>
             )}
-            <Text color="text-subdued" flex={1}>
-              {/* eslint-disable-next-line no-nested-ternary */}
-              {feeInfoPayload?.current?.totalNative
-                ? feeSpeedTime
-                : loading
-                ? intl.formatMessage({ id: 'content__just_a_moment' })
-                : intl.formatMessage({ id: 'content__calculate_fee' })}
-            </Text>
+            {isPreset && (
+              <Text color="text-subdued" flex={1}>
+                {/* eslint-disable-next-line no-nested-ternary */}
+                {feeInfoPayload?.current?.totalNative
+                  ? feeSpeedTime
+                  : loading
+                  ? intl.formatMessage({ id: 'content__just_a_moment' })
+                  : intl.formatMessage({ id: 'content__calculate_fee' })}
+              </Text>
+            )}
           </Box>
           {icon}
         </Box>

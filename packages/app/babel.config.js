@@ -6,9 +6,7 @@ module.exports = function (api) {
     platform: babelTools.developmentConsts.platforms.app,
     config: {
       presets: ['babel-preset-expo'],
-      plugins: [
-        'react-native-reanimated/plugin',
-      ],
+      plugins: ['react-native-reanimated/plugin'],
     },
   });
 };

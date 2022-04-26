@@ -3,6 +3,7 @@ import React, { FC, useEffect, useMemo, useState } from 'react';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Box, useIsSmallLayout } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -351,31 +352,29 @@ const Explorer: FC = () => {
     }
   };
 
+  const currentWebSiteMemo = useDeepCompareMemo(
+    () => currentWebSite,
+    [currentWebSite],
+  );
   const explorerContent = useMemo(
-    () => {
-      console.log('explorerContent render');
-
-      return (
-        <Box flex={1}>
-          {displayInitialPage ? (
-            <Home
-              onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })}
-            />
-          ) : (
-            <WebView
-              src={currentWebSite?.url ?? ''}
-              onWebViewRef={(ref) => {
-                setWebviewRef(ref);
-              }}
-              onNavigationStateChange={setNavigationStateChangeEvent}
-              allowpopups={false}
-            />
-          )}
-        </Box>
-      );
-    },
+    () => (
+      <Box flex={1}>
+        {displayInitialPage ? (
+          <Home onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })} />
+        ) : (
+          <WebView
+            src={currentWebSiteMemo?.url ?? ''}
+            onWebViewRef={(ref) => {
+              setWebviewRef(ref);
+            }}
+            onNavigationStateChange={setNavigationStateChangeEvent}
+            allowpopups={false}
+          />
+        )}
+      </Box>
+    ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentWebSite, displayInitialPage],
+    [currentWebSiteMemo, displayInitialPage],
   );
 
   const moreViewContent = useMemo(
