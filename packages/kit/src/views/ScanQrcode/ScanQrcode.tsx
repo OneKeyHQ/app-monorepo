@@ -6,11 +6,14 @@ import {
   useIsFocused,
   useRoute,
 } from '@react-navigation/core';
+import * as Application from 'expo-application';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Linking from 'expo-linking';
+import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
-import * as Linking from 'expo-linking';
 
 import {
   Dialog,
@@ -28,10 +31,6 @@ import useNavigation from '../../hooks/useNavigation';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
-
-import Constants from 'expo-constants';
-import * as IntentLauncher from 'expo-intent-launcher';
-import { PermissionStatus } from 'expo-modules-core';
 
 const { isWeb, isNative: isApp, isIOS } = platformEnv;
 
@@ -188,13 +187,10 @@ const ScanQrcode: FC = () => {
                   if (isIOS) {
                     Linking.openURL('app-settings:');
                   } else {
-                    const pkg = Constants?.manifest?.releaseChannel
-                      ? Constants?.manifest?.android?.package
-                      : 'host.exp.exponent';
                     IntentLauncher.startActivityAsync(
                       IntentLauncher.ActivityAction
                         .APPLICATION_DETAILS_SETTINGS,
-                      { data: 'package:' + pkg },
+                      { data: `package:${Application.applicationId!}` },
                     );
                   }
                 },
