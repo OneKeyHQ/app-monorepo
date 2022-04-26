@@ -1,36 +1,56 @@
-import React, { FC, useMemo } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
-import { IntlShape, useIntl } from 'react-intl';
+import _ from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
+import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export type AddressProps = {
-  address: string;
+  address: string; // as title
   isFromAddress: boolean; // otherwise toAddress
-  label?: string;
-};
-
-const getItemParams = (
-  { address, isFromAddress, label }: AddressProps,
-  intl: IntlShape,
-) => {
-  const titleId = isFromAddress ? 'content__from' : 'content__to';
-  const title = intl.formatMessage({ id: titleId });
-  if (label !== undefined) {
-    return { title, describe: address, subDescribe: label };
-  }
-
-  // TODO: get account name from db
-  return { title, describe: address };
-};
+  label?: string; // as subDescribe
+} & Omit<ContentItemProps, 'title'>;
 
 const Address: FC<AddressProps> = (addressProps) => {
+  const { address, isFromAddress, label } = addressProps;
+
   const intl = useIntl();
-  const itemParams = useMemo(
-    () => getItemParams(addressProps, intl),
-    [addressProps, intl],
+  const titleId = isFromAddress ? 'content__from' : 'content__to';
+  const title = intl.formatMessage({ id: titleId });
+
+  const [addressLabel, setAddressLabel] = useState(label);
+
+  useEffect(() => {
+    if (addressLabel) {
+      return;
+    }
+    async function getAddressLabel() {
+      const wallets = await backgroundApiProxy.engine.getWallets();
+      const accountids = _.flatten(wallets.map((w) => w.accounts));
+      const accounts = await backgroundApiProxy.engine.getAccounts(accountids);
+      const name = _.find(
+        accounts,
+        (a) => a.address.toLowerCase() === address.toLowerCase(),
+      )?.name;
+      setAddressLabel(name);
+    }
+    getAddressLabel();
+  }, [address, addressLabel]);
+
+  const describe = addressLabel ?? address;
+  const subDescribe = addressLabel ? address : null;
+
+  return (
+    <Container.Item
+      {...addressProps}
+      title={title}
+      describe={describe}
+      subDescribe={subDescribe}
+    />
   );
-  return <Container.Item {...itemParams} />;
 };
 
 export default Address;

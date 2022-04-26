@@ -36,6 +36,7 @@ const getHeaderIconInfo = (
   let iconName = '';
 
   if (typeof headerInfo === 'string') {
+    // Trascation status
     isStatus = true;
     const status = headerInfo;
 
@@ -58,18 +59,27 @@ const getHeaderIconInfo = (
         break;
     }
   } else if ('iconUrl' in headerInfo) {
+    // Custom header
     iconUrl = headerInfo.iconUrl;
     iconName = headerInfo.iconName;
+    iconContainerColor = '';
+    textColor = 'text-default';
   } else if ('tokenIdOnNetwork' in headerInfo) {
+    // Toekn icon header
     const token = headerInfo;
     const { name, symbol, logoURI } = token;
     iconUrl = logoURI;
     iconName = `${symbol}(${name})`;
+    iconContainerColor = '';
+    textColor = 'text-default';
   } else {
+    // Native currency symbol header
     const network = headerInfo;
     const { name, symbol, logoURI } = network;
     iconUrl = logoURI;
     iconName = `${symbol}(${name})`;
+    iconContainerColor = '';
+    textColor = 'text-default';
   }
 
   return {

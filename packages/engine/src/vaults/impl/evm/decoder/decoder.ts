@@ -1,5 +1,6 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
+import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
 
 import { ABI } from './abi';
@@ -59,6 +60,7 @@ interface EVMDecodedItem {
   symbol: string; // native currency symbol
   amount: string; // in ether
   value: string; // in wei
+  network: Network;
 
   fromAddress: string;
   toAddress: string;
@@ -69,8 +71,10 @@ interface EVMDecodedItem {
   gasPrice: string;
   maxPriorityFeePerGas: string;
   maxFeePerGas: string;
-  gasSpend: string; // in ether
   data: string;
+
+  gasSpend: string; // in ether, estimated gas cost
+  total: string; // in ether, gasSpend + value
 
   contractCallInfo?: {
     contractAddress: string;
@@ -91,9 +95,15 @@ class EVMTxDecoder {
     const itemBuilder = { txType, protocol } as EVMDecodedItem;
 
     const networkId = `evm--${tx.chainId}`;
-    itemBuilder.symbol = (await engine.getNetwork(networkId)).symbol;
+    const network = await engine.getNetwork(networkId);
+
+    itemBuilder.network = network;
+    itemBuilder.symbol = network.symbol;
     itemBuilder.amount = ethers.utils.formatEther(tx.value);
     itemBuilder.gasSpend = this.parseGasSpend(tx);
+    itemBuilder.total = ethers.utils.formatEther(
+      tx.value.add(ethers.utils.parseEther(itemBuilder.gasSpend)),
+    );
 
     this.fillTxInfo(itemBuilder, tx);
 

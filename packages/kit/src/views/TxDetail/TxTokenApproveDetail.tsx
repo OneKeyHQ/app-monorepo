@@ -10,9 +10,10 @@ import {
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
+import Address from './Address';
 import HeaderIcon from './HeaderIcon';
 
-const TokenApprove: FC<{
+const TxTokenApproveDetail: FC<{
   tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
   feeInput?: any;
@@ -32,21 +33,9 @@ const TokenApprove: FC<{
 
       {/* Token Approval Details */}
       <Container.Box mt={6}>
-        <Container.Item
-          title={intl.formatMessage({ id: 'content__from' })}
-          describe={tx.fromAddress}
-        />
-        <Container.Item
-          title={intl.formatMessage({ id: 'content__to' })}
-          describe={tx.toAddress}
-        />
-        {approveAmountInput || (
-          <Container.Item
-            title={intl.formatMessage({ id: 'content__spend_limit_amount' })}
-            hasArrow
-          />
-        )}
-
+        <Address address={tx.fromAddress} isFromAddress />
+        <Address address={tx.toAddress} isFromAddress={false} />
+        {approveAmountInput}
         {!!sourceInfo && (
           <Container.Item
             title={intl.formatMessage({ id: 'content__interact_with' })}
@@ -61,7 +50,9 @@ const TokenApprove: FC<{
       </Typography.Subheading>
 
       <Container.Box mt={6}>
-        {feeInput || (
+        {feeInput ? (
+          <Container.Item title="" wrap={feeInput} />
+        ) : (
           <Container.Item
             title={intl.formatMessage({ id: 'form__fee_estimated' })}
             describe={`${tx.gasSpend} ${tx.symbol}`}
@@ -85,4 +76,4 @@ const TokenApprove: FC<{
   );
 };
 
-export default TokenApprove;
+export default TxTokenApproveDetail;
