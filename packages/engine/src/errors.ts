@@ -158,3 +158,7 @@ export class TooManyDerivedAccounts extends NumberLimit {
     };
   }
 }
+
+export class PendingQueueTooLong extends NumberLimit {
+  key = 'msg__engine__pending_queue_too_long';
+}
