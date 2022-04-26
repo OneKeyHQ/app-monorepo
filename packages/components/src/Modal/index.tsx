@@ -11,6 +11,7 @@ import React, {
 
 import ReactDOM from 'react-dom';
 
+import { modalDomManager } from '@onekeyhq/components/src/utils/ModalDomManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
@@ -25,12 +26,6 @@ import Toast from '../Toast/Custom';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
-
-let modalRoot: HTMLElement | null = null;
-if (platformEnv.isBrowser) {
-  modalRoot = document.createElement('DIV');
-  document.body.appendChild(modalRoot);
-}
 
 export type ModalProps = {
   /* 
@@ -271,8 +266,8 @@ const Modal: FC<ModalProps> = ({
     </>
   );
 
-  return modalRoot && !['SMALL', 'NORMAL'].includes(size)
-    ? ReactDOM.createPortal(node, modalRoot)
+  return modalDomManager.modalRoot && !['SMALL', 'NORMAL'].includes(size)
+    ? ReactDOM.createPortal(node, modalDomManager.modalRoot)
     : node;
 };
 

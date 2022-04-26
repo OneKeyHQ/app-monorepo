@@ -1,19 +1,17 @@
 import React, { isValidElement } from 'react';
 
-// import Modal from 'react-native-modal';
+import Modal from 'react-native-modal';
 
 import Box from '../../Box';
 import Button from '../../Button';
 import IconButton from '../../IconButton';
 import { useSafeAreaInsets } from '../../Provider/hooks';
-import RBSheet from '../../RBSheet';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
 import { renderOptions } from './Option';
 
 import type { ChildProps } from '..';
-import type { RBSheetRef } from '../../RBSheet';
 
 function Mobile<T>({
   dropdownProps,
@@ -32,48 +30,32 @@ function Mobile<T>({
   activatable,
 }: ChildProps<T>) {
   const { bottom } = useSafeAreaInsets();
-  const rBsheetRef = React.useRef<RBSheetRef>(null);
-  React.useEffect(() => {
-    // console.log('visible change to ', visible);
-    if (visible) {
-      rBsheetRef.current?.open();
-    } else {
-      rBsheetRef.current?.close();
-    }
-  }, [visible]);
-
-  let height = 60 * options.length;
-  height = height > 500 ? 500 : height;
-  // console.log('height', height);
-
   return (
-    // <Modal
-    //   propagateSwipe
-    //   hideModalContentWhileAnimating
-    //   useNativeDriver
-    //   useNativeDriverForBackdrop
-    //   isVisible={!!visible}
-    //   onModalHide={onModalHide}
-    //   swipeDirection={['down']}
-    //   onSwipeComplete={toggleVisible}
-    //   onBackdropPress={toggleVisible}
-    //   animationInTiming={150}
-    //   animationOutTiming={150}
-    //   animationIn="slideInUp"
-    //   animationOut="slideOutDown"
-    //   style={{
-    //     justifyContent: 'flex-end',
-    //     margin: 0,
-    //   }}
-    // >
-    <RBSheet
-      ref={rBsheetRef}
+    <Modal
+      propagateSwipe
+      hideModalContentWhileAnimating
+      useNativeDriver
+      useNativeDriverForBackdrop
+      isVisible={!!visible}
       onModalHide={onModalHide}
-      toggleVisible={toggleVisible}
+      swipeDirection={['down']}
+      onSwipeComplete={toggleVisible}
+      onBackdropPress={toggleVisible}
+      animationInTiming={150}
+      animationOutTiming={150}
+      animationIn="slideInUp"
+      animationOut="slideOutDown"
+      style={{
+        justifyContent: 'flex-end',
+        margin: 0,
+      }}
     >
       <Box
+        maxHeight="70%"
+        minHeight="180px"
         minW="full"
         bg="surface-subdued"
+        borderTopRadius="24px"
         pb={`${footer === null ? bottom : 0}px`}
         {...dropdownProps}
       >
@@ -98,10 +80,7 @@ function Mobile<T>({
             circle
           />
         </Box>
-        <ScrollView
-          height={height}
-          _contentContainerStyle={{ padding: 2, paddingBottom: 4 }}
-        >
+        <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
           {renderOptions<T>({
             options,
             activeOption,
@@ -132,8 +111,7 @@ function Mobile<T>({
           </Box>
         )}
       </Box>
-    </RBSheet>
-    // </Modal>
+    </Modal>
   );
 }
 
