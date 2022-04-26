@@ -69,6 +69,7 @@ const TokenInput: FC<TokenInputProps> = ({
             _focus={{ bg: 'transparent' }}
             defaultValue=""
             value={inputValue}
+            borderRadius={0}
             onChangeText={onChange}
             pt="0"
             pb="0"

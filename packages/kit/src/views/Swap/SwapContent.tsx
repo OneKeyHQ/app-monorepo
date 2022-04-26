@@ -239,8 +239,8 @@ const SwapContent = () => {
             />
           </Box>
         ) : null}
-        {approveState === ApprovalState.NOT_APPROVED ||
-        approveState === ApprovalState.PENDING ? (
+        {!error && (approveState === ApprovalState.NOT_APPROVED ||
+        approveState === ApprovalState.PENDING) ? (
           <Button
             size="lg"
             type="primary"

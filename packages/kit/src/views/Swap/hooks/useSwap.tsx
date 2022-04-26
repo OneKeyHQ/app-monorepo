@@ -92,7 +92,7 @@ class TokenAmount {
   }
 
   toFormat() {
-    return this.toNumber().toFormat({ groupSeparator: '' });
+    return this.toNumber().toFixed(0);
   }
 }
 
