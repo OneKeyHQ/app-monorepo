@@ -31,7 +31,7 @@ export type TokenApproveAmountEditParams = {
 export type EditFeeParams = {
   encodedTx?: any;
   feeInfoSelected?: IFeeInfoSelected;
-  backRouteName?: keyof SendRoutesParams;
+  autoConfirmAfterFeeSaved?: boolean;
 };
 
 export type SendParams = EditFeeParams & {
@@ -77,6 +77,7 @@ export type SendConfirmParams = EditFeeParams & {
   onSuccess?: (tx: IBroadcastedTx) => void;
   sourceInfo?: IDappCallParams;
   actionType?: SendConfirmActionType;
+  backRouteName?: keyof SendRoutesParams;
 };
 
 export type SendAuthenticationParams = SendConfirmParams & {

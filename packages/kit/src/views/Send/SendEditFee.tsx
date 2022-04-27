@@ -2,8 +2,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
-import { RouteProp } from '@react-navigation/native';
+import {
+  RouteProp,
+  StackActions,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { Column, Row } from 'native-base';
 import { Control, UseFormWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
@@ -574,7 +578,7 @@ const TransactionEditFee = ({ ...rest }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
-  const { encodedTx, backRouteName } = route.params;
+  const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
   const { feeInfoPayload, feeInfoLoading, getSelectedFeeInfoUnit } =
     useFeeInfoPayload({
       encodedTx,
@@ -618,15 +622,27 @@ const TransactionEditFee = ({ ...rest }) => {
       },
     };
     debugLogger.sendTx('SendEditFee Confirm >>>> ', feeInfoSelected);
-    if (backRouteName) {
-      navigation.navigate({
-        merge: true,
-        name: backRouteName,
-        params: {
-          feeInfoSelected,
-        },
+    const { routes, index } = navigation.getState();
+    const prevRouteName = routes[index - 1]?.name;
+
+    if (autoConfirmAfterFeeSaved) {
+      const action = StackActions.replace(SendRoutes.SendConfirm, {
+        encodedTx,
+        actionType: 'cancel',
+        feeInfoSelected,
+        autoConfirmAfterFeeSaved,
       });
+      return navigation.dispatch(action);
     }
+
+    return navigation.navigate({
+      merge: true,
+      name: prevRouteName || SendRoutes.SendConfirm,
+      params: {
+        feeInfoSelected,
+        autoConfirmAfterFeeSaved,
+      },
+    });
   });
 
   const setFormValuesFromFeeInfo = useCallback(
@@ -769,7 +785,7 @@ const TransactionEditFee = ({ ...rest }) => {
 
   return (
     <Modal
-      maxHeight="640px"
+      height="598px"
       trigger={trigger}
       primaryActionTranslationId="action__confirm"
       secondaryActionTranslationId="action__reject"

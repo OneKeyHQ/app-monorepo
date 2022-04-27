@@ -137,12 +137,14 @@ export function useSwapActionHandlers() {
   }, []);
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.dispatch(switchTokens());
+    backgroundApiProxy.dispatch(setQuote(undefined));
   }, []);
   const onUserInput = useCallback(
     (independentField: 'INPUT' | 'OUTPUT', typedValue: string) => {
       backgroundApiProxy.dispatch(
         setTypedValue({ independentField, typedValue }),
       );
+      backgroundApiProxy.dispatch(setQuote(undefined));
     },
     [],
   );
