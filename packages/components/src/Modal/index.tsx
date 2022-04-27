@@ -114,6 +114,7 @@ const Modal: FC<ModalProps> = ({
     if (sectionListProps) {
       return (
         <SectionList
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingBottom: 24,
             // eslint-disable-next-line no-nested-ternary
@@ -128,6 +129,7 @@ const Modal: FC<ModalProps> = ({
     if (flatListProps) {
       return (
         <FlatList
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingBottom: 24,
             // eslint-disable-next-line no-nested-ternary
@@ -142,6 +144,7 @@ const Modal: FC<ModalProps> = ({
     if (scrollViewProps) {
       return (
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingBottom: 24,
             // eslint-disable-next-line no-nested-ternary
