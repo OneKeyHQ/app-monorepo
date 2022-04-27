@@ -5,11 +5,6 @@ import type { DesktopRef } from '../Select/Container/Desktop';
 export const MARK_ID_FOR_SELECT_HIDE = 'mark-id-for-select-hide';
 
 let mainScreenDom: HTMLElement | null = null;
-if (platformEnv.isBrowser) {
-  window.setTimeout(() => {
-    mainScreenDom = document.getElementById(MARK_ID_FOR_SELECT_HIDE);
-  }, 3000);
-}
 
 let desktopRefs: DesktopRef[] = [];
 
@@ -22,6 +17,13 @@ function domContains(root: HTMLElement, n: HTMLElement) {
     node = node.parentNode as HTMLElement;
   }
   return false;
+}
+
+export function setMainScreenDom(dom: HTMLElement | null) {
+  // 没有组件卸载场景
+  if (platformEnv.isBrowser) {
+    mainScreenDom = dom;
+  }
 }
 
 export function addNewRef(newRef: DesktopRef) {

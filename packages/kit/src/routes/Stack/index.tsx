@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
-import { MARK_ID_FOR_SELECT_HIDE } from '@onekeyhq/components/src/utils/SelectAutoHide';
+import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
@@ -171,7 +171,7 @@ const MainScreen = () => {
 
 function WrappedMainScreen() {
   return (
-    <Box w="full" h="full" nativeID={MARK_ID_FOR_SELECT_HIDE}>
+    <Box ref={setMainScreenDom} w="full" h="full">
       <MainScreen />
     </Box>
   );
