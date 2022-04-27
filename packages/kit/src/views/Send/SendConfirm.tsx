@@ -243,7 +243,7 @@ const TransactionConfirm = () => {
   };
 
   // waiting for tx decode
-  if (!decodedTx) {
+  if (!decodedTx || !encodedTx) {
     return (
       <SendConfirmModal {...sharedProps} confirmDisabled>
         <Center flex="1">
