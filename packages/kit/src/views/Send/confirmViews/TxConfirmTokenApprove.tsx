@@ -30,11 +30,6 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
-  if (!decodedTx) {
-    // TODO: make sure decodedTx is always set
-    return <Spinner />;
-  }
-
   const approveAmount = decodedTx?.info?.amount as string;
   const isMaxAmount = approveAmount === InfiniteAmountText;
   const feeInput = (

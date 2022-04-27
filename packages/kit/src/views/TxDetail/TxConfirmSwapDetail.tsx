@@ -21,7 +21,7 @@ const NativeCurrencyPseudoAddress =
 const OnekeyLogoUrl =
   'https://help.onekey.so/hc/article_attachments/4578205272847/OneKey__1_.png';
 
-const TxSwapConfirmDetail: FC<{
+const TxConfirmSwapDetail: FC<{
   tx: EVMDecodedItem;
   swapQuote: SwapQuote;
   sourceInfo?: IDappCallParams;
@@ -133,4 +133,4 @@ const TxSwapConfirmDetail: FC<{
   );
 };
 
-export default TxSwapConfirmDetail;
+export default TxConfirmSwapDetail;

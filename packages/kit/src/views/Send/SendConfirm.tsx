@@ -31,9 +31,9 @@ import {
 } from './confirmViews/SendConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
 import { TxConfirmSpeedUpOrCancel } from './confirmViews/TxConfirmSpeedUpOrCancel';
+import { TxConfirmSwap } from './confirmViews/TxConfirmSwap';
 import { TxConfirmTokenApprove } from './confirmViews/TxConfirmTokenApprove';
 import { TxConfirmTransfer } from './confirmViews/TxConfirmTransfer';
-import { TxSwapConfirm } from './confirmViews/TxSwapConfirm';
 import {
   SendConfirmPayloadBase,
   SendRoutes,
@@ -264,7 +264,7 @@ const TransactionConfirm = () => {
 
   if (isInternalSwapTx) {
     const payloadInternalSwap = payload as SwapQuote;
-    return <TxSwapConfirm {...sharedProps} payload={payloadInternalSwap} />;
+    return <TxConfirmSwap {...sharedProps} payload={payloadInternalSwap} />;
   }
 
   if (isTransferTypeTx) {

@@ -47,11 +47,6 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
     transferPayload.value,
   ]);
 
-  if (!decodedTx) {
-    // TODO: make sure decodedTx is always set
-    return <Spinner />;
-  }
-
   const feeInput = (
     <FeeInfoInputForConfirm
       editable={feeInfoEditable}
@@ -84,12 +79,14 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
         return Promise.resolve(tx);
       }}
     >
-      {decodedTx && (
+      {decodedTx ? (
         <TxConfirmDetail
           tx={decodedTx}
           feeInput={feeInput}
           feeInfoPayload={feeInfoPayload}
         />
+      ) : (
+        <Spinner />
       )}
     </SendConfirmModal>
   );

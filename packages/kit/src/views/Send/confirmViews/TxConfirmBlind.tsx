@@ -17,11 +17,6 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
     decodedTx,
   } = props;
 
-  if (!decodedTx) {
-    // TODO: make sure decodedTx is always set
-    return <Spinner />;
-  }
-
   const feeInput = (
     <FeeInfoInputForConfirm
       editable={feeInfoEditable}
@@ -33,12 +28,16 @@ function TxConfirmBlind(props: ITxConfirmViewProps) {
 
   return (
     <SendConfirmModal {...props}>
-      <TxConfirmBlindDetail
-        tx={decodedTx}
-        sourceInfo={sourceInfo}
-        feeInput={feeInput}
-        feeInfoPayload={feeInfoPayload}
-      />
+      {decodedTx ? (
+        <TxConfirmBlindDetail
+          tx={decodedTx}
+          sourceInfo={sourceInfo}
+          feeInput={feeInput}
+          feeInfoPayload={feeInfoPayload}
+        />
+      ) : (
+        <Spinner />
+      )}
     </SendConfirmModal>
   );
 }

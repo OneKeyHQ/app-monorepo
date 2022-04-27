@@ -1,14 +1,16 @@
 import React from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Spinner } from '@onekeyhq/components';
 
 import { SwapQuote } from '../../Swap/typings';
-import TxSwapConfirmDetail from '../../TxDetail/TxSwapConfirmDetail';
+import TxConfirmSwapDetail from '../../TxDetail/TxConfirmSwapDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 
 import { ITxConfirmViewProps, SendConfirmModal } from './SendConfirmModal';
 
-function TxSwapConfirm(props: ITxConfirmViewProps) {
+function TxConfirmSwap(props: ITxConfirmViewProps) {
   const {
     feeInfoPayload,
     feeInfoLoading,
@@ -18,12 +20,7 @@ function TxSwapConfirm(props: ITxConfirmViewProps) {
     decodedTx,
     payload,
   } = props;
-
-  if (!decodedTx || !payload || payload.payloadType !== 'InternalSwap') {
-    // TODO: make sure decodedTx is always set
-    return <Spinner />;
-  }
-  const swapQuote = payload as SwapQuote;
+  const intl = useIntl();
 
   const feeInput = (
     <FeeInfoInputForConfirm
@@ -34,17 +31,28 @@ function TxSwapConfirm(props: ITxConfirmViewProps) {
     />
   );
 
-  return (
-    <SendConfirmModal {...props}>
-      <TxSwapConfirmDetail
+  let content = <Spinner />;
+  if (decodedTx && payload && payload.payloadType === 'InternalSwap') {
+    const swapQuote = payload as SwapQuote;
+    content = (
+      <TxConfirmSwapDetail
         tx={decodedTx}
         swapQuote={swapQuote}
         sourceInfo={sourceInfo}
         feeInfoPayload={feeInfoPayload}
         feeInput={feeInput}
       />
+    );
+  }
+
+  return (
+    <SendConfirmModal
+      header={intl.formatMessage({ id: 'title__swap' })}
+      {...props}
+    >
+      {content}
     </SendConfirmModal>
   );
 }
 
-export { TxSwapConfirm };
+export { TxConfirmSwap };
