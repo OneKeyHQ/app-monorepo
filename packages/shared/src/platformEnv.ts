@@ -30,6 +30,7 @@ export type IPlatformEnv = {
   isChrome?: boolean;
   isIOS?: boolean;
   isAndroid?: boolean;
+  canGetClipboard?: boolean;
 };
 
 export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
@@ -153,6 +154,8 @@ export const isMAS = (): boolean => !!process.env.IS_MAS;
 
 export const isDev = (): boolean => process.env.NODE_ENV !== 'production';
 
+export const canGetClipboard = (): boolean => !isWeb() && !isExtension();
+
 const platformEnv: IPlatformEnv = {
   isMac: isMac(),
   isWindows: isWindows(),
@@ -179,6 +182,8 @@ const platformEnv: IPlatformEnv = {
   isChrome: isChrome(),
   isIOS: isIOS(),
   isAndroid: isAndroid(),
+
+  canGetClipboard: canGetClipboard(),
 };
 
 if (isDev()) {
