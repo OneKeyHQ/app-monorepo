@@ -2,13 +2,8 @@ import React from 'react';
 
 import { useDrawerStatus } from '@react-navigation/drawer';
 
-import {
-  Box,
-  // OverlayContainer,
-  PresenceTransition,
-} from '@onekeyhq/components';
+import { Box, PresenceTransition } from '@onekeyhq/components';
 import { useDomID } from '@onekeyhq/components/src/hooks/useClickDocumentClose';
-// import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
@@ -16,7 +11,6 @@ import AccountSelectorChildren from './AccountSelectorChildren';
 type ChildDropdownProps = {
   visible: boolean;
   toggleVisible: (...args: any) => any;
-  // triggerEle?: HTMLElement | null;
 };
 
 const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
@@ -28,16 +22,7 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       getVisible: () => visible,
       domId,
     }));
-    // 因为overlay的使用与modal展示冲突，所以注掉
-    // const { position, toPxPositionValue } = useDropdownPosition({
-    //   triggerEle,
-    //   domId,
-    //   visible,
-    //   dropdownPosition: 'right',
-    //   translateY,
-    //   autoAdjust: false,
-    //   setPositionOnlyMounted: true,
-    // });
+
     const status = useDrawerStatus();
     const isOpen = status === 'open';
     const content = (
@@ -54,10 +39,6 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       >
         <Box
           nativeID={domId}
-          // left={toPxPositionValue(position.left)}
-          // right={toPxPositionValue(position.right)}
-          // top={toPxPositionValue(position.top)}
-          // bottom={toPxPositionValue(position.bottom)}
           right="-138px"
           position="absolute"
           width="320px"
