@@ -24,6 +24,8 @@ const TxConfirmDetail: FC<{
   const isNative = tx.txType === EVMDecodedTxType.NATIVE_TRANSFER;
   const headerInfo = isNative ? tx.network : info.token;
   const amount = isNative ? tx.amount : info.amount;
+  const symbol = isNative ? tx.symbol : info.token.symbol;
+  const recipient = isNative ? tx.toAddress : info.recipient;
 
   return (
     <Box
@@ -37,7 +39,7 @@ const TxConfirmDetail: FC<{
       {/* Addresses */}
       <Container.Box mt={6}>
         <Address address={tx.fromAddress} isFromAddress />
-        <Address address={tx.toAddress} isFromAddress={false} />
+        <Address address={recipient} isFromAddress={false} />
       </Container.Box>
 
       {/* Transaction Details */}
@@ -48,7 +50,7 @@ const TxConfirmDetail: FC<{
       <Container.Box mt={6}>
         <Container.Item
           title={intl.formatMessage({ id: 'content__amount' })}
-          describe={`${amount} ${tx.symbol}`}
+          describe={`${amount} ${symbol}`}
         />
         <Container.Item title="" wrap={feeInput} />
         {!!feeInfoPayload && isNative && (
