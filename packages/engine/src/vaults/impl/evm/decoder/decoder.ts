@@ -87,15 +87,32 @@ interface EVMDecodedItem {
 }
 
 class EVMTxDecoder {
-  static async decode(
+  private static sharedDecoder: EVMTxDecoder;
+
+  private engine: Engine;
+
+  private erc20Iface: ethers.utils.Interface;
+
+  private constructor(engine: Engine) {
+    this.engine = engine;
+    this.erc20Iface = new ethers.utils.Interface(ABI.ERC20);
+  }
+
+  public static getDecoder(engine: Engine): EVMTxDecoder {
+    if (!EVMTxDecoder.sharedDecoder) {
+      EVMTxDecoder.sharedDecoder = new EVMTxDecoder(engine);
+    }
+    return EVMTxDecoder.sharedDecoder;
+  }
+
+  public async decode(
     rawTx: string | ethers.Transaction,
-    engine: Engine,
   ): Promise<EVMDecodedItem> {
     const { txType, tx, txDesc, protocol } = this.staticDecode(rawTx);
     const itemBuilder = { txType, protocol } as EVMDecodedItem;
 
     const networkId = `evm--${tx.chainId}`;
-    const network = await engine.getNetwork(networkId);
+    const network = await this.engine.getNetwork(networkId);
 
     itemBuilder.network = network;
     itemBuilder.symbol = network.symbol;
@@ -122,7 +139,7 @@ class EVMTxDecoder {
       | null = null;
 
     if (itemBuilder.protocol === 'erc20') {
-      const token = await engine.getOrAddToken(
+      const token = await this.engine.getOrAddToken(
         networkId,
         itemBuilder.toAddress,
       );
@@ -169,9 +186,7 @@ class EVMTxDecoder {
     return itemBuilder;
   }
 
-  private static staticDecode(
-    rawTx: string | ethers.Transaction,
-  ): EVMBaseDecodedItem {
+  private staticDecode(rawTx: string | ethers.Transaction): EVMBaseDecodedItem {
     const itemBuilder = {} as EVMBaseDecodedItem;
 
     let tx: ethers.Transaction;
@@ -200,10 +215,7 @@ class EVMTxDecoder {
     return itemBuilder;
   }
 
-  private static fillTxInfo(
-    itemBuilder: EVMDecodedItem,
-    tx: ethers.Transaction,
-  ) {
+  private fillTxInfo(itemBuilder: EVMDecodedItem, tx: ethers.Transaction) {
     itemBuilder.value = tx.value.toString();
     itemBuilder.fromAddress = tx.from?.toLowerCase() ?? '';
     itemBuilder.toAddress = tx.to?.toLowerCase() ?? '';
@@ -218,33 +230,28 @@ class EVMTxDecoder {
     itemBuilder.data = tx.data;
   }
 
-  private static formatValue(
-    value: ethers.BigNumber,
-    decimals: number,
-  ): string {
+  private formatValue(value: ethers.BigNumber, decimals: number): string {
     if (ethers.constants.MaxUint256.eq(value)) {
       return InfiniteAmountText;
     }
     return ethers.utils.formatUnits(value, decimals) ?? '';
   }
 
-  private static parseGasSpend(tx: ethers.Transaction): string {
+  private parseGasSpend(tx: ethers.Transaction): string {
     const { gasLimit, gasPrice, maxFeePerGas } = tx;
     const priceInWei = gasPrice || maxFeePerGas || ethers.constants.Zero;
     const gasSpendInWei = gasLimit.mul(priceInWei);
     return ethers.utils.formatEther(gasSpendInWei);
   }
 
-  private static parseERC20(
+  private parseERC20(
     tx: ethers.Transaction,
   ): [ethers.utils.TransactionDescription | null, EVMDecodedTxType] {
-    const erc20Iface = new ethers.utils.Interface(ABI.ERC20);
-
     let txDesc: ethers.utils.TransactionDescription | null;
     let txType = EVMDecodedTxType.TRANSACTION;
 
     try {
-      txDesc = erc20Iface.parseTransaction(tx);
+      txDesc = this.erc20Iface.parseTransaction(tx);
     } catch (error) {
       return [null, txType];
     }
