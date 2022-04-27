@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/core';
 import { navigationGoHomeForceReload } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-function useModalClose({ onClose }: { onClose?: () => void | boolean }) {
+function useModalClose({ onClose }: { onClose?: () => void | boolean } = {}) {
   const navigation = useNavigation();
 
   const close = useCallback(() => {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Modal } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
   IDecodedTx,
   IEncodedTxAny,
@@ -43,6 +44,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoEditable?: boolean;
   payload?: SendConfirmPayload;
   children?: React.ReactElement;
+  autoConfirm?: boolean;
 };
 
 // TODO rename SendConfirmModalBase
@@ -58,9 +60,11 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     feeInfoLoading,
     handleConfirm,
     updateEncodedTxBeforeConfirm,
+    autoConfirm,
     ...others
   } = props;
   const { nativeToken, getTokenBalance } = useManageTokens();
+  const modalClose = useModalClose();
 
   // TODO move to validator
   const balanceInsufficient = useMemo(() => {
@@ -73,6 +77,22 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
     () => accountId && accountId.startsWith('watching-'),
     [accountId],
   );
+
+  const confirmAction = useCallback(
+    async ({ close, onClose }) => {
+      let tx = encodedTx;
+      if (updateEncodedTxBeforeConfirm) {
+        tx = await updateEncodedTxBeforeConfirm(tx);
+      }
+      handleConfirm({ close, onClose, encodedTx: tx });
+    },
+    [encodedTx, handleConfirm, updateEncodedTxBeforeConfirm],
+  );
+  useEffect(() => {
+    if (autoConfirm && !feeInfoLoading) {
+      confirmAction({ close: modalClose });
+    }
+  }, [feeInfoLoading, autoConfirm, confirmAction, modalClose]);
 
   return (
     <Modal
@@ -91,13 +111,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
       header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       headerDescription={network?.name || network?.shortName || undefined}
       onSecondaryActionPress={({ close }) => close()}
-      onPrimaryActionPress={async ({ close, onClose }) => {
-        let tx = encodedTx;
-        if (updateEncodedTxBeforeConfirm) {
-          tx = await updateEncodedTxBeforeConfirm(tx);
-        }
-        handleConfirm({ close, onClose, encodedTx: tx });
-      }}
+      onPrimaryActionPress={confirmAction}
       {...others}
       scrollViewProps={{
         children: (
