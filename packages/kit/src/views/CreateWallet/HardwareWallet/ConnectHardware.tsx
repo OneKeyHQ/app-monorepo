@@ -172,7 +172,7 @@ const ConnectHardwareModal: FC = () => {
   );
 
   const renderDevices = useCallback(() => {
-    if (!devices) return null;
+    if (!devices?.length) return null;
     return (
       <VStack space={4} w="full">
         <Typography.Body2 color="text-subdued" textAlign="center">
