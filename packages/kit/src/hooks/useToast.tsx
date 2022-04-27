@@ -1,16 +1,17 @@
 import { useCallback, useMemo } from 'react';
 
-import Toast from 'react-native-toast-message';
+import Toast, { ToastShowParams } from 'react-native-toast-message';
 
 import { ToastProps } from '@onekeyhq/components/src/Toast';
 
 export function useToast() {
-  const show = useCallback((props: ToastProps) => {
+  const show = useCallback((props: ToastProps & ToastShowParams) => {
     setTimeout(() => {
       Toast.show({
         type: 'default',
         text1: props.title,
         position: 'bottom',
+        ...props,
       });
     }, 500);
   }, []);

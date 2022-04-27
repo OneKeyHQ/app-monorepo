@@ -42,7 +42,8 @@ const EngineApp: FC = ({ children }) => {
       switch (type) {
         case UI.REQUEST_PIN:
           toast.show({
-            title: intl.formatMessage({ id: 'modal__input_pin_code' }),
+            autoHide: false,
+            type: 'enterPinOnDevice',
           });
           OneKeyConnect.uiResponse({
             type: UI.RECEIVE_PIN,
@@ -51,9 +52,8 @@ const EngineApp: FC = ({ children }) => {
           break;
         case UI.REQUEST_BUTTON:
           toast.show({
-            title: intl.formatMessage({
-              id: 'modal__follow_the_instructions_on_your_device_screen',
-            }),
+            autoHide: false,
+            type: 'confirmOnDevice',
           });
           break;
         default:
