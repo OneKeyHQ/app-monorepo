@@ -444,6 +444,9 @@ export default class Vault extends VaultBase {
     const encodedTxWithFee = { ...encodedTx };
     if (!isNil(feeInfoValue.limit)) {
       encodedTxWithFee.gas = toBigIntHex(new BigNumber(feeInfoValue.limit));
+      encodedTxWithFee.gasLimit = toBigIntHex(
+        new BigNumber(feeInfoValue.limit),
+      );
     }
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
     if (!isNil(feeInfoValue.price)) {

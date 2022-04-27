@@ -26,7 +26,7 @@ function createMainWindow() {
     resizable: true,
     width: Math.min(1200, dimensions.width),
     height: Math.min(1200 / ratio, dimensions.height),
-    minWidth: isDev ? undefined : 800,
+    minWidth: isDev ? undefined : 1024, // OK-8215
     minHeight: isDev ? undefined : 800 / ratio,
     webPreferences: {
       webviewTag: true,
