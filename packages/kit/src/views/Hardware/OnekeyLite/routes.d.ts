@@ -29,8 +29,8 @@ export type OnekeyLiteRoutesParams = {
     pinCode: string;
   };
   [OnekeyLiteModalRoutes.OnekeyLiteRestoreDoneModal]: {
-    onSuccess: (password: string) => void;
-    onCancel: () => void;
+    mnemonic: string;
+    onSuccess: () => void;
   };
   [OnekeyLiteModalRoutes.OnekeyLiteBackupPinCodeVerifyModal]: {
     walletId: string | null;
