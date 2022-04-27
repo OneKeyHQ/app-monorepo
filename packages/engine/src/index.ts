@@ -1746,7 +1746,7 @@ class Engine {
     );
 
     const decodedLocalTxHistory = localTxHistory.map(async (h) => {
-      const decodedItem = await EVMTxDecoder.decode(h.rawTx, this);
+      const decodedItem = await EVMTxDecoder.getDecoder(this).decode(h.rawTx);
       const tx = decodedItemToTransaction(decodedItem, h);
       return tx;
     });
