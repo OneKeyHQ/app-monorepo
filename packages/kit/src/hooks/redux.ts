@@ -69,6 +69,8 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
     const { activeAccountId, activeWalletId, activeNetworkId } = selector(
       (s) => s.general,
     );
+
+    // TODO init runtime data from background
     const { wallets, networks, accounts } = selector((s) => s.runtime);
 
     const activeWallet =
@@ -76,13 +78,13 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
     const activeAccountInfo = activeWallet
       ? accounts.find((account) => account.id === activeAccountId) ?? null
       : null;
-
     const activeNetwork =
       networks.find((network) => network.id === activeNetworkId) ?? null;
+
     const networkImpl = activeNetwork?.impl || '';
-    const networkId = activeNetwork?.id || '';
+    const networkId = activeNetworkId || '';
     const accountAddress = activeAccountInfo?.address || '';
-    const accountId = activeAccountInfo?.id || '';
+    const accountId = activeAccountId || '';
 
     return {
       wallet: activeWallet,
