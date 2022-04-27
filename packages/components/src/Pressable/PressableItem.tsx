@@ -14,7 +14,6 @@ const PressableItem: FC<PressableItemProps> = ({
   const [isFocused, setFocused] = useState(false);
   const onPressOverride = React.useCallback(
     (e) => {
-      // console.log('capture press');
       autoHideSelectFunc(e);
       onPress?.(e);
     },

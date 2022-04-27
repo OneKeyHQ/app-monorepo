@@ -9,7 +9,6 @@ export type PressableItemProps = React.ComponentProps<typeof NBPressable>;
 const PressableCapture: FC<PressableItemProps> = ({ onPress, ...props }) => {
   const onPressOverride = React.useCallback(
     (e) => {
-      // console.log('capture press');
       autoHideSelectFunc(e);
       onPress?.(e);
     },

@@ -39,7 +39,6 @@ function isAccountSelector(name: string): boolean {
 export function autoHideSelectFunc(event: MouseEvent) {
   if (platformEnv.isBrowser) {
     for (const t of desktopRefs) {
-      // console.log('domid=', t.domId, ' ', t.getVisible())
       if (t.getVisible() === true) {
         const container = document.getElementById(t.domId);
         let shouldHide = true;
@@ -55,7 +54,6 @@ export function autoHideSelectFunc(event: MouseEvent) {
               event.target &&
               domContains(container, event.target as HTMLElement)
             ) {
-              // console.log('inner click, return')
               // 点击发生在 panel内部，不收起panel
               shouldHide = false;
             }
@@ -72,7 +70,6 @@ export function autoHideSelectFunc(event: MouseEvent) {
             event.target &&
             domContains(container, event.target as HTMLElement)
           ) {
-            // console.log('inner click, return')
             // 点击发生在SELECT panel内部，不收起panel
             shouldHide = false;
           }

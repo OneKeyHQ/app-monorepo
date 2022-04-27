@@ -9,7 +9,6 @@ import type { IButtonProps } from 'native-base';
 const ButtonCapture: FC<IButtonProps> = ({ onPress, ...props }) => {
   const onPressOverride = React.useCallback(
     (e) => {
-      // console.log('capture press');
       autoHideSelectFunc(e);
       onPress?.(e);
     },
