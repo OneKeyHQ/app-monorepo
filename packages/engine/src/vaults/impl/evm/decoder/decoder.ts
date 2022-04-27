@@ -80,7 +80,7 @@ interface EVMDecodedItem {
     contractAddress: string;
     functionName: string;
     functionSignature: string;
-    args?: any;
+    args?: string[];
   };
 
   info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
@@ -112,8 +112,7 @@ class EVMTxDecoder {
         contractAddress: tx.to?.toLowerCase() ?? '',
         functionName: txDesc.name,
         functionSignature: txDesc.signature,
-        // TODO args not serializable
-        args: txDesc.args,
+        args: txDesc.args.map((arg) => String(arg)),
       };
     }
 
