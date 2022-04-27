@@ -9,9 +9,6 @@ import React, {
   useState,
 } from 'react';
 
-import ReactDOM from 'react-dom';
-
-import { modalDomManager } from '@onekeyhq/components/src/utils/ModalDomManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
@@ -266,9 +263,7 @@ const Modal: FC<ModalProps> = ({
     </>
   );
 
-  return modalDomManager.modalRoot && !['SMALL', 'NORMAL'].includes(size)
-    ? ReactDOM.createPortal(node, modalDomManager.modalRoot)
-    : node;
+  return node;
 };
 
 Modal.defaultProps = defaultProps;

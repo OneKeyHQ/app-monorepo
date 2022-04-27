@@ -4,11 +4,11 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 
 import {
   Box,
-  OverlayContainer,
+  // OverlayContainer,
   PresenceTransition,
 } from '@onekeyhq/components';
 import { useDomID } from '@onekeyhq/components/src/hooks/useClickDocumentClose';
-import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
+// import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
@@ -16,27 +16,28 @@ import AccountSelectorChildren from './AccountSelectorChildren';
 type ChildDropdownProps = {
   visible: boolean;
   toggleVisible: (...args: any) => any;
-  triggerEle?: HTMLElement | null;
+  // triggerEle?: HTMLElement | null;
 };
 
 const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
-  ({ visible, toggleVisible, triggerEle }, ref) => {
-    const translateY = 4;
+  ({ visible, toggleVisible }, ref) => {
+    const translateY = 12;
     const { domId } = useDomID('AccountSelectorDesktop');
     React.useImperativeHandle(ref, () => ({
       toggleVisible,
       getVisible: () => visible,
       domId,
     }));
-    const { position, toPxPositionValue } = useDropdownPosition({
-      triggerEle,
-      domId,
-      visible,
-      dropdownPosition: 'right',
-      translateY,
-      autoAdjust: false,
-      setPositionOnlyMounted: true,
-    });
+    // 因为overlay的使用与modal展示冲突，所以注掉
+    // const { position, toPxPositionValue } = useDropdownPosition({
+    //   triggerEle,
+    //   domId,
+    //   visible,
+    //   dropdownPosition: 'right',
+    //   translateY,
+    //   autoAdjust: false,
+    //   setPositionOnlyMounted: true,
+    // });
     const status = useDrawerStatus();
     const isOpen = status === 'open';
     const content = (
@@ -53,10 +54,11 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       >
         <Box
           nativeID={domId}
-          left={toPxPositionValue(position.left)}
-          right={toPxPositionValue(position.right)}
-          top={toPxPositionValue(position.top)}
-          bottom={toPxPositionValue(position.bottom)}
+          // left={toPxPositionValue(position.left)}
+          // right={toPxPositionValue(position.right)}
+          // top={toPxPositionValue(position.top)}
+          // bottom={toPxPositionValue(position.bottom)}
+          right="-138px"
           position="absolute"
           width="320px"
           height="564px"
@@ -71,9 +73,9 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
         </Box>
       </PresenceTransition>
     );
-    // return content;
+    return content;
     //    Error: Couldn't find a drawer. Is your component inside a drawer navigator?
-    return <OverlayContainer>{content}</OverlayContainer>;
+    // return <OverlayContainer>{content}</OverlayContainer>;
   },
 );
 

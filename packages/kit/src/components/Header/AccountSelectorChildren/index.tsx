@@ -16,7 +16,6 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { maintainModalDom } from '@onekeyhq/components/src/utils/ModalDomManager';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -74,9 +73,6 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 );
 
 const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
-  React.useEffect(() => {
-    maintainModalDom();
-  }, []);
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();

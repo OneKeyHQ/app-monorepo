@@ -70,7 +70,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     return (
       <AccountSelectorDesktop
         ref={setRef}
-        triggerEle={triggerRef?.current}
+        // triggerEle={triggerRef?.current}
         visible={visible}
         toggleVisible={handleToggleVisible}
       />
