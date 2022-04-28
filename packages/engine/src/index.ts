@@ -93,6 +93,7 @@ import {
   DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
+import { HistoryDetailList } from './types/covalent';
 import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
@@ -117,6 +118,7 @@ import {
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
 import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
+import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
@@ -322,22 +324,25 @@ class Engine {
         typeof mnemonic !== 'undefined',
         name,
       );
-      try {
-        const supportedImpls = getSupportedImpls();
-        const addedImpl = new Set();
-        const networks: Array<string> = [];
-        (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
-          if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
-            addedImpl.add(impl);
-            networks.push(networkId);
-          }
-        });
-        for (const networkId of networks) {
-          await this.addHDAccounts(password, wallet.id, networkId);
+
+      const supportedImpls = getSupportedImpls();
+      const addedImpl = new Set();
+      const networks: Array<string> = [];
+      (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
+        if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
+          addedImpl.add(impl);
+          networks.push(networkId);
         }
-      } catch (e) {
-        console.error(e);
-      }
+      });
+      await Promise.all(
+        networks.map((networkId) =>
+          this.addHDAccounts(password, wallet.id, networkId).then(
+            undefined,
+            (e) => console.error(e),
+          ),
+        ),
+      );
+
       return this.dbApi.getWallet(wallet.id) as Promise<Wallet>;
     }
 
@@ -1165,7 +1170,7 @@ class Engine {
       ]);
       const [dbAccount, token] = await Promise.all([
         this.dbApi.getAccount(accountId),
-        this.getOrAddToken(networkId, tokenAddress, true),
+        this.getOrAddToken(networkId, tokenAddress),
       ]);
       if (typeof token === 'undefined') {
         // Token not found locally
@@ -1183,6 +1188,28 @@ class Engine {
     } catch (e) {
       console.error(e);
     }
+  }
+
+  @backgroundMethod()
+  async signMessage({
+    unsignedMessage,
+    password,
+    networkId,
+    accountId,
+  }: {
+    unsignedMessage?: IUnsignedMessageEvm;
+    password: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+    const [signedMessage] = await vault.keyring.signMessage([unsignedMessage], {
+      password,
+    });
+    return signedMessage;
   }
 
   @backgroundMethod()
@@ -1219,7 +1246,7 @@ class Engine {
     encodedTx: any;
   }) {
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-
+    // throw new Error('test fetch fee info error');
     return vault.fetchFeeInfo(encodedTx);
   }
 
@@ -1321,6 +1348,7 @@ class Engine {
     accountId: string;
     transferInfo: ITransferInfo;
   }) {
+    // throw new Error('build encodedtx error test');
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfo);
     debugLogger.sendTx('buildEncodedTxFromTransfer: ', transferInfo, result, {
@@ -1329,55 +1357,6 @@ class Engine {
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
-  }
-
-  @backgroundMethod()
-  async prepareTransfer(
-    networkId: string,
-    accountId: string,
-    to: string,
-    value: string,
-    tokenIdOnNetwork?: string,
-    extra?: { [key: string]: any },
-  ): Promise<string> {
-    console.error('prepareTransfer is deprecated!');
-    // For account model networks, return the estimated gas usage.
-    // TODO: For UTXO model networks, return the transaction size & selected UTXOs.
-    // TODO: validate to parameter.
-    let token: Token | undefined;
-    if (
-      typeof tokenIdOnNetwork !== 'undefined' &&
-      tokenIdOnNetwork.length > 0
-    ) {
-      const normalizedAddress = await this.validator.validateTokenAddress(
-        networkId,
-        tokenIdOnNetwork,
-      );
-      token = await this.getOrAddToken(networkId, normalizedAddress, true);
-    }
-    await Promise.all([
-      this.validator.validateAddress(networkId, to),
-      this.validator.validateTransferValue(value),
-    ]);
-    const [network, dbAccount] = await Promise.all([
-      this.getNetwork(networkId),
-      this.dbApi.getAccount(accountId),
-    ]);
-
-    // Below properties are used to avoid redundant network requests.
-    const payload = extra || {};
-    payload.nonce = 1;
-    payload.feePricePerUnit = new BigNumber(1);
-    return (
-      await this.providerManager.preSend(
-        network,
-        dbAccount,
-        to,
-        new BigNumber(value),
-        token,
-        payload,
-      )
-    ).toFixed();
   }
 
   @backgroundMethod()
@@ -1423,94 +1402,7 @@ class Engine {
   }
 
   @backgroundMethod()
-  async transfer(
-    password: string,
-    networkId: string, // "evm--97"
-    accountId: string, // "hd-1--m/44'/60'/0'/0/0"
-    to: string,
-    value: string,
-    gasPrice: string,
-    gasLimit: string,
-    tokenIdOnNetwork?: string,
-    extra?: { [key: string]: any },
-  ): Promise<{ txid: string; success: boolean }> {
-    console.error('transfer is deprecated!');
-    // TODO transferValidator
-    /*
-    let token: Token | undefined;
-    if (
-      typeof tokenIdOnNetwork !== 'undefined' &&
-      tokenIdOnNetwork.length > 0
-    ) {
-      const normalizedAddress = await this.validator.validateTokenAddress(
-        networkId,
-        tokenIdOnNetwork,
-      );
-      token = await this.getOrAddToken(networkId, normalizedAddress, true);
-    }
-    await Promise.all([
-      this.validator.validateAddress(networkId, to),
-      this.validator.validateTransferValue(value),
-    ]);
-
-    const [credential, network, dbAccount] = await Promise.all([
-      this.getCredentialSelectorForAccount(accountId, password),
-      this.getNetwork(networkId),
-      this.dbApi.getAccount(accountId),
-    ]);
-    */
-    debugLogger.engine('transfer:', {
-      password: '***',
-      networkId,
-      accountId,
-      to,
-      value,
-      gasPrice,
-      gasLimit,
-      tokenIdOnNetwork,
-      extra,
-    });
-    const vault = await this.getVault({
-      accountId,
-      networkId,
-    });
-
-    try {
-      const { txid, rawTx } = await vault.simpleTransfer(
-        {
-          to,
-          value,
-          tokenIdOnNetwork,
-          extra,
-          gasLimit,
-          gasPrice,
-        },
-        { password },
-      );
-      const historyId = `${networkId}--${txid}`;
-      await this.dbApi.addHistoryEntry(
-        historyId,
-        networkId,
-        accountId,
-        HistoryEntryType.TRANSFER,
-        HistoryEntryStatus.PENDING,
-        {
-          contract: tokenIdOnNetwork || '',
-          target: to,
-          value,
-          rawTx,
-        },
-      );
-      return { txid, success: true };
-    } catch (e) {
-      console.error(e);
-      const { message } = e as { message: string };
-      throw new FailedToTransfer(message);
-    }
-  }
-
-  @backgroundMethod()
-  async signMessage(
+  async signMessageLegacy(
     password: string,
     networkId: string,
     accountId: string,
@@ -1843,37 +1735,70 @@ class Engine {
       return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
     }
 
-    const localHistory = await this.getHistory(networkId, accountId);
+    const localHistory = await this.getHistory(
+      networkId,
+      accountId,
+      undefined,
+      true,
+    );
     const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
       (h): h is HistoryEntryTransaction => 'rawTx' in h,
     );
 
     const decodedLocalTxHistory = localTxHistory.map(async (h) => {
-      const decodedItem = await EVMTxDecoder.decode(h.rawTx, this);
+      const decodedItem = await EVMTxDecoder.getDecoder(this).decode(h.rawTx);
       const tx = decodedItemToTransaction(decodedItem, h);
       return tx;
     });
 
     const decodedLocalTxHistoryList = await Promise.all(decodedLocalTxHistory);
 
-    const covalent = await getTxHistories(
-      chainId,
-      dbAccount.address,
-      pageNumber,
-      pageSize,
-    );
-    if (!covalent || !covalent.data.txList) {
-      throw new OneKeyInternalError('getTxHistories failed.');
+    let result: HistoryDetailList = {
+      error: false,
+      errorMessage: null,
+      errorCode: null,
+      data: {
+        address: '',
+        updatedAt: '',
+        nextUpdateAt: '',
+        quoteCurrency: '',
+        chainId: Number(chainId),
+        pagination: {
+          hasMore: false,
+          pageNumber: 1,
+          pageSize: 1,
+          totalCount: 1,
+        },
+        items: [],
+        txList: [],
+      },
+    };
+    let txList = result.data.txList ?? [];
+    try {
+      const covalent = await getTxHistories(
+        chainId,
+        dbAccount.address,
+        pageNumber,
+        pageSize,
+      );
+      if (covalent) {
+        result = covalent;
+        // if (!covalent || !covalent.data.txList) {
+        //   throw new OneKeyInternalError('getTxHistories failed.');
+        // }
+        txList = covalent?.data?.txList ?? [];
+        updateLocalTransactions(decodedLocalTxHistoryList, txList);
+      }
+    } catch (error) {
+      console.error(error);
     }
-    const { txList } = covalent.data;
-    updateLocalTransactions(decodedLocalTxHistoryList, txList);
 
     const localTxHashSet = new Set(
       decodedLocalTxHistoryList.map((tx) => tx.txHash),
     );
     const filtedTxList = txList.filter((tx) => !localTxHashSet.has(tx.txHash));
-    covalent.data.txList = [...decodedLocalTxHistoryList, ...filtedTxList];
-    return covalent;
+    result.data.txList = [...decodedLocalTxHistoryList, ...filtedTxList];
+    return result;
   }
 
   async getErc20TxHistories(

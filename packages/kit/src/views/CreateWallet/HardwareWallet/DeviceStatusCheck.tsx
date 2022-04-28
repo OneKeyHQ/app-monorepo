@@ -4,6 +4,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -15,8 +16,6 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import { onekeyBleConnect } from '../../../utils/ble/BleOnekeyConnect';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -30,45 +29,16 @@ const DeviceStatusCheckModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
-  const { network } = useActiveWalletAccount();
-  const { engine } = backgroundApiProxy;
+  const { serviceAccount } = backgroundApiProxy;
 
   useEffect(() => {
-    // Check device status
-
     // If device and account are ready, go to success page
     async function main() {
-      const features = await onekeyBleConnect.getFeatures(device.device);
-
-      if (!features) return; // error
-      if (!network) return; // error
-
-      await engine.upsertDevice(features, device.device.id);
+      const features = await onekeyBleConnect.getFeatures(device.device as any);
+      if (!features) return;
+      await serviceAccount.createHWWallet(features);
 
       if (features.initialized) {
-        let wallet = null;
-        let account = null;
-        try {
-          wallet = await engine.createHWWallet();
-          const accounts = await engine.addHDAccounts(
-            'Undefined',
-            wallet.id,
-            network.id,
-          );
-          if (accounts.length > 0) {
-            const $account = accounts[0];
-            account = $account;
-            console.log(account);
-          }
-        } catch (e) {
-          console.log(e);
-        }
-
-        // serviceAccount.changeActiveAccount({
-        //   account,
-        //   wallet,
-        // });
-
         if (navigation.canGoBack()) {
           navigation.goBack();
         }

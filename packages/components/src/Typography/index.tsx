@@ -17,7 +17,6 @@ export type TypographyStyle =
   | 'Body1'
   | 'Body2'
   | 'Caption'
-  | 'Body2'
   | 'Body1Strong'
   | 'Body1Underline'
   | 'Body2Strong'
@@ -308,12 +307,12 @@ const Typography = {
   Button1,
   Button2,
   Body1,
-  Body2,
-  Caption,
   Body1Strong,
   Body1Underline,
+  Body2,
   Body2Strong,
   Body2Underline,
+  Caption,
   CaptionStrong,
   CaptionUnderline,
   Text,

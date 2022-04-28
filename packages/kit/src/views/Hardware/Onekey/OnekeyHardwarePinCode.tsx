@@ -25,7 +25,6 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/ble/BleOnekeyConnect';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 type RouteProps = RouteProp<
@@ -49,10 +48,10 @@ const OnekeyHardwarePinCode: FC = () => {
     if (inputPin.length > 0) setInputPin(inputPin.slice(0, -1));
   };
   const onKeyboardDonePress = () => {
-    onekeyBleConnect.sendResponse({
-      type: 'ui-receive_pin',
-      payload: inputPin,
-    });
+    // onekeyBleConnect.sendResponse({
+    //   type: 'ui-receive_pin',
+    //   payload: inputPin,
+    // });
   };
 
   const keyboard = (

@@ -40,8 +40,14 @@ export default class VaultHelper extends VaultHelperBase {
     // TODO try catch
     let ethersTx: ethers.Transaction | null = null;
     // parse rawTx string
+    console.log('parseToNativeTx ', encodedTx);
     if (isString(encodedTx)) {
       ethersTx = ethers.utils.parseTransaction(encodedTx as any);
+      ethersTx = {
+        ...ethersTx,
+        from: ethersTx.from?.toLocaleLowerCase(),
+        to: ethersTx.to?.toLocaleLowerCase(),
+      };
     } else {
       // @ts-ignore
       ethersTx = {
@@ -57,5 +63,32 @@ export default class VaultHelper extends VaultHelperBase {
     }
 
     return Promise.resolve(ethersTx);
+  }
+
+  override async parseToEncodedTx(
+    rawTxOrEncodedTx: IEncodedTxEvm | string,
+  ): Promise<IEncodedTxEvm | null> {
+    if (!rawTxOrEncodedTx) {
+      console.log('rawTxOrEncodedTx is null');
+      return null;
+    }
+
+    const nativeTx = await this.parseToNativeTx(rawTxOrEncodedTx);
+
+    if (!nativeTx) {
+      console.log('nativeTx is null');
+      return null;
+    }
+
+    return {
+      ...nativeTx,
+      from: nativeTx.from ?? '',
+      to: nativeTx.to ?? '',
+      value: nativeTx.value.toString(),
+      gasLimit: nativeTx.gasLimit?.toString(),
+      gasPrice: nativeTx.gasPrice?.toString(),
+      maxFeePerGas: nativeTx.maxFeePerGas?.toString(),
+      maxPriorityFeePerGas: nativeTx.maxPriorityFeePerGas?.toString(),
+    };
   }
 }

@@ -821,8 +821,10 @@ class IndexedDBApi implements DBAPI {
             const getWalletRequest = walletStore.get(walletId);
             getWalletRequest.onsuccess = (_wevent) => {
               if (typeof getWalletRequest.result !== 'undefined') {
-                throw new OneKeyInternalError(
-                  `Hardware wallet ${walletId} already exists.`,
+                reject(
+                  new OneKeyInternalError(
+                    `Hardware wallet ${walletId} already exists.`,
+                  ),
                 );
               }
               ret = {

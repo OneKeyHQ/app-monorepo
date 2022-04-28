@@ -11,7 +11,7 @@ import {
 } from 'mobx';
 import { Device } from 'react-native-ble-plx';
 
-import isOnekeyDevice from '@onekeyhq/app/src/utils/OnekeyHardware';
+import isOnekeyDevice from '@onekeyhq/kit/src/utils/ble/OnekeyHardware';
 
 import bleUtils from './utils';
 
@@ -68,7 +68,7 @@ class BleDeviceStore {
         console.log(JSON.stringify(devices));
         devices.forEach((device) => {
           console.log('已经连接的设备: ', device.id, device.name);
-          if (isOnekeyDevice(device)) {
+          if (isOnekeyDevice(device.name)) {
             // @ts-ignore
             device.connceted = true;
             this.connectedDeviceMap.set(device.id, device);
@@ -99,7 +99,7 @@ class BleDeviceStore {
 
     try {
       bleUtils?.startDeviceScan((device) => {
-        if (device && isOnekeyDevice(device)) {
+        if (device && isOnekeyDevice(device.name)) {
           const exists = this.findedDeviceMap.has(device.id);
           if (!exists) {
             runInAction(() => {

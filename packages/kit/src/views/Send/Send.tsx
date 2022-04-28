@@ -22,6 +22,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 import { ITransferInfo } from '@onekeyhq/engine/src/types/vault';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -80,20 +81,28 @@ const Transaction = () => {
   const [encodedTx, setEncodedTx] = useState(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [buildLoading, setBuildLoading] = useState(false);
+  const [transferError, setTransferError] = useState<Error | null>(null);
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
   const { token: routeParamsToken } = route.params;
 
-  const { control, handleSubmit, watch, trigger, getValues, setValue } =
-    useForm<TransactionValues>({
-      mode: 'onBlur',
-      reValidateMode: 'onBlur',
-      defaultValues: {
-        to: '',
-        value: '', // TODO rename to amount
-      },
-    });
+  const {
+    control,
+    handleSubmit,
+    watch,
+    trigger,
+    getValues,
+    setValue,
+    clearErrors,
+  } = useForm<TransactionValues>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    defaultValues: {
+      to: '',
+      value: '', // TODO rename to amount
+    },
+  });
   const { isValid } = useFormState({ control });
   const {
     account,
@@ -101,7 +110,7 @@ const Transaction = () => {
     networkId,
     network: activeNetwork,
   } = useActiveWalletAccount();
-  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
+  const { feeInfoPayload, feeInfoLoading, feeInfoError } = useFeeInfoPayload({
     encodedTx,
     pollingInterval: FEE_INFO_POLLING_INTERVAL,
   });
@@ -181,10 +190,10 @@ const Transaction = () => {
           const tx = await promise;
           if (tx) {
             setEncodedTx(tx);
+            setTransferError(null);
           }
         } catch (e) {
-          // TODO display static form error message
-          console.error(e);
+          setTransferError(e as Error);
         } finally {
           setBuildLoading(false);
         }
@@ -217,6 +226,16 @@ const Transaction = () => {
     updateTransferInfo();
   }, [isMax, updateTransferInfo]);
 
+  const revalidateAmountInput = useCallback(() => {
+    setTimeout(() => {
+      if (getValues('value')) {
+        trigger('value');
+      } else {
+        clearErrors('value');
+      }
+    }, 300);
+  }, [clearErrors, getValues, trigger]);
+
   // form data changed watch handler
   useEffect(() => {
     const subscription = watch((formValues, { name, type }) => {
@@ -225,26 +244,29 @@ const Transaction = () => {
         const option = tokenOptions.find((o) => o.value === formValues.token);
         if (option) {
           setSelectOption(option);
-          // setValue('value', '');
-          setTimeout(() => {
-            trigger('value');
-          }, 300);
+          revalidateAmountInput();
         }
       }
       if (type === 'change' && name === 'value') {
         setInputValue(formValues.value);
-        setTimeout(() => {
-          trigger('value');
-        }, 300);
+        revalidateAmountInput();
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, tokenOptions, trigger, updateTransferInfo, setValue]);
+  }, [
+    watch,
+    tokenOptions,
+    trigger,
+    updateTransferInfo,
+    setValue,
+    revalidateAmountInput,
+  ]);
 
   const submitButtonDisabled =
     !isValid ||
     feeInfoLoading ||
     !feeInfoPayload ||
+    !feeInfoPayload.current.total ||
     !getValues('to') ||
     (!getValues('value') && !isMax) ||
     !encodedTx;
@@ -260,6 +282,7 @@ const Transaction = () => {
         feeInfoValue: feeInfoPayload?.current.value,
       });
     const payload: TransferSendParamsPayload = {
+      payloadType: 'Transfer',
       to: data.to,
       account: {
         id: account.id,
@@ -331,14 +354,18 @@ const Transaction = () => {
                 name="to"
                 formControlProps={{ width: 'full' }}
                 rules={{
-                  required: intl.formatMessage({ id: 'form__address_invalid' }),
+                  // required is NOT needed, as submit button should be disabled
+                  // required: intl.formatMessage({ id: 'form__address_invalid' }),
                   validate: async (toAddress) => {
+                    if (!toAddress) {
+                      return undefined;
+                    }
                     try {
                       await backgroundApiProxy.validator.validateAddress(
                         networkId,
                         toAddress,
                       );
-                    } catch (error) {
+                    } catch (error0) {
                       return intl.formatMessage({
                         id: 'form__address_invalid',
                       });
@@ -410,16 +437,12 @@ const Transaction = () => {
                   />
                 }
                 rules={{
-                  required: isMax
-                    ? ''
-                    : intl.formatMessage(
-                        { id: 'form__amount_invalid' },
-                        { 0: selectedToken?.symbol ?? '' },
-                      ),
+                  // required is NOT needed, as submit button should be disable
                   validate: (value) => {
                     const token = selectedToken;
                     if (!token) return undefined;
                     if (isMax) return undefined;
+                    if (!value) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(
                       getTokenBalance(token, '0'),
@@ -452,11 +475,11 @@ const Transaction = () => {
                   enableMaxButton
                   isMax={isMax}
                   maxText={getTokenBalance(selectedToken, '')}
+                  maxTextIsNumber
+                  maxModeCanEdit
                   onMaxChange={(v) => {
                     setIsMax(v);
-                    setTimeout(() => {
-                      trigger('value');
-                    }, 300);
+                    revalidateAmountInput();
                   }}
                 />
               </Form.Item>
@@ -470,6 +493,8 @@ const Transaction = () => {
                   feeInfoPayload={feeInfoPayload}
                   loading={feeInfoLoading}
                 />
+                <FormErrorMessage message={feeInfoError?.message ?? ''} />
+                <FormErrorMessage message={transferError?.message ?? ''} />
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

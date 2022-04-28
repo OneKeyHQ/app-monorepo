@@ -39,7 +39,6 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
     defaultValues: {
       password: '',
       confirmPassword: '',
-      withEnableAuthentication: true,
     },
   });
   const onSubmit = useCallback(
@@ -141,7 +140,11 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
           />
         </Form.Item>
         {isOk ? (
-          <Form.Item name="withEnableAuthentication" control={control}>
+          <Form.Item
+            name="withEnableAuthentication"
+            defaultValue={isOk}
+            control={control}
+          >
             <Form.CheckBox
               title={intl.formatMessage(
                 { id: 'content__authentication_with' },
