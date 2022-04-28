@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import React, { ComponentProps, FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,14 +15,17 @@ import {
 
 import { useManageTokens } from '../../../../hooks/useManageTokens';
 import { Token as TokenType } from '../../../../store/typings';
+import { useSwapActionHandlers } from '../../hooks/useSwap';
 
 type TokenInputProps = {
+  type: 'INPUT' | 'OUTPUT';
   token?: TokenType;
   label?: string;
   inputValue?: string;
   onPress?: () => void;
   onChange?: (text: string) => void;
   containerProps?: ComponentProps<typeof Box>;
+  showMax?: boolean;
 };
 
 const TokenInput: FC<TokenInputProps> = ({
@@ -32,10 +35,30 @@ const TokenInput: FC<TokenInputProps> = ({
   token,
   onChange,
   containerProps,
+  showMax,
+  type,
 }) => {
   const intl = useIntl();
   const { balances } = useManageTokens();
-  const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : 0;
+  const { onUserInput } = useSwapActionHandlers();
+  const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : '0';
+  const onMax = useCallback(() => {
+    if (!token || !value) {
+      return;
+    }
+    if (token.tokenIdOnNetwork) {
+      onUserInput(type, value);
+    } else {
+      const v = Math.max(0, Number(value) - 0.1);
+      if (v > 0) {
+        onUserInput(type, String(v));
+      }
+    }
+  }, [token, value, onUserInput, type]);
+  let text = Number(value).toFixed(6);
+  if (!value || Number(value) === 0 || Number.isNaN(+value)) {
+    text = '0';
+  }
   return (
     <Box px="3" {...containerProps}>
       <Box
@@ -45,12 +68,16 @@ const TokenInput: FC<TokenInputProps> = ({
         mb="2"
       >
         <Typography.Body2 color="text-subdued">{label}</Typography.Body2>
-        <Typography.Body2 color="text-subdued">
-          {intl.formatMessage(
-            { id: 'content__balance_str' },
-            { '0': Number(value) === 0 ? '0' : Number(value).toFixed(6) },
-          )}
-        </Typography.Body2>
+        <Box flexDirection="row" alignItems="center">
+          <Typography.Body2 color="text-subdued">
+            {intl.formatMessage({ id: 'content__balance_str' }, { '0': text })}
+          </Typography.Body2>
+          {token && Number(value) > 0 && showMax ? (
+            <Typography.Body2 color="text-success" ml="2" onPress={onMax}>
+              Max
+            </Typography.Body2>
+          ) : null}
+        </Box>
       </Box>
       <Box
         display="flex"
