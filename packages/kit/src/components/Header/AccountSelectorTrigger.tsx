@@ -96,7 +96,7 @@ const AccountSelectorTrigger: FC<Props> = ({
             <WalletAvatar
               walletImage={wallet.type}
               hwWalletType={getDeviceTypeByDeviceId(wallet.associatedDevice)}
-              // TODO:avatar={wallet.avatar}
+              avatar={wallet.avatar}
               size="sm"
               mr={3}
             />

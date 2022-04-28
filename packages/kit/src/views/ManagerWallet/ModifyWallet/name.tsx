@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 type FieldValues = { name: string };
 
@@ -70,7 +69,9 @@ const ModifyWalletNameViewModal: FC = () => {
       setIsLoading(false);
       return;
     }
-    const changedWallet = await engine.setWalletName(walletId, values.name);
+    const changedWallet = await engine.setWalletNameAndAvatar(walletId, {
+      name: values.name,
+    });
     if (changedWallet) {
       dispatch(updateWallet(changedWallet));
 
@@ -98,8 +99,7 @@ const ModifyWalletNameViewModal: FC = () => {
               alignItems="center"
             >
               <WalletAvatar
-                // TODO:avatar={wallet.avatar}
-                avatar={randomAvatar()}
+                avatar={wallet?.avatar}
                 walletImage="hd"
                 size="xl"
               />
@@ -129,7 +129,7 @@ const ModifyWalletNameViewModal: FC = () => {
         </Pressable>
       </Center>
     ),
-    [],
+    [wallet],
   );
 
   return (

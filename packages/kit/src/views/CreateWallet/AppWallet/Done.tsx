@@ -11,7 +11,6 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 import { useDrawer, useToast } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
@@ -40,11 +39,9 @@ const Done: FC<DoneProps> = ({
   useEffect(() => {
     async function main() {
       try {
-        const avatar = randomAvatar();
         await backgroundApiProxy.serviceAccount.createHDWallet({
           password,
           mnemonic,
-          avatar,
         });
         if (withEnableAuthentication) {
           backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));

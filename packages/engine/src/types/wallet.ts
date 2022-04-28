@@ -1,3 +1,5 @@
+import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+
 import { HasName } from './base';
 
 const WALLET_TYPE_HD = 'hd';
@@ -13,6 +15,7 @@ type Wallet = HasName & {
   accounts: Array<string>;
   nextAccountIds: Record<string, number>; // purpose + cointype => index
   associatedDevice?: string;
+  avatar?: Avatar;
 };
 
 export {
