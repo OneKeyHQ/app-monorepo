@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
 
-import { Box, useThemeValue } from '@onekeyhq/components';
+import { Box, DialogManager, useThemeValue } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -60,6 +60,7 @@ const NavigationApp = () => {
         right={0}
       >
         <Toast bottomOffset={60} />
+        <DialogManager.Holder />
       </Box>
     </>
   );
