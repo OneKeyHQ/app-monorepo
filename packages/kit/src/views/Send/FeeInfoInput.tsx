@@ -1,12 +1,12 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 
 import { FormatCurrencyNative } from '../../components/Format';
-import useNavigation from '../../hooks/useNavigation';
 
 import { FeeSpeedLabel } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
@@ -25,31 +25,60 @@ function FeeInfoInput({
   loading,
   renderChildren,
   editable,
-  backRouteName,
+  autoNavigateToEdit,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
   editable?: boolean;
-  backRouteName?: keyof SendRoutesParams;
   renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
+  autoNavigateToEdit?: boolean;
 }) {
   const navigation = useNavigation<NavigationProps>();
-
-  return (
-    <Pressable
-      disabled={loading || !editable || !encodedTx}
-      onPress={() => {
-        if (loading) {
-          return;
-        }
-        navigation.navigate(SendRoutes.SendEditFee, {
-          backRouteName: backRouteName ?? SendRoutes.SendConfirm,
+  const disabled = loading || !editable || !encodedTx;
+  const navigateToEdit = useCallback(
+    ({ replace = false }: { replace?: boolean } = {}) => {
+      if (disabled) {
+        return;
+      }
+      if (replace) {
+        const action = StackActions.replace(SendRoutes.SendEditFee, {
           encodedTx,
           feeInfoSelected: feeInfoPayload?.selected,
+          autoConfirmAfterFeeSaved: autoNavigateToEdit,
         });
-      }}
-    >
+        navigation.dispatch(action);
+      } else {
+        navigation.navigate({
+          // merge: true,
+          // headerLeft: null,
+          name: SendRoutes.SendEditFee,
+          params: {
+            encodedTx,
+            feeInfoSelected: feeInfoPayload?.selected,
+            autoConfirmAfterFeeSaved: autoNavigateToEdit,
+          },
+        });
+      }
+    },
+    [
+      disabled,
+      encodedTx,
+      feeInfoPayload?.selected,
+      autoNavigateToEdit,
+      navigation,
+    ],
+  );
+
+  useEffect(() => {
+    if (autoNavigateToEdit) {
+      // replace not working
+      navigateToEdit({ replace: true });
+    }
+  }, [autoNavigateToEdit, navigateToEdit]);
+
+  return (
+    <Pressable disabled={disabled} onPress={() => navigateToEdit()}>
       {renderChildren}
     </Pressable>
   );
@@ -156,7 +185,6 @@ function FeeInfoInputForTransfer({
   return (
     <FeeInfoInput
       editable
-      backRouteName={SendRoutes.Send}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
       loading={loading}
@@ -202,7 +230,6 @@ function FeeInfoInputForConfirm({
   return (
     <FeeInfoInput
       editable={editable}
-      backRouteName={SendRoutes.SendConfirm}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
       loading={loading}
@@ -211,4 +238,34 @@ function FeeInfoInputForConfirm({
   );
 }
 
-export { FeeInfoInput, FeeInfoInputForTransfer, FeeInfoInputForConfirm };
+function FeeInfoInputForSpeedUpOrCancel({
+  encodedTx,
+  feeInfoPayload,
+  loading,
+  editable,
+}: {
+  encodedTx: any;
+  feeInfoPayload: IFeeInfoPayload | null;
+  loading?: boolean;
+  editable?: boolean;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const renderChildren = useCallback(({ isHovered }) => null, []);
+  return (
+    <FeeInfoInput
+      editable={editable}
+      encodedTx={encodedTx}
+      feeInfoPayload={feeInfoPayload}
+      loading={loading}
+      renderChildren={renderChildren}
+      autoNavigateToEdit
+    />
+  );
+}
+
+export {
+  FeeInfoInput,
+  FeeInfoInputForTransfer,
+  FeeInfoInputForConfirm,
+  FeeInfoInputForSpeedUpOrCancel,
+};

@@ -137,6 +137,7 @@ export function useSwapActionHandlers() {
   }, []);
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.dispatch(switchTokens());
+    backgroundApiProxy.dispatch(setQuote(undefined));
   }, []);
   const onUserInput = useCallback(
     (independentField: 'INPUT' | 'OUTPUT', typedValue: string) => {
@@ -213,7 +214,7 @@ export const useSwapQuoteCallback = function (
 ) {
   const requestParams = useSwapQuoteRequestParams();
   const { silent } = options;
-  const params = useDebounce(requestParams, 1000);
+  const params = useDebounce(requestParams, 500);
   const baseUrl = useSwapQuoteBaseUrl();
   const onSwapQuote = useCallback(async () => {
     if (!params) {
@@ -252,6 +253,7 @@ export function useTokenAllowance(token?: Token, spender?: string) {
         accountId,
         tokenIdOnNetwork: token?.tokenIdOnNetwork,
       });
+      console.log('allowanceData', allowanceData);
       if (allowanceData !== undefined) {
         const number = new TokenAmount(token, allowanceData).toNumber();
         setAllowance(number);
@@ -277,6 +279,7 @@ export function useApproveState(
   target?: string,
 ) {
   const allowance = useTokenAllowance(token, spender);
+  console.log('allowance', allowance?.toFixed());
   const pendingApproval = useHasPendingApproval(
     token?.tokenIdOnNetwork,
     spender,

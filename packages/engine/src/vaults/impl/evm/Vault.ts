@@ -148,7 +148,7 @@ export default class Vault extends VaultBase {
     if (!Number.isFinite(ethersTx.chainId)) {
       ethersTx.chainId = Number(await this.getNetworkChainId());
     }
-    return EVMTxDecoder.decode(ethersTx, this.engine);
+    return EVMTxDecoder.getDecoder(this.engine).decode(ethersTx);
   }
 
   async buildEncodedTxFromTransfer(
@@ -444,6 +444,9 @@ export default class Vault extends VaultBase {
     const encodedTxWithFee = { ...encodedTx };
     if (!isNil(feeInfoValue.limit)) {
       encodedTxWithFee.gas = toBigIntHex(new BigNumber(feeInfoValue.limit));
+      encodedTxWithFee.gasLimit = toBigIntHex(
+        new BigNumber(feeInfoValue.limit),
+      );
     }
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
     if (!isNil(feeInfoValue.price)) {
@@ -493,10 +496,9 @@ export default class Vault extends VaultBase {
         historyItems
           .filter((entry) => entry.status === HistoryEntryStatus.PENDING)
           .map((historyItem) =>
-            EVMTxDecoder.decode(
-              (historyItem as HistoryEntryTransaction).rawTx,
-              this.engine,
-            ).then(({ nonce }) => (nonce ?? 0) + 1),
+            EVMTxDecoder.getDecoder(this.engine)
+              .decode((historyItem as HistoryEntryTransaction).rawTx)
+              .then(({ nonce }) => (nonce ?? 0) + 1),
           ),
       )),
       onChainNonce,
