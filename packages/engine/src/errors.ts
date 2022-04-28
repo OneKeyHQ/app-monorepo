@@ -7,14 +7,16 @@ export enum OneKeyErrorClassNames {
   OneKeyValidatorTip = 'OneKeyValidatorTip',
 }
 
+export type IOneKeyErrorInfo = Record<string | number, string | number>;
+
 export class OneKeyError extends Web3RpcError<undefined> {
   className = OneKeyErrorClassNames.OneKeyError;
 
-  info: Record<string, string>;
+  info: IOneKeyErrorInfo;
 
   key = 'onekey_error';
 
-  constructor(message?: string, info?: Record<string, string>) {
+  constructor(message?: string, info?: IOneKeyErrorInfo) {
     super(-99999, message || 'Unknown onekey internal error.');
     this.info = info || {};
   }
@@ -68,7 +70,7 @@ export class OneKeyValidatorError extends OneKeyError {
 
   key = 'onekey_error_validator';
 
-  constructor(key: string, info?: Record<string, string>, message?: string) {
+  constructor(key: string, info?: IOneKeyErrorInfo, message?: string) {
     super(message, info);
     this.key = key;
   }
@@ -79,7 +81,7 @@ export class OneKeyValidatorTip extends OneKeyError {
 
   key = 'onekey_tip_validator';
 
-  constructor(key: string, info?: Record<string, string>, message?: string) {
+  constructor(key: string, info?: IOneKeyErrorInfo, message?: string) {
     super(message, info);
     this.key = key;
   }

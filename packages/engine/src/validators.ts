@@ -197,13 +197,23 @@ class Validators {
   async validateGasLimit(
     networkId: string,
     limit: string | BigNumber,
-    max: string | number,
+    max?: string | number,
   ): Promise<void> {
+    // TODO 21000 may relate to network
+    const minLimit = 21000;
+    // eslint-disable-next-line no-param-reassign
+    max = max ?? minLimit;
+    const minI18nData = {
+      0: minLimit,
+      1: minLimit,
+    };
     try {
       const v = typeof limit === 'string' ? new BigNumber(limit) : limit;
-      // TODO 21000 may relate to network
-      if (v.isNaN() || v.isLessThan(new BigNumber(21000))) {
-        throw new OneKeyValidatorError('form__gas_limit_invalid_min');
+      if (!v || v.isNaN() || v.isLessThan(new BigNumber(minLimit))) {
+        throw new OneKeyValidatorError(
+          'form__gas_limit_invalid_min',
+          minI18nData,
+        );
       }
       const maxLimit = new BigNumber(max);
       if (v.isGreaterThan(maxLimit.multipliedBy(new BigNumber(20)))) {
@@ -216,7 +226,10 @@ class Validators {
       ) {
         throw e;
       }
-      throw new OneKeyValidatorError('form__gas_limit_invalid_min');
+      throw new OneKeyValidatorError(
+        'form__gas_limit_invalid_min',
+        minI18nData,
+      );
     }
     return Promise.resolve();
   }
@@ -226,12 +239,13 @@ class Validators {
     networkId: string,
     maxFee: string | BigNumber,
     maxPriorityFee: string | BigNumber,
-    networkMaxFee?: string,
+    lowMaxFee?: string,
+    highMaxFee?: string,
   ): Promise<void> {
     try {
       const v = typeof maxFee === 'string' ? new BigNumber(maxFee) : maxFee;
       // TODO  may relate to network
-      if (v.isNaN() || v.isLessThan(new BigNumber(0))) {
+      if (!v || v.isNaN() || v.isLessThanOrEqualTo(0)) {
         throw new OneKeyValidatorError('form__max_fee_invalid_too_low');
       }
       const pv =
@@ -242,12 +256,14 @@ class Validators {
         throw new OneKeyValidatorError('form__max_fee_invalid_min');
       }
 
-      if (networkMaxFee) {
-        const networkMax = new BigNumber(networkMaxFee);
-        if (v.isGreaterThan(networkMax.multipliedBy(new BigNumber(4)))) {
+      if (highMaxFee) {
+        const networkMax = new BigNumber(highMaxFee);
+        if (v.isGreaterThan(networkMax.multipliedBy(4))) {
           throw new OneKeyValidatorTip('form__max_fee_invalid_too_much');
         }
-        if (v.isLessThan(networkMax)) {
+      }
+      if (lowMaxFee) {
+        if (v.isLessThan(lowMaxFee)) {
           throw new OneKeyValidatorTip('form__max_fee_invalid_too_low');
         }
       }
@@ -267,7 +283,8 @@ class Validators {
   async validateMaxPriortyFee(
     networkId: string,
     maxPriorityFee: string | BigNumber,
-    networkMaxPriorityFee?: string,
+    lowMaxPriorityFee?: string,
+    highMaxPriorityFee?: string,
   ): Promise<void> {
     try {
       const v =
@@ -275,13 +292,20 @@ class Validators {
           ? new BigNumber(maxPriorityFee)
           : maxPriorityFee;
       // TODO  may relate to network
-      if (v.isNaN() || v.isLessThan(new BigNumber(0))) {
+      if (!v || v.isNaN() || v.isLessThanOrEqualTo(0)) {
         throw new OneKeyValidatorError('form__max_priority_fee_invalid_min');
       }
-      if (networkMaxPriorityFee) {
-        if (v.isLessThan(new BigNumber(networkMaxPriorityFee))) {
+      if (lowMaxPriorityFee) {
+        if (v.isLessThan(new BigNumber(lowMaxPriorityFee))) {
           throw new OneKeyValidatorTip(
             'form__max_priority_fee_invalid_too_low',
+          );
+        }
+      }
+      if (highMaxPriorityFee) {
+        if (v.isGreaterThan(new BigNumber(highMaxPriorityFee).times(4))) {
+          throw new OneKeyValidatorTip(
+            'form__max_priority_fee_invalid_too_much',
           );
         }
       }
@@ -292,6 +316,7 @@ class Validators {
       ) {
         throw e;
       }
+      // TODO return original error message
       throw new OneKeyValidatorError('form__max_priority_fee_invalid_min');
     }
     return Promise.resolve();

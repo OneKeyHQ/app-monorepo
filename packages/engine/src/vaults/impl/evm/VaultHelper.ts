@@ -40,7 +40,7 @@ export default class VaultHelper extends VaultHelperBase {
     // TODO try catch
     let ethersTx: ethers.Transaction | null = null;
     // parse rawTx string
-    console.log('parseToNativeTx ', encodedTx);
+    // console.log('parseToNativeTx ', encodedTx);
     if (isString(encodedTx)) {
       ethersTx = ethers.utils.parseTransaction(encodedTx as any);
       ethersTx = {
