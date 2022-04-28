@@ -1170,7 +1170,7 @@ class Engine {
       ]);
       const [dbAccount, token] = await Promise.all([
         this.dbApi.getAccount(accountId),
-        this.getOrAddToken(networkId, tokenAddress, true),
+        this.getOrAddToken(networkId, tokenAddress),
       ]);
       if (typeof token === 'undefined') {
         // Token not found locally

@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   HStack,
   Modal,
@@ -25,7 +24,7 @@ const Setting = () => {
   const onChange = useCallback((text: string) => {
     setSlippage(text.trim());
   }, []);
-  useEffect(() => {
+  const onBlur = useCallback(() => {
     const value = new BigNumber(slippage);
     if (value.gt(0) && value.lt(50)) {
       backgroundApiProxy.dispatch(setSwapSlippagePercent(slippage));
@@ -60,16 +59,41 @@ const Setting = () => {
           rightText="%"
           value={slippage}
           onChangeText={onChange}
+          onBlur={onBlur}
         />
         <HStack space="1">
-          <Pressable onPress={() => onChange('1')}>
-            <Badge title="1%" size="lg" />
+          <Pressable
+            onPress={() => onChange('1')}
+            width="9"
+            h="7"
+            bg="surface-neutral-subdued"
+            borderRadius="full"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Typography.Body2Strong>1%</Typography.Body2Strong>
           </Pressable>
-          <Pressable onPress={() => onChange('2')}>
-            <Badge title="2%" size="lg" />
+          <Pressable
+            onPress={() => onChange('2')}
+            width="9"
+            h="7"
+            bg="surface-neutral-subdued"
+            borderRadius="full"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Typography.Body2Strong>2%</Typography.Body2Strong>
           </Pressable>
-          <Pressable onPress={() => onChange('3')}>
-            <Badge title="3%" size="lg" />
+          <Pressable
+            onPress={() => onChange('3')}
+            width="9"
+            h="7"
+            bg="surface-neutral-subdued"
+            borderRadius="full"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Typography.Body2Strong>3%</Typography.Body2Strong>
           </Pressable>
         </HStack>
         {errorMsg ? <FormErrorMessage message={errorMsg} /> : null}
