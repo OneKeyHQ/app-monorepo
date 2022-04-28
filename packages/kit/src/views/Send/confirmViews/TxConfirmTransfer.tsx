@@ -7,6 +7,10 @@ import {
   IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
 } from '@onekeyhq/engine/src/types/vault';
+import {
+  EVMDecodedItemERC20Transfer,
+  EVMDecodedTxType,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks/redux';
@@ -26,10 +30,25 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
     decodedTx,
   } = props;
   const { accountId, networkId } = useActiveWalletAccount();
-  const transferPayload = payload as TransferSendParamsPayload;
+  const transferPayload = payload as TransferSendParamsPayload | undefined;
   const isTransferNativeToken = !transferPayload?.token?.idOnNetwork;
 
   const transferAmount = useMemo(() => {
+    // invoked from Dapp
+    if (!transferPayload) {
+      if (!decodedTx) {
+        return '0';
+      }
+
+      const isToken = decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER;
+      let { amount } = decodedTx;
+      if (isToken) {
+        const erc20Info = decodedTx.info as EVMDecodedItemERC20Transfer | null;
+        amount = erc20Info?.amount ?? '0';
+      }
+      return amount;
+    }
+
     if (transferPayload.isMax) {
       if (isTransferNativeToken) {
         return new BigNumber(transferPayload.token.balance ?? 0)
@@ -39,13 +58,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
       return transferPayload.token.balance ?? '0';
     }
     return transferPayload.value ?? '0';
-  }, [
-    feeInfoPayload,
-    isTransferNativeToken,
-    transferPayload.isMax,
-    transferPayload.token.balance,
-    transferPayload.value,
-  ]);
+  }, [decodedTx, feeInfoPayload, isTransferNativeToken, transferPayload]);
 
   const feeInput = (
     <FeeInfoInputForConfirm
@@ -61,7 +74,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
       {...props}
       confirmDisabled={new BigNumber(transferAmount).lt(0)}
       updateEncodedTxBeforeConfirm={async (tx) => {
-        if (transferPayload.isMax) {
+        if (!!transferPayload && transferPayload.isMax) {
           const updatePayload: IEncodedTxUpdatePayloadTransfer = {
             amount: transferAmount,
           };
@@ -82,6 +95,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
       {decodedTx ? (
         <TxConfirmDetail
           tx={decodedTx}
+          transferAmount={transferAmount}
           feeInput={feeInput}
           feeInfoPayload={feeInfoPayload}
         />
