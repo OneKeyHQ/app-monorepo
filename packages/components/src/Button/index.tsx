@@ -6,13 +6,15 @@ import React, {
   useState,
 } from 'react';
 
-import { Button as NativeBaseButton, Text } from 'native-base';
+import { Text } from 'native-base';
 
 import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
+
+import NativeBaseButton from './ButtonCapture';
 
 type FontProps = ComponentProps<typeof Text>;
 

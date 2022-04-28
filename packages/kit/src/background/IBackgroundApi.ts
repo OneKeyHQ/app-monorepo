@@ -1,5 +1,4 @@
 // import type only here to avoid cycle-deps error
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
@@ -17,6 +16,7 @@ import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
+  IInjectedProviderNames,
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
