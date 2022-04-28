@@ -198,7 +198,7 @@ class EVMTxDecoder {
     itemBuilder.tx = tx;
     const { data } = tx;
 
-    if (data === '0x') {
+    if (!data || data === '0x' || data === '0x0') {
       itemBuilder.txType = EVMDecodedTxType.NATIVE_TRANSFER;
       return itemBuilder;
     }
