@@ -16,6 +16,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageTokens, useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import { setQuote } from '../../store/reducers/swap';
 import { SendRoutes } from '../Send/types';
 
 import TokenInput from './components/TokenInput';
@@ -32,7 +33,8 @@ import { ApprovalState, SwapError, SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
-  const { inputToken, outputToken } = useSwapState();
+  const { inputToken, outputToken, typedValue, independentField } =
+    useSwapState();
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const addTransaction = useTransactionAdder();
@@ -90,11 +92,6 @@ const SwapContent = () => {
     }
   }, [swapQuote, navigation, account, inputAmount, outputAmount]);
 
-  useEffect(() => {
-    onSwapQuoteCallback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSwapQuoteCallback]);
-
   const onApprove = useCallback(async () => {
     if (account && network && swapQuote && inputAmount) {
       const encodedTx: { data: string } =
@@ -143,6 +140,20 @@ const SwapContent = () => {
     intl,
   ]);
 
+  useEffect(() => {
+    backgroundApiProxy.dispatch(setQuote(undefined));
+  }, [
+    inputToken?.tokenIdOnNetwork,
+    outputToken?.tokenIdOnNetwork,
+    typedValue,
+    independentField,
+  ]);
+
+  useEffect(() => {
+    onSwapQuoteCallback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSwapQuoteCallback]);
+
   let buttonTitle = intl.formatMessage({ id: 'title__swap' });
   if (error === SwapError.InsufficientBalance) {
     buttonTitle = intl.formatMessage(
@@ -182,12 +193,14 @@ const SwapContent = () => {
           position="relative"
         >
           <TokenInput
+            type="INPUT"
             label={intl.formatMessage({ id: 'content__from' })}
             token={inputToken}
             inputValue={formattedAmounts.INPUT}
             onChange={onChangeInput}
             onPress={onSelectInput}
             containerProps={{ pt: '4', pb: '2' }}
+            showMax
           />
           <Box w="full" h="10" position="relative">
             <Box position="absolute" w="full" h="full">
@@ -209,6 +222,7 @@ const SwapContent = () => {
             </Center>
           </Box>
           <TokenInput
+            type="OUTPUT"
             label={intl.formatMessage({ id: 'content__to' })}
             token={outputToken}
             inputValue={formattedAmounts.OUTPUT}
