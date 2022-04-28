@@ -12,6 +12,7 @@ import {
   ManagerAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
+import { ValidationFields } from '../../../components/Protected';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import AccountModifyNameDialog from '../ModifyAccount';
@@ -122,6 +123,8 @@ const ManagerAccountModal: FC = () => {
                           });
                         },
                         () => {},
+                        null,
+                        ValidationFields.Secret,
                       );
                     }}
                   />
@@ -158,6 +161,8 @@ const ManagerAccountModal: FC = () => {
                         );
                       },
                       () => {},
+                      null,
+                      ValidationFields.Account,
                     );
                   }}
                 />

@@ -19,6 +19,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
+import { ValidationFields } from '../../components/Protected';
 import { unlock as mUnlock } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
 
@@ -172,7 +173,10 @@ const Unlock = () => {
               </Button>
             </Form>
             <Center mt="8">
-              <LocalAuthenticationButton onOk={onOk} />
+              <LocalAuthenticationButton
+                onOk={onOk}
+                field={ValidationFields.Unlock}
+              />
             </Center>
           </Box>
           <Center position={isSmall ? 'relative' : 'absolute'} bottom="0">

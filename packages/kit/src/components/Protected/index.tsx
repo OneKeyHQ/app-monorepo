@@ -6,6 +6,7 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useData } from '../../hooks/redux';
 
 import Setup from './Setup';
+import { ValidationFields } from './types';
 import Validation from './Validation';
 
 type ProtectedOptions = {
@@ -15,10 +16,15 @@ type ProtectedOptions = {
 
 type ProtectedProps = {
   skipSavePassword?: boolean;
+  field?: ValidationFields;
   children: (password: string, options: ProtectedOptions) => React.ReactNode;
 };
 
-const Protected: FC<ProtectedProps> = ({ children, skipSavePassword }) => {
+const Protected: FC<ProtectedProps> = ({
+  children,
+  skipSavePassword,
+  field,
+}) => {
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
@@ -50,9 +56,10 @@ const Protected: FC<ProtectedProps> = ({ children, skipSavePassword }) => {
     );
   }
   if (hasPassword) {
-    return <Validation onOk={onValidationOk} />;
+    return <Validation onOk={onValidationOk} field={field} />;
   }
   return <Setup onOk={onSetupOk} skipSavePassword={skipSavePassword} />;
 };
 
 export default Protected;
+export { ValidationFields };

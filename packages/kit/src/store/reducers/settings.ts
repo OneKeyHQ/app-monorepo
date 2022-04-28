@@ -6,6 +6,8 @@ import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ValidationFields } from '../../components/Protected/types';
+
 type SettingsState = {
   theme: ThemeVariant | 'system';
   locale: LocaleSymbol;
@@ -19,6 +21,13 @@ type SettingsState = {
   refreshTimeStamp: number;
   autoRefreshTimeStamp: number;
   swapSlippagePercent: string;
+  validationState: {
+    [ValidationFields.Unlock]?: boolean;
+    [ValidationFields.Payment]?: boolean;
+    [ValidationFields.Wallet]?: boolean;
+    [ValidationFields.Account]?: boolean;
+    [ValidationFields.Secret]?: boolean;
+  };
 };
 
 const initialState: SettingsState = {
@@ -34,6 +43,13 @@ const initialState: SettingsState = {
   refreshTimeStamp: getTimeStamp(),
   autoRefreshTimeStamp: getTimeStamp(),
   swapSlippagePercent: '3',
+  validationState: {
+    [ValidationFields.Unlock]: true,
+    [ValidationFields.Payment]: true,
+    [ValidationFields.Wallet]: true,
+    [ValidationFields.Account]: true,
+    [ValidationFields.Secret]: true,
+  },
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -98,6 +114,16 @@ export const settingsSlice = createSlice({
     setSwapSlippagePercent: (state, action: PayloadAction<string>) => {
       state.swapSlippagePercent = action.payload;
     },
+    setValidationState: (
+      state,
+      action: PayloadAction<{ key: ValidationFields; value: boolean }>,
+    ) => {
+      if (!state.validationState) {
+        state.validationState = {};
+      }
+      const { key, value } = action.payload;
+      state.validationState[key] = value;
+    },
   },
 });
 
@@ -113,6 +139,7 @@ export const {
   updateVersionAndBuildNumber,
   setEnableLocalAuthentication,
   setSwapSlippagePercent,
+  setValidationState,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

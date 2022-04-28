@@ -8,7 +8,9 @@ import { useIntl } from 'react-intl';
 import { Modal, Spinner } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -76,7 +78,7 @@ const OnekeyLiteRestoreDoneView: FC = () => {
 
   return (
     <Modal footer={null}>
-      <Protected skipSavePassword>
+      <Protected skipSavePassword field={ValidationFields.Wallet}>
         {(password, { withEnableAuthentication }) => (
           <PasswordView
             password={password}

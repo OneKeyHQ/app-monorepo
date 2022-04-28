@@ -8,6 +8,7 @@ import { Box, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
+import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import Settings from '@onekeyhq/kit/src/views/Settings';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
@@ -55,6 +56,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.TransactionHistoryScreen,
     component: TransactionHistory,
+  },
+  {
+    name: HomeRoutes.FaceId,
+    component: FaceID,
   },
 ];
 
