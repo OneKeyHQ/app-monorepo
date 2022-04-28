@@ -31,6 +31,7 @@ import {
 } from './confirmViews/SendConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
 import { TxConfirmSpeedUpOrCancel } from './confirmViews/TxConfirmSpeedUpOrCancel';
+import { TxConfirmSwap } from './confirmViews/TxConfirmSwap';
 import { TxConfirmTokenApprove } from './confirmViews/TxConfirmTokenApprove';
 import { TxConfirmTransfer } from './confirmViews/TxConfirmTransfer';
 import {
@@ -242,7 +243,7 @@ const TransactionConfirm = () => {
   };
 
   // waiting for tx decode
-  if (!decodedTx) {
+  if (!decodedTx || !encodedTx) {
     return (
       <SendConfirmModal {...sharedProps} confirmDisabled>
         <Center flex="1">
@@ -262,9 +263,8 @@ const TransactionConfirm = () => {
   }
 
   if (isInternalSwapTx) {
-    // TODO internal swap confirm view
     const payloadInternalSwap = payload as SwapQuote;
-    return <TxConfirmBlind {...sharedProps} payload={payloadInternalSwap} />;
+    return <TxConfirmSwap {...sharedProps} payload={payloadInternalSwap} />;
   }
 
   if (isTransferTypeTx) {
