@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
-  NavigationProp,
   RouteProp,
-  StackActions,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
@@ -45,7 +43,12 @@ import {
   useFeeInfoPayload,
 } from './useFeeInfoPayload';
 
-type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
+import type { StackNavigationProp } from '@react-navigation/stack';
+
+type NavigationProps = StackNavigationProp<
+  SendRoutesParams,
+  SendRoutes.SendConfirm
+>;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
 /*
@@ -204,11 +207,7 @@ const TransactionConfirm = () => {
         },
       };
       if (params.autoConfirmAfterFeeSaved) {
-        const action = StackActions.replace(
-          SendRoutes.SendAuthentication,
-          routeParams,
-        );
-        return navigation.dispatch(action);
+        return navigation.replace(SendRoutes.SendAuthentication, routeParams);
       }
       return navigation.navigate(SendRoutes.SendAuthentication, routeParams);
     },
