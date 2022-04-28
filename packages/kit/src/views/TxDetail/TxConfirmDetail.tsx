@@ -16,14 +16,18 @@ import TotalFee from './TotalFee';
 
 const TxConfirmDetail: FC<{
   tx: EVMDecodedItem;
+  transferAmount?: string;
   feeInput?: any;
   feeInfoPayload?: IFeeInfoPayload | null;
-}> = ({ tx, feeInput, feeInfoPayload }) => {
+}> = ({ tx, transferAmount, feeInput, feeInfoPayload }) => {
   const intl = useIntl();
   const info = tx.info as EVMDecodedItemERC20Transfer;
   const isNative = tx.txType === EVMDecodedTxType.NATIVE_TRANSFER;
   const headerInfo = isNative ? tx.network : info.token;
-  const amount = isNative ? tx.amount : info.amount;
+  let amount = transferAmount;
+  if (!amount) {
+    amount = isNative ? tx.amount : info.amount;
+  }
   const symbol = isNative ? tx.symbol : info.token.symbol;
   const recipient = isNative ? tx.toAddress : info.recipient;
 
@@ -54,7 +58,11 @@ const TxConfirmDetail: FC<{
         />
         <Container.Item title="" wrap={feeInput} />
         {!!feeInfoPayload && isNative && (
-          <TotalFee tx={tx} feeInfoPayload={feeInfoPayload} />
+          <TotalFee
+            tx={tx}
+            feeInfoPayload={feeInfoPayload}
+            transferAmount={transferAmount}
+          />
         )}
       </Container.Box>
     </Box>

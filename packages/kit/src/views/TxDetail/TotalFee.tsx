@@ -11,14 +11,18 @@ import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/dec
 export type TotalFeeProps = {
   tx: EVMDecodedItem;
   feeInfoPayload: IFeeInfoPayload;
+  transferAmount?: string;
 } & Omit<ContentItemProps, 'title'>;
 
 const TotalFee: FC<TotalFeeProps> = (props) => {
   const intl = useIntl();
 
-  const { tx, feeInfoPayload } = props;
+  const { tx, transferAmount, feeInfoPayload } = props;
   const symbol = feeInfoPayload.info.nativeSymbol ?? tx.symbol;
-  const value = ethers.utils.parseUnits(tx.value, 'wei');
+  let value = ethers.utils.parseUnits(tx.value, 'wei');
+  if (transferAmount) {
+    value = ethers.utils.parseEther(transferAmount);
+  }
   const fee = ethers.utils.parseEther(feeInfoPayload.current.totalNative);
   const total = ethers.utils.formatEther(value.add(fee));
 
