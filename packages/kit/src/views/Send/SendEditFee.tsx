@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/naming-convention */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  StackActions,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { first, last } from 'lodash';
 import { Column, Row } from 'native-base';
 import { Control, UseFormGetValues, UseFormWatch } from 'react-hook-form';
