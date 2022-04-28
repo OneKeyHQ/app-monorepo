@@ -21,7 +21,8 @@ module.exports = {
       '128': 'icon-128.png',
     },
     'default_title': 'OneKey',
-    'default_popup': 'ui-popup.html',
+    'default_popup': 'ui-popup-boot.html',
+    // 'default_popup': 'ui-popup.html',
   },
   'background': {
     'page': 'background.html',

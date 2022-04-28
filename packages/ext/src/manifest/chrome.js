@@ -4,7 +4,9 @@ module.exports = {
   'action': {
     'default_icon': 'icon-128.png',
     'default_title': 'OneKey',
-    'default_popup': 'ui-popup.html',
+    // open popup.html instantly, but display white screen when redirecting
+    'default_popup': 'ui-popup-boot.html',
+    // 'default_popup': 'ui-popup.html',
   },
   // https://developer.chrome.com/docs/extensions/mv3/migrating_to_service_workers/
   'background': {
