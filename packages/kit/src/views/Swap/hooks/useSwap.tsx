@@ -253,7 +253,6 @@ export function useTokenAllowance(token?: Token, spender?: string) {
         accountId,
         tokenIdOnNetwork: token?.tokenIdOnNetwork,
       });
-      console.log('allowanceData', allowanceData);
       if (allowanceData !== undefined) {
         const number = new TokenAmount(token, allowanceData).toNumber();
         setAllowance(number);
@@ -279,7 +278,6 @@ export function useApproveState(
   target?: string,
 ) {
   const allowance = useTokenAllowance(token, spender);
-  console.log('allowance', allowance?.toFixed());
   const pendingApproval = useHasPendingApproval(
     token?.tokenIdOnNetwork,
     spender,
