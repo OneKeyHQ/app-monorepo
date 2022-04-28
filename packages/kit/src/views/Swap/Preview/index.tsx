@@ -92,10 +92,7 @@ const Preview = () => {
   const onInterval = useCallback(() => {
     if (quoteTime) {
       const now = Date.now();
-      const seconds = Math.max(
-        Math.floor((+quoteTime + 15000 - now) / 1000),
-        0,
-      );
+      const seconds = Math.max(Math.ceil((+quoteTime + 15000 - now) / 1000), 0);
       setRemainTime(seconds);
     }
   }, [quoteTime]);
@@ -217,7 +214,11 @@ const Preview = () => {
               {intl.formatMessage({ id: 'form__minimum_received' })}
             </Typography.Body2>
             <Typography.Body2>
-              {minimumReceived ? minimumReceived?.toFixed(4) : '---'}
+              {minimumReceived
+                ? `${minimumReceived?.toFixed(4)} ${
+                    outputToken ? outputToken.symbol.toUpperCase() : ''
+                  }`
+                : '---'}
             </Typography.Body2>
           </Box>
           <Box
