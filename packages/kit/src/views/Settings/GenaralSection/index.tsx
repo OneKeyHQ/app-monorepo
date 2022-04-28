@@ -9,6 +9,7 @@ import {
   setLocale,
   setSelectedFiatMoneySymbol,
   setTheme,
+  setThemePreloadToLocalStorage,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -43,11 +44,14 @@ export const GenaralSection = () => {
               footer={null}
               headerShown={false}
               defaultValue={theme}
-              onChange={(value) => dispatch(setTheme(value))}
+              onChange={(value) => {
+                dispatch(setTheme(value));
+                setThemePreloadToLocalStorage(value);
+              }}
               options={[
                 {
                   label: intl.formatMessage({
-                    id: 'form__system',
+                    id: 'form__auto',
                     defaultMessage: 'System',
                   }),
                   value: 'system',

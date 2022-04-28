@@ -4,6 +4,7 @@ import uuid from 'react-native-uuid';
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type SettingsState = {
   theme: ThemeVariant | 'system';
@@ -21,7 +22,7 @@ type SettingsState = {
 };
 
 const initialState: SettingsState = {
-  theme: 'dark',
+  theme: 'system',
   locale: 'zh-CN',
   version: process.env.VERSION ?? '1.0.0',
   buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
@@ -34,6 +35,21 @@ const initialState: SettingsState = {
   autoRefreshTimeStamp: getTimeStamp(),
   swapSlippagePercent: '3',
 };
+
+export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
+export function setThemePreloadToLocalStorage(value: string, isUpdate = true) {
+  try {
+    const key = THEME_PRELOAD_STORAGE_KEY;
+    if (platformEnv.isBrowser) {
+      if (isUpdate || !localStorage.getItem(key)) {
+        localStorage.setItem(key, value);
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+setThemePreloadToLocalStorage(initialState.theme, false);
 
 export const settingsSlice = createSlice({
   name: 'settings',

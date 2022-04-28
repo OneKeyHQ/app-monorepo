@@ -59,8 +59,8 @@ const ReceiveToken = () => {
             <Box flex={1} justifyContent="center" flexDirection="column">
               <Box alignItems="center" flexDirection="column">
                 <Box
-                  borderRadius="3xl"
-                  bgColor="white"
+                  borderRadius="24px"
+                  bgColor="#FFFFFF"
                   p={isSmallScreen ? '16px' : '11px'}
                   shadow="depth.4"
                 >

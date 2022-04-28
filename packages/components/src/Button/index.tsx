@@ -6,13 +6,15 @@ import React, {
   useState,
 } from 'react';
 
-import { Button as NativeBaseButton, Text } from 'native-base';
+import { Text } from 'native-base';
 
 import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
 import { TypographyStyle, getTypographyStyleProps } from '../Typography';
+
+import NativeBaseButton from './ButtonCapture';
 
 type FontProps = ComponentProps<typeof Text>;
 
@@ -163,14 +165,14 @@ const PrimaryButton: FC<ButtonPropsWithoutType> = ({
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
     />
   ) : undefined;
   return (
@@ -273,14 +275,14 @@ const DestructiveButton: FC<ButtonPropsWithoutType> = ({
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
     />
   ) : undefined;
   return (
@@ -342,14 +344,14 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
     <Icon
       size={iconSize}
       name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
     />
   ) : undefined;
   const rightIcon = rightIconName ? (
     <Icon
       size={iconSize}
       name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
     />
   ) : undefined;
   return (

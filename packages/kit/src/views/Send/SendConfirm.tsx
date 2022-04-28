@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   NavigationProp,
   RouteProp,
+  StackActions,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
-import { Center, Spinner, utils } from '@onekeyhq/components';
+import { Center, Spinner } from '@onekeyhq/components';
 import {
   HistoryEntryStatus,
   HistoryEntryType,
@@ -22,6 +22,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
+import { SwapQuote } from '../Swap/typings';
 
 import {
   ITxConfirmViewProps,
@@ -29,9 +30,12 @@ import {
   SendConfirmModal,
 } from './confirmViews/SendConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
+import { TxConfirmSpeedUpOrCancel } from './confirmViews/TxConfirmSpeedUpOrCancel';
+import { TxConfirmSwap } from './confirmViews/TxConfirmSwap';
 import { TxConfirmTokenApprove } from './confirmViews/TxConfirmTokenApprove';
 import { TxConfirmTransfer } from './confirmViews/TxConfirmTransfer';
 import {
+  SendConfirmPayloadBase,
   SendRoutes,
   SendRoutesParams,
   TransferSendParamsPayload,
@@ -61,7 +65,6 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 }
 
 const TransactionConfirm = () => {
-  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
@@ -76,22 +79,39 @@ const TransactionConfirm = () => {
     setEncodedTx(params.encodedTx);
   }, [params.encodedTx]);
   const { decodedTx } = useDecodedTx({ encodedTx });
-  let { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const dappApprove = useDappApproveAction({
     id: params.sourceInfo?.id ?? '',
     closeOnError: true,
   });
+  // TODO useFeeInTx has some bugs
   const useFeeInTx = !isFromDapp;
-  const feeInfoEditable = !useFeeInTx;
+  const isCancelOrSpeedUp =
+    params.actionType === 'cancel' || params.actionType === 'speedUp';
+  // const useFeeInTx = false;
 
-  let payload = params.payload as TransferSendParamsPayload;
-  if (payload) {
-    accountId = payload.account.id;
-    networkId = payload.network.id;
-  } else {
-    // TODO parse encodedTx to payload
-    payload = {} as TransferSendParamsPayload;
+  let feeInfoEditable = !useFeeInTx;
+  if (isCancelOrSpeedUp) {
+    feeInfoEditable = true;
+  }
+
+  const payload = useMemo(
+    () => (params.payload || {}) as SendConfirmPayloadBase,
+    [params.payload],
+  );
+
+  const isTransferTypeTx =
+    decodedTx?.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
+    decodedTx?.txType === EVMDecodedTxType.TOKEN_TRANSFER;
+
+  const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
+
+  // TODO remove
+  if (isTransferTypeTx) {
+    // const payloadTransfer = payload as TransferSendParamsPayload;
+    // accountId = payloadTransfer?.account?.id || accountId;
+    // networkId = payloadTransfer?.network?.id || networkId;
   }
 
   const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
@@ -112,27 +132,36 @@ const TransactionConfirm = () => {
   const saveHistory = useCallback(
     (tx: IBroadcastedTx) => {
       const historyId = `${networkId}--${tx.txid}`;
-      // TODO addHistoryEntryFromEncodedTx({ type, encodedTx, signedTx, payload })
-      backgroundApiProxy.engine.addHistoryEntry({
-        id: historyId,
-        accountId,
-        networkId,
-        type: HistoryEntryType.TRANSFER,
-        status: HistoryEntryStatus.PENDING,
-        meta: {
-          contract: payload.token?.idOnNetwork || '',
-          target: payload.to,
-          value: payload.value,
-          rawTx: tx.rawTx,
-        },
-      });
+      // save transfer type history
+      if (isTransferTypeTx) {
+        const payloadTransfer = payload as TransferSendParamsPayload;
+        const { to, token, value } = payloadTransfer;
+        backgroundApiProxy.engine.addHistoryEntry({
+          id: historyId,
+          accountId,
+          networkId,
+          type: HistoryEntryType.TRANSFER,
+          status: HistoryEntryStatus.PENDING,
+          meta: {
+            contract: token?.idOnNetwork || '',
+            target: to,
+            value,
+            ref: params?.sourceInfo?.origin || '', // dapp domain
+            rawTx: tx.rawTx,
+          },
+        });
+      }
+      if (isInternalSwapTx) {
+        // TODO save internal swap history
+      }
     },
     [
       accountId,
+      isTransferTypeTx,
       networkId,
-      payload.to,
-      payload.token?.idOnNetwork,
-      payload.value,
+      params?.sourceInfo?.origin,
+      payload,
+      isInternalSwapTx,
     ],
   );
 
@@ -148,7 +177,7 @@ const TransactionConfirm = () => {
         removeFeeInfoInTx(encodedTx);
       }
       const encodedTxWithFee =
-        !useFeeInTx && feeInfoPayload
+        feeInfoEditable && feeInfoPayload
           ? await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
               networkId,
               accountId,
@@ -156,25 +185,36 @@ const TransactionConfirm = () => {
               feeInfoValue: feeInfoPayload?.current.value,
             })
           : encodedTx;
-      return navigation.navigate(SendRoutes.SendAuthentication, {
+      const routeParams = {
         ...params,
         encodedTx: encodedTxWithFee,
         accountId,
         networkId,
         // TODO onComplete
-        onSuccess: async (tx) => {
+        onSuccess: async (tx: IBroadcastedTx) => {
           saveHistory(tx);
           backgroundApiProxy.serviceToken.fetchAccountTokens();
           await dappApprove.resolve({
             result: tx.txid,
           });
+          if (params.onSuccess) {
+            params.onSuccess(tx);
+          }
           setTimeout(() => close(), 0);
         },
-      });
+      };
+      if (params.autoConfirmAfterFeeSaved) {
+        const action = StackActions.replace(
+          SendRoutes.SendAuthentication,
+          routeParams,
+        );
+        return navigation.dispatch(action);
+      }
+      return navigation.navigate(SendRoutes.SendAuthentication, routeParams);
     },
     [
       isFromDapp,
-      useFeeInTx,
+      feeInfoEditable,
       feeInfoPayload,
       networkId,
       accountId,
@@ -202,7 +242,8 @@ const TransactionConfirm = () => {
     decodedTx,
   };
 
-  if (!decodedTx) {
+  // waiting for tx decode
+  if (!decodedTx || !encodedTx) {
     return (
       <SendConfirmModal {...sharedProps} confirmDisabled>
         <Center flex="1">
@@ -212,22 +253,24 @@ const TransactionConfirm = () => {
     );
   }
 
+  // handle speed up / cancel.
+  if (isCancelOrSpeedUp) {
+    return <TxConfirmSpeedUpOrCancel {...sharedProps} />;
+  }
+
   if (decodedTx.txType === EVMDecodedTxType.TOKEN_APPROVE) {
     return <TxConfirmTokenApprove {...sharedProps} />;
   }
 
-  if (
-    decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
-    decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER
-  ) {
-    return (
-      <TxConfirmTransfer
-        {...sharedProps}
-        headerDescription={`${intl.formatMessage({
-          id: 'content__to',
-        })}:${utils.shortenAddress(encodedTx.to)}`}
-      />
-    );
+  if (isInternalSwapTx) {
+    const payloadInternalSwap = payload as SwapQuote;
+    return <TxConfirmSwap {...sharedProps} payload={payloadInternalSwap} />;
+  }
+
+  if (isTransferTypeTx) {
+    // TODO from dapp: feeInfoEditable=true
+    //      from internal transfer: feeInfoEditable=false
+    return <TxConfirmTransfer {...sharedProps} feeInfoEditable={false} />;
   }
 
   // Dapp blind sign

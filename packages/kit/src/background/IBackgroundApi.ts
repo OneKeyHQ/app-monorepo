@@ -1,4 +1,5 @@
 // import type only here to avoid cycle-deps error
+
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
@@ -15,9 +16,11 @@ import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
+  IInjectedProviderNames,
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -32,7 +35,7 @@ export interface IBackgroundApiBridge {
   getState: () => Promise<{ state: any; bootstrapped: boolean }>;
   appSelector: IAppSelector;
 
-  providers: Record<string, ProviderApiBase>;
+  providers: Record<IInjectedProviderNames, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods(
     payload: IJsBridgeMessagePayload,
@@ -59,5 +62,5 @@ export type IDappCallParams = {
   id: string | number;
   origin: string;
   scope: IInjectedProviderNamesStrings;
-  data: string;
+  data: IJsonRpcRequest;
 };

@@ -9,8 +9,8 @@ import type { IVaultOptions } from '../types/vault';
 export class VaultContextBase {
   constructor(options: IVaultFactoryOptions) {
     this.options = options;
-    this.networkId = options.networkId;
-    this.accountId = options.accountId;
+    this.networkId = options.networkId || '';
+    this.accountId = options.accountId || '';
   }
 
   options: IVaultFactoryOptions;

@@ -1,11 +1,12 @@
 import React, { ComponentProps, ReactElement, ReactNode } from 'react';
 
-import { Input as BaseInput, Pressable, Stack } from 'native-base';
+import { Input as BaseInput, Stack } from 'native-base';
 import { Platform } from 'react-native';
 
 import Box from '../Box';
 import Divider from '../Divider';
 import Icon, { ICON_NAMES } from '../Icon';
+import Pressable from '../Pressable';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
 
@@ -210,6 +211,12 @@ const Input = React.forwardRef<
             ? undefined
             : 'not-allowed',
         }}
+        _ios={{
+          selectionColor: 'surface-selected',
+        }}
+        _android={{
+          selectionColor: 'surface-selected',
+        }}
         _hover={{
           bg: 'action-secondary-default', // remove this will use the background color from default theme of NativeBase
           borderColor: 'border-hovered',
@@ -217,6 +224,9 @@ const Input = React.forwardRef<
         _focus={{
           bg: 'action-secondary-default',
           borderColor: 'focused-default',
+          _hover: {
+            borderColor: 'focused-default',
+          },
         }}
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
