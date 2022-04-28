@@ -9,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 
+import { DialogManager } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
@@ -260,6 +261,7 @@ const Modal: FC<ModalProps> = ({
       {triggerNode}
       {modalContainer}
       {platformEnv.isNative && <Toast bottomOffset={120} />}
+      {platformEnv.isNative && <DialogManager.Holder />}
     </>
   );
 
