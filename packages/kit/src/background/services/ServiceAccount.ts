@@ -9,11 +9,13 @@ import {
   updateWallet,
   updateWallets,
 } from '@onekeyhq/kit/src/store/reducers/runtime';
+import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setEnableAppLock } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
+import { Avatar } from '../../utils/emojiUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
@@ -154,13 +156,19 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     password,
     mnemonic,
+    avatar,
   }: {
     password: string;
     mnemonic?: string;
+    avatar?: Avatar;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
-    const wallet = await engine.createHDWallet(password, mnemonic);
+    const wallet = await engine.createHDWallet({
+      password,
+      mnemonic,
+      avatar: avatar ?? randomAvatar(),
+    });
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
     if (!status.boardingCompleted) {
@@ -291,7 +299,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHWWallet(features: Features) {
+  async createHWWallet({
+    features,
+    avatar,
+  }: {
+    features: Features;
+    avatar?: Avatar;
+  }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     const networkId = appSelector((s) => s.general.activeNetworkId);
@@ -304,7 +318,7 @@ class ServiceAccount extends ServiceBase {
     let account = null;
 
     await engine.upsertDevice(features, id);
-    wallet = await engine.createHWWallet();
+    wallet = await engine.createHWWallet({ avatar: avatar ?? randomAvatar() });
     const accounts = await engine.addHDAccounts(
       'Undefined',
       wallet.id,
