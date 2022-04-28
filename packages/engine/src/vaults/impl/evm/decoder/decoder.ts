@@ -1,5 +1,6 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
+import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
 
 import { ABI } from './abi';
@@ -59,47 +60,76 @@ interface EVMDecodedItem {
   symbol: string; // native currency symbol
   amount: string; // in ether
   value: string; // in wei
+  network: Network;
 
   fromAddress: string;
   toAddress: string;
+  nonce?: number;
   txHash: string;
   is1559: boolean;
   gasLimit: number;
   gasPrice: string;
   maxPriorityFeePerGas: string;
   maxFeePerGas: string;
+  data: string;
+
+  gasSpend: string; // in ether, estimated gas cost
+  total: string; // in ether, gasSpend + value
 
   contractCallInfo?: {
     contractAddress: string;
     functionName: string;
     functionSignature: string;
-    args?: any;
+    args?: string[];
   };
 
   info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
 }
 
 class EVMTxDecoder {
-  static async decode(
+  private static sharedDecoder: EVMTxDecoder;
+
+  private engine: Engine;
+
+  private erc20Iface: ethers.utils.Interface;
+
+  private constructor(engine: Engine) {
+    this.engine = engine;
+    this.erc20Iface = new ethers.utils.Interface(ABI.ERC20);
+  }
+
+  public static getDecoder(engine: Engine): EVMTxDecoder {
+    if (!EVMTxDecoder.sharedDecoder) {
+      EVMTxDecoder.sharedDecoder = new EVMTxDecoder(engine);
+    }
+    return EVMTxDecoder.sharedDecoder;
+  }
+
+  public async decode(
     rawTx: string | ethers.Transaction,
-    engine: Engine,
   ): Promise<EVMDecodedItem> {
     const { txType, tx, txDesc, protocol } = this.staticDecode(rawTx);
     const itemBuilder = { txType, protocol } as EVMDecodedItem;
 
     const networkId = `evm--${tx.chainId}`;
-    itemBuilder.symbol = (await engine.getNetwork(networkId)).symbol;
+    const network = await this.engine.getNetwork(networkId);
+
+    itemBuilder.network = network;
+    itemBuilder.symbol = network.symbol;
     itemBuilder.amount = ethers.utils.formatEther(tx.value);
+    itemBuilder.gasSpend = this.parseGasSpend(tx);
+    itemBuilder.total = ethers.utils.formatEther(
+      tx.value.add(ethers.utils.parseEther(itemBuilder.gasSpend)),
+    );
 
     this.fillTxInfo(itemBuilder, tx);
 
     if (txDesc) {
       itemBuilder.contractCallInfo = {
-        contractAddress: tx.to ?? '',
+        contractAddress: tx.to?.toLowerCase() ?? '',
         functionName: txDesc.name,
         functionSignature: txDesc.signature,
-        // TODO args not serializable
-        args: txDesc.args,
+        args: txDesc.args.map((arg) => String(arg)),
       };
     }
 
@@ -109,7 +139,7 @@ class EVMTxDecoder {
       | null = null;
 
     if (itemBuilder.protocol === 'erc20') {
-      const token = await engine.getOrAddToken(
+      const token = await this.engine.getOrAddToken(
         networkId,
         itemBuilder.toAddress,
       );
@@ -119,7 +149,7 @@ class EVMTxDecoder {
       switch (txType) {
         case EVMDecodedTxType.TOKEN_TRANSFER: {
           // transfer(address _to, uint256 _value)
-          const recipient = txDesc?.args[0] as string;
+          const recipient = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
           const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
@@ -133,7 +163,7 @@ class EVMTxDecoder {
         }
         case EVMDecodedTxType.TOKEN_APPROVE: {
           // approve(address _spender, uint256 _value)
-          const spender = txDesc?.args[0] as string;
+          const spender = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
           const amount = this.formatValue(value, token.decimals);
           infoBuilder = {
@@ -156,7 +186,7 @@ class EVMTxDecoder {
     return itemBuilder;
   }
 
-  static staticDecode(rawTx: string | ethers.Transaction): EVMBaseDecodedItem {
+  private staticDecode(rawTx: string | ethers.Transaction): EVMBaseDecodedItem {
     const itemBuilder = {} as EVMBaseDecodedItem;
 
     let tx: ethers.Transaction;
@@ -185,13 +215,11 @@ class EVMTxDecoder {
     return itemBuilder;
   }
 
-  private static fillTxInfo(
-    itemBuilder: EVMDecodedItem,
-    tx: ethers.Transaction,
-  ) {
+  private fillTxInfo(itemBuilder: EVMDecodedItem, tx: ethers.Transaction) {
     itemBuilder.value = tx.value.toString();
-    itemBuilder.fromAddress = tx.from ?? '';
-    itemBuilder.toAddress = tx.to ?? '';
+    itemBuilder.fromAddress = tx.from?.toLowerCase() ?? '';
+    itemBuilder.toAddress = tx.to?.toLowerCase() ?? '';
+    itemBuilder.nonce = tx.nonce;
     itemBuilder.txHash = tx.hash ?? '';
     itemBuilder.is1559 = tx.type === 2;
     itemBuilder.gasLimit = tx.gasLimit.toNumber();
@@ -199,28 +227,31 @@ class EVMTxDecoder {
     itemBuilder.maxPriorityFeePerGas =
       tx.maxPriorityFeePerGas?.toString() ?? '';
     itemBuilder.maxFeePerGas = tx.maxFeePerGas?.toString() ?? '';
+    itemBuilder.data = tx.data;
   }
 
-  private static formatValue(
-    value: ethers.BigNumber,
-    decimals: number,
-  ): string {
+  private formatValue(value: ethers.BigNumber, decimals: number): string {
     if (ethers.constants.MaxUint256.eq(value)) {
       return InfiniteAmountText;
     }
     return ethers.utils.formatUnits(value, decimals) ?? '';
   }
 
-  private static parseERC20(
+  private parseGasSpend(tx: ethers.Transaction): string {
+    const { gasLimit, gasPrice, maxFeePerGas } = tx;
+    const priceInWei = gasPrice || maxFeePerGas || ethers.constants.Zero;
+    const gasSpendInWei = gasLimit.mul(priceInWei);
+    return ethers.utils.formatEther(gasSpendInWei);
+  }
+
+  private parseERC20(
     tx: ethers.Transaction,
   ): [ethers.utils.TransactionDescription | null, EVMDecodedTxType] {
-    const erc20Iface = new ethers.utils.Interface(ABI.ERC20);
-
     let txDesc: ethers.utils.TransactionDescription | null;
     let txType = EVMDecodedTxType.TRANSACTION;
 
     try {
-      txDesc = erc20Iface.parseTransaction(tx);
+      txDesc = this.erc20Iface.parseTransaction(tx);
     } catch (error) {
       return [null, txType];
     }

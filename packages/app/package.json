@@ -16,6 +16,9 @@
     "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh"
   },
   "dependencies": {
+    "@formatjs/intl-getcanonicallocales": "^1.9.2",
+    "@formatjs/intl-locale": "^2.4.47",
+    "@formatjs/intl-pluralrules": "^4.3.3",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@react-native-async-storage/async-storage": "^1.15.14",
@@ -48,6 +51,7 @@
     "react-native-config": "^1.4.5",
     "react-native-confirmation-code-field": "^7.2.0",
     "react-native-crypto": "^2.2.0",
+    "react-native-fast-image": "^8.5.11",
     "react-native-gesture-handler": "~2.1.0",
     "react-native-keyboard-manager": "^6.5.4-4",
     "react-native-pager-view": "5.4.9",

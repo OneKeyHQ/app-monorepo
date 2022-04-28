@@ -12,6 +12,8 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { TokenApproveAmountEdit } from '../../views/Send/confirmViews/TokenApproveAmountEdit';
+import SignMessageConfirm from '../../views/Send/SignMessageConfirm';
+import SwapPreiview from '../../views/Swap/Preview/index';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -41,6 +43,14 @@ const modalRoutes = [
   {
     name: SendRoutes.SendAuthentication,
     component: SendAuthentication,
+  },
+  {
+    name: SendRoutes.SignMessageConfirm,
+    component: SignMessageConfirm,
+  },
+  {
+    name: SendRoutes.SwapPreview,
+    component: SwapPreiview,
   },
 ];
 

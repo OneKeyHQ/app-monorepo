@@ -25,7 +25,8 @@
     "@walletconnect/client": "^1.7.5",
     "fuse.js": "^6.5.3"
   },
-  "devDependencies": {},
+  "devDependencies": {
+  },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules"

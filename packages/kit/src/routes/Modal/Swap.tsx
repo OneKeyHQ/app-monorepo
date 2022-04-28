@@ -3,6 +3,7 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Input from '@onekeyhq/kit/src/views/Swap/Input';
 import Output from '@onekeyhq/kit/src/views/Swap/Output';
+import Preview from '@onekeyhq/kit/src/views/Swap/Preview';
 import Settings from '@onekeyhq/kit/src/views/Swap/Settings';
 import {
   SwapRoutes,
@@ -27,6 +28,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.Settings,
     component: Settings,
+  },
+  {
+    name: SwapRoutes.Preview,
+    component: Preview,
   },
   {
     name: SwapRoutes.CustomToken,

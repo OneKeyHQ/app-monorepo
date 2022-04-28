@@ -27,8 +27,10 @@ export type IPlatformEnv = {
   isDev?: boolean;
   isBrowser?: boolean;
   isFirefox?: boolean;
+  isChrome?: boolean;
   isIOS?: boolean;
   isAndroid?: boolean;
+  canGetClipboard?: boolean;
 };
 
 export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
@@ -44,6 +46,43 @@ export const isBrowser = (): boolean =>
 
 // @ts-ignore
 export const isFirefox = (): boolean => typeof InstallTrigger !== 'undefined';
+
+export const isChrome = (): boolean => {
+  if (!isBrowser()) {
+    return false;
+  }
+  // please note,
+  // that IE11 now returns undefined again for window.chrome
+  // and new Opera 30 outputs true for window.chrome
+  // but needs to check if window.opr is not undefined
+  // and new IE Edge outputs to true now for window.chrome
+  // and if not iOS Chrome check
+  // so use the below updated condition
+  const isChromium = window.chrome;
+  const winNav = window.navigator;
+  const vendorName = winNav.vendor;
+  // @ts-ignore
+  const isOpera = typeof window.opr !== 'undefined';
+  const isIEedge = winNav.userAgent.indexOf('Edg') > -1;
+  const isIOSChrome = /CriOS/.exec(winNav.userAgent);
+
+  if (isIOSChrome) {
+    // is Google Chrome on IOS
+    return true;
+  }
+  if (
+    isChromium !== null &&
+    typeof isChromium !== 'undefined' &&
+    vendorName === 'Google Inc.' &&
+    !isOpera &&
+    !isIEedge
+  ) {
+    // is Google Chrome
+    return true;
+  }
+  // not Google Chrome
+  return false;
+};
 
 export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
 
@@ -115,6 +154,8 @@ export const isMAS = (): boolean => !!process.env.IS_MAS;
 
 export const isDev = (): boolean => process.env.NODE_ENV !== 'production';
 
+export const canGetClipboard = (): boolean => !isWeb() && !isExtension();
+
 const platformEnv: IPlatformEnv = {
   isMac: isMac(),
   isWindows: isWindows(),
@@ -138,8 +179,11 @@ const platformEnv: IPlatformEnv = {
   isDev: isDev(),
   isBrowser: isBrowser(),
   isFirefox: isFirefox(),
+  isChrome: isChrome(),
   isIOS: isIOS(),
   isAndroid: isAndroid(),
+
+  canGetClipboard: canGetClipboard(),
 };
 
 if (isDev()) {

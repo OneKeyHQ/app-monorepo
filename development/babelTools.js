@@ -6,26 +6,48 @@ function fullPath(pathStr) {
   return path.resolve(__dirname, pathStr);
 }
 
+const moduleResolverAliasForAllWebPlatform = {
+  // * cause firefox popup resize issue
+  'react-native-restart': fullPath(
+    './module-resolver/react-native-restart-mock',
+  ),
+  'react-native-fast-image': fullPath(
+    './module-resolver/react-native-fast-image-mock',
+  ),
+};
+
 function normalizeConfig({ platform, config }) {
+  process.env.PLATFORM_NAME = platform;
   let moduleResolver = null;
   if (platform === developmentConsts.platforms.ext) {
     moduleResolver = {
-      // root: [],
       alias: {
         // * remote connection disallowed in ext
         'console-feed': fullPath('./module-resolver/console-feed-mock'),
-        // * cause firefox popup resize issue
-        'react-native-restart': fullPath(
-          './module-resolver/react-native-restart-mock',
-        ),
+        ...moduleResolverAliasForAllWebPlatform,
+      },
+    };
+  }
+  if (platform === developmentConsts.platforms.web) {
+    moduleResolver = {
+      alias: {
+        ...moduleResolverAliasForAllWebPlatform,
+      },
+    };
+  }
+  if (platform === developmentConsts.platforms.desktop) {
+    moduleResolver = {
+      alias: {
+        ...moduleResolverAliasForAllWebPlatform,
       },
     };
   }
   if (platform === developmentConsts.platforms.app) {
     moduleResolver = {
-      root: ['./'],
       alias: {
-        '@onekeyfe/js-sdk': './src/public/static/js-sdk/index.js',
+        '@onekeyfe/js-sdk': fullPath(
+          '../packages/app/src/public/static/js-sdk',
+        ),
       },
     };
   }
@@ -43,6 +65,7 @@ function normalizeConfig({ platform, config }) {
           'REMOTE_CONSOLE_SERVER',
           'VERSION',
           'BUILD_NUMBER',
+          'PLATFORM_NAME',
         ],
       },
     ],

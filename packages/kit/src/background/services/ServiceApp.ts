@@ -50,6 +50,9 @@ class ServiceApp extends ServiceBase {
     persistor.pause();
     await persistor.purge();
     await engine.resetApp();
+    if (platformEnv.isBrowser) {
+      localStorage.clear();
+    }
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();
@@ -78,8 +81,8 @@ class ServiceApp extends ServiceBase {
       activeWalletId,
       activeNetworkId,
     );
-
     const activeAccountId = serviceAccount.initCheckingAccount(accounts);
+
     dispatch(
       setActiveIds({
         activeAccountId,
@@ -117,6 +120,7 @@ class ServiceApp extends ServiceBase {
     const isMasterPasswordSet = await engine.isMasterPasswordSet();
     if (isMasterPasswordSet) {
       dispatch(passwordSet());
+      dispatch(setBoardingCompleted());
     }
   }
 

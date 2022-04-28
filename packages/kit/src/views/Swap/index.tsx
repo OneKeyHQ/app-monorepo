@@ -8,6 +8,8 @@ import { reset } from '../../store/reducers/swap';
 
 import SwapContent from './SwapContent';
 import SwapHeader from './SwapHeader';
+import SwapTransactions from './SwapTransactions';
+import SwapUpdator from './SwapUpdator';
 
 const Swap = () => {
   const { network, account } = useActiveWalletAccount();
@@ -17,7 +19,9 @@ const Swap = () => {
   return (
     <Box>
       <SwapHeader />
+      <SwapTransactions />
       <SwapContent />
+      <SwapUpdator />
     </Box>
   );
 };

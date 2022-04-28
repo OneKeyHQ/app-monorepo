@@ -23,6 +23,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/device/ble/OnekeyHardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WalletAvatar from './WalletAvatar';
@@ -92,7 +93,12 @@ const AccountSelectorTrigger: FC<Props> = ({
             alignItems="center"
             maxW={`${maxItemWidth}px`}
           >
-            <WalletAvatar walletImage={wallet.type} size="sm" mr={3} />
+            <WalletAvatar
+              walletImage={wallet.type}
+              hwWalletType={getDeviceTypeByDeviceId(wallet.associatedDevice)}
+              size="sm"
+              mr={3}
+            />
             <Typography.Body2Strong isTruncated numberOfLines={1} mr={3}>
               {name}
             </Typography.Body2Strong>
