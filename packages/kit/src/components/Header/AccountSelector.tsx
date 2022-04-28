@@ -12,6 +12,11 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
+import {
+  addNewRef,
+  removeOldRef,
+} from '@onekeyhq/components/src/utils/SelectAutoHide';
 
 import { setHaptics } from '../../hooks/setHaptics';
 
@@ -45,18 +50,31 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     setVisible((v) => !v);
   }, [navigation, isVerticalLayout]);
 
+  const desktopRef = React.useRef<DesktopRef | null>(null);
+  const setRef = React.useCallback((ref: DesktopRef | null) => {
+    // Since we know there's a ref, we'll update `refs` to use it.
+    if (ref) {
+      // store the ref in this toast instance to be able to remove it from the array later when the ref becomes null.
+      desktopRef.current = ref;
+      addNewRef(ref);
+    } else {
+      // remove the this ref, wherever it is in the array.
+      removeOldRef(desktopRef.current);
+    }
+  }, []);
+
   const child = useMemo(() => {
     if (isVerticalLayout) {
       return null;
     }
     return (
       <AccountSelectorDesktop
-        triggerEle={triggerRef?.current}
+        ref={setRef}
         visible={visible}
         toggleVisible={handleToggleVisible}
       />
     );
-  }, [isVerticalLayout, visible, handleToggleVisible]);
+  }, [isVerticalLayout, visible, handleToggleVisible, setRef]);
 
   return (
     <Box
@@ -72,7 +90,9 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
           visible={visible}
           handleToggleVisible={() => {
             setHaptics();
-            handleToggleVisible();
+            if (!visible) {
+              handleToggleVisible();
+            }
           }}
         />
       )}

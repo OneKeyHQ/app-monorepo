@@ -5,7 +5,8 @@ import React, { useCallback, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Box, useThemeValue } from '@onekeyhq/components';
+import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
@@ -168,4 +169,12 @@ const MainScreen = () => {
   return isUnlock && isDataUnlock ? <Dashboard /> : <Unlock />;
 };
 
-export default MainScreen;
+function WrappedMainScreen() {
+  return (
+    <Box ref={setMainScreenDom} w="full" h="full">
+      <MainScreen />
+    </Box>
+  );
+}
+
+export default WrappedMainScreen;

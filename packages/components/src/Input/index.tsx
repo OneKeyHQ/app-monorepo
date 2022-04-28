@@ -1,11 +1,12 @@
 import React, { ComponentProps, ReactElement, ReactNode } from 'react';
 
-import { Input as BaseInput, Pressable, Stack } from 'native-base';
+import { Input as BaseInput, Stack } from 'native-base';
 import { Platform } from 'react-native';
 
 import Box from '../Box';
 import Divider from '../Divider';
 import Icon, { ICON_NAMES } from '../Icon';
+import Pressable from '../Pressable';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
 

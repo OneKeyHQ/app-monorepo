@@ -10,7 +10,7 @@ import React, {
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { PermissionStatus } from 'expo-modules-core';
-import { Box, Center, Image, Pressable } from 'native-base';
+import { Box, Center, Image } from 'native-base';
 import { useIntl } from 'react-intl';
 import {
   Image as RNImage,
@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
-import { Icon, Select } from '@onekeyhq/components';
+import { Icon, Pressable, Select } from '@onekeyhq/components';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
