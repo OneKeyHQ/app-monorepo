@@ -21,6 +21,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
+import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
@@ -67,7 +68,6 @@ import {
   walletIsHD,
   walletIsHW,
   walletIsImported,
-  walletNameCanBeUpdated,
 } from './managers/wallet';
 import {
   getPresetNetworks,
@@ -293,11 +293,17 @@ class Engine {
   }
 
   @backgroundMethod()
-  async createHDWallet(
-    password: string,
-    mnemonic?: string,
-    name?: string,
-  ): Promise<Wallet> {
+  async createHDWallet({
+    password,
+    mnemonic,
+    name,
+    avatar,
+  }: {
+    password: string;
+    mnemonic?: string;
+    name?: string;
+    avatar?: Avatar;
+  }): Promise<Wallet> {
     // Create an HD wallet, generate seed if not provided.
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
@@ -318,12 +324,13 @@ class Engine {
     if (
       usedMnemonic === mnemonicFromEntropy(rs.entropyWithLangPrefixed, password)
     ) {
-      const wallet = await this.dbApi.createHDWallet(
+      const wallet = await this.dbApi.createHDWallet({
         password,
         rs,
-        typeof mnemonic !== 'undefined',
+        backuped: typeof mnemonic !== 'undefined',
         name,
-      );
+        avatar,
+      });
 
       const supportedImpls = getSupportedImpls();
       const addedImpl = new Set();
@@ -350,7 +357,13 @@ class Engine {
   }
 
   @backgroundMethod()
-  async createHWWallet(name?: string): Promise<Wallet> {
+  async createHWWallet({
+    name,
+    avatar,
+  }: {
+    name?: string;
+    avatar?: Avatar;
+  }): Promise<Wallet> {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
@@ -364,7 +377,7 @@ class Engine {
       throw new OneKeyInternalError('Bad device identity.');
     }
     const walletName = name ?? features.ble_name ?? `OneKey ${id.slice(-4)}`;
-    return this.dbApi.addHWWallet(id, walletName);
+    return this.dbApi.addHWWallet({ id, name: walletName, avatar });
   }
 
   @backgroundMethod()
@@ -377,15 +390,15 @@ class Engine {
   }
 
   @backgroundMethod()
-  async setWalletName(walletId: string, name: string): Promise<Wallet> {
+  async setWalletNameAndAvatar(
+    walletId: string,
+    { name, avatar }: { name?: string; avatar?: Avatar },
+  ): Promise<Wallet> {
     // Rename a wallet, raise an error if trying to rename the imported or watching wallet.
-    await this.validator.validateWalletName(name);
-    if (!walletNameCanBeUpdated(walletId)) {
-      throw new OneKeyInternalError(
-        `Wallet ${walletId}'s name cannot be updated.`,
-      );
+    if (typeof name !== 'undefined') {
+      await this.validator.validateWalletName(name);
     }
-    return this.dbApi.setWalletName(walletId, name);
+    return this.dbApi.setWalletNameAndAvatar(walletId, { name, avatar });
   }
 
   @backgroundMethod()

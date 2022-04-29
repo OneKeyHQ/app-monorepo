@@ -64,9 +64,10 @@ const Setting = () => {
         <HStack space="1">
           <Pressable
             onPress={() => onChange('1')}
-            width="9"
+            width="10"
             h="7"
             bg="surface-neutral-subdued"
+            _pressed={{ bg: 'surface-selected' }}
             borderRadius="full"
             alignItems="center"
             justifyContent="center"
@@ -75,9 +76,10 @@ const Setting = () => {
           </Pressable>
           <Pressable
             onPress={() => onChange('2')}
-            width="9"
+            width="10"
             h="7"
             bg="surface-neutral-subdued"
+            _pressed={{ bg: 'surface-selected' }}
             borderRadius="full"
             alignItems="center"
             justifyContent="center"
@@ -86,9 +88,10 @@ const Setting = () => {
           </Pressable>
           <Pressable
             onPress={() => onChange('3')}
-            width="9"
+            width="10"
             h="7"
             bg="surface-neutral-subdued"
+            _pressed={{ bg: 'surface-selected' }}
             borderRadius="full"
             alignItems="center"
             justifyContent="center"

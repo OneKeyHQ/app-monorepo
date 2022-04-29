@@ -36,7 +36,7 @@ const DeviceStatusCheckModal: FC = () => {
     async function main() {
       const features = await onekeyBleConnect.getFeatures(device.device as any);
       if (!features) return;
-      await serviceAccount.createHWWallet(features);
+      await serviceAccount.createHWWallet({ features });
 
       if (features.initialized) {
         if (navigation.canGoBack()) {
