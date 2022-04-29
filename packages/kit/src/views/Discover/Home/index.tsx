@@ -33,18 +33,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDiscover } from '../../../hooks/redux';
 import DAppIcon from '../DAppIcon';
+import { MatchDAppItemType } from '../Explorer/Search/useSearchHistories';
 import { imageUrl, requestRankings, requestSync } from '../Service';
 import { DAppItemType, RankingsPayload, SyncRequestPayload } from '../type';
 
 import CardView from './CardView';
 import DiscoverIOS from './DiscoverIOS';
 import ListView from './ListView';
-import { SectionDataType } from './type';
+
+import type { SectionDataType } from './type';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ExploreScreen>;
 
 type DiscoverProps = {
   onItemSelect: (item: DAppItemType) => Promise<boolean>;
+  onItemSelectHistory: (item: MatchDAppItemType) => Promise<boolean>;
 };
 
 const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
