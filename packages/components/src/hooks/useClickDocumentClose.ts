@@ -15,6 +15,11 @@ function domContains(root: HTMLElement, n: HTMLElement) {
   return false;
 }
 
+function useDomID(name: string) {
+  const domId = useMemo(() => `${name}-${uuid.v4() as string}`, [name]);
+  return { domId };
+}
+
 export default function useClickDocumentClose({
   name,
   visible,
@@ -64,3 +69,5 @@ export default function useClickDocumentClose({
 
   return { domId };
 }
+
+export { useDomID };

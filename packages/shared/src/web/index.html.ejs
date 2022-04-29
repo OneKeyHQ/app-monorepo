@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html lang="%LANG_ISO_CODE%">
+<html lang="%LANG_ISO_CODE%"
+   <% if ( platform === 'ext' && filename === 'ui-popup.html' ) { %>
+      style="min-height: 600px; min-width: 375px;"
+   <% } %>
+>
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -15,6 +19,13 @@
     <style>
       /* add global styles to packages/shared/src/web/index.css */
     </style>
+<!--    <script>-->
+<!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
+<!--      // document.documentElement.style.backgroundColor = 'black';-->
+<!--    </script>-->
+      <% if ( platform === 'ext' ) { %>
+          <script src="theme-preload.js"></script>
+      <% } %>
   </head>
 
   <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
@@ -24,7 +35,7 @@
         data-browser="<%= browser %>"
         data-filename="<%= filename %>"
 
-    <% if ( platform==='ext' && browser==='firefox' && filename==='ui-popup.html' ) { %>
+    <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
         style="min-height: 600px; min-width: 375px;"
     <% } %>
   >

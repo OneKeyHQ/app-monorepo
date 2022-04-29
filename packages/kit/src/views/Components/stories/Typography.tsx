@@ -14,6 +14,9 @@ const TypographyGallery = () => (
     <Typography.DisplaySmall color="text-critical">
       DisplaySmall
     </Typography.DisplaySmall>
+    <Typography.DisplaySmall color="text-warning">
+      DisplaySmall
+    </Typography.DisplaySmall>
     <Typography.PageHeading>PageHeading</Typography.PageHeading>
     <Typography.Heading>Heading</Typography.Heading>
     <Typography.Subheading>SUBHEADING</Typography.Subheading>

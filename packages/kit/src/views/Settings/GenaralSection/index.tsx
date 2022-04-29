@@ -43,7 +43,9 @@ export const GenaralSection = () => {
               footer={null}
               headerShown={false}
               defaultValue={theme}
-              onChange={(value) => dispatch(setTheme(value))}
+              onChange={(value) => {
+                dispatch(setTheme(value));
+              }}
               options={[
                 {
                   label: intl.formatMessage({

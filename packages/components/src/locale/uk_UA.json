@@ -491,6 +491,7 @@
   "modal__failed_to_connect_desc": "Переконайтеся, що пристрій близько до модуля NFC телефону, а потім повторіть спробу",
   "modal__finish_backup": "Завершіть резервне копіювання",
   "modal__finish_backup_desc": "Перевірте, чи ви зробили правильну резервну копію, ввівши відповідні слова з фрази відновлення нижче.",
+  "modal__follow_the_instructions_on_your_device_screen": "Follow the instructions on your device screen",
   "modal__input_pin_code": "Будь ласка, введіть PIN-код на пристрої",
   "modal__install_onekey_bridge": "Встановіть OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge — це комунікаційний інструмент для полегшення з’єднання між вашим OneKey та вашим інтернет-браузером.",

@@ -1,3 +1,5 @@
+import { Features } from '@onekeyfe/js-sdk';
+
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
@@ -7,11 +9,13 @@ import {
   updateWallet,
   updateWallets,
 } from '@onekeyhq/kit/src/store/reducers/runtime';
+import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
 import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setEnableAppLock } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
+import { Avatar } from '../../utils/emojiUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
@@ -122,7 +126,7 @@ class ServiceAccount extends ServiceBase {
     if (!previousWalletId || !isValidNetworkId) {
       const defaultWallet =
         wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
-      return defaultWallet?.id ?? wallets[0]?.id ?? null;
+      return defaultWallet?.id ?? null;
     }
     return previousWalletId;
   }
@@ -152,13 +156,19 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     password,
     mnemonic,
+    avatar,
   }: {
     password: string;
     mnemonic?: string;
+    avatar?: Avatar;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
-    const wallet = await engine.createHDWallet(password, mnemonic);
+    const wallet = await engine.createHDWallet({
+      password,
+      mnemonic,
+      avatar: avatar ?? randomAvatar(),
+    });
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
     if (!status.boardingCompleted) {
@@ -286,6 +296,53 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+  }
+
+  @backgroundMethod()
+  async createHWWallet({
+    features,
+    avatar,
+  }: {
+    features: Features;
+    avatar?: Avatar;
+  }) {
+    const { dispatch, engine, serviceAccount, appSelector } =
+      this.backgroundApi;
+    const networkId = appSelector((s) => s.general.activeNetworkId);
+    const id =
+      features?.serial_no ||
+      features?.onekey_serial ||
+      `OneKey Hardware ${features?.session_id?.slice(0, 4) ?? ''}`;
+
+    let wallet = null;
+    let account = null;
+
+    await engine.upsertDevice(features, id);
+    wallet = await engine.createHWWallet({ avatar: avatar ?? randomAvatar() });
+    const accounts = await engine.addHDAccounts(
+      'Undefined',
+      wallet.id,
+      networkId,
+    );
+    if (accounts.length > 0) {
+      const $account = accounts[0];
+      account = $account;
+      console.log(account);
+    }
+
+    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    if (!status.boardingCompleted) {
+      dispatch(setBoardingCompleted());
+    }
+    dispatch(unlock());
+    dispatch(mUnlock());
+
+    await this.initWallets();
+    serviceAccount.changeActiveAccount({
+      accountId: account?.id ?? null,
+      walletId: wallet?.id ?? null,
+    });
+    return wallet;
   }
 
   @backgroundMethod()

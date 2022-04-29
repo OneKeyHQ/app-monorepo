@@ -137,6 +137,7 @@ export function useSwapActionHandlers() {
   }, []);
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.dispatch(switchTokens());
+    backgroundApiProxy.dispatch(setQuote(undefined));
   }, []);
   const onUserInput = useCallback(
     (independentField: 'INPUT' | 'OUTPUT', typedValue: string) => {
@@ -213,7 +214,7 @@ export const useSwapQuoteCallback = function (
 ) {
   const requestParams = useSwapQuoteRequestParams();
   const { silent } = options;
-  const params = useDebounce(requestParams, 1000);
+  const params = useDebounce(requestParams, 500);
   const baseUrl = useSwapQuoteBaseUrl();
   const onSwapQuote = useCallback(async () => {
     if (!params) {

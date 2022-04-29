@@ -5,7 +5,8 @@ import React, { useCallback, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Box, useThemeValue } from '@onekeyhq/components';
+import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
@@ -19,6 +20,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useInterval } from '../../hooks';
 import { useData, useSettings, useStatus } from '../../hooks/redux';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
+import { Atom } from '../../utils/helper';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
@@ -114,6 +116,9 @@ const MainScreen = () => {
   const onChange = useCallback(
     (state: AppStateStatus) => {
       if (appLockDuration === 0) {
+        if (Atom.AppState.isLocked()) {
+          return;
+        }
         if (state === 'background') {
           dispatch(lock());
         }
@@ -168,4 +173,12 @@ const MainScreen = () => {
   return isUnlock && isDataUnlock ? <Dashboard /> : <Unlock />;
 };
 
-export default MainScreen;
+function WrappedMainScreen() {
+  return (
+    <Box ref={setMainScreenDom} w="full" h="full">
+      <MainScreen />
+    </Box>
+  );
+}
+
+export default WrappedMainScreen;
