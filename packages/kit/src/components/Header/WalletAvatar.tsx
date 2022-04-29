@@ -7,18 +7,19 @@ import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { Avatar, defaultAvatar } from '../../utils/emojiUtils';
+
 type WalletAvatarProps = {
   size?: 'xl' | 'lg' | 'sm' | string;
   avatarBgColor?: string;
   walletImage?: string | 'hw' | 'imported' | 'watching' | 'hd';
   circular?: boolean;
   hwWalletType?: IOneKeyDeviceType;
+  avatar?: Avatar;
 } & ComponentProps<typeof Center>;
 
-const defaultProps = {
+const defaultProps: WalletAvatarProps = {
   size: 'lg',
-  avatarBgColor: 'surface-neutral-default',
-  walletImage: '🤑',
   circular: false,
 };
 
@@ -26,6 +27,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   size,
   walletImage,
   hwWalletType,
+  avatar,
 }) => {
   if (
     walletImage === 'hw' &&
@@ -75,7 +77,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
             : undefined
         }
       >
-        🤑
+        {avatar?.emoji}
       </Text>
     );
   }
@@ -102,30 +104,38 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
   walletImage,
   circular,
   hwWalletType,
+  avatar,
   ...rest
-}) => (
-  <Center
-    rounded={circular ? 'full' : 12}
-    size={
-      size === 'xl'
-        ? '56px'
-        : size === 'lg'
-        ? 12
-        : size === 'sm'
-        ? 8
-        : undefined
-    }
-    bgColor={avatarBgColor}
-    {...rest}
-    pointerEvents="none"
-  >
-    <WalletImage
-      size={size}
-      walletImage={walletImage}
-      hwWalletType={hwWalletType}
-    />
-  </Center>
-);
+}) => {
+  const hdAvatar = avatar ?? defaultAvatar;
+  const bgColor =
+    avatarBgColor ||
+    (walletImage === 'hd' ? hdAvatar.bgColor : 'surface-neutral-default');
+  return (
+    <Center
+      rounded={circular ? 'full' : 12}
+      size={
+        size === 'xl'
+          ? '56px'
+          : size === 'lg'
+          ? 12
+          : size === 'sm'
+          ? 8
+          : undefined
+      }
+      bgColor={bgColor}
+      {...rest}
+      pointerEvents="none"
+    >
+      <WalletImage
+        size={size}
+        walletImage={walletImage}
+        hwWalletType={hwWalletType}
+        avatar={hdAvatar}
+      />
+    </Center>
+  );
+};
 
 WalletAvatar.defaultProps = defaultProps;
 
