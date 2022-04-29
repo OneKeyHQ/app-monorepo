@@ -12,23 +12,26 @@ import {
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { ButtonType } from '@onekeyhq/components/src/Button';
-
-import HardwareConnect, { OperateType } from '../../BaseConnect';
-import ErrorDialog from '../ErrorDialog';
 import {
   OnekeyLiteChangePinModalRoutes,
   OnekeyLiteChangePinRoutesParams,
-} from '../routes';
+} from '@onekeyhq/kit/src/routes';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import HardwareConnect, { OperateType } from '../../BaseConnect';
+import ErrorDialog from '../ErrorDialog';
 
 type RouteProps = RouteProp<
   OnekeyLiteChangePinRoutesParams,
   OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal
 >;
 
+type NavigationProps = ModalScreenProps<OnekeyLiteChangePinRoutesParams>;
+
 const ChangePin: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
-  const { oldPin, newPin, onRetry } = useRoute<RouteProps>().params;
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const { oldPin, newPin } = useRoute<RouteProps>().params;
 
   const [pinRetryCount, setPinRetryCount] = useState('');
   const [title] = useState(
@@ -168,7 +171,11 @@ const ChangePin: FC = () => {
       <ErrorDialog
         code={errorCode}
         pinRetryCount={pinRetryCount}
-        onRetry={() => onRetry?.()}
+        onRetry={() =>
+          navigation.replace(
+            OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
+          )
+        }
         onRetryConnect={() => startNfcScan()}
         onExit={() => {
           navigation.goBack();

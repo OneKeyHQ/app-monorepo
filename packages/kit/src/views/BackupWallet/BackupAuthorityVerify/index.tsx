@@ -35,40 +35,15 @@ const BackupWalletAuthorityVerifyDone: FC<
     toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
   };
 
-  const startBackupModal = (
-    inputPwd: string,
-    backupData: string,
-    callBack: () => void,
-  ) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateWallet,
-      params: {
-        screen: CreateWalletModalRoutes.OnekeyLiteBackupModal,
-        params: {
-          walletId,
-          pwd: inputPwd,
-          backupData,
-          onRetry: () => {
-            callBack?.();
-          },
-          onSuccess: () => {},
-        },
-      },
-    });
-  };
-
   const startBackupPinVerifyModal = (backupData: string) => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.CreateWallet,
       params: {
-        screen: CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal,
+        screen: CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,
         params: {
-          callBack: (inputPwd) => {
-            startBackupModal(inputPwd, backupData, () => {
-              startBackupPinVerifyModal(backupData);
-            });
-            return true;
-          },
+          walletId,
+          backupData,
+          onSuccess: () => {},
         },
       },
     });

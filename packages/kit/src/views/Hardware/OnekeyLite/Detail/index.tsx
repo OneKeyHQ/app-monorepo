@@ -133,35 +133,11 @@ const OnekeyLiteDetail: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intl, navigation]);
 
-  const startRestoreModal = (inputPwd: string, callBack: () => void) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateWallet,
-      params: {
-        screen: CreateWalletModalRoutes.OnekeyLiteRestoreModal,
-        params: {
-          pwd: inputPwd,
-          onRetry: () => {
-            callBack?.();
-          },
-        },
-      },
-    });
-  };
-
   const startRestorePinVerifyModal = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.CreateWallet,
       params: {
-        screen: CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal,
-        params: {
-          callBack: (inputPwd) => {
-            startRestoreModal(inputPwd, () => {
-              console.log('restartRestorePinVerifyModal');
-              startRestorePinVerifyModal();
-            });
-            return true;
-          },
-        },
+        screen: CreateWalletModalRoutes.OnekeyLiteRestorePinCodeVerifyModal,
       },
     });
   };

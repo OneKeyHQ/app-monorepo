@@ -3,12 +3,13 @@ import React, { FC, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes';
+import type { OnekeyLiteChangePinRoutesParams } from '@onekeyhq/kit/src/routes';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
 import HardwarePinCode from '../../BasePinCode';
-import { OnekeyLiteChangePinStackNavigationProp } from '../navigation';
-import {
-  OnekeyLiteChangePinModalRoutes,
-  OnekeyLiteChangePinRoutesParams,
-} from '../routes';
+
+type NavigationProps = ModalScreenProps<OnekeyLiteChangePinRoutesParams>;
 
 const OnekeyLiteNewRepeatPinCode: FC = () => {
   const intl = useIntl();
@@ -26,7 +27,7 @@ const OnekeyLiteNewRepeatPinCode: FC = () => {
 
   const { currentPin, newPin } = route.params;
 
-  const navigation = useNavigation<OnekeyLiteChangePinStackNavigationProp>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   return (
     <HardwarePinCode
@@ -53,11 +54,6 @@ const OnekeyLiteNewRepeatPinCode: FC = () => {
           {
             oldPin: currentPin,
             newPin,
-            onRetry: () => {
-              navigation.replace(
-                OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal,
-              );
-            },
           },
         );
         return Promise.resolve(true);

@@ -1,32 +1,47 @@
-// Reset 相关
-export enum OnekeyLiteResetModalRoutes {
-  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
-}
-
-export type OnekeyLiteResetRoutesParams = {
-  [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: undefined;
-};
-
-// Change Pin 相关
-export enum OnekeyLiteChangePinModalRoutes {
+export const enum OnekeyLiteModalRoutes {
   OnekeyLiteChangePinInputPinModal = 'OnekeyLiteChangePinInputPinModal',
   OnekeyLiteChangePinSetModal = 'OnekeyLiteChangePinSetModal',
   OnekeyLiteChangePinRepeatModal = 'OnekeyLiteChangePinRepeatModal',
   OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
+  OnekeyLiteRestorePinCodeVerifyModal = 'OnekeyLiteRestorePinCodeVerifyModal',
+  OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
+  OnekeyLiteRestoreDoneModal = 'OnekeyLiteRestoreDoneModal',
+  OnekeyLiteBackupPinCodeVerifyModal = 'OnekeyLiteBackupPinCodeVerifyModal',
+  OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
+  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
 }
 
-export type OnekeyLiteChangePinRoutesParams = {
-  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: undefined;
-  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal]: {
+export type OnekeyLiteRoutesParams = {
+  [OnekeyLiteModalRoutes.OnekeyLiteChangePinInputPinModal]: undefined;
+  [OnekeyLiteModalRoutes.OnekeyLiteChangePinSetModal]: {
     currentPin: string;
   };
-  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal]: {
+  [OnekeyLiteModalRoutes.OnekeyLiteChangePinRepeatModal]: {
     currentPin: string;
     newPin: string;
   };
-  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal]: {
+  [OnekeyLiteModalRoutes.OnekeyLiteChangePinModal]: {
     oldPin: string;
     newPin: string;
-    onRetry: () => void;
   };
+  [OnekeyLiteModalRoutes.OnekeyLiteRestorePinCodeVerifyModal]: undefined;
+  [OnekeyLiteModalRoutes.OnekeyLiteRestoreModal]: {
+    pinCode: string;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteRestoreDoneModal]: {
+    mnemonic: string;
+    onSuccess: () => void;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteBackupPinCodeVerifyModal]: {
+    walletId: string | null;
+    backupData: string;
+    onSuccess: () => void;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteBackupModal]: {
+    walletId: string | null;
+    pinCode: string;
+    backupData: string;
+    onSuccess: () => void;
+  };
+  [OnekeyLiteModalRoutes.OnekeyLiteResetModal]: undefined;
 };
