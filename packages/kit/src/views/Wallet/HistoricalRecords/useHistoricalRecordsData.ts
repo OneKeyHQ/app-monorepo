@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import useSWRInfinite from 'swr/infinite';
 
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
@@ -18,18 +17,7 @@ type UseCollectiblesDataArgs = {
   tokenId?: string | null | undefined;
 };
 
-type UseHistoricalRecordsDataReturn = {
-  isLoading: boolean;
-  transactionRecords: TransactionGroup[];
-  fetchData: () => void;
-  loadMore?: () => void;
-  refresh?: () => void;
-};
-
-const PAGE_SIZE = 10;
-const FIRST_PAGE_SIZE = 20;
-
-const PAGE_SIZE_ALL = 10000;
+const PAGE_SIZE = 50;
 
 const toTransactionSection = (
   queueStr: string,
@@ -61,43 +49,52 @@ const toTransactionSection = (
   }, []);
 };
 
+type RequestParamsType = {
+  accountId: string;
+  networkId: string;
+  tokenId: string | undefined | null;
+  pageNumber: number;
+  pageSize: number;
+} | null;
+
 export const useHistoricalRecordsData = ({
   account,
   network,
   tokenId,
-}: UseCollectiblesDataArgs): UseHistoricalRecordsDataReturn => {
+}: UseCollectiblesDataArgs) => {
   const intl = useIntl();
   const formatDate = useFormatDate();
 
-  const hasNoParams = !account || !network;
-  const fetchAllAtOnce = !tokenId;
+  const [transactionRecords, setTransactionRecords] = useState<
+    TransactionGroup[]
+  >([]);
 
-  const getKey = (size: number, previousPageData: Transaction[]) => {
-    // reached the end
-    const isEndOfData = previousPageData && !previousPageData?.length;
+  const [isLoading, setIsLoading] = useState(false);
 
-    if (isEndOfData || hasNoParams) return null;
+  const hasNoParams = useMemo(() => !account || !network, [account, network]);
 
-    let pageSize = size === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
-    if (fetchAllAtOnce) {
-      pageSize = PAGE_SIZE_ALL;
-    }
+  const paramsMemo: RequestParamsType = useMemo(() => {
+    if (hasNoParams) return null;
+
+    const pageSize = PAGE_SIZE;
 
     const params = {
-      accountId: account.id,
-      networkId: network.id,
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
       tokenId,
-      // offset limit 写法
-      // offset:
-      //   size > 0 ? FIRST_PAGE_SIZE + (size - 1) * PAGE_SIZE : FIRST_PAGE_SIZE,
-      // limit: size === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE,
-      pageNumber: size > 0 ? size + 1 : 0,
+      pageNumber: 0,
       pageSize,
     };
-    return params;
-  };
 
-  const assetsSwr = useSWRInfinite(getKey, async (params) => {
+    return params;
+  }, [account?.id, hasNoParams, network?.id, tokenId]);
+
+  const requestCall = useCallback(async (params: RequestParamsType) => {
+    // console.log('begin getTxHistories request');
+    if (!params) {
+      return [];
+    }
+
     let history;
     if (params.tokenId) {
       history = await backgroundApiProxy.engine.getErc20TxHistories(
@@ -117,61 +114,44 @@ export const useHistoricalRecordsData = ({
     }
 
     if (history?.error || !history?.data?.txList) {
-      throw new Error(history?.errorMessage ?? '');
+      // throw new Error(history?.errorMessage ?? '');
+      return [];
     }
 
     const result = history.data.txList;
-    // console.log('getTxHistories', result);
+    // console.log('end getTxHistories', result.length);
     return result;
-  });
+  }, []);
 
-  return useMemo(() => {
-    const { data, error, mutate, isValidating } = assetsSwr;
+  const refresh = useCallback(() => {
+    (async () => {
+      setIsLoading(true);
+      setTransactionRecords([]);
 
-    if (hasNoParams) {
-      return {
-        isLoading: true,
-        fetchData: mutate,
-        transactionRecords: [],
-      };
-    }
-
-    if (error) {
-      return {
-        isLoading: false,
-        fetchData: mutate,
-        transactionRecords: [],
-      };
-    }
-
-    // const isRefreshing = isValidating && !!data;
-
-    const assets = data?.flat(1) ?? [];
-
-    const transactionRecords = toTransactionSection(
-      intl.formatMessage({ id: 'history__queue' }),
-      assets,
-      (date: string) => formatDate.formatMonth(date, { hideTheYear: true }),
-    );
-
-    const loadMore = () => {
-      if (fetchAllAtOnce) {
+      if (hasNoParams) {
+        setIsLoading(false);
         return;
       }
-      const isEmpty = !data?.length;
-      const isReachingEnd =
-        isEmpty || (data && data[data.length - 1].length < PAGE_SIZE);
 
-      if (!isValidating && !isReachingEnd) {
-        assetsSwr.setSize((preSize) => preSize + 1);
-      }
-    };
+      const assets = await requestCall(paramsMemo);
 
-    return {
-      loadMore,
+      const transactions = toTransactionSection(
+        intl.formatMessage({ id: 'history__queue' }),
+        assets,
+        (date: string) => formatDate.formatMonth(date, { hideTheYear: true }),
+      );
+
+      setIsLoading(false);
+      setTransactionRecords(transactions);
+    })();
+  }, [formatDate, hasNoParams, intl, paramsMemo, requestCall]);
+
+  return useMemo(
+    () => ({
+      isLoading,
       transactionRecords,
-      fetchData: mutate,
-      isLoading: isValidating,
-    };
-  }, [assetsSwr, fetchAllAtOnce, formatDate, hasNoParams, intl]);
+      refresh,
+    }),
+    [isLoading, refresh, transactionRecords],
+  );
 };
