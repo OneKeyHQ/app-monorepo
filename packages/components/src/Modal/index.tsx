@@ -255,13 +255,15 @@ const Modal: FC<ModalProps> = ({
     });
   }, [trigger, handleOpen]);
 
-  return (
+  const node = (
     <>
       {triggerNode}
       {modalContainer}
       {platformEnv.isNative && <Toast bottomOffset={120} />}
     </>
   );
+
+  return node;
 };
 
 Modal.defaultProps = defaultProps;

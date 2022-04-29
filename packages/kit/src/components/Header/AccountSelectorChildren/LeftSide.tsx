@@ -89,7 +89,8 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
-                  avatarBgColor="#55A9D9"
+                  walletImage="hd"
+                  avatar={wallet.avatar}
                 />
               ))}
 
@@ -111,8 +112,8 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                     setSelectedWallet(wallet);
                   }}
                   isSelected={selectedWallet?.id === wallet.id}
-                  avatarBgColor="#FFE0DF"
                   walletImage={wallet.type}
+                  avatar={wallet.avatar}
                   walletType="hw"
                   hwWalletType={getDeviceTypeByDeviceId(
                     wallet.associatedDevice,

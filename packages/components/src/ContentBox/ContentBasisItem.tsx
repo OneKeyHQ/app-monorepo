@@ -21,6 +21,7 @@ export type ContentItemProps = {
   hasArrow?: boolean;
   customArrowIconName?: ICON_NAMES;
   custom?: React.ReactNode | null;
+  wrap?: React.ReactNode | null;
   onPress?: (() => void) | null;
   onArrowIconPress?: (() => void) | null;
 } & ContentItemBaseProps;
@@ -41,107 +42,113 @@ const Item: FC<ContentItemProps> = ({
   hasDivider,
   children,
   custom,
+  wrap,
   onArrowIconPress,
 }) => (
   <Box w="100%" flexDirection="column">
-    <Box
-      px={{ base: '4', lg: '6' }}
-      py={4}
-      w="100%"
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-    >
-      <Text
-        h="100%"
-        maxW="60%"
-        flexWrap="wrap"
-        color={titleColor ?? 'text-subdued'}
-        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-      >
-        {title}
-      </Text>
+    {wrap || (
       <Box
-        flex={1}
+        px={{ base: '4', lg: '6' }}
+        py={4}
         w="100%"
-        ml={3}
-        flexDirection="column"
-        flexWrap="wrap"
-        alignItems="flex-end"
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
       >
-        {!!children && (
-          <Box
-            w="100%"
-            flexWrap="wrap"
-            justifyContent="flex-end"
-            flexDirection="row"
-          >
-            {children}
-          </Box>
-        )}
-        {!!describe && (
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            w="100%"
-            flexWrap="wrap"
-            color={describeColor ?? 'text-default'}
-            textAlign="right"
-          >
-            {describe}
-          </Text>
-        )}
-        {!!subDescribe &&
-          subDescribe.length > 0 &&
-          (subDescribe instanceof Array ? (
-            subDescribe.map((describeItem, index) => (
-              <Typography.Body2
-                key={`subDescribe-${index}`}
-                w="100%"
-                flexWrap="wrap"
-                color="text-subdued"
-                textAlign="right"
-              >
-                {describeItem}
-              </Typography.Body2>
-            ))
-          ) : (
-            <Typography.Body2
+        <Text
+          h="100%"
+          maxW="60%"
+          flexWrap="wrap"
+          color={titleColor ?? 'text-subdued'}
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+        >
+          {title}
+        </Text>
+        <Box
+          flex={1}
+          w="100%"
+          ml={3}
+          flexDirection="column"
+          flexWrap="wrap"
+          alignItems="flex-end"
+        >
+          {!!children && (
+            <Box
               w="100%"
-              color="text-subdued"
               flexWrap="wrap"
+              justifyContent="flex-end"
+              flexDirection="row"
+            >
+              {children}
+            </Box>
+          )}
+          {!!describe && (
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              w="100%"
+              flexWrap="wrap"
+              color={describeColor ?? 'text-default'}
               textAlign="right"
             >
-              {subDescribe}
-            </Typography.Body2>
+              {describe}
+            </Text>
+          )}
+          {!!subDescribe &&
+            subDescribe.length > 0 &&
+            (subDescribe instanceof Array ? (
+              subDescribe.map((describeItem, index) => (
+                <Typography.Body2
+                  key={`subDescribe-${index}`}
+                  w="100%"
+                  flexWrap="wrap"
+                  color="text-subdued"
+                  textAlign="right"
+                >
+                  {describeItem}
+                </Typography.Body2>
+              ))
+            ) : (
+              <Typography.Body2
+                w="100%"
+                color="text-subdued"
+                flexWrap="wrap"
+                textAlign="right"
+              >
+                {subDescribe}
+              </Typography.Body2>
+            ))}
+          {!!custom && (
+            <Box
+              w="100%"
+              flexWrap="wrap"
+              flexDirection="row"
+              justifyContent="flex-end"
+            >
+              {custom}
+            </Box>
+          )}
+        </Box>
+        {(hasArrow || !!customArrowIconName) &&
+          (onArrowIconPress ? (
+            <Center my={-1} ml={2} mr={-1}>
+              <IconButton
+                size="xs"
+                circle
+                name={customArrowIconName ?? 'ChevronRightSolid'}
+                type="plain"
+                onPress={onArrowIconPress}
+              />
+            </Center>
+          ) : (
+            <Box ml={3}>
+              <Icon
+                name={customArrowIconName ?? 'ChevronRightSolid'}
+                size={20}
+              />
+            </Box>
           ))}
-        {!!custom && (
-          <Box
-            w="100%"
-            flexWrap="wrap"
-            flexDirection="row"
-            justifyContent="flex-end"
-          >
-            {custom}
-          </Box>
-        )}
       </Box>
-      {(hasArrow || !!customArrowIconName) &&
-        (onArrowIconPress ? (
-          <Center my={-1} ml={2} mr={-1}>
-            <IconButton
-              size="xs"
-              circle
-              name={customArrowIconName ?? 'ChevronRightSolid'}
-              type="plain"
-              onPress={onArrowIconPress}
-            />
-          </Center>
-        ) : (
-          <Box ml={3}>
-            <Icon name={customArrowIconName ?? 'ChevronRightSolid'} size={20} />
-          </Box>
-        ))}
-    </Box>
+    )}
     {hasDivider && <Divider />}
   </Box>
 );
