@@ -41,20 +41,26 @@ const EngineApp: FC = ({ children }) => {
     const UICallback = ({ type }: { type: string }) => {
       switch (type) {
         case UI.REQUEST_PIN:
-          toast.show({
-            title: intl.formatMessage({ id: 'modal__input_pin_code' }),
-          });
+          toast.show(
+            {},
+            {
+              autoHide: false,
+              type: 'enterPinOnDevice',
+            },
+          );
           OneKeyConnect.uiResponse({
             type: UI.RECEIVE_PIN,
             payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
           });
           break;
         case UI.REQUEST_BUTTON:
-          toast.show({
-            title: intl.formatMessage({
-              id: 'modal__follow_the_instructions_on_your_device_screen',
-            }),
-          });
+          toast.show(
+            {},
+            {
+              autoHide: false,
+              type: 'confirmOnDevice',
+            },
+          );
           break;
         default:
           break;
