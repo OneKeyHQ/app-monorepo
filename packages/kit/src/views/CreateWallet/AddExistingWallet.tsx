@@ -123,29 +123,11 @@ const AddExistingWallet = () => {
     return words.filter(Boolean).join(',');
   }, [intl, mode]);
 
-  // copied from somewhere
-  const startRestoreModal = useCallback(
-    (inputPwd: string, callBack: () => void) => {
-      navigation.navigate(CreateWalletModalRoutes.OnekeyLiteRestoreModal, {
-        pwd: inputPwd,
-        onRetry: () => {
-          callBack?.();
-        },
-      });
-    },
-    [navigation],
-  );
-
   const startRestorePinVerifyModal = useCallback(() => {
-    navigation.navigate(CreateWalletModalRoutes.OnekeyLitePinCodeVerifyModal, {
-      callBack: (inputPwd) => {
-        startRestoreModal(inputPwd, () => {
-          startRestorePinVerifyModal();
-        });
-        return true;
-      },
-    });
-  }, [navigation, startRestoreModal]);
+    navigation.navigate(
+      CreateWalletModalRoutes.OnekeyLiteRestorePinCodeVerifyModal,
+    );
+  }, [navigation]);
 
   return (
     <Modal

@@ -7,12 +7,26 @@ import {
   OnekeyLiteNewRepeatPinCode,
   OnekeyLiteNewSetPinCode,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/ChangePinInputPin';
-import {
-  OnekeyLiteChangePinModalRoutes,
-  OnekeyLiteChangePinRoutesParams,
+import type {
+  OnekeyLiteModalRoutes,
+  OnekeyLiteRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
 
 import createStackNavigator from './createStackNavigator';
+
+export enum OnekeyLiteChangePinModalRoutes {
+  OnekeyLiteChangePinInputPinModal = 'OnekeyLiteChangePinInputPinModal',
+  OnekeyLiteChangePinSetModal = 'OnekeyLiteChangePinSetModal',
+  OnekeyLiteChangePinRepeatModal = 'OnekeyLiteChangePinRepeatModal',
+  OnekeyLiteChangePinModal = 'OnekeyLiteChangePinModal',
+}
+
+export type OnekeyLiteChangePinRoutesParams = {
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinInputPinModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteChangePinInputPinModal];
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinSetModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteChangePinSetModal];
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinRepeatModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteChangePinRepeatModal];
+  [OnekeyLiteChangePinModalRoutes.OnekeyLiteChangePinModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteChangePinModal];
+};
 
 const OnekeyLitePinNavigator =
   createStackNavigator<OnekeyLiteChangePinRoutesParams>();
@@ -57,5 +71,3 @@ const OnekeyLitePinModalStack = () => {
 };
 
 export default OnekeyLitePinModalStack;
-export { OnekeyLiteChangePinModalRoutes };
-export type { OnekeyLiteChangePinRoutesParams };

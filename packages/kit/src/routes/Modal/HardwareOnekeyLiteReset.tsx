@@ -2,12 +2,20 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyLiteReset from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Reset';
-import {
-  OnekeyLiteResetModalRoutes,
-  OnekeyLiteResetRoutesParams,
+import type {
+  OnekeyLiteModalRoutes,
+  OnekeyLiteRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
 
 import createStackNavigator from './createStackNavigator';
+
+export enum OnekeyLiteResetModalRoutes {
+  OnekeyLiteResetModal = 'OnekeyLiteResetModal',
+}
+
+export type OnekeyLiteResetRoutesParams = {
+  [OnekeyLiteResetModalRoutes.OnekeyLiteResetModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteResetModal];
+};
 
 const OnekeyLiteResetNavigator =
   createStackNavigator<OnekeyLiteResetRoutesParams>();
@@ -40,5 +48,3 @@ const OnekeyLiteResetModalStack = () => {
 };
 
 export default OnekeyLiteResetModalStack;
-export { OnekeyLiteResetModalRoutes };
-export type { OnekeyLiteResetRoutesParams };
