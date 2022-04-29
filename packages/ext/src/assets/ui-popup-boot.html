@@ -1,9 +1,5 @@
 <!DOCTYPE html>
-<html lang="%LANG_ISO_CODE%"
-   <% if ( platform === 'ext' && filename === 'ui-popup.html' ) { %>
-      style="min-height: 600px; min-width: 375px;"
-   <% } %>
->
+<html lang="" style="width: 375px;height: 600px">
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -15,7 +11,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
     />
-    <title>%WEB_TITLE%</title>
+    <title></title>
     <style>
       /* add global styles to packages/shared/src/web/index.css */
     </style>
@@ -23,27 +19,20 @@
 <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
 <!--      // document.documentElement.style.backgroundColor = 'black';-->
 <!--    </script>-->
-      <% if ( platform === 'ext' ) { %>
-          <script src="theme-preload.js"></script>
-      <% } %>
+    <script src="theme-preload.js"></script>
   </head>
 
   <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
   <body class="onekey-body"
+        style="width: 375px;height: 600px"
+        data-platform="ext"
+        data-browser="chrome"
+        data-filename="ui-popup.html"
 
-        data-platform="<%= platform %>"
-        data-browser="<%= browser %>"
-        data-filename="<%= filename %>"
 
-    <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
-        style="min-height: 600px; min-width: 375px;"
-    <% } %>
   >
 
-  <% if (platform!=='ext') { %>
-    <script src="https://jarvis.onekey.so/script.js" data-site="GVSVXVLI" data-spa="auto" defer>
-    </script>
-  <% } %>
+
 
     <!--
       A generic no script element with a reload button and a message.
@@ -96,6 +85,7 @@
 
     <!-- The root element for your Expo app.  -->
     <div id="root"></div>
+  <script src="ui-popup-boot.js"></script>
 
   </body>
 </html>

@@ -20,6 +20,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useInterval } from '../../hooks';
 import { useData, useSettings, useStatus } from '../../hooks/redux';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
+import { Atom } from '../../utils/helper';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
@@ -115,6 +116,9 @@ const MainScreen = () => {
   const onChange = useCallback(
     (state: AppStateStatus) => {
       if (appLockDuration === 0) {
+        if (Atom.AppState.isLocked()) {
+          return;
+        }
         if (state === 'background') {
           dispatch(lock());
         }
