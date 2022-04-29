@@ -172,7 +172,7 @@ const ConnectHardwareModal: FC = () => {
   );
 
   const renderDevices = useCallback(() => {
-    if (!devices) return null;
+    if (!devices?.length) return null;
     return (
       <VStack space={4} w="full">
         <Typography.Body2 color="text-subdued" textAlign="center">
@@ -272,7 +272,7 @@ const ConnectHardwareModal: FC = () => {
       </Box>
 
       <Typography.DisplayMedium>
-        {intl.formatMessage({ id: 'modal__connect_and_unlock_device' })}
+        {intl.formatMessage({ id: 'modal__connect_your_device' })}
       </Typography.DisplayMedium>
       {renderDevices()}
     </VStack>
@@ -282,6 +282,11 @@ const ConnectHardwareModal: FC = () => {
     <Modal
       scrollViewProps={{
         children: content,
+        contentContainerStyle: {
+          height: '100%',
+          justifyContent: 'center',
+          paddingBottom: 24,
+        },
       }}
       hidePrimaryAction={!platformEnv.isNative}
       footer={!platformEnv.isNative || isSearching ? null : undefined}
