@@ -3,6 +3,7 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
+import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { isNil, merge } from 'lodash';
@@ -148,7 +149,7 @@ export default class Vault extends VaultBase {
     if (!Number.isFinite(ethersTx.chainId)) {
       ethersTx.chainId = Number(await this.getNetworkChainId());
     }
-    return EVMTxDecoder.decode(ethersTx, this.engine);
+    return EVMTxDecoder.getDecoder(this.engine).decode(ethersTx);
   }
 
   async buildEncodedTxFromTransfer(
@@ -444,6 +445,9 @@ export default class Vault extends VaultBase {
     const encodedTxWithFee = { ...encodedTx };
     if (!isNil(feeInfoValue.limit)) {
       encodedTxWithFee.gas = toBigIntHex(new BigNumber(feeInfoValue.limit));
+      encodedTxWithFee.gasLimit = toBigIntHex(
+        new BigNumber(feeInfoValue.limit),
+      );
     }
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
     if (!isNil(feeInfoValue.price)) {
@@ -493,10 +497,9 @@ export default class Vault extends VaultBase {
         historyItems
           .filter((entry) => entry.status === HistoryEntryStatus.PENDING)
           .map((historyItem) =>
-            EVMTxDecoder.decode(
-              (historyItem as HistoryEntryTransaction).rawTx,
-              this.engine,
-            ).then(({ nonce }) => (nonce ?? 0) + 1),
+            EVMTxDecoder.getDecoder(this.engine)
+              .decode((historyItem as HistoryEntryTransaction).rawTx)
+              .then(({ nonce }) => (nonce ?? 0) + 1),
           ),
       )),
       onChainNonce,
@@ -507,5 +510,45 @@ export default class Vault extends VaultBase {
     }
 
     return nextNonce;
+  }
+
+  private async getSigners(options: ISignCredentialOptions) {
+    // TODO: this can be moved into keyrings.
+    const dbAccount = await this.getDbAccount();
+    const credential = await this.keyring.getCredential(options);
+    await this.engine.providerManager.getProvider(this.networkId);
+    return this.engine.providerManager.getSigners(
+      this.networkId,
+      credential,
+      dbAccount,
+    );
+  }
+
+  async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
+    const [signer] = Object.values(await this.getSigners(options));
+    return this.engine.providerManager
+      .getProvider(this.networkId)
+      .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+  }
+
+  async mmDecrypt(
+    message: string,
+    options: ISignCredentialOptions,
+  ): Promise<string> {
+    const [signer] = Object.values(await this.getSigners(options));
+    return this.engine.providerManager
+      .getProvider(this.networkId)
+      .then((provider) => (provider as EthProvider).mmDecrypt(message, signer));
+  }
+
+  async personalECRecover(message: string, signature: string): Promise<string> {
+    return this.engine.providerManager
+      .getProvider(this.networkId)
+      .then((provider) =>
+        (provider as EthProvider).ecRecover(
+          { type: ETHMessageTypes.PERSONAL_SIGN, message },
+          signature,
+        ),
+      );
   }
 }

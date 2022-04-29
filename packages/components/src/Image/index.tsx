@@ -1,9 +1,9 @@
 import React, { ComponentProps, FC, useState } from 'react';
 
-import { Image as NBImage, Pressable } from 'native-base';
+import { Image as NBImage } from 'native-base';
 import { Platform } from 'react-native';
 
-import { ImageViewer } from '@onekeyhq/components';
+import { ImageViewer, Pressable } from '@onekeyhq/components';
 
 type ImageProps = { preview?: boolean } & ComponentProps<typeof NBImage>;
 

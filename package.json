@@ -38,12 +38,12 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "^0.0.8",
-    "@onekeyfe/cross-inpage-provider-errors": "^0.0.8",
-    "@onekeyfe/cross-inpage-provider-injected": "^0.0.8",
-    "@onekeyfe/cross-inpage-provider-types": "^0.0.8",
-    "@onekeyfe/extension-bridge-hosted": "^0.0.8",
-    "@onekeyfe/onekey-cross-webview": "^0.0.8",
+    "@onekeyfe/cross-inpage-provider-core": "^0.0.9",
+    "@onekeyfe/cross-inpage-provider-errors": "^0.0.9",
+    "@onekeyfe/cross-inpage-provider-injected": "^0.0.9",
+    "@onekeyfe/cross-inpage-provider-types": "^0.0.9",
+    "@onekeyfe/extension-bridge-hosted": "^0.0.9",
+    "@onekeyfe/onekey-cross-webview": "^0.0.9",
     "commitizen": "^4.2.4",
     "global": "^4.4.0",
     "events": "^3.3.0"
