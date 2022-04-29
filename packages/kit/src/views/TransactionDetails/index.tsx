@@ -231,7 +231,7 @@ const TransactionDetails: FC = () => {
           describe={`${txInfo?.fromType === EVMTxFromType.OUT ? '-' : ''}${`${
             amount.amount ?? '-'
           } ${amount.unit ?? ''}`}`}
-          custom={
+          subDescribeCustom={
             <Box
               flex={1}
               flexDirection="row"
