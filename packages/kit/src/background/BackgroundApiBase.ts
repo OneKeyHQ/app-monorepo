@@ -144,10 +144,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.bridge = bridge;
   }
 
-  protected rpcResult(result: any): IJsonRpcResponse<any> {
+  protected rpcResult(
+    result: any,
+    rpcRequest?: IJsonRpcRequest,
+  ): IJsonRpcResponse<any> {
     return {
-      id: Date.now(),
-      jsonrpc: '2.0',
+      id: rpcRequest?.id ?? undefined,
+      jsonrpc: rpcRequest?.jsonrpc ?? '2.0',
       result,
     };
   }
@@ -187,7 +190,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const result = await provider.handleMethods(payload);
     ensureSerializable(result);
     // TODO non rpc result return in some chain provider
-    const resultWrapped = this.rpcResult(result);
+    const resultWrapped = this.rpcResult(result, payloadData);
     debugLogger.ethereum(
       'provider.handleMethods RESULT:',
       payloadData,
