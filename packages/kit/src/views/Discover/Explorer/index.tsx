@@ -360,7 +360,10 @@ const Explorer: FC = () => {
     () => (
       <Box flex={1}>
         {displayInitialPage ? (
-          <Home onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })} />
+          <Home
+            onItemSelect={(item) => gotoUrl({ id: item.id, dapp: item })}
+            onItemSelectHistory={(item) => gotoUrl(item)}
+          />
         ) : (
           <WebView
             src={currentWebSiteMemo?.url ?? ''}

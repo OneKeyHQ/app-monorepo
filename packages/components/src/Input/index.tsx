@@ -112,7 +112,13 @@ const Input = React.forwardRef<
     }
     if (rightIconName) {
       rightElements.push(
-        <Pressable onPress={onPressRightIcon} key="rightIconName">
+        <Pressable
+          onPress={onPressRightIcon}
+          key="rightIconName"
+          pt={1}
+          pb={1}
+          pl={2}
+        >
           <Icon
             size={20}
             name={rightIconName}
