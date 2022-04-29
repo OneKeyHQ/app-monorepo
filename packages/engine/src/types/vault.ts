@@ -66,8 +66,8 @@ export type IFeeInfoUnit = {
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {
   // TODO merge (limit, prices, EIP1559Fee) to single field
-  limit?: string;
-  prices: Array<string | EIP1559Fee>;
+  limit?: string; // calculated gasLimit of encodedTx
+  prices: Array<string | EIP1559Fee>; // preset gasPrices: normal, fast, rapid
   symbol?: string;
   decimals?: number;
   nativeSymbol?: string;
