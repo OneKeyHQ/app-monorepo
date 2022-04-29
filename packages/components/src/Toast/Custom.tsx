@@ -1,10 +1,16 @@
 import React, { ComponentProps, FC } from 'react';
 
+import { useIntl } from 'react-intl';
 import { TextStyle } from 'react-native';
 import Toast, { BaseToast } from 'react-native-toast-message';
 
+import ConfirmOnClassic from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-classic.json';
+import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-classic.json';
+
+import Box from '../Box';
+import LottieView from '../LottieView';
 import { useThemeValue } from '../Provider/hooks';
-import { Body1Props } from '../Typography';
+import { Body1Props, Text } from '../Typography';
 
 type Props = ComponentProps<typeof Toast>;
 
@@ -16,6 +22,7 @@ const CustomToast: FC<Props> = (outerProps) => {
       'border-default',
       'border-default',
     ]);
+  const intl = useIntl();
   return (
     <Toast
       bottomOffset={50}
@@ -56,6 +63,56 @@ const CustomToast: FC<Props> = (outerProps) => {
               { ...Body1Props, color: fontColor, marginBottom: 0 } as TextStyle
             }
           />
+        ),
+        enterPinOnDevice: ({ props }) => (
+          <Box px={4} maxW="374">
+            <Box
+              mx="auto"
+              p={4}
+              pb={6}
+              rounded="xl"
+              bgColor="surface-default"
+              borderWidth={0.5}
+              borderColor="border-subdued"
+              shadow="depth.4"
+              {...props}
+            >
+              <LottieView source={EnterPinCodeOnClassic} autoPlay loop />
+              <Text
+                typography="DisplayMedium"
+                mt={6}
+                textAlign="center"
+                color="text-default"
+              >
+                {intl.formatMessage({ id: 'modal__input_pin_code' })}
+              </Text>
+            </Box>
+          </Box>
+        ),
+        confirmOnDevice: ({ props }) => (
+          <Box px={4} maxW="374">
+            <Box
+              mx="auto"
+              p={4}
+              pb={6}
+              rounded="xl"
+              bgColor="surface-default"
+              borderWidth={0.5}
+              borderColor="border-subdued"
+              shadow="depth.4"
+              {...props}
+            >
+              <LottieView source={ConfirmOnClassic} autoPlay loop />
+              <Text
+                typography="DisplayMedium"
+                mt={6}
+                textAlign="center"
+                color="text-default"
+              >
+                {intl.formatMessage({ id: 'modal__confirm_on_device' })}
+              </Text>
+            </Box>
+          </Box>
         ),
       }}
       {...outerProps}
