@@ -69,7 +69,9 @@ const ModifyWalletNameViewModal: FC = () => {
       setIsLoading(false);
       return;
     }
-    const changedWallet = await engine.setWalletName(walletId, values.name);
+    const changedWallet = await engine.setWalletNameAndAvatar(walletId, {
+      name: values.name,
+    });
     if (changedWallet) {
       dispatch(updateWallet(changedWallet));
 
@@ -97,8 +99,8 @@ const ModifyWalletNameViewModal: FC = () => {
               alignItems="center"
             >
               <WalletAvatar
-                avatarBgColor="#55A9D9"
-                walletImage="🤑"
+                avatar={wallet?.avatar}
+                walletImage="hd"
                 size="xl"
               />
               {/* <Image
@@ -127,7 +129,7 @@ const ModifyWalletNameViewModal: FC = () => {
         </Pressable>
       </Center>
     ),
-    [],
+    [wallet],
   );
 
   return (

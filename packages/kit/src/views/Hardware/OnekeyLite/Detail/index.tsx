@@ -10,13 +10,16 @@ import {
   Dialog,
   Icon,
   Input,
+  Pressable,
   Select,
+  Text,
   useLocale,
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -295,13 +298,13 @@ const OnekeyLiteDetail: React.FC = () => {
       <Select
         visible={selectBackupWalletVisible}
         onVisibleChange={setSelectBackupWalletVisible}
-        onChange={(walletId) => {
+        onChange={(walletItem) => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.BackupWallet,
             params: {
               screen: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
               params: {
-                walletId,
+                walletId: walletItem.id,
                 backupType: 'OnekeyLite',
               },
             },
@@ -320,11 +323,30 @@ const OnekeyLiteDetail: React.FC = () => {
             { id: 'form__str_accounts' },
             { count: _wallet.accounts.length.toString() },
           ),
-          value: _wallet.id,
-          tokenProps: {
-            address: _wallet.id,
-          },
+          value: _wallet,
         }))}
+        renderItem={(walletItem, isActive, onChange) => (
+          <Pressable
+            onPress={() => onChange?.(walletItem.value, walletItem)}
+            flexDirection="row"
+            alignItems="center"
+            height="68px"
+            paddingLeft="18px"
+          >
+            <WalletAvatar
+              walletImage={walletItem.value.type}
+              avatar={walletItem.value.avatar}
+              size="sm"
+              circular
+            />
+            <Box flexDirection="column" ml="12px">
+              <Text typography="Body1Strong">{walletItem.label}</Text>
+              <Text typography="Body2" color="text-subdued">
+                {walletItem.description}
+              </Text>
+            </Box>
+          </Pressable>
+        )}
         renderTrigger={() => <Box />}
       />
     </>

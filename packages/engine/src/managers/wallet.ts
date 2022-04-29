@@ -11,17 +11,7 @@ function walletIsImported(walletId: string): boolean {
 }
 
 function walletCanBeRemoved(walletId: string): boolean {
-  return walletIsHD(walletId) || walletId.startsWith('hw');
+  return walletIsHD(walletId) || walletIsHW(walletId);
 }
 
-function walletNameCanBeUpdated(walletId: string): boolean {
-  return walletCanBeRemoved(walletId);
-}
-
-export {
-  walletIsHD,
-  walletIsHW,
-  walletIsImported,
-  walletCanBeRemoved,
-  walletNameCanBeUpdated,
-};
+export { walletIsHD, walletIsHW, walletIsImported, walletCanBeRemoved };

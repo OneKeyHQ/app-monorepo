@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Buffer } from 'buffer';
 
-import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import Realm from 'realm';
 
 import {
@@ -40,11 +39,14 @@ import {
   Wallet,
 } from '../../types/wallet';
 import {
+  CreateHDWalletParams,
+  CreateHWWalletParams,
   DBAPI,
   DEFAULT_VERIFY_STRING,
   ExportedCredential,
   MAIN_CONTEXT,
   OneKeyContext,
+  SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
   StoredSeedCredential,
   checkPassword,
@@ -64,7 +66,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -854,12 +856,13 @@ class RealmDB implements DBAPI {
    * @returns
    * @throws { OneKeyInternalError, WrongPassword }
    */
-  createHDWallet(
-    password: string,
-    rs: RevealableSeed,
-    backuped: boolean,
-    name?: string,
-  ): Promise<Wallet> {
+  createHDWallet({
+    password,
+    rs,
+    backuped,
+    name,
+    avatar,
+  }: CreateHDWalletParams): Promise<Wallet> {
     let context: ContextSchema | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -878,6 +881,8 @@ class RealmDB implements DBAPI {
         wallet = this.realm!.create('Wallet', {
           id: walletId,
           name: name || `Wallet ${context!.nextHD}`,
+          avatar:
+            typeof avatar === 'undefined' ? avatar : JSON.stringify(avatar),
           type: WALLET_TYPE_HD,
           backuped,
         });
@@ -915,7 +920,7 @@ class RealmDB implements DBAPI {
    * @param id the id of the hardware device
    * @param name the name of the wallet
    */
-  addHWWallet(id: string, name: string): Promise<Wallet> {
+  addHWWallet({ id, name, avatar }: CreateHWWalletParams): Promise<Wallet> {
     try {
       const foundDevice = this.realm!.objectForPrimaryKey<DeviceSchema>(
         'Device',
@@ -934,6 +939,8 @@ class RealmDB implements DBAPI {
           wallet = this.realm!.create('Wallet', {
             id: walletId,
             name,
+            avatar:
+              typeof avatar === 'undefined' ? avatar : JSON.stringify(avatar),
             type: WALLET_TYPE_HW,
             backuped: true,
             associatedDevice: foundDevice,
@@ -1013,7 +1020,10 @@ class RealmDB implements DBAPI {
    * @returns {Promise<Wallet>}
    * @throws {OneKeyInternalError}
    */
-  setWalletName(walletId: string, name: string): Promise<Wallet> {
+  setWalletNameAndAvatar(
+    walletId: string,
+    { name, avatar }: SetWalletNameAndAvatarParams,
+  ): Promise<Wallet> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -1033,7 +1043,12 @@ class RealmDB implements DBAPI {
         );
       }
       this.realm!.write(() => {
-        wallet.name = name;
+        if (typeof name !== 'undefined') {
+          wallet.name = name;
+        }
+        if (typeof avatar !== 'undefined') {
+          wallet.avatar = JSON.stringify(avatar);
+        }
       });
       return Promise.resolve(wallet.internalObj);
     } catch (error: any) {

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -17,9 +17,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
@@ -30,7 +28,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import TransactionRecord from '../../Components/transactionRecord';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
@@ -52,17 +50,13 @@ const defaultProps = {
 } as const;
 
 const HistoricalRecords: FC<HistoricalRecordProps> = ({
-  accountId,
-  networkId,
   tokenId,
   headerView,
   isTab,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProp['navigation']>();
-
-  const [account, setAccount] = useState<Account>();
-  const [network, setNetwork] = useState<Network>();
+  const { network, account } = useActiveWalletAccount();
 
   const openBlockBrowser = useOpenBlockBrowser(network);
   const { transactionRecords, isLoading, loadMore, fetchData } =
@@ -78,29 +72,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       },
       [loadMore],
     );
-
-  useEffect(() => {
-    async function loadAccount() {
-      if (!accountId) return;
-
-      const accounts = await backgroundApiProxy.engine.getAccounts([accountId]);
-      if (accounts && accounts.length > 0) {
-        setAccount(accounts[0]);
-      }
-    }
-    async function loadNetwork() {
-      if (!networkId) return;
-
-      const localNetwork = await backgroundApiProxy.engine.getNetwork(
-        networkId,
-      );
-      if (localNetwork) {
-        setNetwork(localNetwork);
-      }
-    }
-    loadNetwork();
-    loadAccount();
-  }, [accountId, networkId]);
 
   const refreshData = useCallback(() => {
     fetchData?.();
@@ -129,7 +100,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         });
       }}
     >
-      <TransactionRecord transaction={item} network={network} />
+      <TransactionRecord transaction={item} network={network ?? undefined} />
     </Pressable.Item>
   );
 
@@ -176,18 +147,19 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
                 type="plain"
                 circle
               />
-
-              <IconButton
-                onPress={() => {
-                  openBlockBrowser.openAddressDetails(account?.address);
-                }}
-                ml={3}
-                p={2}
-                size="sm"
-                name="ExternalLinkSolid"
-                type="plain"
-                circle
-              />
+              {network?.blockExplorerURL.address ? (
+                <IconButton
+                  onPress={() => {
+                    openBlockBrowser.openAddressDetails(account?.address);
+                  }}
+                  ml={3}
+                  p={2}
+                  size="sm"
+                  name="ExternalLinkSolid"
+                  type="plain"
+                  circle
+                />
+              ) : null}
             </Box>
           </Box>
         )}
@@ -200,6 +172,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       isLoading,
       openBlockBrowser,
       refreshData,
+      network,
       transactionRecords.length,
     ],
   );
