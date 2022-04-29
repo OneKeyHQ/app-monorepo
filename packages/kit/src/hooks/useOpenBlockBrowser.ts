@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Network } from '@onekeyhq/engine/src/types/network';
 
+import { useRuntime } from './redux';
 import useOpenBrowser from './useOpenBrowser';
 
 function buildTransactionDetailsUrl(
@@ -35,6 +36,14 @@ export default function useOpenBlockBrowser(
 ) {
   const intl = useIntl();
   const webview = useOpenBrowser();
+
+  const { networks } = useRuntime();
+
+  const hasAvailable = useMemo(() => {
+    if (!network) return false;
+    const currentNetwork = networks.find((x) => x.id === network.id);
+    return !!currentNetwork?.blockExplorerURL?.address;
+  }, [network, networks]);
 
   const openTransactionDetails = useCallback(
     (txId: string | null | undefined, title?: string) => {
@@ -74,10 +83,16 @@ export default function useOpenBlockBrowser(
 
   return useMemo(
     () => ({
+      hasAvailable,
       openTransactionDetails,
       openAddressDetails,
       openBlockDetails,
     }),
-    [openAddressDetails, openBlockDetails, openTransactionDetails],
+    [
+      hasAvailable,
+      openAddressDetails,
+      openBlockDetails,
+      openTransactionDetails,
+    ],
   );
 }

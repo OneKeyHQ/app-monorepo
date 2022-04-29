@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -17,7 +17,9 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
@@ -28,7 +30,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import TransactionRecord from '../../Components/transactionRecord';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
@@ -50,32 +52,56 @@ const defaultProps = {
 } as const;
 
 const HistoricalRecords: FC<HistoricalRecordProps> = ({
+  accountId,
+  networkId,
   tokenId,
   headerView,
   isTab,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProp['navigation']>();
-  const { network, account } = useActiveWalletAccount();
 
-  const openBlockBrowser = useOpenBlockBrowser(network);
-  const { transactionRecords, isLoading, loadMore, fetchData } =
-    useHistoricalRecordsData({ account, network, tokenId });
+  const [account, setAccount] = useState<Account>();
+  const [network, setNetwork] = useState<Network>();
 
-  const handleScrollToEnd: SectionListProps<unknown>['onEndReached'] =
-    useCallback(
-      ({ distanceFromEnd }) => {
-        if (distanceFromEnd > 0) {
-          return;
-        }
-        loadMore?.();
-      },
-      [loadMore],
-    );
+  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+  const { transactionRecords, isLoading, refresh } = useHistoricalRecordsData({
+    account,
+    network,
+    tokenId,
+  });
+
+  useEffect(() => {
+    async function loadAccount() {
+      if (!accountId) return;
+
+      const accounts = await backgroundApiProxy.engine.getAccounts([accountId]);
+      if (accounts && accounts.length > 0) {
+        setAccount(accounts[0]);
+      }
+    }
+    async function loadNetwork() {
+      if (!networkId) return;
+
+      const localNetwork = await backgroundApiProxy.engine.getNetwork(
+        networkId,
+      );
+      if (localNetwork) {
+        setNetwork(localNetwork);
+      }
+    }
+    loadNetwork();
+    loadAccount();
+  }, [accountId, networkId]);
+
+  // Switch language, switch account automatically refresh
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const refreshData = useCallback(() => {
-    fetchData?.();
-  }, [fetchData]);
+    refresh?.();
+  }, [refresh]);
 
   const renderItem: SectionListProps<Transaction>['renderItem'] = ({
     item,
@@ -100,7 +126,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         });
       }}
     >
-      <TransactionRecord transaction={item} network={network ?? undefined} />
+      <TransactionRecord transaction={item} network={network} />
     </Pressable.Item>
   );
 
@@ -147,10 +173,10 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
                 type="plain"
                 circle
               />
-              {network?.blockExplorerURL.address ? (
+              {hasAvailable ? (
                 <IconButton
                   onPress={() => {
-                    openBlockBrowser.openAddressDetails(account?.address);
+                    openAddressDetails(account?.address);
                   }}
                   ml={3}
                   p={2}
@@ -166,14 +192,14 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       </Box>
     ),
     [
-      account?.address,
       headerView,
+      transactionRecords.length,
       intl,
       isLoading,
-      openBlockBrowser,
+      hasAvailable,
       refreshData,
-      network,
-      transactionRecords.length,
+      openAddressDetails,
+      account?.address,
     ],
   );
 
@@ -220,7 +246,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     },
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
-    onEndReached: handleScrollToEnd,
   });
 };
 

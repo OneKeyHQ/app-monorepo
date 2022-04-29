@@ -37,11 +37,14 @@ const initialState: SettingsState = {
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
-export function setThemePreloadToLocalStorage(value: string, isUpdate = true) {
+export function setThemePreloadToLocalStorage(
+  value: string,
+  forceUpdate = true,
+) {
   try {
     const key = THEME_PRELOAD_STORAGE_KEY;
     if (platformEnv.isBrowser) {
-      if (isUpdate || !localStorage.getItem(key)) {
+      if (forceUpdate || !localStorage.getItem(key)) {
         localStorage.setItem(key, value);
       }
     }
