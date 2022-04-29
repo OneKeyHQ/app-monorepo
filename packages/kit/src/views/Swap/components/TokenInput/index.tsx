@@ -68,16 +68,21 @@ const TokenInput: FC<TokenInputProps> = ({
         mb="2"
       >
         <Typography.Body2 color="text-subdued">{label}</Typography.Body2>
-        <Box flexDirection="row" alignItems="center">
-          <Typography.Body2 color="text-subdued">
-            {intl.formatMessage({ id: 'content__balance_str' }, { '0': text })}
-          </Typography.Body2>
-          {token && Number(value) > 0 && showMax ? (
-            <Typography.Body2 color="text-success" ml="2" onPress={onMax}>
-              Max
+        <Pressable onPress={onMax}>
+          <Box flexDirection="row" alignItems="center">
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage(
+                { id: 'content__balance_str' },
+                { '0': text },
+              )}
             </Typography.Body2>
-          ) : null}
-        </Box>
+            {token && Number(value) > 0 && showMax ? (
+              <Typography.Body2 color="text-success" ml="2">
+                Max
+              </Typography.Body2>
+            ) : null}
+          </Box>
+        </Pressable>
       </Box>
       <Box
         display="flex"

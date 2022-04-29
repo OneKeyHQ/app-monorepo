@@ -64,20 +64,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
 
-  const openBlockBrowser = useOpenBlockBrowser(network);
-  const { transactionRecords, isLoading, loadMore, fetchData } =
-    useHistoricalRecordsData({ account, network, tokenId });
-
-  const handleScrollToEnd: SectionListProps<unknown>['onEndReached'] =
-    useCallback(
-      ({ distanceFromEnd }) => {
-        if (distanceFromEnd > 0) {
-          return;
-        }
-        loadMore?.();
-      },
-      [loadMore],
-    );
+  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+  const { transactionRecords, isLoading, refresh } = useHistoricalRecordsData({
+    account,
+    network,
+    tokenId,
+  });
 
   useEffect(() => {
     async function loadAccount() {
@@ -102,9 +94,14 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     loadAccount();
   }, [accountId, networkId]);
 
+  // Switch language, switch account automatically refresh
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
   const refreshData = useCallback(() => {
-    fetchData?.();
-  }, [fetchData]);
+    refresh?.();
+  }, [refresh]);
 
   const renderItem: SectionListProps<Transaction>['renderItem'] = ({
     item,
@@ -176,31 +173,33 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
                 type="plain"
                 circle
               />
-
-              <IconButton
-                onPress={() => {
-                  openBlockBrowser.openAddressDetails(account?.address);
-                }}
-                ml={3}
-                p={2}
-                size="sm"
-                name="ExternalLinkSolid"
-                type="plain"
-                circle
-              />
+              {hasAvailable ? (
+                <IconButton
+                  onPress={() => {
+                    openAddressDetails(account?.address);
+                  }}
+                  ml={3}
+                  p={2}
+                  size="sm"
+                  name="ExternalLinkSolid"
+                  type="plain"
+                  circle
+                />
+              ) : null}
             </Box>
           </Box>
         )}
       </Box>
     ),
     [
-      account?.address,
       headerView,
+      transactionRecords.length,
       intl,
       isLoading,
-      openBlockBrowser,
+      hasAvailable,
       refreshData,
-      transactionRecords.length,
+      openAddressDetails,
+      account?.address,
     ],
   );
 
@@ -247,7 +246,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     },
     showsVerticalScrollIndicator: false,
     stickySectionHeadersEnabled: false,
-    onEndReached: handleScrollToEnd,
   });
 };
 

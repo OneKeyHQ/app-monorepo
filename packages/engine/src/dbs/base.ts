@@ -6,6 +6,8 @@ import {
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 
+import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+
 import { DBAccount } from '../types/account';
 import { PrivateKeyCredential } from '../types/credential';
 import { Device } from '../types/device';
@@ -47,6 +49,25 @@ type ExportedPrivateKeyCredential = {
 };
 
 type ExportedCredential = ExportedSeedCredential | ExportedPrivateKeyCredential;
+
+type CreateHDWalletParams = {
+  password: string;
+  rs: RevealableSeed;
+  backuped: boolean;
+  name?: string;
+  avatar?: Avatar;
+};
+
+type CreateHWWalletParams = {
+  id: string;
+  name: string;
+  avatar?: Avatar;
+};
+
+type SetWalletNameAndAvatarParams = {
+  name?: string;
+  avatar?: Avatar;
+};
 
 const DEFAULT_VERIFY_STRING = 'OneKey';
 const MAIN_CONTEXT = 'mainContext';
@@ -94,15 +115,13 @@ interface DBAPI {
 
   getWallets(): Promise<Array<Wallet>>;
   getWallet(walletId: string): Promise<Wallet | undefined>;
-  createHDWallet(
-    password: string,
-    rs: RevealableSeed,
-    backuped: boolean,
-    name?: string,
-  ): Promise<Wallet>;
-  addHWWallet(id: string, name: string): Promise<Wallet>;
+  createHDWallet(params: CreateHDWalletParams): Promise<Wallet>;
+  addHWWallet(params: CreateHWWalletParams): Promise<Wallet>;
   removeWallet(walletId: string, password: string): Promise<void>;
-  setWalletName(walletId: string, name: string): Promise<Wallet>;
+  setWalletNameAndAvatar(
+    walletId: string,
+    params: SetWalletNameAndAvatarParams,
+  ): Promise<Wallet>;
   getCredential(
     walletId: string,
     password: string,
@@ -166,5 +185,8 @@ export type {
   ExportedCredential,
   ExportedSeedCredential,
   ExportedPrivateKeyCredential,
+  CreateHDWalletParams,
+  CreateHWWalletParams,
+  SetWalletNameAndAvatarParams,
 };
 export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, decrypt, MAIN_CONTEXT };

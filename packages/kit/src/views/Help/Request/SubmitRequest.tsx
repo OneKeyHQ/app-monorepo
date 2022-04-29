@@ -32,6 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../../hooks/redux';
 import { navigationGoBack } from '../../../hooks/useAppNavigation';
+import { Atom } from '../../../utils/helper';
 
 import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
 import { ImageModel, TicketType } from './types';
@@ -244,7 +245,11 @@ export const SubmitRequest: FC = () => {
         />
       ))}
       {imageArr.length < 4 ? (
-        <Pressable onPress={pickImage}>
+        <Pressable
+          onPress={() => {
+            Atom.AppState.runAsync(pickImage);
+          }}
+        >
           <Center
             mt="8px"
             width={`${imageWidth - 8}px`}
