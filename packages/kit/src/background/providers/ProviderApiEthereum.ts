@@ -12,6 +12,7 @@ import uuid from 'react-native-uuid';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
+import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
@@ -319,10 +320,31 @@ class ProviderApiEthereum extends ProviderApiBase {
     });
   }
 
-  // TODO personal_ecRecover
-  personal_ecRecover(req: IJsBridgeMessagePayload, message: string) {
-    console.log('personal_ecRecover: ', req, message);
-    throw web3Errors.provider.unsupportedMethod();
+  async personal_ecRecover(
+    req: IJsBridgeMessagePayload,
+    ...messages: string[]
+  ) {
+    console.log('personal_ecRecover: ', req, messages);
+    const [message, signature] = messages;
+    if (
+      typeof message === 'string' &&
+      typeof signature === 'string' &&
+      // Signature is 65-bytes in length, length of its hexstring is 132.
+      signature.length === 132
+    ) {
+      const { networkId } = getActiveWalletAccount();
+      // Not interacting with user's credential, only a static method, so any
+      // vault would do.
+      const evmWatchVault =
+        await this.backgroundApi.engine.vaultFactory.getVault({
+          networkId,
+          accountId: '',
+        });
+      return (evmWatchVault as VaultEvm).personalECRecover(message, signature);
+    }
+    throw web3Errors.rpc.invalidParams(
+      'personal_ecRecover requires a message and a 65 bytes signature.',
+    );
   }
 
   eth_signTypedData(req: IJsBridgeMessagePayload, ...messages: any[]) {

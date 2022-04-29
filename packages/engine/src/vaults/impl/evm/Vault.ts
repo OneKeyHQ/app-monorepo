@@ -3,6 +3,7 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
+import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { isNil, merge } from 'lodash';
@@ -509,5 +510,45 @@ export default class Vault extends VaultBase {
     }
 
     return nextNonce;
+  }
+
+  private async getSigners(options: ISignCredentialOptions) {
+    // TODO: this can be moved into keyrings.
+    const dbAccount = await this.getDbAccount();
+    const credential = await this.keyring.getCredential(options);
+    await this.engine.providerManager.getProvider(this.networkId);
+    return this.engine.providerManager.getSigners(
+      this.networkId,
+      credential,
+      dbAccount,
+    );
+  }
+
+  async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
+    const [signer] = Object.values(await this.getSigners(options));
+    return this.engine.providerManager
+      .getProvider(this.networkId)
+      .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+  }
+
+  async mmDecrypt(
+    message: string,
+    options: ISignCredentialOptions,
+  ): Promise<string> {
+    const [signer] = Object.values(await this.getSigners(options));
+    return this.engine.providerManager
+      .getProvider(this.networkId)
+      .then((provider) => (provider as EthProvider).mmDecrypt(message, signer));
+  }
+
+  async personalECRecover(message: string, signature: string): Promise<string> {
+    return this.engine.providerManager
+      .getProvider(this.networkId)
+      .then((provider) =>
+        (provider as EthProvider).ecRecover(
+          { type: ETHMessageTypes.PERSONAL_SIGN, message },
+          signature,
+        ),
+      );
   }
 }
