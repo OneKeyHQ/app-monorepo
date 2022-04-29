@@ -209,6 +209,7 @@ const Home: FC = () => {
     <>
       <Tabs.Container
         renderHeader={AccountInfo}
+        pagerProps={{ scrollEnabled: false }}
         headerHeight={
           isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
