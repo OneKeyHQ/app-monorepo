@@ -10,8 +10,7 @@ import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/wallet/enter-pin-code-on
 import Box from '../Box';
 import LottieView from '../LottieView';
 import { useThemeValue } from '../Provider/hooks';
-import { Text } from '../Typography';
-import { Body1Props } from '../Typography';
+import { Body1Props, Text } from '../Typography';
 
 type Props = ComponentProps<typeof Toast>;
 
