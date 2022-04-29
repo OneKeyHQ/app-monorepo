@@ -30,7 +30,8 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import DAppIcon from '../../DAppIcon';
 
-import { useSearchHistories } from './useSearchHistories';
+import { useLimitHistories } from './useLimitHistories';
+import { useSearchLocalDapp } from './useSearchLocalDapp';
 
 import type { SearchContentType } from '..';
 import type { KeyEventType } from '../Content/Desktop';
@@ -67,14 +68,16 @@ const SearchView: FC<SearchViewProps> = ({
   const ele = useRef<HTMLDivElement>(null);
   const flatListRef = useRef<any>(null);
 
-  const { searchedHistories, allHistories } = useSearchHistories(
+  const { searchedDapps } = useSearchLocalDapp(
     searchContentTerm,
     searchContent?.searchContent ?? '',
   );
 
+  const { limitHistories: allHistories } = useLimitHistories();
+
   const flatListData = useMemo(
-    () => (searchContentTerm ? searchedHistories : allHistories),
-    [searchContentTerm, allHistories, searchedHistories],
+    () => (searchContentTerm ? searchedDapps : allHistories),
+    [searchContentTerm, allHistories, searchedDapps],
   );
 
   useEffect(() => {
