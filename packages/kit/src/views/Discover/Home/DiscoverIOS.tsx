@@ -6,9 +6,11 @@ import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Center,
   Divider,
   Empty,
   FlatList,
+  Icon,
   Image,
   Pressable,
   Spinner,
@@ -28,6 +30,7 @@ import {
 import { useDiscover } from '../../../hooks/redux';
 import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 import DAppIcon from '../DAppIcon';
+import { MatchDAppItemType } from '../Explorer/Search/useSearchHistories';
 import { requestRankings, requestSync } from '../Service';
 import { DAppItemType } from '../type';
 
@@ -42,29 +45,36 @@ type PageStatusType = 'network' | 'loading' | 'data';
 
 type DiscoverProps = {
   onItemSelect: (item: DAppItemType) => Promise<boolean>;
+  onItemSelectHistory: (item: MatchDAppItemType) => void;
 };
-const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
+const DiscoverIOS: FC<DiscoverProps> = ({
+  onItemSelect,
+  onItemSelectHistory,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { history, syncData } = useDiscover();
   const { locale } = useLocale();
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const { dispatch } = backgroundApiProxy;
-  const [dappHistory, setDappHistory] = useState<DAppItemType[]>([]);
+  const [dappHistory, setDappHistory] = useState<MatchDAppItemType[]>([]);
 
   useEffect(() => {
-    const dappHistoryArray: DAppItemType[] = [];
+    const dappHistoryArray: MatchDAppItemType[] = [];
 
-    Object.entries(history).forEach(([key]) => {
-      const dAppItem = { ...syncData.increment[key], id: key };
+    Object.entries(history).forEach(([key, value]) => {
+      const dAppItem = {
+        id: key,
+        dapp: syncData.increment[key],
+        webSite: value.webSite,
+        clicks: value?.clicks ?? 0,
+        timestamp: value?.timestamp ?? 0,
+      };
       if (dAppItem) dappHistoryArray.push(dAppItem);
     });
 
     setDappHistory(
-      dappHistoryArray.sort(
-        (a, b) =>
-          (history[b.id]?.timestamp ?? 0) - (history[a.id]?.timestamp ?? 0),
-      ),
+      dappHistoryArray.sort((a, b) => (b.timestamp ?? 0) - (a?.timestamp ?? 0)),
     );
   }, [history, syncData.increment]);
 
@@ -108,39 +118,88 @@ const DiscoverIOS: FC<DiscoverProps> = ({ onItemSelect }) => {
     [intl, navigation, onItemSelect],
   );
 
-  const renderItem: ListRenderItem<DAppItemType> = useCallback(
-    ({ item, index }) => (
-      <Pressable
-        onPress={() => {
-          onItemSelect(item);
-        }}
-      >
-        <Box
-          padding="16px"
-          height="76px"
-          width="100%"
-          bgColor="surface-default"
-          borderTopRadius={index === 0 ? '12px' : '0px'}
-          borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
+  const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
+    ({ item, index }) => {
+      const {
+        favicon: dappFavicon,
+        chain,
+        name,
+        url: dappUrl,
+      } = item.dapp || {};
+
+      const {
+        favicon: webSiteFavicon,
+        title,
+        url: webSiteUrl,
+      } = item.webSite || {};
+
+      const itemTitle = () => {
+        const itemName = name ?? title ?? 'Unknown';
+        if (itemName.length > 24) {
+          return `${itemName.slice(0, 24)}...`;
+        }
+        return itemName;
+      };
+
+      return (
+        <Pressable
+          onPress={() => {
+            onItemSelectHistory(item);
+          }}
         >
-          <Box flexDirection="row" flex={1} alignItems="center">
-            <DAppIcon size={40} favicon={item.favicon} chain={item.chain} />
-            <Box
-              flexDirection="column"
-              ml="12px"
-              justifyContent="center"
-              flex={1}
-            >
-              <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
-              <Typography.Caption color="text-subdued" numberOfLines={1}>
-                {item.subtitle}
-              </Typography.Caption>
+          <Box
+            padding="16px"
+            height="76px"
+            width="100%"
+            bgColor="surface-default"
+            borderTopRadius={index === 0 ? '12px' : '0px'}
+            borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
+          >
+            <Box flexDirection="row" flex={1} alignItems="center">
+              {(!!dappFavicon || item.dapp) && (
+                <DAppIcon size={40} favicon={dappFavicon ?? ''} chain={chain} />
+              )}
+
+              {(!!webSiteFavicon || item.webSite) && (
+                <Center
+                  width="40px"
+                  height="40px"
+                  borderRadius="12px"
+                  borderWidth="1px"
+                  borderColor="border-subdued"
+                >
+                  <Image
+                    width="36px"
+                    height="36px"
+                    src={webSiteFavicon ?? ''}
+                    source={{ uri: webSiteFavicon }}
+                    borderColor="border-subdued"
+                    fallbackElement={
+                      <Center w="40px" h="40px">
+                        <Icon size={24} name="GlobeSolid" />
+                      </Center>
+                    }
+                  />
+                </Center>
+              )}
+
+              <Box
+                flexDirection="column"
+                ml="12px"
+                justifyContent="center"
+                flex={1}
+              >
+                <Typography.Body2Strong>{itemTitle()}</Typography.Body2Strong>
+                <Typography.Caption color="text-subdued" numberOfLines={1}>
+                  {dappUrl ?? webSiteUrl}
+                </Typography.Caption>
+              </Box>
             </Box>
           </Box>
-        </Box>
-      </Pressable>
-    ),
-    [dappHistory.length, onItemSelect],
+        </Pressable>
+      );
+    },
+    [dappHistory.length, onItemSelectHistory],
   );
 
   const getData = useCallback(() => {

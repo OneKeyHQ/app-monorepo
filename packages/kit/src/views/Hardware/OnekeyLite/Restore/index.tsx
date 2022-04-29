@@ -26,6 +26,7 @@ import {
   TabRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
+import { Atom } from '../../../../utils/helper';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 
@@ -103,7 +104,8 @@ const Restore: FC = () => {
   };
 
   const stateNfcDone = () => {
-    setActionPressStyle('primary');
+    ('primary');
+
     setActionPressContent(intl.formatMessage({ id: 'action__go_to_view' }));
     setActionState(intl.formatMessage({ id: 'title__recovery_completed' }));
     setActionDescription(
@@ -117,9 +119,15 @@ const Restore: FC = () => {
   const startNfcScan = () => {
     stateNfcSearch();
     OnekeyLite.cancel();
+    console.log('Atom.AppState.lock()');
+    // appState will emit active event when OnekeyLite.getMnemonicWithPin throw error
+    // so we add AppState Lock to bypass the wrong event
+    Atom.AppState.lock();
     OnekeyLite.getMnemonicWithPin(
       pwd,
       (error: CallbackError, data: string | null, state: CardInfo) => {
+        console.log('Atom.AppState.release()');
+        Atom.AppState.release();
         console.log('state', state);
         if (data) {
           setRestoreData(data);
@@ -159,6 +167,15 @@ const Restore: FC = () => {
       },
     );
   };
+
+  useEffect(
+    () => () => {
+      // release lock when exiting page
+      console.log('Atom.AppState.release() when exit page');
+      Atom.AppState.release();
+    },
+    [],
+  );
 
   const handleCloseConnect = () => {
     console.log('handleCloseConnect');
