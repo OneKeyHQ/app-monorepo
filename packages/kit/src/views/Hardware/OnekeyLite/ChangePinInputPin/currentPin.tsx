@@ -3,14 +3,18 @@ import React, { FC } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes';
+import type { OnekeyLiteChangePinRoutesParams } from '@onekeyhq/kit/src/routes';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
 import HardwarePinCode from '../../BasePinCode';
-import { OnekeyLiteChangePinStackNavigationProp } from '../navigation';
-import { OnekeyLiteChangePinModalRoutes } from '../routes';
+
+type NavigationProps = ModalScreenProps<OnekeyLiteChangePinRoutesParams>;
 
 const OnekeyLiteCurrentPinCode: FC = () => {
   const intl = useIntl();
 
-  const navigation = useNavigation<OnekeyLiteChangePinStackNavigationProp>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   return (
     <HardwarePinCode
