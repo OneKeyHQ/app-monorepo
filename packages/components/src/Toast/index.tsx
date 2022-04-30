@@ -11,7 +11,7 @@ export { useToast } from 'native-base';
 type ToastStatus = 'info' | 'warning' | 'danger' | 'success' | undefined;
 
 export type ToastProps = {
-  title: string;
+  title?: string;
   description?: string;
   dismiss?: boolean;
   error?: boolean;
