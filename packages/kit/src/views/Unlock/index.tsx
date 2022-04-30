@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -119,6 +119,15 @@ const Unlock = () => {
     dispatch(unlock());
     dispatch(mUnlock());
   }, [dispatch]);
+  const inputRef = useRef<HTMLDivElement | null>();
+  const autoFocus = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+  useEffect(() => {
+    autoFocus();
+  }, []);
   return (
     <KeyboardDismissView>
       <Center w="full" h="full" bg="background-default">
@@ -157,6 +166,8 @@ const Unlock = () => {
                 <Form.PasswordInput
                   // press enter key to submit
                   onSubmitEditing={handleSubmit(onUnlock)}
+                  // auto focus
+                  inputRef={inputRef}
                 />
               </Form.Item>
               <Button

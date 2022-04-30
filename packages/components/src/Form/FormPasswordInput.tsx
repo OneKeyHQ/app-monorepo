@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useState } from 'react';
+import React, { ComponentProps, FC, RefObject, useState } from 'react';
 
 import { Platform } from 'react-native';
 
@@ -7,11 +7,12 @@ import Input from '../Input';
 
 type FormInputProps = {
   onChange?: (text: string) => void;
+  inputRef?: HTMLDivElement | null;
 };
 
 export const FormPasswordInput: FC<
   FormInputProps & ComponentProps<typeof Input>
-> = ({ onChange, ...props }) => {
+> = ({ onChange, inputRef, ...props }) => {
   const [show, setShow] = useState(false);
   const rightIconName = show ? 'EyeOutline' : 'EyeOffOutline';
   return (
@@ -21,6 +22,7 @@ export const FormPasswordInput: FC<
       onChangeText={onChange}
       keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : undefined}
       size="xl"
+      ref={inputRef}
       rightCustomElement={
         <IconButton
           onPress={() => setShow((prev) => !prev)}
