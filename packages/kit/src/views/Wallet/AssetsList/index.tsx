@@ -18,7 +18,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import Skeleton, { Rect } from '@onekeyhq/components/src/Skeleton';
+import Skeleton from '@onekeyhq/components/src/Skeleton';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import {
   FormatBalance,
@@ -128,16 +128,7 @@ const AssetsList = () => {
                 )}
               />
             ) : (
-              <Skeleton width={120} height={isSmallScreen ? 24 : 20}>
-                <Rect
-                  x="0"
-                  y="2"
-                  rx={isSmallScreen ? '12' : '10'}
-                  ry={isSmallScreen ? '12' : '10'}
-                  width="120"
-                  height={isSmallScreen ? '20' : '16'}
-                />
-              </Skeleton>
+              <Skeleton ele={isSmallScreen ? 'Body1' : 'Body2'} width={120} />
             )}
             {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey] ? (
               <FormatCurrency
@@ -152,28 +143,22 @@ const AssetsList = () => {
                 )}
               />
             ) : (
-              <Skeleton width={80} height={20}>
-                <Rect x="0" y="4" rx="6" ry="6" width="80" height="12" />
-              </Skeleton>
+              <Skeleton ele="Body2" />
             )}
           </Box>
           {!isSmallScreen && (
-            <Box mr={3} flexDirection="row" flex={1}>
+            <Box mx={3} flexDirection="row" flex={1}>
               {/* <Icon size={20} name="ActivityOutline" /> */}
 
               {prices?.[mapKey] ? (
                 <FormatCurrency
                   numbers={[prices?.[mapKey]]}
                   render={(ele) => (
-                    <Typography.Body2Strong ml={3}>
-                      {ele}
-                    </Typography.Body2Strong>
+                    <Typography.Body2Strong>{ele}</Typography.Body2Strong>
                   )}
                 />
               ) : (
-                <Skeleton width={80} height={20}>
-                  <Rect x="0" y="4" rx="6" ry="6" width="80" height="12" />
-                </Skeleton>
+                <Skeleton ele="Body2" />
               )}
             </Box>
           )}
@@ -197,7 +182,7 @@ const AssetsList = () => {
       renderItem={renderItem}
       ListHeaderComponent={<ListHeaderComponent />}
       ItemSeparatorComponent={Divider}
-      ListFooterComponent={() => <Box h="20px" />}
+      ListFooterComponent={() => <Box h={8} />}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isSmallScreen}
       showsVerticalScrollIndicator={false}

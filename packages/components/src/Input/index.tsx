@@ -218,10 +218,10 @@ const Input = React.forwardRef<
             : 'not-allowed',
         }}
         _ios={{
-          selectionColor: 'surface-selected',
+          selectionColor: 'interactive-default',
         }}
         _android={{
-          selectionColor: 'surface-selected',
+          selectionColor: 'interactive-default',
         }}
         _hover={{
           bg: 'action-secondary-default', // remove this will use the background color from default theme of NativeBase

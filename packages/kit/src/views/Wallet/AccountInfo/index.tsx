@@ -98,9 +98,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
         />
       ) : (
-        <Skeleton width={80} height={24}>
-          <Rect x="0" y="6" rx="8" ry="8" width="80" height="16" />
-        </Skeleton>
+        <Skeleton ele="Body2" />
       )}
       <Pressable
         mt={4}
