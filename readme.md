@@ -88,7 +88,7 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
 
 | Repo Docs i18n                |
 | :--------------------------- |
-| [简体中文](https://github.com/OneKeyHQ/app-monorepo/docs-i18n/README.zh-cn.md)|
+| [简体中文](docs-i18n/README.zh-cn.md)|
 
 ## 🙋‍♂️We're Hiring!
 
