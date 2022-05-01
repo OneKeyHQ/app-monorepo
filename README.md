@@ -4,15 +4,14 @@
 
 ---
 
-[![Issues](https://img.shields.io/github/issues-raw/OneKeyHQ/app-monorepo.svg)](https://github.com/OneKeyHQ/app-monorepo/issues?q=is%3Aissue+is%3Aopen)
-[![Bugs](https://img.shields.io/github/issues/OneKeyHQ/app-monorepo/bug.svg)](https://github.com/OneKeyHQ/app-monorepo/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
-[![Pull Requests](https://img.shields.io/github/issues-pr-raw/OneKeyHQ/app-monorepo.svg)](https://github.com/OneKeyHQ/app-monorepo/pulls?q=is%3Apr+is%3Aopen)
-[![Version](https://img.shields.io/github/release/OneKeyHQ/app-monorepo.svg)](https://github.com/OneKeyHQ/app-monorepo/releases)
-[![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
-[![Github Stars](https://img.shields.io/github/stars/OneKeyHQ/app-monorepo?t&logo=github)](https://github.com/supabase-community/supabase-py/stargazers)
-[![Last commit](https://img.shields.io/github/last-commit/supabase-community/supabase-py.svg)](https://github.com/supabase-community/supabase-py/commits)
-[![Discord](https://img.shields.io/discord/868309113942196295)](https://discord.gg/onekey)
-[![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ)](https://twitter.com/OneKeyHQ)
+[![Github Stars](https://img.shields.io/github/stars/OneKeyHQ/app-monorepo?t&logo=github&style=for-the-badge&labelColor=000)](https://github.com/supabase-community/supabase-py/stargazers)
+[![Version](https://img.shields.io/github/release/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/releases)
+[![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
+[![Last commit](https://img.shields.io/github/last-commit/supabase-community/supabase-py.svg?style=for-the-badge&labelColor=000)](https://github.com/supabase-community/supabase-py/commits)
+[![Issues](https://img.shields.io/github/issues-raw/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/issues?q=is%3Aissue+is%3Aopen)
+[![Pull Requests](https://img.shields.io/github/issues-pr-raw/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/pulls?q=is%3Apr+is%3Aopen)
+[![Discord](https://img.shields.io/discord/868309113942196295?style=for-the-badge&labelColor=000)](https://discord.gg/onekey)
+[![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ?style=for-the-badge&labelColor=000)](https://twitter.com/OneKeyHQ)
 
 <p align="center">
 <img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_desktop_transparent.png?raw=true"/>
@@ -123,7 +122,7 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
 
 ## ✨ Salute!
 
-[![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
+[![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
 
 <a href="https://github.com/onekeyhq/app-monorepo/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=onekeyhq/app-monorepo&max=240&columns=24"/>
