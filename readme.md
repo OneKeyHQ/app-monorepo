@@ -3,25 +3,16 @@
 </p>
 
 ---
-### 🙋‍♂️ We are hiring many roles (Remote) !
 
-* Remote (Live anywhere)
-* Global Pay (Literally)
-* ESOP (For everybody)
-* Open Source (As you see)
-* Awesome Colleagues (Hell Yeah!)
-
-[👉 Click here to check all open positions](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
-
-#### 我们正在招人 (远程或深圳) !
-
-* 远程 (生活在哪个城市都可以)
-* 全球一致的薪酬 (真的)
-* 全员持股计划 (每个人都有)
-* 开源 (如你所见)
-* 超级棒的同事 (爽呆!)
-
-[👉 点击此处查看所有职位](https://onekeyhq.atlassian.net/wiki/spaces/OC/overview)
+[![Issues](https://img.shields.io/github/issues-raw/OneKeyHQ/app-monorepo.svg)](https://github.com/OneKeyHQ/app-monorepo/issues?q=is%3Aissue+is%3Aopen)
+[![Bugs](https://img.shields.io/github/issues/OneKeyHQ/app-monorepo/bug.svg)](https://github.com/OneKeyHQ/app-monorepo/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Pull Requests](https://img.shields.io/github/issues-pr-raw/OneKeyHQ/app-monorepo.svg)](https://github.com/OneKeyHQ/app-monorepo/pulls?q=is%3Apr+is%3Aopen)
+[![Version](https://img.shields.io/github/release/OneKeyHQ/app-monorepo.svg)](https://github.com/OneKeyHQ/app-monorepo/releases)
+[![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
+[![Github Stars](https://img.shields.io/github/stars/OneKeyHQ/app-monorepo?t&logo=github)](https://github.com/supabase-community/supabase-py/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/supabase-community/supabase-py.svg)](https://github.com/supabase-community/supabase-py/commits)
+![Discord](https://img.shields.io/discord/868309113942196295)
+![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ)
 
 <p align="center">
 <img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_desktop_transparent.png?raw=true"/>
@@ -43,9 +34,7 @@ We really need your support, star or watch this repo for latest updates.
 
 <kbd><img src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_monorepo_star.gif?raw=true" alt="Star this repo"/></kbd>
 
-# Getting Onboard [English]
-
-## 🌍 Environment Configuration
+## 🚀 Getting Onboard
 
 1. Install [node.js LTS version  (>= 16)](https://nodejs.org/en/)
 2. Install [yarn package management tool](https://yarnpkg.com/)
@@ -97,67 +86,45 @@ Some of the dependencies have native parts, so you need to go into the `packages
 
 Clear the packaging tool cache with the `--reset-cache` command in `yarn native` in the root directory. Also run `yarn clean` in the root directory to clear all dependencies and generated files and then re-run `yarn` to install the dependencies.
 
-# Getting Onboard [Chinese]
+| Repo Docs i18n                |
+| :--------------------------- |
+| [简体中文](https://github.com/OneKeyHQ/app-monorepo/docs-i18n/README.zh-cn.md)|
 
-## 🌍 环境配置
+## 🙋‍♂️We're Hiring!
 
-1. 安装 [node.js LTS 版本（>= 16）](https://nodejs.org/en/)
-2. 安装 [yarn 包管理工具](https://yarnpkg.com/)
-3. 安装 [git lfs](https://git-lfs.github.com/)（部分二进制文件在拉取和更新时需要）
+<table>
+    <thead>
+        <tr>
+            <th colspan="2"> We are hiring many roles (Remote)
+            <a href="https://onekeyhq.atlassian.net/wiki/spaces/OC/overview">👉 Click here to check all open positions</a>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+            <li>Remote (Live anywhere)</li>
+            <li>Global Pay (Literally)</li>
+            <li>ESOP (For everybody)</li>
+            <li>Open Source (As you see)</li>
+            <li>Awesome Colleagues (Hell Yeah!)</li>
+            </td>
+            <td>
+            <li>远程 (生活在哪个城市都可以)</li>
+            <li>全球一致的薪酬 (真的)</li>
+            <li>全员持股计划 (每个人都有)</li>
+            <li>开源 (如你所见)</li>
+            <li>超级棒的同事 (爽呆!)</li>
+            </td>
+        </tr>
+    </tbody>
+</table>
 
-通过 git 命令行工具拉取最新的代码之后，通过 `yarn` 命令在根目录安装项目依赖
 
-```
-# 安装所有 JS 依赖及子模块依赖
+## ✨ Salute!
 
-yarn
+[![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
 
-# 全局安装 expo 命令行工具
-
-npm install -g expo-cli
-```
-
-## 🛠 开发
-
-在根目录执行以下命令，从而开发不同的业务代码
-
-- `yarn web`: 开发网页模式，会启动静态服务器在本地 3000 端口
-- `yarn ios`: 通过 USB 连接 iphone 设备进行开发调试
-- `yarn android`: 调试安卓
-- `yarn desktop`: 开发桌面端模式
-
-### Android 项目配置
-
-#### 第一种方式：适用于社区开发人员
-
-在 `packages/app/android/lib-keys-secret/src/main/cpp/keys.c` 中配置相关 key，也可以使用默认选项。可能一些 API 会有限制。
-
-#### 第二种方式：适用于官方开发人员
-
-1. 前往加密仓库获取 `debug.keystore` 文件，放入 `packages/app/android/keystores` 目录中，没有该目录请自行创建。
-2. 前往加密仓库获取 `keys.secret` 文件，放入 `packages/app/android` 目录中。
-
-## 🗂 多仓库目录结构
-
-仓库使用 monorepo 模式进行组织，在保证不同端的代码集中且互相不影响的大前提下，又尽可能的在打包和编译过程中让代码复用
-
-- `packages/components` 存放 UI 组件
-- `packages/kit` 存放可复用页面级别 UI 内容
-- `packages/app` APP 代码
-- `packages/desktop` 桌面端 electron 代码
-- `packages/web` 网页端代码
-- `packages/extension` 插件端代码
-
-## 🧲 安装依赖
-
-`packages/` 目录下的每一个子目录即一个独立的项目，对应在 monorepo 名称即为对应目录中 **package.json** 的 `name` 字段的值。
-
-当需要给某一个子目录安装依赖时，只需要使用 `yarn workspace @onekeyhq/web add axios`。通过 `yarn workspace @onekeyhq/web` 这样的前缀，最终可以在根目录把 axios 模块安装到 web 这个子项目当中。
-
-部分依赖有原生部分，所以执行安装完 JS 依赖后需要进入 `packages/app/ios` 目录下执行 `pod install`。
-
-## 😷 常见问题
-
-1. app 无法启动
-
-通过根目录下的 `yarn native` 中 `--reset-cache` 命令清除打包工具缓存。同时配合根目录下命令 `yarn clean` 清除所有依赖及生成文件后重新执行 `yarn` 安装依赖。
+<a href="https://github.com/onekeyhq/app-monorepo/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=onekeyhq/app-monorepo&max=240&columns=24"/>
+</a>
