@@ -11,8 +11,8 @@
 [![](https://img.shields.io/github/contributors-anon/OneKeyHQ/app-monorepo)](https://github.com/OneKeyHQ/app-monorepo/graphs/contributors)
 [![Github Stars](https://img.shields.io/github/stars/OneKeyHQ/app-monorepo?t&logo=github)](https://github.com/supabase-community/supabase-py/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/supabase-community/supabase-py.svg)](https://github.com/supabase-community/supabase-py/commits)
-![Discord](https://img.shields.io/discord/868309113942196295)
-![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ)
+[![Discord](https://img.shields.io/discord/868309113942196295)](https://discord.gg/onekey)
+[![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ)](https://twitter.com/OneKeyHQ)
 
 <p align="center">
 <img src="https://github.com/rayston92/graph_bed/blob/master/img/onekey_monorepo_desktop_transparent.png?raw=true"/>
