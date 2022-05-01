@@ -85,7 +85,8 @@ Some of the dependencies have native parts, so you need to go into the `packages
 
 Clear the packaging tool cache with the `--reset-cache` command in `yarn native` in the root directory. Also run `yarn clean` in the root directory to clear all dependencies and generated files and then re-run `yarn` to install the dependencies.
 
-| Repo Docs i18n                |
+## 💬 Docs in your languages
+| Available Languages               |
 | :--------------------------- |
 | [Simplified Chinese / 简体中文](docs-i18n/README.zh-cn.md)|
 | [German / Deutsch](docs-i18n/README.de.md)|
