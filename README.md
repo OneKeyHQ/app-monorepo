@@ -94,6 +94,12 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
 | [French / Français](docs-i18n/README.fr.md)|
 | [Italian / Italiano](docs-i18n/README.it.md)|
 
+## 🔰 Security 
+
+- Please report suspected security vulnerabilities in private to dev@onekey.so
+- Please do NOT create publicly viewable issues for suspected security vulnerabilities.
+- As an open source project, although we are not yet profitable, we try to give some rewards to white hat hackers who disclose vulnerabilities to us in a timely manner.
+
 ## 🙋‍♂️We're Hiring!
 
 <table>
@@ -123,7 +129,6 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
         </tr>
     </tbody>
 </table>
-
 
 ## ✨ Salute!
 
