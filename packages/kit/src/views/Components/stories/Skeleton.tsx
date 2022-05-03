@@ -1,22 +1,22 @@
 import React from 'react';
 
-import { Box, Skeleton, Typography } from '@onekeyhq/components';
+import { Box, Skeleton } from '@onekeyhq/components';
 
 const SkeletonGallery = () => (
   <Box bgColor="background-default" flex={1}>
     <Box w={768} mx="auto">
       <Box py={8}>
-        <Skeleton ele="Avatar" size={48} />
-        <Skeleton ele="DisplayXLarge" />
-        <Skeleton ele="PageHeading" />
-        <Skeleton ele="DisplayLarge" />
-        <Skeleton ele="DisplayMedium" />
-        <Skeleton ele="Heading" />
-        <Skeleton ele="DisplaySmall" />
-        <Skeleton ele="Body1" />
-        <Skeleton ele="Body2" />
-        <Skeleton ele="Caption" />
-        <Skeleton ele="Subheading" />
+        <Skeleton shape="Avatar" size={48} />
+        <Skeleton shape="DisplayXLarge" />
+        <Skeleton shape="PageHeading" />
+        <Skeleton shape="DisplayLarge" />
+        <Skeleton shape="DisplayMedium" />
+        <Skeleton shape="Heading" />
+        <Skeleton shape="DisplaySmall" />
+        <Skeleton shape="Body1" />
+        <Skeleton shape="Body2" />
+        <Skeleton shape="Caption" />
+        <Skeleton shape="Subheading" />
         <Skeleton>
           <Skeleton.Avatar />
           <Skeleton.Body1 x={40} />

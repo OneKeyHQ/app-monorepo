@@ -14,6 +14,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -36,8 +37,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { setHaptics } from '../../../hooks/setHaptics';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
-
-import Skeleton, { Rect } from '@onekeyhq/components/src/Skeleton';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -83,9 +82,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
             )}
           />
         ) : (
-          <Skeleton width={120} height={36}>
-            <Rect x="0" y="6" rx="12" ry="12" width="120" height="24" />
-          </Skeleton>
+          <Skeleton shape="DisplayXLarge" />
         )}
       </Box>
       {!!prices.main ? (
@@ -98,7 +95,9 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
         />
       ) : (
-        <Skeleton ele="Body2" />
+        <Box mt={1}>
+          <Skeleton shape="Body2" />
+        </Box>
       )}
       <Pressable
         mt={4}

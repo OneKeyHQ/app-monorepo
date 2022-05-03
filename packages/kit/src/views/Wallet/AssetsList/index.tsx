@@ -128,7 +128,7 @@ const AssetsList = () => {
                 )}
               />
             ) : (
-              <Skeleton ele={isSmallScreen ? 'Body1' : 'Body2'} width={120} />
+              <Skeleton shape={isSmallScreen ? 'Body1' : 'Body2'} width={120} />
             )}
             {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey] ? (
               <FormatCurrency
@@ -143,7 +143,7 @@ const AssetsList = () => {
                 )}
               />
             ) : (
-              <Skeleton ele="Body2" />
+              <Skeleton shape="Body2" />
             )}
           </Box>
           {!isSmallScreen && (
@@ -158,7 +158,7 @@ const AssetsList = () => {
                   )}
                 />
               ) : (
-                <Skeleton ele="Body2" />
+                <Skeleton shape="Body2" />
               )}
             </Box>
           )}
