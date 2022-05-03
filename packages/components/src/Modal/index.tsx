@@ -9,7 +9,6 @@ import React, {
   useState,
 } from 'react';
 
-import { DialogManager } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
@@ -20,17 +19,16 @@ import { useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import SortableList from '../SortableList';
-import Toast from '../Toast/Custom';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
 export type ModalProps = {
-  /* 
+  /*
     we might change Header to Title in future
   */
   header?: string;
-  /* 
+  /*
     we might change headerShown to Header in future
   */
   headerShown?: boolean;
@@ -263,8 +261,6 @@ const Modal: FC<ModalProps> = ({
     <>
       {triggerNode}
       {modalContainer}
-      {platformEnv.isNative && <Toast bottomOffset={120} />}
-      {platformEnv.isNative && <DialogManager.Holder />}
     </>
   );
 
