@@ -3,6 +3,9 @@ import React, { memo } from 'react';
 
 import { createStackNavigator } from '@react-navigation/stack';
 
+import Toast from '@onekeyhq/components/src/Toast/Custom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import {
@@ -230,19 +233,22 @@ export type ModalTypes = {
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
 const ModalStackNavigator = () => (
-  <ModalStack.Navigator
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    {modalStackScreenList.map((modal) => (
-      <ModalStack.Screen
-        key={modal.name}
-        name={modal.name}
-        component={modal.component}
-      />
-    ))}
-  </ModalStack.Navigator>
+  <>
+    <ModalStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      {modalStackScreenList.map((modal) => (
+        <ModalStack.Screen
+          key={modal.name}
+          name={modal.name}
+          component={modal.component}
+        />
+      ))}
+    </ModalStack.Navigator>
+    {platformEnv.isIOS && <Toast bottomOffset={60} />}
+  </>
 );
 
 export default memo(ModalStackNavigator);
