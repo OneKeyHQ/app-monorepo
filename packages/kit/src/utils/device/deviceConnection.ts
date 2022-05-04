@@ -40,7 +40,7 @@ const getConnectInstance = async (): Promise<typeof OneKeyConnect> => {
   }
 };
 
-if (platformEnv.isBrowser) {
+if (platformEnv.isBrowser && !platformEnv.isExtension) {
   getConnectInstance();
 }
 
