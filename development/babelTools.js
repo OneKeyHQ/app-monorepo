@@ -66,6 +66,8 @@ function normalizeConfig({ platform, config }) {
           'VERSION',
           'BUILD_NUMBER',
           'PLATFORM_NAME',
+          'OPENSEA_KEY',
+          'COVALENT_KEY',
         ],
       },
     ],
