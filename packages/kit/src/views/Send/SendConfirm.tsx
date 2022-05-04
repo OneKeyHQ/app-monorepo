@@ -282,9 +282,9 @@ const TransactionConfirm = () => {
   }
 
   if (isTransferTypeTx) {
-    // TODO from dapp: feeInfoEditable=true
-    //      from internal transfer: feeInfoEditable=false
-    return <TxConfirmTransfer {...sharedProps} feeInfoEditable={false} />;
+    return (
+      <TxConfirmTransfer {...sharedProps} feeInfoEditable={!!isFromDapp} />
+    );
   }
 
   // Dapp blind sign
