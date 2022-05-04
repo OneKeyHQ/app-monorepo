@@ -69,7 +69,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
         {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
       </Typography.Subheading>
       <Box flexDirection="row" mt={2}>
-        {!!balances.main ? (
+        {balances.main ? (
           <FormatBalance
             balance={balances.main}
             suffix={activeNetwork?.symbol?.toUpperCase?.()}
@@ -85,7 +85,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           <Skeleton shape="DisplayXLarge" />
         )}
       </Box>
-      {!!prices.main ? (
+      {prices.main ? (
         <FormatCurrency
           numbers={[
             prices?.main,

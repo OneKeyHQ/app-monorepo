@@ -150,6 +150,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentEmojiList]: undefined;
   [StackRoutes.ComponentContentBox]: undefined;
   [StackRoutes.ComponentAppUpdate]: undefined;
+  [StackRoutes.ComponentSkeleton]: undefined;
   [StackRoutes.ComponentDeviceConnection]: undefined;
 };
 
