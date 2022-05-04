@@ -3,16 +3,15 @@ import React, { useCallback } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useHelpLink } from '../../../hooks/useHelpLink';
-import { useToast } from '../../../hooks/useToast';
-import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -34,13 +33,12 @@ export const AboutSection = () => {
     toast.show({
       title: intl.formatMessage({
         id: 'msg__the_current_version_is_the_latest',
-        defaultMessage: '👏 The current version is the latest',
       }),
     });
   }, [intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
-      if (['android', 'ios'].includes(Platform.OS)) {
+      if (platformEnv.isNative) {
         navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
           url,
           title,
@@ -52,24 +50,32 @@ export const AboutSection = () => {
     [navigation],
   );
   const openLinkUrl = useCallback((url: string) => {
-    if (['android', 'ios'].includes(Platform.OS)) {
+    if (platformEnv.isNative) {
       Linking.openURL(url);
     } else {
       window.open(url, '_blank');
     }
   }, []);
+
+  const handleCopyVersion = useCallback(
+    (version) => {
+      copyToClipboard(version);
+      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+    },
+    [toast, intl],
+  );
+
   return (
     <Box w="full" mb="6">
       <Box pb="2">
         <Typography.Subheading color="text-subdued">
           {intl.formatMessage({
             id: 'form__about_uppercase',
-            defaultMessage: 'ABOUT',
           })}
         </Typography.Subheading>
       </Box>
       <Box borderRadius="12" bg="surface-default" shadow="depth.2">
-        <Box
+        <Pressable
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
@@ -78,6 +84,13 @@ export const AboutSection = () => {
           px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
+          onPress={() => {
+            handleCopyVersion(
+              `${settings.version}${
+                settings.buildNumber ? `-${settings.buildNumber}` : ''
+              }`,
+            );
+          }}
         >
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
@@ -88,7 +101,7 @@ export const AboutSection = () => {
             {settings.version}
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Typography.Body2>
-        </Box>
+        </Pressable>
         {!platformEnv.isWeb && (
           <Pressable
             display="flex"
@@ -104,7 +117,6 @@ export const AboutSection = () => {
             <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
               {intl.formatMessage({
                 id: 'form__check_for_updates',
-                defaultMessage: 'Check for Updates',
               })}
             </Text>
             <Box>
@@ -127,7 +139,6 @@ export const AboutSection = () => {
               userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
-                defaultMessage: 'User Agreement',
               }),
             )
           }
@@ -135,7 +146,6 @@ export const AboutSection = () => {
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__user_agreement',
-              defaultMessage: 'User Agreement',
             })}
           </Text>
           <Box>
@@ -156,7 +166,6 @@ export const AboutSection = () => {
               privacyPolicyUrl,
               intl.formatMessage({
                 id: 'form__privacy_policy',
-                defaultMessage: 'Privacy Policy',
               }),
             )
           }
@@ -164,7 +173,6 @@ export const AboutSection = () => {
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             {intl.formatMessage({
               id: 'form__privacy_policy',
-              defaultMessage: 'Privacy Policy',
             })}
           </Text>
           <Box>
