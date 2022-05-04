@@ -38,7 +38,7 @@ import runtimeReducer from './reducers/runtime';
 import settingsReducer from './reducers/settings';
 import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
-import tokensRecuder from './reducers/tokens';
+import tokensReducer from './reducers/tokens';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
@@ -51,7 +51,7 @@ const allReducers = combineReducers({
   data: dataReducer,
   discover: discoverReducer,
   swap: swapReducer,
-  tokens: tokensRecuder,
+  tokens: tokensReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
