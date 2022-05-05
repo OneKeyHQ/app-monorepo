@@ -1,27 +1,5 @@
 import React from 'react';
 
-// 调用方式如下，AccountModifyNameDialog在内部实现的时候注意两点：
-// 1，不需要用visible控制自己是否显示，DialogManager会控制是否显示，自己常在就可以了
-// 2，内部在需要关闭自己时，一定需要调用props.onClose，从而DialogManager传递给AccountModifyNameDialog的props.onClose得以执行
-
-// DialogManager.show({
-//   render: (
-//     <AccountModifyNameDialog
-//       account={item}
-//       onClose={() => {
-//         console.log('dialog manager');
-//       }}
-//       onDone={() => {
-//         refreshAccounts();
-//       }}
-//     />
-//   ),
-// });
-
-// function AccountModifyNameDialog(props: { onClose?: () => void }) {
-//   return <Text onPress={props.onClose?.()}>A</Text>
-// }
-
 type InnerComponentProps = {
   onClose?: () => void;
 };

@@ -3,6 +3,7 @@ import React, { memo } from 'react';
 
 import { createStackNavigator } from '@react-navigation/stack';
 
+import { DialogManager } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -247,7 +248,9 @@ const ModalStackNavigator = () => (
         />
       ))}
     </ModalStack.Navigator>
+    {/* Native Modal must register another for root container */}
     {platformEnv.isIOS && <Toast bottomOffset={60} />}
+    {platformEnv.isIOS && <DialogManager.Holder />}
   </>
 );
 
