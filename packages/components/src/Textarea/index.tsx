@@ -35,6 +35,11 @@ const TextArea = React.forwardRef<
       _focus={{
         borderColor: isInvalid ? 'border-critical-default' : 'focused-default',
         bg: 'action-secondary-default',
+        _hover: {
+          borderColor: isInvalid
+            ? 'border-critical-default'
+            : 'focused-default',
+        },
       }}
       _hover={{
         borderColor: isInvalid ? 'border-critical-default' : 'border-hovered',
