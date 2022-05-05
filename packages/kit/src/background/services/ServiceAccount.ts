@@ -137,14 +137,11 @@ class ServiceAccount extends ServiceBase {
     const wallets = await this.initWallets();
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
-    let wallet: Wallet | null =
+    const wallet: Wallet | null =
       wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
     let account: Account | null = null;
     if (wallet) {
       account = await engine.getAccount(wallet.accounts?.[0], activeNetworkId);
-    } else if (wallets.length > 0) {
-      const $wallet = wallets[0];
-      wallet = $wallet;
     }
     serviceAccount.changeActiveAccount({
       accountId: account?.id ?? null,
