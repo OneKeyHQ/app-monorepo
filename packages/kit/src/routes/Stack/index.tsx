@@ -12,6 +12,7 @@ import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import Settings from '@onekeyhq/kit/src/views/Settings';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
+import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -51,6 +52,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.DAppListScreen,
     component: DAppList,
+  },
+  {
+    name: HomeRoutes.TransactionHistoryScreen,
+    component: TransactionHistory,
   },
 ];
 
