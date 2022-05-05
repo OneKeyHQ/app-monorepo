@@ -86,6 +86,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'yarn && yarn global add expo-cli'
 
+      - name: Inject Environment Variables
+        env:
+          OPENSEA_KEY: ${{ secrets.OPENSEA_KEY }}
+          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+        run: |
+          echo "OPENSEA_KEY=${{ env.OPENSEA_KEY }}" >> .env
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
+
       - name: Build Ext
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -112,6 +120,3 @@ jobs:
           custom-issue-url: ''
           custom-message-title: ''
           custom-message-payload: ''
-
-
-

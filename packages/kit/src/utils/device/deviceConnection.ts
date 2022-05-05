@@ -1,4 +1,4 @@
-import OneKeyConnect, { POPUP, UI } from '@onekeyfe/js-sdk';
+import OneKeyConnect, { UI } from '@onekeyfe/js-sdk';
 
 import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

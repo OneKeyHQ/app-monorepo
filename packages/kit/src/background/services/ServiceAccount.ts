@@ -324,7 +324,6 @@ class ServiceAccount extends ServiceBase {
     if (accounts.length > 0) {
       const $account = accounts[0];
       account = $account;
-      console.log(account);
     }
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
