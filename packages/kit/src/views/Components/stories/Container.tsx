@@ -73,7 +73,7 @@ const ContainerBox1: FC = () => (
       titleColor="text-default"
       describe="Error"
       describeColor="text-critical"
-      custom={
+      subDescribeCustom={
         <HStack flex={1} flexWrap="wrap" justifyContent="flex-end">
           <Center w={10} h={10} bg="amber.100">
             1
@@ -92,7 +92,7 @@ const ContainerBox1: FC = () => (
       hasArrow
       title="Custom HStack View"
       titleColor="text-default"
-      custom={
+      subDescribeCustom={
         <HStack mt={2} flex={1} flexWrap="wrap" justifyContent="flex-end">
           <Center w={20} h={20} bg="amber.100">
             1
@@ -133,7 +133,9 @@ const ContainerBox1: FC = () => (
     <Container.Item
       title="Custom Icon"
       titleColor="text-default"
-      custom={<Icon name="InformationCircleSolid" color="icon-success" />}
+      subDescribeCustom={
+        <Icon name="InformationCircleSolid" color="icon-success" />
+      }
     />
   </Container.Box>
 );

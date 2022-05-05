@@ -51,7 +51,7 @@ const TxTokenApproveDetail: FC<{
 
       <Container.Box mt={6}>
         {feeInput ? (
-          <Container.Item title="" wrap={feeInput} />
+          <Container.Item wrap={feeInput} />
         ) : (
           <Container.Item
             title={intl.formatMessage({ id: 'form__fee_estimated' })}

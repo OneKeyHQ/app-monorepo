@@ -76,6 +76,7 @@ export enum HomeRoutes {
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   ExploreScreen = 'ExploreScreen',
   DAppListScreen = 'DAppListScreen',
+  TransactionHistoryScreen = 'TransactionHistoryScreen',
 }
 
 export type HomeRoutesParams = {
@@ -97,6 +98,7 @@ export type HomeRoutesParams = {
     data: DAppItemType[];
     onItemSelect?: (item: DAppItemType) => Promise<boolean> | void | undefined;
   };
+  [HomeRoutes.TransactionHistoryScreen]: { tokenId?: string };
 };
 /** HomeStack */
 

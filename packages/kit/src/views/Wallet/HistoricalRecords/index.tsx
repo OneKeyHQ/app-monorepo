@@ -42,12 +42,14 @@ export type HistoricalRecordProps = {
   networkId: string | null | undefined;
   tokenId?: string | null | undefined;
   headerView?: React.ReactNode | null | undefined;
+  hiddenHeader?: boolean;
   isTab?: boolean;
 };
 
 const defaultProps = {
   tokenId: null,
   headerView: null,
+  hiddenHeader: false,
   isTab: false,
 } as const;
 
@@ -56,6 +58,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   networkId,
   tokenId,
   headerView,
+  hiddenHeader,
   isTab,
 }) => {
   const intl = useIntl();
@@ -236,7 +239,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     extraData: { isLoading },
     renderItem,
     renderSectionHeader,
-    ListHeaderComponent: header,
+    ListHeaderComponent: hiddenHeader ? null : header,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box key="footer" h="20px" />,
     ItemSeparatorComponent: () => <Divider key="separator" />,

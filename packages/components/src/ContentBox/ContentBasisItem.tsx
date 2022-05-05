@@ -12,16 +12,28 @@ import Typography, { Text } from '../Typography';
 
 import { ContentItemBaseProps } from './Container';
 
+/**
+ * @name Container.Item
+ */
 export type ContentItemProps = {
-  title: string;
+  title?: string;
   titleColor?: ColorType | null;
   describe?: string;
   describeColor?: ColorType | null;
   subDescribe?: string | string[] | null;
   hasArrow?: boolean;
   customArrowIconName?: ICON_NAMES;
-  custom?: React.ReactNode | null;
+  subDescribeCustom?: React.ReactNode | null;
+  /**
+   * @warning: This is not a good practice, but it's a workaround for the.
+   */
   wrap?: React.ReactNode | null;
+  hidePadding?: boolean;
+  /**
+   * @deprecated
+   * Not recommended to use this prop.
+   */
+  children?: React.ReactNode | null;
   onPress?: (() => void) | null;
   onArrowIconPress?: (() => void) | null;
 } & ContentItemBaseProps;
@@ -29,6 +41,7 @@ export type ContentItemProps = {
 const defaultProps = {
   hasArrow: false,
   valueColor: null,
+  hidePadding: false,
 } as const;
 
 const Item: FC<ContentItemProps> = ({
@@ -37,33 +50,37 @@ const Item: FC<ContentItemProps> = ({
   describe,
   describeColor,
   subDescribe,
+  subDescribeCustom,
   hasArrow,
   customArrowIconName,
   hasDivider,
   children,
-  custom,
+  hidePadding,
   wrap,
   onArrowIconPress,
 }) => (
   <Box w="100%" flexDirection="column">
     {wrap || (
       <Box
-        px={{ base: '4', lg: '6' }}
-        py={4}
+        px={hidePadding ? '0' : { base: '4', lg: '6' }}
+        py={hidePadding ? 0 : 4}
         w="100%"
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
       >
-        <Text
-          h="100%"
-          maxW="60%"
-          flexWrap="wrap"
-          color={titleColor ?? 'text-subdued'}
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-        >
-          {title}
-        </Text>
+        {!!title && (
+          <Text
+            h="100%"
+            maxW="60%"
+            flexWrap="wrap"
+            color={titleColor ?? 'text-subdued'}
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          >
+            {title}
+          </Text>
+        )}
+
         <Box
           flex={1}
           w="100%"
@@ -82,6 +99,7 @@ const Item: FC<ContentItemProps> = ({
               {children}
             </Box>
           )}
+
           {!!describe && (
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
@@ -93,6 +111,7 @@ const Item: FC<ContentItemProps> = ({
               {describe}
             </Text>
           )}
+
           {!!subDescribe &&
             subDescribe.length > 0 &&
             (subDescribe instanceof Array ? (
@@ -117,17 +136,19 @@ const Item: FC<ContentItemProps> = ({
                 {subDescribe}
               </Typography.Body2>
             ))}
-          {!!custom && (
+          {!!subDescribeCustom && (
             <Box
               w="100%"
               flexWrap="wrap"
               flexDirection="row"
               justifyContent="flex-end"
             >
-              {custom}
+              {subDescribeCustom}
             </Box>
           )}
         </Box>
+
+        {/** Handle the right arrow */}
         {(hasArrow || !!customArrowIconName) &&
           (onArrowIconPress ? (
             <Center my={-1} ml={2} mr={-1}>
@@ -149,6 +170,7 @@ const Item: FC<ContentItemProps> = ({
           ))}
       </Box>
     )}
+
     {hasDivider && <Divider />}
   </Box>
 );
