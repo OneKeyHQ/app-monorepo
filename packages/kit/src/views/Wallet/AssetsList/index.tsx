@@ -18,6 +18,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import Skeleton from '@onekeyhq/components/src/Skeleton';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import {
   FormatBalance,
@@ -113,43 +114,52 @@ const AssetsList = () => {
         <Box w="100%" flexDirection="row" alignItems="center">
           <Token size={8} src={item.logoURI} />
           <Box mx={3} flexDirection="column" flex={1}>
-            <FormatBalance
-              balance={balances[item.tokenIdOnNetwork || 'main']}
-              suffix={item.symbol}
-              formatOptions={{
-                fixed: decimal ?? 4,
-              }}
-              render={(ele) => (
-                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {!balances[item.tokenIdOnNetwork || 'main'] ? '-' : ele}
-                </Text>
-              )}
-            />
-            <FormatCurrency
-              numbers={[
-                balances[item.tokenIdOnNetwork || 'main'],
-                prices?.[mapKey],
-              ]}
-              render={(ele) => (
-                <Typography.Body2 color="text-subdued">
-                  {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey]
-                    ? ele
-                    : '-'}
-                </Typography.Body2>
-              )}
-            />
-          </Box>
-          {!isSmallScreen && (
-            <Box mr={3} flexDirection="row" flex={1}>
-              {/* <Icon size={20} name="ActivityOutline" /> */}
-              <FormatCurrency
-                numbers={[prices?.[mapKey]]}
+            {balances[item.tokenIdOnNetwork || 'main'] ? (
+              <FormatBalance
+                balance={balances[item.tokenIdOnNetwork || 'main']}
+                suffix={item.symbol}
+                formatOptions={{
+                  fixed: decimal ?? 4,
+                }}
                 render={(ele) => (
-                  <Typography.Body2Strong ml={3}>
-                    {prices?.[mapKey] ? ele : '-'}
-                  </Typography.Body2Strong>
+                  <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                    {ele}
+                  </Text>
                 )}
               />
+            ) : (
+              <Skeleton shape={isSmallScreen ? 'Body1' : 'Body2'} width={120} />
+            )}
+            {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey] ? (
+              <FormatCurrency
+                numbers={[
+                  balances[item.tokenIdOnNetwork || 'main'],
+                  prices?.[mapKey],
+                ]}
+                render={(ele) => (
+                  <Typography.Body2 color="text-subdued">
+                    {ele}
+                  </Typography.Body2>
+                )}
+              />
+            ) : (
+              <Skeleton shape="Body2" />
+            )}
+          </Box>
+          {!isSmallScreen && (
+            <Box mx={3} flexDirection="row" flex={1}>
+              {/* <Icon size={20} name="ActivityOutline" /> */}
+
+              {prices?.[mapKey] ? (
+                <FormatCurrency
+                  numbers={[prices?.[mapKey]]}
+                  render={(ele) => (
+                    <Typography.Body2Strong>{ele}</Typography.Body2Strong>
+                  )}
+                />
+              ) : (
+                <Skeleton shape="Body2" />
+              )}
             </Box>
           )}
           {item.tokenIdOnNetwork ? (
@@ -172,7 +182,7 @@ const AssetsList = () => {
       renderItem={renderItem}
       ListHeaderComponent={<ListHeaderComponent />}
       ItemSeparatorComponent={Divider}
-      ListFooterComponent={() => <Box h="20px" />}
+      ListFooterComponent={() => <Box h={8} />}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isSmallScreen}
       showsVerticalScrollIndicator={false}
