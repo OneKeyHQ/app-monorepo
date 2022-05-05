@@ -41,6 +41,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { FormatCurrencyNative } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -619,15 +620,11 @@ function ScreenSendEditFee({ ...rest }) {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
-  React.useLayoutEffect(() => {
-    // disable animation if auto navigate
-    if (autoConfirmAfterFeeSaved) {
-      navigation.setOptions({
-        // animation: 'none', // for native
-        animationEnabled: false, // for web
-      });
-    }
-  }, [navigation, autoConfirmAfterFeeSaved]);
+
+  useDisableNavigationAnimation({
+    condition: !!autoConfirmAfterFeeSaved,
+  });
+
   const encodedTxForFeeInfo = useMemo(() => {
     if (autoConfirmAfterFeeSaved) {
       const tx = cloneDeep(encodedTx) as IEncodedTxEvm;

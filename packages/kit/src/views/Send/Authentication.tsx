@@ -12,6 +12,8 @@ import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
+
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendRoutes, SendRoutesParams } from './types';
 
@@ -134,6 +136,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
+
+  useDisableNavigationAnimation({
+    condition: !!params.autoConfirmAfterFeeSaved,
+  });
 
   // TODO all Modal close should reject dapp call
   return (
