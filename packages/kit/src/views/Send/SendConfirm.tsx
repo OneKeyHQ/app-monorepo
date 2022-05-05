@@ -13,6 +13,7 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
@@ -64,11 +65,14 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 }
 
 const TransactionConfirm = () => {
+  // do not remove this line, call account balance fetch
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { balances } = useManageTokens();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
   // TODO rename to sourceInfo
-  const isFromDapp = params.sourceInfo;
+  const isFromDapp = !!params.sourceInfo;
   const [encodedTx, setEncodedTx] = useState<IEncodedTxEvm>(
     isFromDapp
       ? removeFeeInfoInTx(params.encodedTx as IEncodedTxEvm)
@@ -80,18 +84,24 @@ const TransactionConfirm = () => {
   const { decodedTx } = useDecodedTx({ encodedTx });
   const { accountId, networkId } = useActiveWalletAccount();
 
+  const dappApproveId = params.sourceInfo?.id ?? '';
   const dappApprove = useDappApproveAction({
-    id: params.sourceInfo?.id ?? '',
+    id: dappApproveId,
     closeOnError: true,
   });
+  useEffect(() => {
+    if (!dappApproveId && isFromDapp) {
+      console.error('useDappApproveAction ERROR: id not exists');
+    }
+  }, [dappApproveId, isFromDapp]);
   // TODO useFeeInTx has some bugs
   const useFeeInTx = !isFromDapp;
-  const isCancelOrSpeedUp =
+  const isSpeedUpOrCancel =
     params.actionType === 'cancel' || params.actionType === 'speedUp';
   // const useFeeInTx = false;
 
   let feeInfoEditable = !useFeeInTx;
-  if (isCancelOrSpeedUp) {
+  if (isSpeedUpOrCancel) {
     feeInfoEditable = true;
   }
 
@@ -249,7 +259,7 @@ const TransactionConfirm = () => {
   }
 
   // handle speed up / cancel.
-  if (isCancelOrSpeedUp) {
+  if (isSpeedUpOrCancel) {
     return <TxConfirmSpeedUpOrCancel {...sharedProps} />;
   }
 

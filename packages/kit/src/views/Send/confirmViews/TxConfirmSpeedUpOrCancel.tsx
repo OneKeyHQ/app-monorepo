@@ -17,7 +17,12 @@ function TxConfirmSpeedUpOrCancel(props: ITxConfirmViewProps) {
   const { autoConfirmAfterFeeSaved } = route.params;
 
   return (
-    <SendConfirmModal {...props} autoConfirm={!!autoConfirmAfterFeeSaved}>
+    <SendConfirmModal
+      {...props}
+      autoConfirm={!!autoConfirmAfterFeeSaved}
+      hidePrimaryAction
+      hideSecondaryAction
+    >
       <Center w="full" py={16}>
         <Spinner size="lg" />
         {!autoConfirmAfterFeeSaved ? (

@@ -60,7 +60,7 @@ type TransactionValues = {
 
 type Option = SelectItem<string>;
 
-// TODO utils function createPromisedDebounce
+// TODO useDebounce instead
 const buildEncodedTxFromTransferDebounced = debounce(
   (options: {
     networkId: string;
@@ -71,7 +71,7 @@ const buildEncodedTxFromTransferDebounced = debounce(
     const { callback, ...others } = options;
     callback(backgroundApiProxy.engine.buildEncodedTxFromTransfer(others));
   },
-  300,
+  500,
   { leading: false, trailing: true },
 );
 

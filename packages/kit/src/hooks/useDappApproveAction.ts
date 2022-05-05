@@ -18,9 +18,6 @@ function useDappApproveAction({
   getResolveData?: () => Promise<any> | any;
   closeOnError?: boolean;
 }) {
-  if (!id) {
-    console.error('useDappApproveAction ERROR: id not exists');
-  }
   const isExt = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve

@@ -176,11 +176,11 @@ export const FormatCurrency: FC<{
   const child = useMemo(
     () => (
       <>
-        {amount.amount}
+        {numbers.length ? amount.amount : '--'}
         &nbsp;{amount.unit}
       </>
     ),
-    [amount],
+    [amount.amount, amount.unit, numbers.length],
   );
 
   if (render) {
@@ -202,10 +202,13 @@ export const FormatCurrencyToken: FC<{
   const { prices } = useManageTokens();
   const priceKey =
     token && token.tokenIdOnNetwork ? token.tokenIdOnNetwork : 'main';
-
+  const priceValue = prices?.[priceKey];
+  const priceUndefined = priceValue === undefined;
   return (
     <FormatCurrency
-      numbers={[prices?.[priceKey], value, !value ? undefined : 1]}
+      numbers={
+        priceUndefined ? [] : [priceValue, value, !value ? undefined : 1]
+      }
       render={render}
       formatOptions={formatOptions}
       as={as}
