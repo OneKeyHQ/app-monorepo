@@ -3,6 +3,7 @@ import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/decoder';
 import type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
+  EVMDecodedItemInternalSwap,
 } from '../vaults/impl/evm/decoder/decoder';
 
 enum TxStatus {
@@ -157,7 +158,11 @@ type Transaction = {
 
   tokenEvent: Array<Erc20TransferEvent>;
   source: 'local' | 'covalent';
-  info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
+  info:
+    | EVMDecodedItemERC20Transfer
+    | EVMDecodedItemERC20Approve
+    | EVMDecodedItemInternalSwap
+    | null;
   rawTx?: string;
 };
 

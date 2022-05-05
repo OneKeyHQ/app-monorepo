@@ -54,6 +54,8 @@ class HistoryEntrySchema extends Realm.Object {
       rawTx: 'string?',
       message: 'string?',
       ref: 'string?',
+      rawTxPreDecodeCache: 'string?',
+      payload: 'string?',
     },
   };
 
