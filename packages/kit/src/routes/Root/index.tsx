@@ -25,9 +25,9 @@ import { RootRoutes } from '../types';
 const RootNativeStack = createNativeStackNavigator();
 const RootStack = createStackNavigator();
 
-const Container: FC = ({ children }) => {
+const RootNavigatorContainer: FC = ({ children }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  if (platformEnv.isNative)
+  if (platformEnv.isNative) {
     return (
       <RootNativeStack.Navigator
         screenOptions={{
@@ -38,6 +38,8 @@ const Container: FC = ({ children }) => {
         {children}
       </RootNativeStack.Navigator>
     );
+  }
+
   return (
     <RootStack.Navigator
       screenOptions={{
@@ -72,13 +74,13 @@ const App = () => {
   }, [intl]);
 
   return (
-    <Container>
+    <RootNavigatorContainer>
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
       <RootStack.Screen
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
       />
-    </Container>
+    </RootNavigatorContainer>
   );
 };
 
@@ -90,7 +92,12 @@ const RootStackNavigator = () => {
   const hasVersionSet = !!process.env.VERSION && !!process.env.BUILD_NUMBER;
   const versionChanged =
     process.env.VERSION !== version || process.env.BUILD_NUMBER !== buildNumber;
-  // 用户当前的版本记录在 store 中，settings.version 是当前用户版本。
+  /**
+   * previous version number is stored at user local redux store
+   * new version number is passed by process.env.VERSION
+   *
+   * compare two version number, get the log diff and store new user version code here.
+   */
   // settings.version -> process.env.VERSION
   useEffect(() => {
     if (hasVersionSet && versionChanged && process.env.VERSION)

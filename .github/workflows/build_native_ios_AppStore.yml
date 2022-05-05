@@ -1,6 +1,6 @@
 name: Build Native iOS AppStore CI
 
-on: 
+on:
   workflow_run:
     workflows:
       - daily_build_release
@@ -96,4 +96,3 @@ jobs:
         run: |
           cd packages/app
           eas build --profile=production-store --platform ios --non-interactive --no-wait
-

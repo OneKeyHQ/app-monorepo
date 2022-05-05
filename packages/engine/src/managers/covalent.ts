@@ -1,6 +1,8 @@
 import axios from 'axios';
 import camelcase from 'camelcase-keys';
 
+import { COVALENT_API_KEY } from '@onekeyhq/kit/src/config';
+
 import {
   BlockTransactionWithLogEvents,
   EVMTxFromType,
@@ -19,8 +21,6 @@ import {
   EVMDecodedItem,
   EVMDecodedTxType,
 } from '../vaults/impl/evm/decoder/decoder';
-
-const COVALENT_API_KEY = 'ckey_26a30671d9c941069612f10ac53';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 

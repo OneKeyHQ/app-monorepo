@@ -1,15 +1,35 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 
-import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import {
+  DefaultTheme,
+  NavigationContainer,
+  NavigationContainerRef,
+} from '@react-navigation/native';
 import { createURL } from 'expo-linking';
 
-import { Box, useThemeValue } from '@onekeyhq/components';
+import {
+  Box,
+  DialogManager,
+  useIsVerticalLayout,
+  useThemeValue,
+} from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
+import RootStack from '@onekeyhq/kit/src/routes/Root';
+import { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import Navigator, { navigationRef } from '../navigator';
-
 const prefix = createURL('/');
+
+export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
+export const navigationRef = React.createRef<RootNavContainerRef>();
+
+declare global {
+  // eslint-disable-next-line no-var, vars-on-top
+  var $navigationRef: typeof navigationRef;
+}
+
+// update navigationRef.current at <NavigationContainer />
+global.$navigationRef = navigationRef;
 
 const NavigationApp = () => {
   const linking = {
@@ -28,17 +48,19 @@ const NavigationApp = () => {
     'background-default',
   ]);
 
+  const isVerticalLayout = useIsVerticalLayout();
+
   const navigationTheme = useMemo(
     () => ({
       ...DefaultTheme,
       colors: {
         ...DefaultTheme.colors,
-        background: platformEnv.isAndroid ? bgDefault : 'transparent',
+        background: isVerticalLayout ? bgDefault : 'transparent',
         card: bgColor,
         text: textColor,
       },
     }),
-    [bgColor, textColor, bgDefault],
+    [bgColor, textColor, bgDefault, isVerticalLayout],
   );
 
   return (
@@ -48,7 +70,7 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={enableLinkingRoute ? linking : undefined}
       >
-        <Navigator />
+        <RootStack />
       </NavigationContainer>
       <Box
         overflow="hidden"
@@ -60,6 +82,7 @@ const NavigationApp = () => {
         right={0}
       >
         <Toast bottomOffset={60} />
+        <DialogManager.Holder />
       </Box>
     </>
   );
@@ -67,4 +90,4 @@ const NavigationApp = () => {
 
 NavigationApp.displayName = 'NavigationApp';
 
-export default NavigationApp;
+export default memo(NavigationApp);

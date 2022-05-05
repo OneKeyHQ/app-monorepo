@@ -75,13 +75,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
             // onSuccess will close() modal, goBack() is NOT needed here.
             // navigation.getParent()?.goBack?.();
           }
-          // TODO toast not working if timeout < 500, and should be after navigate()
-          setTimeout(() => {
-            const msg = intl.formatMessage({ id: 'transaction__success' });
-            toast.show({
-              title: msg,
-            });
-          }, 600);
+          const msg = intl.formatMessage({ id: 'transaction__success' });
+          toast.show({
+            title: msg,
+          });
         }
       } catch (e) {
         if (route.params.backRouteName) {

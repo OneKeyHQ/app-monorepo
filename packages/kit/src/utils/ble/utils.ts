@@ -76,7 +76,6 @@ class BleUtils {
           }
           throw error;
         } else {
-          console.log('-----device_1', device_1)
           if (device_1) {
             listener(device_1);
           }
