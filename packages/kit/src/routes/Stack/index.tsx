@@ -1,5 +1,4 @@
-/* eslint-disable no-nested-ternary */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import React, { useCallback, useEffect } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
