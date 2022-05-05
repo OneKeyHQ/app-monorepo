@@ -56,7 +56,7 @@ const emojiList = [
 export type EmojiTypes = typeof emojiList[number];
 
 const colors = [
-  '#3D3D4D',
+  'surface-neutral-default',
   '#E49090',
   '#E3B167',
   '#91BC76',
