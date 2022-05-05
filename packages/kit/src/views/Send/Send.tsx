@@ -82,7 +82,7 @@ const Transaction = () => {
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
-  const { token: routeParamsToken } = route.params;
+  const routeParamsToken = route?.params?.token;
 
   const {
     control,
