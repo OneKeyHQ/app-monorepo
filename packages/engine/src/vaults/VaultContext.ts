@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SEPERATOR } from '../constants';
 import { getWalletIdFromAccountId } from '../managers/account';
 import { IVaultFactoryOptions } from '../types/vault';
@@ -40,6 +42,11 @@ export class VaultContext extends VaultContextBase {
     super(options);
     this.options = options;
     this.engine = options.engine;
+    if (platformEnv.isExtensionUi) {
+      throw new Error(
+        "Vault can NOT be initialized in UI, it's Background Class only. But you can use VaultHelper in UI.",
+      );
+    }
   }
 
   options: IVaultOptions;

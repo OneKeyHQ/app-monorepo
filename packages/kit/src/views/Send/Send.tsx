@@ -5,7 +5,6 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import deepEqual from 'dequal';
 import { debounce } from 'lodash';
-import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
@@ -79,8 +78,6 @@ const buildEncodedTxFromTransferDebounced = debounce(
 const Transaction = () => {
   // const encodedTxRef = useRef<any>(null);
   const [encodedTx, setEncodedTx] = useState(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [buildLoading, setBuildLoading] = useState(false);
   const [transferError, setTransferError] = useState<Error | null>(null);
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
@@ -115,14 +112,11 @@ const Transaction = () => {
     pollingInterval: FEE_INFO_POLLING_INTERVAL,
   });
   const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
 
   const { nativeToken, accountTokens, balances, getTokenBalance } =
     useManageTokens();
   // selected token
   const [selectOption, setSelectOption] = useState<Option | null>(null);
-  const [inputValue, setInputValue] = useState<string>();
-  const isSmallScreen = useIsVerticalLayout();
 
   const tokenOptions = useMemo(
     () =>
@@ -178,7 +172,6 @@ const Transaction = () => {
     if (!transferInfo.to || !isValid) {
       return;
     }
-    setBuildLoading(true);
     setEncodedTx(null);
 
     buildEncodedTxFromTransferDebounced({
@@ -194,8 +187,6 @@ const Transaction = () => {
           }
         } catch (e) {
           setTransferError(e as Error);
-        } finally {
-          setBuildLoading(false);
         }
       },
     });
@@ -248,7 +239,6 @@ const Transaction = () => {
         }
       }
       if (type === 'change' && name === 'value') {
-        setInputValue(formValues.value);
         revalidateAmountInput();
       }
     });

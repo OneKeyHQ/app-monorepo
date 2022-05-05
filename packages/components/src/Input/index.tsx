@@ -1,7 +1,16 @@
-import React, { ComponentProps, ReactElement, ReactNode } from 'react';
+import React, {
+  ComponentProps,
+  ReactElement,
+  ReactNode,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 
 import { Input as BaseInput, Stack } from 'native-base';
 import { Platform } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Divider from '../Divider';
@@ -13,6 +22,7 @@ import { Text, getTypographyStyleProps } from '../Typography';
 import type { TypographyStyle } from '../Typography';
 
 type Props = {
+  autoFocus?: boolean;
   isDisabled?: boolean;
   leftText?: string;
   rightText?: string;
@@ -37,6 +47,7 @@ const Input = React.forwardRef<
 >(
   (
     {
+      autoFocus,
       isDisabled,
       leftText,
       rightText,
@@ -57,6 +68,33 @@ const Input = React.forwardRef<
     },
     ref,
   ) => {
+    const inputRef = useRef<typeof BaseInput>(null);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    useImperativeHandle(ref, () => inputRef.current!);
+    const shouldFocus = autoFocus && platformEnv.isBrowser;
+    useEffect(() => {
+      // node_modules/react-native-web/dist/exports/TextInput/index.js
+      //    supportedProps.autoFocus = supportedProps.autoFocus && 'autofocus';
+      //    console.log('render TextInput', component, supportedProps);
+
+      if (shouldFocus) {
+        // ** focus immediately in Modal cause modal slow animation
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        // inputRef.current?.focus?.();
+        //
+        const timer = setTimeout(() => {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          inputRef.current?.focus?.();
+        }, 400);
+
+        return () => {
+          clearTimeout(timer);
+        };
+      }
+    }, [shouldFocus]);
+
     const leftElements: JSX.Element[] = [];
     const rightElements: JSX.Element[] = [];
     let pl = '3';
@@ -195,7 +233,7 @@ const Input = React.forwardRef<
     }
     return (
       <BaseInput
-        ref={ref}
+        ref={inputRef}
         selectionColor="text-default"
         isDisabled={isDisabled}
         InputLeftElement={inputLeftElement}
@@ -240,6 +278,8 @@ const Input = React.forwardRef<
         fontWeight={textProps.fontWeight}
         fontFamily={textProps.fontFamily}
         {...props}
+        // WEB autofocus in Modal cause modal slow animation, and background jump
+        autoFocus={platformEnv.isBrowser ? false : autoFocus}
       />
     );
   },

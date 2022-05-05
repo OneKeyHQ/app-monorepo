@@ -145,6 +145,8 @@ export const NumberInput: FC<NumberInputProps> = ({
     return val;
   }, [decimal, enableMaxButton, isMax, maxText, maxTextIsNumber, value]);
 
+  // TODO render native-base NumberInput in ios/android
+  //    https://github.com/GeekyAnts/NativeBase/issues/3894
   return (
     <Input
       w="full"

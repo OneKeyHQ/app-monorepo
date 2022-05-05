@@ -28,7 +28,7 @@ class BackgroundApiProxy
 
   validator = this._createProxyService('validator') as Validators;
 
-  // TODO remove
+  // TODO remove or add wrong calling check like MM's shimweb3
   vaultFactory = {} as VaultFactory;
 
   walletConnect = this._createProxyService(

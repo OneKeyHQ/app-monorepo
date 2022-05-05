@@ -1,12 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/naming-convention */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  RouteProp,
-  StackActions,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { first, last } from 'lodash';
 import { Column, Row } from 'native-base';
 import { Control, UseFormGetValues, UseFormWatch } from 'react-hook-form';
@@ -54,7 +49,7 @@ import {
   useFeeInfoPayload,
 } from './useFeeInfoPayload';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type FeeValues = {
   gasPrice: string;
@@ -71,7 +66,7 @@ enum FeeType {
 }
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendEditFee>;
-type NavigationProps = NativeStackNavigationProp<
+type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendEditFee
 >;
@@ -530,6 +525,15 @@ function ScreenSendEditFee({ ...rest }) {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
+  React.useLayoutEffect(() => {
+    // disable animation if auto navigate
+    if (autoConfirmAfterFeeSaved) {
+      navigation.setOptions({
+        // animation: 'none', // for native
+        animationEnabled: false, // for web
+      });
+    }
+  }, [navigation, autoConfirmAfterFeeSaved]);
   const { feeInfoPayload, feeInfoLoading, getSelectedFeeInfoUnit } =
     useFeeInfoPayload({
       encodedTx,
@@ -582,13 +586,12 @@ function ScreenSendEditFee({ ...rest }) {
     const prevRouteName = routes[index - 1]?.name;
 
     if (autoConfirmAfterFeeSaved) {
-      const action = StackActions.replace(SendRoutes.SendConfirm, {
+      return navigation.replace(SendRoutes.SendConfirm, {
         encodedTx,
         actionType: 'cancel',
         feeInfoSelected,
         autoConfirmAfterFeeSaved,
       });
-      return navigation.dispatch(action);
     }
 
     return navigation.navigate({

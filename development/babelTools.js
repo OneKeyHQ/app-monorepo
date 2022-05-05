@@ -7,6 +7,8 @@ function fullPath(pathStr) {
 }
 
 const moduleResolverAliasForAllWebPlatform = {
+  // * remote connection disallowed in ext
+  'console-feed': fullPath('./module-resolver/console-feed-mock'),
   // * cause firefox popup resize issue
   'react-native-restart': fullPath(
     './module-resolver/react-native-restart-mock',
@@ -22,8 +24,6 @@ function normalizeConfig({ platform, config }) {
   if (platform === developmentConsts.platforms.ext) {
     moduleResolver = {
       alias: {
-        // * remote connection disallowed in ext
-        'console-feed': fullPath('./module-resolver/console-feed-mock'),
         ...moduleResolverAliasForAllWebPlatform,
       },
     };
