@@ -1814,6 +1814,7 @@ class Engine {
     return result;
   }
 
+  @backgroundMethod()
   async getErc20TxHistories(
     networkId: string,
     accountId: string,
