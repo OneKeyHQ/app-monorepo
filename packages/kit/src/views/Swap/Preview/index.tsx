@@ -46,12 +46,12 @@ const Preview = () => {
           params: {
             encodedTx: { ...swapQuote, from: account.address },
             payload: swapQuote,
-            sourceInfo: {
-              id: '0',
-              origin: 'OneKey Swap',
-              scope: 'ethereum',
-              data: { method: '' },
-            },
+            // sourceInfo: {
+            //   id: '0',
+            //   origin: 'OneKey Swap',
+            //   scope: 'ethereum',
+            //   data: { method: '' },
+            // },
             // payload: swapQuote,
             onSuccess: (tx) => {
               addTransaction({
