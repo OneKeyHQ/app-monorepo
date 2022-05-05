@@ -245,13 +245,11 @@ const SwapContent = () => {
           <Typography.Body2 color="text-subdued">
             {intl.formatMessage({ id: 'Rate' })}
           </Typography.Body2>
-          <Typography.Body2 color="text-default">
-            <ExchangeRate
-              tokenA={inputToken}
-              tokenB={outputToken}
-              quote={swapQuote}
-            />
-          </Typography.Body2>
+          <ExchangeRate
+            tokenA={inputToken}
+            tokenB={outputToken}
+            quote={swapQuote}
+          />
         </Box>
         {!isSwapEnabled ? (
           <Box mb="6">
