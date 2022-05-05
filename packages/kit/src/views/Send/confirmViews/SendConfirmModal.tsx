@@ -117,23 +117,27 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
         children: (
           <>
             {children}
-            {isWatchingAccount ? (
-              <FormErrorMessage
-                message={intl.formatMessage({
-                  id: 'form__error_trade_with_watched_acocunt' as any,
-                })}
-              />
-            ) : null}
-            {balanceInsufficient ? (
-              <FormErrorMessage
-                message={intl.formatMessage(
-                  { id: 'form__amount_invalid' },
-                  {
-                    0: nativeToken?.symbol ?? '',
-                  },
-                )}
-              />
-            ) : null}
+            {!autoConfirm && (
+              <>
+                {isWatchingAccount ? (
+                  <FormErrorMessage
+                    message={intl.formatMessage({
+                      id: 'form__error_trade_with_watched_acocunt' as any,
+                    })}
+                  />
+                ) : null}
+                {balanceInsufficient ? (
+                  <FormErrorMessage
+                    message={intl.formatMessage(
+                      { id: 'form__amount_invalid' },
+                      {
+                        0: nativeToken?.symbol ?? '',
+                      },
+                    )}
+                  />
+                ) : null}
+              </>
+            )}
           </>
         ),
       }}
