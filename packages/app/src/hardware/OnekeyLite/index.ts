@@ -7,7 +7,7 @@ import { Callback, CallbackError, CardErrors, CardInfo } from './types';
 const { OKLiteManager } = NativeModules;
 
 export const LiteFlag = {
-  VERSION: '01',
+  VERSION: '02',
   LANGUAGE: '00', // english
   TAG: 'ffff',
 };
@@ -31,7 +31,7 @@ class OnekeyLite {
     mnemonic: string,
   ): Promise<string> {
     const meta = LiteFlag.TAG + version + language;
-    const enMnemonic = await backgroundApiProxy.engine.mnemonicToEntropy(
+    const enMnemonic = await backgroundApiProxy.engine.mnemonicToEntropyV2(
       mnemonic.trim(),
     ); // mnemonic to index
     return enMnemonic + meta;
@@ -44,18 +44,35 @@ class OnekeyLite {
 
       const meta = payload.slice(-8);
 
+      console.log('decodeMnemonic meta: ', meta);
+
       const regexp = new RegExp('^ffff[a-f0-9]{4}$');
       if (regexp.test(meta)) {
-        // const version = meta.slice(4, 6);
+        const version = parseInt(meta.slice(4, 6), 10);
         const enMnemonic = payload.slice(0, -8);
 
-        const deMnemonic = await backgroundApiProxy.engine.entropyToMnemonic(
-          enMnemonic,
-        ); // mnemonic to index
+        console.log('decodeMnemonic version: ', version);
 
-        return deMnemonic.trim();
+        if (version === 1) {
+          const deMnemonic = await backgroundApiProxy.engine.entropyToMnemonic(
+            enMnemonic,
+          ); // mnemonic to index
+
+          return deMnemonic.trim();
+        }
+
+        if (version === 2) {
+          const deMnemonic =
+            await backgroundApiProxy.engine.entropyToMnemonicV2(enMnemonic); // mnemonic to index
+
+          return deMnemonic.trim();
+        }
+
+        // 当前版本不支持
+        return '';
       }
-      // 兼容旧版本
+
+      // 兼容 V0 旧版本
       return Buffer.from(payload, 'hex').toString().trim();
     } catch (error) {
       // 数据解析报错
