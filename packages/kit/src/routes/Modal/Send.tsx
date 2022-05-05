@@ -55,12 +55,15 @@ const modalRoutes = [
 ];
 
 const TransactionStack = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <SendNavigator.Navigator
       screenOptions={{
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        // speedUp and cancel auto navigate with animation is weired, so we disable animation
+        animationEnabled: false,
+        // animationEnabled: !!isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (

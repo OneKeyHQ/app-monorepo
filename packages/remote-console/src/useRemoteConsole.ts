@@ -11,7 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 function useRemoteConsole() {
   // Ext is NOT allowed remote-console (like: eval() call)
   const remoteConsoleEnabled =
-    process.env.NODE_ENV !== 'production' && !platformEnv.isExtension;
+    process.env.NODE_ENV !== 'production' && platformEnv.isNative;
   // run once!
   useEffect(() => {
     let ws: WebSocket | null = null;

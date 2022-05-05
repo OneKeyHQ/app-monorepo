@@ -64,7 +64,7 @@ const OnekeyHardwareDetails: FC = () => {
                 onPress={() => {}}
                 titleColor="text-default"
                 title="Update Available"
-                custom={
+                subDescribeCustom={
                   <Icon name="InformationCircleSolid" color="icon-success" />
                 }
               />

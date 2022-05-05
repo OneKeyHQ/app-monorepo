@@ -290,6 +290,14 @@ class ProviderApiEthereum extends ProviderApiBase {
     return result;
   }
 
+  eth_subscribe() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  eth_unsubscribe() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
   /** Sign unapproved message
    * Open @type {import("@onekeyhq/kit/src/views/DappModals/Signature.tsx").default} modal
    * arg req: IJsBridgeMessagePayload, ...[msg, from, passphrase]

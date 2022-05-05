@@ -1,5 +1,7 @@
 import React, { useCallback } from 'react';
 
+import { NumberInput } from 'native-base';
+
 import {
   Center,
   FormControl,
@@ -28,8 +30,10 @@ const InputGallery = () => {
         }}
       >
         <Stack space="2">
-          <Input placeholder="Placeholder" value="hello world" />
-          <Input placeholder="Placeholder" value="hello world" />
+          <Input placeholder="Placeholder" value="hello world1" />
+          <NumberInput min={1} max={100} value="20" />
+          <Input type="number" placeholder="number" defaultValue="1" />
+          <Input placeholder="Placeholder" value="hello world2" />
           <Input placeholder="Placeholder" value="disabled" isDisabled />
           <Input leftText="$" placeholder="Placeholder" />
           <Input leftIconName="AdjustmentsOutline" placeholder="Placeholder" />

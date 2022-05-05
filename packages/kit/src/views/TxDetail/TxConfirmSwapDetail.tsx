@@ -112,7 +112,7 @@ const TxConfirmSwapDetail: FC<{
           title={intl.formatMessage({ id: 'content__amount' })}
           describe={`${tx.amount} ${tx.symbol}`}
         />
-        <Container.Item title="" wrap={feeInput} />
+        <Container.Item wrap={feeInput} />
         {!!feeInfoPayload && parseInt(tx.value) !== 0 && (
           <TotalFee tx={tx} feeInfoPayload={feeInfoPayload} />
         )}

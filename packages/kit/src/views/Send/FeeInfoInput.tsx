@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 
-import { StackActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
@@ -12,9 +12,9 @@ import { FeeSpeedLabel } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
 import { SendRoutes, SendRoutesParams } from './types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
-type NavigationProps = NativeStackNavigationProp<
+type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendConfirm
 >;
@@ -42,12 +42,11 @@ function FeeInfoInput({
         return;
       }
       if (replace) {
-        const action = StackActions.replace(SendRoutes.SendEditFee, {
+        navigation.replace(SendRoutes.SendEditFee, {
           encodedTx,
           feeInfoSelected: feeInfoPayload?.selected,
           autoConfirmAfterFeeSaved: autoNavigateToEdit,
         });
-        navigation.dispatch(action);
       } else {
         navigation.navigate({
           // merge: true,
