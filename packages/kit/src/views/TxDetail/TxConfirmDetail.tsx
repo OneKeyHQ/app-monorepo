@@ -56,7 +56,7 @@ const TxConfirmDetail: FC<{
           title={intl.formatMessage({ id: 'content__amount' })}
           describe={`${amount} ${symbol}`}
         />
-        <Container.Item title="" wrap={feeInput} />
+        <Container.Item wrap={feeInput} />
         {!!feeInfoPayload && isNative && (
           <TotalFee
             tx={tx}

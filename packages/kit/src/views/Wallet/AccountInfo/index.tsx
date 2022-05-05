@@ -14,6 +14,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -68,28 +69,36 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
         {intl.formatMessage({ id: 'asset__total_balance' }).toUpperCase()}
       </Typography.Subheading>
       <Box flexDirection="row" mt={2}>
-        <FormatBalance
-          balance={balances.main}
-          suffix={activeNetwork?.symbol?.toUpperCase?.()}
-          as={Typography.DisplayXLarge}
-          formatOptions={{
-            fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
-          }}
-          render={(ele) => (
-            <Typography.DisplayXLarge>
-              {!balances.main ? '-' : ele}
-            </Typography.DisplayXLarge>
-          )}
-        />
-      </Box>
-      <FormatCurrency
-        numbers={[prices?.main, balances.main, !balances.main ? undefined : 1]}
-        render={(ele) => (
-          <Typography.Body2 mt={1}>
-            {!balances.main ? '-' : ele}
-          </Typography.Body2>
+        {balances.main ? (
+          <FormatBalance
+            balance={balances.main}
+            suffix={activeNetwork?.symbol?.toUpperCase?.()}
+            as={Typography.DisplayXLarge}
+            formatOptions={{
+              fixed: activeNetwork?.nativeDisplayDecimals ?? 6,
+            }}
+            render={(ele) => (
+              <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
+            )}
+          />
+        ) : (
+          <Skeleton shape="DisplayXLarge" />
         )}
-      />
+      </Box>
+      {prices.main ? (
+        <FormatCurrency
+          numbers={[
+            prices?.main,
+            balances.main,
+            !balances.main ? undefined : 1,
+          ]}
+          render={(ele) => <Typography.Body2 mt={1}>{ele}</Typography.Body2>}
+        />
+      ) : (
+        <Box mt={1}>
+          <Skeleton shape="Body2" />
+        </Box>
+      )}
       <Pressable
         mt={4}
         onPress={() => {

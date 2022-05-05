@@ -38,6 +38,7 @@ import SearchbarGallery from '@onekeyhq/kit/src/views/Components/stories/Searchb
 import SegmentedControl from '@onekeyhq/kit/src/views/Components/stories/SegmentedControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import ShadowsGallery from '@onekeyhq/kit/src/views/Components/stories/Shadows';
+import SkeletonGallery from '@onekeyhq/kit/src/views/Components/stories/Skeleton';
 import SortableListGallery from '@onekeyhq/kit/src/views/Components/stories/SortableList';
 import SpinnerGallery from '@onekeyhq/kit/src/views/Components/stories/Spinner';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
@@ -98,6 +99,7 @@ export enum StackRoutes {
   ComponentEmojiList = 'component/EmojiList',
   ComponentContentBox = 'component/ContentBox',
   ComponentAppUpdate = 'component/AppUpdate',
+  ComponentSkeleton = 'component/Skeleton',
   ComponentDeviceConnection = 'component/device-connection',
 }
 
@@ -148,6 +150,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentEmojiList]: undefined;
   [StackRoutes.ComponentContentBox]: undefined;
   [StackRoutes.ComponentAppUpdate]: undefined;
+  [StackRoutes.ComponentSkeleton]: undefined;
   [StackRoutes.ComponentDeviceConnection]: undefined;
 };
 
@@ -188,6 +191,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentShadow, component: ShadowsGallery },
   { name: StackRoutes.ComponentPinCode, component: PinCodeGallery },
   { name: StackRoutes.ComponentAppUpdate, component: AppUpdateGallery },
+  { name: StackRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: StackRoutes.ComponentRestfulRequest, component: RestfulRequest },
   { name: StackRoutes.ComponentDeviceConnection, component: DeviceConnection },
   {
