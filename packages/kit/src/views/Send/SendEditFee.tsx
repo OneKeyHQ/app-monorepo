@@ -2,9 +2,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { first, last } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { cloneDeep, first, last } from 'lodash';
 import { Column, Row } from 'native-base';
-import { Control, UseFormGetValues, UseFormWatch } from 'react-hook-form';
+import { UseFormReturn } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,7 +20,6 @@ import {
   Spinner,
   Typography,
   useForm,
-  useFormState,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -35,13 +35,16 @@ import {
   IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/types/vault';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { FormatCurrencyNative } from '../../components/Format';
-import { useDebounce } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
+import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 
+import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendRoutes, SendRoutesParams } from './types';
 import {
   calculateTotalFeeNative,
@@ -70,6 +73,27 @@ type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendEditFee
 >;
+
+function selectMaxValue(
+  currentValue: string | undefined,
+  highPresetValue: string | undefined,
+  times = 1,
+) {
+  const currentValueBN = new BigNumber(currentValue ?? '').times(times);
+  const highPresetValueBN = new BigNumber(highPresetValue ?? '');
+  if (highPresetValueBN.isNaN() && currentValueBN.isNaN()) {
+    return '0';
+  }
+  if (highPresetValueBN.isNaN()) {
+    return currentValueBN.toFixed();
+  }
+  if (currentValueBN.isNaN()) {
+    return highPresetValueBN.toFixed();
+  }
+  return currentValueBN.isGreaterThan(highPresetValueBN)
+    ? currentValueBN.toFixed()
+    : highPresetValueBN.toFixed();
+}
 
 export function FeeSpeedLabel({ index }: { index: number | string }) {
   const intl = useIntl();
@@ -124,60 +148,63 @@ function FeeTipsWarning({ message }: { message: string }) {
 
 export type ICustomFeeFormProps = {
   feeInfoPayload: IFeeInfoPayload | null;
-  control: Control<FeeValues>;
-  watch: UseFormWatch<FeeValues>;
-  getValues: UseFormGetValues<FeeValues>;
+  useFormReturn: UseFormReturn<FeeValues, any>;
+  autoConfirmAfterFeeSaved: boolean | undefined;
 };
 function CustomFeeForm(props: ICustomFeeFormProps) {
-  const { feeInfoPayload, control, watch, getValues } = props;
+  const { feeInfoPayload, useFormReturn, autoConfirmAfterFeeSaved } = props;
+  const { control, getValues } = useFormReturn;
   const intl = useIntl();
+  const [totalFeeRange, setTotalFeeRange] = useState({
+    max: '0',
+    min: '0',
+  });
+  const selectedFeeInfo = feeInfoPayload?.selected;
+
   const feeSymbol = feeInfoPayload?.info?.symbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const lastPresetFeeInfo = last(feeInfoPayload?.info?.prices ?? []);
   const fistPresetFeeInfo = first(feeInfoPayload?.info?.prices ?? []);
-  // TODO remove
-  const formValues = watch();
   const isSmallScreen = useIsVerticalLayout();
   const { networkId } = useActiveWalletAccount();
 
   const [gasLimitTip, setGasLimitTip] = useState<string | undefined>(undefined);
+  const [gasPriceTip, setGasPriceTip] = useState<string | undefined>(undefined);
   const [maxPriorityFeeTip, setMaxPriorityFeeTip] = useState<
     string | undefined
   >(undefined);
   const [maxFeeTip, setMaxFeeTip] = useState<string | undefined>(undefined);
 
-  // MIN: (baseFee + maxPriorityFeePerGas) * limit
-  // MAX: maxFeePerGas * limit
-  /*
-  baseFee: "0.000004248"
-  maxFeePerGas: "36.66000144"
-  maxPriorityFeePerGas: "36.65999719128"
-   */
-
-  const totalFeeRange = useMemo(() => {
+  const updateTotalFeeRange = useCallback(() => {
+    let feeRange;
     if (isEIP1559Fee) {
-      return calculateTotalFeeRange({
+      feeRange = calculateTotalFeeRange({
         eip1559: true,
-        limit: formValues.gasLimit,
+        limit: getValues('gasLimit'),
         price: {
-          baseFee: formValues.baseFee,
-          maxFeePerGas: formValues.maxFeePerGas,
-          maxPriorityFeePerGas: formValues.maxPriorityFeePerGas,
+          baseFee: getValues('baseFee'),
+          maxFeePerGas: getValues('maxFeePerGas'),
+          maxPriorityFeePerGas: getValues('maxPriorityFeePerGas'),
         },
       });
+    } else {
+      feeRange = calculateTotalFeeRange({
+        limit: getValues('gasLimit'),
+        price: getValues('gasPrice'),
+      });
     }
-    return calculateTotalFeeRange({
-      limit: formValues.gasLimit,
-      price: formValues.gasPrice,
-    });
-  }, [
-    formValues.baseFee,
-    formValues.gasLimit,
-    formValues.gasPrice,
-    formValues.maxFeePerGas,
-    formValues.maxPriorityFeePerGas,
-    isEIP1559Fee,
-  ]);
+    setTotalFeeRange(feeRange);
+  }, [getValues, isEIP1559Fee]);
+
+  useFormOnChangeDebounced<FeeValues>({
+    useFormReturn,
+    revalidate: true,
+    onChange: updateTotalFeeRange,
+  });
+
+  useEffect(() => {
+    updateTotalFeeRange();
+  }, [updateTotalFeeRange]);
 
   return (
     <Form mt={8}>
@@ -210,14 +237,27 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
             validate: async (value) => {
               const lowFee = fistPresetFeeInfo as EIP1559Fee;
               const highFee = lastPresetFeeInfo as EIP1559Fee;
+
               // getValues
               try {
-                await backgroundApiProxy.validator.validateMaxPriortyFee(
+                await backgroundApiProxy.validator.validateMaxPriortyFee({
                   networkId,
                   value,
-                  lowFee?.maxPriorityFeePerGas,
-                  highFee?.maxPriorityFeePerGas,
-                );
+                  lowValue: lowFee?.maxPriorityFeePerGas,
+                  highValue: highFee?.maxPriorityFeePerGas,
+                  minValue:
+                    autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
+                      ? new BigNumber(
+                          (
+                            selectedFeeInfo?.custom?.price as
+                              | EIP1559Fee
+                              | undefined
+                          )?.maxPriorityFeePerGas as string,
+                        )
+                          .times(1.1)
+                          .toFixed()
+                      : '0',
+                });
                 setMaxPriorityFeeTip(undefined);
               } catch (error) {
                 printError(error);
@@ -272,13 +312,25 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
               const lowFee = fistPresetFeeInfo as EIP1559Fee;
               const highFee = lastPresetFeeInfo as EIP1559Fee;
               try {
-                await backgroundApiProxy.validator.validateMaxFee(
+                await backgroundApiProxy.validator.validateMaxFee({
                   networkId,
+                  maxPriorityFee: getValues('maxPriorityFeePerGas'),
                   value,
-                  getValues('maxPriorityFeePerGas'),
-                  lowFee?.maxFeePerGas,
-                  highFee?.maxFeePerGas,
-                );
+                  lowValue: lowFee?.maxFeePerGas,
+                  highValue: highFee?.maxFeePerGas,
+                  minValue:
+                    autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
+                      ? new BigNumber(
+                          (
+                            selectedFeeInfo?.custom?.price as
+                              | EIP1559Fee
+                              | undefined
+                          )?.maxFeePerGas as string,
+                        )
+                          .times(1.1)
+                          .toFixed()
+                      : '0',
+                });
                 setMaxFeeTip(undefined);
               } catch (error) {
                 printError(error);
@@ -325,9 +377,53 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           control={control}
           name="gasPrice"
           rules={{
-            required: intl.formatMessage({ id: 'content__gas_price' }),
+            validate: async (value) => {
+              const lowValue = fistPresetFeeInfo as string;
+              const highValue = lastPresetFeeInfo as string;
+              try {
+                await backgroundApiProxy.validator.validateGasPrice({
+                  networkId,
+                  value,
+                  minValue:
+                    autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
+                      ? new BigNumber(selectedFeeInfo?.custom?.price as string)
+                          .times(1.1)
+                          .toFixed()
+                      : '0',
+                  lowValue,
+                  highValue,
+                });
+                setGasPriceTip(undefined);
+              } catch (error) {
+                printError(error);
+                const e = error as OneKeyError;
+                if (
+                  e?.className === OneKeyErrorClassNames.OneKeyValidatorError
+                ) {
+                  setGasPriceTip(undefined);
+                  return intl.formatMessage(
+                    {
+                      id: e.key as any,
+                    },
+                    e.info,
+                  );
+                }
+                if (e?.className === OneKeyErrorClassNames.OneKeyValidatorTip) {
+                  setGasPriceTip(
+                    intl.formatMessage(
+                      {
+                        id: e.key as any,
+                      },
+                      e.info,
+                    ),
+                  );
+                }
+              }
+              return true;
+            },
           }}
           defaultValue=""
+          helpText={gasPriceTip && <FeeTipsWarning message={gasPriceTip} />}
         >
           <NumberInput
             w="100%"
@@ -345,11 +441,11 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           validate: async (value) => {
             const limitCalculated = feeInfoPayload?.info?.limit;
             try {
-              await backgroundApiProxy.validator.validateGasLimit(
+              await backgroundApiProxy.validator.validateGasLimit({
                 networkId,
                 value,
-                limitCalculated,
-              );
+                highValue: limitCalculated,
+              });
               setGasLimitTip(undefined);
             } catch (error) {
               printError(error);
@@ -422,9 +518,8 @@ function StandardFee({ feeInfoPayload, value, onChange }: IStandardFeeProps) {
           price: gas,
         });
         const minFee = min;
-        const totalFee = max;
         const totalFeeNative = calculateTotalFeeNative({
-          amount: totalFee,
+          amount: max,
           info: feeInfoPayload?.info,
         });
 
@@ -525,18 +620,25 @@ function ScreenSendEditFee({ ...rest }) {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
-  React.useLayoutEffect(() => {
-    // disable animation if auto navigate
+
+  useDisableNavigationAnimation({
+    condition: !!autoConfirmAfterFeeSaved,
+  });
+
+  const encodedTxForFeeInfo = useMemo(() => {
     if (autoConfirmAfterFeeSaved) {
-      navigation.setOptions({
-        // animation: 'none', // for native
-        animationEnabled: false, // for web
-      });
+      const tx = cloneDeep(encodedTx) as IEncodedTxEvm;
+      // delete origin tx limit when speedUp or cancel,
+      //      force rpc api to re-calculate latest limit
+      delete tx.gasLimit;
+      delete tx.gas;
+      return tx;
     }
-  }, [navigation, autoConfirmAfterFeeSaved]);
+    return encodedTx as IEncodedTxEvm;
+  }, [autoConfirmAfterFeeSaved, encodedTx]);
   const { feeInfoPayload, feeInfoLoading, getSelectedFeeInfoUnit } =
     useFeeInfoPayload({
-      encodedTx,
+      encodedTx: encodedTxForFeeInfo,
       fetchAnyway: true,
     });
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
@@ -549,14 +651,11 @@ function ScreenSendEditFee({ ...rest }) {
   const [radioValue, setRadioValue] = useState('');
 
   const isSmallScreen = useIsVerticalLayout();
-  const { control, handleSubmit, setValue, watch, getValues } =
-    useForm<FeeValues>({
-      mode: 'onBlur',
-      reValidateMode: 'onBlur',
-    });
-  const { isValid } = useFormState({ control });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const isValidDebounced = useDebounce(isValid, 300);
+  const useFormReturn = useForm<FeeValues>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+  });
+  const { handleSubmit, setValue } = useFormReturn;
   const onSubmit = handleSubmit((data) => {
     let type: IFeeInfoSelectedType =
       feeType === FeeType.advanced ? 'custom' : 'preset';
@@ -647,7 +746,11 @@ function ScreenSendEditFee({ ...rest }) {
   useEffect(() => {
     const selected = feeInfoPayload?.selected;
     let type = selected?.type ?? 'preset';
-    if (!feeInfoPayload || !feeInfoPayload?.info?.prices?.length) {
+    if (
+      !feeInfoPayload ||
+      !feeInfoPayload?.info?.prices?.length ||
+      autoConfirmAfterFeeSaved
+    ) {
       type = 'custom';
     }
     if (feeInfoPayload && type === 'preset') {
@@ -659,13 +762,51 @@ function ScreenSendEditFee({ ...rest }) {
       setRadioValue(presetValue);
       setFeeType(FeeType.standard);
     } else if (type === 'custom') {
-      const customValues = selected?.custom ?? {};
+      const customValues = cloneDeep(selected?.custom ?? {});
       setFeeType(FeeType.advanced);
       if (customValues) {
+        if (autoConfirmAfterFeeSaved) {
+          const highPriceData = last(feeInfoPayload?.info?.prices ?? []);
+          // TODO set limit to feeInfoPayload?.info?.limit (21000 in L1) if cancel action
+          customValues.limit = selectMaxValue(
+            customValues.limit,
+            feeInfoPayload?.info?.limit,
+            1,
+          );
+          if (customValues?.eip1559) {
+            const eip1559Price = customValues.price as EIP1559Fee;
+            if (eip1559Price) {
+              const highPriceInfo = highPriceData as EIP1559Fee | undefined;
+              eip1559Price.baseFee = selectMaxValue(
+                eip1559Price.baseFee,
+                highPriceInfo?.baseFee,
+                1.1,
+              );
+              eip1559Price.maxFeePerGas = selectMaxValue(
+                eip1559Price.maxFeePerGas,
+                highPriceInfo?.maxFeePerGas,
+                1.1,
+              );
+              eip1559Price.maxPriorityFeePerGas = selectMaxValue(
+                eip1559Price.maxPriorityFeePerGas,
+                highPriceInfo?.maxPriorityFeePerGas,
+                1.1,
+              );
+            }
+          } else {
+            const highPriceInfo = highPriceData as string;
+            customValues.price = selectMaxValue(
+              customValues.price as string,
+              highPriceInfo,
+              1.1,
+            );
+          }
+        }
         setFormValuesFromFeeInfo(customValues);
       }
     }
   }, [
+    autoConfirmAfterFeeSaved,
     feeInfoPayload,
     feeInfoPayload?.selected,
     feeInfoPayload?.selected.type,
@@ -707,10 +848,9 @@ function ScreenSendEditFee({ ...rest }) {
   if (feeType && !feeInfoLoading) {
     const customFeeForm = (
       <CustomFeeForm
+        autoConfirmAfterFeeSaved={autoConfirmAfterFeeSaved}
         feeInfoPayload={feeInfoPayload}
-        control={control}
-        watch={watch}
-        getValues={getValues}
+        useFormReturn={useFormReturn}
       />
     );
     content = feeInfoPayload ? (
@@ -751,7 +891,12 @@ function ScreenSendEditFee({ ...rest }) {
       header={intl.formatMessage({ id: 'action__edit_fee' })}
       footer={footer}
       scrollViewProps={{
-        children: content,
+        children: (
+          <>
+            {content}
+            <DecodeTxButtonTest encodedTx={encodedTx} />
+          </>
+        ),
       }}
     />
   );

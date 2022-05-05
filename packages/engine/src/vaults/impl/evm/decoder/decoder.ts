@@ -70,7 +70,9 @@ interface EVMDecodedItem {
   gasLimit: number;
   gasPrice: string;
   maxPriorityFeePerGas: string;
+  maxPriorityFeePerGasAmount?: string;
   maxFeePerGas: string;
+  maxFeePerGasAmount?: string;
   data: string;
 
   gasSpend: string; // in ether, estimated gas cost
@@ -216,6 +218,9 @@ class EVMTxDecoder {
   }
 
   private fillTxInfo(itemBuilder: EVMDecodedItem, tx: ethers.Transaction) {
+    // TODO feeDecimals hardcode
+    const feeDecimals = 9;
+
     itemBuilder.value = tx.value.toString();
     itemBuilder.fromAddress = tx.from?.toLowerCase() ?? '';
     itemBuilder.toAddress = tx.to?.toLowerCase() ?? '';
@@ -227,6 +232,20 @@ class EVMTxDecoder {
     itemBuilder.maxPriorityFeePerGas =
       tx.maxPriorityFeePerGas?.toString() ?? '';
     itemBuilder.maxFeePerGas = tx.maxFeePerGas?.toString() ?? '';
+    itemBuilder.maxFeePerGasAmount =
+      (itemBuilder.maxFeePerGas &&
+        this.formatValue(
+          ethers.BigNumber.from(itemBuilder.maxFeePerGas),
+          feeDecimals,
+        )) ??
+      '';
+    itemBuilder.maxPriorityFeePerGasAmount =
+      (itemBuilder.maxPriorityFeePerGas &&
+        this.formatValue(
+          ethers.BigNumber.from(itemBuilder.maxPriorityFeePerGas),
+          feeDecimals,
+        )) ??
+      '';
     itemBuilder.data = tx.data;
   }
 

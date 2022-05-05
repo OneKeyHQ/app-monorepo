@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { toPlainErrorObject } from '../background/utils';
 
 function useDappApproveAction({
   id,
@@ -18,9 +18,6 @@ function useDappApproveAction({
   getResolveData?: () => Promise<any> | any;
   closeOnError?: boolean;
 }) {
-  if (!id) {
-    console.error('useDappApproveAction ERROR: id not exists');
-  }
   const isExt = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve

@@ -60,7 +60,7 @@ type TransactionValues = {
 
 type Option = SelectItem<string>;
 
-// TODO utils function createPromisedDebounce
+// TODO useDebounce instead
 const buildEncodedTxFromTransferDebounced = debounce(
   (options: {
     networkId: string;
@@ -71,7 +71,7 @@ const buildEncodedTxFromTransferDebounced = debounce(
     const { callback, ...others } = options;
     callback(backgroundApiProxy.engine.buildEncodedTxFromTransfer(others));
   },
-  300,
+  500,
   { leading: false, trailing: true },
 );
 
@@ -82,7 +82,7 @@ const Transaction = () => {
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
-  const { token: routeParamsToken } = route.params;
+  const routeParamsToken = route?.params?.token;
 
   const {
     control,

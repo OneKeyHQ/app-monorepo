@@ -9,7 +9,7 @@ export enum OneKeyErrorClassNames {
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
-export class OneKeyError extends Web3RpcError<undefined> {
+export class OneKeyError extends Web3RpcError<Error> {
   className = OneKeyErrorClassNames.OneKeyError;
 
   info: IOneKeyErrorInfo;
