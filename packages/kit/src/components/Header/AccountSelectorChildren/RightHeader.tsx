@@ -85,24 +85,6 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
 
-  const renderBackupState = useMemo(() => {
-    if (!selectedWallet) return null;
-    if (selectedWallet.backuped) {
-      return (
-        <Icon
-          name={isVerticalLayout ? 'CheckCircleOutline' : 'CheckCircleSolid'}
-          color="icon-success"
-        />
-      );
-    }
-    return (
-      <Icon
-        name={isVerticalLayout ? 'ExclamationOutline' : 'ExclamationSolid'}
-        color="icon-warning"
-      />
-    );
-  }, [isVerticalLayout, selectedWallet]);
-
   const onDeleteWallet = () => {
     if (selectedWallet?.backuped === true) {
       showVerify(
@@ -185,7 +167,6 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                     ? 'ShieldCheckOutline'
                     : 'ShieldCheckSolid',
                 },
-                trailing: renderBackupState,
               },
               {
                 label: intl.formatMessage({ id: 'action__delete_wallet' }),
