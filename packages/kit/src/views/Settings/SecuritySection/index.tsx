@@ -20,9 +20,10 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
-import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
 import { PasswordRoutes } from '../../../routes/Modal/Password';
 import {
+  HomeRoutes,
+  HomeRoutesParams,
   ModalRoutes,
   RootRoutes,
   RootRoutesParams,
@@ -33,18 +34,18 @@ import { SelectTrigger } from '../SelectTrigger';
 
 import ResetButton from './ResetButton';
 
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  RootRoutesParams,
-  RootRoutes.Root
+type NavigationProps = CompositeNavigationProp<
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.SettingsScreen>
 >;
 
 export const SecuritySection = () => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const { enableAppLock, enableLocalAuthentication, appLockDuration } =
-    useSettings();
+  const { enableAppLock, appLockDuration } = useSettings();
   const { isPasswordSet } = useData();
   const { authenticationType } = useStatus();
   const { isOk } = useLocalAuthentication();
@@ -144,7 +145,7 @@ export const SecuritySection = () => {
             </Box>
           </Pressable>
           {isOk && isPasswordSet ? (
-            <Box
+            <Pressable
               display="flex"
               flexDirection="row"
               justifyContent="space-between"
@@ -153,6 +154,9 @@ export const SecuritySection = () => {
               px={{ base: 4, md: 6 }}
               borderBottomWidth="1"
               borderBottomColor="divider"
+              onPress={() => {
+                navigation.navigate(HomeRoutes.FaceId);
+              }}
             >
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
@@ -167,21 +171,9 @@ export const SecuritySection = () => {
                   : intl.formatMessage({ id: 'content__touch_id' })}
               </Text>
               <Box>
-                <Switch
-                  labelType="false"
-                  isChecked={enableLocalAuthentication}
-                  onToggle={() => {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.EnableLocalAuthentication,
-                      params: {
-                        screen:
-                          EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
-                      },
-                    });
-                  }}
-                />
+                <Icon name="ChevronRightSolid" size={20} />
               </Box>
-            </Box>
+            </Pressable>
           ) : null}
           {isPasswordSet ? (
             <Box

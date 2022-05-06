@@ -6,10 +6,15 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendRoutes, SendRoutesParams } from './types';
@@ -72,13 +77,10 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
             // onSuccess will close() modal, goBack() is NOT needed here.
             // navigation.getParent()?.goBack?.();
           }
-          // TODO toast not working if timeout < 500, and should be after navigate()
-          setTimeout(() => {
-            const msg = intl.formatMessage({ id: 'transaction__success' });
-            toast.show({
-              title: msg,
-            });
-          }, 600);
+          const msg = intl.formatMessage({ id: 'transaction__success' });
+          toast.show({
+            title: msg,
+          });
         }
       } catch (e) {
         if (route.params.backRouteName) {
@@ -89,6 +91,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           });
         } else {
           // goBack or close
+          navigation.getParent()?.goBack?.();
         }
 
         // EIP 1559 fail:
@@ -96,21 +99,25 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         //  already known
         setTimeout(() => {
           console.error(e);
-          const error = e as {
-            key?: string;
-            message?: string;
-            code?: number;
-            data?: { message?: string };
-          };
+          const error = e as OneKeyError;
           // TODO: better error displaying
           if (
             error?.code === -32603 &&
             typeof error?.data?.message === 'string'
           ) {
-            toast.show({ title: error.data.message });
-          } else {
             toast.show({
-              title: error?.key ?? error?.message ?? '',
+              title:
+                error.data.message ||
+                intl.formatMessage({ id: 'transaction__failed' }),
+              description: error.data.message, // TODO toast description not working
+            });
+          } else {
+            const msg = error?.key
+              ? intl.formatMessage({ id: error?.key as any }, error?.info ?? {})
+              : error?.message ?? '';
+            toast.show({
+              title: msg || intl.formatMessage({ id: 'transaction__failed' }),
+              description: msg,
             });
           }
         }, 600);
@@ -129,11 +136,17 @@ export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
 
+  useDisableNavigationAnimation({
+    condition: !!params.autoConfirmAfterFeeSaved,
+  });
+
   // TODO all Modal close should reject dapp call
   return (
     <Modal height="598px" footer={null}>
       <DecodeTxButtonTest encodedTx={params.encodedTx} />
-      <Protected>{(password) => <SendAuth password={password} />}</Protected>
+      <Protected field={ValidationFields.Payment}>
+        {(password) => <SendAuth password={password} />}
+      </Protected>
     </Modal>
   );
 };

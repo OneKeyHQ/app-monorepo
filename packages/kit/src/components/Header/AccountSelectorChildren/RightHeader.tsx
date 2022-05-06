@@ -26,6 +26,7 @@ import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey'
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
+import { ValidationFields } from '../../Protected';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;
@@ -110,9 +111,11 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             walletId: selectedWallet?.id ?? '',
             password: pwd,
           });
-          setShowDeleteWalletDialog(true);
+          setTimeout(() => setShowDeleteWalletDialog(true), 500);
         },
         () => {},
+        null,
+        ValidationFields.Wallet,
       );
     } else {
       setShowBackupDialog(true);

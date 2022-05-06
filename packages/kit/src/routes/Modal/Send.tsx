@@ -61,9 +61,7 @@ const TransactionStack = () => {
     <SendNavigator.Navigator
       screenOptions={{
         headerShown: false,
-        // speedUp and cancel auto navigate with animation is weired, so we disable animation
-        animationEnabled: false,
-        // animationEnabled: !!isVerticalLayout,
+        animationEnabled: !!isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (

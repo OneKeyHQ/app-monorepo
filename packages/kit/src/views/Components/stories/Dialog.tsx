@@ -7,6 +7,7 @@ import {
   Button,
   Center,
   Dialog,
+  DialogManager,
   Stack,
   Typography,
 } from '@onekeyhq/components';
@@ -173,6 +174,48 @@ const Modal7 = () => {
   );
 };
 
+/**
+ * DialogManager 会注入 onClose 方法，务必传入并使用才可关闭容器
+ * Dialog 保证 visible 即可，容器会动态挂载此 Dialog
+ *
+ */
+function DialogManagerExample({ onClose }: { onClose?: () => void }) {
+  return (
+    <Dialog
+      visible
+      contentProps={{
+        iconType: 'danger',
+        title: 'Danger',
+        content: '操作过程出现了严重错误，请联系客服寻求帮助。',
+      }}
+      footerButtonProps={{
+        onPrimaryActionPress: () => {
+          onClose?.();
+          console.log('点击 弹窗1 的主按钮');
+        },
+        onSecondaryActionPress: () => {
+          console.log('点击 弹窗1 的副按钮');
+        },
+        primaryActionProps: {
+          type: 'outline',
+        },
+      }}
+    />
+  );
+}
+
+const Modal8 = () => (
+  <Button
+    onPress={() => {
+      DialogManager.show({
+        render: <DialogManagerExample />,
+      });
+    }}
+  >
+    DialogManager 打开
+  </Button>
+);
+
 const DialogGallery = () => (
   <Center flex="1" bg="background-hovered">
     <Stack
@@ -188,6 +231,7 @@ const DialogGallery = () => (
       <Modal5 />
       <Modal6 />
       <Modal7 />
+      <Modal8 />
     </Stack>
   </Center>
 );

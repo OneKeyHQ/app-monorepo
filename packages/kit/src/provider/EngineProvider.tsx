@@ -1,18 +1,16 @@
 import React, { FC, useEffect, useState } from 'react';
 
-import OneKeyConnect, { UI } from '@onekeyfe/js-sdk';
+import OneKeyConnect from '@onekeyfe/js-sdk';
 import * as SplashScreen from 'expo-splash-screen';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
 import { Box, Center, Spinner } from '@onekeyhq/components';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { UICallback } from '@onekeyhq/kit/src/utils/device/deviceConnection';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-
 const EngineApp: FC = ({ children }) => {
-  const toast = useToast();
   const intl = useIntl();
   const [loading, setLoading] = useState(true);
   const { serviceApp, serviceCronJob } = backgroundApiProxy;
@@ -38,39 +36,12 @@ const EngineApp: FC = ({ children }) => {
 
   useEffect(() => {
     if (!platformEnv.isBrowser) return;
-    const UICallback = ({ type }: { type: string }) => {
-      switch (type) {
-        case UI.REQUEST_PIN:
-          toast.show(
-            {},
-            {
-              autoHide: false,
-              type: 'enterPinOnDevice',
-            },
-          );
-          OneKeyConnect.uiResponse({
-            type: UI.RECEIVE_PIN,
-            payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
-          });
-          break;
-        case UI.REQUEST_BUTTON:
-          toast.show(
-            {},
-            {
-              autoHide: false,
-              type: 'confirmOnDevice',
-            },
-          );
-          break;
-        default:
-          break;
-      }
-    };
+
     OneKeyConnect.on('UI_EVENT', UICallback);
     return () => {
       OneKeyConnect.off('UI_EVENT', UICallback);
     };
-  }, [intl, toast]);
+  }, [intl]);
 
   return (
     <Box flex="1">

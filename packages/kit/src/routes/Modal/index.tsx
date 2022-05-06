@@ -3,6 +3,10 @@ import React, { memo } from 'react';
 
 import { createStackNavigator } from '@react-navigation/stack';
 
+import { DialogManager } from '@onekeyhq/components';
+import Toast from '@onekeyhq/components/src/Toast/Custom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import {
@@ -230,19 +234,24 @@ export type ModalTypes = {
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
 const ModalStackNavigator = () => (
-  <ModalStack.Navigator
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    {modalStackScreenList.map((modal) => (
-      <ModalStack.Screen
-        key={modal.name}
-        name={modal.name}
-        component={modal.component}
-      />
-    ))}
-  </ModalStack.Navigator>
+  <>
+    <ModalStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      {modalStackScreenList.map((modal) => (
+        <ModalStack.Screen
+          key={modal.name}
+          name={modal.name}
+          component={modal.component}
+        />
+      ))}
+    </ModalStack.Navigator>
+    {/* Native Modal must register another for root container */}
+    {platformEnv.isIOS && <Toast bottomOffset={60} />}
+    {platformEnv.isIOS && <DialogManager.Holder />}
+  </>
 );
 
 export default memo(ModalStackNavigator);

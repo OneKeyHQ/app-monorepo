@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -93,93 +93,140 @@ function FeeInfoInputForTransfer({
   loading: boolean;
 }) {
   const intl = useIntl();
-  const renderChildren = useCallback(
-    ({ isHovered }) => {
-      const isPreset = feeInfoPayload?.selected?.type === 'preset';
-      let icon: React.ReactElement | null = (
-        <Icon size={20} name="PencilSolid" />
-      );
-      if (!encodedTx) {
-        icon = null;
-      }
-      if (feeInfoPayload) {
-        icon = <Icon size={20} name="PencilSolid" />;
-      }
-      if (loading) {
-        icon = <Spinner size="sm" />;
-      }
-      let feeSpeedTime = '';
-      if (feeInfoPayload?.selected?.type === 'preset') {
-        if (feeInfoPayload?.selected?.preset === '0')
-          feeSpeedTime = intl.formatMessage({
-            id: 'content__maybe_in_30s',
-          });
-        if (feeInfoPayload?.selected?.preset === '1')
-          feeSpeedTime = intl.formatMessage({
-            id: 'content__likely_less_than_15s',
-          });
-        if (feeInfoPayload?.selected?.preset === '2')
-          feeSpeedTime = intl.formatMessage({
-            id: 'content__very_likely_less_than_15s',
-          });
-      }
+  const isPreset = feeInfoPayload?.selected?.type === 'preset';
+  const showFirstTimeHint = useRef(true);
+
+  const icon: React.ReactElement | null = useMemo(() => {
+    if (!encodedTx) {
+      return null;
+    }
+    if (loading) {
+      return <Spinner size="sm" />;
+    }
+    if (feeInfoPayload) {
+      return <Icon size={20} name="PencilSolid" />;
+    }
+    return <Icon size={20} name="PencilSolid" />;
+  }, [encodedTx, feeInfoPayload, loading]);
+
+  const title = useMemo(() => {
+    if (!encodedTx || !feeInfoPayload) {
+      return null;
+    }
+    const totalNative = feeInfoPayload?.current?.totalNative ?? '0';
+
+    const typography = {
+      sm: 'Body1Strong',
+      md: 'Body2Strong',
+    } as any;
+
+    if (isPreset) {
       return (
-        // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
-        <Box
-          justifyContent="space-between"
-          alignItems="center"
-          flexDirection="row"
-          bgColor={isHovered ? 'surface-hovered' : 'surface-default'}
-          borderColor="border-default"
-          borderWidth="1px"
-          borderRadius="12px"
-          paddingX="12px"
-          paddingY="8px"
-        >
-          <Box flex={1}>
-            {(isPreset || feeInfoPayload?.current?.totalNative) && (
-              <Text
-                typography={{
-                  sm: 'Body1Strong',
-                  md: 'Body2Strong',
-                }}
-              >
-                {isPreset ? (
-                  <>
-                    <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-                    <FormatCurrencyNative
-                      value={feeInfoPayload?.current?.totalNative}
-                      render={(ele) => <>(~ {ele})</>}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <FormatCurrencyNative
-                      value={feeInfoPayload?.current?.totalNative}
-                      render={(ele) => <>{ele}</>}
-                    />
-                  </>
-                )}
-              </Text>
-            )}
-            {isPreset && (
-              <Text color="text-subdued" flex={1}>
-                {feeInfoPayload?.current?.totalNative && feeSpeedTime}
-              </Text>
-            )}
-            {!feeInfoPayload?.current?.totalNative && (
-              <Text color="text-subdued" flex={1}>
-                {loading
-                  ? intl.formatMessage({ id: 'content__just_a_moment' })
-                  : intl.formatMessage({ id: 'content__calculate_fee' })}
-              </Text>
-            )}
-          </Box>
-          {icon}
-        </Box>
+        <>
+          <Text typography={typography}>
+            <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+            <FormatCurrencyNative
+              value={totalNative}
+              render={(ele) => <>(~ {ele})</>}
+            />
+          </Text>
+        </>
       );
-    },
-    [encodedTx, feeInfoPayload, intl, loading],
+    }
+    // TODO fallback to native value if fiat price is null
+    return (
+      <Text typography={typography}>
+        <FormatCurrencyNative
+          value={totalNative}
+          render={(ele) => <>{ele}</>}
+        />
+      </Text>
+    );
+  }, [encodedTx, feeInfoPayload, isPreset]);
+
+  const subTitle = useMemo(() => {
+    if (!isPreset || !encodedTx || !feeInfoPayload) {
+      return null;
+    }
+    let feeSpeedTime = '';
+    if (feeInfoPayload?.selected?.type === 'preset') {
+      if (feeInfoPayload?.selected?.preset === '0')
+        feeSpeedTime = intl.formatMessage({
+          id: 'content__maybe_in_30s',
+        });
+      if (feeInfoPayload?.selected?.preset === '1')
+        feeSpeedTime = intl.formatMessage({
+          id: 'content__likely_less_than_15s',
+        });
+      if (feeInfoPayload?.selected?.preset === '2')
+        feeSpeedTime = intl.formatMessage({
+          id: 'content__very_likely_less_than_15s',
+        });
+    }
+
+    return (
+      <Text color="text-subdued" flex={1}>
+        {feeSpeedTime}
+      </Text>
+    );
+  }, [encodedTx, feeInfoPayload, intl, isPreset]);
+
+  const loadingView = useMemo(
+    () => (
+      <Text color="text-subdued" flex={1}>
+        {intl.formatMessage({ id: 'content__just_a_moment' })}
+      </Text>
+    ),
+    [intl],
+  );
+  const hint = useMemo(() => {
+    let text = '';
+    if (!feeInfoPayload && showFirstTimeHint.current) {
+      showFirstTimeHint.current = false;
+      text = intl.formatMessage({ id: 'content__calculate_fee' });
+    }
+    if (text) {
+      return (
+        <Text color="text-subdued" flex={1}>
+          {text}
+        </Text>
+      );
+    }
+    if (!title && !subTitle) {
+      return loadingView;
+    }
+    return null;
+  }, [feeInfoPayload, intl, loadingView, title, subTitle]);
+
+  const renderChildren = useCallback(
+    ({ isHovered }) => (
+      // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
+      <Box
+        justifyContent="space-between"
+        alignItems="center"
+        flexDirection="row"
+        bgColor={isHovered ? 'surface-hovered' : 'surface-default'}
+        borderColor="border-default"
+        borderWidth="1px"
+        borderRadius="12px"
+        paddingX="12px"
+        paddingY="8px"
+      >
+        <Box flex={1}>
+          {loading ? (
+            loadingView
+          ) : (
+            <>
+              {title}
+              {subTitle}
+              {hint}
+            </>
+          )}
+        </Box>
+        {icon}
+      </Box>
+    ),
+    [hint, icon, loading, loadingView, subTitle, title],
   );
   return (
     <FeeInfoInput

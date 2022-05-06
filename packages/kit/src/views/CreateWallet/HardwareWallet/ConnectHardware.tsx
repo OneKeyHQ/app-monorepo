@@ -147,8 +147,6 @@ const ConnectHardwareModal: FC = () => {
 
   const handleConnectDeviceWithDevice = useCallback(
     (device: Device) => {
-      console.log('Connecting to device', device);
-
       if (!deviceUtils || !device) return;
 
       // bleUtils.stopScan();

@@ -15,13 +15,16 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
+import { ValidationFields } from './types';
+
 type FieldValues = { password: string };
 
 type ValidationProps = {
+  field?: ValidationFields;
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
 };
 
-const Validation: FC<ValidationProps> = ({ onOk }) => {
+const Validation: FC<ValidationProps> = ({ onOk, field }) => {
   const { serviceApp } = backgroundApiProxy;
   const intl = useIntl();
   const { enableLocalAuthentication } = useSettings();
@@ -94,7 +97,10 @@ const Validation: FC<ValidationProps> = ({ onOk }) => {
       </Form>
       {enableLocalAuthentication && (
         <Center mt="8">
-          <LocalAuthenticationButton onOk={onLocalAuthenticationOk} />
+          <LocalAuthenticationButton
+            onOk={onLocalAuthenticationOk}
+            field={field}
+          />
         </Center>
       )}
     </KeyboardDismissView>

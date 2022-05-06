@@ -6,12 +6,11 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
 import { Box } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
+import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
+import store from '@onekeyhq/kit/src/store';
 import useRemoteConsole from '@onekeyhq/remote-console/src/useRemoteConsole';
-
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { waitForDataLoaded } from '../background/utils';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-import store from '../store';
 
 import EngineApp from './EngineProvider';
 import NavigationApp from './NavigationProvider';

@@ -7,7 +7,9 @@ import { useIntl } from 'react-intl';
 
 import { Modal, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import {
@@ -128,7 +130,7 @@ const BackupAuthorityWalletVerifyView: FC = () => {
 
   return (
     <Modal footer={null}>
-      <Protected>
+      <Protected field={ValidationFields.Wallet}>
         {(password) => (
           <BackupWalletAuthorityVerifyDone
             walletId={walletId}
