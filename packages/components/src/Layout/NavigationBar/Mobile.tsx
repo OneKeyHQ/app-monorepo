@@ -9,12 +9,7 @@ import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import { DeviceState } from '../../Provider/device';
-import {
-  useSafeAreaInsets,
-  useThemeValue,
-  useUserDevice,
-} from '../../Provider/hooks';
-import Typography from '../../Typography';
+import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type { BottomTabBarProps } from '../BottomTabs/types';
@@ -55,11 +50,6 @@ export default function BottomTabBar({
     deviceSize: size,
   });
 
-  const [activeFontColor, inactiveFontColor] = useThemeValue([
-    'text-default',
-    'text-subdued',
-  ]);
-
   return (
     <Box
       borderTopWidth={StyleSheet.hairlineWidth}
@@ -93,7 +83,7 @@ export default function BottomTabBar({
           };
 
           return (
-            <Box flex={1} p={1} key={route.name}>
+            <Box flex={1} px={1} py={2} key={route.name}>
               <Pressable
                 alignItems="center"
                 p={0.5}
@@ -122,25 +112,6 @@ export default function BottomTabBar({
                   color={isActive ? 'icon-pressed' : 'icon-subdued'}
                   size={24}
                 />
-                <Typography.Caption
-                  numberOfLines={1}
-                  mt={0.5}
-                  textAlign="center"
-                  color={isActive ? activeFontColor : inactiveFontColor}
-                  style={[
-                    horizontal
-                      ? {
-                          fontSize: 13,
-                          marginLeft: 20,
-                          marginTop: 3,
-                        }
-                      : {
-                          fontSize: 10,
-                        },
-                  ]}
-                >
-                  {options.tabBarLabel ?? route.name}
-                </Typography.Caption>
               </Pressable>
             </Box>
           );
