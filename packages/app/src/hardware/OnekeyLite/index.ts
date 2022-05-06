@@ -7,7 +7,7 @@ import { Callback, CallbackError, CardErrors, CardInfo } from './types';
 const { OKLiteManager } = NativeModules;
 
 export const LiteFlag = {
-  VERSION: '02',
+  VERSION: '01',
   LANGUAGE: '00', // english
   TAG: 'ffff',
 };
@@ -31,7 +31,7 @@ class OnekeyLite {
     mnemonic: string,
   ): Promise<string> {
     const meta = LiteFlag.TAG + version + language;
-    const enMnemonic = await backgroundApiProxy.engine.mnemonicToEntropyV2(
+    const enMnemonic = await backgroundApiProxy.engine.mnemonicToEntropy(
       mnemonic.trim(),
     ); // mnemonic to index
     return enMnemonic + meta;
@@ -43,8 +43,6 @@ class OnekeyLite {
         return Buffer.from(payload, 'hex').toString().trim();
 
       const meta = payload.slice(-8);
-
-      console.log('decodeMnemonic meta: ', meta);
 
       const regexp = new RegExp('^ffff[a-f0-9]{4}$');
       if (regexp.test(meta)) {

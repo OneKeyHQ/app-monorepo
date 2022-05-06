@@ -264,15 +264,15 @@ class Engine {
     const wordlists = bip39.wordlists.english;
     const n = wordlists.length;
     const words = mnemonic.split(' ');
-    let i = 0;
+    let i = new BigNumber(0);
     while (words.length) {
       const w = words.pop();
       if (w) {
         const k = wordlists.indexOf(w);
-        i = i * n + k;
+        i = i.times(n).plus(k);
       }
     }
-    return Promise.resolve(i.toString(16));
+    return Promise.resolve(i.toFixed());
   }
 
   @backgroundMethod()
