@@ -2,6 +2,7 @@ import React, { FC, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
@@ -44,8 +45,14 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
   const { prices, balances } = useManageTokens();
-  const tokenPrice = prices[token?.tokenIdOnNetwork ?? 'main'];
-  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  const tokenPrice = useDeepCompareMemo(
+    () => prices[token?.tokenIdOnNetwork ?? 'main'],
+    [prices],
+  );
+  const amount = useDeepCompareMemo(
+    () => balances[token?.tokenIdOnNetwork || 'main'] ?? '0',
+    [balances],
+  );
 
   const renderAccountAmountInfo = useMemo(
     () => (

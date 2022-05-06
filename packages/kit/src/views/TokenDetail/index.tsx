@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Box } from '@onekeyhq/components';
+import { Account } from '@onekeyhq/engine/src/types/account';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
-import { useActiveWalletAccount } from '../../hooks/redux';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageTokens } from '../../hooks/useManageTokens';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
@@ -26,11 +28,26 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
-  const { account } = useActiveWalletAccount();
+  const [account, setAccount] = useState<Account>();
   const { accountTokensMap, nativeToken } = useManageTokens();
-  const token = accountTokensMap.get(tokenId);
+
+  const token = useDeepCompareMemo(
+    () => accountTokensMap.get(tokenId),
+    [accountTokensMap],
+  );
 
   useEffect(() => {
+    backgroundApiProxy.engine
+      .getAccount(accountId, networkId)
+      .then((accountById) => {
+        setAccount(accountById);
+      })
+      .catch(() => {
+        console.error('find account error');
+      });
+  }, [accountId, networkId]);
+
+  useLayoutEffect(() => {
     const title = token?.name || nativeToken?.name || account?.name;
     navigation.setOptions({ title });
   }, [navigation, account, token, nativeToken]);
