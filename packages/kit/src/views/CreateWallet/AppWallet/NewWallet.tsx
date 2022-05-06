@@ -2,7 +2,6 @@ import React, { FC, useEffect } from 'react';
 
 import {
   useNavigation,
-  NavigationProp,
 } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
@@ -13,24 +12,23 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-
-type NavigationProps = NavigationProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.NewWalletModal
->;
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 type NewWalletProps = {
   password: string;
   withEnableAuthentication?: boolean;
 };
 
+
+type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+
 const NewWallet: FC<NewWalletProps> = ({
   password,
   withEnableAuthentication,
 }) => {
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   useEffect(() => {
-    navigation.navigate(CreateWalletModalRoutes.AttentionsModal, {
+    navigation.replace(CreateWalletModalRoutes.AttentionsModal, {
       password,
       withEnableAuthentication,
     });
