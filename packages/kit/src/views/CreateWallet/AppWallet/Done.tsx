@@ -6,7 +6,9 @@ import { useIntl } from 'react-intl';
 import { Center, Modal, Spinner } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -71,7 +73,7 @@ export const AppWalletDone = () => {
   const { mnemonic } = route.params ?? {};
   return (
     <Modal footer={null}>
-      <Protected skipSavePassword>
+      <Protected skipSavePassword field={ValidationFields.Wallet}>
         {(password, { withEnableAuthentication }) => (
           <Done
             password={password}

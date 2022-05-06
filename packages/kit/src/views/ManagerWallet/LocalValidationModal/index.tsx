@@ -18,7 +18,8 @@ type RouteProps = RouteProp<
 
 const ManagerWalletLocalValidationView: FC = () => {
   const navigation = useNavigation();
-  const { requestId, onSuccess, onCancel } = useRoute<RouteProps>().params;
+  const { requestId, onSuccess, onCancel, field } =
+    useRoute<RouteProps>().params;
   const [inputPwd, setInputPwd] = useState('');
 
   type PasswordViewProps = {
@@ -48,7 +49,7 @@ const ManagerWalletLocalValidationView: FC = () => {
         if (!inputPwd) onCancel?.();
       }}
     >
-      <Protected>
+      <Protected field={field}>
         {(password) => <PasswordView password={password} />}
       </Protected>
     </Modal>

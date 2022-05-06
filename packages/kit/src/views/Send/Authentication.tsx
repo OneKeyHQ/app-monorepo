@@ -8,7 +8,9 @@ import { useIntl } from 'react-intl';
 import { Center, Modal, Spinner } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -142,7 +144,9 @@ export const HDAccountAuthentication = () => {
   return (
     <Modal height="598px" footer={null}>
       <DecodeTxButtonTest encodedTx={params.encodedTx} />
-      <Protected>{(password) => <SendAuth password={password} />}</Protected>
+      <Protected field={ValidationFields.Payment}>
+        {(password) => <SendAuth password={password} />}
+      </Protected>
     </Modal>
   );
 };

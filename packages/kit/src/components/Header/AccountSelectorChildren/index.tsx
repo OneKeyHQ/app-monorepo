@@ -36,6 +36,7 @@ import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationMo
 import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
 import AccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount';
+import { ValidationFields } from '../../Protected';
 
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
@@ -160,6 +161,8 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
                 );
               },
               () => {},
+              null,
+              ValidationFields.Account,
             );
           }
           break;

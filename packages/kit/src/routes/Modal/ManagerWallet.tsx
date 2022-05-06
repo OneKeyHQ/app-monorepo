@@ -6,6 +6,8 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import ManagerWalletLocalValidationView from '@onekeyhq/kit/src/views/ManagerWallet/LocalValidationModal';
 import ModifyWalletNameView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWallet/name';
 
+import { ValidationFields } from '../../components/Protected/types';
+
 export enum ManagerWalletModalRoutes {
   ManagerWalletModal = 'ManagerWalletModal',
   ManagerWalletAuthorityVerifyModal = 'ManagerWalletAuthorityVerifyModal',
@@ -23,6 +25,7 @@ export type ManagerWalletRoutesParams = {
     requestId: string;
     onSuccess: (requestId: string, password: string) => void;
     onCancel: () => void;
+    field?: ValidationFields;
   };
 };
 

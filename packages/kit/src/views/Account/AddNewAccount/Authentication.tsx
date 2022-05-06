@@ -4,7 +4,9 @@ import React, { FC, useEffect } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
-import Protected from '@onekeyhq/kit/src/components/Protected';
+import Protected, {
+  ValidationFields,
+} from '@onekeyhq/kit/src/components/Protected';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -41,7 +43,7 @@ export const HDAccountAuthentication: FC = () => {
   const { onDone } = route.params;
   return (
     <Modal footer={null}>
-      <Protected>
+      <Protected field={ValidationFields.Account}>
         {(password) => (
           <HDAccountAuthenticationDone
             password={password}
