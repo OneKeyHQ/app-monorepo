@@ -6,14 +6,30 @@ import './shared-polyfill';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import devToolsButton from '../content-script/devToolsButton';
 
-console.log('==== injected script tag start >>>>>>>', performance.now());
+// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import injectedCode from './injected.text-js';
 
-console.log('[OneKey RN]: Content script works! 333');
-console.log('   Must reload extension for modifications to take effect.');
+if (process.env.NODE_ENV !== 'production') {
+  console.log('==== injected script tag start >>>>>>>', performance.now());
+  console.log('[OneKey RN]: Content script works! ');
+  console.log('   Must reload extension for modifications to take effect.');
+}
 
-bridgeSetup.contentScript.inject('injected.js');
+const removeScriptTagAfterInject = true;
+if (platformEnv.isManifestV3) {
+  bridgeSetup.contentScript.inject({ file: 'injected.js' });
+} else {
+  // bridgeSetup.contentScript.inject({ file: 'injected.js' });
+  bridgeSetup.contentScript.inject({
+    code: injectedCode,
+    remove: removeScriptTagAfterInject,
+  });
+}
 bridgeSetup.contentScript.setupMessagePort();
 
 if (
@@ -25,6 +41,8 @@ if (
   }, 2000);
 }
 
-console.log('==== injected script tag done >>>>>>>', performance.now());
+if (process.env.NODE_ENV !== 'production') {
+  console.log('==== injected script tag done >>>>>>>', performance.now());
+}
 
 export {};

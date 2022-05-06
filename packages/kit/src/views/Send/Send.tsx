@@ -114,7 +114,9 @@ const Transaction = () => {
   const intl = useIntl();
 
   const { nativeToken, accountTokens, balances, getTokenBalance } =
-    useManageTokens();
+    useManageTokens({
+      fetchTokensOnMount: true,
+    });
   // selected token
   const [selectOption, setSelectOption] = useState<Option | null>(null);
 
