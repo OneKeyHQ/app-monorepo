@@ -1,73 +1,20 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC } from 'react';
 
 import axios from 'axios';
-import * as SplashScreen from 'expo-splash-screen';
 import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
-import { Box } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import store from '@onekeyhq/kit/src/store';
 import useRemoteConsole from '@onekeyhq/remote-console/src/useRemoteConsole';
 
-import EngineApp from './EngineProvider';
+import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import ThemeApp from './ThemeProvider';
-
-function WaitBackgroundReady({
-  loading,
-  children,
-}: {
-  loading?: any;
-  children: any;
-}): any {
-  const [ready, setReady] = useState(false);
-  const loadingView =
-    loading ??
-    (process.env.NODE_ENV !== 'production' && <Box>Loading background...</Box>);
-  useEffect(() => {
-    (async () => {
-      await waitForDataLoaded({
-        logName: 'WaitBackgroundReady',
-        data: async () => {
-          const result = await backgroundApiProxy.getState();
-
-          if (result && result.bootstrapped) {
-            store.dispatch({
-              // TODO use consts
-              type: 'REPLACE_WHOLE_STATE',
-              payload: result.state,
-              $isDispatchFromBackground: true,
-            });
-
-            return true;
-          }
-          return false;
-        },
-      });
-      setReady(true);
-    })();
-  }, []);
-
-  return ready ? children : loadingView;
-}
 
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => {
   useRemoteConsole();
-  useEffect(() => {
-    async function prepare() {
-      try {
-        await SplashScreen.preventAutoHideAsync();
-      } catch (e) {
-        console.log(e);
-      }
-    }
-    prepare();
-  }, []);
-
   return (
     <SWRConfig
       value={{
@@ -81,13 +28,11 @@ const KitProvider: FC = () => {
     >
       <ReduxProvider store={store}>
         <ThemeApp>
-          <WaitBackgroundReady loading={undefined}>
-            <EngineApp>
-              <ErrorBoundary>
-                <NavigationApp />
-              </ErrorBoundary>
-            </EngineApp>
-          </WaitBackgroundReady>
+          <AppLoading>
+            <ErrorBoundary>
+              <NavigationApp />
+            </ErrorBoundary>
+          </AppLoading>
         </ThemeApp>
       </ReduxProvider>
     </SWRConfig>
