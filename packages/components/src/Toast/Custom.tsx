@@ -65,8 +65,9 @@ const CustomToast: FC<Props> = (outerProps) => {
           />
         ),
         enterPinOnDevice: ({ props }) => (
-          <Box px={4} maxW="374">
+          <Box px={6} w="full" maxW="374">
             <Box
+              w="full"
               mx="auto"
               p={4}
               pb={6}
@@ -77,7 +78,12 @@ const CustomToast: FC<Props> = (outerProps) => {
               shadow="depth.4"
               {...props}
             >
-              <LottieView source={EnterPinCodeOnClassic} autoPlay loop />
+              <LottieView
+                source={EnterPinCodeOnClassic}
+                autoPlay
+                loop
+                style={{ width: '100%' }}
+              />
               <Text
                 typography="DisplayMedium"
                 mt={6}
@@ -90,7 +96,7 @@ const CustomToast: FC<Props> = (outerProps) => {
           </Box>
         ),
         confirmOnDevice: ({ props }) => (
-          <Box px={4} maxW="374">
+          <Box px={6} w="full" maxW="374">
             <Box
               mx="auto"
               p={4}
@@ -102,7 +108,12 @@ const CustomToast: FC<Props> = (outerProps) => {
               shadow="depth.4"
               {...props}
             >
-              <LottieView source={ConfirmOnClassic} autoPlay loop />
+              <LottieView
+                source={ConfirmOnClassic}
+                autoPlay
+                loop
+                style={{ width: '100%' }}
+              />
               <Text
                 typography="DisplayMedium"
                 mt={6}
