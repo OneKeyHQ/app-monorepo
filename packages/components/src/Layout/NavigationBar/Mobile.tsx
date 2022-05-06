@@ -14,7 +14,7 @@ import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type { BottomTabBarProps } from '../BottomTabs/types';
 
-const DEFAULT_TABBAR_HEIGHT = 55;
+const DEFAULT_TABBAR_HEIGHT = 49;
 
 type Options = {
   deviceSize: DeviceState['size'];
@@ -86,7 +86,8 @@ export default function BottomTabBar({
             <Box flex={1} px={1} py={2} key={route.name}>
               <Pressable
                 alignItems="center"
-                p={0.5}
+                px={0.5}
+                py={1.5}
                 bg="surface-subdued"
                 onPress={() => {
                   setHaptics();
@@ -110,7 +111,7 @@ export default function BottomTabBar({
                   // @ts-expect-error
                   name={options?.tabBarIcon?.() as ICON_NAMES}
                   color={isActive ? 'icon-pressed' : 'icon-subdued'}
-                  size={24}
+                  size={28}
                 />
               </Pressable>
             </Box>
