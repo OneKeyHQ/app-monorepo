@@ -28,6 +28,8 @@ const Setting = () => {
     const value = new BigNumber(slippage);
     if (value.gt(0) && value.lt(50)) {
       backgroundApiProxy.dispatch(setSwapSlippagePercent(slippage));
+    } else if (value.gte(50)) {
+      backgroundApiProxy.dispatch(setSwapSlippagePercent('3'));
     }
   }, [slippage]);
   const errorMsg = useMemo(() => {
