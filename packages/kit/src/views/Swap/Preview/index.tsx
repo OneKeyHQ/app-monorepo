@@ -147,16 +147,18 @@ const Preview = () => {
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
-            h="7"
+            minH="7"
           >
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__rate' })}
             </Typography.Body2>
-            <ExchangeRate
-              tokenA={inputToken}
-              tokenB={outputToken}
-              quote={swapQuote}
-            />
+            <Box flex="1" flexDirection="row" justifyContent="flex-end">
+              <ExchangeRate
+                tokenA={inputToken}
+                tokenB={outputToken}
+                quote={swapQuote}
+              />
+            </Box>
           </Box>
           <Box
             flexDirection="row"

@@ -70,7 +70,7 @@ const PendingTransactions = () => {
         dismiss={false}
         actionType="right"
         alertType="info"
-        action={intl.formatMessage({ id: 'action_view' })}
+        action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
       {pendings.map((tx) => (
@@ -104,7 +104,7 @@ const ConfirmedTransactions = () => {
           onDismiss={cleanAllConfirmedTransaction}
           actionType="right"
           dismiss={false}
-          action={intl.formatMessage({ id: 'action_view' })}
+          action={intl.formatMessage({ id: 'action__view' })}
           onAction={onAction}
         />
       </Box>
@@ -125,7 +125,7 @@ const ConfirmedTransactions = () => {
         actionType="right"
         dismiss={false}
         onDismiss={cleanAllConfirmedTransaction}
-        action={intl.formatMessage({ id: 'action_view' })}
+        action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
     </Box>
