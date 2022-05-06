@@ -14,7 +14,7 @@ import {
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens, useNavigation } from '../../hooks';
+import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { setQuote } from '../../store/reducers/swap';
 import { SendRoutes } from '../Send/types';
@@ -38,9 +38,7 @@ const SwapContent = () => {
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const addTransaction = useTransactionAdder();
-  const { nativeToken } = useManageTokens();
-  const { onUserInput, onSwitchTokens, onSelectToken } =
-    useSwapActionHandlers();
+  const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
   const { account, network } = useActiveWalletAccount();
   const {
     swapQuote,
@@ -163,16 +161,6 @@ const SwapContent = () => {
   } else if (error === SwapError.QuoteFailed) {
     buttonTitle = intl.formatMessage({ id: 'transaction__failed' });
   }
-
-  useEffect(() => {
-    // select native token, when switch chain that is supported
-    setTimeout(() => {
-      if (isSwapEnabled && nativeToken) {
-        onSelectToken(nativeToken, 'INPUT');
-      }
-    }, 100);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [network]);
 
   return (
     <Center px="4">
