@@ -261,13 +261,62 @@ class Engine {
 
   @backgroundMethod()
   mnemonicToEntropy(mnemonic: string): Promise<string> {
+    const wordlists = bip39.wordlists.english;
+    const n = wordlists.length;
+    const words = mnemonic.split(' ');
+    let i = new BigNumber(0);
+    while (words.length) {
+      const w = words.pop();
+      if (w) {
+        const k = wordlists.indexOf(w);
+        i = i.times(n).plus(k);
+      }
+    }
+    return Promise.resolve(i.toFixed());
+  }
+
+  @backgroundMethod()
+  entropyToMnemonic(entropy: string): Promise<string> {
+    const wordlists = bip39.wordlists.english;
+    const n = wordlists.length;
+
+    const mnemonic = [];
+    let ent = new BigNumber(entropy);
+    let x = 0;
+    while (ent.gt(0)) {
+      x = ent.mod(n).integerValue().toNumber();
+      ent = ent.idiv(n);
+
+      mnemonic.push(wordlists[x]);
+    }
+
+    // v1 fix
+    let fixFillCount = 0;
+    if (mnemonic.length < 12) {
+      fixFillCount = 12 - mnemonic.length;
+    } else if (mnemonic.length > 12 && mnemonic.length < 18) {
+      fixFillCount = 18 - mnemonic.length;
+    } else if (mnemonic.length > 18 && mnemonic.length < 24) {
+      fixFillCount = 24 - mnemonic.length;
+    }
+
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < fixFillCount; i++) {
+      mnemonic.push(wordlists[0]);
+    }
+
+    return Promise.resolve(mnemonic.join(' '));
+  }
+
+  @backgroundMethod()
+  mnemonicToEntropyV2(mnemonic: string): Promise<string> {
     return Promise.resolve(
       bip39.mnemonicToEntropy(mnemonic, bip39.wordlists.english),
     );
   }
 
   @backgroundMethod()
-  entropyToMnemonic(entropy: string): Promise<string> {
+  entropyToMnemonicV2(entropy: string): Promise<string> {
     return Promise.resolve(
       bip39.entropyToMnemonic(entropy, bip39.wordlists.english),
     );
