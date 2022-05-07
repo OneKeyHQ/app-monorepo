@@ -42,7 +42,7 @@ export default class VaultHelper extends VaultHelperBase {
     // parse rawTx string
     // console.log('parseToNativeTx ', encodedTx);
     if (isString(encodedTx)) {
-      ethersTx = ethers.utils.parseTransaction(encodedTx as any);
+      ethersTx = ethers.utils.parseTransaction(encodedTx);
       ethersTx = {
         ...ethersTx,
         from: ethersTx.from?.toLocaleLowerCase(),
@@ -90,5 +90,22 @@ export default class VaultHelper extends VaultHelperBase {
       maxFeePerGas: nativeTx.maxFeePerGas?.toString(),
       maxPriorityFeePerGas: nativeTx.maxPriorityFeePerGas?.toString(),
     };
+  }
+
+  override nativeTxToJson(nativeTx: ethers.Transaction): Promise<string> {
+    const json = JSON.stringify(nativeTx);
+    return Promise.resolve(json);
+  }
+
+  override jsonToNativeTx(json: string): Promise<ethers.Transaction> {
+    /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
+    const tx = JSON.parse(json, (key, value) => {
+      if (!!value && value.type === 'BigNumber' && 'hex' in value) {
+        return ethers.BigNumber.from(value.hex);
+      }
+      return value;
+    });
+    return Promise.resolve(tx);
+    /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
   }
 }

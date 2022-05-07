@@ -3,9 +3,10 @@ import React, { useCallback } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Modal, Typography } from '@onekeyhq/components';
+import { Box, Button, Modal, Pressable } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDrawer, useNavigation, useToast } from '../../../hooks';
@@ -50,49 +51,91 @@ const Mnemonic = () => {
   }, [mnemonic, password, withEnableAuthentication]);
   return (
     <Modal footer={null}>
-      <Box mb="16" textAlign="center">
-        <Text typography={{ sm: 'DisplayLarge', md: 'DisplayMedium' }} mb="3">
-          👀 For Your Eyes Only
-        </Text>
-        <Typography.Body1 color="text-subdued" textAlign="center">
-          Never share the recovery phrase. Anyone with these words will have
-          full access to your wallet.
-        </Typography.Body1>
-      </Box>
-      <Typography.Body1Strong mb="4" textAlign="center">
-        ↓ Click Below to Copy ↓
-      </Typography.Body1Strong>
-      <Box bg="surface-default" shadow="depth.2" borderRadius="12" p="4">
-        <Box flexDirection="row">
-          <Box w="50%">
-            {words.slice(0, 6).map((word, i) => (
-              <Box flexDirection="row">
-                <Typography.Body1Strong color="text-subdued" w="8">
-                  {i + 1}.
-                </Typography.Body1Strong>
-                <Typography.Body1Strong color="text-default">
-                  {word}
-                </Typography.Body1Strong>
-              </Box>
-            ))}
-          </Box>
-          <Box w="50%">
-            {words.slice(6).map((word, i) => (
-              <Box flexDirection="row">
-                <Typography.Body1Strong color="text-subdued" w="8">
-                  {i + 7}.
-                </Typography.Body1Strong>
-                <Typography.Body1Strong color="text-default">
-                  {word}
-                </Typography.Body1Strong>
-              </Box>
-            ))}
-          </Box>
+      <Box flex={1} px={{ base: 2, md: 0 }}>
+        <Box mb={{ base: 12, md: 8 }} px={2}>
+          <Text
+            typography={{ sm: 'DisplayLarge', md: 'DisplayMedium' }}
+            mb="3"
+            textAlign="center"
+          >
+            👀 {intl.formatMessage({ id: 'modal__for_your_eyes_only' })}
+          </Text>
+          <Text
+            typography={{ sm: 'Body1', md: 'Body2' }}
+            color="text-subdued"
+            textAlign="center"
+            maxW={{ md: 276 }}
+            mx="auto"
+          >
+            {intl.formatMessage({ id: 'modal__for_your_eyes_only_desc' })}
+          </Text>
         </Box>
+        <Text
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          mb="4"
+          textAlign="center"
+        >
+          ↓ {intl.formatMessage({ id: 'content__click_below_to_copy' })} ↓
+        </Text>
+        <Pressable
+          bg="surface-default"
+          _hover={{ bg: 'surface-hovered' }}
+          _pressed={{ bg: 'surface-pressed' }}
+          shadow="depth.2"
+          borderRadius="12"
+          px={4}
+          py={{ base: 2, md: 2.5 }}
+          mb={8}
+          onPress={() => {
+            setHaptics();
+          }}
+        >
+          <Box flexDirection="row">
+            <Box w="50%" mr={3}>
+              {words.slice(0, 6).map((word, i) => (
+                <Box flexDirection="row" my={{ base: 2, md: 1.5 }}>
+                  <Text
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    color="text-subdued"
+                    w="8"
+                  >
+                    {i + 1}.
+                  </Text>
+                  <Text
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    color="text-default"
+                  >
+                    {word}
+                  </Text>
+                </Box>
+              ))}
+            </Box>
+            <Box w="50%" ml={3}>
+              {words.slice(6).map((word, i) => (
+                <Box flexDirection="row" my={{ base: 2, md: 1.5 }}>
+                  <Text
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    color="text-subdued"
+                    w="8"
+                  >
+                    {i + 7}.
+                  </Text>
+                  <Text
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    color="text-default"
+                  >
+                    {word}
+                  </Text>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Pressable>
+
+        <Button size="xl" type="primary" mt="auto" onPromise={onPress}>
+          {intl.formatMessage({ id: 'action__i_have_saved_the_phrase' })}
+        </Button>
       </Box>
-      <Button size="lg" type="primary" mt="4" onPromise={onPress}>
-        I’ve Saved the Phrase
-      </Button>
     </Modal>
   );
 };

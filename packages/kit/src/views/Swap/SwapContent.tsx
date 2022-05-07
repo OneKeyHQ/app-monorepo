@@ -169,12 +169,11 @@ const SwapContent = () => {
         shadow="depth.2"
         maxW="420"
         w="full"
-        borderRadius={12}
-        px="4"
-        py="6"
+        borderRadius="3xl"
+        p={4}
       >
         <Box
-          borderWidth="0.5"
+          borderWidth={{ base: '0.5', md: '1' }}
           borderColor="border-default"
           bg="surface-subdued"
           borderRadius={12}
@@ -200,12 +199,13 @@ const SwapContent = () => {
               <IconButton
                 w="10"
                 h="10"
-                name="SwitchVerticalSolid"
+                name="SwitchVerticalOutline"
                 borderRadius="full"
                 borderColor="border-disabled"
                 borderWidth="0.5"
                 bg="surface-default"
                 onPress={onSwitchTokens}
+                size="lg"
               />
             </Center>
           </Box>
@@ -257,7 +257,7 @@ const SwapContent = () => {
         (approveState === ApprovalState.NOT_APPROVED ||
           approveState === ApprovalState.PENDING) ? (
           <Button
-            size="lg"
+            size="xl"
             type="primary"
             isDisabled={!!error || !isSwapEnabled || !swapQuote}
             isLoading={approveState === ApprovalState.PENDING}
@@ -267,7 +267,7 @@ const SwapContent = () => {
           </Button>
         ) : (
           <Button
-            size="lg"
+            size="xl"
             type="primary"
             isDisabled={!!error || !isSwapEnabled || !swapQuote}
             isLoading={isSwapLoading}

@@ -1,5 +1,8 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
+import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
+import { SwapQuote } from '@onekeyhq/kit/src/views/Swap/typings';
+
 import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
 
@@ -24,6 +27,7 @@ enum EVMDecodedTxType {
 
   // Swap
   SWAP = 'swap',
+  INTERNAL_SWAP = 'internal_swap',
 
   // Generic contract interaction
   TRANSACTION = 'transaction',
@@ -53,6 +57,16 @@ interface EVMDecodedItemERC20Approve {
   spender: string;
 }
 
+interface EVMDecodedItemInternalSwap {
+  type: EVMDecodedTxType.INTERNAL_SWAP;
+  buyTokenAddress: string;
+  sellTokenAddress: string;
+  buyTokenSymbol: string;
+  sellTokenSymbol: string;
+  buyAmount: string;
+  sellAmount: string;
+}
+
 interface EVMDecodedItem {
   txType: EVMDecodedTxType;
   protocol: 'erc20' | null;
@@ -74,6 +88,7 @@ interface EVMDecodedItem {
   maxFeePerGas: string;
   maxFeePerGasAmount?: string;
   data: string;
+  chainId: number;
 
   gasSpend: string; // in ether, estimated gas cost
   total: string; // in ether, gasSpend + value
@@ -85,7 +100,11 @@ interface EVMDecodedItem {
     args?: string[];
   };
 
-  info: EVMDecodedItemERC20Transfer | EVMDecodedItemERC20Approve | null;
+  info:
+    | EVMDecodedItemERC20Transfer
+    | EVMDecodedItemERC20Approve
+    | EVMDecodedItemInternalSwap
+    | null;
 }
 
 class EVMTxDecoder {
@@ -109,6 +128,7 @@ class EVMTxDecoder {
 
   public async decode(
     rawTx: string | ethers.Transaction,
+    payload?: any,
   ): Promise<EVMDecodedItem> {
     const { txType, tx, txDesc, protocol } = this.staticDecode(rawTx);
     const itemBuilder = { txType, protocol } as EVMDecodedItem;
@@ -185,7 +205,20 @@ class EVMTxDecoder {
       itemBuilder.info = infoBuilder;
     }
 
-    return itemBuilder;
+    return this.updateWithPayload(itemBuilder, payload);
+  }
+
+  private async updateWithPayload(item: EVMDecodedItem, payload?: any) {
+    if (!payload) {
+      return item;
+    }
+    const parsedPayload = await this.parsePayload(payload, item.network);
+    if (!parsedPayload) {
+      return item;
+    }
+    item.txType = parsedPayload.txType;
+    item.info = parsedPayload.info;
+    return item;
   }
 
   private staticDecode(rawTx: string | ethers.Transaction): EVMBaseDecodedItem {
@@ -215,6 +248,72 @@ class EVMTxDecoder {
 
     itemBuilder.txType = EVMDecodedTxType.TRANSACTION;
     return itemBuilder;
+  }
+
+  private async parsePayload(rawPayload: any, network: Network) {
+    if (!rawPayload) {
+      return null;
+    }
+
+    const isSendConfirmPayload = (
+      payload: any,
+    ): payload is SendConfirmPayload => 'payloadType' in payload;
+
+    const isSwapQuote = (payload: SendConfirmPayload): payload is SwapQuote =>
+      payload.payloadType === 'InternalSwap';
+
+    let payload = rawPayload;
+    if (typeof rawPayload === 'string') {
+      try {
+        payload = JSON.parse(rawPayload);
+      } catch (e) {
+        console.error(e);
+        return null;
+      }
+    }
+
+    if (!isSendConfirmPayload(payload)) {
+      return null;
+    }
+
+    if (isSwapQuote(payload)) {
+      const NativeCurrencyPseudoAddress =
+        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+
+      const { buyTokenAddress, sellTokenAddress, buyAmount, sellAmount } =
+        payload;
+
+      const tokensInfo = (
+        [
+          [buyTokenAddress, buyAmount],
+          [sellTokenAddress, sellAmount],
+        ] as const
+      ).map(async ([tokenAddress, tokenAmount]) => {
+        const address = tokenAddress.toLowerCase();
+        if (address === NativeCurrencyPseudoAddress) {
+          const amount = ethers.utils.formatEther(tokenAmount);
+          return { amount, symbol: network.symbol };
+        }
+        const token = await this.engine.getOrAddToken(network.id, address);
+        const symbol = token?.symbol ?? '';
+        const amount = ethers.utils.formatUnits(tokenAmount, token?.decimals);
+        return { amount, symbol };
+      });
+
+      const [buy, sell] = await Promise.all(tokensInfo);
+      const info: EVMDecodedItemInternalSwap = {
+        type: EVMDecodedTxType.INTERNAL_SWAP,
+        buyTokenAddress,
+        sellTokenAddress,
+        buyTokenSymbol: buy.symbol,
+        sellTokenSymbol: sell.symbol,
+        buyAmount: buy.amount,
+        sellAmount: sell.amount,
+      };
+      return { txType: EVMDecodedTxType.INTERNAL_SWAP, info };
+    }
+
+    return null;
   }
 
   private fillTxInfo(itemBuilder: EVMDecodedItem, tx: ethers.Transaction) {
@@ -247,6 +346,7 @@ class EVMTxDecoder {
         )) ??
       '';
     itemBuilder.data = tx.data;
+    itemBuilder.chainId = tx.chainId;
   }
 
   private formatValue(value: ethers.BigNumber, decimals: number): string {
@@ -298,4 +398,5 @@ export type {
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
+  EVMDecodedItemInternalSwap,
 };

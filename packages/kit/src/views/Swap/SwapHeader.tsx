@@ -41,7 +41,7 @@ const SwapHeader = () => {
     });
   }, [navigation]);
   return (
-    <Center w="full" my="6" px="4">
+    <Center w="full" mt={8} mb={6} px="4">
       <Box
         display="flex"
         flexDirection="row"
@@ -69,7 +69,7 @@ const SwapHeader = () => {
               <Icon name="RefreshOutline" size={20} />
             </Animated.View>
           </Button>
-          <IconButton type="plain" name="CogSolid" onPress={onSetting} />
+          <IconButton ml={2} type="plain" name="CogSolid" onPress={onSetting} />
         </HStack>
       </Box>
     </Center>
