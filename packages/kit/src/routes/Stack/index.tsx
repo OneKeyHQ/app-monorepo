@@ -6,7 +6,21 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
-import { useData, useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useCheckVersion,
+  useData,
+  useSettings,
+  useStatus,
+} from '@onekeyhq/kit/src/hooks/redux';
+import {
+  UpdateFeatureModalRoutes,
+  UpdateFeatureRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/UpdateFeature';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
@@ -19,9 +33,12 @@ import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useInterval } from '../../hooks';
+import { useInterval, useNavigation } from '../../hooks';
+import { addUsedVersionHistory } from '../../store/reducers/checkVersion';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import { Atom } from '../../utils/helper';
+import appUpdates from '../../utils/updates/AppUpdates';
+import UpdateAlert from '../../views/Update/Alert';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
@@ -108,12 +125,16 @@ const Dashboard = () => {
   );
 };
 
+type NavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
+
 const MainScreen = () => {
   const { dispatch } = backgroundApiProxy;
   const { appLockDuration, enableAppLock } = useSettings();
   const { lastActivity, isUnlock } = useStatus();
   const { isUnlock: isDataUnlock, isPasswordSet } = useData();
   const preconditon = isPasswordSet && enableAppLock;
+  const version = useCheckVersion();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const refresh = useCallback(() => {
     if (AppState.currentState === 'active') {
@@ -176,8 +197,40 @@ const MainScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const currentVersion = process.env.VERSION ?? '';
+
+    if (
+      appUpdates.compVersion(
+        version.currentVersionFeature?.version ?? '',
+        process.env.VERSION ?? '',
+      ) === 0 &&
+      // App should not be used for the first time
+      version.usedVersionHistory.length > 0 &&
+      // The latest version is not used
+      version.usedVersionHistory[0] !== process.env.VERSION
+    ) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.UpdateFeature,
+        params: {
+          screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+        },
+      });
+    }
+
+    // Record the versions used
+    dispatch(addUsedVersionHistory(currentVersion));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!preconditon) {
-    return <Dashboard />;
+    return (
+      <>
+        <Dashboard />
+        {/* TODO Waiting notification component */}
+        <UpdateAlert />
+      </>
+    );
   }
   return isUnlock && isDataUnlock ? <Dashboard /> : <Unlock />;
 };

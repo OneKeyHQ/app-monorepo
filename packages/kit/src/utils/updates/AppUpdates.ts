@@ -1,8 +1,12 @@
+import * as Linking from 'expo-linking';
+import { NativeModules } from 'react-native';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getReleaseInfo } from './server';
 import { PackageInfo, VersionInfo } from './type.d';
 
+const { BuildConfigManager } = NativeModules;
 class AppUpdates {
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
     const releaseInfo = await getReleaseInfo();
@@ -14,11 +18,19 @@ class AppUpdates {
       return;
     }
 
+    console.log('sdfsdfsd s');
+
     let packageInfo: PackageInfo | undefined;
     if (platformEnv.isAndroid) {
-      packageInfo = releaseInfo.packages?.android?.find(
-        (x) => x.os === 'android',
-      );
+      if (BuildConfigManager.getChannel() === 'GooglePlay') {
+        packageInfo = releaseInfo.packages?.android?.find(
+          (x) => x.os === 'android' && x.distribution === 'GooglePlay',
+        );
+      } else {
+        packageInfo = releaseInfo.packages?.android?.find(
+          (x) => x.os === 'android' && x.distribution === 'DIRECT',
+        );
+      }
     }
 
     if (platformEnv.isIOS) {
@@ -64,6 +76,41 @@ class AppUpdates {
         changeLog: releaseInfo.changeLog,
         package: packageInfo,
       };
+    }
+  }
+
+  openAppUpdate(versionInfo: VersionInfo): void {
+    switch (versionInfo.package.distribution) {
+      case 'GooglePlay':
+        Linking.canOpenURL('market://').then((supported) => {
+          if (supported) {
+            Linking.openURL('market://details?id=so.onekey.app.wallet');
+          } else {
+            this._openUrl(versionInfo.package.download);
+          }
+        });
+        break;
+      case 'AppStore':
+        Linking.canOpenURL('itms-apps://').then((supported) => {
+          if (supported) {
+            Linking.openURL('itms-apps://itunes.apple.com/app/id1609559473');
+          } else {
+            this._openUrl(
+              `https://apps.apple.com/app/onekey-open-source-wallet/${versionInfo.package.download}`,
+            );
+          }
+        });
+        break;
+      default:
+        this._openUrl(versionInfo.package.download);
+    }
+  }
+
+  _openUrl(url: string) {
+    if (platformEnv.isNative) {
+      Linking.openURL(url);
+    } else {
+      window.open(url, '_blank');
     }
   }
 

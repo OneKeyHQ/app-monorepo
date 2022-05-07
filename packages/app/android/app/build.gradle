@@ -217,6 +217,18 @@ android {
 
         }
     }
+
+    flavorDimensions "channel"
+    productFlavors {
+        Website {
+            dimension "channel"
+            buildConfigField "String", "channel", "\"Website\""
+        }
+        GooglePlay {
+            dimension "channel"
+            buildConfigField "String", "channel", "\"GooglePlay\""
+        }
+    }
 }
 
 dependencies {

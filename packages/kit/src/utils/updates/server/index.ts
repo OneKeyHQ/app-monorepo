@@ -12,22 +12,28 @@ export async function getReleaseInfo(): Promise<ReleasesInfo> {
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
 
+      const androidPackages: PackageInfo[] = [];
+      const extPackages: PackageInfo[] = [];
+      const desktopPackages: PackageInfo[] = [];
       const iosPackages: PackageInfo[] = [
         {
           os: 'ios',
           arch: 'arm64',
           distribution: 'AppStore',
-          download: 'itms-apps://itunes.apple.com/app/id1609559473',
+          download:
+            'https://apps.apple.com/app/onekey-open-source-wallet/id1609559473',
         },
       ];
 
-      const androidPackages: PackageInfo[] = [];
-      const extPackages: PackageInfo[] = [];
-      const desktopPackages: PackageInfo[] = [];
+      androidPackages.push({
+        os: 'android',
+        arch: 'arm64',
+        distribution: 'GooglePlay',
+        download:
+          'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
+      });
 
       releasesVersion.assets.forEach((x) => {
-        console.log('forEach', x);
-
         // android
         if (x.name.indexOf('android.apk') !== -1) {
           androidPackages.push({
