@@ -1,9 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Box,
   Divider,
   Icon,
@@ -14,28 +13,23 @@ import {
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import { useInterval, useNavigation } from '../../../hooks';
+import { useNavigation } from '../../../hooks';
 import { useActiveWalletAccount, useSettings } from '../../../hooks/redux';
 import { SendRoutes } from '../../Send/types';
 import ExchangeRate from '../ExchangeRate';
-import {
-  useSwap,
-  useSwapActionHandlers,
-  useSwapQuoteCallback,
-  useSwapState,
-} from '../hooks/useSwap';
+import { useSwap, useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
 import { useTransactionAdder } from '../hooks/useTransactions';
+
+import { Timer } from './Timer';
 
 const Preview = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-
   const addTransaction = useTransactionAdder();
-  const onSwapQuote = useSwapQuoteCallback();
   const { swapSlippagePercent } = useSettings();
   const { account } = useActiveWalletAccount();
   const { onReset } = useSwapActionHandlers();
-  const { inputToken, outputToken, quoteTime } = useSwapState();
+  const { inputToken, outputToken, independentField } = useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
   const onSubmit = useCallback(() => {
     if (account && inputAmount && outputAmount) {
@@ -46,12 +40,12 @@ const Preview = () => {
           params: {
             encodedTx: { ...swapQuote, from: account.address },
             payload: swapQuote,
-            sourceInfo: {
-              id: '0',
-              origin: 'OneKey Swap',
-              scope: 'ethereum',
-              data: { method: '' },
-            },
+            // sourceInfo: {
+            //   id: '0',
+            //   origin: 'OneKey Swap',
+            //   scope: 'ethereum',
+            //   data: { method: '' },
+            // },
             // payload: swapQuote,
             onSuccess: (tx) => {
               addTransaction({
@@ -78,25 +72,6 @@ const Preview = () => {
     swapQuote,
     onReset,
   ]);
-  const [remainTime, setRemainTime] = useState<number>(() => {
-    if (quoteTime) {
-      const now = Date.now();
-      const seconds = Math.max(
-        Math.floor((+quoteTime + 15000 - now) / 1000),
-        0,
-      );
-      return seconds;
-    }
-    return 15;
-  });
-  const onInterval = useCallback(() => {
-    if (quoteTime) {
-      const now = Date.now();
-      const seconds = Math.max(Math.ceil((+quoteTime + 15000 - now) / 1000), 0);
-      setRemainTime(seconds);
-    }
-  }, [quoteTime]);
-  useInterval(onInterval, 1000);
   const minimumReceived = useMemo(() => {
     if (inputAmount && swapQuote) {
       return inputAmount.value.multipliedBy(swapQuote.guaranteedPrice);
@@ -123,7 +98,9 @@ const Preview = () => {
             justifyContent="space-between"
           >
             <Typography.DisplayMedium>
-              {inputAmount?.value.toFixed(4)}
+              {independentField === 'INPUT'
+                ? inputAmount?.value.toFixed()
+                : inputAmount?.value.toFixed(4)}
             </Typography.DisplayMedium>
             <Box flexDirection="row" alignItems="center">
               <Token size="6" src={inputToken?.logoURI} />
@@ -150,7 +127,9 @@ const Preview = () => {
             justifyContent="space-between"
           >
             <Typography.DisplayMedium>
-              {outputAmount?.value.toFixed(4)}
+              {independentField === 'OUTPUT'
+                ? outputAmount?.value.toFixed()
+                : outputAmount?.value.toFixed(4)}
             </Typography.DisplayMedium>
             <Box flexDirection="row" alignItems="center">
               <Token size="6" src={outputToken?.logoURI} />
@@ -161,37 +140,25 @@ const Preview = () => {
           </Box>
         </Box>
         <Box my="4">
-          <Alert
-            alertType="info"
-            title={intl.formatMessage(
-              { id: 'content__price_updates_after_str' },
-              {
-                '0': (
-                  <Typography.Body2 color="interactive-default">{`${remainTime}s`}</Typography.Body2>
-                ),
-              },
-            )}
-            action={intl.formatMessage({ id: 'action__refresh' })}
-            actionType="right"
-            onAction={onSwapQuote}
-            dismiss={false}
-          />
+          <Timer />
         </Box>
         <VStack space="1" mt="1">
           <Box
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
-            h="7"
+            minH="7"
           >
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__rate' })}
             </Typography.Body2>
-            <ExchangeRate
-              tokenA={inputToken}
-              tokenB={outputToken}
-              quote={swapQuote}
-            />
+            <Box flex="1" flexDirection="row" justifyContent="flex-end">
+              <ExchangeRate
+                tokenA={inputToken}
+                tokenB={outputToken}
+                quote={swapQuote}
+              />
+            </Box>
           </Box>
           <Box
             flexDirection="row"

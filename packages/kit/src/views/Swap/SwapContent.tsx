@@ -14,7 +14,7 @@ import {
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens, useNavigation } from '../../hooks';
+import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { setQuote } from '../../store/reducers/swap';
 import { SendRoutes } from '../Send/types';
@@ -38,9 +38,7 @@ const SwapContent = () => {
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const addTransaction = useTransactionAdder();
-  const { nativeToken } = useManageTokens();
-  const { onUserInput, onSwitchTokens, onSelectToken } =
-    useSwapActionHandlers();
+  const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
   const { account, network } = useActiveWalletAccount();
   const {
     swapQuote,
@@ -164,16 +162,6 @@ const SwapContent = () => {
     buttonTitle = intl.formatMessage({ id: 'transaction__failed' });
   }
 
-  useEffect(() => {
-    // select native token, when switch chain that is supported
-    setTimeout(() => {
-      if (isSwapEnabled && nativeToken) {
-        onSelectToken(nativeToken, 'INPUT');
-      }
-    }, 100);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [network]);
-
   return (
     <Center px="4">
       <Box
@@ -181,12 +169,11 @@ const SwapContent = () => {
         shadow="depth.2"
         maxW="420"
         w="full"
-        borderRadius={12}
-        px="4"
-        py="6"
+        borderRadius="3xl"
+        p={4}
       >
         <Box
-          borderWidth="0.5"
+          borderWidth={{ base: '0.5', md: '1' }}
           borderColor="border-default"
           bg="surface-subdued"
           borderRadius={12}
@@ -212,12 +199,13 @@ const SwapContent = () => {
               <IconButton
                 w="10"
                 h="10"
-                name="SwitchVerticalSolid"
+                name="SwitchVerticalOutline"
                 borderRadius="full"
                 borderColor="border-disabled"
                 borderWidth="0.5"
                 bg="surface-default"
                 onPress={onSwitchTokens}
+                size="lg"
               />
             </Center>
           </Box>
@@ -245,13 +233,13 @@ const SwapContent = () => {
           <Typography.Body2 color="text-subdued">
             {intl.formatMessage({ id: 'Rate' })}
           </Typography.Body2>
-          <Typography.Body2 color="text-default">
+          <Box flex="1" flexDirection="row" justifyContent="flex-end">
             <ExchangeRate
               tokenA={inputToken}
               tokenB={outputToken}
               quote={swapQuote}
             />
-          </Typography.Body2>
+          </Box>
         </Box>
         {!isSwapEnabled ? (
           <Box mb="6">
@@ -269,7 +257,7 @@ const SwapContent = () => {
         (approveState === ApprovalState.NOT_APPROVED ||
           approveState === ApprovalState.PENDING) ? (
           <Button
-            size="lg"
+            size="xl"
             type="primary"
             isDisabled={!!error || !isSwapEnabled || !swapQuote}
             isLoading={approveState === ApprovalState.PENDING}
@@ -279,7 +267,7 @@ const SwapContent = () => {
           </Button>
         ) : (
           <Button
-            size="lg"
+            size="xl"
             type="primary"
             isDisabled={!!error || !isSwapEnabled || !swapQuote}
             isLoading={isSwapLoading}
