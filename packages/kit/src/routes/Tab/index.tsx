@@ -27,12 +27,12 @@ interface TabRouteConfig {
 }
 
 export const tabRoutes: TabRouteConfig[] = [
-  {
-    name: TabRoutes.Overview,
-    component: OverviewScreen,
-    tabBarIcon: () => 'HomeOutline',
-    translationId: 'title__home',
-  },
+  // {
+  //   name: TabRoutes.Overview,
+  //   component: OverviewScreen,
+  //   tabBarIcon: () => 'HomeOutline',
+  //   translationId: 'title__home',
+  // },
   {
     name: TabRoutes.Home,
     component: HomeScreen,
