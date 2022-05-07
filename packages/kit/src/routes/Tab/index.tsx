@@ -29,25 +29,25 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
     component: HomeScreen,
-    tabBarIcon: () => 'HomeOutline',
+    tabBarIcon: () => 'Home',
     translationId: 'title__home',
   },
   {
     name: TabRoutes.Swap,
     component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalOutline',
+    tabBarIcon: () => 'Activity',
     translationId: 'title__swap',
   },
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,
-    tabBarIcon: () => 'CompassOutline',
+    tabBarIcon: () => 'Discovery',
     translationId: 'title__explore',
   },
   {
     name: TabRoutes.Me,
     component: MeScreen,
-    tabBarIcon: () => 'UserOutline',
+    tabBarIcon: () => 'Menu',
     translationId: 'title__me',
   },
   ...(() => {
