@@ -34,6 +34,10 @@ class HistoryEntrySchema extends Realm.Object {
 
   public ref?: string;
 
+  public rawTxPreDecodeCache?: string;
+
+  public payload?: string;
+
   // Message meta below.
   public message?: string;
 
@@ -54,6 +58,8 @@ class HistoryEntrySchema extends Realm.Object {
       rawTx: 'string?',
       message: 'string?',
       ref: 'string?',
+      rawTxPreDecodeCache: 'string?',
+      payload: 'string?',
     },
   };
 
@@ -77,6 +83,8 @@ class HistoryEntrySchema extends Realm.Object {
           target: this.target || '',
           value: this.value || '',
           rawTx: this.rawTx || '',
+          rawTxPreDecodeCache: this.rawTxPreDecodeCache || '',
+          payload: this.payload || '',
         };
       case HistoryEntryType.SIGN:
         return {

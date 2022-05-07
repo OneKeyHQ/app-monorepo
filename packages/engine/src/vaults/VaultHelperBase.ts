@@ -10,4 +10,8 @@ export abstract class VaultHelperBase extends VaultContextBase {
   abstract parseToEncodedTx(
     rawTxOrEncodedTx: IEncodedTxAny,
   ): Promise<IEncodedTxAny>;
+
+  abstract nativeTxToJson(nativeTx: IDecodedTxAny): Promise<string>;
+
+  abstract jsonToNativeTx(json: string): Promise<IDecodedTxAny>;
 }

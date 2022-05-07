@@ -90,7 +90,6 @@ const TransactionConfirm = () => {
   useEffect(() => {
     setEncodedTx(params.encodedTx);
   }, [params.encodedTx]);
-  const { decodedTx } = useDecodedTx({ encodedTx });
   const { accountId, networkId } = useActiveWalletAccount();
 
   const dappApproveId = params.sourceInfo?.id ?? '';
@@ -119,6 +118,7 @@ const TransactionConfirm = () => {
     [params.payload],
   );
 
+  const { decodedTx } = useDecodedTx({ encodedTx, payload });
   const isTransferTypeTx =
     decodedTx?.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
     decodedTx?.txType === EVMDecodedTxType.TOKEN_TRANSFER;
@@ -168,9 +168,24 @@ const TransactionConfirm = () => {
             rawTx: tx.rawTx,
           },
         });
-      }
-      if (isInternalSwapTx) {
-        // TODO save internal swap history
+      } else if (isInternalSwapTx) {
+        const payloadSwap = payload as SwapQuote;
+        const { to, value } = payloadSwap;
+        backgroundApiProxy.engine.addHistoryEntry({
+          id: historyId,
+          accountId,
+          networkId,
+          type: HistoryEntryType.TRANSFER,
+          status: HistoryEntryStatus.PENDING,
+          meta: {
+            contract: to ?? '',
+            target: to,
+            value: value ?? '',
+            ref: params?.sourceInfo?.origin ?? '', // dapp domain
+            rawTx: tx.rawTx,
+          },
+          payload: payloadSwap,
+        });
       }
     },
     [
@@ -284,9 +299,9 @@ const TransactionConfirm = () => {
   }
 
   if (isTransferTypeTx) {
-    // TODO from dapp: feeInfoEditable=true
-    //      from internal transfer: feeInfoEditable=false
-    return <TxConfirmTransfer {...sharedProps} feeInfoEditable={false} />;
+    return (
+      <TxConfirmTransfer {...sharedProps} feeInfoEditable={!!isFromDapp} />
+    );
   }
 
   // Dapp blind sign

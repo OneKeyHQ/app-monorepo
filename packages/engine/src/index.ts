@@ -22,6 +22,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
@@ -117,6 +118,7 @@ import {
 } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
+import { createVaultHelperInstance } from './vaults/factory';
 import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1357,13 +1359,15 @@ class Engine {
     networkId,
     accountId,
     encodedTx,
+    payload,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: IEncodedTxAny;
+    payload?: any;
   }) {
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-    return vault.decodeTx(encodedTx);
+    return vault.decodeTx(encodedTx, payload);
   }
 
   @backgroundMethod()
@@ -1445,6 +1449,7 @@ class Engine {
     type,
     status,
     meta,
+    payload,
   }: {
     id: string;
     networkId: string;
@@ -1452,7 +1457,29 @@ class Engine {
     type: HistoryEntryType;
     status: HistoryEntryStatus;
     meta: HistoryEntryMeta;
+    payload?: SendConfirmPayload;
   }) {
+    if ('rawTx' in meta && !meta.rawTxPreDecodeCache) {
+      let rawTxPreDecoded: string | undefined;
+
+      try {
+        const vaultHelper = createVaultHelperInstance({
+          networkId,
+          accountId,
+        });
+        const nativeTx = await vaultHelper.parseToNativeTx(meta.rawTx);
+        rawTxPreDecoded = await vaultHelper.nativeTxToJson(nativeTx);
+      } catch (error) {
+        console.error(error);
+      }
+
+      meta.rawTxPreDecodeCache = rawTxPreDecoded;
+    }
+
+    if (payload && 'payload' in meta) {
+      meta.payload = JSON.stringify(payload);
+    }
+
     await this.dbApi.addHistoryEntry(
       id,
       networkId,
@@ -1807,8 +1834,19 @@ class Engine {
       (h): h is HistoryEntryTransaction => 'rawTx' in h,
     );
 
+    const vaultHelper = createVaultHelperInstance({
+      networkId,
+      accountId,
+    });
     const decodedLocalTxHistory = localTxHistory.map(async (h) => {
-      const decodedItem = await EVMTxDecoder.getDecoder(this).decode(h.rawTx);
+      let nativeTx;
+      if (h.rawTxPreDecodeCache) {
+        nativeTx = await vaultHelper.jsonToNativeTx(h.rawTxPreDecodeCache);
+      }
+      const decodedItem = await EVMTxDecoder.getDecoder(this).decode(
+        nativeTx ?? h.rawTx,
+        h.payload,
+      );
       const tx = decodedItemToTransaction(decodedItem, h);
       return tx;
     });

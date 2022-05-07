@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import {
   EVMDecodedItem,
+  EVMDecodedItemERC20Approve,
   InfiniteAmountText,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
@@ -49,7 +50,8 @@ function TokenApproveAmountEdit({ ...rest }) {
   const { encodedTx, tokenApproveAmount, isMaxAmount } = route.params;
   const [isMax, setIsMax] = useState(isMaxAmount);
   const decodedTx = route.params.decodedTx as EVMDecodedItem | null;
-  const token = decodedTx?.info?.token;
+  const info = decodedTx?.info as EVMDecodedItemERC20Approve | null;
+  const token = info?.token;
   const symbol = token?.symbol;
 
   const {
