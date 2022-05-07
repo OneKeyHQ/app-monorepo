@@ -1,7 +1,6 @@
 import React, { FC, useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { useData } from '../../hooks/redux';
 
@@ -42,10 +41,7 @@ const Protected: FC<ProtectedProps> = ({
     setPassword(text);
   }, []);
 
-  const { wallet } = useActiveWalletAccount();
-  const isHardware = wallet?.type === 'hw';
-
-  if (password || isHardware) {
+  if (password) {
     return (
       <Box w="full" h="full">
         {children(password, {

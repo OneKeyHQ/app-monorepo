@@ -16,7 +16,9 @@ export type ScannedDevice =
 class DeviceUtils {
   startDeviceScan(callback: (d: ScannedDevice) => void) {
     const interval = async () => {
-      const deviceFeatures = await OneKeyConnect.getFeatures();
+      const deviceFeatures = await OneKeyConnect.getFeatures({
+        keepSession: false,
+      });
       const features = deviceFeatures.payload as Features;
       const deviceType = getDeviceType(features);
       const device = {
