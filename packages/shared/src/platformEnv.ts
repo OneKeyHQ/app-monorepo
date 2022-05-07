@@ -130,6 +130,11 @@ export const isManifestV3 = (): boolean =>
 export const isDesktop = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'desktop';
 
+// Can only be called as a method
+export const isArm64Desktop = (): boolean =>
+  // @ts-expect-error
+  isDesktop() && (window.ONEKEY_DESKTOP_GLOBALS?.arch ?? '') === 'arm64';
+
 export const isMac = (): boolean => {
   if (typeof process === 'undefined') return false;
   if (process.platform === 'darwin') return true; // For usage in Electron (SSR)

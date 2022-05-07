@@ -7,35 +7,27 @@ import { useIntl } from 'react-intl';
 import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+  setCurrentVersionFeature,
+  setUpdateActivationHint,
+} from '@onekeyhq/kit/src/store/reducers/checkVersion';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import {
-  UpdateFeatureModalRoutes,
-  UpdateFeatureRoutesParams,
-} from '../../../routes/Modal/UpdateFeature';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
-type ModalNavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
-
 export const AboutSection = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
-  const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
+
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
@@ -52,19 +44,12 @@ export const AboutSection = () => {
             }),
           });
         } else {
-          modalNavigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.UpdateFeature,
-            params: {
-              screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
-              params: {
-                version,
-              },
-            },
-          });
+          backgroundApiProxy.dispatch(setCurrentVersionFeature(version));
+          backgroundApiProxy.dispatch(setUpdateActivationHint(true));
         }
       })
       .catch(() => {});
-  }, [intl, modalNavigation, toast]);
+  }, [intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (platformEnv.isNative) {

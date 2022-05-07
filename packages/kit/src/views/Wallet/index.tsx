@@ -84,6 +84,7 @@ const Home: FC = () => {
   const [backupMap, updateBackMap] = useState<
     Record<string, boolean | undefined>
   >({});
+
   const backupToast = useCallback(() => {
     if (wallet && !wallet?.backuped && backupMap[wallet?.id] === undefined) {
       return (
