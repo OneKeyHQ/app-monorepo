@@ -7,6 +7,7 @@ cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injecte
 
 # copy to Extension injected.js
 cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedExtension.js   ./packages/ext/src/entry/injected.js
+cp ./packages/ext/src/entry/injected.js ./packages/ext/src/entry/injected.text-js
 
 # copy to Native injectedCode
 cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedNative.js   ./packages/kit/src/components/WebView/injectedNative.text-js

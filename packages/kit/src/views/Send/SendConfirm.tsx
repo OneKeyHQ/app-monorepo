@@ -69,7 +69,9 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 const TransactionConfirm = () => {
   // do not remove this line, call account balance fetch
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { balances } = useManageTokens();
+  const { balances } = useManageTokens({
+    fetchTokensOnMount: true,
+  });
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;

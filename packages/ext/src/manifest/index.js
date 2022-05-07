@@ -1,16 +1,23 @@
+const lodash = require('lodash');
 const sharedManifest = require('./shared');
-const firefoxManifest = require('./firefox');
 const chromeManifest = require('./chrome');
+const chromeManifestV3 = require('./chrome_v3');
+const firefoxManifest = require('./firefox');
 
 let browserManifest = {};
 if (process.env.EXT_BUILD_BROWSER === 'firefox') {
   browserManifest = firefoxManifest;
 } else {
+  // manifest v2
   browserManifest = chromeManifest;
+  // manifest v3
+  // browserManifest = chromeManifestV3;
 }
 
-module.exports = {
-  manifest_version: 3,
-  ...sharedManifest,
-  ...browserManifest,
-};
+module.exports = lodash.merge(
+  {
+    manifest_version: 2,
+  },
+  sharedManifest,
+  browserManifest,
+);

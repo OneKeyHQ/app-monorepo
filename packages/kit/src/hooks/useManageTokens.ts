@@ -10,7 +10,11 @@ import { useAppSelector } from './redux';
 
 export const useManageTokens = ({
   pollingInterval = 0,
-}: { pollingInterval?: number } = {}) => {
+  fetchTokensOnMount = false,
+}: {
+  pollingInterval?: number;
+  fetchTokensOnMount?: boolean;
+} = {}) => {
   const isFocused = useIsFocused();
 
   const { activeAccountId, activeNetworkId } = useAppSelector((s) => s.general);
@@ -66,6 +70,8 @@ export const useManageTokens = ({
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
     if (pollingInterval && isFocused) {
+      // TODO may cause circular refresh in UI
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
       timer = setInterval(() => {
         backgroundApiProxy.serviceToken.fetchAccountTokens();
       }, pollingInterval);
@@ -76,6 +82,13 @@ export const useManageTokens = ({
       }
     };
   }, [isFocused, pollingInterval]);
+
+  useEffect(() => {
+    if (fetchTokensOnMount) {
+      // TODO may cause circular refresh in UI
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+    }
+  }, [fetchTokensOnMount]);
 
   const getTokenBalance = useCallback(
     (token: Token | undefined | null, defaultValue = ''): string => {
