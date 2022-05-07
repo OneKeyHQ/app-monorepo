@@ -30,7 +30,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug",
+        "gradleCommand": ":app:assembleDirectDebug",
         "env": {
           "APPLICATION_ID_SUFFIX": "wrapper",
           "OTA_UPDATE_ENABLE": "true"
@@ -49,7 +49,10 @@
       },
       "android": {
         "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease"
+        "gradleCommand": ":app:bundleGooglePlayRelease",
+        "env": {
+          "CHANNEL": "GooglePlay"
+        }
       },
       "ios": {
         "enterpriseProvisioning": "universal",
@@ -65,7 +68,10 @@
       },
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "gradleCommand": ":app:assembleDirectRelease",
+        "env": {
+          "CHANNEL": "Direct"
+        }
       },
       "ios": {
         "enterpriseProvisioning": "adhoc",

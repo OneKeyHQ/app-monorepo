@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
  */
@@ -11,6 +10,7 @@ export type IPlatformEnv = {
 
   isWeb?: boolean;
   isDesktop?: boolean;
+  isDesktopArm64?: boolean;
   isManifestV3?: boolean;
   isExtension?: boolean;
   isExtensionBackground?: boolean;
@@ -30,6 +30,7 @@ export type IPlatformEnv = {
   isChrome?: boolean;
   isIOS?: boolean;
   isAndroid?: boolean;
+  isAndroidGooglePlay?: boolean;
   canGetClipboard?: boolean;
 };
 
@@ -38,6 +39,9 @@ export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
 export const isIOS = (): boolean => Platform.OS === 'ios';
 
 export const isAndroid = (): boolean => Platform.OS === 'android';
+
+export const isAndroidGooglePlay = (): boolean =>
+  isAndroid() && process.env.CHANNEL === 'GooglePlay';
 
 export const isNative = (): boolean => isAndroid() || isIOS();
 
@@ -130,6 +134,9 @@ export const isManifestV3 = (): boolean =>
 export const isDesktop = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'desktop';
 
+export const isDesktopArm64 = (): boolean =>
+  isDesktop() && (window.desktopApi?.arch ?? '') === 'arm64';
+
 export const isMac = (): boolean => {
   if (typeof process === 'undefined') return false;
   if (process.platform === 'darwin') return true; // For usage in Electron (SSR)
@@ -163,6 +170,7 @@ const platformEnv: IPlatformEnv = {
 
   isWeb: isWeb(),
   isDesktop: isDesktop(),
+  isDesktopArm64: isDesktopArm64(),
   isManifestV3: isManifestV3(),
   isExtension: isExtension(),
   isExtensionBackground: isExtensionBackground(),
@@ -182,6 +190,7 @@ const platformEnv: IPlatformEnv = {
   isChrome: isChrome(),
   isIOS: isIOS(),
   isAndroid: isAndroid(),
+  isAndroidGooglePlay: isAndroidGooglePlay(),
 
   canGetClipboard: canGetClipboard(),
 };

@@ -31,6 +31,7 @@ import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
+import devSettingsReducer from './reducers/devSettings';
 import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
@@ -52,6 +53,7 @@ const allReducers = combineReducers({
   discover: discoverReducer,
   swap: swapReducer,
   tokens: tokensReducer,
+  devSettings: devSettingsReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
@@ -78,7 +80,16 @@ const persistConfig = {
   version: 1,
   // AsyncStorage not working in ext background (localStorage not available)
   storage: platformEnv.isExtensionUi ? mockStorage : appStorage,
-  whitelist: ['settings', 'status', 'dapp', 'general', 'discover', 'tokens'],
+  whitelist: [
+    'settings',
+    'status',
+    'dapp',
+    'general',
+    'discover',
+    'tokens',
+    'checkVersion',
+    'devSettings',
+  ],
   throttle: platformEnv.isExtension ? 1000 : 0, // default=0
 };
 

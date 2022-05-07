@@ -13,6 +13,7 @@ const results = [
 console.log('----------------------------------------------');
 console.log('process.env.VERSION=', process.env.VERSION);
 console.log('process.env.BUILD_NUMBER=', process.env.BUILD_NUMBER);
+console.log('process.env.CHANNEL=', process.env.CHANNEL);
 console.log('----------------------------------------------');
 
 const errorResult = results.find((result) => result.error);

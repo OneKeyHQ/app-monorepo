@@ -68,6 +68,7 @@ function normalizeConfig({ platform, config }) {
           'PLATFORM_NAME',
           'OPENSEA_KEY',
           'COVALENT_KEY',
+          'CHANNEL',
         ],
       },
     ],
