@@ -11,6 +11,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
@@ -112,14 +113,14 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
           })}
         </Button>
       </Form>
-      {enableLocalAuthentication && (
+      {platformEnv.isNative ? (
         <Center mt="8">
           <LocalAuthenticationButton
             onOk={onLocalAuthenticationOk}
             field={field}
           />
         </Center>
-      )}
+      ) : null}
     </KeyboardDismissView>
   );
 };
