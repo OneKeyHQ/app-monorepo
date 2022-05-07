@@ -60,6 +60,7 @@ const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
       <Typography.DisplayLarge textAlign="center" mb={2}>
+        🔐{' '}
         {intl.formatMessage({
           id: 'title__set_password',
           defaultMessage: 'Set Password',

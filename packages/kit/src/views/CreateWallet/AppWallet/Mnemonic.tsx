@@ -1,16 +1,20 @@
-import React, { FC, useCallback } from 'react';
-import { useIntl } from 'react-intl';
-import { Modal, Button, Typography, Box } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import React, { useCallback } from 'react';
+
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
+
+import { Box, Button, Modal, Typography } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { Text } from '@onekeyhq/components/src/Typography';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDrawer, useToast, useNavigation } from '../../../hooks';
-import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
-import { savePassword } from '../../../utils/localAuthentication';
+import { useDrawer, useNavigation, useToast } from '../../../hooks';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '../../../routes/Modal/CreateWallet';
+import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
+import { savePassword } from '../../../utils/localAuthentication';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -26,7 +30,7 @@ const Mnemonic = () => {
   const navigation = useNavigation();
   const { closeDrawer } = useDrawer();
   const onPress = useCallback(async () => {
-    console.log('password', password, 'mnemonic', mnemonic)
+    console.log('password', password, 'mnemonic', mnemonic);
     try {
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
@@ -46,10 +50,10 @@ const Mnemonic = () => {
   }, [mnemonic, password, withEnableAuthentication]);
   return (
     <Modal footer={null}>
-      <Box mb="16">
-        <Typography.DisplayLarge mb="3" textAlign="center" color="text-default">
+      <Box mb="16" textAlign="center">
+        <Text typography={{ sm: 'DisplayLarge', md: 'DisplayMedium' }} mb="3">
           👀 For Your Eyes Only
-        </Typography.DisplayLarge>
+        </Text>
         <Typography.Body1 color="text-subdued" textAlign="center">
           Never share the recovery phrase. Anyone with these words will have
           full access to your wallet.
@@ -61,32 +65,28 @@ const Mnemonic = () => {
       <Box bg="surface-default" shadow="depth.2" borderRadius="12" p="4">
         <Box flexDirection="row">
           <Box w="50%">
-            {words.slice(0, 6).map((word, i) => {
-              return (
-                <Box flexDirection="row">
-                  <Typography.Body1Strong color="text-subdued" w="8">
-                    {i + 1}.
-                  </Typography.Body1Strong>
-                  <Typography.Body1Strong color="text-default">
-                    {word}
-                  </Typography.Body1Strong>
-                </Box>
-              );
-            })}
+            {words.slice(0, 6).map((word, i) => (
+              <Box flexDirection="row">
+                <Typography.Body1Strong color="text-subdued" w="8">
+                  {i + 1}.
+                </Typography.Body1Strong>
+                <Typography.Body1Strong color="text-default">
+                  {word}
+                </Typography.Body1Strong>
+              </Box>
+            ))}
           </Box>
           <Box w="50%">
-            {words.slice(6).map((word, i) => {
-              return (
-                <Box flexDirection="row">
-                  <Typography.Body1Strong color="text-subdued" w="8">
-                    {i + 7}.
-                  </Typography.Body1Strong>
-                  <Typography.Body1Strong color="text-default">
-                    {word}
-                  </Typography.Body1Strong>
-                </Box>
-              );
-            })}
+            {words.slice(6).map((word, i) => (
+              <Box flexDirection="row">
+                <Typography.Body1Strong color="text-subdued" w="8">
+                  {i + 7}.
+                </Typography.Body1Strong>
+                <Typography.Body1Strong color="text-default">
+                  {word}
+                </Typography.Body1Strong>
+              </Box>
+            ))}
           </Box>
         </Box>
       </Box>
