@@ -9,14 +9,16 @@ type FormInputProps = {
   onChange?: (text: string) => void;
 };
 
-export const FormPasswordInput: FC<
-  FormInputProps & ComponentProps<typeof Input>
-> = ({ onChange, ...props }) => {
+export const FormPasswordInput = React.forwardRef<typeof Input, FormInputProps & ComponentProps<typeof Input>>(({
+  onChange, ...props
+}, ref) => {
   const [show, setShow] = useState(false);
   const rightIconName = show ? 'EyeOutline' : 'EyeOffOutline';
   return (
     <Input
       w="full"
+      // @ts-ignore
+      ref={ref}
       type={show ? 'text' : 'password'}
       onChangeText={onChange}
       keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : undefined}
@@ -33,4 +35,4 @@ export const FormPasswordInput: FC<
       {...props}
     />
   );
-};
+})
