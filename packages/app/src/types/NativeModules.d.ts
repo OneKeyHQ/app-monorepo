@@ -30,9 +30,14 @@ export interface OKLiteManagerInterface extends NativeModule {
   intoSetting: () => void;
 }
 
+export interface SplashScreenManagerInterface extends NativeModule {
+  show: () => void;
+}
+
 declare module 'react-native' {
   interface NativeModulesStatic {
     OKLiteManager: OKLiteManagerInterface;
     OKPermissionManager: PermissionManagerInterface;
+    SplashScreenManager: SplashScreenManagerInterface;
   }
 }
