@@ -28,6 +28,10 @@ type SettingsState = {
     [ValidationFields.Account]?: boolean;
     [ValidationFields.Secret]?: boolean;
   };
+  devMode: {
+    enable: boolean;
+    preReleaseUpdate: boolean;
+  };
 };
 
 const initialState: SettingsState = {
@@ -49,6 +53,10 @@ const initialState: SettingsState = {
     [ValidationFields.Wallet]: true,
     [ValidationFields.Account]: true,
     [ValidationFields.Secret]: true,
+  },
+  devMode: {
+    enable: false,
+    preReleaseUpdate: false,
   },
 };
 
@@ -124,6 +132,12 @@ export const settingsSlice = createSlice({
       const { key, value } = action.payload;
       state.validationState[key] = value;
     },
+    setDevMode(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, enable: action.payload };
+    },
+    setPreReleaseUpdate(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, preReleaseUpdate: action.payload };
+    },
   },
 });
 
@@ -140,6 +154,8 @@ export const {
   setEnableLocalAuthentication,
   setSwapSlippagePercent,
   setValidationState,
+  setDevMode,
+  setPreReleaseUpdate,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

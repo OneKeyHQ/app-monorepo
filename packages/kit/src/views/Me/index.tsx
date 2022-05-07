@@ -2,6 +2,7 @@
 import React from 'react';
 
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   StackBasicRoutesParams,
   StackRoutes,
@@ -13,6 +14,7 @@ import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
 import { DefaultSection } from './DefaultSection';
+import { DevSettingSection } from './DevSetting';
 import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
 
@@ -25,6 +27,8 @@ type NavigationProps = CompositeNavigationProp<
 >;
 
 export const Me = () => {
+  const { enable: devModeEnable } = useSettings().devMode || {};
+
   const inset = useSafeAreaInsets();
   return (
     <Box bg="background-default" flex="1">
@@ -34,6 +38,7 @@ export const Me = () => {
           <DefaultSection />
           <GenaralSection />
           <SecuritySection />
+          {devModeEnable ? <DevSettingSection /> : null}
           <AboutSection />
         </Box>
       </ScrollView>
