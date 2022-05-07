@@ -91,6 +91,7 @@ import TransactionDetailModal, {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
 } from './TransactionDetail';
+import UpdateFeatureModal from './UpdateFeature';
 import WatchedAccountModal, {
   WatchedAccountModalRoutes,
   WatchedAccountRoutesParams,
@@ -207,6 +208,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Swap,
     component: SwapModal,
+  },
+  {
+    name: ModalRoutes.UpdateFeature,
+    component: UpdateFeatureModal,
   },
 ];
 
