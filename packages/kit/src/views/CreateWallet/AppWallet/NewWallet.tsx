@@ -1,8 +1,6 @@
 import React, { FC, useEffect } from 'react';
 
-import {
-  useNavigation,
-} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected, {
@@ -18,7 +16,6 @@ type NewWalletProps = {
   password: string;
   withEnableAuthentication?: boolean;
 };
-
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -42,19 +39,17 @@ const NewWallet: FC<NewWalletProps> = ({
   );
 };
 
-export const NewWalletModal = () => {
-  return (
-    <Modal footer={null}>
-      <Protected skipSavePassword field={ValidationFields.Wallet}>
-        {(password, { withEnableAuthentication }) => (
-          <NewWallet
-            password={password}
-            withEnableAuthentication={withEnableAuthentication}
-          />
-        )}
-      </Protected>
-    </Modal>
-  );
-};
+export const NewWalletModal = () => (
+  <Modal footer={null}>
+    <Protected skipSavePassword field={ValidationFields.Wallet}>
+      {(password, { withEnableAuthentication }) => (
+        <NewWallet
+          password={password}
+          withEnableAuthentication={withEnableAuthentication}
+        />
+      )}
+    </Protected>
+  </Modal>
+);
 
 export default NewWalletModal;

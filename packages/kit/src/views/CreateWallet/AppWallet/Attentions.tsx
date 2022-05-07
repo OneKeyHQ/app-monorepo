@@ -1,11 +1,5 @@
-import React, { useCallback } from 'react';
+import React, { FC } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,36 +12,11 @@ import {
 } from '@onekeyhq/components';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '../../../routes/Modal/CreateWallet';
+type AttentionsProps = { onPress: () => void };
 
-type NavigationProps = NavigationProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.AttentionsModal
->;
-
-type RouteProps = RouteProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.MnemonicModal
->;
-
-const Attentions = () => {
-  const navigation = useNavigation<NavigationProps>();
-  const route = useRoute<RouteProps>();
-  const { password, withEnableAuthentication } = route.params ?? {};
+export const Attentions: FC<AttentionsProps> = ({ onPress }) => {
   const intl = useIntl();
   const insets = useSafeAreaInsets();
-  const onPress = useCallback(async () => {
-    const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
-    navigation.navigate(CreateWalletModalRoutes.MnemonicModal, {
-      password,
-      withEnableAuthentication,
-      mnemonic,
-    });
-  }, [navigation, password, withEnableAuthentication]);
   const List = [
     {
       emoji: '🔐',
@@ -59,7 +28,6 @@ const Attentions = () => {
       desc: intl.formatMessage({ id: 'modal__attention_gesturing_no' }),
     },
   ];
-
   return (
     <Modal footer={null}>
       <Box flex={1} px={{ base: 2, md: 0 }}>
@@ -99,5 +67,3 @@ const Attentions = () => {
     </Modal>
   );
 };
-
-export default Attentions;
