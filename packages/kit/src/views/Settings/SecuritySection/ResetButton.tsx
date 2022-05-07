@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { NativeModules } from 'react-native';
 
 import {
   Box,
@@ -11,6 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -20,6 +22,9 @@ const ResetButton = () => {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [input, setInput] = useState('');
   const onReset = useCallback(async () => {
+    if (platformEnv.isIOS) {
+      NativeModules.SplashScreenManager.show();
+    }
     await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
   }, []);
