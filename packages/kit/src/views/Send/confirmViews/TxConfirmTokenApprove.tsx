@@ -5,7 +5,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
 import { Container, Spinner } from '@onekeyhq/components';
-import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import {
+  EVMDecodedItemERC20Approve,
+  InfiniteAmountText,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import TxTokenApproveDetail from '../../TxDetail/TxTokenApproveDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
@@ -30,7 +33,8 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
-  const approveAmount = decodedTx?.info?.amount as string;
+  const info = decodedTx?.info as EVMDecodedItemERC20Approve | null;
+  const approveAmount = info?.amount as string;
   const isMaxAmount = approveAmount === InfiniteAmountText;
   const feeInput = (
     <FeeInfoInputForConfirm
@@ -47,7 +51,7 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
       describe={
         isMaxAmount
           ? intl.formatMessage({ id: 'form__unlimited' })
-          : `${approveAmount} ${decodedTx?.info?.token?.symbol as string}`
+          : `${approveAmount} ${info?.token?.symbol as string}`
       }
       hasArrow
       onPress={() => {

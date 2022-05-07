@@ -62,7 +62,10 @@ export abstract class VaultBase extends VaultContext {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxAny>;
 
-  abstract decodeTx(encodedTx: IEncodedTxAny): Promise<IDecodedTx>;
+  abstract decodeTx(
+    encodedTx: IEncodedTxAny,
+    payload?: any,
+  ): Promise<IDecodedTx>;
 
   abstract buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,

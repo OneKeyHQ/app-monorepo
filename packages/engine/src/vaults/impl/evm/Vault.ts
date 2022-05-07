@@ -141,7 +141,10 @@ export default class Vault extends VaultBase {
     return this.signAndSendTransaction(unsignedTx, options);
   }
 
-  override async decodeTx(encodedTx: IEncodedTxAny): Promise<EVMDecodedItem> {
+  override async decodeTx(
+    encodedTx: IEncodedTxAny,
+    payload?: any,
+  ): Promise<EVMDecodedItem> {
     const ethersTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as ethers.Transaction;
@@ -149,7 +152,7 @@ export default class Vault extends VaultBase {
     if (!Number.isFinite(ethersTx.chainId)) {
       ethersTx.chainId = Number(await this.getNetworkChainId());
     }
-    return EVMTxDecoder.getDecoder(this.engine).decode(ethersTx);
+    return EVMTxDecoder.getDecoder(this.engine).decode(ethersTx, payload);
   }
 
   async buildEncodedTxFromTransfer(
