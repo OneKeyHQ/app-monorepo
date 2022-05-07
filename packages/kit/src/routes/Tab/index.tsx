@@ -29,26 +29,26 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
     component: HomeScreen,
-    tabBarIcon: () => 'HomeOutline',
+    tabBarIcon: () => 'Home',
     translationId: 'title__home',
   },
   {
     name: TabRoutes.Swap,
     component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalOutline',
+    tabBarIcon: () => 'Activity',
     translationId: 'title__swap',
   },
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,
-    tabBarIcon: () => 'CompassOutline',
+    tabBarIcon: () => 'Discovery',
     translationId: 'title__explore',
   },
   {
     name: TabRoutes.Me,
     component: MeScreen,
-    tabBarIcon: () => 'UserOutline',
-    translationId: 'title__me',
+    tabBarIcon: () => 'Menu',
+    translationId: 'title__menu',
   },
   ...(() => {
     if (process.env.NODE_ENV !== 'production') {

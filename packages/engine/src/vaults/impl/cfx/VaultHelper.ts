@@ -12,6 +12,16 @@ export default class VaultHelper extends VaultHelperBase {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseToEncodedTx(rawTxOrEncodedTx: any): Promise<any> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  nativeTxToJson(nativeTx: any): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  jsonToNativeTx(json: string): Promise<any> {
+    throw new NotImplemented();
   }
 }

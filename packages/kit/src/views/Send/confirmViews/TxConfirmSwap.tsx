@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Spinner } from '@onekeyhq/components';
 
-import { SwapQuote } from '../../Swap/typings';
 import TxConfirmSwapDetail from '../../TxDetail/TxConfirmSwapDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
 
@@ -33,11 +32,9 @@ function TxConfirmSwap(props: ITxConfirmViewProps) {
 
   let content = <Spinner />;
   if (decodedTx && payload && payload.payloadType === 'InternalSwap') {
-    const swapQuote = payload as SwapQuote;
     content = (
       <TxConfirmSwapDetail
         tx={decodedTx}
-        swapQuote={swapQuote}
         sourceInfo={sourceInfo}
         feeInfoPayload={feeInfoPayload}
         feeInput={feeInput}

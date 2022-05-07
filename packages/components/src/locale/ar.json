@@ -70,6 +70,7 @@
   "action__grid_view": "عرض شبكي",
   "action__i_already_have_a_wallet": "إضافة المحفظة الحالية",
   "action__i_got_it": "فهمت",
+  "action__i_have_saved_the_phrase": "I’ve Saved the Phrase",
   "action__i_understand": "أفهم",
   "action__import": "يستورد",
   "action__incorrect_token_information": "معلومات رمز غير صحيحة",
@@ -107,6 +108,7 @@
   "action__restore_with_onekey_lite": "استعادة مع OneKey Lite",
   "action__restore_with_recovery_seed": "استعادة مع عبارة الاسترداد",
   "action__retry": "أعد المحاولة",
+  "action__reveal_recovery_phrase": "Reveal Recovery Phrase",
   "action__save": "يحفظ",
   "action__see_all": "اظهار الكل",
   "action__select_token": "حدد رمز",
@@ -173,6 +175,7 @@
   "content__blockchain": "بلوكشين",
   "content__btc_dominance": "هيمنة BTC",
   "content__calculate_fee": "🚀 سيحسب OneKey الرسوم بعد إدخال العنوان والمبلغ.",
+  "content__click_below_to_copy": "Click Below to Copy",
   "content__confirmed": "مؤكد",
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
@@ -505,6 +508,8 @@
   "modal__finish_backup": "إنهاء النسخ الاحتياطي",
   "modal__finish_backup_desc": "تحقق من أنك قمت بعمل نسخة احتياطية صحيحة عن طريق إدخال الكلمات المقابلة من عبارة الاسترداد أدناه.",
   "modal__follow_the_instructions_on_your_device_screen": "اتبع التعليمات التي تظهر على شاشة جهازك",
+  "modal__for_your_eyes_only": "For Your Eyes Only",
+  "modal__for_your_eyes_only_desc": "Never share the recovery phrase. Anyone with these words will have full access to your wallet.",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
@@ -657,6 +662,7 @@
   "title__manage_tokens": "إدارة الرموز",
   "title__market": "سوق",
   "title__me": "أنا",
+  "title__menu": "Menu",
   "title__news": "أخبار",
   "title__nfc_data_has_been_read": "الانتعاش جاهز",
   "title__nfc_data_has_been_read_desc": "أدخل كلمة مرور التطبيق لإكمال استعادة المحفظة",

@@ -1,71 +1,33 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC } from 'react';
 
-import { ethers } from '@onekeyfe/blockchain-libs';
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import {
+  EVMDecodedItem,
+  EVMDecodedItemInternalSwap,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { SwapQuote } from '../Swap/typings';
 
 import Address from './Address';
 import HeaderIcon from './HeaderIcon';
 import TotalFee from './TotalFee';
-
-const NativeCurrencyPseudoAddress =
-  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
 const OnekeyLogoUrl =
   'https://help.onekey.so/hc/article_attachments/4578205272847/OneKey__1_.png';
 
 const TxConfirmSwapDetail: FC<{
   tx: EVMDecodedItem;
-  swapQuote: SwapQuote;
   sourceInfo?: IDappCallParams;
   feeInfoPayload?: IFeeInfoPayload | null;
   feeInput?: any;
-}> = ({ tx, sourceInfo, feeInput, swapQuote, feeInfoPayload }) => {
-  const { network } = tx;
-
+}> = ({ tx, sourceInfo, feeInput, feeInfoPayload }) => {
+  const { info } = tx;
+  const swapInfo = info as EVMDecodedItemInternalSwap;
+  const { buyTokenSymbol, sellTokenSymbol, buyAmount, sellAmount } = swapInfo;
   const intl = useIntl();
-  const [tokens, setTokens] = useState<{
-    buy: { amount: string; symbol: string };
-    sell: { amount: string; symbol: string };
-  }>();
-
-  useEffect(() => {
-    const getTokensInfo = async () => {
-      const { buyTokenAddress, sellTokenAddress, buyAmount, sellAmount } =
-        swapQuote;
-
-      const tokensInfo = (
-        [
-          [buyTokenAddress, buyAmount],
-          [sellTokenAddress, sellAmount],
-        ] as const
-      ).map(async ([tokenAddress, tokenAmount]) => {
-        const address = tokenAddress.toLowerCase();
-        if (address === NativeCurrencyPseudoAddress) {
-          const amount = ethers.utils.formatEther(tokenAmount);
-          return { amount, symbol: network.symbol };
-        }
-        const token = await backgroundApiProxy.engine.getOrAddToken(
-          network.id,
-          address,
-        );
-        const symbol = token?.symbol ?? '';
-        const amount = ethers.utils.formatUnits(tokenAmount, token?.decimals);
-        return { amount, symbol };
-      });
-
-      const [buy, sell] = await Promise.all(tokensInfo);
-      setTokens({ buy, sell });
-    };
-    getTokensInfo();
-  }, [network.id, network.symbol, swapQuote]);
 
   return (
     <Box
@@ -80,18 +42,15 @@ const TxConfirmSwapDetail: FC<{
 
       <Container.Box mt={6}>
         <Address address={tx.fromAddress} isFromAddress />
-        {!!tokens && (
-          <Container.Item
-            title={intl.formatMessage({ id: 'action__send' })}
-            describe={`${tokens.sell.amount} ${tokens.sell.symbol}`}
-          />
-        )}
-        {!!tokens && (
-          <Container.Item
-            title={intl.formatMessage({ id: 'action__receive' })}
-            describe={`${tokens.buy.amount} ${tokens.buy.symbol}`}
-          />
-        )}
+        <Container.Item
+          title={intl.formatMessage({ id: 'action__send' })}
+          describe={`${sellAmount} ${sellTokenSymbol}`}
+        />
+
+        <Container.Item
+          title={intl.formatMessage({ id: 'action__receive' })}
+          describe={`${buyAmount} ${buyTokenSymbol}`}
+        />
         {!!sourceInfo && (
           <Container.Item
             title={`${intl.formatMessage({

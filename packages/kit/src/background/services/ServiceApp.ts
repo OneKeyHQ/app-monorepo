@@ -1,3 +1,4 @@
+import { NativeModules } from 'react-native';
 import RNRestart from 'react-native-restart';
 
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
@@ -28,6 +29,7 @@ class ServiceApp extends ServiceBase {
 
   restartApp() {
     if (platformEnv.isNative) {
+      NativeModules.SplashScreenManager.show();
       return RNRestart.Restart();
     }
     if (platformEnv.isDesktop) {

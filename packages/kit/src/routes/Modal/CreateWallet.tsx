@@ -9,14 +9,14 @@ import AddImportedAccountDone from '@onekeyhq/kit/src/views/CreateWallet/Account
 import AddWatchAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddWatchAccount';
 import AddExistingWallet from '@onekeyhq/kit/src/views/CreateWallet/AddExistingWallet';
 import AppWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AppWallet';
+import AttentionsView from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AttentionsView';
 import AppWalletDone from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Done';
 import ImportWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/ImportWallet';
+import Mnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Mnemonic';
+import NewWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/NewWallet';
 import RestoreFromMnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreFromMnemonic';
 import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreWallet';
 import Guide from '@onekeyhq/kit/src/views/CreateWallet/Guide';
-import Attentions from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Attentions';
-import Mnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Mnemonic'
-import NewWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/NewWallet'
 import ConnectHardware, {
   Device,
 } from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
@@ -31,12 +31,10 @@ import OnekeyLiteBackupPinCode from '@onekeyhq/kit/src/views/Hardware/OnekeyLite
 import OnekeyLiteRestorePinCode from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/PinCode/RestorePinCodeVerify';
 import OnekeyLiteRestore from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Restore';
 import OnekeyLiteRestoreDoneView from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Restore/Done';
-
 import type {
   OnekeyLiteModalRoutes,
   OnekeyLiteRoutesParams,
 } from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/routes';
-
 
 import createStackNavigator from './createStackNavigator';
 
@@ -71,15 +69,22 @@ export enum CreateWalletModalRoutes {
   AddWatchAccountModal = 'AddWatchAccount',
   AttentionsModal = 'AttentionsModal',
   MnemonicModal = 'MnemonicModal',
-  NewWalletModal = 'NewWalletModal'
+  NewWalletModal = 'NewWalletModal',
 }
 
 export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateWalletModal]: undefined;
   [CreateWalletModalRoutes.ConnectHardwareModal]: undefined;
   [CreateWalletModalRoutes.AppWalletModal]: undefined;
-  [CreateWalletModalRoutes.AttentionsModal]: { password: string, withEnableAuthentication?: boolean };
-  [CreateWalletModalRoutes.MnemonicModal]: { password: string, withEnableAuthentication?: boolean, mnemonic: string };
+  [CreateWalletModalRoutes.AttentionsModal]: {
+    password: string;
+    withEnableAuthentication?: boolean;
+  };
+  [CreateWalletModalRoutes.MnemonicModal]: {
+    password: string;
+    withEnableAuthentication?: boolean;
+    mnemonic: string;
+  };
   [CreateWalletModalRoutes.NewWalletModal]: undefined;
   [CreateWalletModalRoutes.AppWalletDoneModal]:
     | { mnemonic?: string }
@@ -230,7 +235,7 @@ const modalRoutes = [
   },
   {
     name: CreateWalletModalRoutes.AttentionsModal,
-    component: Attentions,
+    component: AttentionsView,
   },
   {
     name: CreateWalletModalRoutes.MnemonicModal,
