@@ -263,7 +263,7 @@ class Engine {
 
   @backgroundMethod()
   generateMnemonic(): Promise<string> {
-    return Promise.resolve(bip39.generateMnemonic())
+    return Promise.resolve(bip39.generateMnemonic());
   }
 
   @backgroundMethod()
