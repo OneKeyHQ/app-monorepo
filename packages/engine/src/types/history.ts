@@ -27,6 +27,8 @@ type HistoryEntryTransactionMeta = {
   value: string;
   rawTx: string;
   ref?: string;
+  rawTxPreDecodeCache?: string;
+  payload?: string;
 };
 
 type HistoryEntryMessageMeta = {

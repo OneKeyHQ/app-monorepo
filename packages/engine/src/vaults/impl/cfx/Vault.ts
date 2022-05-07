@@ -32,7 +32,7 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  decodeTx(encodedTx: IEncodedTxAny): Promise<any> {
+  decodeTx(encodedTx: IEncodedTxAny, payload?: any): Promise<any> {
     throw new NotImplemented();
   }
 

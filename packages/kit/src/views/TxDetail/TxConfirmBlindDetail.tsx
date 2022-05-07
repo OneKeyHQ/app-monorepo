@@ -31,7 +31,12 @@ const TxConfirmBlindDetail: FC<{
 
       <Container.Box mt={6}>
         <Address address={tx.fromAddress} isFromAddress />
-        <Address address={tx.toAddress} isFromAddress={false} />
+
+        {/* toAddress could be a null if it's a contract creation */}
+        {!!tx.toAddress && (
+          <Address address={tx.toAddress} isFromAddress={false} />
+        )}
+
         {!!sourceInfo && (
           <Container.Item
             title={intl.formatMessage({ id: 'content__interact_with' })}
@@ -60,6 +65,7 @@ const TxConfirmBlindDetail: FC<{
       <Typography.Subheading mt={6} w="100%" color="text-subdued">
         {intl.formatMessage({ id: 'content__more_details' })}
       </Typography.Subheading>
+
       <Container.Box mt={6}>
         <Container.Item
           title={intl.formatMessage({ id: 'form__contract_data' })}
