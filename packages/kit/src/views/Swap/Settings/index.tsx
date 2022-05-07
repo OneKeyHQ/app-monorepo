@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
+import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../../hooks/redux';
@@ -63,40 +64,52 @@ const Setting = () => {
           onChangeText={onChange}
           onBlur={onBlur}
         />
-        <HStack space="1">
+        <HStack space="2">
           <Pressable
-            onPress={() => onChange('1')}
-            width="10"
-            h="7"
-            bg="surface-neutral-subdued"
-            _pressed={{ bg: 'surface-selected' }}
-            borderRadius="full"
             alignItems="center"
             justifyContent="center"
+            px={3.5}
+            py={1.5}
+            bg="surface-neutral-subdued"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            borderRadius="full"
+            onPress={() => {
+              setHaptics();
+              onChange('1');
+            }}
           >
             <Typography.Body2Strong>1%</Typography.Body2Strong>
           </Pressable>
           <Pressable
-            onPress={() => onChange('2')}
-            width="10"
-            h="7"
-            bg="surface-neutral-subdued"
-            _pressed={{ bg: 'surface-selected' }}
-            borderRadius="full"
             alignItems="center"
             justifyContent="center"
+            px={3.5}
+            py={1.5}
+            bg="surface-neutral-subdued"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            borderRadius="full"
+            onPress={() => {
+              setHaptics();
+              onChange('2');
+            }}
           >
             <Typography.Body2Strong>2%</Typography.Body2Strong>
           </Pressable>
           <Pressable
-            onPress={() => onChange('3')}
-            width="10"
-            h="7"
-            bg="surface-neutral-subdued"
-            _pressed={{ bg: 'surface-selected' }}
-            borderRadius="full"
             alignItems="center"
             justifyContent="center"
+            px={3.5}
+            py={1.5}
+            bg="surface-neutral-subdued"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            borderRadius="full"
+            onPress={() => {
+              setHaptics();
+              onChange('3');
+            }}
           >
             <Typography.Body2Strong>3%</Typography.Body2Strong>
           </Pressable>

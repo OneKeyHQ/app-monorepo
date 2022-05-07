@@ -9,17 +9,12 @@ import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import { DeviceState } from '../../Provider/device';
-import {
-  useSafeAreaInsets,
-  useThemeValue,
-  useUserDevice,
-} from '../../Provider/hooks';
-import Typography from '../../Typography';
+import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type { BottomTabBarProps } from '../BottomTabs/types';
 
-const DEFAULT_TABBAR_HEIGHT = 55;
+const DEFAULT_TABBAR_HEIGHT = 49;
 
 type Options = {
   deviceSize: DeviceState['size'];
@@ -54,11 +49,6 @@ export default function BottomTabBar({
   const horizontal = shouldUseHorizontalLabels({
     deviceSize: size,
   });
-
-  const [activeFontColor, inactiveFontColor] = useThemeValue([
-    'text-default',
-    'text-subdued',
-  ]);
 
   return (
     <Box
@@ -96,7 +86,8 @@ export default function BottomTabBar({
             <Box flex={1} p={1} key={route.name}>
               <Pressable
                 alignItems="center"
-                p={0.5}
+                px={0.5}
+                py={1.5}
                 bg="surface-subdued"
                 onPress={() => {
                   setHaptics();
@@ -120,27 +111,8 @@ export default function BottomTabBar({
                   // @ts-expect-error
                   name={options?.tabBarIcon?.() as ICON_NAMES}
                   color={isActive ? 'icon-pressed' : 'icon-subdued'}
-                  size={24}
+                  size={28}
                 />
-                <Typography.Caption
-                  numberOfLines={1}
-                  mt={0.5}
-                  textAlign="center"
-                  color={isActive ? activeFontColor : inactiveFontColor}
-                  style={[
-                    horizontal
-                      ? {
-                          fontSize: 13,
-                          marginLeft: 20,
-                          marginTop: 3,
-                        }
-                      : {
-                          fontSize: 10,
-                        },
-                  ]}
-                >
-                  {options.tabBarLabel ?? route.name}
-                </Typography.Caption>
               </Pressable>
             </Box>
           );
