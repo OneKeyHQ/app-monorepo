@@ -3,6 +3,7 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { SectionListProps } from 'react-native';
+import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Badge,
@@ -21,6 +22,7 @@ import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
@@ -30,7 +32,6 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import TransactionRecord from '../../Components/transactionRecord';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
@@ -73,6 +74,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     network,
     tokenId,
   });
+
+  const hiddenHeaderMemo = useDeepCompareMemo(
+    () => hiddenHeader,
+    [hiddenHeader],
+  );
 
   useEffect(() => {
     async function loadAccount() {
@@ -149,61 +155,68 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       </Box>
     );
 
+  const headerViewMemo = useMemo(() => <Box>{headerView}</Box>, [headerView]);
+
+  const headerViewBarMemo = useMemo(
+    () =>
+      Boolean(transactionRecords.length) && (
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          pb={3}
+        >
+          <Typography.Heading>
+            {intl.formatMessage({ id: 'transaction__history' })}
+          </Typography.Heading>
+          <Box flexDirection="row">
+            <IconButton
+              onPress={() => {
+                refreshData();
+              }}
+              isLoading={isLoading}
+              p={2}
+              size="sm"
+              name="RefreshSolid"
+              type="plain"
+              circle
+            />
+            {hasAvailable ? (
+              <IconButton
+                onPress={() => {
+                  openAddressDetails(account?.address);
+                }}
+                ml={3}
+                p={2}
+                size="sm"
+                name="ExternalLinkSolid"
+                type="plain"
+                circle
+              />
+            ) : null}
+          </Box>
+        </Box>
+      ),
+    [
+      account?.address,
+      hasAvailable,
+      intl,
+      isLoading,
+      openAddressDetails,
+      refreshData,
+      transactionRecords.length,
+    ],
+  );
+
   const header = useMemo(
     () => (
       // Warning: Each child in a list should have a unique "key" prop.
       <Box key="header">
-        <Box>{headerView}</Box>
-        {Boolean(transactionRecords.length) && (
-          <Box
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            pb={3}
-          >
-            <Typography.Heading>
-              {intl.formatMessage({ id: 'transaction__history' })}
-            </Typography.Heading>
-            <Box flexDirection="row">
-              <IconButton
-                onPress={() => {
-                  refreshData();
-                }}
-                isLoading={isLoading}
-                p={2}
-                size="sm"
-                name="RefreshSolid"
-                type="plain"
-                circle
-              />
-              {hasAvailable ? (
-                <IconButton
-                  onPress={() => {
-                    openAddressDetails(account?.address);
-                  }}
-                  ml={3}
-                  p={2}
-                  size="sm"
-                  name="ExternalLinkSolid"
-                  type="plain"
-                  circle
-                />
-              ) : null}
-            </Box>
-          </Box>
-        )}
+        {headerViewMemo}
+        {headerViewBarMemo}
       </Box>
     ),
-    [
-      headerView,
-      transactionRecords.length,
-      intl,
-      isLoading,
-      hasAvailable,
-      refreshData,
-      openAddressDetails,
-      account?.address,
-    ],
+    [headerViewMemo, headerViewBarMemo],
   );
 
   const renderEmpty = () => (
@@ -239,7 +252,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     extraData: { isLoading },
     renderItem,
     renderSectionHeader,
-    ListHeaderComponent: hiddenHeader ? null : header,
+    ListHeaderComponent: hiddenHeaderMemo ? null : header,
     ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
     ListFooterComponent: () => <Box key="footer" h="20px" />,
     ItemSeparatorComponent: () => <Divider key="separator" />,

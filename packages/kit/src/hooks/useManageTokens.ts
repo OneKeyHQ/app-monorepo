@@ -65,9 +65,6 @@ export const useManageTokens = ({
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (isFocused) {
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
-    }
     if (pollingInterval && isFocused) {
       timer = setInterval(() => {
         backgroundApiProxy.serviceToken.fetchAccountTokens();
