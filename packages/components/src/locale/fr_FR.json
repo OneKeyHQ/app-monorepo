@@ -40,6 +40,8 @@
   "action__confirm": "Confirmer",
   "action__connect": "Connectez-vous à",
   "action__connect_device": "Connecter le dispositif",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "Contact",
   "action__continue": "Continuer",
   "action__copy": "Copie",

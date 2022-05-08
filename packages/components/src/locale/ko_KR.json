@@ -40,6 +40,8 @@
   "action__confirm": "확인하다",
   "action__connect": "연결하다",
   "action__connect_device": "장치 연결",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "연락하다",
   "action__continue": "계속하다",
   "action__copy": "복사",

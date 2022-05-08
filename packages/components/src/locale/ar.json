@@ -40,6 +40,8 @@
   "action__confirm": "يتأكد",
   "action__connect": "الاتصال",
   "action__connect_device": "قم بتوصيل الجهاز",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "اتصال",
   "action__continue": "يكمل",
   "action__copy": "ينسخ",

@@ -40,6 +40,8 @@
   "action__confirm": "ยืนยัน",
   "action__connect": "เชื่อมต่อ",
   "action__connect_device": "เชื่อมต่ออุปกรณ์",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "ติดต่อ",
   "action__continue": "ดำเนินการต่อ",
   "action__copy": "สำเนา",

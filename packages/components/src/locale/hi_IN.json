@@ -40,6 +40,8 @@
   "action__confirm": "पुष्टि करना",
   "action__connect": "जुडिये",
   "action__connect_device": "डिवाइस कनेक्ट करें",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "संपर्क करें",
   "action__continue": "जारी रखना",
   "action__copy": "प्रतिलिपि",

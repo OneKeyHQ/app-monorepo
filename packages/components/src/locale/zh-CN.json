@@ -40,6 +40,8 @@
   "action__confirm": "确认",
   "action__connect": "连接",
   "action__connect_device": "连接设备",
+  "action__connection_duplicate_device": "设备 {deviceId} 重复添加，请更换设备重试",
+  "action__connection_timeout": "硬件连接超时，请重新连接尝试",
   "action__contact": "联系",
   "action__continue": "继续",
   "action__copy": "复制",

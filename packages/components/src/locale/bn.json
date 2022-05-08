@@ -40,6 +40,8 @@
   "action__confirm": "নিশ্চিত করুন",
   "action__connect": "সংযোগ করুন",
   "action__connect_device": "ডিভাইস সংযোগ করুন",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "যোগাযোগ",
   "action__continue": "চালিয়ে যান",
   "action__copy": "কপি",
