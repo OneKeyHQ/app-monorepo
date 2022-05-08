@@ -15,6 +15,8 @@ type ProtectedOptions = {
 
 type ProtectedProps = {
   skipSavePassword?: boolean;
+  /** walletId for current flow, null means createWallet flow */
+  walletId: string | null;
   field?: ValidationFields;
   children: (password: string, options: ProtectedOptions) => React.ReactNode;
 };
@@ -23,6 +25,7 @@ const Protected: FC<ProtectedProps> = ({
   children,
   skipSavePassword,
   field,
+  walletId,
 }) => {
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =

@@ -82,6 +82,7 @@ export type SendConfirmParams = EditFeeParams & {
 
 export type SendAuthenticationParams = SendConfirmParams & {
   accountId: string;
+  walletId: string;
   networkId: string;
   unsignedMessage?: IUnsignedMessageEvm;
   encodedTx?: any;
