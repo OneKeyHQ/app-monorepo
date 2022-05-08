@@ -15,6 +15,9 @@ import { AccountType } from './types/account';
 import { UserCreateInput, UserCreateInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
+const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
+const FEE_PRICE_HIGH_VALUE_TIMES = 4;
+
 class Validators {
   private _dbApi: DBAPI;
 
@@ -221,7 +224,7 @@ class Validators {
         );
       }
       const maxLimit = new BigNumber(highValue);
-      if (v.isGreaterThan(maxLimit.multipliedBy(new BigNumber(20)))) {
+      if (v.isGreaterThan(maxLimit.times(FEE_LIMIT_HIGH_VALUE_TIMES))) {
         throw new OneKeyValidatorTip('form__gas_limit_invalid_too_much');
       }
     } catch (e) {
@@ -256,7 +259,12 @@ class Validators {
   }): Promise<void> {
     const valueBN = new BigNumber(value);
     const minAmount = minValue || '0';
-    if (!valueBN || valueBN.isNaN() || valueBN.isLessThanOrEqualTo(minAmount)) {
+    if (
+      !valueBN ||
+      valueBN.isNaN() ||
+      valueBN.isLessThanOrEqualTo('0') ||
+      valueBN.isLessThan(minAmount)
+    ) {
       // TODO $i18n$ params
       throw new OneKeyValidatorError('form__gas_price_invalid_min', {
         0: minAmount,
@@ -266,7 +274,7 @@ class Validators {
       // TODO $i18n$ params
       throw new OneKeyValidatorTip('form__gas_price_too_low', {});
     }
-    if (highValue && valueBN.isGreaterThan(new BigNumber(highValue).times(4))) {
+    if (highValue && valueBN.isGreaterThan(new BigNumber(highValue).times(FEE_PRICE_HIGH_VALUE_TIMES))) {
       // TODO $i18n$ params
       throw new OneKeyValidatorTip('form__gas_price_too_much', {});
     }
@@ -294,7 +302,12 @@ class Validators {
       const v = typeof value === 'string' ? new BigNumber(value) : value;
       // TODO  may relate to network
       const minAmount = minValue || '0';
-      if (!v || v.isNaN() || v.isLessThanOrEqualTo(minAmount)) {
+      if (
+        !v ||
+        v.isNaN() ||
+        v.isLessThanOrEqualTo('0') ||
+        v.isLessThan(minAmount)
+      ) {
         // TODO $i18n$ params
         throw new OneKeyValidatorError('form__max_fee_invalid_too_low', {
           0: minAmount,
@@ -310,7 +323,7 @@ class Validators {
 
       if (highValue) {
         const networkMax = new BigNumber(highValue);
-        if (v.isGreaterThan(networkMax.multipliedBy(4))) {
+        if (v.isGreaterThan(networkMax.times(FEE_PRICE_HIGH_VALUE_TIMES))) {
           throw new OneKeyValidatorTip('form__max_fee_invalid_too_much');
         }
       }
@@ -349,7 +362,12 @@ class Validators {
       const v = typeof value === 'string' ? new BigNumber(value) : value;
       // TODO  may relate to network
       const minAmount = minValue || '0';
-      if (!v || v.isNaN() || v.isLessThanOrEqualTo(minAmount)) {
+      if (
+        !v ||
+        v.isNaN() ||
+        v.isLessThanOrEqualTo('0') ||
+        v.isLessThan(minAmount)
+      ) {
         // TODO $i18n$ params
         throw new OneKeyValidatorError('form__max_priority_fee_invalid_min', {
           0: minAmount,
@@ -363,7 +381,7 @@ class Validators {
         }
       }
       if (highValue) {
-        if (v.isGreaterThan(new BigNumber(highValue).times(4))) {
+        if (v.isGreaterThan(new BigNumber(highValue).times(FEE_PRICE_HIGH_VALUE_TIMES))) {
           throw new OneKeyValidatorTip(
             'form__max_priority_fee_invalid_too_much',
           );

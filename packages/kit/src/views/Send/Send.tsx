@@ -34,6 +34,7 @@ import { useActiveWalletAccount, useGeneral } from '../../hooks/redux';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { FeeInfoInputForTransfer } from './FeeInfoInput';
 import {
+  SendConfirmParams,
   SendRoutes,
   SendRoutesParams,
   TransferSendParamsPayload,
@@ -295,12 +296,14 @@ const Transaction = () => {
         balance: getTokenBalance(tokenConfig, '0'),
       },
     };
-    const params = {
+    const params: SendConfirmParams = {
       payloadType: 'transfer', // transfer, transferNft, swap
       payload,
       backRouteName: SendRoutes.Send,
       encodedTx: encodedTxWithFee,
       feeInfoSelected: feeInfoPayload?.selected,
+      feeInfoEditable: false,
+      feeInfoUseFeeInTx: true,
     };
 
     navigation.navigate(SendRoutes.SendConfirm, params);

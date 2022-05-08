@@ -74,6 +74,8 @@ type NavigationProps = StackNavigationProp<
   SendRoutes.SendEditFee
 >;
 
+const PRICE_UP_RATIO = 1.1;
+
 function selectMaxValue(
   currentValue: string | undefined,
   highPresetValue: string | undefined,
@@ -254,7 +256,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
                               | undefined
                           )?.maxPriorityFeePerGas as string,
                         )
-                          .times(1.1)
+                          .times(PRICE_UP_RATIO)
                           .toFixed()
                       : '0',
                 });
@@ -327,7 +329,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
                               | undefined
                           )?.maxFeePerGas as string,
                         )
-                          .times(1.1)
+                          .times(PRICE_UP_RATIO)
                           .toFixed()
                       : '0',
                 });
@@ -387,7 +389,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
                   minValue:
                     autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
                       ? new BigNumber(selectedFeeInfo?.custom?.price as string)
-                          .times(1.1)
+                          .times(PRICE_UP_RATIO)
                           .toFixed()
                       : '0',
                   lowValue,
@@ -777,20 +779,17 @@ function ScreenSendEditFee({ ...rest }) {
             const eip1559Price = customValues.price as EIP1559Fee;
             if (eip1559Price) {
               const highPriceInfo = highPriceData as EIP1559Fee | undefined;
-              eip1559Price.baseFee = selectMaxValue(
-                eip1559Price.baseFee,
-                highPriceInfo?.baseFee,
-                1.1,
-              );
+              eip1559Price.baseFee =
+                highPriceInfo?.baseFee ?? eip1559Price.baseFee;
               eip1559Price.maxFeePerGas = selectMaxValue(
                 eip1559Price.maxFeePerGas,
                 highPriceInfo?.maxFeePerGas,
-                1.1,
+                PRICE_UP_RATIO,
               );
               eip1559Price.maxPriorityFeePerGas = selectMaxValue(
                 eip1559Price.maxPriorityFeePerGas,
                 highPriceInfo?.maxPriorityFeePerGas,
-                1.1,
+                PRICE_UP_RATIO,
               );
             }
           } else {
@@ -798,7 +797,7 @@ function ScreenSendEditFee({ ...rest }) {
             customValues.price = selectMaxValue(
               customValues.price as string,
               highPriceInfo,
-              1.1,
+              PRICE_UP_RATIO,
             );
           }
         }

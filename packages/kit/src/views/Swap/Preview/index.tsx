@@ -38,15 +38,10 @@ const Preview = () => {
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
+            feeInfoEditable: true,
+            feeInfoUseFeeInTx: false,
             encodedTx: { ...swapQuote, from: account.address },
             payload: swapQuote,
-            // sourceInfo: {
-            //   id: '0',
-            //   origin: 'OneKey Swap',
-            //   scope: 'ethereum',
-            //   data: { method: '' },
-            // },
-            // payload: swapQuote,
             onSuccess: (tx) => {
               addTransaction({
                 hash: tx.txid,
