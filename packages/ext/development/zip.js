@@ -9,9 +9,10 @@ devUtils.execSync(`
   mkdir -p ${buildFolder}/_dist/
 `);
 
-// TODO read build version from CI
 const buildVersion = 'beta';
-const version = `${packageJson.version}-${buildVersion}`;
+const version = `${process.env.VERSION || packageJson.version}-${
+  process.env.BUILD_NUMBER || buildVersion
+}`;
 
 const browsers = ['chrome', 'firefox'];
 browsers.forEach((browser) => {
