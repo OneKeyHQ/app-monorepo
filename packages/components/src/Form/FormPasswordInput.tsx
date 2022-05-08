@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useState } from 'react';
+import React, { ComponentProps, useState } from 'react';
 
 import { Platform } from 'react-native';
 
@@ -9,14 +9,17 @@ type FormInputProps = {
   onChange?: (text: string) => void;
 };
 
-export const FormPasswordInput: FC<
+const FormPasswordInput = React.forwardRef<
+  typeof Input,
   FormInputProps & ComponentProps<typeof Input>
-> = ({ onChange, ...props }) => {
+>(({ onChange, ...props }, ref) => {
   const [show, setShow] = useState(false);
   const rightIconName = show ? 'EyeOutline' : 'EyeOffOutline';
   return (
     <Input
       w="full"
+      // @ts-expect-error
+      ref={ref}
       type={show ? 'text' : 'password'}
       onChangeText={onChange}
       keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : undefined}
@@ -33,4 +36,8 @@ export const FormPasswordInput: FC<
       {...props}
     />
   );
-};
+});
+
+FormPasswordInput.displayName = 'FormPasswordInput';
+
+export { FormPasswordInput };
