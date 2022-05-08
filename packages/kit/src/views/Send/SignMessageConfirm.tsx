@@ -41,7 +41,7 @@ const SignMessageConfirm = () => {
   const { sourceInfo, unsignedMessage } = route.params;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId, walletId } = useActiveWalletAccount();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -66,6 +66,7 @@ const SignMessageConfirm = () => {
         ...route.params,
         unsignedMessage: msg,
         accountId,
+        walletId,
         networkId,
         // TODO onComplete
         onSuccess: async (result) => {
@@ -76,7 +77,7 @@ const SignMessageConfirm = () => {
         },
       });
     },
-    [navigation, route.params, accountId, networkId, dappApprove],
+    [navigation, route.params, accountId, networkId, walletId, dappApprove],
   );
 
   const sharedProps: ISignMessageConfirmViewProps = {

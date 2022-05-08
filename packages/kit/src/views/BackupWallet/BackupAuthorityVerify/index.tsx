@@ -130,7 +130,7 @@ const BackupAuthorityWalletVerifyView: FC = () => {
 
   return (
     <Modal footer={null}>
-      <Protected field={ValidationFields.Wallet}>
+      <Protected walletId={walletId} field={ValidationFields.Wallet}>
         {(password) => (
           <BackupWalletAuthorityVerifyDone
             walletId={walletId}

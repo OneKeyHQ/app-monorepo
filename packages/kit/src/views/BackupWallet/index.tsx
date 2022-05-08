@@ -39,7 +39,7 @@ const Backup = () => {
   const { walletId } = route.params;
   return (
     <Modal footer={null}>
-      <Protected field={ValidationFields.Wallet}>
+      <Protected walletId={walletId} field={ValidationFields.Wallet}>
         {(password) => <BackupDone password={password} walletId={walletId} />}
       </Protected>
     </Modal>

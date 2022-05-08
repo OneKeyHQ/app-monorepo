@@ -1,8 +1,7 @@
 import React, { FC, useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
-
-import { useData } from '../../hooks/redux';
+import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 
 import Setup from './Setup';
 import { ValidationFields } from './types';
@@ -27,6 +26,8 @@ const Protected: FC<ProtectedProps> = ({
   field,
   walletId,
 }) => {
+  const walletDetail = useGetWalletDetail(walletId);
+
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
@@ -44,7 +45,8 @@ const Protected: FC<ProtectedProps> = ({
     setPassword(text);
   }, []);
 
-  if (password) {
+  // HW ignore password input and auto enter ""
+  if (password || walletDetail?.type === 'hw') {
     return (
       <Box w="full" h="full">
         {children(password, {
