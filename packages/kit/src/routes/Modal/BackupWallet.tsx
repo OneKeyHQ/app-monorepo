@@ -1,13 +1,15 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { BackupWalletView } from '@onekeyhq/kit/src/views/BackupWallet';
+import BackupWallet from '@onekeyhq/kit/src/views/BackupWallet';
+import Attentions from '@onekeyhq/kit/src/views/BackupWallet/Attentions';
 import BackupAuthorityWalletVerifyView from '@onekeyhq/kit/src/views/BackupWallet/BackupAuthorityVerify/index';
 import BackupWalletManualHintView from '@onekeyhq/kit/src/views/BackupWallet/BackupManualHint/index';
 import BackupWalletManualSuccessView from '@onekeyhq/kit/src/views/BackupWallet/BackupManualSuccess/index';
 import BackupMnemonicsVerifyView from '@onekeyhq/kit/src/views/BackupWallet/BackupMnemonicsVerify/index';
 import BackupShowMnemonicsView from '@onekeyhq/kit/src/views/BackupWallet/BackupShowMnemonics';
 import BackupWalletWarningView from '@onekeyhq/kit/src/views/BackupWallet/BackupWarning/index';
+import Mnemonic from '@onekeyhq/kit/src/views/BackupWallet/Mnemonic';
 import { BackupType } from '@onekeyhq/kit/src/views/BackupWallet/types';
 
 import createStackNavigator from './createStackNavigator';
@@ -20,6 +22,8 @@ export enum BackupWalletModalRoutes {
   BackupShowMnemonicsModal = 'BackupShowMnemonicsModal',
   BackupWalletMnemonicsVerifyModal = 'BackupWalletMnemonicsVerifyModal',
   BackupWalletManualSuccessModal = 'BackupWalletManualSuccessModal',
+  BackupWalletAttentionsModal = 'BackupWalletAttentionsModal',
+  BackupWalletMnemonicModal = 'BackupWalletMnemonicModal',
 }
 
 export type BackupWalletRoutesParams = {
@@ -50,6 +54,13 @@ export type BackupWalletRoutesParams = {
   [BackupWalletModalRoutes.BackupWalletManualSuccessModal]: {
     walletId: string | null;
   };
+  [BackupWalletModalRoutes.BackupWalletAttentionsModal]: {
+    walletId: string;
+    password: string;
+  };
+  [BackupWalletModalRoutes.BackupWalletMnemonicModal]: {
+    mnemonic: string;
+  };
 };
 
 const BackupWalletNavigator = createStackNavigator<BackupWalletRoutesParams>();
@@ -57,7 +68,7 @@ const BackupWalletNavigator = createStackNavigator<BackupWalletRoutesParams>();
 const modalRoutes = [
   {
     name: BackupWalletModalRoutes.BackupWalletModal,
-    component: BackupWalletView,
+    component: BackupWallet,
   },
   {
     name: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
@@ -82,6 +93,14 @@ const modalRoutes = [
   {
     name: BackupWalletModalRoutes.BackupWalletManualSuccessModal,
     component: BackupWalletManualSuccessView,
+  },
+  {
+    name: BackupWalletModalRoutes.BackupWalletAttentionsModal,
+    component: Attentions,
+  },
+  {
+    name: BackupWalletModalRoutes.BackupWalletMnemonicModal,
+    component: Mnemonic,
   },
 ];
 
