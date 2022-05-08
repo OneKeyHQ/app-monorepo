@@ -48,7 +48,7 @@ export const tabRoutes: TabRouteConfig[] = [
     name: TabRoutes.Me,
     component: MeScreen,
     tabBarIcon: () => 'Menu',
-    translationId: 'title__me',
+    translationId: 'title__menu',
   },
   ...(() => {
     if (process.env.NODE_ENV !== 'production') {

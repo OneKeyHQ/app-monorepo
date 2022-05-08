@@ -1,4 +1,5 @@
-import React, { FC, useCallback } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,9 +11,11 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
+import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 import { ValidationFields } from './types';
@@ -25,14 +28,16 @@ type ValidationProps = {
 };
 
 const Validation: FC<ValidationProps> = ({ onOk, field }) => {
-  const { serviceApp } = backgroundApiProxy;
   const intl = useIntl();
-  const { enableLocalAuthentication } = useSettings();
+  const ref = useRef<any>();
+  const { enableLocalAuthentication, validationState = {} } = useSettings();
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { password: '' },
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
-    const isOk = await serviceApp.verifyPassword(values.password);
+    const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
+      values.password,
+    );
     if (isOk) {
       onOk?.(values.password, false);
     } else {
@@ -48,6 +53,19 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
     },
     [onOk],
   );
+
+  useEffect(() => {
+    if (!enableLocalAuthentication) {
+      ref.current?.focus();
+      return;
+    }
+    hasHardwareSupported().then((isOk) => {
+      if (!isOk || !field || validationState[field] === false) {
+        ref.current?.focus();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <KeyboardDismissView px={{ base: 4, md: 0 }}>
@@ -83,7 +101,7 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
           }}
         >
           <Form.PasswordInput
-            autoFocus
+            ref={ref}
             // press enter key to submit
             onSubmitEditing={onSubmit}
           />
@@ -95,14 +113,14 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
           })}
         </Button>
       </Form>
-      {enableLocalAuthentication && (
+      {platformEnv.isNative ? (
         <Center mt="8">
           <LocalAuthenticationButton
             onOk={onLocalAuthenticationOk}
             field={field}
           />
         </Center>
-      )}
+      ) : null}
     </KeyboardDismissView>
   );
 };

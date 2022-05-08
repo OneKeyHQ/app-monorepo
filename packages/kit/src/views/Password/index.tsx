@@ -13,6 +13,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
@@ -109,9 +110,11 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
             defaultMessage: 'Continue',
           })}
         </Button>
-        <Box display="flex" justifyContent="center" alignItems="center">
-          <LocalAuthenticationButton onOk={onNext} />
-        </Box>
+        {platformEnv.isNative ? (
+          <Box display="flex" justifyContent="center" alignItems="center">
+            <LocalAuthenticationButton onOk={onNext} />
+          </Box>
+        ) : null}
       </Form>
     </KeyboardDismissView>
   );

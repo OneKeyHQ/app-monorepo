@@ -262,6 +262,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  generateMnemonic(): Promise<string> {
+    return Promise.resolve(bip39.generateMnemonic());
+  }
+
+  @backgroundMethod()
   mnemonicToEntropy(mnemonic: string): Promise<string> {
     const wordlists = bip39.wordlists.english;
     const n = wordlists.length;

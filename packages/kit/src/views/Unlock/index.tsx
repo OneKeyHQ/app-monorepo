@@ -16,6 +16,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
@@ -172,12 +173,14 @@ const Unlock = () => {
                 })}
               </Button>
             </Form>
-            <Center mt="8">
-              <LocalAuthenticationButton
-                onOk={onOk}
-                field={ValidationFields.Unlock}
-              />
-            </Center>
+            {platformEnv.isNative ? (
+              <Center mt="8">
+                <LocalAuthenticationButton
+                  onOk={onOk}
+                  field={ValidationFields.Unlock}
+                />
+              </Center>
+            ) : null}
           </Box>
           <Center position={isSmall ? 'relative' : 'absolute'} bottom="0">
             <ForgetPasswordButton />

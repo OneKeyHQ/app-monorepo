@@ -46,7 +46,7 @@ const AddExistingWallet = () => {
       mode: 'onChange',
     });
 
-  const watchedText = useDebounce(watch('text'), 1000);
+  const watchedText = useDebounce(watch('text'), 400);
 
   useEffect(() => {
     async function validate(text: string) {
