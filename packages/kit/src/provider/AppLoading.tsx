@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import OneKeyConnect from '@onekeyfe/js-sdk';
 import * as SplashScreen from 'expo-splash-screen';
@@ -18,37 +18,48 @@ const AppLoading: FC = ({ children }) => {
     refreshInterval: 1 * 60 * 1000,
   });
 
+  const showSplashScreen = async () => {
+    try {
+      await SplashScreen.preventAutoHideAsync();
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const initService = useCallback(async () => {
+    try {
+      await serviceApp.initApp();
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setAppIsReady(true);
+      await SplashScreen.hideAsync();
+    }
+  }, [serviceApp]);
+
   useEffect(() => {
     async function main() {
-      try {
-        await SplashScreen.preventAutoHideAsync();
-
-        await waitForDataLoaded({
-          logName: 'WaitBackgroundReady',
-          data: async () => {
-            const result = await backgroundApiProxy.getState();
-            if (result && result.bootstrapped) {
-              store.dispatch({
-                // TODO use consts
-                type: 'REPLACE_WHOLE_STATE',
-                payload: result.state,
-                $isDispatchFromBackground: true,
-              });
-              return true;
-            }
-            return false;
-          },
-        });
-        await serviceApp.initApp();
-      } catch (e) {
-        console.log(e);
-      } finally {
-        setAppIsReady(true);
-        await SplashScreen.hideAsync();
-      }
+      await showSplashScreen();
+      await waitForDataLoaded({
+        logName: 'WaitBackgroundReady',
+        data: async () => {
+          const result = await backgroundApiProxy.getState();
+          if (result && result.bootstrapped) {
+            store.dispatch({
+              // TODO use consts
+              type: 'REPLACE_WHOLE_STATE',
+              payload: result.state,
+              $isDispatchFromBackground: true,
+            });
+            return true;
+          }
+          return false;
+        },
+      });
+      await initService();
     }
     main();
-  }, [serviceApp]);
+  }, [initService]);
 
   useEffect(() => {
     if (!platformEnv.isBrowser) return;
