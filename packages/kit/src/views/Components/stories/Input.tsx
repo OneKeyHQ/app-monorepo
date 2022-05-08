@@ -31,7 +31,7 @@ const InputGallery = () => {
       >
         <Stack space="2">
           <Input placeholder="Placeholder" value="hello world1" />
-          <NumberInput min={1} max={100} value="20" />
+          <NumberInput min={1} max={100} value="20" w="full" size="xl" />
           <Input type="number" placeholder="number" defaultValue="1" />
           <Input placeholder="Placeholder" value="hello world2" />
           <Input placeholder="Placeholder" value="disabled" isDisabled />

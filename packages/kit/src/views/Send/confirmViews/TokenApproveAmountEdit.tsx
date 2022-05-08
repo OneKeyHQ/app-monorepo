@@ -146,6 +146,9 @@ function TokenApproveAmountEdit({ ...rest }) {
               )}
             >
               <Form.NumberInput
+                w="full"
+                size="xl"
+                // size={isSmallScreen ? 'xl' : undefined}
                 decimal={token?.decimals}
                 rightText={symbol}
                 enableMaxButton

@@ -1,3 +1,4 @@
+require('../../../development/env');
 const path = require('path');
 const devUtils = require('./devUtils');
 const packageJson = require('../package.json');

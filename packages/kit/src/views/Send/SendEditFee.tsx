@@ -294,8 +294,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
             maxPriorityFeeTip && <FeeTipsWarning message={maxPriorityFeeTip} />
           }
         >
-          <NumberInput
-            w="100%"
+          <Form.NumberInput
             rightText=""
             size={isSmallScreen ? 'xl' : undefined}
           />
@@ -365,8 +364,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           }}
           helpText={maxFeeTip && <FeeTipsWarning message={maxFeeTip} />}
         >
-          <NumberInput
-            w="100%"
+          <Form.NumberInput
             rightText=""
             size={isSmallScreen ? 'xl' : undefined}
           />
@@ -427,8 +425,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           defaultValue=""
           helpText={gasPriceTip && <FeeTipsWarning message={gasPriceTip} />}
         >
-          <NumberInput
-            w="100%"
+          <Form.NumberInput
             size={isSmallScreen ? 'xl' : undefined}
             decimal={3}
           />
@@ -479,7 +476,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
         defaultValue=""
         helpText={gasLimitTip && <FeeTipsWarning message={gasLimitTip} />}
       >
-        <NumberInput w="100%" size={isSmallScreen ? 'xl' : undefined} />
+        <Form.NumberInput size={isSmallScreen ? 'xl' : undefined} />
       </Form.Item>
 
       <Form.Item

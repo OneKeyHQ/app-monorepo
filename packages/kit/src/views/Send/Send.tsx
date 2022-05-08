@@ -459,8 +459,9 @@ const Transaction = () => {
                 }}
               >
                 <Form.NumberInput
+                  w="full"
+                  size="xl"
                   maxLength={40}
-                  w="100%"
                   decimal={
                     selectedToken && selectedToken.tokenIdOnNetwork
                       ? activeNetwork?.tokenDisplayDecimals
