@@ -1,9 +1,7 @@
 import React, { FC, useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-
-import { useData } from '../../hooks/redux';
+import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 
 import Setup from './Setup';
 import { ValidationFields } from './types';
@@ -16,6 +14,8 @@ type ProtectedOptions = {
 
 type ProtectedProps = {
   skipSavePassword?: boolean;
+  /** walletId for current flow, null means createWallet flow */
+  walletId: string | null;
   field?: ValidationFields;
   children: (password: string, options: ProtectedOptions) => React.ReactNode;
 };
@@ -24,7 +24,10 @@ const Protected: FC<ProtectedProps> = ({
   children,
   skipSavePassword,
   field,
+  walletId,
 }) => {
+  const walletDetail = useGetWalletDetail(walletId);
+
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
@@ -42,10 +45,8 @@ const Protected: FC<ProtectedProps> = ({
     setPassword(text);
   }, []);
 
-  const { wallet } = useActiveWalletAccount();
-  const isHardware = wallet?.type === 'hw';
-
-  if (password || isHardware) {
+  // HW ignore password input and auto enter ""
+  if (password || walletDetail?.type === 'hw') {
     return (
       <Box w="full" h="full">
         {children(password, {

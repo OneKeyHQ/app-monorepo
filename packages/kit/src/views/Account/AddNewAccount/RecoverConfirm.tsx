@@ -164,6 +164,7 @@ const RecoverConfirm: FC = () => {
             screen:
               CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication,
             params: {
+              walletId,
               onDone: authenticationDone,
             },
           },

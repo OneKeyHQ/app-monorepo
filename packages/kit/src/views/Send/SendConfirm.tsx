@@ -90,7 +90,7 @@ const TransactionConfirm = () => {
   useEffect(() => {
     setEncodedTx(params.encodedTx);
   }, [params.encodedTx]);
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId, walletId } = useActiveWalletAccount();
 
   const dappApproveId = params.sourceInfo?.id ?? '';
   const dappApprove = useDappApproveAction({
@@ -222,6 +222,7 @@ const TransactionConfirm = () => {
         ...params,
         encodedTx: encodedTxWithFee,
         accountId,
+        walletId,
         networkId,
         // TODO onComplete
         onSuccess: async (tx: IBroadcastedTx) => {
@@ -248,6 +249,7 @@ const TransactionConfirm = () => {
       feeInfoEditable,
       feeInfoPayload,
       networkId,
+      walletId,
       accountId,
       navigation,
       params,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 export const MAX_PAGE_CONTAINER_WIDTH = 768;
 
 /**

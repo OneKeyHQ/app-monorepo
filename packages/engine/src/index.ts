@@ -24,6 +24,7 @@ import {
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
 import { DbApi } from './dbs';
@@ -416,15 +417,17 @@ class Engine {
   async createHWWallet({
     name,
     avatar,
+    features,
   }: {
     name?: string;
     avatar?: Avatar;
+    features: IOneKeyDeviceFeatures;
   }): Promise<Wallet> {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
     await this.validator.validateHWWalletNumber();
-    const features = await OneKeyHardware.getFeatures();
+
     if (!features.initialized) {
       throw new OneKeyHardwareError('Hardware wallet not initialized.');
     }

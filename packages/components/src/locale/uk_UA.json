@@ -40,6 +40,8 @@
   "action__confirm": "Підтвердьте",
   "action__connect": "Підключити",
   "action__connect_device": "Підключіть пристрій",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "Контакти",
   "action__continue": "Продовжуйте",
   "action__copy": "Копія",

@@ -40,6 +40,8 @@
   "action__confirm": "Confermare",
   "action__connect": "Collegare",
   "action__connect_device": "Collegare il dispositivo",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "Contatta",
   "action__continue": "Continua",
   "action__copy": "Copia",

@@ -40,6 +40,8 @@
   "action__confirm": "Kumpirmahin",
   "action__connect": "Kumonekta",
   "action__connect_device": "Ikonekta ang Device",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "Makipag-ugnayan",
   "action__continue": "Magpatuloy",
   "action__copy": "Kopya",

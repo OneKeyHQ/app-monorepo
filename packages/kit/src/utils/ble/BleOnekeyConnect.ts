@@ -34,8 +34,7 @@ class BleOnekeyConnect {
     await bleUtils?.connect(device.id);
     await this.init();
 
-    const features = await OneKeyConnect.getFeatures();
-    console.log('OneKeyConnect features', features);
+    const features = await OneKeyConnect.getFeatures({ keepSession: false });
     if (features.success) {
       return features.payload;
     }

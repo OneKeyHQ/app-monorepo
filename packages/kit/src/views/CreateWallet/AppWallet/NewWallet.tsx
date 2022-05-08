@@ -41,7 +41,8 @@ const NewWallet: FC<NewWalletProps> = ({
 
 export const NewWalletModal = () => (
   <Modal footer={null}>
-    <Protected skipSavePassword field={ValidationFields.Wallet}>
+    {/* new wallet walletId is null */}
+    <Protected walletId={null} skipSavePassword field={ValidationFields.Wallet}>
       {(password, { withEnableAuthentication }) => (
         <NewWallet
           password={password}

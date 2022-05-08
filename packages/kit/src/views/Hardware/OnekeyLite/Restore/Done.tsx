@@ -78,7 +78,11 @@ const OnekeyLiteRestoreDoneView: FC = () => {
 
   return (
     <Modal footer={null}>
-      <Protected skipSavePassword field={ValidationFields.Wallet}>
+      <Protected
+        walletId={null}
+        skipSavePassword
+        field={ValidationFields.Wallet}
+      >
         {(password, { withEnableAuthentication }) => (
           <PasswordView
             password={password}

@@ -40,6 +40,8 @@
   "action__confirm": "確認",
   "action__connect": "接続",
   "action__connect_device": "接続機器",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "お問い合わせ先",
   "action__continue": "継続",
   "action__copy": "コピー",

@@ -49,7 +49,7 @@ const ManagerWalletLocalValidationView: FC = () => {
         if (!inputPwd) onCancel?.();
       }}
     >
-      <Protected field={field}>
+      <Protected walletId={null} field={field}>
         {(password) => <PasswordView password={password} />}
       </Protected>
     </Modal>

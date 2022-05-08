@@ -23,6 +23,7 @@ export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: { walletId: string };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
     onDone: (password: string) => void;
+    walletId: string;
   };
   [CreateAccountModalRoutes.RecoveryAccountForm]: undefined;
   [CreateAccountModalRoutes.RecoverAccountsList]: {
@@ -39,6 +40,7 @@ export type CreateAccountRoutesParams = {
     network: string;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication]: {
+    walletId: string;
     onDone: (password: string) => void;
   };
 };

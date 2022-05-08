@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-shadow */
 import React from 'react';
 
 type InnerComponentProps = {
@@ -8,6 +9,7 @@ let innerNode: React.ReactElement<InnerComponentProps> | null = null;
 
 interface DialogHolderRef {
   show: () => void;
+  hide: () => void;
 }
 
 const DialogHolder = React.forwardRef<DialogHolderRef>((_props, ref) => {
@@ -28,8 +30,9 @@ const DialogHolder = React.forwardRef<DialogHolderRef>((_props, ref) => {
         show: () => {
           setActive(true);
         },
+        hide,
       }),
-      [setActive],
+      [setActive, hide],
     ),
   );
 
@@ -92,8 +95,13 @@ function show(p: { render: typeof innerNode }) {
   getRef()?.show();
 }
 
+function hide() {
+  getRef()?.hide();
+}
+
 const DialogManager = {
   show,
+  hide,
   Holder: DialogHolderContainer,
 };
 

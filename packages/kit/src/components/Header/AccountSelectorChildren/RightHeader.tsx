@@ -192,7 +192,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             )}
           />
         ) : null}
-        {['hw'].includes(selectedWallet?.type ?? '') ? (
+        {/* {['hw'].includes(selectedWallet?.type ?? '') ? (
           <Select
             onChange={(_value) => {
               switch (_value) {
@@ -271,7 +271,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
               />
             )}
           />
-        ) : null}
+        ) : null} */}
       </HStack>
       <ManagerWalletDeleteDialog
         visible={showDeleteWalletDialog}

@@ -40,6 +40,8 @@
   "action__confirm": "Подтвердить",
   "action__connect": "Подключайтесь",
   "action__connect_device": "Подключить устройство",
+  "action__connection_duplicate_device": "Device {deviceId} added repeatedly, please change the device and try again.",
+  "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "Связаться с",
   "action__continue": "Продолжить",
   "action__copy": "Копировать",

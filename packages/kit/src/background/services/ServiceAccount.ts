@@ -1,5 +1,3 @@
-import { Features } from '@onekeyfe/js-sdk';
-
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
@@ -10,6 +8,7 @@ import {
   updateWallets,
 } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
@@ -300,7 +299,7 @@ class ServiceAccount extends ServiceBase {
     features,
     avatar,
   }: {
-    features: Features;
+    features: IOneKeyDeviceFeatures;
     avatar?: Avatar;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
@@ -315,7 +314,10 @@ class ServiceAccount extends ServiceBase {
     let account = null;
 
     await engine.upsertDevice(features, id);
-    wallet = await engine.createHWWallet({ avatar: avatar ?? randomAvatar() });
+    wallet = await engine.createHWWallet({
+      avatar: avatar ?? randomAvatar(),
+      features,
+    });
     const accounts = await engine.addHDAccounts(
       'Undefined',
       wallet.id,
