@@ -102,6 +102,7 @@ class BleUtils {
     try {
       await this.checkPermission();
       const connected = await manager.isDeviceConnected(id);
+
       if (connected) {
         return;
       }
@@ -163,7 +164,7 @@ class BleUtils {
           (error) => {
             console.log('ble writeWithoutResponse fail: ', error);
             if (error instanceof Error) {
-              this.alert(`ble writeWithoutResponse fail: ${error.message}`);
+              // this.alert(`ble writeWithoutResponse fail: ${error.message}`);
             }
             reject(error);
           },
