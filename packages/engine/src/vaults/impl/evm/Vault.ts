@@ -464,7 +464,6 @@ export default class Vault extends VaultBase {
             network.feeDecimals,
           ),
         );
-        encodedTxWithFee.gasPrice = '0x1'; // default gasPrice required in engine api
       } else {
         encodedTxWithFee.gasPrice = toBigIntHex(
           new BigNumber(feeInfoValue.price as string).shiftedBy(
