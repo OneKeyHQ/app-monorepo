@@ -35,7 +35,6 @@ import {
   ExportedSeedCredential,
   checkPassword,
 } from './dbs/base';
-import * as engineUtils from './engineUtils';
 import {
   FailedToTransfer,
   NotImplemented,

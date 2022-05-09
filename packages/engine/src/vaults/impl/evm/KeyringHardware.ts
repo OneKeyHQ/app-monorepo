@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   SignedTx,
   UnsignedTx,
@@ -18,7 +19,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signMessage(
     messages: IUnsignedMessageEvm[],
-    _: ISignCredentialOptions,
+    options: ISignCredentialOptions,
   ): Promise<string[]> {
     const path = await this.getAccountPath();
     return Promise.all(
