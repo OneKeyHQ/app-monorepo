@@ -6,6 +6,7 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
+import { useData, useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
@@ -19,7 +20,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useInterval } from '../../hooks';
-import { useData, useSettings, useStatus } from '../../hooks/redux';
 import { lock, refreshLastActivity } from '../../store/reducers/status';
 import { Atom } from '../../utils/helper';
 import Dev from '../Dev';

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
@@ -10,8 +10,20 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  UpdateFeatureModalRoutes,
+  UpdateFeatureRoutesParams,
+} from '../../../routes/Modal/UpdateFeature';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -20,22 +32,42 @@ type NavigationProps = NativeStackNavigationProp<
   HomeRoutes.SettingsScreen
 >;
 
+type ModalNavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
+
 export const AboutSection = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
+  const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
   const settings = useSettings();
 
   const onCheckUpdate = useCallback(() => {
-    toast.show({
-      title: intl.formatMessage({
-        id: 'msg__the_current_version_is_the_latest',
-      }),
-    });
-  }, [intl, toast]);
+    appUpdates
+      .checkAppUpdate()
+      .then((version) => {
+        if (!version) {
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__the_current_version_is_the_latest',
+            }),
+          });
+        } else {
+          modalNavigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.UpdateFeature,
+            params: {
+              screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+              params: {
+                version,
+              },
+            },
+          });
+        }
+      })
+      .catch(() => {});
+  }, [intl, modalNavigation, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (platformEnv.isNative) {
