@@ -125,7 +125,10 @@ class ServiceAccount extends ServiceBase {
     if (!previousWalletId || !isValidNetworkId) {
       const defaultWallet =
         wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
-      return defaultWallet?.id ?? null;
+      // HD or HW wallet with no accounts
+      const noAccountsHDHWWallets =
+        wallets.find((wallet) => ['hw', 'hd'].includes(wallet.type)) ?? null;
+      return defaultWallet?.id ?? noAccountsHDHWWallets?.id ?? null;
     }
     return previousWalletId;
   }
@@ -136,11 +139,14 @@ class ServiceAccount extends ServiceBase {
     const wallets = await this.initWallets();
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
-    const wallet: Wallet | null =
+    let wallet: Wallet | null =
       wallets.find(($wallet) => $wallet.accounts.length > 0) ?? null;
     let account: Account | null = null;
     if (wallet) {
       account = await engine.getAccount(wallet.accounts?.[0], activeNetworkId);
+    } else {
+      wallet =
+        wallets.find(($wallet) => ['hw', 'hd'].includes($wallet.type)) ?? null;
     }
     serviceAccount.changeActiveAccount({
       accountId: account?.id ?? null,
@@ -298,22 +304,20 @@ class ServiceAccount extends ServiceBase {
   async createHWWallet({
     features,
     avatar,
+    bleUUID,
   }: {
     features: IOneKeyDeviceFeatures;
     avatar?: Avatar;
+    bleUUID: string;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     const networkId = appSelector((s) => s.general.activeNetworkId);
-    const id =
-      features?.serial_no ||
-      features?.onekey_serial ||
-      `OneKey Hardware ${features?.session_id?.slice(0, 4) ?? ''}`;
 
     let wallet = null;
     let account = null;
 
-    await engine.upsertDevice(features, id);
+    await engine.upsertDevice(features, bleUUID);
     wallet = await engine.createHWWallet({
       avatar: avatar ?? randomAvatar(),
       features,
