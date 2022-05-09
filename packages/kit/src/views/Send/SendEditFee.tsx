@@ -14,7 +14,6 @@ import {
   Center,
   Form,
   Modal,
-  NumberInput,
   RadioFee,
   SegmentedControl,
   Spinner,
@@ -654,7 +653,7 @@ function ScreenSendEditFee({ ...rest }) {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
-  const { handleSubmit, setValue } = useFormReturn;
+  const { handleSubmit, setValue, trigger: formTrigger } = useFormReturn;
   const onSubmit = handleSubmit((data) => {
     let type: IFeeInfoSelectedType =
       feeType === FeeType.advanced ? 'custom' : 'preset';
@@ -741,6 +740,12 @@ function ScreenSendEditFee({ ...rest }) {
     setFormValuesFromFeeInfo,
     setValue,
   ]);
+
+  useEffect(() => {
+    if (feeType === FeeType.advanced) {
+      formTrigger();
+    }
+  }, [feeType, formTrigger]);
 
   useEffect(() => {
     const selected = feeInfoPayload?.selected;

@@ -265,18 +265,20 @@ class Validators {
       valueBN.isLessThanOrEqualTo('0') ||
       valueBN.isLessThan(minAmount)
     ) {
-      // TODO $i18n$ params
-      throw new OneKeyValidatorError('form__gas_price_invalid_min', {
+      throw new OneKeyValidatorError('form__gas_price_invalid_min_str', {
         0: minAmount,
       });
     }
     if (lowValue && valueBN.isLessThan(lowValue)) {
-      // TODO $i18n$ params
-      throw new OneKeyValidatorTip('form__gas_price_too_low', {});
+      throw new OneKeyValidatorTip('form__gas_price_invalid_too_low', {});
     }
-    if (highValue && valueBN.isGreaterThan(new BigNumber(highValue).times(FEE_PRICE_HIGH_VALUE_TIMES))) {
-      // TODO $i18n$ params
-      throw new OneKeyValidatorTip('form__gas_price_too_much', {});
+    if (
+      highValue &&
+      valueBN.isGreaterThan(
+        new BigNumber(highValue).times(FEE_PRICE_HIGH_VALUE_TIMES),
+      )
+    ) {
+      throw new OneKeyValidatorTip('form__gas_price_invalid_too_much', {});
     }
 
     return Promise.resolve();
@@ -308,7 +310,6 @@ class Validators {
         v.isLessThanOrEqualTo('0') ||
         v.isLessThan(minAmount)
       ) {
-        // TODO $i18n$ params
         throw new OneKeyValidatorError('form__max_fee_invalid_too_low', {
           0: minAmount,
         });
@@ -329,7 +330,9 @@ class Validators {
       }
       if (lowValue) {
         if (v.isLessThan(lowValue)) {
-          throw new OneKeyValidatorTip('form__max_fee_invalid_too_low');
+          throw new OneKeyValidatorTip('form__max_fee_invalid_too_low', {
+            0: lowValue,
+          });
         }
       }
     } catch (e) {
@@ -368,7 +371,6 @@ class Validators {
         v.isLessThanOrEqualTo('0') ||
         v.isLessThan(minAmount)
       ) {
-        // TODO $i18n$ params
         throw new OneKeyValidatorError('form__max_priority_fee_invalid_min', {
           0: minAmount,
         });
@@ -381,7 +383,11 @@ class Validators {
         }
       }
       if (highValue) {
-        if (v.isGreaterThan(new BigNumber(highValue).times(FEE_PRICE_HIGH_VALUE_TIMES))) {
+        if (
+          v.isGreaterThan(
+            new BigNumber(highValue).times(FEE_PRICE_HIGH_VALUE_TIMES),
+          )
+        ) {
           throw new OneKeyValidatorTip(
             'form__max_priority_fee_invalid_too_much',
           );
