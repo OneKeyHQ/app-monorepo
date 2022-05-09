@@ -120,7 +120,6 @@ export const Mnemonic: FC<MnemonicProps> = ({
                   ))}
                 </Box>
                 <Box w="50%" ml={3}>
-                  {console.log(words)}
                   {words.slice(halfWords).map((word, i) => (
                     <Box flexDirection="row" my={1.5}>
                       <Text
