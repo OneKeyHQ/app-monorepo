@@ -439,6 +439,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getHWDevices() {
+    return this.dbApi.getDevices();
+  }
+
+  @backgroundMethod()
   removeWallet(walletId: string, password: string): Promise<void> {
     // Remove a wallet, raise an error if trying to remove the imported or watching wallet.
     if (!walletCanBeRemoved(walletId)) {

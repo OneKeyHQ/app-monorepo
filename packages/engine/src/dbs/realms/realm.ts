@@ -954,7 +954,8 @@ class RealmDB implements DBAPI {
       return Promise.resolve(wallet!.internalObj);
     } catch (error: any) {
       console.error(error);
-      return Promise.reject(new OneKeyInternalError(error));
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      return Promise.reject(new OneKeyInternalError(error?.message ?? ''));
     }
   }
 

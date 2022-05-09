@@ -62,7 +62,7 @@ export class OneKeyInternalError extends OneKeyError {
 }
 
 export class OneKeyHardwareError extends OneKeyError {
-  key = 'onekey_error_hardware';
+  key = 'msg__hardware_default_error';
 }
 
 export class OneKeyValidatorError extends OneKeyError {
