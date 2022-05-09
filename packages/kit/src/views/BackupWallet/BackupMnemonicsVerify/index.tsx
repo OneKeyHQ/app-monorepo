@@ -69,6 +69,7 @@ const BackupMnemonicsVerifyView: FC = () => {
 
         dispatch(updateWallet(wallet));
         dispatch(setRefreshTS());
+
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.BackupWallet,
           params: {
