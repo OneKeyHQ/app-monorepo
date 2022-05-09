@@ -78,11 +78,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   }, [onChange]);
 
   useLayoutEffect(() => {
-    if (
-      !field ||
-      !enableLocalAuthentication ||
-      field === ValidationFields.Unlock
-    ) {
+    if (!field || !enableLocalAuthentication) {
       return;
     }
     if (
