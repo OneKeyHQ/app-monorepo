@@ -10,19 +10,25 @@ import {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import OneKeyConnect, {
   ApplySettings,
   EthereumAddress,
   EthereumTransaction,
   Features,
 } from '@onekeyfe/js-sdk';
+import { MessageSignature } from '@onekeyfe/js-sdk/lib/typescript/trezor/protobuf';
 
 import { IMPL_EVM, SEPERATOR } from './constants';
+import * as engineUtils from './engineUtils';
 import {
   NotImplemented,
   OneKeyHardwareError,
   OneKeyInternalError,
 } from './errors';
+import { ETHMessageTypes } from './types/message';
+
+import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 
 /**
  * Get hardware wallet info
@@ -108,7 +114,10 @@ export async function ethereumGetAddress(
     throw new OneKeyHardwareError(error);
   }
   if (response.success) {
-    return response.payload.address;
+    return engineUtils.fixAddressCase({
+      address: response.payload.address,
+      impl: IMPL_EVM,
+    });
   }
   console.error(response.payload);
   throw new OneKeyHardwareError(
@@ -148,6 +157,68 @@ export async function solanaGetAddress(
   // throw new OneKeyHardwareError(`solanaGetAddress: ${response.payload.error}`);
   console.error('Not implemented', path, display);
   return Promise.reject(new Error('not implemented'));
+}
+
+export async function ethereumSignMessage({
+  path,
+  message,
+}: {
+  path: string;
+  message: IUnsignedMessageEvm;
+}): Promise<string> {
+  if (
+    message.type === ETHMessageTypes.ETH_SIGN ||
+    message.type === ETHMessageTypes.TYPED_DATA_V1
+  ) {
+    throw web3Errors.provider.unsupportedMethod(
+      `Sign message method=${message.type} not supported for this device`,
+    );
+  }
+  if (message.type === ETHMessageTypes.PERSONAL_SIGN) {
+    const result = await OneKeyConnect.ethereumSignMessage({
+      path,
+      message: message.message,
+      hex: true, // TODO non hex sign (utf8)
+    });
+    console.log('ethereumSignMessage', result);
+    // TODO error throw
+    return `0x${(result.payload as MessageSignature)?.signature || ''}`;
+  }
+  if (message.type === ETHMessageTypes.TYPED_DATA_V3) {
+    // TODO try catch
+    const data = JSON.parse(message.message);
+    console.log('ethereumSignTypedData V3 data', data);
+    // TODO use OneKeyConnect.ethereumSignTypedData()
+    const result = await OneKeyConnect.ethereumSignMessageEIP712({
+      path,
+      data,
+      version: 'V3',
+      // metamask_v4_compat: false,
+    });
+    console.log('ethereumSignTypedData V3 result', result);
+    // return `0xf54837d35c34b35cce08351612aad676bdf759c4895972d1e1d07543d1a52d67063f55b20978eef3c49499a1111499a516950e7d4f8b807959b1eb30599569d61c`;
+    // TODO error throw
+    return `0x${(result.payload as MessageSignature)?.signature || ''}`;
+  }
+  if (message.type === ETHMessageTypes.TYPED_DATA_V4) {
+    // TODO try catch
+    const data = JSON.parse(message.message);
+    console.log('ethereumSignTypedData V4 data', data);
+    // TODO use OneKeyConnect.ethereumSignTypedData()
+    const result = await OneKeyConnect.ethereumSignMessageEIP712({
+      path,
+      data,
+      version: 'V4',
+      // metamask_v4_compat: true,
+    });
+    console.log('ethereumSignTypedData V4 result', result);
+    // TODO error throw
+    return `0x${(result.payload as MessageSignature)?.signature || ''}`;
+  }
+  throw web3Errors.rpc.methodNotFound(
+    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    `Sign message method=${message.type} not found`,
+  );
 }
 
 /**
@@ -267,14 +338,17 @@ export async function getXpubs(
       return (response.payload as EthereumAddress[]).map(
         ({ serializedPath, address }) => ({
           path: serializedPath,
-          info: address,
+          info: engineUtils.fixAddressCase({ address, impl }),
         }),
       );
     }
     return [
       {
         path: (response.payload as EthereumAddress).serializedPath,
-        info: (response.payload as EthereumAddress).address,
+        info: engineUtils.fixAddressCase({
+          address: (response.payload as EthereumAddress).address,
+          impl,
+        }),
       },
     ];
   }

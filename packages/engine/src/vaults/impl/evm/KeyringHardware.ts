@@ -7,6 +7,8 @@ import * as OneKeyHardware from '../../../hardware';
 import { ISignCredentialOptions } from '../../../types/vault';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
+import type { IUnsignedMessageEvm } from './Vault';
+
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
     const path = await this.getAccountPath();
@@ -14,7 +16,18 @@ export class KeyringHardware extends KeyringHardwareBase {
     return OneKeyHardware.ethereumSignTransaction(path, chainId, unsignedTx);
   }
 
-  signMessage(messages: any[], options: ISignCredentialOptions): any {
-    console.log(messages, options);
+  async signMessage(
+    messages: IUnsignedMessageEvm[],
+    _: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const path = await this.getAccountPath();
+    return Promise.all(
+      messages.map((message) =>
+        OneKeyHardware.ethereumSignMessage({
+          path,
+          message,
+        }),
+      ),
+    );
   }
 }

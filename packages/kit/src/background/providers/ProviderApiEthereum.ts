@@ -312,13 +312,14 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    let message = messages[0] as string;
+    const message = messages[0] as string;
 
+    // TODO utf8 text display in UI
     // TODO remove convert hex to utf8 test
-    if (message.startsWith('0x')) {
-      const buffer = Buffer.from(message.substr(2), 'hex');
-      message = buffer.toString('utf8');
-    }
+    // if (message.startsWith('0x')) {
+    //   const buffer = Buffer.from(message.substr(2), 'hex');
+    //   message = buffer.toString('utf8');
+    // }
 
     console.log('personal_sign', message, messages, req);
     return this.showSignMessageModal(req, {
@@ -348,7 +349,12 @@ class ProviderApiEthereum extends ProviderApiBase {
           networkId,
           accountId: '',
         });
-      return (evmWatchVault as VaultEvm).personalECRecover(message, signature);
+      const result = await (evmWatchVault as VaultEvm).personalECRecover(
+        message,
+        signature,
+      );
+      console.log('personal_ecRecover: ', req, messages, result);
+      return result;
     }
     throw web3Errors.rpc.invalidParams(
       'personal_ecRecover requires a message and a 65 bytes signature.',
