@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import OneKeyConnect, { UI } from '@onekeyfe/js-sdk';
+import OneKeyConnect from '@onekeyfe/js-sdk';
 
 import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -17,11 +17,8 @@ const CONNECT_URL = 'https://connect.onekey.so/';
 
 const wrappedMethods = [
   'getFeatures',
-  'getDeviceState',
-  'ethereumGetAddress',
   'applySettings',
   'changePin',
-  'ethereumSignTransaction',
   'backupDevice',
   'recoveryDevice',
 ] as const;
@@ -69,8 +66,9 @@ export const UICallback = ({ type }: { type: string }) => {
           type: 'enterPinOnDevice',
         },
       );
+
       OneKeyConnect.uiResponse({
-        type: UI.RECEIVE_PIN,
+        type: 'ui-receive_pin',
         payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
       });
       break;

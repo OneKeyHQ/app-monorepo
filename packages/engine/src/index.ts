@@ -41,7 +41,6 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from './errors';
-import * as OneKeyHardware from './hardware';
 import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
@@ -437,6 +436,11 @@ class Engine {
     }
     const walletName = name ?? features.ble_name ?? `OneKey ${id.slice(-4)}`;
     return this.dbApi.addHWWallet({ id, name: walletName, avatar });
+  }
+
+  @backgroundMethod()
+  async getHWDevices() {
+    return this.dbApi.getDevices();
   }
 
   @backgroundMethod()

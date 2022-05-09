@@ -180,11 +180,14 @@ export async function ethereumSignTransaction(
     throw new OneKeyInternalError('Incomplete unsigned tx.');
   }
 
+  // TODO: seperate EIP1559/legacy once connect supports EIP1559.
   const txToSign: EthereumTransaction = {
     to,
     value,
     gasPrice: toBigIntHex(
-      unsignedTx.feePricePerUnit || unsignedTx.payload.maxFeePerGas,
+      unsignedTx.payload?.EIP1559Enabled
+        ? unsignedTx.payload.maxFeePerGas
+        : unsignedTx.feePricePerUnit,
     ),
     gasLimit: toBigIntHex(unsignedTx.feeLimit),
     nonce: `0x${unsignedTx.nonce.toString(16)}`,
