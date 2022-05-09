@@ -78,6 +78,8 @@ export type SendConfirmParams = EditFeeParams & {
   sourceInfo?: IDappCallParams;
   actionType?: SendConfirmActionType;
   backRouteName?: keyof SendRoutesParams;
+  feeInfoUseFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
 };
 
 export type SendAuthenticationParams = SendConfirmParams & {

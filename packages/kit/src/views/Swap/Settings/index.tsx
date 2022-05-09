@@ -57,6 +57,7 @@ const Setting = () => {
         </Typography.Body2>
         <NumberInput
           w="full"
+          size="xl"
           mt="1"
           mb="2"
           rightText="%"

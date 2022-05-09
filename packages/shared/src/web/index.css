@@ -81,10 +81,12 @@ body {
 
 input {
   outline: none;
+  min-width: 0;
 }
 
 textarea {
   outline: none;
+  min-width: 0;
 }
 
 /* data-testid="Segment_Button" */

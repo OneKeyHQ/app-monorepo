@@ -8,7 +8,7 @@ import {
 
 import useDappParams from '../../hooks/useDappParams';
 
-import { SendRoutes, SendRoutesParams } from './types';
+import { SendConfirmParams, SendRoutes, SendRoutesParams } from './types';
 
 type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
@@ -19,11 +19,14 @@ function SendConfirmFromDapp() {
   useEffect(() => {
     let action: any;
     if (encodedTx) {
-      // replace router to SendConfirm
-      action = StackActions.replace(SendRoutes.SendConfirm, {
+      const params: SendConfirmParams = {
         sourceInfo,
         encodedTx,
-      });
+        feeInfoEditable: true,
+        feeInfoUseFeeInTx: false,
+      };
+      // replace router to SendConfirm
+      action = StackActions.replace(SendRoutes.SendConfirm, params);
     }
     if (unsignedMessage) {
       action = StackActions.replace(SendRoutes.SignMessageConfirm, {

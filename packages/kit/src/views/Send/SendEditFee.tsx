@@ -14,7 +14,6 @@ import {
   Center,
   Form,
   Modal,
-  NumberInput,
   RadioFee,
   SegmentedControl,
   Spinner,
@@ -73,6 +72,8 @@ type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendEditFee
 >;
+
+const PRICE_UP_RATIO = 1.1;
 
 function selectMaxValue(
   currentValue: string | undefined,
@@ -254,7 +255,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
                               | undefined
                           )?.maxPriorityFeePerGas as string,
                         )
-                          .times(1.1)
+                          .times(PRICE_UP_RATIO)
                           .toFixed()
                       : '0',
                 });
@@ -292,8 +293,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
             maxPriorityFeeTip && <FeeTipsWarning message={maxPriorityFeeTip} />
           }
         >
-          <NumberInput
-            w="100%"
+          <Form.NumberInput
             rightText=""
             size={isSmallScreen ? 'xl' : undefined}
           />
@@ -327,7 +327,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
                               | undefined
                           )?.maxFeePerGas as string,
                         )
-                          .times(1.1)
+                          .times(PRICE_UP_RATIO)
                           .toFixed()
                       : '0',
                 });
@@ -363,8 +363,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           }}
           helpText={maxFeeTip && <FeeTipsWarning message={maxFeeTip} />}
         >
-          <NumberInput
-            w="100%"
+          <Form.NumberInput
             rightText=""
             size={isSmallScreen ? 'xl' : undefined}
           />
@@ -387,7 +386,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
                   minValue:
                     autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
                       ? new BigNumber(selectedFeeInfo?.custom?.price as string)
-                          .times(1.1)
+                          .times(PRICE_UP_RATIO)
                           .toFixed()
                       : '0',
                   lowValue,
@@ -425,8 +424,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
           defaultValue=""
           helpText={gasPriceTip && <FeeTipsWarning message={gasPriceTip} />}
         >
-          <NumberInput
-            w="100%"
+          <Form.NumberInput
             size={isSmallScreen ? 'xl' : undefined}
             decimal={3}
           />
@@ -477,7 +475,7 @@ function CustomFeeForm(props: ICustomFeeFormProps) {
         defaultValue=""
         helpText={gasLimitTip && <FeeTipsWarning message={gasLimitTip} />}
       >
-        <NumberInput w="100%" size={isSmallScreen ? 'xl' : undefined} />
+        <Form.NumberInput size={isSmallScreen ? 'xl' : undefined} />
       </Form.Item>
 
       <Form.Item
@@ -655,7 +653,7 @@ function ScreenSendEditFee({ ...rest }) {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
-  const { handleSubmit, setValue } = useFormReturn;
+  const { handleSubmit, setValue, trigger: formTrigger } = useFormReturn;
   const onSubmit = handleSubmit((data) => {
     let type: IFeeInfoSelectedType =
       feeType === FeeType.advanced ? 'custom' : 'preset';
@@ -744,6 +742,12 @@ function ScreenSendEditFee({ ...rest }) {
   ]);
 
   useEffect(() => {
+    if (feeType === FeeType.advanced) {
+      formTrigger();
+    }
+  }, [feeType, formTrigger]);
+
+  useEffect(() => {
     const selected = feeInfoPayload?.selected;
     let type = selected?.type ?? 'preset';
     if (
@@ -777,20 +781,17 @@ function ScreenSendEditFee({ ...rest }) {
             const eip1559Price = customValues.price as EIP1559Fee;
             if (eip1559Price) {
               const highPriceInfo = highPriceData as EIP1559Fee | undefined;
-              eip1559Price.baseFee = selectMaxValue(
-                eip1559Price.baseFee,
-                highPriceInfo?.baseFee,
-                1.1,
-              );
+              eip1559Price.baseFee =
+                highPriceInfo?.baseFee ?? eip1559Price.baseFee;
               eip1559Price.maxFeePerGas = selectMaxValue(
                 eip1559Price.maxFeePerGas,
                 highPriceInfo?.maxFeePerGas,
-                1.1,
+                PRICE_UP_RATIO,
               );
               eip1559Price.maxPriorityFeePerGas = selectMaxValue(
                 eip1559Price.maxPriorityFeePerGas,
                 highPriceInfo?.maxPriorityFeePerGas,
-                1.1,
+                PRICE_UP_RATIO,
               );
             }
           } else {
@@ -798,7 +799,7 @@ function ScreenSendEditFee({ ...rest }) {
             customValues.price = selectMaxValue(
               customValues.price as string,
               highPriceInfo,
-              1.1,
+              PRICE_UP_RATIO,
             );
           }
         }

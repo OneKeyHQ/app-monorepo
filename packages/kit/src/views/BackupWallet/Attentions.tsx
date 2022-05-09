@@ -29,6 +29,7 @@ const BackupWalletAttentions = () => {
     );
     navigation.navigate(BackupWalletModalRoutes.BackupWalletMnemonicModal, {
       mnemonic,
+      walletId,
     });
   }, [navigation, walletId, password]);
   return <Attentions onPress={onPress} />;

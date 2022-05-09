@@ -60,6 +60,7 @@ export type BackupWalletRoutesParams = {
   };
   [BackupWalletModalRoutes.BackupWalletMnemonicModal]: {
     mnemonic: string;
+    walletId: string;
   };
 };
 

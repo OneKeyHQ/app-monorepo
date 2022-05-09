@@ -44,18 +44,25 @@ import {
 
 import type { StackNavigationProp } from '@react-navigation/stack';
 
+/*
+
+- dapp
+  - native transfer
+- internal transfer
+  - native
+  - erc20
+- internal tx cancel & speedUp
+- internal swap
+  - token approve
+  - swap
+
+ */
+
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.SendConfirm
 >;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
-
-/*
-await ethereum.request({method:'eth_sendTransaction',params:[{from: "0x76f3f64cb3cd19debee51436df630a342b736c24",
-to: "0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb",
-type: "0x0",
-value: "0x0"}]})
- */
 
 function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
   // TODO dapp fee should be fixed by decimals
@@ -75,8 +82,12 @@ const TransactionConfirm = () => {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   const { params } = route;
-  // TODO rename to sourceInfo
+
   const isFromDapp = !!params.sourceInfo;
+  const feeInfoEditable = params.feeInfoEditable ?? true;
+  // TODO useFeeInTx has some bugs
+  const useFeeInTx = params.feeInfoUseFeeInTx ?? false;
+
   const [encodedTx, setEncodedTx] = useState<IEncodedTxEvm>(
     isFromDapp
       ? removeFeeInfoInTx(params.encodedTx as IEncodedTxEvm)
@@ -102,28 +113,20 @@ const TransactionConfirm = () => {
       console.error('useDappApproveAction ERROR: id not exists');
     }
   }, [dappApproveId, isFromDapp]);
-  // TODO useFeeInTx has some bugs
-  const useFeeInTx = !isFromDapp;
   const isSpeedUpOrCancel =
     params.actionType === 'cancel' || params.actionType === 'speedUp';
-  // const useFeeInTx = false;
-
-  let feeInfoEditable = !useFeeInTx;
-  if (isSpeedUpOrCancel) {
-    feeInfoEditable = true;
-  }
 
   const payload = useMemo(
     () => (params.payload || {}) as SendConfirmPayloadBase,
     [params.payload],
   );
 
+  const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
+
   const { decodedTx } = useDecodedTx({ encodedTx, payload });
   const isTransferTypeTx =
     decodedTx?.txType === EVMDecodedTxType.NATIVE_TRANSFER ||
     decodedTx?.txType === EVMDecodedTxType.TOKEN_TRANSFER;
-
-  const isInternalSwapTx = payload?.payloadType === 'InternalSwap';
 
   // TODO remove
   if (isTransferTypeTx) {
@@ -198,6 +201,7 @@ const TransactionConfirm = () => {
     ],
   );
 
+  // onSubmit, handleSubmit
   const handleConfirm = useCallback<ITxConfirmViewPropsHandleConfirm>(
     async (options) => {
       const { close } = options;
@@ -301,9 +305,7 @@ const TransactionConfirm = () => {
   }
 
   if (isTransferTypeTx) {
-    return (
-      <TxConfirmTransfer {...sharedProps} feeInfoEditable={!!isFromDapp} />
-    );
+    return <TxConfirmTransfer {...sharedProps} />;
   }
 
   // Dapp blind sign
