@@ -239,6 +239,7 @@ const Input = React.forwardRef<
         InputLeftElement={inputLeftElement}
         InputRightElement={inputRightElement}
         w="80"
+        minW="0"
         h={size === 'xl' ? '50px' : { base: '42px', md: 'auto' }}
         borderColor="border-default"
         bg="action-secondary-default"

@@ -299,6 +299,8 @@ const TransactionRecord: FC<TransactionRecordProps> = ({
           params: {
             encodedTx: newEncodedTx,
             actionType,
+            feeInfoUseFeeInTx: true,
+            feeInfoEditable: true,
           },
         },
       });
