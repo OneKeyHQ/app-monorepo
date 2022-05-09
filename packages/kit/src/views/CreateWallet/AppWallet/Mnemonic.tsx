@@ -3,7 +3,13 @@ import React, { FC, useCallback } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Modal, Pressable } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Modal,
+  Pressable,
+  ScrollView,
+} from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
@@ -39,6 +45,7 @@ export const Mnemonic: FC<MnemonicProps> = ({
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const words = mnemonic.split(' ').filter(Boolean);
+  const halfWords = words.length / 2;
 
   const copyMnemonicToClipboard = useCallback(
     (text) => {
@@ -76,61 +83,65 @@ export const Mnemonic: FC<MnemonicProps> = ({
         >
           ↓ {intl.formatMessage({ id: 'content__click_below_to_copy' })} ↓
         </Text>
-        <Pressable
-          bg="surface-default"
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-          shadow="depth.2"
-          borderRadius="12"
-          px={4}
-          py={{ base: 2, md: 2.5 }}
-          mb={8}
-          onPress={() => {
-            setHaptics();
-            copyMnemonicToClipboard(mnemonic);
-          }}
-        >
-          <Box flexDirection="row">
-            <Box w="50%" mr={3}>
-              {words.slice(0, 6).map((word, i) => (
-                <Box flexDirection="row" my={{ base: 2, md: 1.5 }}>
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    color="text-subdued"
-                    w="8"
-                  >
-                    {i + 1}.
-                  </Text>
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    color="text-default"
-                  >
-                    {word}
-                  </Text>
+        <Box flex={1} mb={8}>
+          <Pressable
+            maxH="full"
+            px={4}
+            py={{ base: 2, md: 2.5 }}
+            bg="surface-default"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            shadow="depth.2"
+            borderRadius="12"
+            onPress={() => {
+              setHaptics();
+              copyMnemonicToClipboard(mnemonic);
+            }}
+          >
+            <ScrollView>
+              <Box flexDirection="row">
+                <Box w="50%" mr={3}>
+                  {words.slice(0, halfWords).map((word, i) => (
+                    <Box flexDirection="row" my={1.5}>
+                      <Text
+                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                        color="text-subdued"
+                        w="8"
+                      >
+                        {i + 1}.
+                      </Text>
+                      <Text
+                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                        color="text-default"
+                      >
+                        {word}
+                      </Text>
+                    </Box>
+                  ))}
                 </Box>
-              ))}
-            </Box>
-            <Box w="50%" ml={3}>
-              {words.slice(6).map((word, i) => (
-                <Box flexDirection="row" my={{ base: 2, md: 1.5 }}>
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    color="text-subdued"
-                    w="8"
-                  >
-                    {i + 7}.
-                  </Text>
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    color="text-default"
-                  >
-                    {word}
-                  </Text>
+                <Box w="50%" ml={3}>
+                  {words.slice(halfWords).map((word, i) => (
+                    <Box flexDirection="row" my={1.5}>
+                      <Text
+                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                        color="text-subdued"
+                        w="8"
+                      >
+                        {i + halfWords + 1}.
+                      </Text>
+                      <Text
+                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                        color="text-default"
+                      >
+                        {word}
+                      </Text>
+                    </Box>
+                  ))}
                 </Box>
-              ))}
-            </Box>
-          </Box>
-        </Pressable>
+              </Box>
+            </ScrollView>
+          </Pressable>
+        </Box>
         <Button
           size="xl"
           type="primary"
