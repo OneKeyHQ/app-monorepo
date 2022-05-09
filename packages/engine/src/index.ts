@@ -41,7 +41,6 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from './errors';
-import * as OneKeyHardware from './hardware';
 import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
