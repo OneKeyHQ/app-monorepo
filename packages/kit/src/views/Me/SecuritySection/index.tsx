@@ -39,7 +39,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.SettingsScreen>
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FaceId>
 >;
 
 export const SecuritySection = () => {

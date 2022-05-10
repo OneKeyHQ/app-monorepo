@@ -27,10 +27,7 @@ import {
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsScreen
->;
+type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 type ModalNavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
 
