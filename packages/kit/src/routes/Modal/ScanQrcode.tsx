@@ -2,17 +2,16 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ScanQrcode from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcode';
+import ScanQrcodeResult from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcodeResult';
+import SelectChainToSend from '@onekeyhq/kit/src/views/ScanQrcode/SelectChainToSend';
 import {
   ScanQrcodeRoutes,
   ScanQrcodeRoutesParams,
 } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 
-import ScanQrcodeResult from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcodeResult';
-
 import createStackNavigator from './createStackNavigator';
-import SelectAccountAndNetwork from '../../views/ScanQrcode/SelectAccountAndNetwork';
 
-const ScanQrcodeNavigator = createStackNavigator<ScanQrcodeRoutes>();
+const ScanQrcodeNavigator = createStackNavigator<ScanQrcodeRoutesParams>();
 
 const modalRoutes = [
   {
@@ -20,7 +19,11 @@ const modalRoutes = [
     component: ScanQrcode,
   },
   { name: ScanQrcodeRoutes.ScanQrcodeResult, component: ScanQrcodeResult },
-  { name: ScanQrcodeRoutes.SelectAccountAndNetwork, component: SelectAccountAndNetwork}
+
+  {
+    name: ScanQrcodeRoutes.SelectChainToSend,
+    component: SelectChainToSend,
+  },
 ];
 
 const ScanQrcodeStack = () => {

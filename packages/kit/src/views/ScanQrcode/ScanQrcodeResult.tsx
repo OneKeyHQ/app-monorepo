@@ -19,16 +19,16 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { CreateWalletModalRoutes, CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes';
 
 import { useToast } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-
-import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
 import { ModalScreenProps } from '../../routes/types';
 
-const { isWeb, isNative: isApp } = platformEnv;
+import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
 
 const pressableProps = {
   p: '4',
@@ -64,14 +64,14 @@ type ScanQrcodeResultRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
   ScanQrcodeRoutes.ScanQrcodeResult
 >;
-type SelectAccAndNetworkNavProp = NavigationProp<
+type SelectChainToSendNavProp = NavigationProp<
   ScanQrcodeRoutesParams,
-  ScanQrcodeRoutes.SelectAccountAndNetwork
+  ScanQrcodeRoutes.SelectChainToSend
 >;
 type RootModalNavProps = ModalScreenProps<CreateWalletRoutesParams>;
 const ScanQrcodeResult: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<SelectAccAndNetworkNavProp>();
+  const navigation = useNavigation<SelectChainToSendNavProp>();
   const { bottom } = useSafeAreaInsets();
   const route = useRoute<ScanQrcodeResultRouteProp>();
   const { type, data, possibleNetworks } = route.params;
@@ -86,7 +86,7 @@ const ScanQrcodeResult: FC = () => {
           {...pressableProps}
           borderBottomRadius={0}
           onPress={() => {
-            navigation.navigate(ScanQrcodeRoutes.SelectAccountAndNetwork, {
+            navigation.navigate(ScanQrcodeRoutes.SelectChainToSend, {
               address: data,
               possibleNetworks,
             });
@@ -120,16 +120,19 @@ const ScanQrcodeResult: FC = () => {
           borderTopRadius={0}
           mb="16px"
           onPress={() => {
-            (navigation as any as RootModalNavProps['navigation']).navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.AddExistingWalletModal,
+            (navigation as any as RootModalNavProps['navigation']).navigate(
+              RootRoutes.Modal,
+              {
+                screen: ModalRoutes.CreateWallet,
                 params: {
-                  mode: 'address',
-                  presetText: data,
+                  screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                  params: {
+                    mode: 'address',
+                    presetText: data,
+                  },
                 },
               },
-            });
+            );
           }}
         >
           <HStack space="4">
