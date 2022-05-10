@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
