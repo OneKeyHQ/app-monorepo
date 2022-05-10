@@ -166,6 +166,7 @@ export async function ethereumSignMessage({
   path: string;
   message: IUnsignedMessageEvm;
 }): Promise<string> {
+  // const features = await getFeatures();
   if (
     message.type === ETHMessageTypes.ETH_SIGN ||
     message.type === ETHMessageTypes.TYPED_DATA_V1
