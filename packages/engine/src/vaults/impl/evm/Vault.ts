@@ -384,7 +384,9 @@ export default class Vault extends VaultBase {
     // NOTE: for fetching gas limit, we don't want blockchain-libs to fetch
     // other info such as gas price and nonce. Therefore the hack here to
     // avoid redundant network requests.
-    const encodedTxWithFakePriceAndNonce = {
+    // And extract gas & gasLimit to ensure always getting estimated gasLimit
+    // from blockchain.
+    const { gas, gasLimit, ...encodedTxWithFakePriceAndNonce } = {
       ...encodedTx,
       nonce: 1,
       gasPrice: '1',
@@ -396,7 +398,7 @@ export default class Vault extends VaultBase {
     ]);
 
     const eip1559 = Boolean(
-      prices?.length && prices?.every((gas) => typeof gas === 'object'),
+      prices?.length && prices?.every((price) => typeof price === 'object'),
     );
     let priceInfo: string | EIP1559Fee | undefined = encodedTx.gasPrice
       ? this._toNormalAmount(encodedTx.gasPrice, network.feeDecimals)
@@ -421,7 +423,11 @@ export default class Vault extends VaultBase {
     }
     // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
     // [10]
-    const limit = unsignedTx.feeLimit?.toFixed();
+    const limit = BigNumber.max(
+      unsignedTx.feeLimit ?? '0',
+      gas ?? '0',
+      gasLimit ?? '0',
+    ).toFixed();
 
     return {
       nativeSymbol: network.symbol,
