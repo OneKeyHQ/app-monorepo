@@ -107,7 +107,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -121,7 +120,12 @@ export const AboutSection = () => {
             );
           }}
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="BookmarkAltOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__version',
             })}
@@ -135,7 +139,6 @@ export const AboutSection = () => {
           <Pressable
             display="flex"
             flexDirection="row"
-            justifyContent="space-between"
             alignItems="center"
             py={4}
             px={{ base: 4, md: 6 }}
@@ -143,7 +146,12 @@ export const AboutSection = () => {
             borderBottomColor="divider"
             onPress={onCheckUpdate}
           >
-            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            <Icon name="RefreshOutline" />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex={1}
+              mx={3}
+            >
               {intl.formatMessage({
                 id: 'form__check_for_updates',
               })}
@@ -157,7 +165,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -172,7 +179,12 @@ export const AboutSection = () => {
             )
           }
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="UserOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__user_agreement',
             })}
@@ -184,7 +196,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -199,7 +210,12 @@ export const AboutSection = () => {
             )
           }
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="ShieldCheckOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__privacy_policy',
             })}
@@ -211,7 +227,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -226,22 +241,21 @@ export const AboutSection = () => {
             )
           }
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="GlobeAltOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__website',
             })}
           </Text>
-          <HStack space="2" alignItems="center">
-            <Typography.Body2 color="text-success">
-              www.onekey.so
-            </Typography.Body2>
-            <Icon name="ExternalLinkOutline" color="text-success" size={14} />
-          </HStack>
+          <Icon name="ExternalLinkSolid" size={20} />
         </Pressable>
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -249,34 +263,33 @@ export const AboutSection = () => {
           borderBottomColor="divider"
           onPress={() => openLinkUrl('https://www.discord.gg/onekey')}
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="DiscordOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             Discord
           </Text>
-          <HStack space="2" alignItems="center">
-            <Typography.Body2 color="text-success">
-              discord.gg/onekey
-            </Typography.Body2>
-            <Icon name="ExternalLinkOutline" color="text-success" size={14} />
-          </HStack>
+          <Icon name="ExternalLinkSolid" size={20} />
         </Pressable>
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => openLinkUrl('https://www.twitter.com/onekeyhq')}
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="TwitterOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             Twitter
           </Text>
-          <HStack space="2" alignItems="center">
-            <Typography.Body2 color="text-success">
-              twitter.com/onekeyhq
-            </Typography.Body2>
-            <Icon name="ExternalLinkOutline" color="text-success" size={14} />
-          </HStack>
+          <Icon name="ExternalLinkSolid" size={20} />
         </Pressable>
       </Box>
     </Box>

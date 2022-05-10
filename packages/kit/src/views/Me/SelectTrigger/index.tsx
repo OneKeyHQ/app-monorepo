@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
+import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { SelectItem } from '@onekeyhq/components/src/Select';
 import { Text } from '@onekeyhq/components/src/Typography';
 
@@ -8,12 +9,14 @@ type FieldProps<T> = {
   title: string;
   activeOption: SelectItem<T>;
   hideDivider?: boolean;
+  iconName?: ICON_NAMES;
 };
 
 export function SelectTrigger<T>({
   title,
   activeOption,
   hideDivider,
+  iconName,
 }: FieldProps<T>) {
   const borderProps = !hideDivider
     ? { borderBottomWidth: '1', borderBottomColor: 'divider' }
@@ -28,11 +31,12 @@ export function SelectTrigger<T>({
       py={4}
       {...borderProps}
     >
+      {iconName && <Icon name={iconName} />}
       <Text
         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
         flex="1"
         numberOfLines={1}
-        mr="3"
+        mx={3}
       >
         {title}
       </Text>

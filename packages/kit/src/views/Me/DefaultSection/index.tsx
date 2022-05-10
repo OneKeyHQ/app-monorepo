@@ -21,47 +21,25 @@ export const DefaultSection = () => {
 
   return (
     <Box w="full" mb="6">
-      <Box borderRadius="12" bg="surface-default">
-        <Pressable
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          py={4}
-          px={{ base: 4, md: 6 }}
-          onPress={() => {}}
-        >
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            flex="1"
-            numberOfLines={1}
-            mr="3"
-          >
-            {intl.formatMessage({ id: 'title__address_book' })}
-          </Text>
-          <Box>
-            <Icon name="ChevronRightSolid" size={20} />
-          </Box>
-        </Pressable>
-        {platformEnv.isNative ? (
+      <Box borderRadius="12" bg="surface-default" shadow="depth.2">
+        {platformEnv.isNative && (
           <Pressable
             display="flex"
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
-            borderTopWidth="1"
-            borderTopColor="divider"
             py={4}
             px={{ base: 4, md: 6 }}
             onPress={() => {
               navigation.navigate(HomeRoutes.ScreenOnekeyLiteDetail);
             }}
           >
+            <Icon name="OnekeyLiteOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"
               numberOfLines={1}
-              mr="3"
+              mx={3}
             >
               {intl.formatMessage({
                 id: 'app__hardware_name_onekey_lite',
@@ -71,7 +49,7 @@ export const DefaultSection = () => {
               <Icon name="ChevronRightSolid" size={20} />
             </Box>
           </Pressable>
-        ) : null}
+        )}
       </Box>
     </Box>
   );
