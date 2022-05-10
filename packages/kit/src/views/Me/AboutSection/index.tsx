@@ -130,10 +130,13 @@ export const AboutSection = () => {
               id: 'form__version',
             })}
           </Text>
-          <Typography.Body2 color="text-subdued">
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            color="text-subdued"
+          >
             {settings.version}
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
-          </Typography.Body2>
+          </Text>
         </Pressable>
         {!platformEnv.isWeb && (
           <Pressable
