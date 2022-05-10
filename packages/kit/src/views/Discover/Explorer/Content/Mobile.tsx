@@ -2,7 +2,8 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
+import { Box, IconButton, Pressable, Typography } from '@onekeyhq/components';
+import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import useNavigation from '@onekeyhq/kit/src/hooks/useNavigation';
 import {
   DiscoverModalRoutes,
@@ -57,17 +58,20 @@ const Mobile: FC<ExplorerViewProps> = ({
           flexDirection="row"
           alignItems="center"
         >
-          <Pressable
+          <IconButton
             onPress={onGoBack}
-            w={8}
-            h={8}
-            alignItems="center"
-            justifyContent="center"
+            name="ChevronLeftOutline"
+            size="lg"
+            type="plain"
+          />
+          <Pressable
+            onPress={() => {
+              setHaptics();
+              onSearch();
+            }}
+            flex={1}
+            mx={6}
           >
-            <Icon name="ChevronLeftOutline" size={24} />
-          </Pressable>
-
-          <Pressable onPress={onSearch} flex={1} mx={6}>
             <Box
               w="100%"
               h={8}
@@ -92,16 +96,12 @@ const Mobile: FC<ExplorerViewProps> = ({
               </Typography.Caption>
             </Box>
           </Pressable>
-
-          <Pressable
+          <IconButton
             onPress={onMore}
-            w={8}
-            h={8}
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon name="DotsHorizontalOutline" size={24} />
-          </Pressable>
+            name="DotsHorizontalOutline"
+            size="lg"
+            type="plain"
+          />
         </Box>
       )}
 
