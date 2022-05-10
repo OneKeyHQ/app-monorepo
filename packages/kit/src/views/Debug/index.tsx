@@ -44,7 +44,7 @@ type NavigationProps = CompositeNavigationProp<
 
 export const Debug = () => {
   const intl = useIntl();
-  const insert = useSafeAreaInsets();
+  const inset = useSafeAreaInsets();
   const [uri, setUri] = useState('');
   const navigation = useNavigation<NavigationProps>();
   const connections = useAppSelector((s) => s.dapp.connections);
@@ -71,7 +71,7 @@ export const Debug = () => {
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
-      <Box w="full" maxW={768} mx="auto" pb={insert.bottom}>
+      <Box w="full" maxW={768} mx="auto" pb={inset.bottom}>
         <Box borderRadius="12" bg="surface-default">
           <Pressable
             p="4"
