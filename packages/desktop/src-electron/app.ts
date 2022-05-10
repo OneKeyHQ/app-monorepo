@@ -85,6 +85,9 @@ function createMainWindow() {
     app.exit(0);
   });
 
+  browserWindow.on('show', () => { browserWindow.webContents.send('appState', 'active') })
+  browserWindow.on('hide', () => { browserWindow.webContents.send('appState', 'background') })
+
   const filter = {
     urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
   };

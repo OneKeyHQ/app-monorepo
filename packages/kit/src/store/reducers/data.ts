@@ -16,7 +16,7 @@ export const dataSlice = createSlice({
   name: 'data',
   initialState,
   reducers: {
-    unlock(state) {
+    release(state) {
       state.isUnlock = true;
     },
     passwordSet(state) {
@@ -25,6 +25,6 @@ export const dataSlice = createSlice({
   },
 });
 
-export const { unlock, passwordSet } = dataSlice.actions;
+export const { release, passwordSet } = dataSlice.actions;
 
 export default dataSlice.reducer;

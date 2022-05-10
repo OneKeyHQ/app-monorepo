@@ -10,13 +10,14 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AppLock } from '../../components/AppLock';
 import ModalStackNavigator from '../Modal';
 import OnboardingScreen from '../Onboarding';
 import StackScreen from '../Stack';
@@ -130,7 +131,15 @@ const RootStackNavigator = () => {
     }
   }, [dispatch]);
 
-  return boardingCompleted ? <App /> : <OnboardingScreen />;
+  return boardingCompleted ? (
+    <Box w="full" h="full">
+      <AppLock>
+        <App />
+      </AppLock>
+    </Box>
+  ) : (
+    <OnboardingScreen />
+  );
 };
 
 export default memo(RootStackNavigator);

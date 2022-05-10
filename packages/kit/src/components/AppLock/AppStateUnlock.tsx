@@ -19,10 +19,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { ValidationFields } from '../../components/Protected';
-import { unlock as mUnlock } from '../../store/reducers/data';
+import { release } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
+import LocalAuthenticationButton from '../LocalAuthenticationButton';
+import { ValidationFields } from '../Protected';
 
 type FieldValues = { password: string };
 
@@ -85,7 +85,7 @@ const ForgetPasswordButton = () => {
   );
 };
 
-const Unlock = () => {
+export const AppStateUnlock = () => {
   const intl = useIntl();
   const { dispatch, serviceApp } = backgroundApiProxy;
   const {
@@ -105,7 +105,7 @@ const Unlock = () => {
       const isOk = await serviceApp.verifyPassword(values.password);
       if (isOk) {
         dispatch(unlock());
-        dispatch(mUnlock());
+        dispatch(release());
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -119,7 +119,7 @@ const Unlock = () => {
   );
   const onOk = useCallback(() => {
     dispatch(unlock());
-    dispatch(mUnlock());
+    dispatch(release());
   }, [dispatch]);
   return (
     <KeyboardDismissView>
@@ -190,5 +190,3 @@ const Unlock = () => {
     </KeyboardDismissView>
   );
 };
-
-export default Unlock;
