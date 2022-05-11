@@ -13,6 +13,7 @@ export const AppStateHeartbeat = () => {
     }
   }, []);
   useInterval(refresh, 5 * 1000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(refresh, []);
   return <></>;
 };

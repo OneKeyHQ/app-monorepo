@@ -15,9 +15,11 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../../hooks';
 
 const ResetButton = () => {
   const intl = useIntl();
+  const { resetToWelcome } = useNavigationActions();
   const [showResetModal, setShowResetModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [input, setInput] = useState('');
@@ -25,9 +27,10 @@ const ResetButton = () => {
     if (platformEnv.isIOS) {
       NativeModules.SplashScreenManager.show();
     }
+    resetToWelcome();
     await backgroundApiProxy.serviceApp.resetApp();
     setShowResetModal(false);
-  }, []);
+  }, [resetToWelcome]);
   const isSmallScreen = useIsVerticalLayout();
 
   const onOpenResetModal = useCallback(async () => {

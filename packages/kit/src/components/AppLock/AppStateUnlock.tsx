@@ -13,7 +13,6 @@ import {
   KeyboardDismissView,
   Pressable,
   Typography,
-  useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,8 +22,6 @@ import { release } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 import { ValidationFields } from '../Protected';
-
-type FieldValues = { password: string };
 
 const ForgetPasswordButton = () => {
   const intl = useIntl();
@@ -87,40 +84,37 @@ const ForgetPasswordButton = () => {
 
 export const AppStateUnlock = () => {
   const intl = useIntl();
-  const { dispatch, serviceApp } = backgroundApiProxy;
-  const {
-    control,
-    handleSubmit,
-    setError,
-    formState: { isValid },
-  } = useForm<FieldValues>({
-    defaultValues: { password: '' },
-    mode: 'onChange',
-  });
   const isSmall = useIsVerticalLayout();
   const justifyContent = isSmall ? 'space-between' : 'center';
   const py = isSmall ? '16' : undefined;
-  const onUnlock = useCallback(
-    async (values: FieldValues) => {
-      const isOk = await serviceApp.verifyPassword(values.password);
-      if (isOk) {
-        dispatch(unlock());
-        dispatch(release());
-      } else {
-        setError('password', {
-          message: intl.formatMessage({
-            id: 'msg__wrong_password',
-            defaultMessage: 'Wrong password.',
-          }),
-        });
-      }
-    },
-    [dispatch, intl, setError, serviceApp],
-  );
+  const [password, setPassword] = useState('');
+  const [err, setError] = useState('');
+
+  const onChangeText = useCallback((text: string) => {
+    setPassword(text);
+    setError('');
+  }, []);
+
+  const onUnlock = useCallback(async () => {
+    const isOk = await backgroundApiProxy.serviceApp.verifyPassword(password);
+    if (isOk) {
+      backgroundApiProxy.dispatch(unlock());
+      backgroundApiProxy.dispatch(release());
+    } else {
+      setError(
+        intl.formatMessage({
+          id: 'msg__wrong_password',
+          defaultMessage: 'Wrong password.',
+        }),
+      );
+    }
+  }, [password, intl]);
+
   const onOk = useCallback(() => {
-    dispatch(unlock());
-    dispatch(release());
-  }, [dispatch]);
+    backgroundApiProxy.dispatch(unlock());
+    backgroundApiProxy.dispatch(release());
+  }, []);
+
   return (
     <KeyboardDismissView>
       <Center w="full" h="full" bg="background-default">
@@ -146,33 +140,27 @@ export const AppStateUnlock = () => {
                 })}
               </Typography.Body1>
             </Box>
-            <Form mt="8">
-              <Form.Item
-                control={control}
-                name="password"
-                rules={{
-                  required: intl.formatMessage({
-                    id: 'form__field_is_required',
-                  }),
-                }}
-              >
-                <Form.PasswordInput
-                  // press enter key to submit
-                  onSubmitEditing={handleSubmit(onUnlock)}
-                />
-              </Form.Item>
+            <Box mt="8">
+              <Form.PasswordInput
+                value={password}
+                onChangeText={onChangeText}
+                // press enter key to submit
+                onSubmitEditing={onUnlock}
+              />
+              {err ? <Form.FormErrorMessage message={err} /> : null}
               <Button
                 size="xl"
-                isDisabled={!isValid}
+                isDisabled={!password}
                 type="primary"
-                onPromise={handleSubmit(onUnlock)}
+                onPromise={onUnlock}
+                mt="7"
               >
                 {intl.formatMessage({
                   id: 'action__unlock',
                   defaultMessage: 'Unlock',
                 })}
               </Button>
-            </Form>
+            </Box>
             {platformEnv.isNative ? (
               <Center mt="8">
                 <LocalAuthenticationButton
