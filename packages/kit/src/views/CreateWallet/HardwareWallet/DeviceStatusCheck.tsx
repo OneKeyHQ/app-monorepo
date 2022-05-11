@@ -69,25 +69,7 @@ const DeviceStatusCheckModal: FC = () => {
         return;
       }
 
-      try {
-        await serviceAccount.createHWWallet({ features });
-      } catch (e: any) {
-        safeGoBack();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        Toast.show({ title: e?.message ?? '' });
-        return;
-      }
-
-      if (features.initialized) {
-        safeGoBack();
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.SetupSuccessModal,
-            params: { device },
-          },
-        });
-      } else {
+      if (!features.initialized) {
         safeGoBack();
 
         navigation.navigate(RootRoutes.Modal, {
@@ -99,7 +81,29 @@ const DeviceStatusCheckModal: FC = () => {
             },
           },
         });
+        return;
       }
+
+      try {
+        await serviceAccount.createHWWallet({
+          features,
+          bleUUID: device.device.id,
+        });
+      } catch (e: any) {
+        safeGoBack();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        Toast.show({ title: e?.message ?? '' });
+        return;
+      }
+
+      safeGoBack();
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateWallet,
+        params: {
+          screen: CreateWalletModalRoutes.SetupSuccessModal,
+          params: { device },
+        },
+      });
     }
 
     main();
