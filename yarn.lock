@@ -3815,10 +3815,10 @@
     "@onekeyfe/onekey-private-provider" "^0.0.10"
     web3 "^1.7.3"
 
-"@onekeyfe/js-sdk@1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/js-sdk/-/js-sdk-1.0.2.tgz#e591914e0bd364b0526d87ef512816e55f845fb7"
-  integrity sha512-nuh/bY7NN4N+1zwVUfT2Gpk3cYOBSJudsuxHqIetR/H6dg4iSjS3/2KcXtnTATL1BHmAG7sdKtuAJPBSIA8e2Q==
+"@onekeyfe/js-sdk@1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/js-sdk/-/js-sdk-1.1.1.tgz#59e28178e7b893152d49ab8a01fe328dac019b00"
+  integrity sha512-DxyrCrMThLc/nDH+ArCLAnvR0dne4oYJk4jyuR2o9TdBfOusuKBX1obcz1kHAuZ5++n+YrhAJgKp/JYoq3u+IA==
   dependencies:
     "@babel/runtime" "^7.12.5"
     "@conflux-dev/conflux-address-js" "^1.3.12"

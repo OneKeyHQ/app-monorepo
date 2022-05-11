@@ -16,6 +16,7 @@ import {
 import { IDappCallParams } from '../../../background/IBackgroundApi';
 import { useManageTokens } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
+import { DecodeTxButtonTest } from '../DecodeTxButtonTest';
 import { SendConfirmPayload } from '../types';
 
 export type ITxConfirmViewPropsHandleConfirm = ({
@@ -138,6 +139,7 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
                 ) : null}
               </>
             )}
+            <DecodeTxButtonTest encodedTx={encodedTx} />
           </>
         ),
       }}
