@@ -92,6 +92,8 @@ const TokenInput: FC<TokenInputProps> = ({
       >
         <Box flex="1">
           <NumberInput
+            w="full"
+            size="xl"
             borderWidth={0}
             placeholder="0.00"
             fontSize={24}

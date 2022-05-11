@@ -78,10 +78,13 @@ export type SendConfirmParams = EditFeeParams & {
   sourceInfo?: IDappCallParams;
   actionType?: SendConfirmActionType;
   backRouteName?: keyof SendRoutesParams;
+  feeInfoUseFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
 };
 
 export type SendAuthenticationParams = SendConfirmParams & {
   accountId: string;
+  walletId: string;
   networkId: string;
   unsignedMessage?: IUnsignedMessageEvm;
   encodedTx?: any;

@@ -1,10 +1,11 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useCallback, useEffect } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -15,8 +16,8 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-
-import { onekeyBleConnect } from '../../../utils/ble/BleOnekeyConnect';
+import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/ble/BleOnekeyConnect';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -31,28 +32,45 @@ const DeviceStatusCheckModal: FC = () => {
   const { device } = useRoute<RouteProps>().params;
   const { serviceAccount } = backgroundApiProxy;
 
+  const safeGoBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [navigation]);
+
+  useEffect(() => {
+    const timeId = setTimeout(() => {
+      safeGoBack();
+      Toast.show({
+        title: intl.formatMessage({ id: 'action__connection_timeout' }),
+      });
+    }, 60 * 1000);
+    return () => {
+      clearTimeout(timeId);
+    };
+  }, [safeGoBack, intl]);
+
   useEffect(() => {
     // If device and account are ready, go to success page
     async function main() {
-      const features = await onekeyBleConnect.getFeatures(device.device as any);
-      if (!features) return;
-      await serviceAccount.createHWWallet({ features });
-
-      if (features.initialized) {
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        }
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.SetupSuccessModal,
-            params: { device },
-          },
+      let features: IOneKeyDeviceFeatures | null = null;
+      try {
+        // 10s timeout for device connection
+        const result = await Promise.race([
+          onekeyBleConnect.getFeatures(device.device as any),
+          new Promise((resolve, reject) => setTimeout(reject, 30 * 1000)),
+        ]);
+        features = result as IOneKeyDeviceFeatures;
+      } catch (e) {
+        safeGoBack();
+        Toast.show({
+          title: intl.formatMessage({ id: 'action__connection_timeout' }),
         });
-      } else {
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        }
+        return;
+      }
+
+      if (!features.initialized) {
+        safeGoBack();
 
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
@@ -63,7 +81,29 @@ const DeviceStatusCheckModal: FC = () => {
             },
           },
         });
+        return;
       }
+
+      try {
+        await serviceAccount.createHWWallet({
+          features,
+          bleUUID: device.device.id,
+        });
+      } catch (e: any) {
+        safeGoBack();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        Toast.show({ title: e?.message ?? '' });
+        return;
+      }
+
+      safeGoBack();
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateWallet,
+        params: {
+          screen: CreateWalletModalRoutes.SetupSuccessModal,
+          params: { device },
+        },
+      });
     }
 
     main();

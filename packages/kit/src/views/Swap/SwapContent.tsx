@@ -105,13 +105,9 @@ const SwapContent = () => {
         params: {
           screen: SendRoutes.SendConfirm,
           params: {
+            feeInfoEditable: true,
+            feeInfoUseFeeInTx: false,
             encodedTx: { ...encodedTx, from: account?.address },
-            sourceInfo: {
-              id: '0',
-              origin: 'Swap Token Approve',
-              scope: 'ethereum',
-              data: { method: '' },
-            },
             onSuccess(tx) {
               addTransaction({
                 hash: tx.txid,

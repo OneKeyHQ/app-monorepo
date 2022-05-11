@@ -59,6 +59,7 @@ export type IActiveWalletAccount = {
   account: Account | null;
   network: INetwork | null;
   networkId: string;
+  walletId: string;
   accountId: string;
   networkImpl: string;
   accountAddress: string;
@@ -85,7 +86,7 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
     const networkId = activeNetworkId || '';
     const accountAddress = activeAccountInfo?.address || '';
     const accountId = activeAccountId || '';
-
+    const walletId = activeWalletId || '';
     return {
       wallet: activeWallet,
       account: activeAccountInfo,
@@ -94,5 +95,14 @@ export const { use: useActiveWalletAccount, get: getActiveWalletAccount } =
       networkId,
       networkImpl,
       accountAddress,
+      walletId,
     };
   });
+
+export const useGetWalletDetail = (walletId: string | null) => {
+  const wallet =
+    useAppSelector((s) =>
+      s.runtime.wallets?.find?.((w) => w.id === walletId),
+    ) ?? null;
+  return wallet;
+};

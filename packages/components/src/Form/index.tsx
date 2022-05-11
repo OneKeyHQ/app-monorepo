@@ -1,5 +1,3 @@
-import { NumberInput } from '../NumberInput';
-
 import { Form as BaseForm } from './Form';
 import { FormCheckBox } from './FormCheckBox';
 import { FormInput } from './FormInput';
@@ -17,7 +15,7 @@ import { FormTextarea } from './FormTextarea';
 const Base: any = BaseForm;
 Base.Item = FormItem;
 Base.Input = FormInput;
-Base.NumberInput = NumberInput;
+Base.NumberInput = FormNumberInput;
 Base.Textarea = FormTextarea;
 Base.CheckBox = FormCheckBox;
 Base.Switch = FormSwitch;
@@ -25,12 +23,11 @@ Base.Radio = FormRadio;
 Base.RadioGroup = FormRadioGroup;
 Base.Select = FormSelect;
 Base.PasswordInput = FormPasswordInput;
-Base.FormNumberInput = FormNumberInput;
 
 type IFormComponentType = typeof BaseForm & {
   Item: typeof FormItem;
   Input: typeof FormInput;
-  NumberInput: typeof NumberInput;
+  NumberInput: typeof FormNumberInput;
   Textarea: typeof FormTextarea;
   CheckBox: typeof FormCheckBox;
   Switch: typeof FormSwitch;
@@ -38,7 +35,6 @@ type IFormComponentType = typeof BaseForm & {
   RadioGroup: typeof FormRadioGroup;
   Select: typeof FormSelect;
   PasswordInput: typeof FormPasswordInput;
-  FormNumberInput: typeof FormNumberInput;
 };
 
 const Form = Base as IFormComponentType;

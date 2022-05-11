@@ -38,7 +38,7 @@ const CreateWalletModal: FC = () => {
           borderRadius="12px"
           px={4}
           onPress={() => {
-            navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal);
+            navigation.navigate(CreateWalletModalRoutes.NewWalletModal);
           }}
         >
           <HStack justifyContent="space-between" alignItems="center">

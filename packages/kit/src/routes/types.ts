@@ -43,6 +43,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.OnekeyHardware]: NavigatorScreenParams<SubModalRoutesParams.OnekeyHardwareRoutesParams>;
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
   [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
+  [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
 };
 /** Modal */
 
@@ -71,7 +72,7 @@ export enum HomeRoutes {
   InitialTab = 'home',
   Dev = 'dev',
   ScreenTokenDetail = 'TokenDetailScreen',
-  SettingsScreen = 'settings',
+  DebugScreen = 'Debug',
   SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   ExploreScreen = 'ExploreScreen',
@@ -88,7 +89,7 @@ export type HomeRoutesParams = {
     networkId: string;
     tokenId: string;
   };
-  [HomeRoutes.SettingsScreen]: undefined;
+  [HomeRoutes.DebugScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
   [HomeRoutes.ExploreScreen]: {

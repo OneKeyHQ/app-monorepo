@@ -12,8 +12,7 @@
   "scripts": {
     "postinstall": "yarn setup:env && husky install && yarn build:connect && yarn copy:inject && patch-package",
     "copy:inject": "bash development/copy-injected.sh",
-    "build:connect": "yarn build:connect:desktop && yarn build:connect:native",
-    "build:connect:desktop": "yarn webpack --config ./packages/kit/development/desktop.connect.webpack.config.js",
+    "build:connect": "yarn build:connect:native",
     "build:connect:native": "yarn webpack --config ./packages/kit/development/native.connect.webpack.config.js",
     "clean": "./clean_workspace.sh && yarn cache clean",
     "lint-staged": "lint-staged",

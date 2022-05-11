@@ -9,8 +9,11 @@ import AddImportedAccountDone from '@onekeyhq/kit/src/views/CreateWallet/Account
 import AddWatchAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddWatchAccount';
 import AddExistingWallet from '@onekeyhq/kit/src/views/CreateWallet/AddExistingWallet';
 import AppWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AppWallet';
+import AttentionsView from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/AttentionsView';
 import AppWalletDone from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Done';
 import ImportWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/ImportWallet';
+import Mnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Mnemonic';
+import NewWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/NewWallet';
 import RestoreFromMnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreFromMnemonic';
 import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreWallet';
 import Guide from '@onekeyhq/kit/src/views/CreateWallet/Guide';
@@ -64,12 +67,25 @@ export enum CreateWalletModalRoutes {
   AddImportedAccountModal = 'AddImportedAccountModal',
   AddImportedAccountDoneModal = 'AddImportedAccountDoneModal',
   AddWatchAccountModal = 'AddWatchAccount',
+  AttentionsModal = 'AttentionsModal',
+  MnemonicModal = 'MnemonicModal',
+  NewWalletModal = 'NewWalletModal',
 }
 
 export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateWalletModal]: undefined;
   [CreateWalletModalRoutes.ConnectHardwareModal]: undefined;
   [CreateWalletModalRoutes.AppWalletModal]: undefined;
+  [CreateWalletModalRoutes.AttentionsModal]: {
+    password: string;
+    withEnableAuthentication?: boolean;
+  };
+  [CreateWalletModalRoutes.MnemonicModal]: {
+    password: string;
+    withEnableAuthentication?: boolean;
+    mnemonic: string;
+  };
+  [CreateWalletModalRoutes.NewWalletModal]: undefined;
   [CreateWalletModalRoutes.AppWalletDoneModal]:
     | { mnemonic?: string }
     | undefined;
@@ -216,6 +232,18 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.AddWatchAccountModal,
     component: AddWatchAccount,
+  },
+  {
+    name: CreateWalletModalRoutes.AttentionsModal,
+    component: AttentionsView,
+  },
+  {
+    name: CreateWalletModalRoutes.MnemonicModal,
+    component: Mnemonic,
+  },
+  {
+    name: CreateWalletModalRoutes.NewWalletModal,
+    component: NewWallet,
   },
 ];
 

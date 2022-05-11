@@ -135,6 +135,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
 export const HDAccountAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
+  const { walletId } = params;
 
   useDisableNavigationAnimation({
     condition: !!params.autoConfirmAfterFeeSaved,
@@ -144,7 +145,7 @@ export const HDAccountAuthentication = () => {
   return (
     <Modal height="598px" footer={null}>
       <DecodeTxButtonTest encodedTx={params.encodedTx} />
-      <Protected field={ValidationFields.Payment}>
+      <Protected walletId={walletId} field={ValidationFields.Payment}>
         {(password) => <SendAuth password={password} />}
       </Protected>
     </Modal>

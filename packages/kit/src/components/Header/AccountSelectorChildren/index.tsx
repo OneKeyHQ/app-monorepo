@@ -20,23 +20,22 @@ import {
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
 import {
   useActiveWalletAccount,
   useRuntime,
 } from '@onekeyhq/kit/src/hooks/redux';
+import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
 } from '@onekeyhq/kit/src/routes';
+import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-
-import { setHaptics } from '../../../hooks/setHaptics';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
-import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
-import AccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
-import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount';
-import { ValidationFields } from '../../Protected';
+import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
+import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
@@ -191,32 +190,44 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
         dropdownPosition="right"
         onChange={(v) => onChange(v)}
         activatable={false}
-        options={[
-          {
-            label: intl.formatMessage({ id: 'action__rename' }),
-            value: 'rename',
-            iconProps: {
-              name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
-            },
-          },
-          {
-            label: intl.formatMessage({ id: 'action__view_details' }),
-            value: 'detail',
-            iconProps: {
-              name: isVerticalLayout
-                ? 'DocumentTextOutline'
-                : 'DocumentTextSolid',
-            },
-          },
-          {
-            label: intl.formatMessage({ id: 'action__remove_account' }),
-            value: 'remove',
-            iconProps: {
-              name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
-            },
-            destructive: true,
-          },
-        ]}
+        options={
+          type !== 'hw'
+            ? [
+                {
+                  label: intl.formatMessage({ id: 'action__rename' }),
+                  value: 'rename',
+                  iconProps: {
+                    name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+                  },
+                },
+                {
+                  label: intl.formatMessage({ id: 'action__view_details' }),
+                  value: 'detail',
+                  iconProps: {
+                    name: isVerticalLayout
+                      ? 'DocumentTextOutline'
+                      : 'DocumentTextSolid',
+                  },
+                },
+                {
+                  label: intl.formatMessage({ id: 'action__remove_account' }),
+                  value: 'remove',
+                  iconProps: {
+                    name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+                  },
+                  destructive: true,
+                },
+              ]
+            : [
+                {
+                  label: intl.formatMessage({ id: 'action__rename' }),
+                  value: 'rename',
+                  iconProps: {
+                    name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+                  },
+                },
+              ]
+        }
         headerShown={false}
         footer={null}
         containerProps={{ width: 'auto' }}

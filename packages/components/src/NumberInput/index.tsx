@@ -4,6 +4,7 @@ import React, {
   FC,
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -73,9 +74,11 @@ export const NumberInput: FC<NumberInputProps> = ({
   onChangeText,
   tokenSymbol,
   value,
+  size,
   ...props
 }) => {
   const intl = useIntl();
+  const inputRef = useRef(null);
   // eslint-disable-next-line no-param-reassign
   maxText = maxText || intl.formatMessage({ id: 'form__amount_max_amount' });
   const [v, setV] = useState('');
@@ -84,14 +87,21 @@ export const NumberInput: FC<NumberInputProps> = ({
     () =>
       enableMaxButton ? (
         <RadioButton
-          size="lg"
+          size={size === 'xl' ? 'lg' : 'sm'}
           value="true"
           isChecked={isMax}
-          onCheckedChange={onMaxChange}
+          onCheckedChange={(checked) => {
+            onMaxChange?.(checked);
+            if (!checked && isMax) {
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              inputRef?.current?.focus();
+            }
+          }}
           title={intl.formatMessage({ id: 'action__max' })}
         />
       ) : undefined,
-    [enableMaxButton, intl, isMax, onMaxChange],
+    [enableMaxButton, intl, isMax, onMaxChange, size],
   );
 
   const handleChange = useCallback(
@@ -149,9 +159,8 @@ export const NumberInput: FC<NumberInputProps> = ({
   //    https://github.com/GeekyAnts/NativeBase/issues/3894
   return (
     <Input
-      w="full"
+      ref={inputRef}
       keyboardType="numeric"
-      size="xl"
       rightCustomElement={
         <>
           <Typography.Body1 color="text-subdued">
@@ -174,6 +183,7 @@ export const NumberInput: FC<NumberInputProps> = ({
           }
         }
       }}
+      size={size}
       {...props}
       value={valueDisplay}
       onChangeText={handleChange}

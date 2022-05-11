@@ -24,6 +24,7 @@ import {
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
 import { DbApi } from './dbs';
@@ -40,7 +41,6 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from './errors';
-import * as OneKeyHardware from './hardware';
 import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
@@ -262,6 +262,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  generateMnemonic(): Promise<string> {
+    return Promise.resolve(bip39.generateMnemonic());
+  }
+
+  @backgroundMethod()
   mnemonicToEntropy(mnemonic: string): Promise<string> {
     const wordlists = bip39.wordlists.english;
     const n = wordlists.length;
@@ -411,17 +416,21 @@ class Engine {
   async createHWWallet({
     name,
     avatar,
+    features,
   }: {
     name?: string;
     avatar?: Avatar;
+    features: IOneKeyDeviceFeatures;
   }): Promise<Wallet> {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
     await this.validator.validateHWWalletNumber();
-    const features = await OneKeyHardware.getFeatures();
+
     if (!features.initialized) {
-      throw new OneKeyHardwareError('Hardware wallet not initialized.');
+      throw new OneKeyHardwareError({
+        message: 'Hardware wallet not initialized.',
+      });
     }
     const id = features.onekey_serial ?? features.serial_no ?? '';
     if (id.length === 0) {
@@ -429,6 +438,11 @@ class Engine {
     }
     const walletName = name ?? features.ble_name ?? `OneKey ${id.slice(-4)}`;
     return this.dbApi.addHWWallet({ id, name: walletName, avatar });
+  }
+
+  @backgroundMethod()
+  async getHWDevices() {
+    return this.dbApi.getDevices();
   }
 
   @backgroundMethod()

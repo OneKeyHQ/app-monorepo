@@ -40,10 +40,10 @@ const HDAccountAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
 
 export const HDAccountAuthentication: FC = () => {
   const route = useRoute<RouteProps>();
-  const { onDone } = route.params;
+  const { onDone, walletId } = route.params;
   return (
     <Modal footer={null}>
-      <Protected field={ValidationFields.Account}>
+      <Protected walletId={walletId} field={ValidationFields.Account}>
         {(password) => (
           <HDAccountAuthenticationDone
             password={password}

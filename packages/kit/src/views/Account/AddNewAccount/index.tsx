@@ -95,6 +95,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
 
   const onSubmit = handleSubmit(() => {
     navigation.navigate(CreateAccountModalRoutes.CreateAccountAuthentication, {
+      walletId: selectedWalletId,
       onDone: authenticationDone,
     });
   });
@@ -143,6 +144,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                   navigation.navigate(
                     CreateAccountModalRoutes.CreateAccountAuthentication,
                     {
+                      walletId: selectedWalletId,
                       onDone: (password) => {
                         const network = getValues('network');
                         navigation.navigate(

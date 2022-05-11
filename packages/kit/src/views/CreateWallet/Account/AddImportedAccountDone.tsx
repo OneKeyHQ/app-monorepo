@@ -80,7 +80,11 @@ export const AddImportedAccountDone = () => {
   const { privatekey, name, networkId } = route.params ?? {};
   return (
     <Modal footer={null}>
-      <Protected skipSavePassword field={ValidationFields.Account}>
+      <Protected
+        walletId={null}
+        skipSavePassword
+        field={ValidationFields.Account}
+      >
         {(password, { withEnableAuthentication }) => (
           <Done
             withEnableAuthentication={withEnableAuthentication}

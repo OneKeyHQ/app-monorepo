@@ -1,41 +1,70 @@
 import React, { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Icon, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  UpdateFeatureModalRoutes,
+  UpdateFeatureRoutesParams,
+} from '../../../routes/Modal/UpdateFeature';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsScreen
->;
+type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
+
+type ModalNavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
 
 export const AboutSection = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
+  const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
 
   const settings = useSettings();
 
   const onCheckUpdate = useCallback(() => {
-    toast.show({
-      title: intl.formatMessage({
-        id: 'msg__the_current_version_is_the_latest',
-      }),
-    });
-  }, [intl, toast]);
+    appUpdates
+      .checkAppUpdate()
+      .then((version) => {
+        if (!version) {
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__the_current_version_is_the_latest',
+            }),
+          });
+        } else {
+          modalNavigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.UpdateFeature,
+            params: {
+              screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+              params: {
+                version,
+              },
+            },
+          });
+        }
+      })
+      .catch(() => {});
+  }, [intl, modalNavigation, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (platformEnv.isNative) {
@@ -78,7 +107,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -92,21 +120,28 @@ export const AboutSection = () => {
             );
           }}
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="BookmarkAltOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__version',
             })}
           </Text>
-          <Typography.Body2 color="text-subdued">
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            color="text-subdued"
+          >
             {settings.version}
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
-          </Typography.Body2>
+          </Text>
         </Pressable>
         {!platformEnv.isWeb && (
           <Pressable
             display="flex"
             flexDirection="row"
-            justifyContent="space-between"
             alignItems="center"
             py={4}
             px={{ base: 4, md: 6 }}
@@ -114,7 +149,12 @@ export const AboutSection = () => {
             borderBottomColor="divider"
             onPress={onCheckUpdate}
           >
-            <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            <Icon name="RefreshOutline" />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex={1}
+              mx={3}
+            >
               {intl.formatMessage({
                 id: 'form__check_for_updates',
               })}
@@ -128,7 +168,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -143,7 +182,12 @@ export const AboutSection = () => {
             )
           }
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="UserOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__user_agreement',
             })}
@@ -155,7 +199,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -170,7 +213,12 @@ export const AboutSection = () => {
             )
           }
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="ShieldCheckOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__privacy_policy',
             })}
@@ -182,7 +230,6 @@ export const AboutSection = () => {
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -197,22 +244,21 @@ export const AboutSection = () => {
             )
           }
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="GlobeAltOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             {intl.formatMessage({
               id: 'form__website',
             })}
           </Text>
-          <HStack space="2" alignItems="center">
-            <Typography.Body2 color="text-success">
-              www.onekey.so
-            </Typography.Body2>
-            <Icon name="ExternalLinkOutline" color="text-success" size={14} />
-          </HStack>
+          <Icon name="ExternalLinkSolid" size={20} />
         </Pressable>
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
@@ -220,34 +266,33 @@ export const AboutSection = () => {
           borderBottomColor="divider"
           onPress={() => openLinkUrl('https://www.discord.gg/onekey')}
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="DiscordOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             Discord
           </Text>
-          <HStack space="2" alignItems="center">
-            <Typography.Body2 color="text-success">
-              discord.gg/onekey
-            </Typography.Body2>
-            <Icon name="ExternalLinkOutline" color="text-success" size={14} />
-          </HStack>
+          <Icon name="ExternalLinkSolid" size={20} />
         </Pressable>
         <Pressable
           display="flex"
           flexDirection="row"
-          justifyContent="space-between"
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => openLinkUrl('https://www.twitter.com/onekeyhq')}
         >
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+          <Icon name="TwitterOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
             Twitter
           </Text>
-          <HStack space="2" alignItems="center">
-            <Typography.Body2 color="text-success">
-              twitter.com/onekeyhq
-            </Typography.Body2>
-            <Icon name="ExternalLinkOutline" color="text-success" size={14} />
-          </HStack>
+          <Icon name="ExternalLinkSolid" size={20} />
         </Pressable>
       </Box>
     </Box>

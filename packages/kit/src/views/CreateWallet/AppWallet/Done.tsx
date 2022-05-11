@@ -73,7 +73,12 @@ export const AppWalletDone = () => {
   const { mnemonic } = route.params ?? {};
   return (
     <Modal footer={null}>
-      <Protected skipSavePassword field={ValidationFields.Wallet}>
+      <Protected
+        skipSavePassword
+        /** CreateWallet Flow：walletId is null */
+        walletId={null}
+        field={ValidationFields.Wallet}
+      >
         {(password, { withEnableAuthentication }) => (
           <Done
             password={password}

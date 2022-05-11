@@ -78,6 +78,7 @@ export const GenaralSection = () => {
                     defaultMessage: 'Theme',
                   })}
                   activeOption={activeOption}
+                  iconName="MoonOutline"
                 />
               )}
             />
@@ -99,13 +100,13 @@ export const GenaralSection = () => {
                 { label: '繁體中文', value: 'zh-HK' },
                 { label: 'Deutsch', value: 'de' },
                 { label: 'Español', value: 'es' },
-                { label: 'Filipino', value: 'fil-PH' },
+                // { label: 'Filipino', value: 'fil-PH' },
                 { label: 'Français', value: 'fr-FR' },
                 { label: '日本語', value: 'ja-JP' },
                 { label: '한국어', value: 'ko-KR' },
                 { label: 'Pусский', value: 'ru' },
                 { label: 'ภาษาไทย', value: 'th-TH' },
-                { label: 'Tiếng Việt', value: 'vi-VN' },
+                // { label: 'Tiếng Việt', value: 'vi-VN' },
                 { label: 'Italiano', value: 'it-IT' },
                 { label: 'Монгол', value: 'mn-MN' },
                 { label: 'Українська', value: 'uk-UA' },
@@ -120,6 +121,7 @@ export const GenaralSection = () => {
                     defaultMessage: 'Language',
                   })}
                   activeOption={activeOption}
+                  iconName="GlobeOutline"
                 />
               )}
             />
@@ -151,6 +153,7 @@ export const GenaralSection = () => {
                   })}
                   hideDivider
                   activeOption={activeOption}
+                  iconName="CurrencyDollarOutline"
                 />
               )}
             />

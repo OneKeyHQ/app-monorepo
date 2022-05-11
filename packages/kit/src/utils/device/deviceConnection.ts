@@ -1,4 +1,10 @@
-import OneKeyConnect, { UI } from '@onekeyfe/js-sdk';
+/* eslint-disable no-async-promise-executor */
+/* eslint-disable no-plusplus */
+/* eslint-disable no-param-reassign */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import OneKeyConnect from '@onekeyfe/js-sdk';
 
 import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -7,9 +13,44 @@ import bleHandler from './ble/handler';
 
 let hasInitOneKeyConnect = false;
 
-const CONNECT_URL = platformEnv.isDev
-  ? 'https://connect.onekey.so/'
-  : 'https://connect.onekey.so/';
+const CONNECT_URL = 'https://connect.onekey.so/';
+
+const wrappedMethods = [
+  'getFeatures',
+  'applySettings',
+  'changePin',
+  'backupDevice',
+  'recoveryDevice',
+] as const;
+
+try {
+  wrappedMethods.forEach((key) => {
+    const original: any = OneKeyConnect[key];
+    if (!original) return;
+    (OneKeyConnect[key] as any) = async (params: any) => {
+      async function poll(ps: any, time = 1000): Promise<any> {
+        const result = await ps();
+        if (result?.success) {
+          return result;
+        }
+        return new Promise((resolve) =>
+          setTimeout(() => resolve(poll(ps, time * 1.5)), time),
+        );
+      }
+
+      try {
+        const result = await poll(() => original(params));
+        return result;
+      } catch (e) {
+        console.log(e);
+        // ignore error
+      }
+    };
+  });
+} catch (e) {
+  // initial error
+  console.log(e);
+}
 
 export const UICallback = ({ type }: { type: string }) => {
   switch (type) {
@@ -25,8 +66,9 @@ export const UICallback = ({ type }: { type: string }) => {
           type: 'enterPinOnDevice',
         },
       );
+
       OneKeyConnect.uiResponse({
-        type: UI.RECEIVE_PIN,
+        type: 'ui-receive_pin',
         payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
       });
       break;
