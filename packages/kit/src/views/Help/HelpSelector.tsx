@@ -35,10 +35,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &
   ModalScreenProps<HistoryRequestModalRoutesParams>;
 
-type StackNavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsScreen
->;
+type StackNavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 type Option = {
   label: string;

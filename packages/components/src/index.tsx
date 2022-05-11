@@ -59,6 +59,7 @@ export { default as RadioBox } from './RadioBox';
 export { default as RadioFee } from './RadioFee';
 export { default as Spacer } from './Spacer';
 export { default as Tooltip } from './Tooltip';
+export { default as Keyboard } from './Keyboard';
 export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 export { default as KeyboardDismissView } from './KeyboardDismissView';
 export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
