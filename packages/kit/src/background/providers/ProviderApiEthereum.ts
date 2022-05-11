@@ -106,16 +106,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: Transaction,
   ) {
-    if (platformEnv.isExtension) {
-      // return extUtils.openApprovalWindow();
-    }
-
     debugLogger.ethereum('eth_sendTransaction', request, transaction);
     // Parse transaction
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
-    const result = await this.backgroundApi.serviceDapp?.openSendConfirmModal(
+    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
       request,
       {
         encodedTx: transaction,
@@ -130,21 +126,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
 
     return result;
-    // const isContractAddress = false;
-    // if (isContractAddress) {
-    //   const isApproval = false;
-    //
-    //   if (isApproval) {
-    //     // Approval modal
-    //     return this.backgroundApi.serviceDapp?.openApprovalModal(request);
-    //   }
-    //
-    //   // Contract modal
-    //   return this.backgroundApi.serviceDapp?.openMulticallModal(request);
-    // }
-    //
-    // // Send transaction confirm modal
-    // return this.backgroundApi.serviceDapp?.openSendConfirmModal(request);
   }
 
   /**
@@ -188,9 +169,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
 
     const permissionRes =
-      await this.backgroundApi.serviceDapp?.openConnectionApprovalModal(
-        request,
-      );
+      await this.backgroundApi.serviceDapp?.openConnectionModal(request);
 
     const result: Permission[] = Object.keys(permissions).map(
       (permissionName) => {
@@ -234,7 +213,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       return accounts;
     }
 
-    await this.backgroundApi.serviceDapp.openConnectionApprovalModal(request);
+    await this.backgroundApi.serviceDapp.openConnectionModal(request);
     return this.eth_accounts(request);
 
     // TODO show approval confirmation, skip in whitelist domain
@@ -281,7 +260,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     unsignedMessage: IUnsignedMessageEvm,
   ) {
-    const result = await this.backgroundApi.serviceDapp?.openSendConfirmModal(
+    const result = await this.backgroundApi.serviceDapp?.openApprovalModal(
       request,
       {
         unsignedMessage,
@@ -501,50 +480,6 @@ class ProviderApiEthereum extends ProviderApiBase {
   // TODO metamask_unlockStateChanged
 
   // TODO throwMethodNotFound
-
-  // ----------------------------------------------
-
-  /*
-  private async signMessage(
-    type: ETHMessageTypes,
-    message: string,
-  ): Promise<string> {
-    const networkId = `${IMPL_EVM}--${this._getCurrentChainId()}`;
-    const password = '';
-    const accountId = '';
-    const signatures = await engine.signMessage(
-      password,
-      networkId,
-      accountId,
-      [{ type, message }],
-    );
-    return signatures[0];
-  }
-
-  personal_sign(message: string): Promise<string> {
-    return this.signMessage(ETHMessageTypes.PERSONAL_SIGN, message);
-  }
-
-  eth_sign(message: string): Promise<string> {
-    return this.signMessage(ETHMessageTypes.ETH_SIGN, message);
-  }
-
-  eth_signTypedData(message: string): Promise<string> {
-    return this.signMessage(ETHMessageTypes.TYPED_DATA_V1, message);
-  }
-
-  eth_signTypedData_v1(message: string): Promise<string> {
-    return this.eth_signTypedData(message);
-  }
-
-  eth_signTypedData_v3(message: string): Promise<string> {
-    return this.signMessage(ETHMessageTypes.TYPED_DATA_V3, message);
-  }
-
-  eth_signTypedData_v4(message: string): Promise<string> {
-    return this.signMessage(ETHMessageTypes.TYPED_DATA_V4, message);
-  }
-  */
 }
 
 export default ProviderApiEthereum;

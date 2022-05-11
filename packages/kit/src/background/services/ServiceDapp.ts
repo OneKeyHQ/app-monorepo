@@ -1,3 +1,4 @@
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -49,7 +50,18 @@ class ServiceDapp extends ServiceBase {
     this.backgroundApi.dispatch(dappSaveSiteConnection(payload));
   }
 
-  openConnectionApprovalModal(request: CommonRequestParams['request']) {
+  // TODO to decorator @permissionRequired()
+  authorizedRequired(request: IJsBridgeMessagePayload) {
+    const accounts = this.backgroundApi.serviceDapp?.getConnectedAccounts({
+      origin: request.origin as string,
+    });
+    if (!accounts || !accounts.length) {
+      // TODO move to UI check
+      throw web3Errors.provider.unauthorized();
+    }
+  }
+
+  openConnectionModal(request: CommonRequestParams['request']) {
     return this.openModal({
       request,
       screens: [
@@ -59,21 +71,8 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
-  openApprovalModal(request: CommonRequestParams['request']) {
-    return this.openModal({
-      request,
-      screens: [ModalRoutes.DappApproveModal, DappModalRoutes.ApproveModal],
-    });
-  }
-
-  openMulticallModal(request: CommonRequestParams['request']) {
-    return this.openModal({
-      request,
-      screens: [ModalRoutes.DappMulticallModal, DappModalRoutes.MulticallModal],
-    });
-  }
-
-  openSendConfirmModal(request: IJsBridgeMessagePayload, params: any) {
+  openApprovalModal(request: IJsBridgeMessagePayload, params: any) {
+    this.authorizedRequired(request);
     return this.openModal({
       request,
       screens: [ModalRoutes.Send, SendRoutes.SendConfirmFromDapp],
