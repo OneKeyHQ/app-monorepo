@@ -9,9 +9,18 @@ import { PackageInfo, VersionInfo } from './type.d';
 const { BuildConfigManager } = NativeModules;
 class AppUpdates {
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
+    return this._checkAppUpdate(false);
+  }
+
+  async debugCheckAppUpdate(): Promise<VersionInfo | undefined> {
+    return this._checkAppUpdate(true);
+  }
+
+  async _checkAppUpdate(always: boolean): Promise<VersionInfo | undefined> {
     const releaseInfo = await getReleaseInfo();
 
     if (
+      !always &&
       this.compVersion(process.env.VERSION ?? '0.0.0', releaseInfo.version) >= 0
     ) {
       //  没有更新
@@ -22,7 +31,7 @@ class AppUpdates {
     if (platformEnv.isAndroid) {
       if (BuildConfigManager.getChannel() === 'GooglePlay') {
         packageInfo = releaseInfo.packages?.android?.find(
-          (x) => x.os === 'android' && x.channel === 'AppStore',
+          (x) => x.os === 'android' && x.channel === 'GooglePlay',
         );
       } else {
         packageInfo = releaseInfo.packages?.android?.find(

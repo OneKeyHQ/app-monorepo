@@ -8,11 +8,13 @@ import {
 } from '@onekeyhq/kit/src/routes/Dev';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
+import { useDevSettings } from '../../hooks/redux';
 import { DebugSection } from '../Debug';
 import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
 import { DefaultSection } from './DefaultSection';
+import { DevSettingSection } from './DevSetting';
 import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
 
@@ -25,6 +27,7 @@ type NavigationProps = CompositeNavigationProp<
 >;
 
 export const Me = () => {
+  const { debugMode } = useDevSettings();
   const inset = useSafeAreaInsets();
   return (
     <Box bg="background-default" flex="1">
@@ -34,6 +37,7 @@ export const Me = () => {
           <DefaultSection />
           <GenaralSection />
           <SecuritySection />
+          {debugMode ? <DevSettingSection /> : null}
           <AboutSection />
         </Box>
       </ScrollView>

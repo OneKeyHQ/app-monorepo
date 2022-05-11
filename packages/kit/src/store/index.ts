@@ -32,6 +32,7 @@ import autoUpdateReducer from './reducers/autoUpdater';
 import checkVersionReducer from './reducers/checkVersion';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
+import devSettingsReducer from './reducers/devSettings';
 import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
@@ -54,6 +55,7 @@ const allReducers = combineReducers({
   swap: swapReducer,
   tokens: tokensReducer,
   checkVersion: checkVersionReducer,
+  devSettings: devSettingsReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
@@ -88,6 +90,7 @@ const persistConfig = {
     'discover',
     'tokens',
     'checkVersion',
+    'devSettings',
   ],
   throttle: platformEnv.isExtension ? 1000 : 0, // default=0
 };

@@ -13,6 +13,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCheckVersion } from '@onekeyhq/kit/src/hooks/redux';
 import { setUpdateActivationHint } from '@onekeyhq/kit/src/store/reducers/checkVersion';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import appUpdates from '../../../utils/updates/AppUpdates';
 
@@ -21,6 +22,8 @@ const UpdateAlert: FC = () => {
 
   const isSmallScreen = useIsVerticalLayout();
   const screenWidth = useWindowDimensions().width;
+
+  if (platformEnv.isBrowser) return null;
 
   return version.updateActivationHint ? (
     <Box

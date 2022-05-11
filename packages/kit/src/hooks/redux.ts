@@ -56,6 +56,8 @@ export const useRuntime = () => useAppSelector((s) => s.runtime);
 
 export const useCheckVersion = () => useAppSelector((s) => s.checkVersion);
 
+export const useDevSettings = () => useAppSelector((s) => s.devSettings);
+
 export type IActiveWalletAccount = {
   wallet: Wallet | null;
   account: Account | null;

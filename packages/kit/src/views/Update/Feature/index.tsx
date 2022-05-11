@@ -9,7 +9,6 @@ import { useCheckVersion } from '@onekeyhq/kit/src/hooks/redux';
 const UpdateFeature: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-
   const versionStore = useCheckVersion();
 
   useLayoutEffect(() => {
@@ -23,7 +22,6 @@ const UpdateFeature: FC = () => {
       size="sm"
       headerShown={false}
       maxHeight={640}
-      hidePrimaryAction
       header={`What’s new in OneKey ${
         versionStore?.currentVersionFeature?.version ?? ''
       }`}
