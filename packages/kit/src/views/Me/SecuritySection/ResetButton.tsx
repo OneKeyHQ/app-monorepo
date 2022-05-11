@@ -56,12 +56,13 @@ const ResetButton = () => {
         px={{ base: 4, md: 6 }}
         onPress={onOpenResetModal}
       >
+        <Icon name="RestoreOutline" color="icon-critical" />
         <Text
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           color="text-critical"
           flex="1"
           numberOfLines={1}
-          mr="3"
+          mx={3}
         >
           {intl.formatMessage({
             id: 'form__reset_app',
