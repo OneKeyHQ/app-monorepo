@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { NotImplemented } from '../errors';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -125,5 +127,12 @@ export abstract class VaultBase extends VaultContext {
       rawTx,
       txid,
     };
+  }
+
+  async getTokenAllowance(
+    tokenAddress: string,
+    spenderAddress: string,
+  ): Promise<BigNumber> {
+    throw new NotImplemented();
   }
 }

@@ -1246,18 +1246,10 @@ class Engine {
         this.validator.validateTokenAddress(networkId, tokenIdOnNetwork),
         this.validator.validateAddress(networkId, spender),
       ]);
-      const [dbAccount, token] = await Promise.all([
-        this.dbApi.getAccount(accountId),
-        this.getOrAddToken(networkId, tokenAddress),
-      ]);
-      if (typeof token === 'undefined') {
-        // Token not found locally
-        return;
-      }
-      const allowance = await this.providerManager.getTokenAllowance(
-        networkId,
-        dbAccount,
-        token,
+
+      const vault = await this.getVault({ accountId, networkId });
+      const allowance = await vault.getTokenAllowance(
+        tokenAddress,
         spenderAddress,
       );
       if (!allowance.isNaN()) {

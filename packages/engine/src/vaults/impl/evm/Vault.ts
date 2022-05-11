@@ -3,6 +3,7 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
+import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
@@ -566,5 +567,35 @@ export default class Vault extends VaultBase {
           signature,
         ),
       );
+  }
+
+  override async getTokenAllowance(
+    tokenAddress: string,
+    spenderAddress: string,
+  ): Promise<BigNumber> {
+    const [dbAccount, token] = await Promise.all([
+      this.getDbAccount(),
+      this.engine.getOrAddToken(this.networkId, tokenAddress),
+    ]);
+
+    if (typeof token === 'undefined') {
+      // This will be catched by engine.
+      console.error(`Token not found: ${tokenAddress}`);
+      throw new Error();
+    }
+
+    // keccak256(Buffer.from('allowance(address,address)') => '0xdd62ed3e...'
+    const allowanceMethodID = '0xdd62ed3e';
+    const data = `${allowanceMethodID}${defaultAbiCoder
+      .encode(['address', 'address'], [dbAccount.address, spenderAddress])
+      .slice(2)}`;
+    const client = (await this.engine.providerManager.getClient(
+      this.networkId,
+    )) as Geth;
+    const rawAllowanceHex = await client.rpc.call('eth_call', [
+      { to: token.tokenIdOnNetwork, data },
+      'latest',
+    ]);
+    return new BigNumber(rawAllowanceHex as string).shiftedBy(-token.decimals);
   }
 }
