@@ -391,6 +391,9 @@ export default class Vault extends VaultBase {
       nonce: 1,
       gasPrice: '1',
     };
+
+    // NOTE: gasPrice deleted in removeFeeInfoInTx() if encodedTx build by DAPP
+
     const [network, prices, unsignedTx] = await Promise.all([
       this.getNetwork(),
       this.engine.getGasPrice(this.networkId),
