@@ -13,7 +13,6 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import { ScanQrcodeRoutesParams } from './Modal/ScanQrcode';
 
 export { ModalRoutes };
 
@@ -44,14 +43,14 @@ export type ModalRoutesParams = {
   [ModalRoutes.OnekeyHardware]: NavigatorScreenParams<SubModalRoutesParams.OnekeyHardwareRoutesParams>;
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
   [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
-  [ModalRoutes.ScanQrcode]: NavigatorScreenParams<ScanQrcodeRoutesParams.SwapRoutesParams>;
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
+  [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
 };
 /** Modal */
 
 /** Tab */
 export enum TabRoutes {
-  Overview = 'overview',
+  // Overview = 'overview',
   Home = 'home',
   Swap = 'swap',
   Portfolio = 'portfolio',
@@ -60,7 +59,7 @@ export enum TabRoutes {
 }
 
 export type TabRoutesParams = {
-  [TabRoutes.Overview]: undefined;
+  // [TabRoutes.Overview]: undefined;
   [TabRoutes.Home]: undefined;
   [TabRoutes.Swap]:
     | undefined
@@ -73,7 +72,8 @@ export type TabRoutesParams = {
 
 /** HomeStack */
 export enum HomeRoutes {
-  InitialTab = 'overview',
+  // InitialTab = 'overview',
+  InitialTab = 'home',
   Dev = 'dev',
   ScreenTokenDetail = 'TokenDetailScreen',
   DebugScreen = 'Debug',

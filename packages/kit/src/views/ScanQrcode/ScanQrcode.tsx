@@ -7,6 +7,7 @@ import {
   useRoute,
 } from '@react-navigation/core';
 import * as Application from 'expo-application';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -31,7 +32,6 @@ import useNavigation from '../../hooks/useNavigation';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
-import { BarCodeScanner } from 'expo-barcode-scanner';
 
 const { isWeb, isNative: isApp, isIOS } = platformEnv;
 
@@ -147,6 +147,7 @@ const ScanQrcode: FC = () => {
               scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
             }
             barCodeScannerSettings={{
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
             }}
           >

@@ -41,10 +41,10 @@ type SelectChainToSendProps = {
   address: string;
   possibleNetworks?: string[];
 };
-const SelectChainToSend: FC = ({
+const SelectChainToSend: FC<SelectChainToSendProps> = ({
   address,
   possibleNetworks,
-}: SelectChainToSendProps) => {
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
 
@@ -61,7 +61,8 @@ const SelectChainToSend: FC = ({
     badge: network.impl === 'evm' ? 'EVM' : undefined,
   }));
 
+  // TODO
   return <></>;
 };
-
+SelectChainToSend.displayName = 'SelectChainToSend';
 export default SelectChainToSend;
