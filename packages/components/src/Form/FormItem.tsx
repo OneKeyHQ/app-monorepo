@@ -8,12 +8,7 @@ import React, {
 import { useNavigation } from '@react-navigation/core';
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { ScanQrcodeRoutes } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 
 import Box from '../Box';

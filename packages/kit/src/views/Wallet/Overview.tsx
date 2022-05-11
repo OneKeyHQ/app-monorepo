@@ -1,23 +1,10 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC } from 'react';
 
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
+// import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  Empty,
-  IconButton,
-  useIsVerticalLayout,
-  useThemeValue,
-} from '@onekeyhq/components';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, IconButton } from '@onekeyhq/components';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import { ScanQrcodeRoutes } from '../ScanQrcode/types';
 

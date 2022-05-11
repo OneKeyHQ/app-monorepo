@@ -11,9 +11,11 @@ export enum ScanQrcodeRoutes {
   SelectChainToSend = 'SelectChainToSend',
 }
 export type ScanQrcodeRoutesParams = {
-  [ScanQrcodeRoutes.ScanQrcode]: {
-    onScanCompleted?: (data: string) => void;
-  };
+  [ScanQrcodeRoutes.ScanQrcode]:
+    | undefined
+    | {
+        onScanCompleted: (data: string) => void;
+      };
   [ScanQrcodeRoutes.ScanQrcodeResult]: ScanResult;
   [ScanQrcodeRoutes.SelectChainToSend]: {
     address: string;
