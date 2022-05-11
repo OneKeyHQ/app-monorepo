@@ -107,7 +107,7 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async rpcCall(networkId: string, request: IJsonRpcRequest) {
     const { engine } = this.backgroundApi;
-    return engine.proxyRPCCall(networkId, request);
+    return engine.proxyJsonRPCCall(networkId, request);
   }
 
   @backgroundMethod()

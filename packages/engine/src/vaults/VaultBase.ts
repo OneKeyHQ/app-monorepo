@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -133,6 +134,10 @@ export abstract class VaultBase extends VaultContext {
     tokenAddress: string,
     spenderAddress: string,
   ): Promise<BigNumber> {
+    throw new NotImplemented();
+  }
+
+  async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
   }
 }

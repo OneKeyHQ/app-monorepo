@@ -8,7 +8,6 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
-import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
@@ -40,7 +39,6 @@ import {
   Verifier as IVerifier,
 } from '@onekeyfe/blockchain-libs/dist/types/secret';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
@@ -55,7 +53,6 @@ import {
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
-import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import {
   AccountType,
@@ -652,35 +649,6 @@ class ProviderController extends BaseProviderController {
     return ret;
   }
 
-  async proxyRPCCall<T>(
-    networkId: string,
-    request: IJsonRpcRequest,
-  ): Promise<T> {
-    let client: { rpc: JsonRPCRequest };
-    switch (getImplFromNetworkId(networkId)) {
-      case IMPL_EVM:
-        client = (await this.getClient(networkId)) as unknown as {
-          rpc: JsonRPCRequest;
-        };
-        break;
-      case IMPL_SOL:
-        client = (await this.getClient(networkId)) as unknown as {
-          rpc: JsonRPCRequest;
-        };
-        break;
-      default:
-        throw new NotImplemented();
-    }
-    try {
-      return await client.rpc.call(
-        request.method,
-        request.params as Record<string, any> | Array<any>,
-      );
-    } catch (e) {
-      throw extractResponseError(e);
-    }
-  }
-
   async signMessages(
     credential: CredentialSelector,
     password: string,
@@ -887,4 +855,5 @@ export {
   ProviderController,
   PriceController,
   getRPCStatus,
+  extractResponseError,
 };

@@ -1856,8 +1856,13 @@ class Engine {
   }
 
   @backgroundMethod()
-  proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
-    return this.providerManager.proxyRPCCall(networkId, request);
+  async proxyJsonRPCCall<T>(
+    networkId: string,
+    request: IJsonRpcRequest,
+  ): Promise<T> {
+    // Use a simple watching vault to send RPC calls.
+    const vault = await this.getVault({ networkId, accountId: '' });
+    return vault.proxyJsonRPCCall(request);
   }
 
   @backgroundMethod()
