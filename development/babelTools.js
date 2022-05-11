@@ -47,6 +47,7 @@ function normalizeConfig({ platform, config }) {
       alias: {
         '@onekeyfe/js-sdk': fullPath(
           '../packages/app/src/public/static/js-sdk',
+          // '../node_modules/@onekeyfe/js-sdk/dist/js-sdk-native',
         ),
       },
     };

@@ -394,6 +394,7 @@ export default class Vault extends VaultBase {
     const [network, prices, unsignedTx] = await Promise.all([
       this.getNetwork(),
       this.engine.getGasPrice(this.networkId),
+      // TODO add options params to control which fields should fetch in blockchain-libs
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 
@@ -434,9 +435,12 @@ export default class Vault extends VaultBase {
       nativeDecimals: network.decimals,
       symbol: network.feeSymbol,
       decimals: network.feeDecimals, // TODO balance2FeeDecimals
+
+      eip1559,
       limit,
       prices,
-      eip1559,
+
+      // feeInfo in original tx
       tx: {
         eip1559,
         limit: encodedTx.gas ?? encodedTx.gasLimit,
@@ -470,6 +474,7 @@ export default class Vault extends VaultBase {
             network.feeDecimals,
           ),
         );
+        delete encodedTxWithFee.gasPrice;
       } else {
         encodedTxWithFee.gasPrice = toBigIntHex(
           new BigNumber(feeInfoValue.price as string).shiftedBy(
