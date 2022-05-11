@@ -343,7 +343,7 @@ const Transaction = () => {
             <Form>
               <Form.Item
                 label={intl.formatMessage({ id: 'content__to' })}
-                labelAddon={platformEnv.isExtension ? [] : ['paste']}
+                labelAddon={platformEnv.isExtension ? [] : ['paste', 'scan']}
                 onLabelAddonPress={() => trigger('to')} // call validation after paste
                 control={control}
                 name="to"
