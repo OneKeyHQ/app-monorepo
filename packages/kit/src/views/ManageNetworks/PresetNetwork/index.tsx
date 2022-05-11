@@ -70,10 +70,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const { name, rpcURL, chainId, symbol, exploreUrl, id, impl } = route.params;
   const intl = useIntl();
   const [visible, setVisible] = useState(false);
-  const refData = useRef({ preventRemove: false });
+  const refData = useRef({ preventRemove: false, isResetting: false });
   const navigation = useNavigation<NavigationProps>();
   const toast = useToast();
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
+  const [defaultRpcURL, setDefaultRpcURL] = useState<string>(rpcURL ?? '');
   const [networkStatus, setNetworkStatus] = useState<Record<string, number>>(
     {},
   );
@@ -93,9 +94,20 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   }, []);
 
   useEffect(() => {
-    serviceNetwork.getPresetRpcEndpoints(id).then((urls: string[]) => {
-      setRpcUrls(urls);
-    });
+    serviceNetwork
+      .getPresetRpcEndpoints(id)
+      .then(
+        ({
+          urls,
+          defaultRpcURL: defaultURL,
+        }: {
+          urls: Array<string>;
+          defaultRpcURL: string;
+        }) => {
+          setRpcUrls(urls);
+          setDefaultRpcURL(defaultURL);
+        },
+      );
   }, [serviceNetwork, id]);
 
   const onSubmit = useCallback(
@@ -137,15 +149,23 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   );
 
   const onReset = useCallback(() => {
-    reset(route.params);
+    refData.current.isResetting = true;
+    reset({ ...route.params, rpcURL: defaultRpcURL });
     setResetOpened(false);
     toast.show({ title: intl.formatMessage({ id: 'msg__network_reset' }) });
     navigation.popToTop();
-  }, [route.params, toast, intl, reset, navigation]);
+  }, [route.params, toast, intl, reset, navigation, defaultRpcURL, refData]);
 
   const onBeforeRemove = useCallback(
     (e) => {
-      if (getValues('rpcURL') !== rpcURL && !refData.current.preventRemove) {
+      if (refData.current.isResetting && !refData.current.preventRemove) {
+        refData.current.isResetting = false;
+        // eslint-disable-next-line
+        e.preventDefault();
+      } else if (
+        getValues('rpcURL') !== rpcURL &&
+        !refData.current.preventRemove
+      ) {
         // eslint-disable-next-line
         e.preventDefault();
         setVisible(true);
@@ -292,7 +312,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
                   w="full"
                   size={isSmallScreen ? 'xl' : 'lg'}
                   onPress={onButtonPress}
-                  isDisabled={watchedRpcURL === rpcURL}
+                  isDisabled={watchedRpcURL === defaultRpcURL}
                 >
                   {intl.formatMessage({
                     id: 'action__reset',

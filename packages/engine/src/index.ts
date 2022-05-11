@@ -1796,16 +1796,20 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getRPCEndpoints(networkId: string): Promise<Array<string>> {
+  async getRPCEndpoints(
+    networkId: string,
+  ): Promise<{ urls: Array<string>; defaultRpcURL: string }> {
     // List preset/saved rpc endpoints of a network.
     const network = await this.dbApi.getNetwork(networkId);
     const presetNetworks = getPresetNetworks();
     const { presetRpcURLs } = presetNetworks[networkId] || {
       presetRpcURLs: [],
     };
-    return [network.rpcURL].concat(
+    const defaultRpcURL = presetRpcURLs[0] || network.rpcURL;
+    const urls = [network.rpcURL].concat(
       presetRpcURLs.filter((url) => url !== network.rpcURL),
     );
+    return { urls, defaultRpcURL };
   }
 
   @backgroundMethod()
