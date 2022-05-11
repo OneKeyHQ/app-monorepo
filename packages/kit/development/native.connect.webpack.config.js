@@ -41,7 +41,7 @@ module.exports = {
     'whatwg-fetch': 'commonjs whatwg-fetch',
   },
   resolve: {
-    modules: [SRC, 'node_modules'],
+    // modules: [SRC, 'node_modules'],
   },
   performance: {
     hints: false,

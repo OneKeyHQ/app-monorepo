@@ -78,6 +78,7 @@ export const GenaralSection = () => {
                     defaultMessage: 'Theme',
                   })}
                   activeOption={activeOption}
+                  iconName="MoonOutline"
                 />
               )}
             />
@@ -120,6 +121,7 @@ export const GenaralSection = () => {
                     defaultMessage: 'Language',
                   })}
                   activeOption={activeOption}
+                  iconName="GlobeOutline"
                 />
               )}
             />
@@ -151,6 +153,7 @@ export const GenaralSection = () => {
                   })}
                   hideDivider
                   activeOption={activeOption}
+                  iconName="CurrencyDollarOutline"
                 />
               )}
             />

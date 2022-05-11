@@ -17,6 +17,8 @@ import ActivityOutline from './react/outline/Activity';
 import AdjustmentsOutline from './react/outline/Adjustments';
 import AnnotationOutline from './react/outline/Annotation';
 import ArchiveOutline from './react/outline/Archive';
+import DiscordOutline from './react/outline/Discord';
+import TwitterOutline from './react/outline/Twitter';
 import ArrowCircleDownOutline from './react/outline/ArrowCircleDown';
 import ArrowCircleLeftOutline from './react/outline/ArrowCircleLeft';
 import ArrowCircleRightOutline from './react/outline/ArrowCircleRight';
@@ -509,6 +511,8 @@ export type ICON_NAMES =
   | 'AdjustmentsOutline'
   | 'AnnotationOutline'
   | 'ArchiveOutline'
+  | 'DiscordOutline'
+  | 'TwitterOutline'
   | 'ArrowCircleDownOutline'
   | 'ArrowCircleLeftOutline'
   | 'ArrowCircleRightOutline'
@@ -1002,6 +1006,8 @@ export default {
   AdjustmentsOutline: AdjustmentsOutline,
   AnnotationOutline: AnnotationOutline,
   ArchiveOutline: ArchiveOutline,
+  DiscordOutline: DiscordOutline,
+  TwitterOutline: TwitterOutline,
   ArrowCircleDownOutline: ArrowCircleDownOutline,
   ArrowCircleLeftOutline: ArrowCircleLeftOutline,
   ArrowCircleRightOutline: ArrowCircleRightOutline,
