@@ -1,6 +1,7 @@
 import React, { FC, useCallback } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { chunk } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -100,44 +101,37 @@ export const Mnemonic: FC<MnemonicProps> = ({
           >
             <ScrollView>
               <Box flexDirection="row">
-                <Box w="50%" mr={3}>
-                  {words.slice(0, halfWords).map((word, i) => (
-                    <Box flexDirection="row" my={1.5}>
-                      <Text
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                        color="text-subdued"
-                        w="8"
-                      >
-                        {i + 1}.
-                      </Text>
-                      <Text
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                        color="text-default"
-                      >
-                        {word}
-                      </Text>
-                    </Box>
-                  ))}
-                </Box>
-                <Box w="50%" ml={3}>
-                  {words.slice(halfWords).map((word, i) => (
-                    <Box flexDirection="row" my={1.5}>
-                      <Text
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                        color="text-subdued"
-                        w="8"
-                      >
-                        {i + halfWords + 1}.
-                      </Text>
-                      <Text
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                        color="text-default"
-                      >
-                        {word}
-                      </Text>
-                    </Box>
-                  ))}
-                </Box>
+                {chunk(words, halfWords).map((wordsInChunk, chunkIndex) => (
+                  <Box
+                    key={chunkIndex}
+                    flex="1"
+                    mr={chunkIndex === 0 ? 6 : undefined}
+                  >
+                    {wordsInChunk.map((word, i) => (
+                      <Box key={i} flexDirection="row" my={1.5}>
+                        <Text
+                          typography={{
+                            sm: 'Body1Strong',
+                            md: 'Body2Strong',
+                          }}
+                          color="text-subdued"
+                          w="8"
+                        >
+                          {i + chunkIndex * halfWords + 1}.
+                        </Text>
+                        <Text
+                          typography={{
+                            sm: 'Body1Strong',
+                            md: 'Body2Strong',
+                          }}
+                          color="text-default"
+                        >
+                          {word}
+                        </Text>
+                      </Box>
+                    ))}
+                  </Box>
+                ))}
               </Box>
             </ScrollView>
           </Pressable>
