@@ -7,11 +7,11 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import { Box, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import { useData, useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import Debug from '@onekeyhq/kit/src/views/Debug';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
-import Settings from '@onekeyhq/kit/src/views/Settings';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import Unlock from '@onekeyhq/kit/src/views/Unlock';
@@ -34,8 +34,8 @@ export const stackScreenList = [
     component: TokenDetail,
   },
   {
-    name: HomeRoutes.SettingsScreen,
-    component: Settings,
+    name: HomeRoutes.DebugScreen,
+    component: Debug,
   },
   {
     name: HomeRoutes.SettingsWebviewScreen,

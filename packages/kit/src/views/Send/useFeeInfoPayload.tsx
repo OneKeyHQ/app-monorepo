@@ -163,8 +163,18 @@ export function useFeeInfoPayload({
           });
           setFeeInfoError(null);
         } catch (error: any) {
-          setFeeInfoError(error);
+          const { code: errCode, data: innerError } = error as {
+            code?: number;
+            data?: Error;
+          };
+          if (errCode === -32603 && innerError) {
+            // Internal RPC Error during fetching fee info
+            setFeeInfoError(innerError);
+          } else {
+            setFeeInfoError(error);
+          }
           console.error('engine.fetchFeeInfo ERROR: ', error);
+          return null;
         }
       }
       let currentInfoUnit: IFeeInfoUnit = {

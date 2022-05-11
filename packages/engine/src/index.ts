@@ -428,7 +428,9 @@ class Engine {
     await this.validator.validateHWWalletNumber();
 
     if (!features.initialized) {
-      throw new OneKeyHardwareError('Hardware wallet not initialized.');
+      throw new OneKeyHardwareError({
+        message: 'Hardware wallet not initialized.',
+      });
     }
     const id = features.onekey_serial ?? features.serial_no ?? '';
     if (id.length === 0) {

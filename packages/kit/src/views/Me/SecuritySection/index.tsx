@@ -39,7 +39,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.SettingsScreen>
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FaceId>
 >;
 
 export const SecuritySection = () => {
@@ -128,11 +128,12 @@ export const SecuritySection = () => {
               });
             }}
           >
+            <Icon name="KeyOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"
               numberOfLines={1}
-              mr="3"
+              mx={3}
             >
               {intl.formatMessage({
                 id: isPasswordSet
@@ -158,11 +159,18 @@ export const SecuritySection = () => {
                 navigation.navigate(HomeRoutes.FaceId);
               }}
             >
+              <Icon
+                name={
+                  authenticationType === 'FACIAL'
+                    ? 'FaceIdOutline'
+                    : 'FingerPrintOutline'
+                }
+              />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
                 numberOfLines={1}
-                mr="3"
+                mx={3}
               >
                 {authenticationType === 'FACIAL'
                   ? intl.formatMessage({
@@ -186,11 +194,12 @@ export const SecuritySection = () => {
               borderBottomWidth="1"
               borderBottomColor="divider"
             >
+              <Icon name="LockClosedOutline" />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
                 numberOfLines={1}
-                mr="3"
+                mx={3}
               >
                 {intl.formatMessage({
                   id: 'form__app_lock',
@@ -228,6 +237,7 @@ export const SecuritySection = () => {
                       defaultMessage: 'Auto-Lock Timer',
                     })}
                     activeOption={activeOption}
+                    iconName="ClockOutline"
                   />
                 )}
                 onChange={onSetAppLockDuration}

@@ -62,7 +62,14 @@ export class OneKeyInternalError extends OneKeyError {
 }
 
 export class OneKeyHardwareError extends OneKeyError {
+  codeHardware?: string;
+
   key = 'msg__hardware_default_error';
+
+  constructor({ message, code }: { message?: string; code?: string } = {}) {
+    super(message, {});
+    this.codeHardware = code;
+  }
 }
 
 export class OneKeyValidatorError extends OneKeyError {

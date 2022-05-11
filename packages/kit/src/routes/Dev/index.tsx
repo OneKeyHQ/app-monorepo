@@ -24,6 +24,7 @@ import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons';
 import ImageViewerGallery from '@onekeyhq/kit/src/views/Components/stories/ImageViewer';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
+import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
@@ -97,6 +98,7 @@ export enum StackRoutes {
   ComponentRestfulRequest = 'component/restful-request',
   ComponentImageViewer = 'component/imageViewer',
   ComponentEmojiList = 'component/EmojiList',
+  ComponentKeyboard = 'component/Keyboard',
   ComponentContentBox = 'component/ContentBox',
   ComponentAppUpdate = 'component/AppUpdate',
   ComponentSkeleton = 'component/Skeleton',
@@ -152,6 +154,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentAppUpdate]: undefined;
   [StackRoutes.ComponentSkeleton]: undefined;
   [StackRoutes.ComponentDeviceConnection]: undefined;
+  [StackRoutes.ComponentKeyboard]: undefined;
 };
 
 export const stackScreenList = [
@@ -217,6 +220,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentContentBox,
     component: ContainerGallery,
+  },
+  {
+    name: StackRoutes.ComponentKeyboard,
+    component: KeyboardGallery,
   },
 ];
 

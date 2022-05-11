@@ -34,7 +34,7 @@ export class KeyringHd extends KeyringHdBase {
   async signMessage(
     messages: IUnsignedMessageEvm[],
     options: ISignCredentialOptions,
-  ): Promise<any> {
+  ): Promise<string[]> {
     const credential = await this.getCredential(options);
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();

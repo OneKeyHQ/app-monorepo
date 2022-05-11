@@ -1,3 +1,4 @@
+// TODO set value type to string
 enum ETHMessageTypes {
   ETH_SIGN = 0,
   PERSONAL_SIGN = 1,
