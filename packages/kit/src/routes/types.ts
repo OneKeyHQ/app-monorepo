@@ -44,11 +44,13 @@ export type ModalRoutesParams = {
   [ModalRoutes.Discover]: NavigatorScreenParams<SubModalRoutesParams.DiscoverRoutesParams>;
   [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
+  [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
 };
 /** Modal */
 
 /** Tab */
 export enum TabRoutes {
+  // Overview = 'overview',
   Home = 'home',
   Swap = 'swap',
   Portfolio = 'portfolio',
@@ -57,6 +59,7 @@ export enum TabRoutes {
 }
 
 export type TabRoutesParams = {
+  // [TabRoutes.Overview]: undefined;
   [TabRoutes.Home]: undefined;
   [TabRoutes.Swap]:
     | undefined
@@ -69,6 +72,7 @@ export type TabRoutesParams = {
 
 /** HomeStack */
 export enum HomeRoutes {
+  // InitialTab = 'overview',
   InitialTab = 'home',
   Dev = 'dev',
   ScreenTokenDetail = 'TokenDetailScreen',

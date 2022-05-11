@@ -13,6 +13,7 @@ import MeScreen from '@onekeyhq/kit/src/views/Me';
 import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
+import OverviewScreen from '@onekeyhq/kit/src/views/Wallet/Overview';
 
 import { TabRoutes, TabRoutesParams } from '../types';
 
@@ -26,6 +27,12 @@ interface TabRouteConfig {
 }
 
 export const tabRoutes: TabRouteConfig[] = [
+  // {
+  //   name: TabRoutes.Overview,
+  //   component: OverviewScreen,
+  //   tabBarIcon: () => 'HomeOutline',
+  //   translationId: 'title__home',
+  // },
   {
     name: TabRoutes.Home,
     component: HomeScreen,

@@ -5,7 +5,11 @@ import React, {
   useCallback,
 } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
+
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { ScanQrcodeRoutes } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
@@ -16,7 +20,7 @@ import { getClipboard } from '../utils/ClipboardUtils';
 
 import { FormErrorMessage } from './FormErrorMessage';
 
-type InternalActionList = 'paste';
+type InternalActionList = 'paste' | 'scan';
 
 type FormItemProps = {
   label?: string;
@@ -47,6 +51,8 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
       callback?.('');
     }
   }, []);
+
+  const navigation = useNavigation();
   return (
     <Controller
       name={name}
@@ -85,6 +91,31 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         onPress={async () => {
                           await handleCopied(onChange);
                           onLabelAddonPress?.();
+                        }}
+                      />
+                    );
+                  }
+                  if (item === 'scan') {
+                    return (
+                      <IconButton
+                        key={i}
+                        type="plain"
+                        size="xs"
+                        circle
+                        name="ScanSolid"
+                        onPress={() => {
+                          navigation.navigate(RootRoutes.Modal, {
+                            screen: ModalRoutes.ScanQrcode,
+                            params: {
+                              screen: ScanQrcodeRoutes.ScanQrcode,
+                              params: {
+                                onScanCompleted: (result: string) => {
+                                  onChange(result);
+                                  onLabelAddonPress?.();
+                                },
+                              },
+                            },
+                          });
                         }}
                       />
                     );

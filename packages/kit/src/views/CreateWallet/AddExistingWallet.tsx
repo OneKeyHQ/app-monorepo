@@ -38,11 +38,12 @@ const AddExistingWallet = () => {
   const intl = useIntl();
   const [isOk, setOk] = useState(false);
   const isSmallScreen = useIsVerticalLayout();
-  const { params: { mode } = { mode: 'all' } } = useRoute<RouteProps>();
+  const { params: { mode, presetText } = { mode: 'all', presetText: '' } } =
+    useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { control, handleSubmit, setValue, getValues, trigger, watch } =
     useForm<AddExistingWalletValues>({
-      defaultValues: { text: '' },
+      defaultValues: { text: presetText },
       mode: 'onChange',
     });
 

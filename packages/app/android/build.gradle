@@ -23,6 +23,11 @@ buildscript {
 
 allprojects {
     repositories {
+        maven {
+            // expo-camera bundles a custom com.google.android:cameraview
+            url(new File(["node", "--print", "require.resolve('expo-camera/package.json')"].execute(null, rootDir).text.trim(), "../android/maven"))
+        }
+
         mavenLocal()
         maven {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm

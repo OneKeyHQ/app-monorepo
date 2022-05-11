@@ -23,4 +23,5 @@ export type { ManageNetworkRoutesParams } from './ManageNetwork';
 export type { OnekeyHardwareRoutesParams } from './HardwareOnekey';
 export type { DiscoverRoutesParams } from './Discover';
 export type { SwapRoutesParams } from './Swap';
+export type { ScanQrcodeRoutesParams } from './ScanQrcode';
 export type { UpdateFeatureRoutesParams } from './UpdateFeature';
