@@ -64,12 +64,17 @@ type NavigationProps = StackNavigationProp<
 >;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
+// remove gas price if encodedTx build by DAPP
 function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
-  // TODO dapp fee should be fixed by decimals
-  // TODO deepClone
-  delete encodedTx.gas;
-  delete encodedTx.gasLimit;
+  // DO NOT delete gasLimit here, fetchFeeInfo() will use it to calculate max limit
+  // delete encodedTx.gas;
+  // delete encodedTx.gasLimit;
+
+  // DELETE price and use wallet calculated price
   delete encodedTx.gasPrice;
+  delete encodedTx.maxPriorityFeePerGas;
+  delete encodedTx.maxFeePerGas;
+
   return encodedTx;
 }
 
