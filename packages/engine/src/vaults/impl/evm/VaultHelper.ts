@@ -1,4 +1,5 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
+import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { isNil, isString } from 'lodash';
 
 import { VaultHelperBase } from '../../VaultHelperBase';
@@ -107,5 +108,9 @@ export default class VaultHelper extends VaultHelperBase {
     });
     return Promise.resolve(tx);
     /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
+  }
+
+  createClientFromURL(url: string): Geth {
+    return new Geth(url);
   }
 }

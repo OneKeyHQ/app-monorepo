@@ -20,4 +20,8 @@ export default class VaultHelper extends VaultHelperBase {
   jsonToNativeTx(json: string): Promise<any> {
     throw new NotImplemented();
   }
+
+  createClientFromURL(url: string): any {
+    throw new NotImplemented();
+  }
 }

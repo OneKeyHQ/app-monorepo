@@ -1,3 +1,5 @@
+import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+
 import { VaultContextBase } from './VaultContext';
 
 import type { IDecodedTxAny, IEncodedTxAny } from '../types/vault';
@@ -14,4 +16,15 @@ export abstract class VaultHelperBase extends VaultContextBase {
   abstract nativeTxToJson(nativeTx: IDecodedTxAny): Promise<string>;
 
   abstract jsonToNativeTx(json: string): Promise<IDecodedTxAny>;
+
+  abstract createClientFromURL(url: string): BaseClient;
+
+  async getClientEndpointStatus(
+    url: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    const client = this.createClientFromURL(url);
+    const start = performance.now();
+    const latestBlock = (await client.getInfo()).bestBlockNumber;
+    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
 }

@@ -124,8 +124,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
 
   useEffect(() => {
     rpcUrls.forEach((url) => {
-      measure(url, impl).then((value) =>
-        setNetworkStatus((prev) => ({ ...prev, [url]: value })),
+      measure(url, impl).then(
+        (value) => setNetworkStatus((prev) => ({ ...prev, [url]: value })),
+        (error) => {
+          console.error(error);
+        },
       );
     });
   }, [rpcUrls, impl]);

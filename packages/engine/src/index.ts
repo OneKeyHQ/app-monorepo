@@ -83,7 +83,6 @@ import {
   PriceController,
   ProviderController,
   fromDBNetworkToChainInfo,
-  getRPCStatus,
 } from './proxy';
 import {
   Account,
@@ -116,7 +115,10 @@ import {
 } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
-import { createVaultHelperInstance } from './vaults/factory';
+import {
+  createVaultHelperInstance,
+  createVaultHelperInstanceByImpl,
+} from './vaults/factory';
 import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1589,7 +1591,8 @@ class Engine {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
 
-    return getRPCStatus(rpcURL, impl);
+    const vaultHelper = createVaultHelperInstanceByImpl(impl);
+    return vaultHelper.getClientEndpointStatus(rpcURL);
   }
 
   @backgroundMethod()
