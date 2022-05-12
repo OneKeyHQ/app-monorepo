@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Modal, useForm } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useDrawer } from '@onekeyhq/kit/src/hooks';
+import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
@@ -38,7 +38,7 @@ const WatchedAccount: FC = () => {
     },
   });
   const { wallets } = useRuntime();
-  const { closeDrawer } = useDrawer();
+  const { closeDrawer } = useNavigationActions();
   const navigation = useNavigation<NavigationProps>();
   const { serviceAccount } = backgroundApiProxy;
 

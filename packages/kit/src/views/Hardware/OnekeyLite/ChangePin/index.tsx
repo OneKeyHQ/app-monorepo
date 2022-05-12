@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
+import { SkipAppLock } from '../../../../components/AppLock';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 
@@ -157,6 +158,7 @@ const ChangePin: FC = () => {
 
   return (
     <>
+      <SkipAppLock />
       <HardwareConnect
         title={title}
         connectType="ble"

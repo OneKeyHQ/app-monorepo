@@ -10,7 +10,7 @@ import {
 import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
+import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
 import { setEnableAppLock } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
@@ -181,7 +181,7 @@ class ServiceAccount extends ServiceBase {
       dispatch(setEnableAppLock(true));
     }
     dispatch(unlock());
-    dispatch(mUnlock());
+    dispatch(release());
 
     await this.initWallets();
     const accountId = wallet.accounts?.[0] ?? null;
@@ -250,7 +250,7 @@ class ServiceAccount extends ServiceBase {
       dispatch(setEnableAppLock(true));
     }
     dispatch(unlock());
-    dispatch(mUnlock());
+    dispatch(release());
 
     const wallets = await serviceAccount.initWallets();
     const watchedWallet = wallets.find((wallet) => wallet.type === 'imported');
@@ -281,7 +281,7 @@ class ServiceAccount extends ServiceBase {
       dispatch(setBoardingCompleted());
     }
     dispatch(unlock());
-    dispatch(mUnlock());
+    dispatch(release());
 
     const wallets = await serviceAccount.initWallets();
     const watchedWallet = wallets.find((wallet) => wallet.type === 'watching');
@@ -337,7 +337,7 @@ class ServiceAccount extends ServiceBase {
       dispatch(setBoardingCompleted());
     }
     dispatch(unlock());
-    dispatch(mUnlock());
+    dispatch(release());
 
     await this.initWallets();
     serviceAccount.changeActiveAccount({
