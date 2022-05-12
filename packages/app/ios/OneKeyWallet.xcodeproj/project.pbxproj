@@ -24,6 +24,7 @@
 		A284EFA327C49CDD0070F4EA /* NFCConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = A284EFA227C49CDD0070F4EA /* NFCConfig.m */; };
 		A284EFC427CE238D0070F4EA /* OKTools.m in Sources */ = {isa = PBXBuildFile; fileRef = A284EFC327CE238D0070F4EA /* OKTools.m */; };
 		A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */; };
+		A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */; };
 		A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
@@ -76,6 +77,7 @@
 		A284EFC327CE238D0070F4EA /* OKTools.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OKTools.m; sourceTree = "<group>"; };
 		A2D02C022824EAF9005A45F0 /* SplashScreenManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SplashScreenManager.h; sourceTree = "<group>"; };
 		A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SplashScreenManager.m; sourceTree = "<group>"; };
+		A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "OneKeyWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RNLiteCallBackManager.h; sourceTree = "<group>"; };
 		A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RNLiteCallBackManager.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 				AB5A55C2A16742BCB8148B6E /* noop-file.swift */,
 				93FED1BEA58543E1B882DBF8 /* OneKeyWallet-Bridging-Header.h */,
 				A24B8A7027422EF200E321A9 /* wallet.entitlements */,
+				A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */,
 			);
 			name = OneKeyWallet;
 			sourceTree = "<group>";
@@ -327,6 +330,7 @@
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
+				A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
