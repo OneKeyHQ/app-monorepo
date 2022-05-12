@@ -25,7 +25,7 @@ const TextArea = React.forwardRef<
         'fontFamily' | 'fontWeight' | 'fontSize'
       >);
 
-  const PrimaryComponent = (
+  const primaryComponent = (
     <NativeBaseTextArea
       ref={ref}
       selectionColor="text-default"
@@ -68,7 +68,7 @@ const TextArea = React.forwardRef<
 
   return actions.length ? (
     <Box>
-      {PrimaryComponent}
+      {primaryComponent}
       <Box
         flexDirection="row"
         justifyContent="center"
@@ -95,7 +95,7 @@ const TextArea = React.forwardRef<
       </Box>
     </Box>
   ) : (
-    PrimaryComponent
+    primaryComponent
   );
 });
 
