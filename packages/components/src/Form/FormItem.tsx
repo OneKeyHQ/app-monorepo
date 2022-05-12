@@ -5,9 +5,9 @@ import React, {
   useCallback,
 } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 
+import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { ScanQrcodeRoutes } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 
@@ -52,7 +52,6 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
     }
   }, []);
 
-  const navigation = useNavigation();
   return (
     <Controller
       name={name}
@@ -104,6 +103,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         circle
                         name="ScanSolid"
                         onPress={() => {
+                          const navigation = getAppNavigation();
                           navigation.navigate(RootRoutes.Modal, {
                             screen: ModalRoutes.ScanQrcode,
                             params: {
