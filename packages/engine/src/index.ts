@@ -1480,10 +1480,10 @@ class Engine {
       }
 
       meta.rawTxPreDecodeCache = rawTxPreDecoded;
-    }
 
-    if (payload && 'payload' in meta) {
-      meta.payload = JSON.stringify(payload);
+      if (payload && !meta.payload) {
+        meta.payload = JSON.stringify(payload);
+      }
     }
 
     await this.dbApi.addHistoryEntry(
@@ -1717,6 +1717,33 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getTxHistoriesV2(
+    networkId: string,
+    accountId: string,
+    pageNumber: number,
+    pageSize: number,
+    pending = true,
+  ) {
+    const HISIZE = 5;
+    const localHistory = await this.getHistory(
+      networkId,
+      accountId,
+      undefined,
+      true,
+      HISIZE,
+    );
+    const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
+      (h): h is HistoryEntryTransaction => 'rawTx' in h,
+    );
+
+    const decodedLocalTxHistory = localTxHistory.map(async (h) =>
+      EVMTxDecoder.getDecoder(this).decodeHistoryEntry(h),
+    );
+
+    return Promise.all(decodedLocalTxHistory);
+  }
+
+  @backgroundMethod()
   async getTxHistories(
     networkId: string,
     accountId: string,
@@ -1756,19 +1783,10 @@ class Engine {
       (h): h is HistoryEntryTransaction => 'rawTx' in h,
     );
 
-    const vaultHelper = createVaultHelperInstance({
-      networkId,
-      accountId,
-    });
     const decodedLocalTxHistory = localTxHistory.map(async (h) => {
-      let nativeTx;
-      if (h.rawTxPreDecodeCache) {
-        nativeTx = await vaultHelper.jsonToNativeTx(h.rawTxPreDecodeCache);
-      }
-      const decodedItem = await EVMTxDecoder.getDecoder(this).decode(
-        nativeTx ?? h.rawTx,
-        h.payload,
-      );
+      const decodedItem = await EVMTxDecoder.getDecoder(
+        this,
+      ).decodeHistoryEntry(h);
       const tx = decodedItemToTransaction(decodedItem, h);
       return tx;
     });

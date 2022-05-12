@@ -1,9 +1,8 @@
-import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/decoder';
-
 import type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedItemInternalSwap,
+  EVMDecodedTxType,
 } from '../vaults/impl/evm/decoder/decoder';
 
 enum TxStatus {

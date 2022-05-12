@@ -21,6 +21,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
@@ -32,7 +33,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import TransactionRecord from '../../Components/transactionRecord';
+import TxRecordCell from '../../Components/transactionRecord/TxRecordCell';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
 
@@ -112,7 +113,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     refresh?.();
   }, [refresh]);
 
-  const renderItem: SectionListProps<Transaction>['renderItem'] = ({
+  const renderItem: SectionListProps<EVMDecodedItem>['renderItem'] = ({
     item,
     index,
     section,
@@ -126,16 +127,15 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.TransactionDetail,
           params: {
-            screen: TransactionDetailModalRoutes.TransactionDetailModal,
+            screen: TransactionDetailModalRoutes.HistoryDetailModal,
             params: {
-              txHash: null,
-              tx: item,
+              decodedItem: item,
             },
           },
         });
       }}
     >
-      <TransactionRecord transaction={item} network={network} />
+      <TxRecordCell tx={item} />
     </Pressable.Item>
   );
 

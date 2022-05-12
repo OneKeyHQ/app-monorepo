@@ -5,11 +5,12 @@ import { useIntl } from 'react-intl';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
 
-export type TransactionGroup = { title: string; data: Transaction[] };
+export type TransactionGroup = { title: string; data: EVMDecodedItem[] };
 
 type UseCollectiblesDataArgs = {
   account?: Account | null | undefined;
@@ -95,32 +96,25 @@ export const useHistoricalRecordsData = ({
       return [];
     }
 
-    let history;
-    if (params.tokenId) {
-      history = await backgroundApiProxy.engine.getErc20TxHistories(
-        params.networkId,
-        params.accountId,
-        params.tokenId,
-        params.pageNumber,
-        params.pageSize,
-      );
-    } else {
-      history = await backgroundApiProxy.engine.getTxHistories(
-        params.networkId,
-        params.accountId,
-        params.pageNumber,
-        params.pageSize,
-      );
-    }
-
-    if (history?.error || !history?.data?.txList) {
-      // throw new Error(history?.errorMessage ?? '');
-      return [];
-    }
-
-    const result = history.data.txList;
-    // console.log('end getTxHistories', result.length);
-    return result;
+    // let history;
+    // if (params.tokenId) {
+    //   history = await backgroundApiProxy.engine.getErc20TxHistories(
+    //     params.networkId,
+    //     params.accountId,
+    //     params.tokenId,
+    //     params.pageNumber,
+    //     params.pageSize,
+    //   );
+    // } else {
+    const history = await backgroundApiProxy.engine.getTxHistoriesV2(
+      params.networkId,
+      params.accountId,
+      params.pageNumber,
+      params.pageSize,
+    );
+    // }
+console.log(history)
+    return history;
   }, []);
 
   const refresh = useCallback(() => {
@@ -135,14 +129,14 @@ export const useHistoricalRecordsData = ({
 
       const assets = await requestCall(paramsMemo);
 
-      const transactions = toTransactionSection(
-        intl.formatMessage({ id: 'history__queue' }),
-        assets,
-        (date: string) => formatDate.formatMonth(date, { hideTheYear: true }),
-      );
+      // const transactions = toTransactionSection(
+      //   intl.formatMessage({ id: 'history__queue' }),
+      //   assets,
+      //   (date: string) => formatDate.formatMonth(date, { hideTheYear: true }),
+      // );
 
       setIsLoading(false);
-      setTransactionRecords(transactions);
+      setTransactionRecords([{ title: 'TEST', data: assets }]);
     })();
   }, [formatDate, hasNoParams, intl, paramsMemo, requestCall]);
 
