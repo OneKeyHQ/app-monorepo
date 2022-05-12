@@ -85,6 +85,24 @@ function createMainWindow() {
     app.exit(0);
   });
 
+  // reset appState to undefined  to avoid screen lock.
+  browserWindow.on('enter-full-screen', () => {
+    browserWindow.webContents.send('appState', undefined);
+  });
+
+  // reset appState to undefined  to avoid screen lock.
+  browserWindow.on('leave-full-screen', () => {
+    browserWindow.webContents.send('appState', undefined);
+  });
+
+  browserWindow.on('show', () => {
+    browserWindow.webContents.send('appState', 'active');
+  });
+
+  browserWindow.on('hide', () => {
+    browserWindow.webContents.send('appState', 'background');
+  });
+
   const filter = {
     urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
   };

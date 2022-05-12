@@ -11,7 +11,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useDrawer, useToast } from '@onekeyhq/kit/src/hooks';
+import { useNavigationActions, useToast } from '@onekeyhq/kit/src/hooks';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
@@ -37,7 +37,7 @@ type RouteProps = RouteProp<
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer } = useDrawer();
+  const { closeDrawer } = useNavigationActions();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
     useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });

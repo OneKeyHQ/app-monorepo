@@ -11,8 +11,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useLocalAuthentication } from '../../hooks';
-import { useStatus } from '../../hooks/redux';
+import { useAppSelector, useLocalAuthentication } from '../../hooks';
 
 type FieldValues = {
   password: string;
@@ -28,7 +27,8 @@ type SetupProps = {
 const Setup: FC<SetupProps> = ({ onOk, skipSavePassword }) => {
   const intl = useIntl();
   const { isOk } = useLocalAuthentication();
-  const { boardingCompleted, authenticationType } = useStatus();
+  const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
+  const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const {
     control,
     handleSubmit,
