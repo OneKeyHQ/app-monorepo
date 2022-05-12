@@ -6,20 +6,14 @@ import BigNumber from 'bignumber.js';
 import deepEqual from 'dequal';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
-  Button,
-  Divider,
   Form,
   Modal,
-  NumberInput,
   Typography,
   useForm,
   useFormState,
-  useIsVerticalLayout,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
