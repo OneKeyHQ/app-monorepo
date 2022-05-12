@@ -41,7 +41,7 @@ const TextArea = React.forwardRef<
       condition={!!actions?.length}
       wrapper={(children) => (
         <>
-          {actions?.length && (
+          {actions?.length ? (
             <Box>
               {children}
               <Box
@@ -70,7 +70,7 @@ const TextArea = React.forwardRef<
                 ))}
               </Box>
             </Box>
-          )}
+          ) : undefined}
         </>
       )}
     >
@@ -82,8 +82,8 @@ const TextArea = React.forwardRef<
           borderColor="border-default"
           bg="action-secondary-default"
           borderRadius={12}
-          borderBottomLeftRadius={actions?.length && 0}
-          borderBottomRightRadius={actions?.length && 0}
+          borderBottomLeftRadius={actions?.length ? 0 : undefined}
+          borderBottomRightRadius={actions?.length ? 0 : undefined}
           px="3"
           color="text-default"
           placeholderTextColor="text-disabled"
