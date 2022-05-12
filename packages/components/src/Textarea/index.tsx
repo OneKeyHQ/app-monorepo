@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, Fragment } from 'react';
+import React, { ComponentProps } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
@@ -81,17 +81,16 @@ const TextArea = React.forwardRef<
         bgColor="action-secondary-default"
       >
         {actions.map((action, index) => (
-          <Fragment key={index}>
-            <Button
-              flex={1}
-              leftIconName={action.icon}
-              type="plain"
-              onPress={action.onPress}
-              ml={index > 0 ? 2 : undefined}
-            >
-              {action.text}
-            </Button>
-          </Fragment>
+          <Button
+            key={index}
+            flex={1}
+            leftIconName={action.icon}
+            type="plain"
+            onPress={action.onPress}
+            ml={index > 0 ? 2 : undefined}
+          >
+            {action.text}
+          </Button>
         ))}
       </Box>
     </Box>
