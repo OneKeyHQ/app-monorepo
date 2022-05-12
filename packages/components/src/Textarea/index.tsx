@@ -40,34 +40,38 @@ const TextArea = React.forwardRef<
     <ConditionalWrapper
       condition={!!actions?.length}
       wrapper={(children) => (
-        <Box>
-          {children}
-          <Box
-            flexDirection="row"
-            justifyContent="center"
-            p={2}
-            borderWidth={1}
-            borderColor="border-default"
-            borderTopWidth={0}
-            borderBottomLeftRadius={12}
-            borderBottomRadius={12}
-            bgColor="action-secondary-default"
-          >
-            {actions?.map((action, index) => (
-              <Fragment key={index}>
-                <Button
-                  flex={1}
-                  leftIconName={action.icon}
-                  type="plain"
-                  onPress={action.onPress}
-                  ml={index > 0 ? 2 : undefined}
-                >
-                  {action.text}
-                </Button>
-              </Fragment>
-            ))}
-          </Box>
-        </Box>
+        <>
+          {actions?.length && (
+            <Box>
+              {children}
+              <Box
+                flexDirection="row"
+                justifyContent="center"
+                p={2}
+                borderWidth={1}
+                borderColor="border-default"
+                borderTopWidth={0}
+                borderBottomLeftRadius={12}
+                borderBottomRadius={12}
+                bgColor="action-secondary-default"
+              >
+                {actions?.map((action, index) => (
+                  <Fragment key={index}>
+                    <Button
+                      flex={1}
+                      leftIconName={action.icon}
+                      type="plain"
+                      onPress={action.onPress}
+                      ml={index > 0 ? 2 : undefined}
+                    >
+                      {action.text}
+                    </Button>
+                  </Fragment>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </>
       )}
     >
       <>
