@@ -16,6 +16,7 @@ async function getImageData(dataUrl: string): Promise<ImageData> {
       canvas.width = actualWidth;
       canvas.height = actualHeight;
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const context = canvas.getContext('2d')!;
       context.drawImage(
         img,
