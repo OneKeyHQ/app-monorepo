@@ -7,7 +7,7 @@
       "node": "16.10.0",
       "yarn": "1.18.0",
       "android": {
-        "image": "ubuntu-20.04-jdk-8-ndk-r21e",
+        "image": "ubuntu-20.04-jdk-11-ndk-r21e",
         "env": {
           "PLATFORM": "android",
           "OTA_UPDATE_ENABLE": "false"
