@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+set -x
+
+yarn reset-cache
+
 # Single clean workspace command:
 # touch .env && mv .env .env-bak && git clean -dfX && mv .env-bak .env
 
@@ -57,7 +61,3 @@ rm -rf ./packages/engine/node_modules
 
 rm -rf ./packages/remote-console/node_modules
 rm -rf ./packages/remote-console/.next
-
-echo "DONE! please clean ReactNative and Metro bundler cache manually:"
-echo "    yarn react-native start --reset-cache"
-echo "    yarn expo start --clear"

@@ -28,6 +28,7 @@ import com.swmansion.reanimated.ReanimatedJSIModulePackage;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import android.webkit.WebView;
 
 public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
   private final ViewModelStore mViewModelStore = new ViewModelStore();
@@ -87,6 +88,9 @@ public class MainApplication extends Application implements ReactApplication , V
 
     if(BuildConfig.ENABLE_DEV_CLI){
       DevLauncherController.initialize(this, getReactNativeHost());
+    }
+    if (BuildConfig.DEBUG) {
+      WebView.setWebContentsDebuggingEnabled(true);
     }
 
     initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
