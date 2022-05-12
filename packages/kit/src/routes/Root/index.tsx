@@ -12,13 +12,15 @@ import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AppLock } from '../../components/AppLock';
+import { useAppSelector } from '../../hooks/redux';
+import Welcome from '../../views/Welcome';
 import ModalStackNavigator from '../Modal';
-import OnboardingScreen from '../Onboarding';
 import StackScreen from '../Stack';
 import { RootRoutes } from '../types';
 
@@ -27,9 +29,14 @@ const RootStack = createStackNavigator();
 
 const RootNavigatorContainer: FC = ({ children }) => {
   const isVerticalLayout = useIsVerticalLayout();
+  const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
+  const initialRouteName = boardingCompleted
+    ? RootRoutes.Root
+    : RootRoutes.Welcome;
   if (platformEnv.isNative) {
     return (
       <RootNativeStack.Navigator
+        initialRouteName={initialRouteName}
         screenOptions={{
           headerShown: false,
           presentation: 'modal',
@@ -42,6 +49,7 @@ const RootNavigatorContainer: FC = ({ children }) => {
 
   return (
     <RootStack.Navigator
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
         presentation: 'transparentModal',
@@ -76,6 +84,7 @@ const App = () => {
   return (
     <RootNavigatorContainer>
       <RootStack.Screen name={RootRoutes.Root} component={StackScreen} />
+      <RootStack.Screen name={RootRoutes.Welcome} component={Welcome} />
       <RootStack.Screen
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
@@ -85,7 +94,6 @@ const App = () => {
 };
 
 const RootStackNavigator = () => {
-  const { boardingCompleted } = useStatus();
   const { version, buildNumber } = useSettings();
   const { dispatch } = backgroundApiProxy;
 
@@ -130,7 +138,11 @@ const RootStackNavigator = () => {
     }
   }, [dispatch]);
 
-  return boardingCompleted ? <App /> : <OnboardingScreen />;
+  return (
+    <AppLock>
+      <App />
+    </AppLock>
+  );
 };
 
 export default memo(RootStackNavigator);
