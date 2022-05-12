@@ -155,9 +155,6 @@ android {
         vectorDrawables.useSupportLibrary = true
         manifestPlaceholders = [OTAUpdatesEnable: false]
 
-        ndk {
-            abiFilters "arm64-v8a"
-        }
     }
 
     buildFeatures {
@@ -192,6 +189,9 @@ android {
         debug {
             signingConfig signingConfigs.debug
             buildConfigField("boolean", "ENABLE_DEV_CLI", "true")
+            ndk {
+                abiFilters "arm64-v8a", "x86" // enable simulator
+            }
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
@@ -200,6 +200,9 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             buildConfigField("boolean", "ENABLE_DEV_CLI", "false")
+            ndk {
+                abiFilters "arm64-v8a"
+            }
         }
     }
 
