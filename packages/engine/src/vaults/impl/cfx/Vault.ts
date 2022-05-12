@@ -137,4 +137,8 @@ export default class Vault extends VaultBase {
       throw extractResponseError(e);
     }
   }
+
+  createClientFromURL(url: string): Conflux {
+    return new Conflux(url);
+  }
 }

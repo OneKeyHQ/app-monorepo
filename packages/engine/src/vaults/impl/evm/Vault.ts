@@ -619,4 +619,8 @@ export default class Vault extends VaultBase {
       throw extractResponseError(e);
     }
   }
+
+  createClientFromURL(url: string): Geth {
+    return new Geth(url);
+  }
 }

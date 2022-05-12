@@ -30,4 +30,9 @@ export class VaultFactory {
     this.lastVault = vault;
     return vault;
   }
+
+  getChainOnlyVault(networkId: string): Promise<VaultBase> {
+    // This in fact returns a watching vault.
+    return this.getVault({ networkId, accountId: '' });
+  }
 }

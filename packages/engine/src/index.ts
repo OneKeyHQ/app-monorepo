@@ -109,10 +109,7 @@ import {
 } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
-import {
-  createVaultHelperInstance,
-  createVaultHelperInstanceByImpl,
-} from './vaults/factory';
+import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1577,16 +1574,16 @@ class Engine {
   }
 
   @backgroundMethod()
-  getRPCEndpointStatus(
+  async getRPCEndpointStatus(
     rpcURL: string,
-    impl: string,
+    networkId: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
     if (rpcURL.length === 0) {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
 
-    const vaultHelper = createVaultHelperInstanceByImpl(impl);
-    return vaultHelper.getClientEndpointStatus(rpcURL);
+    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    return vault.getClientEndpointStatus(rpcURL);
   }
 
   @backgroundMethod()
@@ -1809,8 +1806,7 @@ class Engine {
     networkId: string,
     request: IJsonRpcRequest,
   ): Promise<T> {
-    // Use a simple watching vault to send RPC calls.
-    const vault = await this.getVault({ networkId, accountId: '' });
+    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
     return vault.proxyJsonRPCCall(request);
   }
 

@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+/* eslint max-classes-per-file: "off" */
+
+import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
@@ -29,7 +32,26 @@ export type IVaultInitConfig = {
 };
 export type IKeyringMapKey = WalletType;
 
-export abstract class VaultBase extends VaultContext {
+abstract class VaultBaseChainOnly extends VaultContext {
+  // Methods not related to a single account, but implementation.
+
+  async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    throw new NotImplemented();
+  }
+
+  abstract createClientFromURL(url: string): BaseClient;
+
+  async getClientEndpointStatus(
+    url: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    const client = this.createClientFromURL(url);
+    const start = performance.now();
+    const latestBlock = (await client.getInfo()).bestBlockNumber;
+    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+}
+
+export abstract class VaultBase extends VaultBaseChainOnly {
   keyring!: KeyringBase;
 
   helper!: VaultHelperBase;
@@ -134,10 +156,6 @@ export abstract class VaultBase extends VaultContext {
     tokenAddress: string,
     spenderAddress: string,
   ): Promise<BigNumber> {
-    throw new NotImplemented();
-  }
-
-  async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
   }
 }
