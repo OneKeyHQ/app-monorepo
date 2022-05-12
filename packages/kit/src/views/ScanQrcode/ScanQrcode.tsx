@@ -192,6 +192,7 @@ const ScanQrcode: FC = () => {
                     IntentLauncher.startActivityAsync(
                       IntentLauncher.ActivityAction
                         .APPLICATION_DETAILS_SETTINGS,
+                      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                       { data: `package:${Application.applicationId!}` },
                     );
                   }
