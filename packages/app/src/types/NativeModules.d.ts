@@ -34,10 +34,18 @@ export interface SplashScreenManagerInterface extends NativeModule {
   show: () => void;
 }
 
+/**
+ * 获取安装包渠道（Android only）
+ */
+export interface BuildConfigManagerInterface extends NativeModule {
+  getChannel: () => string;
+}
+
 declare module 'react-native' {
   interface NativeModulesStatic {
     OKLiteManager: OKLiteManagerInterface;
     OKPermissionManager: PermissionManagerInterface;
     SplashScreenManager: SplashScreenManagerInterface;
+    BuildConfigManager: BuildConfigManagerInterface;
   }
 }
