@@ -5,11 +5,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
-import { HomeRoutes, HomeRoutesParams } from '../routes/types';
+import { HomeRoutes, RootRoutes, RootRoutesParams } from '../routes/types';
 
 type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
+  RootRoutesParams,
+  RootRoutes.Root
 >;
 
 export default function useOpenBrowser() {
@@ -18,9 +18,12 @@ export default function useOpenBrowser() {
   const open = useCallback(
     (url: string, title?: string) => {
       if (['android', 'ios'].includes(Platform.OS)) {
-        navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
-          url,
-          title,
+        navigation.navigate(RootRoutes.Root, {
+          screen: HomeRoutes.SettingsWebviewScreen,
+          params: {
+            url,
+            title,
+          },
         });
       } else {
         window.open(url, '_blank');

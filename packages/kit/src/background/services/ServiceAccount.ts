@@ -147,7 +147,18 @@ class ServiceAccount extends ServiceBase {
     } else {
       wallet =
         wallets.find(($wallet) => ['hw', 'hd'].includes($wallet.type)) ?? null;
+
+      if (!wallet) {
+        // Check for imported wallets
+        wallet =
+          wallets
+            .filter(($wallet) => $wallet.accounts.length > 0)
+            .find(($wallet) =>
+              ['imported', 'watching'].includes($wallet.type),
+            ) ?? null;
+      }
     }
+
     serviceAccount.changeActiveAccount({
       accountId: account?.id ?? null,
       walletId: wallet?.id ?? null,

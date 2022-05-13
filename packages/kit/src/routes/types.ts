@@ -116,7 +116,7 @@ export { RootRoutes };
 /** Root */
 
 export type RootRoutesParams = {
-  [RootRoutes.Root]: undefined;
+  [RootRoutes.Root]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
   [RootRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
 };
