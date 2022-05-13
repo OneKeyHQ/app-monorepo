@@ -18,7 +18,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDrawer, useNavigation, useToast } from '../../../hooks';
+import { useNavigationActions, useToast } from '../../../hooks';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -156,8 +156,7 @@ const MnemonicContainer = () => {
   const { mnemonic, password, withEnableAuthentication } = route.params ?? {};
   const toast = useToast();
   const intl = useIntl();
-  const navigation = useNavigation();
-  const { closeDrawer } = useDrawer();
+  const { closeDrawer, resetToRoot } = useNavigationActions();
   const onPromise = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceAccount.createHDWallet({
@@ -174,16 +173,15 @@ const MnemonicContainer = () => {
       toast.show({ title: intl.formatMessage({ id: errorKey }) });
     }
     closeDrawer();
-    const inst = navigation.getParent() || navigation;
-    inst.goBack();
+    resetToRoot();
   }, [
     mnemonic,
     password,
     withEnableAuthentication,
     closeDrawer,
-    navigation,
     intl,
     toast,
+    resetToRoot,
   ]);
   return <Mnemonic mnemonic={mnemonic} onPromise={onPromise} />;
 };

@@ -3,15 +3,21 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
+import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, PendingQueueTooLong } from '../../../errors';
-import { fillUnsignedTx, fillUnsignedTxObj } from '../../../proxy';
+import {
+  extractResponseError,
+  fillUnsignedTx,
+  fillUnsignedTxObj,
+} from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import {
   HistoryEntryStatus,
@@ -102,6 +108,12 @@ export default class Vault extends VaultBase {
       this.networkId,
       dbAccount,
     );
+  }
+
+  private async getJsonRPCClient(): Promise<Geth> {
+    return (await this.engine.providerManager.getClient(
+      this.networkId,
+    )) as Geth;
   }
 
   async simpleTransfer(
@@ -566,5 +578,45 @@ export default class Vault extends VaultBase {
           signature,
         ),
       );
+  }
+
+  override async getTokenAllowance(
+    tokenAddress: string,
+    spenderAddress: string,
+  ): Promise<BigNumber> {
+    const [dbAccount, token] = await Promise.all([
+      this.getDbAccount(),
+      this.engine.getOrAddToken(this.networkId, tokenAddress),
+    ]);
+
+    if (typeof token === 'undefined') {
+      // This will be catched by engine.
+      console.error(`Token not found: ${tokenAddress}`);
+      throw new Error();
+    }
+
+    // keccak256(Buffer.from('allowance(address,address)') => '0xdd62ed3e...'
+    const allowanceMethodID = '0xdd62ed3e';
+    const data = `${allowanceMethodID}${defaultAbiCoder
+      .encode(['address', 'address'], [dbAccount.address, spenderAddress])
+      .slice(2)}`;
+    const client = await this.getJsonRPCClient();
+    const rawAllowanceHex = await client.rpc.call('eth_call', [
+      { to: token.tokenIdOnNetwork, data },
+      'latest',
+    ]);
+    return new BigNumber(rawAllowanceHex as string).shiftedBy(-token.decimals);
+  }
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const client = await this.getJsonRPCClient();
+    try {
+      return await client.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
   }
 }

@@ -8,10 +8,6 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
-import { defaultAbiCoder } from '@ethersproject/abi';
-import { keccak256 } from '@ethersproject/keccak256';
-import * as ethTransaction from '@ethersproject/transactions';
-import { JsonRPCRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/json-rpc';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { Coingecko } from '@onekeyfe/blockchain-libs/dist/price/channels/coingecko';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
@@ -20,10 +16,7 @@ import {
   BaseProvider,
   ClientFilter,
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import { Algod } from '@onekeyfe/blockchain-libs/dist/provider/chains/algo/algod';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
-import { NearCli } from '@onekeyfe/blockchain-libs/dist/provider/chains/near/nearcli';
-import { Solana } from '@onekeyfe/blockchain-libs/dist/provider/chains/sol/solana';
 import {
   ExtendedKey,
   N,
@@ -43,7 +36,6 @@ import {
   Verifier as IVerifier,
 } from '@onekeyfe/blockchain-libs/dist/types/secret';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
@@ -57,9 +49,7 @@ import {
   SEPERATOR,
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
-import * as OneKeyHardware from './hardware';
 import { getCurveByImpl } from './managers/impl';
-import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import {
   AccountType,
@@ -68,7 +58,7 @@ import {
   DBVariantAccount,
 } from './types/account';
 import { CredentialSelector, CredentialType } from './types/credential';
-import { HistoryEntryMeta, HistoryEntryStatus } from './types/history';
+import { HistoryEntryStatus } from './types/history';
 import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
@@ -523,35 +513,6 @@ class ProviderController extends BaseProviderController {
     );
   }
 
-  async getTokenAllowance(
-    networkId: string,
-    dbAccount: DBAccount,
-    token: Token,
-    spenderAddress: string,
-  ): Promise<BigNumber> {
-    // TODO: move this into chainlibs
-    const [impl] = networkId.split(SEPERATOR);
-    switch (impl) {
-      case IMPL_EVM: {
-        // keccak256(Buffer.from('allowance(address,address)') => '0xdd62ed3e...'
-        const allowanceMethodID = '0xdd62ed3e';
-        const data = `${allowanceMethodID}${defaultAbiCoder
-          .encode(['address', 'address'], [dbAccount.address, spenderAddress])
-          .slice(2)}`;
-        const client: Geth = (await this.getClient(networkId)) as Geth;
-        const rawAllowanceHex = await client.rpc.call('eth_call', [
-          { to: token.tokenIdOnNetwork, data },
-          'latest',
-        ]);
-        return new BigNumber(rawAllowanceHex as string).shiftedBy(
-          -token.decimals,
-        );
-      }
-      default:
-        throw new NotImplemented();
-    }
-  }
-
   async preSend(
     network: Network,
     dbAccount: DBAccount,
@@ -569,57 +530,6 @@ class ProviderController extends BaseProviderController {
       throw new OneKeyInternalError('Failed to estimate gas limit.');
     }
     return unsignedTx.feeLimit;
-  }
-
-  async simpleTransfer(
-    network: Network,
-    dbAccount: DBAccount,
-    credential: CredentialSelector,
-    to: string,
-    value: BigNumber,
-    token?: Token,
-    extra?: { [key: string]: any },
-  ): Promise<{ txid: string; rawTx: string; success: boolean }> {
-    // network.id: "evm--97"
-    dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
-    const unsignedTx = await this.buildUnsignedTx(
-      network.id,
-      fillUnsignedTx(network, dbAccount, to, value, token, extra),
-    );
-    let txid: string;
-    let rawTx: string;
-    let success = true;
-    switch (credential.type) {
-      case CredentialType.PRIVATE_KEY:
-      // fall through
-      case CredentialType.SOFTWARE:
-        ({ txid, rawTx } = await this.signTransaction(
-          network.id,
-          unsignedTx,
-          this.getSigners(network.id, credential, dbAccount),
-        ));
-        break;
-      case CredentialType.HARDWARE:
-        ({ txid, rawTx } = await OneKeyHardware.signTransaction(
-          network.id,
-          dbAccount.path,
-          unsignedTx,
-        ));
-        break;
-      default:
-        throw new OneKeyInternalError('Incorrect credential selector.');
-    }
-    try {
-      txid = await this.broadcastTransaction(network.id, rawTx);
-    } catch (e) {
-      console.error(e);
-      success = false;
-    }
-    return {
-      txid,
-      rawTx,
-      success,
-    };
   }
 
   async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {
@@ -736,35 +646,6 @@ class ProviderController extends BaseProviderController {
     return ret;
   }
 
-  async proxyRPCCall<T>(
-    networkId: string,
-    request: IJsonRpcRequest,
-  ): Promise<T> {
-    let client: { rpc: JsonRPCRequest };
-    switch (getImplFromNetworkId(networkId)) {
-      case IMPL_EVM:
-        client = (await this.getClient(networkId)) as unknown as {
-          rpc: JsonRPCRequest;
-        };
-        break;
-      case IMPL_SOL:
-        client = (await this.getClient(networkId)) as unknown as {
-          rpc: JsonRPCRequest;
-        };
-        break;
-      default:
-        throw new NotImplemented();
-    }
-    try {
-      return await client.rpc.call(
-        request.method,
-        request.params as Record<string, any> | Array<any>,
-      );
-    } catch (e) {
-      throw extractResponseError(e);
-    }
-  }
-
   async signMessages(
     credential: CredentialSelector,
     password: string,
@@ -796,124 +677,6 @@ class ProviderController extends BaseProviderController {
         return this.signMessage(network.id, message, signer);
       }),
     );
-  }
-
-  async signTransactions(
-    credential: CredentialSelector,
-    network: Network,
-    dbAccount: DBAccount,
-    transactions: Array<string>,
-    overwriteParams?: string,
-    autoBroadcast = true,
-  ): Promise<
-    Array<{
-      txid: string;
-      rawTx: string;
-      success: boolean;
-      txMeta: Partial<HistoryEntryMeta>;
-    }>
-  > {
-    const ret = [];
-    switch (network.impl) {
-      case IMPL_EVM: {
-        if (transactions.length !== 1) {
-          throw new NotImplemented(
-            `Only one single transaction is supported on ${IMPL_EVM}`,
-          );
-        }
-        const tx = ethTransaction.parse(transactions[0]);
-        if (typeof tx.hash !== 'undefined') {
-          throw new OneKeyInternalError('Transaction already signed.');
-        }
-        const unsignedTx = {
-          to: tx.to,
-          nonce: tx.nonce,
-          gasLimit: tx.gasLimit,
-          gasPrice: tx.gasPrice,
-          data: tx.data,
-          value: tx.value,
-          chainId: tx.chainId || parseInt(network.id.split(SEPERATOR)[1]),
-          type: tx.type,
-          accessList: tx.accessList,
-          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
-          maxFeePerGas: tx.maxFeePerGas,
-        };
-        if (typeof overwriteParams === 'string' && overwriteParams.length > 2) {
-          const toOverwrite: {
-            gasPrice?: string | BigNumber;
-            maxPriorityFeePerGas?: string | BigNumber;
-            maxFeePerGas?: string | BigNumber;
-          } = JSON.parse(overwriteParams);
-          if (typeof toOverwrite.gasPrice !== 'undefined') {
-            toOverwrite.gasPrice = new BigNumber(
-              toOverwrite.gasPrice,
-            ).shiftedBy(network.feeDecimals);
-          } else if (
-            typeof toOverwrite.maxPriorityFeePerGas !== 'undefined' &&
-            typeof toOverwrite.maxFeePerGas !== 'undefined'
-          ) {
-            toOverwrite.maxPriorityFeePerGas = new BigNumber(
-              toOverwrite.maxPriorityFeePerGas,
-            ).shiftedBy(network.feeDecimals);
-            toOverwrite.maxFeePerGas = new BigNumber(
-              toOverwrite.maxFeePerGas,
-            ).shiftedBy(network.feeDecimals);
-          }
-          Object.assign(unsignedTx, toOverwrite);
-        }
-        if (typeof unsignedTx.nonce === 'undefined') {
-          const [addressInfo] = await this.getAddresses(network.id, [
-            dbAccount.address,
-          ]);
-          if (
-            typeof addressInfo === 'undefined' ||
-            typeof addressInfo.nonce === 'undefined'
-          ) {
-            throw new OneKeyInternalError('Failed to get address nonce');
-          }
-          unsignedTx.nonce = addressInfo.nonce;
-        }
-        if (
-          typeof unsignedTx.maxPriorityFeePerGas !== 'undefined' &&
-          typeof unsignedTx.maxFeePerGas !== 'undefined'
-        ) {
-          delete unsignedTx.gasPrice;
-          unsignedTx.type = 2;
-        } else if (typeof unsignedTx.accessList === 'undefined') {
-          delete unsignedTx.type;
-        }
-        const [signature] = await Object.values(
-          this.getSigners(network.id, credential, dbAccount),
-        )[0].sign(
-          Buffer.from(
-            keccak256(ethTransaction.serialize(unsignedTx)).slice(2),
-            'hex',
-          ),
-        );
-        const rawTx = ethTransaction.serialize(unsignedTx, signature);
-        let txid = keccak256(rawTx);
-        let success = true;
-        if (autoBroadcast) {
-          try {
-            txid = await this.broadcastTransaction(network.id, rawTx);
-          } catch (e) {
-            console.error(e);
-            success = false;
-          }
-        }
-        const txMeta = {
-          contract: tx.data.length > 0 ? tx.to : '',
-          target: tx.data.length > 0 ? '' : tx.to,
-          value: tx.value.toString(),
-        };
-        ret.push({ txid, rawTx, success, txMeta });
-        break;
-      }
-      // TODO: other networks
-      default:
-        throw new NotImplemented();
-    }
-    return Promise.resolve(ret);
   }
 
   // Wrap to throw JSON RPC errors
@@ -1056,37 +819,9 @@ class PriceController {
   }
 }
 
-async function getRPCStatus(
-  url: string,
-  impl: string,
-): Promise<{ responseTime: number; latestBlock: number }> {
-  let client: BaseClient;
-  switch (impl) {
-    case IMPL_ALGO:
-      client = new Algod(url);
-      break;
-    case IMPL_EVM:
-      client = new Geth(url);
-      break;
-    case IMPL_NEAR:
-      client = new NearCli(url);
-      break;
-    case IMPL_SOL:
-      client = new Solana(url);
-      break;
-    default:
-      throw new NotImplemented(
-        `Adding network for implemetation ${impl} is not supported.`,
-      );
-  }
-  const start = performance.now();
-  const latestBlock = (await client.getInfo()).bestBlockNumber;
-  return { responseTime: Math.floor(performance.now() - start), latestBlock };
-}
-
 export {
   fromDBNetworkToChainInfo,
   ProviderController,
   PriceController,
-  getRPCStatus,
+  extractResponseError,
 };

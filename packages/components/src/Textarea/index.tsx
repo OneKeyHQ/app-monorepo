@@ -2,15 +2,21 @@ import React, { ComponentProps } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
+import Box from '../Box';
+import Button from '../Button';
+import { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
 
-type TextAreaProps = { isInvalid?: boolean };
+type TextAreaProps = {
+  isInvalid?: boolean;
+  actions?: Array<{ icon?: ICON_NAMES; text?: string; onPress?: () => void }>;
+};
 
 const TextArea = React.forwardRef<
   typeof NativeBaseTextArea,
   ComponentProps<typeof NativeBaseTextArea> & TextAreaProps
->(({ isInvalid, ...props }, ref) => {
+>(({ isInvalid, actions = [], ...props }, ref) => {
   const small = useIsVerticalLayout();
   const textProps = small
     ? getTypographyStyleProps('Body1')
@@ -18,7 +24,8 @@ const TextArea = React.forwardRef<
         ComponentProps<typeof Text>,
         'fontFamily' | 'fontWeight' | 'fontSize'
       >);
-  return (
+
+  const primaryComponent = (
     <NativeBaseTextArea
       ref={ref}
       selectionColor="text-default"
@@ -26,6 +33,8 @@ const TextArea = React.forwardRef<
       borderColor="border-default"
       bg="action-secondary-default"
       borderRadius={12}
+      borderBottomLeftRadius={actions.length ? 0 : undefined}
+      borderBottomRightRadius={actions.length ? 0 : undefined}
       px="3"
       color="text-default"
       placeholderTextColor="text-disabled"
@@ -55,6 +64,38 @@ const TextArea = React.forwardRef<
       shadow="depth.1"
       {...props}
     />
+  );
+
+  return actions.length ? (
+    <Box>
+      {primaryComponent}
+      <Box
+        flexDirection="row"
+        justifyContent="center"
+        p={2}
+        borderWidth={1}
+        borderColor="border-default"
+        borderTopWidth={0}
+        borderBottomLeftRadius={12}
+        borderBottomRadius={12}
+        bgColor="action-secondary-default"
+      >
+        {actions.map((action, index) => (
+          <Button
+            key={index}
+            flex={1}
+            leftIconName={action.icon}
+            type="plain"
+            onPress={action.onPress}
+            ml={index > 0 ? 2 : undefined}
+          >
+            {action.text}
+          </Button>
+        ))}
+      </Box>
+    </Box>
+  ) : (
+    primaryComponent
   );
 });
 

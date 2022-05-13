@@ -25,8 +25,8 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/HistoryRequest';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { SkipAppLock } from '../../../components/AppLock';
 import { useSettings } from '../../../hooks/redux';
-import { Atom } from '../../../utils/helper';
 
 import { ImageView } from './SubmitRequest';
 import { updateTicketUri, uploadImage } from './TicketService';
@@ -184,11 +184,7 @@ export const ReplyTicket: FC = () => {
         />
       ))}
       {imageArr.length < 4 ? (
-        <Pressable
-          onPress={() => {
-            Atom.AppState.runAsync(pickImage);
-          }}
-        >
+        <Pressable onPress={pickImage}>
           <Center
             mt="8px"
             width={`${imageWidth - 8}px`}
@@ -205,57 +201,62 @@ export const ReplyTicket: FC = () => {
   );
 
   return (
-    <Modal
-      header={intl.formatMessage({ id: 'action__reply' })}
-      hideSecondaryAction
-      primaryActionProps={{
-        isDisabled: !(
-          isValid && !imageArr.filter((image) => !image?.token)?.length
-        ),
-        onPromise: () => handleSubmit(onSubmit)(),
-      }}
-      primaryActionTranslationId="action__submit"
-      scrollViewProps={{
-        height: '560px',
-        children: (
-          <Form>
-            <Form.Item
-              label={intl.formatMessage({ id: 'form__your_reply' })}
-              control={control}
-              labelAddon={
-                <IconButton
-                  type="plain"
-                  size="xs"
-                  name="PhotographSolid"
-                  onPress={() => {
-                    if (imageArr.length < 4) {
-                      pickImage();
-                    }
-                  }}
-                />
-              }
-              rules={{
-                required: intl.formatMessage({ id: 'form__field_is_required' }),
-                maxLength: {
-                  value: 1000,
-                  message: intl.formatMessage({
-                    id: 'msg__exceeding_the_maximum_word_limit',
+    <>
+      <SkipAppLock />
+      <Modal
+        header={intl.formatMessage({ id: 'action__reply' })}
+        hideSecondaryAction
+        primaryActionProps={{
+          isDisabled: !(
+            isValid && !imageArr.filter((image) => !image?.token)?.length
+          ),
+          onPromise: () => handleSubmit(onSubmit)(),
+        }}
+        primaryActionTranslationId="action__submit"
+        scrollViewProps={{
+          height: '560px',
+          children: (
+            <Form>
+              <Form.Item
+                label={intl.formatMessage({ id: 'form__your_reply' })}
+                control={control}
+                labelAddon={
+                  <IconButton
+                    type="plain"
+                    size="xs"
+                    name="PhotographSolid"
+                    onPress={() => {
+                      if (imageArr.length < 4) {
+                        pickImage();
+                      }
+                    }}
+                  />
+                }
+                rules={{
+                  required: intl.formatMessage({
+                    id: 'form__field_is_required',
                   }),
-                },
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                validate: (_) => undefined,
-              }}
-              name="comment"
-              formControlProps={{ width: 'full' }}
-              defaultValue=""
-            >
-              <Form.Textarea borderRadius="12px" />
-            </Form.Item>
-            {imagesList()}
-          </Form>
-        ),
-      }}
-    />
+                  maxLength: {
+                    value: 1000,
+                    message: intl.formatMessage({
+                      id: 'msg__exceeding_the_maximum_word_limit',
+                    }),
+                  },
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  validate: (_) => undefined,
+                }}
+                name="comment"
+                formControlProps={{ width: 'full' }}
+                defaultValue=""
+              >
+                <Form.Textarea borderRadius="12px" />
+              </Form.Item>
+              {imagesList()}
+            </Form>
+          ),
+        }}
+      />
+    </>
   );
 };
 

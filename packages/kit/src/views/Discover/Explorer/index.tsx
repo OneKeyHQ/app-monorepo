@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Box, useIsSmallLayout } from '@onekeyhq/components';
+import { Box, DialogManager, useIsSmallLayout } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -101,8 +101,6 @@ const Explorer: FC = () => {
 
   const [showExplorerBar, setShowExplorerBar] = useState<boolean>(false);
 
-  const [showDappOpenHint, setShowDappOpenHint] = useState<boolean>(false);
-
   const [refreshKey, setRefreshKey] = useState<string>();
 
   const isSmallLayout = useIsSmallLayout();
@@ -184,7 +182,20 @@ const Explorer: FC = () => {
 
     // 打开的是 Dapp, 处理首次打开 Dapp 提示
     if (item?.dapp && discover.firstRemindDAPP) {
-      setShowDappOpenHint(true);
+      setTimeout(() => {
+        DialogManager.show({
+          render: (
+            <DappOpenHintDialog
+              onVisibilityChange={() => {
+                dappOpenConfirm = undefined;
+              }}
+              onConfirm={() => {
+                dappOpenConfirm?.(true);
+              }}
+            />
+          ),
+        });
+      }, 1);
 
       const isConfirm = await new Promise<boolean>((resolve) => {
         dappOpenConfirm = resolve;
@@ -397,56 +408,43 @@ const Explorer: FC = () => {
   );
 
   return (
-    <>
-      <Box flex={1} bg="background-default">
-        {isSmallLayout ? (
-          <Mobile
-            key={refreshKey}
-            searchContent={searchContent}
-            onSearchContentChange={setSearchContent}
-            onSearchSubmitEditing={onSearchSubmitEditing}
-            explorerContent={explorerContent}
-            canGoBack={canGoBack}
-            onGoBack={onGoBack}
-            onNext={onNext}
-            onRefresh={onRefresh}
-            onMore={onMore}
-            moreView={moreViewContent}
-            showExplorerBar={showExplorerBar}
-          />
-        ) : (
-          <Desktop
-            key={refreshKey}
-            displayInitialPage={displayInitialPage}
-            searchContent={searchContent}
-            onSearchContentChange={setSearchContent}
-            onSearchSubmitEditing={onSearchSubmitEditing}
-            explorerContent={explorerContent}
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            loading={webLoading}
-            onGoBack={onGoBack}
-            onNext={onNext}
-            onRefresh={onRefresh}
-            onStopLoading={onStopLoading}
-            onMore={onMore}
-            moreView={moreViewContent}
-            showExplorerBar={showExplorerBar}
-          />
-        )}
-      </Box>
-      <DappOpenHintDialog
-        visible={showDappOpenHint}
-        onVisibilityChange={() => {
-          setShowDappOpenHint(false);
-          dappOpenConfirm = undefined;
-        }}
-        onConfirm={() => {
-          setShowDappOpenHint(false);
-          dappOpenConfirm?.(true);
-        }}
-      />
-    </>
+    <Box flex={1} bg="background-default">
+      {isSmallLayout ? (
+        <Mobile
+          key={refreshKey}
+          searchContent={searchContent}
+          onSearchContentChange={setSearchContent}
+          onSearchSubmitEditing={onSearchSubmitEditing}
+          explorerContent={explorerContent}
+          canGoBack={canGoBack}
+          onGoBack={onGoBack}
+          onNext={onNext}
+          onRefresh={onRefresh}
+          onMore={onMore}
+          moreView={moreViewContent}
+          showExplorerBar={showExplorerBar}
+        />
+      ) : (
+        <Desktop
+          key={refreshKey}
+          displayInitialPage={displayInitialPage}
+          searchContent={searchContent}
+          onSearchContentChange={setSearchContent}
+          onSearchSubmitEditing={onSearchSubmitEditing}
+          explorerContent={explorerContent}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          loading={webLoading}
+          onGoBack={onGoBack}
+          onNext={onNext}
+          onRefresh={onRefresh}
+          onStopLoading={onStopLoading}
+          onMore={onMore}
+          moreView={moreViewContent}
+          showExplorerBar={showExplorerBar}
+        />
+      )}
+    </Box>
   );
 };
 

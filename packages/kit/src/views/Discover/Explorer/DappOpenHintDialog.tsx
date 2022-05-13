@@ -2,16 +2,14 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, DialogManager } from '@onekeyhq/components';
 
 export type DappOpenHintDialogProps = {
-  visible: boolean;
   onVisibilityChange: (visible: boolean) => void;
   onConfirm: () => void;
 };
 
 const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
-  visible,
   onVisibilityChange,
   onConfirm,
 }) => {
@@ -19,8 +17,8 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
 
   return (
     <Dialog
+      visible
       hasFormInsideDialog
-      visible={visible}
       onClose={() => {
         onVisibilityChange?.(false);
       }}
@@ -37,6 +35,9 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
         primaryActionTranslationId: 'action__i_got_it',
         onPrimaryActionPress: () => {
           onConfirm?.();
+        },
+        onSecondaryActionPress: () => {
+          DialogManager.hide();
         },
       }}
     />

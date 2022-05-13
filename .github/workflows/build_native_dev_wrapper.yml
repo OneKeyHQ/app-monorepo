@@ -29,6 +29,8 @@ jobs:
         run: |
           echo ${{ secrets.AUTO_SUBMIT_GOOGLE_PLAY_KEY }} | base64 -d > packages/app/pc-api-8644398719570171123-0-dcae07e2afab.json
           echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
+          rm -rf packages/app/android/app/google-services.json
+          echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > packages/app/android/app/google-services.json
 
       - name: Setup Credentials
         run: |

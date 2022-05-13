@@ -3,12 +3,16 @@ import RNRestart from 'react-native-restart';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { unlock as mUnlock, passwordSet } from '../../store/reducers/data';
+import { passwordSet, release } from '../../store/reducers/data';
 import {
   setEnableAppLock,
   setEnableLocalAuthentication,
 } from '../../store/reducers/settings';
-import { setBoardingCompleted, unlock } from '../../store/reducers/status';
+import {
+  lock,
+  setBoardingCompleted,
+  unlock,
+} from '../../store/reducers/status';
 import {
   getPassword,
   hasHardwareSupported,
@@ -71,6 +75,7 @@ class ServiceApp extends ServiceBase {
     const { dispatch, serviceAccount, serviceNetwork } = this.backgroundApi;
     await this.initPassword();
     await this.initLocalAuthentication();
+    await this.initLock();
 
     const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();
@@ -90,6 +95,28 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
+  }
+
+  @backgroundMethod()
+  async initLock() {
+    const { dispatch, appSelector, engine } = this.backgroundApi;
+    const {
+      enableAppLock,
+      appLockDuration,
+    }: { enableAppLock: boolean; appLockDuration: number } = appSelector(
+      (s) => s.settings,
+    );
+    const { lastActivity }: { lastActivity: number } = appSelector(
+      (s) => s.status,
+    );
+    const isPasswordSet = await engine.isMasterPasswordSet();
+    const prerequisites = isPasswordSet && enableAppLock;
+    if (!prerequisites) return;
+    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
+    const isStale = idleDuration >= appLockDuration;
+    if (isStale) {
+      dispatch(lock());
+    }
   }
 
   @backgroundMethod()
@@ -138,7 +165,7 @@ class ServiceApp extends ServiceBase {
       dispatch(setBoardingCompleted());
     }
     dispatch(unlock());
-    dispatch(mUnlock());
+    dispatch(release());
   }
 
   @backgroundMethod()

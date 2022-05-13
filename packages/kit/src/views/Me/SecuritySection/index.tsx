@@ -28,8 +28,6 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../routes/types';
-import { unlock as mUnlock } from '../../../store/reducers/data';
-import { unlock } from '../../../store/reducers/status';
 import { SelectTrigger } from '../SelectTrigger';
 
 import ResetButton from './ResetButton';
@@ -95,10 +93,6 @@ export const SecuritySection = () => {
   );
   const onToggleAppLock = useCallback(() => {
     dispatch(setEnableAppLock(!enableAppLock));
-    if (!enableAppLock) {
-      dispatch(unlock());
-      dispatch(mUnlock());
-    }
   }, [enableAppLock, dispatch]);
   return (
     <>

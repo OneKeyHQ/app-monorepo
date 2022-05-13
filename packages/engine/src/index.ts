@@ -36,7 +36,6 @@ import {
   checkPassword,
 } from './dbs/base';
 import {
-  FailedToTransfer,
   NotImplemented,
   OneKeyHardwareError,
   OneKeyInternalError,
@@ -84,7 +83,6 @@ import {
   PriceController,
   ProviderController,
   fromDBNetworkToChainInfo,
-  getRPCStatus,
 } from './proxy';
 import {
   Account,
@@ -103,7 +101,6 @@ import {
   HistoryEntryTransaction,
   HistoryEntryType,
 } from './types/history';
-import { Message } from './types/message';
 import {
   AddNetworkParams,
   EIP1559Fee,
@@ -118,7 +115,10 @@ import {
 } from './types/vault';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
 import { Validators } from './validators';
-import { createVaultHelperInstance } from './vaults/factory';
+import {
+  createVaultHelperInstance,
+  createVaultHelperInstanceByImpl,
+} from './vaults/factory';
 import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1246,18 +1246,10 @@ class Engine {
         this.validator.validateTokenAddress(networkId, tokenIdOnNetwork),
         this.validator.validateAddress(networkId, spender),
       ]);
-      const [dbAccount, token] = await Promise.all([
-        this.dbApi.getAccount(accountId),
-        this.getOrAddToken(networkId, tokenAddress),
-      ]);
-      if (typeof token === 'undefined') {
-        // Token not found locally
-        return;
-      }
-      const allowance = await this.providerManager.getTokenAllowance(
-        networkId,
-        dbAccount,
-        token,
+
+      const vault = await this.getVault({ accountId, networkId });
+      const allowance = await vault.getTokenAllowance(
+        tokenAddress,
         spenderAddress,
       );
       if (!allowance.isNaN()) {
@@ -1504,95 +1496,6 @@ class Engine {
     );
   }
 
-  @backgroundMethod()
-  async signMessageLegacy(
-    password: string,
-    networkId: string,
-    accountId: string,
-    messages: Array<Message>,
-    ref?: string,
-  ): Promise<Array<string>> {
-    // TODO: address check needed?
-    const [credential, network, dbAccount] = await Promise.all([
-      this.getCredentialSelectorForAccount(accountId, password),
-      this.getNetwork(networkId),
-      this.dbApi.getAccount(accountId),
-    ]);
-
-    const signatures = await this.providerManager.signMessages(
-      credential,
-      password,
-      network,
-      dbAccount,
-      messages,
-    );
-    const now = Date.now();
-    await Promise.all(
-      signatures.map((signature, index) =>
-        this.dbApi.addHistoryEntry(
-          `${networkId}--m-${now}-${index}`,
-          networkId,
-          accountId,
-          HistoryEntryType.SIGN,
-          HistoryEntryStatus.SIGNED,
-          { message: JSON.stringify(messages[index]), ref: ref || '' },
-        ),
-      ),
-    );
-    return signatures;
-  }
-
-  @backgroundMethod()
-  async signTransaction(
-    password: string,
-    networkId: string,
-    accountId: string,
-    transactions: Array<string>,
-    overwriteParams?: string,
-    _ref?: string,
-    autoBroadcast = true,
-  ): Promise<Array<string>> {
-    const [credentialSelector, network, dbAccount] = await Promise.all([
-      this.getCredentialSelectorForAccount(accountId, password),
-      this.getNetwork(networkId),
-      this.dbApi.getAccount(accountId),
-    ]);
-    const ret: Array<string> = [];
-    try {
-      const txsWithStatus = await this.providerManager.signTransactions(
-        credentialSelector,
-        network,
-        dbAccount,
-        transactions,
-        overwriteParams,
-        autoBroadcast,
-      );
-      txsWithStatus.forEach(async (tx) => {
-        ret.push(autoBroadcast ? tx.txid : tx.rawTx);
-        const meta = { ...tx.txMeta, rawTx: tx.rawTx };
-        await this.dbApi.addHistoryEntry(
-          `${networkId}--${tx.txid}`,
-          networkId,
-          accountId,
-          HistoryEntryType.TRANSACTION,
-          autoBroadcast && tx.success
-            ? HistoryEntryStatus.PENDING
-            : HistoryEntryStatus.SIGNED,
-          meta as HistoryEntryMeta,
-        );
-      });
-    } catch (e) {
-      const { message } = e as { message: string };
-      throw new FailedToTransfer(message);
-    }
-
-    return Promise.resolve(ret);
-  }
-
-  // TODO: sign & broadcast.
-  // signTransaction
-  // broadcastRawTransaction
-
   async getHistory(
     networkId: string,
     accountId: string,
@@ -1688,7 +1591,8 @@ class Engine {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
 
-    return getRPCStatus(rpcURL, impl);
+    const vaultHelper = createVaultHelperInstanceByImpl(impl);
+    return vaultHelper.getClientEndpointStatus(rpcURL);
   }
 
   @backgroundMethod()
@@ -1955,8 +1859,13 @@ class Engine {
   }
 
   @backgroundMethod()
-  proxyRPCCall<T>(networkId: string, request: IJsonRpcRequest): Promise<T> {
-    return this.providerManager.proxyRPCCall(networkId, request);
+  async proxyJsonRPCCall<T>(
+    networkId: string,
+    request: IJsonRpcRequest,
+  ): Promise<T> {
+    // Use a simple watching vault to send RPC calls.
+    const vault = await this.getVault({ networkId, accountId: '' });
+    return vault.proxyJsonRPCCall(request);
   }
 
   @backgroundMethod()
