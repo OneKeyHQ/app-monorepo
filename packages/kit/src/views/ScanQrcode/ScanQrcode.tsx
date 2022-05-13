@@ -163,5 +163,6 @@ const ScanQrcode: FC = () => {
   }
   return null;
 };
+ScanQrcode.displayName = 'ScanQrcode';
 
 export default ScanQrcode;
