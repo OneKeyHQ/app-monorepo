@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import os from 'os';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
@@ -83,6 +84,17 @@ function createMainWindow() {
   ipcMain.on('app/reload', () => {
     app.relaunch();
     app.exit(0);
+  });
+
+  ipcMain.on('app/openPrefs', () => {
+    const platform = os.type();
+    if (platform === 'Darwin') {
+      shell.openPath('/System/Library/PreferencePanes/Security.prefPane');
+    } else if (platform === 'Windows_NT') {
+      shell.openExternal('ms-settings:privacy-webcam');
+    } else {
+      // Linux ??
+    }
   });
 
   // reset appState to undefined  to avoid screen lock.

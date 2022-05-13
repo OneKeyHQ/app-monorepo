@@ -24,7 +24,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv, { isExtension } from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useNavigation from '../../hooks/useNavigation';
@@ -33,7 +33,7 @@ import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
 
-const { isWeb, isNative: isApp, isIOS } = platformEnv;
+const { isWeb, isNative: isApp, isIOS, isAndroid, isDesktop } = platformEnv;
 
 type ScanQrcodeRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
@@ -178,7 +178,7 @@ const ScanQrcode: FC = () => {
           }),
         }}
         footerButtonProps={
-          isWeb
+          isWeb || isExtension
             ? { hidePrimaryAction: true }
             : {
                 primaryActionProps: {
@@ -188,13 +188,15 @@ const ScanQrcode: FC = () => {
                   onClose?.();
                   if (isIOS) {
                     Linking.openURL('app-settings:');
-                  } else {
+                  } else if (isAndroid) {
                     IntentLauncher.startActivityAsync(
                       IntentLauncher.ActivityAction
                         .APPLICATION_DETAILS_SETTINGS,
                       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                       { data: `package:${Application.applicationId!}` },
                     );
+                  } else if (isDesktop) {
+                    window.desktopApi.openPrefs();
                   }
                 },
               }
