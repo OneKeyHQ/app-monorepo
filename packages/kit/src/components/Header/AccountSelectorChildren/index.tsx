@@ -106,7 +106,10 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   }, [defaultSelectedWallet, selectedWallet?.id, wallets]);
 
   const refreshAccounts = useCallback(async () => {
-    if (!activeWallet) return;
+    if (!activeWallet) {
+      setActiveAccounts([]);
+      return;
+    }
     const accounts = await backgroundApiProxy.engine.getAccounts(
       activeWallet.accounts,
       activeNetwork?.id,
