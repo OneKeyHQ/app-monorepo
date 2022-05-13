@@ -19,6 +19,19 @@ function getNetworkImpl(networkId: string) {
   return impl;
 }
 
+export function createVaultHelperInstanceByImpl(impl: string): VaultHelperBase {
+  // Only network unrelated helper is needed.
+  if (impl === IMPL_EVM) {
+    return new VaultHelperEvm({ networkId: `${impl}--any`, accountId: '' });
+  }
+  if (impl === IMPL_CFX) {
+    return new VaultHelperCfx({ networkId: `${impl}--any`, accountId: '' });
+  }
+  throw new OneKeyInternalError(
+    `VaultHelper Class not found for: impl=${impl}`,
+  );
+}
+
 export function createVaultHelperInstance(
   options: IVaultFactoryOptions,
 ): VaultHelperBase {

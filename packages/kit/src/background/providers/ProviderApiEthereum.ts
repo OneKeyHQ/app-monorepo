@@ -439,7 +439,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     const { networkId } = getActiveWalletAccount();
     debugLogger.ethereum('BgApi rpcCall:', request, { networkId });
     // TODO error if networkId empty, or networkImpl not EVM
-    const result = await this.backgroundApi.engine.proxyRPCCall(
+    const result = await this.backgroundApi.engine.proxyJsonRPCCall(
       networkId,
       request,
     );

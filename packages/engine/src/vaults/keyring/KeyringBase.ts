@@ -23,11 +23,13 @@ export abstract class KeyringBase extends VaultContext {
     options: ISignCredentialOptions,
   ): Promise<CredentialSelector>;
 
+  // TODO: check history is added
   abstract signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx>;
 
+  // TODO: check history is added
   abstract signMessage(
     messages: any[],
     options: ISignCredentialOptions,

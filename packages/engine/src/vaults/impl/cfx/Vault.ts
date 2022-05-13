@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { Conflux } from '@onekeyfe/blockchain-libs/dist/provider/chains/cfx/conflux';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented } from '../../../errors';
-import { fillUnsignedTx } from '../../../proxy';
+import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import {
   IApproveInfo,
@@ -25,6 +27,12 @@ import { KeyringWatching } from './KeyringWatching';
 
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
+  private async getJsonRPCClient(): Promise<Conflux> {
+    return (await this.engine.providerManager.getClient(
+      this.networkId,
+    )) as Conflux;
+  }
+
   attachFeeInfoToEncodedTx(params: {
     encodedTx: any;
     feeInfoValue: IFeeInfoUnit;
@@ -116,5 +124,17 @@ export default class Vault extends VaultBase {
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxAny> {
     throw new Error('Method not implemented.');
+  }
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const client = await this.getJsonRPCClient();
+    try {
+      return await client.rpc.call(
+        request.method,
+        request.params as Record<string, any> | Array<any>,
+      );
+    } catch (e) {
+      throw extractResponseError(e);
+    }
   }
 }
