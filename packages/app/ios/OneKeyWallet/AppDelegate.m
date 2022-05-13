@@ -34,7 +34,10 @@
  
 #ifdef DEBUG
 #else
-  [FIRApp configure];
+  NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
+  if (![version isEqualToString:@"1"]) {
+    [FIRApp configure];
+  }
 #endif
   
   [super application:application didFinishLaunchingWithOptions:launchOptions];
