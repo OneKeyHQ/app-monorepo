@@ -7,13 +7,14 @@
       "node": "16.10.0",
       "yarn": "1.18.0",
       "android": {
-        "image": "ubuntu-20.04-jdk-8-ndk-r21e",
+        "image": "ubuntu-20.04-jdk-11-ndk-r21e",
         "env": {
           "PLATFORM": "android",
           "OTA_UPDATE_ENABLE": "false"
         }
       },
       "ios": {
+        "cocoapods": "1.11.3",
         "image": "macos-big-sur-11.4-xcode-13.0",
         "env": {
           "PLATFORM": "ios"

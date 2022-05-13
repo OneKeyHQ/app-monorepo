@@ -131,11 +131,9 @@ const CheckBox: FC<CheckBoxProps> = ({
           _disabled={{
             value,
             opacity: 1,
-            bg: isChecked
-              ? 'action-primary-activate-disabled'
-              : 'action-primary-disabled',
+            bg: isChecked ? 'interactive-disabled' : 'action-primary-disabled',
             borderColor: isChecked
-              ? 'action-primary-activate-disabled'
+              ? 'interactive-disabled'
               : 'checkbox-border-disabled',
           }}
           _pressed={{

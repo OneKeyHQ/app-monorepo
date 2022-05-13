@@ -18,7 +18,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
-import { delay } from '../../utils/helper';
+import { wait } from '../../utils/helper';
 import { SwapQuote } from '../Swap/typings';
 
 import {
@@ -248,7 +248,7 @@ const TransactionConfirm = () => {
       };
       if (params.autoConfirmAfterFeeSaved) {
         // add delay to avoid white screen when navigation replace
-        await delay(600);
+        await wait(600);
         return navigation.replace(SendRoutes.SendAuthentication, routeParams);
       }
       return navigation.navigate(SendRoutes.SendAuthentication, routeParams);

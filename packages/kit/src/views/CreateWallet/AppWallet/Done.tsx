@@ -1,6 +1,6 @@
 import React, { FC, useEffect } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
@@ -14,7 +14,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { useDrawer, useToast } from '../../../hooks';
+import { useNavigationActions, useToast } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
 
@@ -34,10 +34,9 @@ const Done: FC<DoneProps> = ({
   mnemonic,
   withEnableAuthentication,
 }) => {
-  const navigation = useNavigation();
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer } = useDrawer();
+  const { closeDrawer, resetToRoot } = useNavigationActions();
   useEffect(() => {
     async function main() {
       try {
@@ -54,8 +53,7 @@ const Done: FC<DoneProps> = ({
         toast.show({ title: intl.formatMessage({ id: errorKey }) });
       }
       closeDrawer();
-      const inst = navigation.getParent() || navigation;
-      inst.goBack();
+      resetToRoot();
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
