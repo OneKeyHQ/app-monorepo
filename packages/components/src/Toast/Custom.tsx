@@ -57,6 +57,7 @@ const CustomToast: FC<Props> = (outerProps) => {
                 paddingHorizontal: 12,
                 marginLeft: 0,
                 alignSelf: 'center',
+                maxWidth: 340,
               },
             }}
             text1Style={
