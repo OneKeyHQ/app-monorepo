@@ -8,7 +8,7 @@ import { IconButton } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication, useToast } from '../../hooks';
-import { useSettings, useStatus } from '../../hooks/redux';
+import { useAppSelector, useSettings } from '../../hooks/redux';
 import { ValidationFields } from '../Protected/types';
 
 type LocalAuthenticationButtonProps = {
@@ -25,7 +25,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const { enableLocalAuthentication, validationState = {} } = useSettings();
-  const { authenticationType } = useStatus();
+  const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const { localAuthenticate, getPassword } = useLocalAuthentication();
 
   const onLocalAuthenticate = useCallback(async () => {
@@ -78,11 +78,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   }, [onChange]);
 
   useLayoutEffect(() => {
-    if (
-      !field ||
-      !enableLocalAuthentication ||
-      field === ValidationFields.Unlock
-    ) {
+    if (!field || !enableLocalAuthentication) {
       return;
     }
     if (

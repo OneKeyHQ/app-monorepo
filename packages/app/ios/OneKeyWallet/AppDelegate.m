@@ -14,6 +14,11 @@
 #include <EXDevLauncher/EXDevLauncherController.h>
 #endif
 
+#ifdef DEBUG
+#else
+@import Firebase;
+#endif
+
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -27,10 +32,14 @@
   [self initializeReactNativeApp:launchOptions];
 #endif
  
+#ifdef DEBUG
+#else
+  [FIRApp configure];
+#endif
+  
   [super application:application didFinishLaunchingWithOptions:launchOptions];
- 
   return YES;
- }
+}
  
 - (RCTBridge *)initializeReactNativeApp:(NSDictionary *)launchOptions
 {
@@ -50,7 +59,7 @@
   [self.window makeKeyAndVisible];
 
   return bridge;
- }
+}
 
 - (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge
 {

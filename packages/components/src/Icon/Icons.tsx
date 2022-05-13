@@ -137,6 +137,7 @@ import HashtagOutline from './react/outline/Hashtag';
 import HeartOutline from './react/outline/Heart';
 import HomeOutline from './react/outline/Home';
 import IdentificationOutline from './react/outline/Identification';
+import ImportOutline from "./react/outline/Import";
 import InboxOutline from './react/outline/Inbox';
 import InboxInOutline from './react/outline/InboxIn';
 import InformationCircleOutline from './react/outline/InformationCircle';
@@ -631,6 +632,7 @@ export type ICON_NAMES =
   | 'HeartOutline'
   | 'HomeOutline'
   | 'IdentificationOutline'
+  | "ImportOutline"
   | 'InboxOutline'
   | 'InboxInOutline'
   | 'InformationCircleOutline'
@@ -1126,6 +1128,7 @@ export default {
   HeartOutline: HeartOutline,
   HomeOutline: HomeOutline,
   IdentificationOutline: IdentificationOutline,
+  ImportOutline,
   InboxOutline: InboxOutline,
   InboxInOutline: InboxInOutline,
   InformationCircleOutline: InformationCircleOutline,

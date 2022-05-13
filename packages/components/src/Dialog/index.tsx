@@ -74,7 +74,7 @@ export type DialogProps = {
    */
   visible?: boolean;
   /**
-   * 点击 dialog 外面是否可以关闭 dialog，默认：true
+   * 点击 dialog 外面是否可以关闭 dialog，默认：false
    */
   canceledOnTouchOutside?: boolean;
   contentProps?: ComponentProps<typeof DialogCommon.Content>;

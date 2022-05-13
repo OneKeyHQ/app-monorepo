@@ -104,6 +104,7 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateWatchedAccount]: undefined;
   [CreateWalletModalRoutes.AddExistingWalletModal]: {
     mode: 'all' | 'mnemonic' | 'address' | 'privatekey';
+    presetText?: string;
   };
   [CreateWalletModalRoutes.AddImportedAccountModal]: {
     privatekey: string;

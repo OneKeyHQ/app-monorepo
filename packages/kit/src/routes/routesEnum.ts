@@ -26,6 +26,7 @@ export enum ModalRoutes {
   OnekeyHardware = 'OnekeyHardware',
   Discover = 'Discover',
   Swap = 'Swap',
+  ScanQrcode = 'ScanQrcode',
   UpdateFeature = 'UpdateFeature',
 }
 export enum DappModalRoutes {
@@ -38,4 +39,5 @@ export enum RootRoutes {
   Root = 'root',
   Modal = 'modal',
   Tab = 'tab',
+  Welcome = 'Welcome',
 }

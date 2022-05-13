@@ -3,6 +3,7 @@ import { ipcRenderer } from 'electron';
 export type DesktopAPI = {
   hello: string;
   reload: () => void;
+  onAppState: (cb: (state: 'active' | 'background') => void) => void;
 };
 declare global {
   interface Window {
@@ -29,6 +30,11 @@ ipcRenderer.on(
 const desktopApi = {
   hello: 'world',
   reload: () => ipcRenderer.send('app/reload'),
+  onAppState: (cb: (state: 'active' | 'background') => void) => {
+    ipcRenderer.on('appState', (_, value) => {
+      cb(value);
+    });
+  },
 };
 
 window.desktopApi = desktopApi;
