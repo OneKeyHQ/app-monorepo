@@ -222,18 +222,6 @@ android {
 
         }
     }
-
-    flavorDimensions "channel"
-    productFlavors {
-        Direct {
-            dimension "channel"
-            buildConfigField "String", "channel", "\"Direct\""
-        }
-        GooglePlay {
-            dimension "channel"
-            buildConfigField "String", "channel", "\"GooglePlay\""
-        }
-    }
 }
 
 dependencies {

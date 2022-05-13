@@ -4,9 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "start": "react-native start",
-    "android": "expo run:android --variant=DirectDebug",
-    "android-google": "expo run:android --variant=GooglePlayDebug",
-    "android:device": "expo run:android --device --variant=DirectDebug",
+    "android": "expo run:android",
+    "android:device": "expo run:android --device",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "eject": "expo eject",

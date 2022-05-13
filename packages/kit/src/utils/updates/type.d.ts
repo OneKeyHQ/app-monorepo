@@ -1,23 +1,18 @@
-export type OS =
-  | 'ios'
-  | 'android'
-  | 'win'
-  | 'macos-x64'
-  | 'macos-arm64'
-  | 'linux'
-  | 'firefox'
-  | 'chrome';
+export type OS = 'any' | 'android' | 'ios' | 'mac' | 'linux' | 'win';
 
-export type Channel =
-  | 'AppStore'
+export type Distribution =
+  | 'DIRECT'
   | 'GooglePlay'
-  | 'ChromeWebStore'
-  | 'MozillaAddOns'
-  | 'Direct';
+  | 'AppStore'
+  | 'FireFox'
+  | 'Chrome';
+
+export type Arch = 'any' | 'x86' | 'arm64' | 'x64';
 
 export interface PackageInfo {
   os: OS;
-  channel: Channel;
+  distribution: Distribution;
+  arch: Arch;
   download: string;
 }
 
