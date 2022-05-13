@@ -1,9 +1,11 @@
 import { ipcRenderer } from 'electron';
 
+// export type PrefType = 'camera' | 'bluetooth';
+export type PrefType = 'camera';
 export type DesktopAPI = {
   hello: string;
   reload: () => void;
-  openPrefs: () => void;
+  openPrefs: (prefType: PrefType) => void;
   onAppState: (cb: (state: 'active' | 'background') => void) => void;
 };
 declare global {

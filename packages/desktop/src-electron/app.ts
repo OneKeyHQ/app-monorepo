@@ -6,6 +6,8 @@ import { format as formatUrl } from 'url';
 import { BrowserWindow, app, ipcMain, screen, session, shell } from 'electron';
 import isDev from 'electron-is-dev';
 
+import { PrefType } from './preload';
+
 const APP_NAME = 'OneKey Wallet';
 let mainWindow: BrowserWindow | null;
 
@@ -86,12 +88,15 @@ function createMainWindow() {
     app.exit(0);
   });
 
-  ipcMain.on('app/openPrefs', () => {
+  ipcMain.on('app/openPrefs', (_event, prefType: PrefType) => {
     const platform = os.type();
     if (platform === 'Darwin') {
       shell.openPath('/System/Library/PreferencePanes/Security.prefPane');
     } else if (platform === 'Windows_NT') {
-      shell.openExternal('ms-settings:privacy-webcam');
+      // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
+      if (prefType === 'camera') {
+        shell.openExternal('ms-settings:privacy-webcam');
+      }
     } else {
       // Linux ??
     }
