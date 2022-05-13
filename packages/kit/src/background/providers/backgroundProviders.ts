@@ -5,6 +5,7 @@ import { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
 import ProviderApiBase from './ProviderApiBase';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiPrivate from './ProviderApiPrivate';
+import ProviderApiSolana from './ProviderApiSolana';
 
 function createBackgroundProviders({
   backgroundApi,
@@ -18,9 +19,11 @@ function createBackgroundProviders({
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi,
     }),
+    [IInjectedProviderNames.solana]: new ProviderApiSolana({
+      backgroundApi,
+    }),
     // near
     // conflux
-    // solana
     // sollet
   };
 
