@@ -1,15 +1,26 @@
 import React, { FC, useLayoutEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Markdown, Modal } from '@onekeyhq/components';
-import { useCheckVersion } from '@onekeyhq/kit/src/hooks/redux';
+import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
+import {
+  UpdateFeatureModalRoutes,
+  UpdateFeatureRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/UpdateFeature';
+
+type RouteProps = RouteProp<
+  UpdateFeatureRoutesParams,
+  UpdateFeatureModalRoutes.UpdateFeatureModal
+>;
 
 const UpdateFeature: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const versionStore = useCheckVersion();
+  const { openUrlExternal } = useOpenBrowser();
+  const route = useRoute<RouteProps>();
+  const { version } = route.params;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -20,21 +31,16 @@ const UpdateFeature: FC = () => {
   return (
     <Modal
       size="sm"
-      headerShown={false}
       maxHeight={640}
-      header={`What’s new in OneKey ${
-        versionStore?.currentVersionFeature?.version ?? ''
-      }`}
-      hideSecondaryAction
-      primaryActionTranslationId="action__close"
-      primaryActionProps={{
-        type: 'basic',
+      header={`What’s new in OneKey ${process.env.VERSION ?? '0.0.0'}`}
+      onSecondaryActionPress={() => navigation.goBack()}
+      primaryActionTranslationId="action__update"
+      secondaryActionTranslationId="action__close"
+      onPrimaryActionPress={() => {
+        openUrlExternal(version.package.download);
       }}
-      onPrimaryActionPress={() => navigation.goBack()}
       scrollViewProps={{
-        children: (
-          <Markdown>{versionStore?.currentVersionFeature?.changeLog}</Markdown>
-        ),
+        children: <Markdown>{version?.changeLog}</Markdown>,
       }}
     />
   );

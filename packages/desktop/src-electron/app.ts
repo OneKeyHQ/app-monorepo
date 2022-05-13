@@ -59,7 +59,6 @@ function createMainWindow() {
   browserWindow.webContents.on('did-finish-load', () => {
     browserWindow.webContents.send('SET_ONEKEY_DESKTOP_GLOBALS', {
       resourcesPath: (global as any).resourcesPath,
-      arch: process.arch,
       staticPath: `file://${staticPath}`,
       preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
     });
@@ -168,7 +167,6 @@ app.on('before-quit', () => {
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
-
 if (isDev) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');

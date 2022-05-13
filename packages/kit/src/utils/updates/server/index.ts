@@ -12,31 +12,28 @@ export async function getReleaseInfo(): Promise<ReleasesInfo> {
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
 
-      const androidPackages: PackageInfo[] = [];
-      const extPackages: PackageInfo[] = [];
-      const desktopPackages: PackageInfo[] = [];
       const iosPackages: PackageInfo[] = [
         {
           os: 'ios',
-          channel: 'AppStore',
-          download:
-            'https://apps.apple.com/app/onekey-open-source-wallet/id1609559473',
+          arch: 'arm64',
+          distribution: 'AppStore',
+          download: 'itms-apps://itunes.apple.com/app/id1609559473',
         },
       ];
 
-      androidPackages.push({
-        os: 'android',
-        channel: 'GooglePlay',
-        download:
-          'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
-      });
+      const androidPackages: PackageInfo[] = [];
+      const extPackages: PackageInfo[] = [];
+      const desktopPackages: PackageInfo[] = [];
 
       releasesVersion.assets.forEach((x) => {
+        console.log('forEach', x);
+
         // android
         if (x.name.indexOf('android.apk') !== -1) {
           androidPackages.push({
             os: 'android',
-            channel: 'Direct',
+            arch: 'arm64',
+            distribution: 'DIRECT',
             download: x.browser_download_url,
           });
         }
@@ -44,16 +41,18 @@ export async function getReleaseInfo(): Promise<ReleasesInfo> {
         // extension
         if (x.name.indexOf('firefox-addon.zip') !== -1) {
           extPackages.push({
-            os: 'firefox',
-            channel: 'MozillaAddOns',
+            os: 'any',
+            arch: 'any',
+            distribution: 'FireFox',
             download: x.browser_download_url,
           });
         }
 
         if (x.name.indexOf('chrome-extension.zip') !== -1) {
           extPackages.push({
-            os: 'chrome',
-            channel: 'ChromeWebStore',
+            os: 'any',
+            arch: 'any',
+            distribution: 'Chrome',
             download: x.browser_download_url,
           });
         }
@@ -62,21 +61,24 @@ export async function getReleaseInfo(): Promise<ReleasesInfo> {
         if (x.name.indexOf('linux-x86_64.AppImage') !== -1) {
           desktopPackages.push({
             os: 'linux',
-            channel: 'Direct',
+            arch: 'x86',
+            distribution: 'DIRECT',
             download: x.browser_download_url,
           });
         }
         if (x.name.indexOf('mac-arm64.dmg') !== -1) {
           desktopPackages.push({
-            os: 'macos-arm64',
-            channel: 'Direct',
+            os: 'mac',
+            arch: 'arm64',
+            distribution: 'DIRECT',
             download: x.browser_download_url,
           });
         }
         if (x.name.indexOf('mac-x64.dmg') !== -1) {
           desktopPackages.push({
-            os: 'macos-x64',
-            channel: 'Direct',
+            os: 'mac',
+            arch: 'x64',
+            distribution: 'DIRECT',
             download: x.browser_download_url,
           });
         }
@@ -84,7 +86,8 @@ export async function getReleaseInfo(): Promise<ReleasesInfo> {
         if (x.name.indexOf('win-x64.exe') !== -1) {
           desktopPackages.push({
             os: 'win',
-            channel: 'Direct',
+            arch: 'x64',
+            distribution: 'DIRECT',
             download: x.browser_download_url,
           });
         }
