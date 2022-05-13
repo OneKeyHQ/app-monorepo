@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Form, Modal, useForm } from '@onekeyhq/components';
@@ -12,9 +12,8 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { useDrawer, useToast } from '../../../hooks';
+import { useNavigationActions, useToast } from '../../../hooks';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -26,16 +25,13 @@ type AddWatchAccountValues = {
   name: string;
 };
 
-type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-
 const AddWatchAccount = () => {
   const {
     params: { address, selectableNetworks },
   } = useRoute<RouteProps>();
   const toast = useToast();
-  const { closeDrawer } = useDrawer();
+  const { closeDrawer, resetToRoot } = useNavigationActions();
   const { wallets } = useRuntime();
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const { serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit } = useForm<AddWatchAccountValues>({
     defaultValues: { name: '' },
@@ -58,9 +54,8 @@ const AddWatchAccount = () => {
           address,
           values.name || defaultWalletName,
         );
-        const inst = navigation.getParent() || navigation;
         closeDrawer();
-        inst.goBack();
+        resetToRoot();
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
@@ -69,13 +64,13 @@ const AddWatchAccount = () => {
       }
     },
     [
-      navigation,
       serviceAccount,
       defaultWalletName,
       address,
       toast,
       intl,
       closeDrawer,
+      resetToRoot,
     ],
   );
   return (
