@@ -1,7 +1,6 @@
 import React, { FC } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Modal, Typography } from '@onekeyhq/components';
@@ -9,13 +8,9 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
 
-type NavigationProps = ModalScreenProps<RootRoutesParams>;
+import { useNavigationActions } from '../../../hooks';
+
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
   CreateWalletModalRoutes.SetupSuccessModal
@@ -23,8 +18,8 @@ type RouteProps = RouteProp<
 
 const SetupSuccessModal: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
+  const { resetToRoot } = useNavigationActions();
   // const isSmallScreen = useIsVerticalLayout();
 
   const { device } = route?.params;
@@ -55,17 +50,12 @@ const SetupSuccessModal: FC = () => {
     </>
   );
 
-  const handleCloseSetup = () => {
-    // Create wallet and account from device
-    navigation.navigate(RootRoutes.Root);
-  };
-
   return (
     <Modal
       header={device.device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__activated' })}
       secondaryActionTranslationId="action__close"
-      onSecondaryActionPress={handleCloseSetup}
+      onSecondaryActionPress={resetToRoot}
       staticChildrenProps={{
         flex: '1',
         p: 6,
