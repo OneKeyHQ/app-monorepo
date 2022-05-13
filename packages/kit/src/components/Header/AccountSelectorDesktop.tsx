@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { useDrawerStatus } from '@react-navigation/drawer';
-
 import { Box, PresenceTransition } from '@onekeyhq/components';
 import { useDomID } from '@onekeyhq/components/src/hooks/useClickDocumentClose';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -23,8 +21,6 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       domId,
     }));
 
-    const status = useDrawerStatus();
-    const isOpen = status === 'open';
     const content = (
       <PresenceTransition
         visible={visible}
@@ -51,7 +47,7 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
           flexDirection="row"
           shadow="depth.3"
         >
-          <AccountSelectorChildren isOpen={isOpen} />
+          <AccountSelectorChildren />
         </Box>
       </PresenceTransition>
     );
