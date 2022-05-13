@@ -162,6 +162,7 @@ const ScanQrcode: FC = () => {
     );
   }
   if (currentPermission === PermissionStatus.DENIED) {
+    const canInvokeSystemSettings = isDesktop || isIOS || isAndroid;
     return (
       <Dialog
         visible
@@ -178,9 +179,8 @@ const ScanQrcode: FC = () => {
           }),
         }}
         footerButtonProps={
-          isWeb || isExtension
-            ? { hidePrimaryAction: true }
-            : {
+          canInvokeSystemSettings
+            ? {
                 primaryActionProps: {
                   children: intl.formatMessage({ id: 'action__go_to_setting' }),
                 },
@@ -200,12 +200,12 @@ const ScanQrcode: FC = () => {
                   }
                 },
               }
+            : { hidePrimaryAction: true }
         }
       />
     );
   }
   return null;
 };
-ScanQrcode.displayName = 'ScanQrcode';
 
 export default ScanQrcode;
