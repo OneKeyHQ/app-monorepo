@@ -72,7 +72,7 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
-const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
+const AccountSelectorChildren: FC<{ isOpen?: boolean }> = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
@@ -249,10 +249,8 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   }
 
   useEffect(() => {
-    if (isOpen) {
-      setSelectedWallet(defaultSelectedWallet);
-    }
-  }, [isOpen, defaultSelectedWallet]);
+    setSelectedWallet(defaultSelectedWallet);
+  }, [defaultSelectedWallet]);
 
   useEffect(() => {
     refreshAccounts();
