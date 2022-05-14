@@ -104,7 +104,10 @@ export type HomeRoutesParams = {
     data: DAppItemType[];
     onItemSelect?: (item: DAppItemType) => Promise<boolean> | void | undefined;
   };
-  [HomeRoutes.TransactionHistoryScreen]: { tokenId?: string };
+  [HomeRoutes.TransactionHistoryScreen]: {
+    tokenId?: string;
+    isInternalSwapOnly?: boolean;
+  };
   [HomeRoutes.FaceId]: undefined;
 };
 /** HomeStack */

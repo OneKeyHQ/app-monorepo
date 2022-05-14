@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
-import { useManageTokens, useNavigation } from '../../../hooks';
+import { useNavigation } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
@@ -91,8 +91,8 @@ const TxRecordCell: FC<{
   const { size } = useUserDevice();
   const intl = useIntl();
   const formatDate = useFormatDate();
-  // const { prices } = useManageTokens({ pollingInterval: 1000000000000 });
-  const mainPrice = '123'; // prices.main;
+  // const { prices } = useManageTokens();
+  const mainPrice = 123;
 
   const basicInfo = useCallback(
     () => (
@@ -101,8 +101,8 @@ const TxRecordCell: FC<{
           {getTransactionTypeStr(intl, tx)}
         </Text>
         <Typography.Body2 color={getTransactionStatusColor(tx)}>
-          {tx.txStatus === 'CONFIRMED'
-            ? formatDate.formatDate(new Date(tx.blockSignAt), {
+          {tx.txStatus === TxStatus.Confirmed
+            ? formatDate.formatDate(new Date(tx.blockSignedAt), {
                 hideTheYear: true,
                 hideTheMonth: true,
               })
@@ -120,10 +120,10 @@ const TxRecordCell: FC<{
       return (
         <Box alignItems="flex-end" minW="156px" maxW="156px" textAlign="right">
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            -{` ${sellAmount} ${sellTokenSymbol}`}
+            {`-${sellAmount} ${sellTokenSymbol}`}
           </Text>
           <Typography.Body2 color="text-subdued" textAlign="right">
-            →{` ${buyAmount} ${buyTokenSymbol}`}
+            {`→${buyAmount} ${buyTokenSymbol}`}
           </Typography.Body2>
         </Box>
       );
@@ -141,7 +141,7 @@ const TxRecordCell: FC<{
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           textAlign="right"
         >
-          {fromType === 'OUT' && `- ${amount ?? '-'} ${symbol}`}
+          {fromType === 'OUT' && `-${amount ?? '-'} ${symbol}`}
         </Text>
         <Typography.Body2 color="text-subdued" textAlign="right">
           {fromType === 'OUT' &&
@@ -237,7 +237,7 @@ const TxRecordCell: FC<{
 
       <Box flexDirection="column" flex={1} ml={3}>
         {ItemInfo}
-
+        <Text>{tx.mainSource}</Text>
         {tx.txStatus === TxStatus.Pending && (
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>

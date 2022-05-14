@@ -137,11 +137,6 @@ const TxHistoryDetail: FC<{
       >
         {intl.formatMessage({ id: 'action__view_in_explorer' })}
       </Button>
-
-      <Typography.Text w="100%">
-        {JSON.stringify(tx, (k, v) => ((k === 'data' || k === 'raw') ? '<data>' : v), 2)}
-      </Typography.Text>
-
     </Box>
   );
 };

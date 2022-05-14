@@ -42,13 +42,15 @@ class EVMTxDecoder {
     return EVMTxDecoder.sharedDecoder;
   }
 
-  public async decodeHistoryEntry(historyEntry: HistoryEntryTransaction) {
+  public async decodeHistoryEntry(
+    historyEntry: HistoryEntryTransaction,
+    covalentTx?: Transaction | null,
+  ) {
     const { rawTx, rawTxPreDecodeCache, payload } = historyEntry;
-    console.log(payload, historyEntry);
     const tx = rawTxPreDecodeCache
       ? await jsonToEthersTx(rawTxPreDecodeCache)
       : rawTx;
-    return this.decode(tx, payload, null, historyEntry);
+    return this.decode(tx, payload, covalentTx, historyEntry);
   }
 
   public async decode(

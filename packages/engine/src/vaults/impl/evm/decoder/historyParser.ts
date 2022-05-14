@@ -20,7 +20,7 @@ const updateWithHistoryEntry = (
 ): EVMDecodedItem => {
   const { createdAt } = historyEntry;
   const txStatus = txStatusFromHistoryEntry(historyEntry);
-  const updater = { blockSignAt: createdAt, txStatus } as const;
+  const updater = { blockSignedAt: createdAt, txStatus } as const;
   return { ...item, ...updater };
 };
 

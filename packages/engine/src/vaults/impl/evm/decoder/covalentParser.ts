@@ -3,20 +3,18 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import { Network } from '../../../../types/network';
 
 import { parseGasInfo } from './gasParser';
-import { EVMDecodedItem, EVMDecodedTxType } from './types';
+import { EVMDecodedItem } from './types';
 
 import type { Transaction } from '../../../../types/covalent';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const parseCovalentType = (covalentTx: Transaction) =>
-  // TODO: parseType
-  EVMDecodedTxType.TRANSACTION;
+// TODO: rewrite type parser.
+const parseCovalentType = (covalentTx: Transaction) => covalentTx.txType;
 
 const parseCovalent = (covalentTx: Transaction, network: Network) => {
   const itemBuilder = {} as EVMDecodedItem;
   itemBuilder.txType = parseCovalentType(covalentTx);
   itemBuilder.mainSource = 'covalent';
-
+  itemBuilder.txStatus = covalentTx.successful;
   itemBuilder.symbol = network.symbol;
   itemBuilder.value = covalentTx.value;
   itemBuilder.amount = ethers.utils.formatEther(covalentTx.value);
@@ -28,6 +26,7 @@ const parseCovalent = (covalentTx: Transaction, network: Network) => {
   itemBuilder.chainId = network.extraInfo.chainId;
   itemBuilder.fromType = 'IN';
   itemBuilder.gasInfo = parseGasInfo(null, covalentTx);
+  itemBuilder.blockSignedAt = new Date(covalentTx.blockSignedAt).getTime();
   itemBuilder.total = ethers.utils.formatEther(
     ethers.utils
       .parseEther(itemBuilder.value)

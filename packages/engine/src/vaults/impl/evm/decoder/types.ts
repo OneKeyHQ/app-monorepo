@@ -88,7 +88,7 @@ interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
   toAddress: string;
   nonce?: number;
   txHash: string;
-  blockSignAt: number;
+  blockSignedAt: number;
   data: string;
   chainId: number;
   interactWith?: string; // Dapp name or url

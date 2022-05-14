@@ -254,4 +254,4 @@ export type {
   NftMetadata,
   BlockTransactionWithLogEvents,
 };
-export { TxStatus, EVMDecodedTxType, EVMTxFromType };
+export { TxStatus, EVMTxFromType };
