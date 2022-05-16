@@ -3,9 +3,11 @@ import { useCallback, useMemo } from 'react';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import {
+  SerializableTransactionReceipt,
   TransactionDetails,
   addTransaction,
-  cleanAllConfirmedTransaction,
+  cleanFailedTransactions,
+  cleanFulfillTransactions,
   finalizeTransaction,
 } from '../../../store/reducers/swap';
 
@@ -50,10 +52,15 @@ export function useTransactionAdder(): (response: {
 export function useFinalizeTransaction() {
   const { networkId } = useActiveWalletAccount();
   return useCallback(
-    (hash: string) => {
+    (hash: string, receipt?: SerializableTransactionReceipt) => {
       if (networkId) {
         backgroundApiProxy.dispatch(
-          finalizeTransaction({ networkId, hash, confirmedTime: now() }),
+          finalizeTransaction({
+            networkId,
+            hash,
+            confirmedTime: now(),
+            receipt,
+          }),
         );
       }
     },
@@ -61,11 +68,20 @@ export function useFinalizeTransaction() {
   );
 }
 
-export function useCleanAllConfirmedTransaction() {
+export function useCleanFailedTransactions() {
   const { networkId } = useActiveWalletAccount();
   return useCallback(() => {
     if (networkId) {
-      backgroundApiProxy.dispatch(cleanAllConfirmedTransaction({ networkId }));
+      backgroundApiProxy.dispatch(cleanFailedTransactions({ networkId }));
+    }
+  }, [networkId]);
+}
+
+export function useCleanFulfilledTransactions() {
+  const { networkId } = useActiveWalletAccount();
+  return useCallback(() => {
+    if (networkId) {
+      backgroundApiProxy.dispatch(cleanFulfillTransactions({ networkId }));
     }
   }, [networkId]);
 }

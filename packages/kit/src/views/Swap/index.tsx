@@ -11,6 +11,7 @@ import { useSwapActionHandlers, useSwapEnabled } from './hooks/useSwap';
 import { refs } from './refs';
 import SwapContent from './SwapContent';
 import SwapHeader from './SwapHeader';
+import SwapItems from './SwapItems';
 import SwapTransactions from './SwapTransactions';
 import SwapUpdator from './SwapUpdator';
 
@@ -47,6 +48,7 @@ const Swap = () => {
       <SwapHeader />
       <SwapTransactions />
       <SwapContent />
+      <SwapItems />
       <SwapUpdator />
     </Box>
   );

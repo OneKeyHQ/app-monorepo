@@ -8,11 +8,15 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
-import { TransactionDetails } from '../../store/reducers/swap';
+import {
+  SerializableTransactionReceipt,
+  TransactionDetails,
+} from '../../store/reducers/swap';
 
 import {
   useAllTransactions,
-  useCleanAllConfirmedTransaction,
+  useCleanFailedTransactions,
+  useCleanFulfilledTransactions,
   useFinalizeTransaction,
 } from './hooks/useTransactions';
 
@@ -28,12 +32,12 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
   const finalizeTransaction = useFinalizeTransaction();
   const onQuery = useCallback(async () => {
     if (networkId) {
-      const result = await backgroundApiProxy.serviceNetwork.rpcCall(
+      const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
         networkId,
         { method: 'eth_getTransactionReceipt', params: [tx.hash] },
-      );
+      )) as SerializableTransactionReceipt | undefined;
       if (result) {
-        finalizeTransaction(tx.hash);
+        finalizeTransaction(tx.hash, result);
       }
     }
   }, [tx, networkId, finalizeTransaction]);
@@ -80,18 +84,18 @@ const PendingTransactions = () => {
   ) : null;
 };
 
-const ConfirmedTransactions = () => {
+const FulfilledTransactions = () => {
   const intl = useIntl();
   const allTransactions = useAllTransactions();
-  const cleanAllConfirmedTransaction = useCleanAllConfirmedTransaction();
+  const cleanFulfilledTransaction = useCleanFulfilledTransactions();
   const confirmedTxs = Object.values(allTransactions).filter(
-    (tx) => tx.confirmedTime,
+    (tx) => tx.receipt && Number(tx.receipt.status) === 1,
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
     navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
-    cleanAllConfirmedTransaction();
-  }, [cleanAllConfirmedTransaction, navigation]);
+    cleanFulfilledTransaction();
+  }, [cleanFulfilledTransaction, navigation]);
   if (confirmedTxs.length === 0) {
     return <></>;
   }
@@ -101,7 +105,59 @@ const ConfirmedTransactions = () => {
         <Alert
           title={confirmedTxs[0].summary || ''}
           alertType="success"
-          onDismiss={cleanAllConfirmedTransaction}
+          onDismiss={cleanFulfilledTransaction}
+          actionType="right"
+          dismiss={false}
+          action={intl.formatMessage({ id: 'action__view' })}
+          onAction={onAction}
+        />
+      </Box>
+    );
+  }
+  return (
+    <Box mb="4" maxW="420" w="full">
+      <Alert
+        title={intl.formatMessage(
+          {
+            id: 'content__str_transactions_succeeded',
+          },
+          {
+            'content__str_transactions_succeeded': confirmedTxs.length,
+          },
+        )}
+        alertType="success"
+        actionType="right"
+        dismiss={false}
+        onDismiss={cleanFulfilledTransaction}
+        action={intl.formatMessage({ id: 'action__view' })}
+        onAction={onAction}
+      />
+    </Box>
+  );
+};
+
+const FailedTransactions = () => {
+  const intl = useIntl();
+  const allTransactions = useAllTransactions();
+  const cleanFailedTransactions = useCleanFailedTransactions();
+  const confirmedTxs = Object.values(allTransactions).filter(
+    (tx) => tx.receipt && Number(tx.receipt.status) !== 1,
+  );
+  const navigation = useNavigation<NavigationProps>();
+  const onAction = useCallback(() => {
+    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
+    cleanFailedTransactions();
+  }, [cleanFailedTransactions, navigation]);
+  if (confirmedTxs.length === 0) {
+    return <></>;
+  }
+  if (confirmedTxs.length === 1) {
+    return (
+      <Box mb="4">
+        <Alert
+          title={confirmedTxs[0].summary || ''}
+          alertType="error"
+          onDismiss={cleanFailedTransactions}
           actionType="right"
           dismiss={false}
           action={intl.formatMessage({ id: 'action__view' })}
@@ -121,10 +177,10 @@ const ConfirmedTransactions = () => {
             'content__str_transactions_succeeded': confirmedTxs.length,
           },
         )}
-        alertType="success"
+        alertType="error"
         actionType="right"
         dismiss={false}
-        onDismiss={cleanAllConfirmedTransaction}
+        onDismiss={cleanFailedTransactions}
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
@@ -134,9 +190,10 @@ const ConfirmedTransactions = () => {
 
 const SwapTransactions = () => (
   <Center px="4">
-    <Box maxW="768" width="full">
+    <Box maxW="420" width="full">
       <PendingTransactions />
-      <ConfirmedTransactions />
+      <FulfilledTransactions />
+      <FailedTransactions />
     </Box>
   </Center>
 );

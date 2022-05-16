@@ -36,6 +36,7 @@ const TokenInput: FC<TokenInputProps> = ({
   onChange,
   containerProps,
   type,
+  showMax,
 }) => {
   const intl = useIntl();
   const { balances } = useManageTokens();
@@ -81,6 +82,11 @@ const TokenInput: FC<TokenInputProps> = ({
                 { '0': text },
               )}
             </Typography.Body2>
+            {token && token.tokenIdOnNetwork && Number(value) > 0 && showMax ? (
+              <Typography.Body2 color="text-success" ml="2" onPress={onMax}>
+                {intl.formatMessage({ id: 'action__max' })}
+              </Typography.Body2>
+            ) : null}
           </Box>
         </Pressable>
       </Box>
