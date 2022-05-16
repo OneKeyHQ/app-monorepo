@@ -17,6 +17,7 @@ import {
   Pressable,
   Typography,
   useSafeAreaInsets,
+  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
@@ -24,7 +25,6 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 
-import { useToast } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { ModalScreenProps } from '../../routes/types';
 

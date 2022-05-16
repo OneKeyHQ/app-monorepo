@@ -14,11 +14,11 @@ import {
   Pressable,
   ZStack,
   useForm,
+  useToast,
 } from '@onekeyhq/components';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,

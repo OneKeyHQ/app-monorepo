@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -5,7 +6,9 @@ import { TextStyle } from 'react-native';
 import Toast, { BaseToast } from 'react-native-toast-message';
 
 import ConfirmOnClassic from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-classic.json';
+import ConfirmOnMini from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-mini.json';
 import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-classic.json';
+import EnterPinCodeOnMini from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-onekey-mini.json';
 
 import Box from '../Box';
 import LottieView from '../LottieView';
@@ -80,7 +83,11 @@ const CustomToast: FC<Props> = (outerProps) => {
               {...props}
             >
               <LottieView
-                source={EnterPinCodeOnClassic}
+                source={
+                  props?.deviceType === 'mini'
+                    ? EnterPinCodeOnMini
+                    : EnterPinCodeOnClassic
+                }
                 autoPlay
                 loop
                 style={{ width: '100%' }}
@@ -110,7 +117,11 @@ const CustomToast: FC<Props> = (outerProps) => {
               {...props}
             >
               <LottieView
-                source={ConfirmOnClassic}
+                source={
+                  props?.deviceType === 'mini'
+                    ? ConfirmOnMini
+                    : ConfirmOnClassic
+                }
                 autoPlay
                 loop
                 style={{ width: '100%' }}

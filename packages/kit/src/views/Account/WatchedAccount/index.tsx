@@ -3,12 +3,11 @@ import React, { FC, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, useForm } from '@onekeyhq/components';
+import { Box, Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,

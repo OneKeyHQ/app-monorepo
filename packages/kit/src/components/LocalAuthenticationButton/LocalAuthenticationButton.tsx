@@ -10,10 +10,10 @@ import React, {
 import { useIntl } from 'react-intl';
 import { AppState, AppStateStatus } from 'react-native';
 
-import { IconButton } from '@onekeyhq/components';
+import { IconButton, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useLocalAuthentication, useToast } from '../../hooks';
+import { useLocalAuthentication } from '../../hooks';
 import { useAppSelector, useSettings } from '../../hooks/redux';
 import { wait } from '../../utils/helper';
 import { ValidationFields } from '../Protected/types';

@@ -159,7 +159,7 @@ class BleDeviceStore {
       this.isConnecting = true;
     });
     try {
-      await bleUtils?.connect(device.id);
+      await bleUtils?.connect(device.id, 'classic');
       runInAction(() => {
         console.log('连接成功');
         // @ts-ignore

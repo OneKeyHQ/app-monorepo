@@ -11,12 +11,13 @@ import {
   KeyboardDismissView,
   Modal,
   Typography,
+  useToast,
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens, useToast } from '../../hooks';
+import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';

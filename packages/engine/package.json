@@ -25,7 +25,7 @@
     "@ethersproject/keccak256": "^5.6.0",
     "@ethersproject/transactions": "^5.6.0",
     "@onekeyfe/blockchain-libs": "0.0.32",
-    "@onekeyfe/js-sdk": "1.1.4",
+    "@onekeyfe/js-sdk": "1.1.5",
     "@onekeyfe/default-token-list": "1.4.0",
     "@onekeyfe/network-list": "1.4.5",
     "bignumber.js": "^9.0.1",

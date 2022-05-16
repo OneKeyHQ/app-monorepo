@@ -2,11 +2,10 @@ import React, { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks/redux';
-import { useToast } from '../../../hooks/useToast';
 
 export default function useRemoveAccountDialog() {
   const intl = useIntl();

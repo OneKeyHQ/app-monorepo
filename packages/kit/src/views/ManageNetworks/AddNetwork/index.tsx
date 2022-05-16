@@ -10,10 +10,11 @@ import {
   Typography,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce, useToast } from '../../../hooks';
+import { useDebounce } from '../../../hooks';
 
 type NetworkValues = {
   name: string;

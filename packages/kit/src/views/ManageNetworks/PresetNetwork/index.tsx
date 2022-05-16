@@ -21,10 +21,10 @@ import {
   Typography,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useToast } from '../../../hooks';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import { DiscardAlert } from './DiscardAlert';

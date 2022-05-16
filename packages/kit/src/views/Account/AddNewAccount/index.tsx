@@ -4,14 +4,14 @@ import React, { FC, useCallback, useEffect, useMemo } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, useForm } from '@onekeyhq/components';
+import { Box, Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useNavigationActions, useToast } from '@onekeyhq/kit/src/hooks';
+import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
