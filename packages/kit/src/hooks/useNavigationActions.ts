@@ -17,12 +17,15 @@ export function useNavigationActions() {
   }, [navigation]);
 
   const resetToRoot = useCallback(() => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 1,
-        routes: [{ name: RootRoutes.Root }],
-      }),
-    );
+    /** next frame */
+    setTimeout(() => {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [{ name: RootRoutes.Root }],
+        }),
+      );
+    });
   }, [navigation]);
 
   const resetToWelcome = useCallback(() => {
