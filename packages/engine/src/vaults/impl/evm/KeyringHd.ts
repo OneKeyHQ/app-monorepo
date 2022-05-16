@@ -1,50 +1,26 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { ISignCredentialOptions } from '../../../types/vault';
+import { OneKeyInternalError } from '../../../errors';
+import { Signer } from '../../../proxy';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import type { IUnsignedMessageEvm } from './Vault';
-
 export class KeyringHd extends KeyringHdBase {
-  async signTransaction(
-    unsignedTx: UnsignedTx,
-    options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const { networkId } = this;
-    const dbAccount = await this.getDbAccount();
-    const credential = await this.getCredential(options);
-    const signers = this.engine.providerManager.getSigners(
-      networkId,
-      credential,
-      dbAccount,
-    );
-    debugLogger.engine('EVM signTransaction', unsignedTx, signers);
-    return this.engine.providerManager.signTransaction(
-      networkId,
-      unsignedTx,
-      signers,
-    );
-  }
-
-  async signMessage(
-    messages: IUnsignedMessageEvm[],
-    options: ISignCredentialOptions,
-  ): Promise<string[]> {
-    const credential = await this.getCredential(options);
-    const network = await this.getNetwork();
+  override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
 
-    return this.engine.providerManager.signMessages(
-      credential,
-      options.password || '',
-      network,
-      dbAccount,
-      messages,
+    if (addresses.length !== 1) {
+      throw new OneKeyInternalError('EVM signers number should be 1.');
+    } else if (addresses[0] !== dbAccount.address) {
+      throw new OneKeyInternalError('Wrong address required for signing.');
+    }
+
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+      password,
     );
+    if (typeof privateKey === 'undefined') {
+      throw new OneKeyInternalError('Unable to get signer.');
+    }
+
+    return {
+      [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
+    };
   }
 }

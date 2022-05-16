@@ -12,7 +12,11 @@ import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, PendingQueueTooLong } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+  PendingQueueTooLong,
+} from '../../../errors';
 import {
   extractResponseError,
   fillUnsignedTx,
@@ -37,6 +41,7 @@ import {
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../../types/vault';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import { VaultBase } from '../../VaultBase';
 
 import { Erc20MethodSelectors } from './decoder/abi';
@@ -540,33 +545,49 @@ export default class Vault extends VaultBase {
     return nextNonce;
   }
 
-  private async getSigners(options: ISignCredentialOptions) {
-    // TODO: this can be moved into keyrings.
-    const dbAccount = await this.getDbAccount();
-    const credential = await this.keyring.getCredential(options);
-    await this.engine.providerManager.getProvider(this.networkId);
-    return this.engine.providerManager.getSigners(
-      this.networkId,
-      credential,
-      dbAccount,
-    );
-  }
-
   async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
-    const [signer] = Object.values(await this.getSigners(options));
-    return this.engine.providerManager
-      .getProvider(this.networkId)
-      .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const { password } = options;
+      if (typeof password === 'undefined') {
+        throw new OneKeyInternalError('password required');
+      }
+      const { [dbAccount.address]: signer } = await keyring.getSigners(
+        password,
+        [dbAccount.address],
+      );
+      return this.engine.providerManager
+        .getProvider(this.networkId)
+        .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+    }
+    throw new NotImplemented(
+      'Only software keryings support getting encryption key.',
+    );
   }
 
   async mmDecrypt(
     message: string,
     options: ISignCredentialOptions,
   ): Promise<string> {
-    const [signer] = Object.values(await this.getSigners(options));
-    return this.engine.providerManager
-      .getProvider(this.networkId)
-      .then((provider) => (provider as EthProvider).mmDecrypt(message, signer));
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const { password } = options;
+      if (typeof password === 'undefined') {
+        throw new OneKeyInternalError('password required');
+      }
+      const { [dbAccount.address]: signer } = await keyring.getSigners(
+        password,
+        [dbAccount.address],
+      );
+      return this.engine.providerManager
+        .getProvider(this.networkId)
+        .then((provider) =>
+          (provider as EthProvider).mmDecrypt(message, signer),
+        );
+    }
+    throw new NotImplemented('Only software keryings support mm decryption.');
   }
 
   async personalECRecover(message: string, signature: string): Promise<string> {

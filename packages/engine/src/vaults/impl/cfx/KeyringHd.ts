@@ -1,36 +1,26 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
+import { OneKeyInternalError } from '../../../errors';
+import { Signer } from '../../../proxy';
+import { DBVariantAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import type { ISignCredentialOptions } from '../../../types/vault';
-
 export class KeyringHd extends KeyringHdBase {
-  async signTransaction(
-    unsignedTx: UnsignedTx,
-    options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const { networkId } = this;
-    const dbAccount = await this.getDbAccount();
-    const credential = await this.getCredential(options);
-    const signers = this.engine.providerManager.getSigners(
-      networkId,
-      credential,
-      dbAccount,
-    );
-    debugLogger.engine('CFX signTransaction', unsignedTx, signers);
-    return this.engine.providerManager.signTransaction(
-      networkId,
-      unsignedTx,
-      signers,
-    );
-  }
+  override async getSigners(password: string, addresses: Array<string>) {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const selectedAddress = dbAccount.addresses[this.networkId];
 
-  signMessage(messages: any[], options: ISignCredentialOptions): any {
-    console.log(messages, options);
+    if (addresses.length !== 1) {
+      throw new OneKeyInternalError('CFX signers number should be 1.');
+    } else if (addresses[0] !== selectedAddress) {
+      throw new OneKeyInternalError('Wrong address required for signing.');
+    }
+
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+      password,
+    );
+    if (typeof privateKey === 'undefined') {
+      throw new OneKeyInternalError('Unable to get signer.');
+    }
+
+    return { [selectedAddress]: new Signer(privateKey, password, 'secp256k1') };
   }
 }
