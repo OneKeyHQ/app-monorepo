@@ -22,8 +22,8 @@ import {
   Typography,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   SubmitRequestModalRoutesParams,
   SubmitRequestRoutes,

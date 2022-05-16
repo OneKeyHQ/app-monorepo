@@ -10,13 +10,13 @@ import {
   QRCode,
   Text,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';

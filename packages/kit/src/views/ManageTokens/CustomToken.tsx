@@ -8,6 +8,7 @@ import {
   KeyboardDismissView,
   Modal,
   useForm,
+  useToast,
 } from '@onekeyhq/components';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -16,7 +17,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
-import { useToast } from '../../hooks/useToast';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 

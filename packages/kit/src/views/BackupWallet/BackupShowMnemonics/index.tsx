@@ -4,7 +4,14 @@ import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Button, Modal, VStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Box,
+  Button,
+  Modal,
+  VStack,
+  useToast,
+} from '@onekeyhq/components';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -14,7 +21,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 
 import { setHaptics } from '../../../hooks/setHaptics';
-import { useToast } from '../../../hooks/useToast';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 
 type RouteProps = RouteProp<

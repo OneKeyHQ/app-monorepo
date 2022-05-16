@@ -19,6 +19,7 @@ import {
   Modal,
   Spinner,
   Typography,
+  useToast,
 } from '@onekeyhq/components';
 import type {
   Account,
@@ -27,7 +28,6 @@ import type {
 import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,

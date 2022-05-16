@@ -11,11 +11,12 @@ import {
   Switch,
   Typography,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks, useToast } from '../../../hooks';
+import { useManageNetworks } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 
 import { DiscardAlert } from './DiscardAlert';

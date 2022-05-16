@@ -4,9 +4,15 @@ import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, Typography, useForm } from '@onekeyhq/components';
+import {
+  Box,
+  Form,
+  Modal,
+  Typography,
+  useForm,
+  useToast,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,

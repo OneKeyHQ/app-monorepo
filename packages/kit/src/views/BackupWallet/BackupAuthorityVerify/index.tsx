@@ -5,12 +5,11 @@ import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Modal, Spinner } from '@onekeyhq/components';
+import { Modal, Spinner, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import {
   BackupWalletModalRoutes,

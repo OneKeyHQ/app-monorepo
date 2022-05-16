@@ -9,6 +9,7 @@
 /* eslint-disable no-bitwise */
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import { BleManager, ScanMode, Device } from 'react-native-ble-plx';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Buffer } from 'buffer';
 import state from './state';
@@ -24,8 +25,12 @@ const LENGTH_FILED_END_OFFSET = 18;
 const HEAD_LENGTH = 9;
 
 class BleUtils {
+  connectedDeviceType: IOneKeyDeviceType = 'classic';
+
   // 蓝牙是否连接
   isConnecting: boolean;
+
+  currentConnectDevice = null;
 
   manager: BleManager;
 
@@ -69,7 +74,6 @@ class BleUtils {
       },
       (error, device_1) => {
         if (error) {
-          console.log('startDeviceScan error:', error);
           if (error.errorCode === 102) {
             this.alert('请打开手机蓝牙后再搜索');
           }
@@ -94,7 +98,7 @@ class BleUtils {
   /**
    * 连接蓝牙
    * */
-  async connect(id: string) {
+  async connect(id: string, deviceType: IOneKeyDeviceType) {
     console.log('isConneting:', id);
 
     const manager = await this.getManager();
@@ -104,12 +108,14 @@ class BleUtils {
       const connected = await manager.isDeviceConnected(id);
 
       if (connected) {
+        this.connectedDeviceType = deviceType;
         return;
       }
       const device = await manager.connectToDevice(id, {
         timeout: 3000,
         requestMTU: 512,
       });
+      this.connectedDeviceType = deviceType;
       console.log('connect success:', device.name, device.id);
       await device.discoverAllServicesAndCharacteristics();
       this.peripheralId = device.id;
@@ -158,11 +164,9 @@ class BleUtils {
         )
         .then(
           (characteristic) => {
-            console.log('ble writeWithoutResponse success', formatValue);
             resolve(characteristic);
           },
           (error) => {
-            console.log('ble writeWithoutResponse fail: ', error);
             if (error instanceof Error) {
               // this.alert(`ble writeWithoutResponse fail: ${error.message}`);
             }
@@ -182,14 +186,9 @@ class BleUtils {
       (error, characteristic) => {
         if (error !== null) {
           console.log('ble notication fail .........', error);
+          return;
         }
         if (characteristic !== null && !!characteristic.value) {
-          console.log(
-            'ble notification receive data from characteristic.......',
-            Buffer.from(characteristic.value, 'base64').toString('hex'),
-          );
-
-          // TODO
           state.addBuffer(Buffer.from(characteristic.value, 'base64'));
         }
       },

@@ -3,11 +3,11 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Spinner, Typography } from '@onekeyhq/components';
+import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
 import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/ble/BleOnekeyConnect';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/ble/OnekeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Setup from './Setup';
@@ -79,7 +79,7 @@ const Protected: FC<ProtectedProps> = ({
         ) ?? null;
 
       if (!currentWalletDevice) {
-        Toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
         });
         safeGoBack();
@@ -92,20 +92,21 @@ const Protected: FC<ProtectedProps> = ({
         const result = await Promise.race([
           await onekeyBleConnect.getFeatures({
             id: currentWalletDevice.mac,
+            deviceType: getDeviceTypeByDeviceId(currentWalletDevice.id),
           } as any),
           new Promise((resolve, reject) => setTimeout(reject, 30 * 1000)),
         ]);
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
         safeGoBack();
-        Toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
         });
         return;
       }
 
       if (!features) {
-        Toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
         });
         safeGoBack();
@@ -115,7 +116,7 @@ const Protected: FC<ProtectedProps> = ({
         features.onekey_serial ?? features.serial_no ?? '';
 
       if (currentConnectionWalletId !== currentWalletDevice.id) {
-        Toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'msg__hardware_not_same' }),
         });
         safeGoBack();
