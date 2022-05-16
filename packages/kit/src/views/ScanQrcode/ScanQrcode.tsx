@@ -6,18 +6,14 @@ import {
   useIsFocused,
   useRoute,
 } from '@react-navigation/core';
-import * as Application from 'expo-application';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import * as IntentLauncher from 'expo-intent-launcher';
-import * as Linking from 'expo-linking';
 import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
-  Dialog,
   Icon,
   Modal,
   Typography,
@@ -27,13 +23,14 @@ import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
 import useNavigation from '../../hooks/useNavigation';
 
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
 
-const { isWeb, isNative: isApp, isIOS } = platformEnv;
+const { isWeb, isNative: isApp } = platformEnv;
 
 type ScanQrcodeRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
@@ -107,7 +104,7 @@ const ScanQrcode: FC = () => {
 
   useEffect(() => {
     if (isFocused) {
-      // 页面返回时重新激活扫码功能
+      // reactivate scanning when return to this page
       setScanned(false);
     }
   }, [isFocused]);
@@ -162,45 +159,7 @@ const ScanQrcode: FC = () => {
     );
   }
   if (currentPermission === PermissionStatus.DENIED) {
-    return (
-      <Dialog
-        visible
-        onClose={() => {
-          navigation.getParent()?.goBack();
-        }}
-        contentProps={{
-          icon: <Icon name="ExclamationOutline" size={48} />,
-          title: intl.formatMessage({
-            id: 'modal__camera_access_not_granted',
-          }),
-          content: intl.formatMessage({
-            id: 'modal__camera_access_not_granted_desc',
-          }),
-        }}
-        footerButtonProps={
-          isWeb
-            ? { hidePrimaryAction: true }
-            : {
-                primaryActionProps: {
-                  children: intl.formatMessage({ id: 'action__go_to_setting' }),
-                },
-                onPrimaryActionPress: ({ onClose }) => {
-                  onClose?.();
-                  if (isIOS) {
-                    Linking.openURL('app-settings:');
-                  } else {
-                    IntentLauncher.startActivityAsync(
-                      IntentLauncher.ActivityAction
-                        .APPLICATION_DETAILS_SETTINGS,
-                      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                      { data: `package:${Application.applicationId!}` },
-                    );
-                  }
-                },
-              }
-        }
-      />
-    );
+    return <PermissionDialog type="camera" />;
   }
   return null;
 };
