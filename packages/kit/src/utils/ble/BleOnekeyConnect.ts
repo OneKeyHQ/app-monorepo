@@ -1,7 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/js-sdk';
 
-import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/ble/utils';
-import { UICallback } from '@onekeyhq/kit/src/utils/device/deviceConnection';
+import deviceUtils from '@onekeyhq/kit/src/utils/device/deviceUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { BLEHandler } from './handler';
@@ -13,7 +13,6 @@ class BleOnekeyConnect {
     if (platformEnv.isBrowser) return false;
     if (!this.initialized) {
       try {
-        OneKeyConnect.on('UI_EVENT', UICallback);
         // @ts-ignore
         await OneKeyConnect.init({
           env: 'react-native',
@@ -30,8 +29,8 @@ class BleOnekeyConnect {
     return true;
   }
 
-  async getFeatures(device: BleDevice): Promise<Features | null> {
-    await bleUtils?.connect(device.id);
+  async getFeatures(device: any): Promise<Features | null> {
+    await deviceUtils?.connect(device.id, device.deviceType);
     await this.init();
 
     const features = await OneKeyConnect.getFeatures({ keepSession: false });
@@ -42,8 +41,8 @@ class BleOnekeyConnect {
     return null;
   }
 
-  async backupWallet(device: BleDevice) {
-    await bleUtils?.connect(device.id);
+  async backupWallet(device: any) {
+    await deviceUtils?.connect(device.id, device.deviceType);
     await this.init();
 
     const response = await OneKeyConnect.backupDevice();

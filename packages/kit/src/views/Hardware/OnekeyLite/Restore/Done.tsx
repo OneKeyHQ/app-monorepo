@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Modal, Spinner } from '@onekeyhq/components';
+import { Modal, Spinner, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
@@ -17,8 +17,6 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { savePassword } from '@onekeyhq/kit/src/utils/localAuthentication';
-
-import { useToast } from '../../../../hooks';
 
 type PasswordViewProps = {
   password: string;

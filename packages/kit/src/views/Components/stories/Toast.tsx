@@ -2,8 +2,7 @@ import React, { useCallback } from 'react';
 
 import { Column } from 'native-base';
 
-import { Button, Center, Stack, Toast } from '@onekeyhq/components';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import { Button, Center, Stack, Toast, useToast } from '@onekeyhq/components';
 
 const ToastGallery = () => {
   const toast = useToast();

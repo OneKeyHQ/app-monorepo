@@ -6,8 +6,6 @@ import Pressable from '../Pressable';
 import { ThemeValues } from '../Provider/theme';
 import { Text } from '../Typography';
 
-export { useToast } from 'native-base';
-
 type ToastStatus = 'info' | 'warning' | 'danger' | 'success' | undefined;
 
 export type ToastProps = {

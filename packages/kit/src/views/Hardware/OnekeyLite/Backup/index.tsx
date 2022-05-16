@@ -11,9 +11,9 @@ import {
   CallbackError,
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
+import { useToast } from '@onekeyhq/components';
 import { ButtonType } from '@onekeyhq/components/src/Button';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useToast } from '@onekeyhq/kit/src/hooks';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,

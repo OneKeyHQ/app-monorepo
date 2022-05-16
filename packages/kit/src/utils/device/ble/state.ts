@@ -9,7 +9,7 @@ import { Buffer } from 'buffer';
 type Listener = (state: BleExchange) => boolean;
 
 class BleExchange {
-  debug = true;
+  debug = false;
 
   requestNeeded = false;
 
@@ -76,9 +76,7 @@ class BleExchange {
           this.buffer.length,
         );
       }
-      console.log('----this prev', this.isReadDone);
       this.isReadDone = true;
-      console.log('----this', this.isReadDone);
     }
   }
 
@@ -112,7 +110,6 @@ class BleExchange {
     return new Promise((resolve) => {
       const id = setTimeout(() => {
         const status = listener(this);
-        console.log('---status', status);
         // if (status) {
         //   clearInterval(id);
         //   console.log('--resolve', this.isReadDone);

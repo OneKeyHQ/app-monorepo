@@ -23,15 +23,13 @@ const BLEHandler: BLEBridge = {
     return Promise.resolve([{ path: 'ble', debug: false }]);
   },
 
-  async acquire(path) {
+  async acquire() {
     await Promise.resolve();
-    console.log('acquire .........', path);
     state.acquire();
   },
 
-  async release(path) {
+  async release() {
     await Promise.resolve();
-    console.log('release .........', path);
     state.release();
   },
 
@@ -46,13 +44,10 @@ const BLEHandler: BLEBridge = {
   },
 
   async read() {
-    console.log('read .........');
-
     await when(() => state.isReadDone);
 
     const data = state.getData().toString('hex');
     state.clearData();
-    console.log('数据接收完毕', data);
     return Promise.resolve({ data });
   },
 };

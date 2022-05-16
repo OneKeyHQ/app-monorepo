@@ -11,11 +11,11 @@ import {
   Spinner,
   Text,
   Typography,
+  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   HomeRoutes,
   HomeRoutesParams,

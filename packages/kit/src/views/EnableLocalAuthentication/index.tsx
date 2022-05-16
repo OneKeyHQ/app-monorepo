@@ -3,13 +3,12 @@ import React, { FC, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected from '../../components/Protected';
 import { useSettings } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
-import { useToast } from '../../hooks/useToast';
 import { toggleEnableLocalAuthentication } from '../../store/reducers/settings';
 
 type EnableLocalAuthenticationProps = {

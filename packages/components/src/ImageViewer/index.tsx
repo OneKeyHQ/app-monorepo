@@ -19,8 +19,7 @@ import {
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
-import { Icon, Pressable, Select } from '@onekeyhq/components';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
+import { Icon, Pressable, Select, useToast } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Image as NetImage } from '../NetImage';

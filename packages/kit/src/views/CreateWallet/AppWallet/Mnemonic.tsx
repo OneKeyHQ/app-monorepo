@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  useToast,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
@@ -18,7 +19,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigationActions, useToast } from '../../../hooks';
+import { useNavigationActions } from '../../../hooks';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,

@@ -51,7 +51,7 @@ export async function getFeatures(): Promise<Features> {
   console.error(response.payload);
   throw new OneKeyHardwareError({
     code: response.payload.code,
-    message: `getFeatures: ${response.payload.error}`,
+    message: response.payload.error,
   });
 }
 
@@ -132,7 +132,7 @@ export async function ethereumGetAddress(
   console.error(response.payload);
   throw new OneKeyHardwareError({
     code: response.payload.code,
-    message: `ethereumGetAddress: ${response.payload.error}`,
+    message: response.payload.error,
   });
 }
 
@@ -319,7 +319,7 @@ export async function ethereumSignTransaction(
   console.error(response.payload);
   throw new OneKeyHardwareError({
     code: response.payload.code,
-    message: `ethereumSignTransaction: ${response.payload.error}`,
+    message: response.payload.error,
   });
 }
 
@@ -374,7 +374,7 @@ export async function getXpubs(
   console.error(response.payload);
   throw new OneKeyHardwareError({
     code: response.payload.code,
-    message: `ethereumGetAddress: ${response.payload.error}`,
+    message: response.payload.error,
   });
 }
 

@@ -9,7 +9,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
 import { UICallback } from '@onekeyhq/kit/src/utils/device/deviceConnection';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AppLoading: FC = ({ children }) => {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -62,7 +61,6 @@ const AppLoading: FC = ({ children }) => {
   }, [initService]);
 
   useEffect(() => {
-    if (!platformEnv.isBrowser) return;
     OneKeyConnect.on('UI_EVENT', UICallback);
     return () => {
       OneKeyConnect.off('UI_EVENT', UICallback);

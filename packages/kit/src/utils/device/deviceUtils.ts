@@ -1,6 +1,7 @@
 import OneKeyConnect, { Features } from '@onekeyfe/js-sdk';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import bleUtils, { BleDevice } from '../ble/utils';
 
@@ -14,6 +15,8 @@ export type ScannedDevice =
   | (Features & { id: string; name: string });
 
 class DeviceUtils {
+  connectedDeviceType: IOneKeyDeviceType = 'classic';
+
   startDeviceScan(callback: (d: ScannedDevice) => void) {
     const interval = async () => {
       const deviceFeatures = await OneKeyConnect.getFeatures({
@@ -40,8 +43,8 @@ class DeviceUtils {
     clearTimeout(timeoutId);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  connect(_id?: string): Promise<void> {
+  connect(_id: string, deviceType: IOneKeyDeviceType): Promise<void> {
+    this.connectedDeviceType = deviceType;
     return Promise.resolve();
   }
 }

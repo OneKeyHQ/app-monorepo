@@ -18,6 +18,7 @@ import {
   Searchbar,
   Spinner,
   Typography,
+  useToast,
   utils,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
@@ -26,7 +27,7 @@ import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
-import { useDebounce, useManageTokens, useToast } from '../../hooks';
+import { useDebounce, useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { timeout } from '../../utils/helper';
 

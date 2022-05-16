@@ -5,10 +5,9 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { URL } from 'react-native-url-polyfill';
 
-import { Box, Icon, Select } from '@onekeyhq/components';
+import { Box, Icon, Select, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import WebView from '../../components/WebView';

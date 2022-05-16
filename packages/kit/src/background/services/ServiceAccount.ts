@@ -324,20 +324,35 @@ class ServiceAccount extends ServiceBase {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     const networkId = appSelector((s) => s.general.activeNetworkId);
-
+    const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
     let wallet = null;
     let account = null;
 
     await engine.upsertDevice(features, bleUUID);
-    wallet = await engine.createHWWallet({
-      avatar: avatar ?? randomAvatar(),
-      features,
+    const deviceId = features.onekey_serial ?? features.serial_no ?? '';
+
+    // ignore duplicate wallet toast when current hardware does not have accounts.
+    const walletExistButNoAccount = wallets.find((w) => {
+      const targetWallet = w.associatedDevice === deviceId;
+      if (!targetWallet) return false;
+      if (!w.accounts.length) return true;
+      return false;
     });
+    if (walletExistButNoAccount) {
+      wallet = walletExistButNoAccount;
+    } else {
+      wallet = await engine.createHWWallet({
+        avatar: avatar ?? randomAvatar(),
+        features,
+      });
+    }
+
     const accounts = await engine.addHDAccounts(
       'Undefined',
       wallet.id,
       networkId,
     );
+
     if (accounts.length > 0) {
       const $account = accounts[0];
       account = $account;
