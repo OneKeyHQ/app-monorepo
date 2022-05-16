@@ -187,4 +187,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       address: dbAccount.address,
     };
   }
+
+  abstract getExportedCredential(password: string): Promise<string>;
 }

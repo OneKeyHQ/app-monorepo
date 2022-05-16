@@ -1,15 +1,10 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import {
-  CurveName,
-  batchGetPrivateKeys,
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { encrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import { Features } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
@@ -30,7 +25,6 @@ import { DbApi } from './dbs';
 import {
   DBAPI,
   DEFAULT_VERIFY_STRING,
-  ExportedPrivateKeyCredential,
   ExportedSeedCredential,
   checkPassword,
 } from './dbs/base';
@@ -47,7 +41,6 @@ import { getErc20TransferHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import {
   getAccountNameInfoByImpl,
-  getDefaultCurveByCoinType,
   implToAccountType,
   implToCoinTypes,
 } from './managers/impl';
@@ -57,12 +50,7 @@ import {
   getImplFromNetworkId,
 } from './managers/network';
 import { getNetworkIdFromTokenId } from './managers/token';
-import {
-  walletCanBeRemoved,
-  walletIsHD,
-  walletIsHW,
-  walletIsImported,
-} from './managers/wallet';
+import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import {
   getPresetNetworks,
   getPresetToken,
@@ -210,43 +198,6 @@ class Engine {
     } catch (error) {
       console.error(error);
     }
-  }
-
-  async getCredentialSelectorForAccount(
-    accountId: string,
-    password: string,
-  ): Promise<CredentialSelector> {
-    const walletId = getWalletIdFromAccountId(accountId);
-    if (walletIsHD(walletId)) {
-      const { seed } = (await this.dbApi.getCredential(
-        walletId,
-        password,
-      )) as ExportedSeedCredential;
-      return {
-        type: CredentialType.SOFTWARE,
-        seed,
-        password,
-      };
-    }
-    if (walletIsHW(walletId)) {
-      return {
-        type: CredentialType.HARDWARE,
-      };
-    }
-    if (walletIsImported(walletId)) {
-      const { privateKey } = (await this.dbApi.getCredential(
-        accountId,
-        password,
-      )) as ExportedPrivateKeyCredential;
-      return {
-        type: CredentialType.PRIVATE_KEY,
-        privateKey,
-        password,
-      };
-    }
-    throw new OneKeyInternalError(
-      `Can't get credential for account ${accountId}.`,
-    );
   }
 
   @backgroundMethod()
@@ -530,46 +481,19 @@ class Engine {
     password: string,
     // networkId?: string, TODO: different curves on different networks.
   ): Promise<string> {
-    const walletId = getWalletIdFromAccountId(accountId);
-    if (!walletIsHD(walletId) && !walletIsImported(walletId)) {
-      throw new OneKeyInternalError(
-        'Only private key of HD or imported accounts can be exported.',
-      );
+    const { coinType } = await this.dbApi.getAccount(accountId);
+    // TODO: need a method to get default network from coinType.
+    const networkId = {
+      '60': 'evm--1',
+      '503': 'cfx--1029',
+      '397': 'near--0',
+    }[coinType];
+    if (typeof networkId === 'undefined') {
+      throw new NotImplemented('Unsupported network.');
     }
 
-    const credentialSelector = await this.getCredentialSelectorForAccount(
-      accountId,
-      password,
-    );
-
-    let encryptedPrivateKey: Buffer;
-    switch (credentialSelector.type) {
-      case CredentialType.SOFTWARE: {
-        const dbAccount = await this.dbApi.getAccount(accountId);
-        const curve = getDefaultCurveByCoinType(dbAccount.coinType);
-        const pathComponents = dbAccount.path.split('/');
-        const relPath = pathComponents.pop() as string;
-        encryptedPrivateKey = batchGetPrivateKeys(
-          curve as CurveName,
-          credentialSelector.seed,
-          password,
-          pathComponents.join('/'),
-          [relPath],
-        )[0].extendedKey.key;
-        break;
-      }
-      case CredentialType.PRIVATE_KEY:
-        encryptedPrivateKey = credentialSelector.privateKey;
-        break;
-      default:
-        throw new NotImplemented();
-    }
-
-    if (typeof encryptedPrivateKey === 'undefined') {
-      throw new NotImplemented();
-    }
-
-    return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+    const vault = await this.getVault({ accountId, networkId });
+    return vault.getExportedCredential(password);
   }
 
   @backgroundMethod()
