@@ -83,8 +83,6 @@ import {
   Account,
   AccountType,
   DBAccount,
-  DBSimpleAccount,
-  DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
 import { CredentialSelector, CredentialType } from './types/credential';
@@ -881,34 +879,20 @@ class Engine {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
+    // TODO: move address validation into vaults.
     const [, normalizedAddress] = await Promise.all([
       this.validator.validateAccountNames([name]),
       this.validator.validateAddress(networkId, target),
     ]);
 
     const impl = getImplFromNetworkId(networkId);
-    const coinType = implToCoinTypes[impl];
-    if (typeof coinType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
-    const accountType = implToAccountType[impl];
-    if (typeof accountType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
+    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    const dbAccount = await vault.prepareWatchingAccount(
+      normalizedAddress,
+      name,
+    );
 
-    let address = normalizedAddress;
-    if (accountType === AccountType.VARIANT) {
-      address = await this.providerManager.addressToBase(networkId, address);
-    }
-    const a = await this.dbApi.addAccountToWallet('watching', {
-      id: `watching--${coinType}--${address}`,
-      name: name || '',
-      type: accountType,
-      path: '',
-      coinType,
-      pub: '', // TODO: only address is supported for now.
-      address,
-    });
+    const a = await this.dbApi.addAccountToWallet('watching', dbAccount);
 
     await this.addDefaultToken(a.id, impl);
 

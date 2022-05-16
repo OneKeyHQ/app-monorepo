@@ -6,9 +6,15 @@ import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
 import { NotImplemented } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
+import {
+  Account,
+  AccountType,
+  DBAccount,
+  DBVariantAccount,
+} from '../../../types/account';
 import {
   IApproveInfo,
   IEncodedTxAny,
@@ -154,6 +160,27 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  override async prepareWatchingAccount(
+    target: string,
+    name: string,
+  ): Promise<DBVariantAccount> {
+    // TODO: address to base
+    const address = await this.engine.providerManager.addressToBase(
+      this.networkId,
+      target,
+    );
+    return {
+      id: `watching--${COIN_TYPE}--${address}`,
+      name: name || '',
+      type: AccountType.VARIANT,
+      path: '',
+      coinType: COIN_TYPE,
+      pub: '', // TODO: only address is supported for now.
+      address,
+      addresses: { [this.networkId]: target },
+    };
+  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();

@@ -8,7 +8,7 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented } from '../errors';
-import { Account } from '../types/account';
+import { Account, DBAccount } from '../types/account';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -40,8 +40,11 @@ abstract class VaultBaseChainOnly extends VaultContext {
   abstract prepareSoftwareAccounts();
   abstract prepareHardwareAccounts();
   abstract prepareImportedAccount();
-  abstract prepareWatchingAccount();
   */
+  abstract prepareWatchingAccount(
+    target: string,
+    name: string,
+  ): Promise<DBAccount>;
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();

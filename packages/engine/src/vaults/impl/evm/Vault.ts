@@ -12,6 +12,7 @@ import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { COINTYPE_ETH as COIN_TYPE } from '../../../constants';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -22,7 +23,11 @@ import {
   fillUnsignedTx,
   fillUnsignedTxObj,
 } from '../../../proxy';
-import { DBAccount } from '../../../types/account';
+import {
+  AccountType,
+  DBAccount,
+  DBSimpleAccount,
+} from '../../../types/account';
 import {
   HistoryEntryStatus,
   HistoryEntryTransaction,
@@ -627,6 +632,23 @@ export default class Vault extends VaultBase {
       'latest',
     ]);
     return new BigNumber(rawAllowanceHex as string).shiftedBy(-token.decimals);
+  }
+
+  // Chain only functionalities below.
+
+  override async prepareWatchingAccount(
+    target: string,
+    name: string,
+  ): Promise<DBSimpleAccount> {
+    return Promise.resolve({
+      id: `watching--${COIN_TYPE}--${target}`,
+      name: name || '',
+      type: AccountType.SIMPLE,
+      path: '',
+      coinType: COIN_TYPE,
+      pub: '', // TODO: only address is supported for now.
+      address: target,
+    });
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
