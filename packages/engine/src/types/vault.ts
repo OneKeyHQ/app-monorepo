@@ -93,3 +93,18 @@ export type IFeeInfoPayload = {
     value: IFeeInfoUnit;
   };
 };
+
+export type IPrepareSoftwareAccountsParams = {
+  walletId: string;
+  password: string;
+  indexes: Array<number>;
+  purpose?: number;
+  names?: Array<string>;
+};
+
+export type IPrepareHardwareAccountsParams = {
+  walletId: string;
+  indexes: Array<number>;
+  purpose?: number;
+  names?: Array<string>;
+};

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { Conflux } from '@onekeyfe/blockchain-libs/dist/provider/chains/cfx/conflux';
+import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
@@ -9,6 +10,7 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
+import { ExportedSeedCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import {
@@ -23,6 +25,8 @@ import {
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
+  IPrepareHardwareAccountsParams,
+  IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../../types/vault';
@@ -226,6 +230,65 @@ export default class Vault extends VaultBase {
       address: baseAddress,
       addresses: { [this.networkId]: addressOnNetwork },
     });
+  }
+
+  override async prepareSoftwareAccounts(
+    params: IPrepareSoftwareAccountsParams,
+  ): Promise<Array<DBVariantAccount>> {
+    const { walletId, password, indexes, names } = params;
+    const { seed } = (await this.engine.dbApi.getCredential(
+      walletId,
+      password,
+    )) as ExportedSeedCredential;
+
+    const pubkeyInfos = batchGetPublicKeys(
+      'secp256k1',
+      seed,
+      password,
+      "m/44'/503'/0'/0", // TODO: constant
+      indexes.map((index) => index.toString()),
+    );
+
+    if (pubkeyInfos.length !== indexes.length) {
+      throw new OneKeyInternalError('Unable to get publick key.');
+    }
+
+    const ret = [];
+    let index = 0;
+    for (const info of pubkeyInfos) {
+      const {
+        path,
+        extendedKey: { key: pubkey },
+      } = info;
+      const pub = pubkey.toString('hex');
+      const addressOnNetwork = await this.engine.providerManager.addressFromPub(
+        this.networkId,
+        pub,
+      );
+      const baseAddress = await this.engine.providerManager.addressToBase(
+        this.networkId,
+        addressOnNetwork,
+      );
+      const name = (names || [])[index] || `CFX #${indexes[index] + 1}`;
+      ret.push({
+        id: `${walletId}--${path}`,
+        name,
+        type: AccountType.VARIANT,
+        path,
+        coinType: COIN_TYPE,
+        pub,
+        address: baseAddress,
+        addresses: { [this.networkId]: addressOnNetwork },
+      });
+      index += 1;
+    }
+    return ret;
+  }
+
+  override async prepareHardwareAccounts(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<Array<DBVariantAccount>> {
+    throw new NotImplemented();
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {

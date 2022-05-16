@@ -38,12 +38,8 @@ import {
   isAccountCompatibleWithNetwork,
 } from './managers/account';
 import { getErc20TransferHistories } from './managers/covalent';
-import { getDefaultPurpose, getXpubs } from './managers/derivation';
-import {
-  getAccountNameInfoByImpl,
-  implToAccountType,
-  implToCoinTypes,
-} from './managers/impl';
+import { getDefaultPurpose } from './managers/derivation';
+import { implToCoinTypes } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
@@ -70,9 +66,11 @@ import {
   Account,
   AccountType,
   DBAccount,
+  DBMulAddrAccount,
+  DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
-import { CredentialSelector, CredentialType } from './types/credential';
+import { CredentialType } from './types/credential';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -558,46 +556,39 @@ class Engine {
       throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
     }
 
-    const { impl } = dbNetwork;
-    const accountPrefix =
-      getAccountNameInfoByImpl(impl)[purpose || 'default'].prefix;
-
-    let credential: CredentialSelector;
-    let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
+    const indexes = Array.from(Array(limit).keys())
+      .map((index) => start + index)
+      .filter((i) => i < 2 ** 31);
+    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    let accounts: Array<DBAccount>;
 
     if (wallet.type === WALLET_TYPE_HD) {
-      const { seed } = (await this.dbApi.getCredential(
-        wallet.id,
+      accounts = await vault.prepareSoftwareAccounts({
+        walletId,
         password,
-      )) as ExportedSeedCredential;
-      credential = {
-        type: CredentialType.SOFTWARE,
-        seed,
-        password,
-      };
+        indexes,
+        purpose,
+      });
     } else if (wallet.type === WALLET_TYPE_HW) {
-      credential = { type: CredentialType.HARDWARE };
-      outputFormat = 'address';
+      accounts = await vault.prepareHardwareAccounts({
+        walletId,
+        indexes,
+        purpose,
+      });
     } else {
       throw new OneKeyInternalError('Incorrect wallet selector.');
     }
 
-    const accountInfos = await getXpubs(
-      impl,
-      credential,
-      outputFormat as 'xpub' | 'pub' | 'address',
-      Array.from(Array(limit).keys()).map((index) => start + index),
-      purpose,
-      dbNetwork.curve,
-    );
-
-    const addresses = await Promise.all(
-      accountInfos.map((accountInfo) =>
-        outputFormat === 'pub'
-          ? this.providerManager.addressFromPub(networkId, accountInfo.info)
-          : Promise.resolve(accountInfo.info),
-      ),
-    );
+    const addresses = accounts.map((a) => {
+      if (a.type === AccountType.MULADDR) {
+        // TODO: rename to UTXO
+        return (a as DBMulAddrAccount).xpub;
+      }
+      if (a.type === AccountType.VARIANT) {
+        return (a as DBVariantAccount).addresses[networkId];
+      }
+      return a.address;
+    });
     const balances = await this.providerManager.proxyGetBalances(
       networkId,
       addresses,
@@ -605,8 +596,8 @@ class Engine {
     );
     return balances.map((balance, index) => ({
       index: start + index,
-      path: accountInfos[index].path,
-      defaultName: `${accountPrefix} #${start + index + 1}`,
+      path: accounts[index].path,
+      defaultName: accounts[index].name,
       displayAddress: addresses[index],
       mainBalance:
         typeof balance === 'undefined'
@@ -644,76 +635,42 @@ class Engine {
     }
 
     const { impl } = dbNetwork;
-    const coinType = implToCoinTypes[impl];
-    if (typeof coinType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
-    const accountType = implToAccountType[impl];
-    if (typeof accountType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
-    const accountPrefix =
-      getAccountNameInfoByImpl(impl)[purpose || 'default'].prefix;
-
     const usedPurpose = purpose || getDefaultPurpose(impl);
     const usedIndexes = indexes || [
       wallet.nextAccountIds[`${usedPurpose}'/${implToCoinTypes[impl]}'`] || 0,
     ];
-    let credential: CredentialSelector;
-    let outputFormat = 'pub'; // For UTXO, should be xpub, for now, only pub(software) or address(hardware) is possible.
-
-    if (wallet.type === WALLET_TYPE_HD) {
-      const { seed } = (await this.dbApi.getCredential(
-        wallet.id,
-        password,
-      )) as ExportedSeedCredential;
-      credential = {
-        type: CredentialType.SOFTWARE,
-        seed,
-        password,
-      };
-    } else if (wallet.type === WALLET_TYPE_HW) {
-      credential = { type: CredentialType.HARDWARE };
-      outputFormat = 'address';
-    } else {
-      throw new OneKeyInternalError('Incorrect wallet selector.');
+    if (usedIndexes.some((index) => index >= 2 ** 31)) {
+      throw new OneKeyInternalError(
+        'Invalid child index, should be less than 2^31.',
+      );
     }
 
-    const accountInfos = await getXpubs(
-      impl,
-      credential,
-      outputFormat as 'xpub' | 'pub' | 'address',
-      usedIndexes,
-      purpose,
-      dbNetwork.curve,
-    );
-    const ret: Array<Account> = [];
-    let accountIndex = 0;
+    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    let accounts: Array<DBAccount>;
 
-    for (const accountInfo of accountInfos) {
-      let address = '';
-      if (accountType === AccountType.VARIANT && outputFormat === 'pub') {
-        address = await this.providerManager.addressFromPub(
-          networkId,
-          accountInfo.info,
-        );
-        address = await this.providerManager.addressToBase(networkId, address);
-      } else if (outputFormat === 'address') {
-        address = accountInfo.info;
-      }
-
-      const accountNum = usedIndexes[accountIndex] + 1;
-      const name =
-        (names || [])[accountIndex] || `${accountPrefix} #${accountNum}`;
-      const { id } = await this.dbApi.addAccountToWallet(wallet.id, {
-        id: `${wallet.id}--${accountInfo.path}`,
-        name,
-        type: accountType,
-        path: accountInfo.path,
-        coinType,
-        pub: outputFormat === 'pub' ? accountInfo.info : '',
-        address,
+    if (wallet.type === WALLET_TYPE_HD) {
+      accounts = await vault.prepareSoftwareAccounts({
+        walletId,
+        password,
+        indexes: usedIndexes,
+        purpose: usedPurpose,
+        names,
       });
+    } else if (wallet.type === WALLET_TYPE_HW) {
+      accounts = await vault.prepareHardwareAccounts({
+        walletId,
+        indexes: usedIndexes,
+        purpose: usedPurpose,
+        names,
+      });
+    } else {
+      throw new NotImplemented();
+    }
+
+    const ret: Array<Account> = [];
+
+    for (const dbAccount of accounts) {
+      const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
 
       await this.addDefaultToken(id, impl);
 
@@ -722,7 +679,6 @@ class Engine {
       if ((await callback(account)) === false) {
         break;
       }
-      accountIndex += 1;
     }
     return ret;
   }

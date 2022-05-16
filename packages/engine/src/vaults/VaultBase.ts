@@ -23,7 +23,12 @@ import { WalletType } from '../types/wallet';
 
 import { VaultContext } from './VaultContext';
 
-import type { IBroadcastedTx, ISignCredentialOptions } from '../types/vault';
+import type {
+  IBroadcastedTx,
+  IPrepareHardwareAccountsParams,
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../types/vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
 import type { VaultHelperBase } from './VaultHelperBase';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
@@ -36,10 +41,6 @@ export type IKeyringMapKey = WalletType;
 abstract class VaultBaseChainOnly extends VaultContext {
   // Methods not related to a single account, but implementation.
 
-  /* TODO
-  abstract prepareSoftwareAccounts();
-  abstract prepareHardwareAccounts();
-  */
   abstract prepareWatchingAccount(
     target: string,
     name: string,
@@ -49,6 +50,14 @@ abstract class VaultBaseChainOnly extends VaultContext {
     privateKey: Buffer,
     name: string,
   ): Promise<DBAccount>;
+
+  abstract prepareSoftwareAccounts(
+    params: IPrepareSoftwareAccountsParams,
+  ): Promise<Array<DBAccount>>;
+
+  abstract prepareHardwareAccounts(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<Array<DBAccount>>;
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
