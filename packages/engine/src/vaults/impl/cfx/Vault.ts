@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { Conflux } from '@onekeyfe/blockchain-libs/dist/provider/chains/cfx/conflux';
+import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -7,7 +8,7 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
-import { NotImplemented } from '../../../errors';
+import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import {
   Account,
@@ -165,7 +166,7 @@ export default class Vault extends VaultBase {
     target: string,
     name: string,
   ): Promise<DBVariantAccount> {
-    // TODO: address to base
+    // TODO: remove addressToBase from proxy.ts
     const address = await this.engine.providerManager.addressToBase(
       this.networkId,
       target,
@@ -180,6 +181,35 @@ export default class Vault extends VaultBase {
       address,
       addresses: { [this.networkId]: target },
     };
+  }
+
+  override async prepareImportedAccount(
+    privateKey: Buffer,
+    name: string,
+  ): Promise<DBVariantAccount> {
+    if (privateKey.length !== 32) {
+      throw new OneKeyInternalError('Invalid private key.');
+    }
+    const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
+    // TODO: remove addressFromPub & addressToBase from proxy.ts
+    const addressOnNetwork = await this.engine.providerManager.addressFromPub(
+      this.networkId,
+      pub,
+    );
+    const baseAddress = await this.engine.providerManager.addressToBase(
+      this.networkId,
+      addressOnNetwork,
+    );
+    return Promise.resolve({
+      id: `imported--${COIN_TYPE}--${pub}`,
+      name: name || '',
+      type: AccountType.VARIANT,
+      path: '',
+      coinType: COIN_TYPE,
+      pub,
+      address: baseAddress,
+      addresses: { [this.networkId]: addressOnNetwork },
+    });
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {

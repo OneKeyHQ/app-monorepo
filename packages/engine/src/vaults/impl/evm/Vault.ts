@@ -5,6 +5,7 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
+import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -648,6 +649,30 @@ export default class Vault extends VaultBase {
       coinType: COIN_TYPE,
       pub: '', // TODO: only address is supported for now.
       address: target,
+    });
+  }
+
+  override async prepareImportedAccount(
+    privateKey: Buffer,
+    name: string,
+  ): Promise<DBSimpleAccount> {
+    if (privateKey.length !== 32) {
+      throw new OneKeyInternalError('Invalid private key.');
+    }
+    const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
+    // TODO: remove addressFromPub from proxy.ts
+    const address = await this.engine.providerManager.addressFromPub(
+      this.networkId,
+      pub,
+    );
+    return Promise.resolve({
+      id: `imported--${COIN_TYPE}--${pub}`,
+      name: name || '',
+      type: AccountType.SIMPLE,
+      path: '',
+      coinType: COIN_TYPE,
+      pub,
+      address,
     });
   }
 

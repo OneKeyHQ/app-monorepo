@@ -39,10 +39,14 @@ abstract class VaultBaseChainOnly extends VaultContext {
   /* TODO
   abstract prepareSoftwareAccounts();
   abstract prepareHardwareAccounts();
-  abstract prepareImportedAccount();
   */
   abstract prepareWatchingAccount(
     target: string,
+    name: string,
+  ): Promise<DBAccount>;
+
+  abstract prepareImportedAccount(
+    privateKey: Buffer,
     name: string,
   ): Promise<DBAccount>;
 

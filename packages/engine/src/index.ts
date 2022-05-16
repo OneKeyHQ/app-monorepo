@@ -4,7 +4,6 @@ import {
   CurveName,
   batchGetPrivateKeys,
   mnemonicFromEntropy,
-  publicFromPrivate,
   revealableSeedFromMnemonic,
 } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
@@ -812,62 +811,26 @@ class Engine {
     name?: string,
   ): Promise<Account> {
     const impl = getImplFromNetworkId(networkId);
-    if (impl !== IMPL_EVM) {
-      // TODO: support other impls besides EVMs.
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
-
-    const coinType = implToCoinTypes[impl];
-    if (typeof coinType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
-    const accountType = implToAccountType[impl];
-    if (typeof accountType === 'undefined') {
-      throw new OneKeyInternalError(`Unsupported implementation ${impl}.`);
-    }
-
     const privateKey = Buffer.from(
       credential.startsWith('0x') ? credential.slice(2) : credential,
       'hex',
     );
-    if (privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.'); // TODO
-    }
-
-    const curve = getDefaultCurveByCoinType(coinType) as CurveName;
     const encryptedPrivateKey = encrypt(password, privateKey);
-    const publicKey = publicFromPrivate(
-      curve,
-      encryptedPrivateKey,
+    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    const dbAccount = await vault.prepareImportedAccount(
+      privateKey,
+      name || '',
+    );
+
+    await this.dbApi.addAccountToWallet('imported', dbAccount, {
+      type: CredentialType.PRIVATE_KEY,
+      privateKey: encryptedPrivateKey,
       password,
-    ).toString('hex');
-    const accountId = `imported--${coinType}--${publicKey}`;
-    const address = await this.providerManager.addressFromPub(
-      networkId,
-      publicKey,
-    );
+    });
 
-    await this.dbApi.addAccountToWallet(
-      'imported',
-      {
-        id: accountId,
-        name: name || '',
-        type: accountType,
-        path: '',
-        coinType,
-        pub: publicKey,
-        address,
-      },
-      {
-        type: CredentialType.PRIVATE_KEY,
-        privateKey: encryptedPrivateKey,
-        password,
-      },
-    );
+    await this.addDefaultToken(dbAccount.id, impl);
 
-    await this.addDefaultToken(accountId, impl);
-
-    return this.getAccount(accountId, networkId);
+    return this.getAccount(dbAccount.id, networkId);
   }
 
   @backgroundMethod()
