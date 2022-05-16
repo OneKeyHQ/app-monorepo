@@ -26,7 +26,7 @@
     "firefox": "yarn copy:inject && yarn workspace @onekeyhq/ext firefox",
     "ext": "yarn copy:inject && yarn workspace @onekeyhq/ext start",
     "build:ext": "yarn copy:inject && yarn workspace @onekeyhq/ext build:all",
-    "desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop dev",
+    "desktop": "TRANSFORM_REGENERATOR_DISABLED=true yarn copy:inject && yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
