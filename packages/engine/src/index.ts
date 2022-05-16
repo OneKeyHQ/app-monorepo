@@ -1759,7 +1759,8 @@ class Engine {
         );
       }
     }
-    return getMergedTxs(
+
+    const txs = getMergedTxs(
       filtedHistory,
       network,
       dbAccount.address,
@@ -1767,6 +1768,8 @@ class Engine {
       filterOptions?.contract,
       filterOptions?.isLocalOnly,
     );
+
+    return txs;
   }
 
   @backgroundMethod()

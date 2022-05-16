@@ -13,6 +13,8 @@ import type { Engine } from '../../../..';
 
 const PAGE_SIZE = 50;
 
+const getTxHash = (h: HistoryEntryTransaction) => h.id.split('--').pop() ?? '';
+
 const getMergedTxs = async (
   historyEntries: HistoryEntryTransaction[],
   network: Network,
@@ -47,7 +49,7 @@ const getMergedTxs = async (
   const settledCovalentTxs = covalentTxs.filter(
     (tx) => tx.successful !== TxStatus.Pending,
   );
-  const localTxHashs = new Set(historyEntries.map((h) => h.id));
+  const localTxHashs = new Set(historyEntries.map((h) => getTxHash(h)));
 
   const { remote, both } = settledCovalentTxs.reduce<{
     remote: Transaction[];
@@ -68,7 +70,7 @@ const getMergedTxs = async (
   const remoteTxs = remote.map((tx) => parseCovalent(tx, network));
 
   const localTxs = historyEntries.map(async (h) =>
-    EVMTxDecoder.getDecoder(engine).decodeHistoryEntry(h, both[h.id]),
+    EVMTxDecoder.getDecoder(engine).decodeHistoryEntry(h, both[getTxHash(h)]),
   );
   const localTxsRes = await Promise.all(localTxs);
   return [...localTxsRes, ...remoteTxs];

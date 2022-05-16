@@ -17,12 +17,11 @@ import TotalFee from './TotalFee';
 
 const TxHistoryDetail: FC<{
   tx: EVMDecodedItem;
-  blockSignedAt?: string;
-}> = ({ tx, blockSignedAt }) => {
+}> = ({ tx }) => {
   const intl = useIntl();
   const openBlockBrowser = useOpenBlockBrowser(tx.network);
 
-  const { txType, info, txStatus } = tx;
+  const { txType, info, txStatus, blockSignedAt, nonce } = tx;
 
   let swapInfo;
   let tokenTransferInfo;
@@ -88,7 +87,14 @@ const TxHistoryDetail: FC<{
         {!!blockSignedAt && (
           <Container.Item
             title={intl.formatMessage({ id: 'form__trading_time' })}
-            describe={blockSignedAt}
+            describe={`${blockSignedAt}`}
+          />
+        )}
+
+        {!!nonce && (
+          <Container.Item
+            title={intl.formatMessage({ id: 'content__nonce' })}
+            describe={`${nonce}`}
           />
         )}
 
@@ -118,7 +124,14 @@ const TxHistoryDetail: FC<{
           describe={tx.gasInfo.gasLimit.toString()}
         />
 
-        {/* TODO: GAS USED */}
+        {!!tx.gasInfo.gasUsed && (
+          <Container.Item
+            title={intl.formatMessage({ id: 'content__gas_used' })}
+            describe={`${`${tx.gasInfo.gasUsed}(${(
+              100 * tx.gasInfo.gasUsedRatio
+            ).toFixed(2)}%)`}`}
+          />
+        )}
 
         <Container.Item
           title={intl.formatMessage({ id: 'content__gas_price' })}

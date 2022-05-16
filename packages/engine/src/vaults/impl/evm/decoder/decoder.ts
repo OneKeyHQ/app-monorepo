@@ -50,7 +50,9 @@ class EVMTxDecoder {
     const tx = rawTxPreDecodeCache
       ? await jsonToEthersTx(rawTxPreDecodeCache)
       : rawTx;
-    return this.decode(tx, payload, covalentTx, historyEntry);
+    const decoded = await this.decode(tx, payload, covalentTx, historyEntry);
+    decoded.raw = rawTx;
+    return decoded;
   }
 
   public async decode(

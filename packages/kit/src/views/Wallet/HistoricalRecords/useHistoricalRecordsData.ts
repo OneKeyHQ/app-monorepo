@@ -33,11 +33,9 @@ const toTransactionSection = (
 
   const sortData = _data.sort((a, b) => b.blockSignedAt - a.blockSignedAt);
 
-  return sortData.reduce((acc: TransactionGroup[], cur: EVMDecodedItem) => {
+  const groups = sortData.reduce((acc: TransactionGroup[], cur) => {
     let key = queueStr;
-    if (cur.txStatus === TxStatus.Pending) {
-      key = queueStr;
-    } else {
+    if (cur.txStatus !== TxStatus.Pending) {
       key = formatDate(cur.blockSignedAt);
     }
 
@@ -49,6 +47,42 @@ const toTransactionSection = (
     dateGroup.data.push(cur);
     return acc;
   }, []);
+
+  // bring pending txs to the top.
+  const sortedGroups = groups.sort((a) => (a.title === queueStr ? -1 : 1));
+
+  return sortedGroups;
+};
+
+const filtePendingList = (list: EVMDecodedItem[]) => {
+  const pending = list.filter(
+    (h) => h.txStatus === TxStatus.Pending && !!h.nonce,
+  );
+
+  const nonceMap = pending.reduce<Map<number, EVMDecodedItem[]>>((acc, cur) => {
+    const { nonce } = cur;
+
+    if (typeof nonce === 'undefined') {
+      return acc;
+    }
+
+    const origin = acc.get(nonce);
+    if (origin) {
+      acc.set(nonce, [...origin, cur]);
+    } else {
+      acc.set(nonce, [cur]);
+    }
+    return acc;
+  }, new Map<number, EVMDecodedItem[]>());
+
+  const dropList: string[] = [];
+  nonceMap.forEach((i) => {
+    const sameNonceList = i.sort((a, b) => a.blockSignedAt - b.blockSignedAt);
+    sameNonceList.pop(); // pop most recent one.
+    dropList.push(...sameNonceList.map((x) => x.txHash));
+  });
+
+  return list.filter((h) => !dropList.includes(h.txHash));
 };
 
 type RequestParamsType = {
@@ -109,11 +143,13 @@ export const useHistoricalRecordsData = ({
       },
     );
 
+    const filted = filtePendingList(history);
+
     if (params.isInternalSwapOnly) {
-      return history.filter((h) => h.txType === EVMDecodedTxType.INTERNAL_SWAP);
+      return filted.filter((h) => h.txType === EVMDecodedTxType.INTERNAL_SWAP);
     }
 
-    return history;
+    return filted;
   }, []);
 
   const refresh = useCallback(() => {

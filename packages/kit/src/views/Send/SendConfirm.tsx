@@ -158,16 +158,19 @@ const TransactionConfirm = () => {
   const saveHistory = useCallback(
     (tx: IBroadcastedTx) => {
       const historyId = `${networkId}--${tx.txid}`;
+      const historyBase = {
+        id: historyId,
+        accountId,
+        networkId,
+        type: HistoryEntryType.TRANSFER,
+        status: HistoryEntryStatus.PENDING,
+      };
       // save transfer type history
       if (isTransferTypeTx) {
         const payloadTransfer = payload as TransferSendParamsPayload;
         const { to, token, value } = payloadTransfer;
         backgroundApiProxy.engine.addHistoryEntry({
-          id: historyId,
-          accountId,
-          networkId,
-          type: HistoryEntryType.TRANSFER,
-          status: HistoryEntryStatus.PENDING,
+          ...historyBase,
           meta: {
             contract: token?.idOnNetwork || '',
             target: to,
@@ -180,11 +183,7 @@ const TransactionConfirm = () => {
         const payloadSwap = payload as SwapQuote;
         const { to, value } = payloadSwap;
         backgroundApiProxy.engine.addHistoryEntry({
-          id: historyId,
-          accountId,
-          networkId,
-          type: HistoryEntryType.TRANSFER,
-          status: HistoryEntryStatus.PENDING,
+          ...historyBase,
           meta: {
             contract: to ?? '',
             target: to,
@@ -193,6 +192,17 @@ const TransactionConfirm = () => {
             rawTx: tx.rawTx,
           },
           payload: payloadSwap,
+        });
+      } else {
+        backgroundApiProxy.engine.addHistoryEntry({
+          ...historyBase,
+          meta: {
+            contract: '',
+            target: '',
+            value: '',
+            ref: params?.sourceInfo?.origin ?? '', // dapp domain
+            rawTx: tx.rawTx,
+          },
         });
       }
     },

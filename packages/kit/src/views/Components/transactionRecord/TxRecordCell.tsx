@@ -237,7 +237,6 @@ const TxRecordCell: FC<{
 
       <Box flexDirection="column" flex={1} ml={3}>
         {ItemInfo}
-        <Text>{tx.mainSource}</Text>
         {tx.txStatus === TxStatus.Pending && (
           <Box flexDirection="row" mt={4} alignItems="center">
             <Typography.Caption color="text-subdued" flex={1}>
