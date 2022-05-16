@@ -46,7 +46,7 @@ export const Attentions: FC<AttentionsProps> = ({ onPress }) => {
             </Typography.DisplayLarge>
           </Center>
           {List.map((item) => (
-            <Box flexDirection="row" mb={4}>
+            <Box flexDirection="row" mb={4} key={item.desc}>
               <Typography.DisplayLarge mt={-1} mr={4}>
                 {item.emoji}
               </Typography.DisplayLarge>
