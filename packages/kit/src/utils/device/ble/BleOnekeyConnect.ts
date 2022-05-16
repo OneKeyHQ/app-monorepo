@@ -1,7 +1,6 @@
 import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/js-sdk';
 
 import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/ble/utils';
-import { UICallback } from '@onekeyhq/kit/src/utils/device/deviceConnection';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BLEHandler from './handler';
@@ -13,7 +12,6 @@ class BleOnekeyConnect {
     if (platformEnv.isBrowser) return false;
     if (!this.initialized) {
       try {
-        OneKeyConnect.on('UI_EVENT', UICallback);
         // @ts-ignore
         await OneKeyConnect.init({
           env: 'react-native',
