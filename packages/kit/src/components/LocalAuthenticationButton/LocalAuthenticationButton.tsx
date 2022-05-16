@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, useCallback, useEffect, useLayoutEffect } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { AppState, AppStateStatus } from 'react-native';
@@ -25,6 +31,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
+  const appState = useRef(AppState.currentState);
   const { enableLocalAuthentication, validationState = {} } = useSettings();
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const { localAuthenticate, getPassword } = useLocalAuthentication();
@@ -50,16 +57,19 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   }, [onOk, onNg, localAuthenticate, getPassword, toast, intl]);
 
   const onChange = useCallback(
-    (state: AppStateStatus) => {
-      if (!field || state !== 'active' || field !== ValidationFields.Unlock) {
-        return;
+    (nextState: AppStateStatus) => {
+      if (appState.current === 'background' && nextState === 'active') {
+        if (!field || field !== ValidationFields.Unlock) {
+          return;
+        }
+        if (
+          validationState[field] === true ||
+          validationState[field] === undefined
+        ) {
+          onLocalAuthenticate();
+        }
       }
-      if (
-        validationState[field] === true ||
-        validationState[field] === undefined
-      ) {
-        onLocalAuthenticate();
-      }
+      appState.current = nextState;
     },
     [onLocalAuthenticate, field, validationState],
   );
