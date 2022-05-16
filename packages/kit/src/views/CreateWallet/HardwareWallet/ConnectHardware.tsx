@@ -153,7 +153,7 @@ const ConnectHardwareModal: FC = () => {
       // setIsSearching(false);
 
       setIsConnectingDeviceId(device.device.id);
-      deviceUtils.connect(device.device.id).then(() => {
+      deviceUtils.connect(device.device.id, device.type).then(() => {
         setIsConnectingDeviceId('');
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,

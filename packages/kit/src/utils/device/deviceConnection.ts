@@ -7,13 +7,12 @@
 import OneKeyConnect from '@onekeyfe/js-sdk';
 
 import { ToastManager } from '@onekeyhq/components';
+import deviceUtils from '@onekeyhq/kit/src/utils/device/deviceUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import bleHandler from './ble/handler';
 
 let hasInitOneKeyConnect = false;
-
-const CONNECT_URL = 'https://connect.onekey.so/';
 
 const wrappedMethods = [
   'getFeatures',
@@ -40,7 +39,7 @@ try {
 
       try {
         const result = await poll(() => original(params));
-        console.log('[OneKey Connect]', key, JSON.stringify(result));
+        // console.log('[OneKey Connect]', key, JSON.stringify(result));
         return result;
       } catch (e) {
         console.log(e);
@@ -54,7 +53,7 @@ try {
 }
 
 export const UICallback = (event: any) => {
-  console.log('[OneKey Connect], UI-EVENT', JSON.stringify(event));
+  // console.log('[OneKey Connect], UI-EVENT', JSON.stringify(event));
   const { type } = event;
   switch (type) {
     case 'ui-cancel-popup-request':
@@ -63,7 +62,9 @@ export const UICallback = (event: any) => {
       break;
     case 'ui-request_pin':
       ToastManager.show(
-        {},
+        {
+          deviceType: deviceUtils?.connectedDeviceType,
+        },
         {
           autoHide: false,
           type: 'enterPinOnDevice',
@@ -81,7 +82,9 @@ export const UICallback = (event: any) => {
     }
     case 'ui-button':
       ToastManager.show(
-        {},
+        {
+          deviceType: deviceUtils?.connectedDeviceType,
+        },
         {
           autoHide: false,
           type: 'confirmOnDevice',

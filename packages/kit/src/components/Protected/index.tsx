@@ -7,6 +7,7 @@ import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/ble/BleOnekeyConnect';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/ble/OnekeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Setup from './Setup';
@@ -91,6 +92,7 @@ const Protected: FC<ProtectedProps> = ({
         const result = await Promise.race([
           await onekeyBleConnect.getFeatures({
             id: currentWalletDevice.mac,
+            deviceType: getDeviceTypeByDeviceId(currentWalletDevice.id),
           } as any),
           new Promise((resolve, reject) => setTimeout(reject, 30 * 1000)),
         ]);

@@ -62,7 +62,10 @@ const DeviceStatusCheckModal: FC = () => {
       try {
         // 10s timeout for device connection
         const result = await Promise.race([
-          onekeyBleConnect.getFeatures(device.device as any),
+          onekeyBleConnect.getFeatures({
+            ...device.device,
+            deviceType: device.type,
+          } as any),
           new Promise((resolve, reject) => setTimeout(reject, 30 * 1000)),
         ]);
         features = result as IOneKeyDeviceFeatures;

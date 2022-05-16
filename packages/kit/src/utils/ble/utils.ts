@@ -9,6 +9,7 @@
 /* eslint-disable no-bitwise */
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import { BleManager, ScanMode, Device } from 'react-native-ble-plx';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { Buffer } from 'buffer';
 import state from './state';
@@ -24,6 +25,8 @@ const LENGTH_FILED_END_OFFSET = 18;
 const HEAD_LENGTH = 9;
 
 class BleUtils {
+  connectedDeviceType: IOneKeyDeviceType = 'classic';
+
   // 蓝牙是否连接
   isConnecting: boolean;
 
@@ -95,7 +98,7 @@ class BleUtils {
   /**
    * 连接蓝牙
    * */
-  async connect(id: string) {
+  async connect(id: string, deviceType: IOneKeyDeviceType) {
     console.log('isConneting:', id);
 
     const manager = await this.getManager();
@@ -105,12 +108,14 @@ class BleUtils {
       const connected = await manager.isDeviceConnected(id);
 
       if (connected) {
+        this.connectedDeviceType = deviceType;
         return;
       }
       const device = await manager.connectToDevice(id, {
         timeout: 3000,
         requestMTU: 512,
       });
+      this.connectedDeviceType = deviceType;
       console.log('connect success:', device.name, device.id);
       await device.discoverAllServicesAndCharacteristics();
       this.peripheralId = device.id;

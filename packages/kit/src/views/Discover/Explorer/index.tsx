@@ -5,7 +5,12 @@ import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Box, DialogManager, useIsSmallLayout, useToast } from '@onekeyhq/components';
+import {
+  Box,
+  DialogManager,
+  useIsSmallLayout,
+  useToast,
+} from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
