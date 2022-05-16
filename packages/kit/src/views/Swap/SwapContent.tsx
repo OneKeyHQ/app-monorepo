@@ -183,7 +183,7 @@ const SwapContent = () => {
             onChange={onChangeInput}
             onPress={onSelectInput}
             containerProps={{ pt: '4', pb: '2' }}
-            isDisabled={isSwapLoading && independentField === 'OUTPUT' }
+            isDisabled={isSwapLoading && independentField === 'OUTPUT'}
             showMax
           />
           <Box w="full" h="10" position="relative">
@@ -214,7 +214,7 @@ const SwapContent = () => {
             onChange={onChangeOutput}
             onPress={onSelectOutput}
             containerProps={{ pb: '4', pt: '2' }}
-            isDisabled={isSwapLoading && independentField === 'INPUT' }
+            isDisabled={isSwapLoading && independentField === 'INPUT'}
           />
           {!isSwapEnabled ? (
             <Box w="full" h="full" position="absolute" />

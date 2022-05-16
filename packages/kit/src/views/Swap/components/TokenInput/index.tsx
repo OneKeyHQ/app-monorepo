@@ -38,7 +38,7 @@ const TokenInput: FC<TokenInputProps> = ({
   containerProps,
   type,
   showMax,
-  isDisabled
+  isDisabled,
 }) => {
   const intl = useIntl();
   const { balances } = useManageTokens();
@@ -69,7 +69,9 @@ const TokenInput: FC<TokenInputProps> = ({
         </Typography.Body2>
         <Pressable
           onPress={() => {
-            if (isDisabled) { return }
+            if (isDisabled) {
+              return;
+            }
             setHaptics();
             onMax();
           }}
@@ -124,7 +126,9 @@ const TokenInput: FC<TokenInputProps> = ({
         </Box>
         <Pressable
           onPress={() => {
-            if (isDisabled) { return }
+            if (isDisabled) {
+              return;
+            }
             setHaptics();
             if (onPress) onPress();
           }}
