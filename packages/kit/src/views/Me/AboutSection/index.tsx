@@ -1,11 +1,17 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Spinner,
+  Text,
+  Typography,
+} from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -38,10 +44,11 @@ export const AboutSection = () => {
   const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-
+  const [checkUpdateLoading, setCheckUpdateLoading] = useState(false);
   const settings = useSettings();
 
   const onCheckUpdate = useCallback(() => {
+    setCheckUpdateLoading(true);
     appUpdates
       .checkAppUpdate()
       .then((version) => {
@@ -63,7 +70,10 @@ export const AboutSection = () => {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        setCheckUpdateLoading(false);
+      });
   }, [intl, modalNavigation, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
@@ -159,6 +169,7 @@ export const AboutSection = () => {
                 id: 'form__check_for_updates',
               })}
             </Text>
+            {checkUpdateLoading ? <Spinner size="sm" /> : undefined}
             <Box>
               <Icon name="ChevronRightSolid" size={20} />
             </Box>

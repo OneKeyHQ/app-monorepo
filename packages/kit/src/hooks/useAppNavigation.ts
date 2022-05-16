@@ -31,6 +31,13 @@ export function navigationGoHomeForceReload() {
   }
 }
 
+/**
+ * - rootNavigation / selfNavigation
+ * - goBack in self
+ * - goBack in parent
+ * - goBack to home
+ * - goBack to home with reload
+ */
 export function navigationGoBack() {
   const navigation = getAppNavigation();
   if (navigation.canGoBack()) {

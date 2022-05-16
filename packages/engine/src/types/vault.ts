@@ -68,13 +68,12 @@ export type IFeeInfo = {
   // TODO merge (limit, prices, EIP1559Fee) to single field
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<string | EIP1559Fee>; // preset gasPrices: normal, fast, rapid
-  symbol?: string;
-  decimals?: number;
-  nativeSymbol?: string;
-  nativeDecimals?: number;
+  symbol?: string; // feeSymbol: GWEI
+  decimals?: number; // feeDecimals: 9
+  nativeSymbol?: string; // ETH
+  nativeDecimals?: number; // 18
   // TODO rename to feeInTx
   tx?: IFeeInfoUnit;
-  currency?: string;
   eip1559?: boolean;
 };
 

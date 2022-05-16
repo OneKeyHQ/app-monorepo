@@ -83,6 +83,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
           });
         }
       } catch (e) {
+        console.error(e);
         if (route.params.backRouteName) {
           navigation.navigate({
             merge: true,
@@ -98,7 +99,6 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({ password }) => {
         //  replacement transaction underpriced
         //  already known
         setTimeout(() => {
-          console.error(e);
           const error = e as OneKeyError;
           // TODO: better error displaying
           if (
