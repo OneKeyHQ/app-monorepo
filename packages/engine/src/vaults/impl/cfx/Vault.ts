@@ -8,7 +8,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { DBAccount } from '../../../types/account';
+import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
 import {
   IApproveInfo,
   IEncodedTxAny,
@@ -125,6 +125,35 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxAny> {
     throw new Error('Method not implemented.');
   }
+
+  override async getOutputAccount(): Promise<Account> {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const ret = {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.addresses?.[this.networkId] || '',
+    };
+    if (ret.address.length === 0) {
+      // TODO: remove selectAccountAddress from proxy
+      const address = await this.engine.providerManager.selectAccountAddress(
+        this.networkId,
+        dbAccount,
+      );
+      await this.engine.dbApi.addAccountAddress(
+        dbAccount.id,
+        this.networkId,
+        address,
+      );
+      ret.address = address;
+    }
+    return ret;
+  }
+
+  // Chain only functionalities below.
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();

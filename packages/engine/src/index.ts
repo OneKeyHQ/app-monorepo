@@ -482,55 +482,6 @@ class Engine {
     return this.dbApi.confirmHDWalletBackuped(walletId);
   }
 
-  private async buildReturnedAccount(
-    dbAccount: DBAccount,
-    networkId?: string,
-  ): Promise<Account> {
-    const account = {
-      id: dbAccount.id,
-      name: dbAccount.name,
-      type: dbAccount.type,
-      path: dbAccount.path,
-      coinType: dbAccount.coinType,
-      tokens: [],
-      address: dbAccount.address,
-    };
-    switch (dbAccount.type) {
-      case AccountType.SIMPLE:
-        if (dbAccount.address === '' && typeof networkId !== 'undefined') {
-          const address = await this.providerManager.addressFromPub(
-            networkId,
-            (dbAccount as DBSimpleAccount).pub,
-          );
-          await this.dbApi.addAccountAddress(dbAccount.id, networkId, address);
-          account.address = address;
-        }
-        break;
-      case AccountType.VARIANT:
-        if (typeof networkId !== 'undefined') {
-          account.address = ((dbAccount as DBVariantAccount).addresses || {})[
-            networkId
-          ];
-          if (typeof account.address === 'undefined') {
-            const address = await this.providerManager.addressFromBase(
-              networkId,
-              dbAccount.address,
-            );
-            await this.dbApi.addAccountAddress(
-              dbAccount.id,
-              networkId,
-              address,
-            );
-            account.address = address;
-          }
-        }
-        break;
-      default:
-        break;
-    }
-    return Promise.resolve(account);
-  }
-
   @backgroundMethod()
   async getAccounts(
     accountIds: Array<string>,
@@ -550,7 +501,21 @@ class Engine {
             isAccountCompatibleWithNetwork(a.id, networkId),
         )
         .sort((a, b) => natsort({ insensitive: true })(a.name, b.name))
-        .map((a: DBAccount) => this.buildReturnedAccount(a, networkId)),
+        .map((a: DBAccount) =>
+          typeof networkId === 'undefined'
+            ? {
+                id: a.id,
+                name: a.name,
+                type: a.type,
+                path: a.path,
+                coinType: a.coinType,
+                tokens: [],
+                address: a.address,
+              }
+            : this.getVault({ accountId: a.id, networkId }).then((vault) =>
+                vault.getOutputAccount(),
+              ),
+        ),
     );
   }
 
@@ -558,10 +523,8 @@ class Engine {
   async getAccount(accountId: string, networkId: string): Promise<Account> {
     // Get account by id. Raise an error if account doesn't exist.
     // Token ids are included.
-    const dbAccount = await this.dbApi.getAccount(accountId);
-    const account = await this.buildReturnedAccount(dbAccount, networkId);
-    account.tokens = await this.dbApi.getTokens(networkId, accountId);
-    return account;
+    const vault = await this.getVault({ accountId, networkId });
+    return vault.getOutputAccount();
   }
 
   @backgroundMethod()
@@ -967,8 +930,16 @@ class Engine {
     // Rename an account. Raise an error if account doesn't exist.
     // Nothing happens if name is not changed.
     await this.validator.validateAccountNames([name]);
-    const a = await this.dbApi.setAccountName(accountId, name);
-    return this.buildReturnedAccount(a);
+    const dbAccount = await this.dbApi.setAccountName(accountId, name);
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+    };
   }
 
   @backgroundMethod()

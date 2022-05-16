@@ -8,6 +8,7 @@ import BigNumber from 'bignumber.js';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented } from '../errors';
+import { Account } from '../types/account';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -34,6 +35,13 @@ export type IKeyringMapKey = WalletType;
 
 abstract class VaultBaseChainOnly extends VaultContext {
   // Methods not related to a single account, but implementation.
+
+  /* TODO
+  abstract prepareSoftwareAccounts();
+  abstract prepareHardwareAccounts();
+  abstract prepareImportedAccount();
+  abstract prepareWatchingAccount();
+  */
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
@@ -157,5 +165,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     spenderAddress: string,
   ): Promise<BigNumber> {
     throw new NotImplemented();
+  }
+
+  async getOutputAccount(): Promise<Account> {
+    // The simplest case as default implementation.
+    const dbAccount = await this.getDbAccount();
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+    };
   }
 }
