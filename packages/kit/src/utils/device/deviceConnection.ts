@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import OneKeyConnect from '@onekeyfe/js-sdk';
 
-import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
+import { ToastManager } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import bleHandler from './ble/handler';
@@ -40,6 +40,7 @@ try {
 
       try {
         const result = await poll(() => original(params));
+        console.log('[OneKey Connect]', key, JSON.stringify(result));
         return result;
       } catch (e) {
         console.log(e);
@@ -52,14 +53,16 @@ try {
   console.log(e);
 }
 
-export const UICallback = ({ type }: { type: string }) => {
+export const UICallback = (event: any) => {
+  console.log('[OneKey Connect], UI-EVENT', JSON.stringify(event));
+  const { type } = event;
   switch (type) {
     case 'ui-cancel-popup-request':
       break;
     case 'ui-device_firmware_outdated':
       break;
     case 'ui-request_pin':
-      Toast.show(
+      ToastManager.show(
         {},
         {
           autoHide: false,
@@ -72,9 +75,12 @@ export const UICallback = ({ type }: { type: string }) => {
         payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
       });
       break;
-
+    case 'ui-invalid_pin': {
+      ToastManager.hide();
+      break;
+    }
     case 'ui-button':
-      Toast.show(
+      ToastManager.show(
         {},
         {
           autoHide: false,
@@ -83,7 +89,7 @@ export const UICallback = ({ type }: { type: string }) => {
       );
       break;
     case 'ui-close_window': {
-      Toast.hide();
+      ToastManager.hide();
       break;
     }
     case 'ui-request_confirmation': {
@@ -100,9 +106,7 @@ const getConnectInstance = async (): Promise<typeof OneKeyConnect> => {
 
   try {
     // const CONNECT_SRC = platformEnv.isDesktop ? '/static/js-sdk/' : CONNECT_URL;
-
     await OneKeyConnect.init({
-      connectSrc: CONNECT_URL,
       transportReconnect: true,
       debug: false,
       popup: false,

@@ -10,6 +10,7 @@ import {
   QRCode,
   Text,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
@@ -20,7 +21,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useToast } from '../../../hooks/useToast';
 
 type NavigationProps = RouteProp<
   ManagerAccountRoutesParams,

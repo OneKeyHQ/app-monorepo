@@ -2,12 +2,11 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, useToast } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks/redux';
-import { useToast } from '../../../hooks/useToast';
 import { setRefreshTS } from '../../../store/reducers/settings';
 
 export type DeleteWalletProp = {

@@ -13,6 +13,7 @@ import {
   Pressable,
   Typography,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
 import { Text } from '@onekeyhq/components/src/Typography';
@@ -24,7 +25,6 @@ import {
 } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {

@@ -27,6 +27,8 @@ class BleUtils {
   // 蓝牙是否连接
   isConnecting: boolean;
 
+  currentConnectDevice = null;
+
   manager: BleManager;
 
   peripheralId: string | undefined = '';
@@ -69,7 +71,6 @@ class BleUtils {
       },
       (error, device_1) => {
         if (error) {
-          console.log('startDeviceScan error:', error);
           if (error.errorCode === 102) {
             this.alert('请打开手机蓝牙后再搜索');
           }
@@ -158,11 +159,9 @@ class BleUtils {
         )
         .then(
           (characteristic) => {
-            console.log('ble writeWithoutResponse success', formatValue);
             resolve(characteristic);
           },
           (error) => {
-            console.log('ble writeWithoutResponse fail: ', error);
             if (error instanceof Error) {
               // this.alert(`ble writeWithoutResponse fail: ${error.message}`);
             }
@@ -182,14 +181,9 @@ class BleUtils {
       (error, characteristic) => {
         if (error !== null) {
           console.log('ble notication fail .........', error);
+          return;
         }
         if (characteristic !== null && !!characteristic.value) {
-          console.log(
-            'ble notification receive data from characteristic.......',
-            Buffer.from(characteristic.value, 'base64').toString('hex'),
-          );
-
-          // TODO
           state.addBuffer(Buffer.from(characteristic.value, 'base64'));
         }
       },

@@ -13,6 +13,7 @@ import {
   Icon,
   Modal,
   Typography,
+  useToast,
 } from '@onekeyhq/components';
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
@@ -36,7 +37,6 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { formatBalanceDisplay, useFormatAmount } from '../../components/Format';
 import useFormatDate from '../../hooks/useFormatDate';
-import { useToast } from '../../hooks/useToast';
 import NFTView from '../Components/nftView';
 import { getTransactionStatusStr } from '../Components/transactionRecord';
 import {

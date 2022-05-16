@@ -15,6 +15,7 @@ import {
   Typography,
   VStack,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import { getUserAsset } from '@onekeyhq/engine/src/managers/opensea';
 import { OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
@@ -23,8 +24,6 @@ import {
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-
-import { useToast } from '../../../hooks/useToast';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 

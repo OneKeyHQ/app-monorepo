@@ -62,8 +62,22 @@ const AppLoading: FC = ({ children }) => {
   }, [initService]);
 
   useEffect(() => {
-    if (!platformEnv.isBrowser) return;
     OneKeyConnect.on('UI_EVENT', UICallback);
+    OneKeyConnect.on('DEVICE_EVENT', (event) => {
+      console.log('DEVICE_EVENT', event);
+    });
+
+    OneKeyConnect.on('RESPONSE_EVENT', (event) => {
+      console.log('RESPONSE_EVENT', event);
+    });
+
+    OneKeyConnect.on('TRANSPORT_EVENT', (event) => {
+      console.log('TRANSPORT_EVENT', event);
+    });
+
+    OneKeyConnect.on('BLOCKCHAIN_EVENT', (event) => {
+      console.log('BLOCKCHAIN_EVENT', event);
+    });
     return () => {
       OneKeyConnect.off('UI_EVENT', UICallback);
     };

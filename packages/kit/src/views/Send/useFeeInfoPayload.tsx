@@ -5,6 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
+import { useToast } from '@onekeyhq/components';
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import {
   IEncodedTxAny,
@@ -13,7 +14,6 @@ import {
   IFeeInfoSelected,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/types/vault';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

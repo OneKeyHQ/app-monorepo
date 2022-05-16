@@ -3,7 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Form, Modal, useForm } from '@onekeyhq/components';
+import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
@@ -13,7 +13,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { useNavigationActions, useToast } from '../../../hooks';
+import { useNavigationActions } from '../../../hooks';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,

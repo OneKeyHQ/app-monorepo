@@ -1,19 +1,21 @@
 import ToastBase, { ToastShowParams } from 'react-native-toast-message';
 
-import { ToastProps } from '@onekeyhq/components/src/Toast';
-
-const toastShow = (props: ToastProps, toastShowParams?: ToastShowParams) => {
+const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.
+   *
+   * Sometime when native Modal close, JS event-loop will not trigger Toast show, need a delay time.
    */
   setTimeout(() => {
     ToastBase.show({
       type: 'default',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       text1: props.title,
       position: 'bottom',
+      props,
       ...toastShowParams,
     });
-  });
+  }, 50);
 };
 
 export const Toast = { show: toastShow, hide: ToastBase.hide };

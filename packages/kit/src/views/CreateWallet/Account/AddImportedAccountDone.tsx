@@ -3,7 +3,7 @@ import React, { FC, useEffect } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
@@ -14,7 +14,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { useNavigationActions, useToast } from '../../../hooks';
+import { useNavigationActions } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
 

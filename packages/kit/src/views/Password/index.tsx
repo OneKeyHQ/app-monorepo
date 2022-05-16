@@ -11,13 +11,14 @@ import {
   Modal,
   Typography,
   useForm,
+  useToast,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
-import { useLocalAuthentication, useToast } from '../../hooks';
+import { useLocalAuthentication } from '../../hooks';
 import {
   useAppDispatch,
   useData,

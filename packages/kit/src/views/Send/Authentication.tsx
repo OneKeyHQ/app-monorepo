@@ -5,13 +5,12 @@ import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner } from '@onekeyhq/components';
+import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import { useToast } from '@onekeyhq/kit/src/hooks/useToast';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';

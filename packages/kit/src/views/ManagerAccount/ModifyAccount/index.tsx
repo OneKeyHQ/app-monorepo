@@ -7,12 +7,12 @@ import {
   Form,
   useForm,
   useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
 import DialogCommon from '@onekeyhq/components/src/Dialog/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useToast } from '../../../hooks/useToast';
 
 type FieldValues = { name: string };
 

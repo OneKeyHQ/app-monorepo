@@ -3,9 +3,14 @@ import React, { FC, useCallback, useEffect } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
+import {
+  Center,
+  Modal,
+  Spinner,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Toast } from '@onekeyhq/kit/src/hooks/useToast';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -41,7 +46,7 @@ const DeviceStatusCheckModal: FC = () => {
   useEffect(() => {
     const timeId = setTimeout(() => {
       safeGoBack();
-      Toast.show({
+      ToastManager.show({
         title: intl.formatMessage({ id: 'action__connection_timeout' }),
       });
     }, 60 * 1000);
@@ -63,7 +68,7 @@ const DeviceStatusCheckModal: FC = () => {
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
         safeGoBack();
-        Toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
         });
         return;
@@ -92,7 +97,7 @@ const DeviceStatusCheckModal: FC = () => {
       } catch (e: any) {
         safeGoBack();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        Toast.show({ title: e?.message ?? '' });
+        ToastManager.show({ title: e?.message ?? '' });
         return;
       }
 
