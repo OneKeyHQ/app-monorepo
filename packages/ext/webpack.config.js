@@ -149,11 +149,7 @@ function createConfig() {
     infrastructureLogging: {
       level: 'info',
     },
-    optimization: {
-      minimize: buildTargetBrowser === 'firefox' ? false : undefined,
-      // https://webpack.js.org/configuration/optimization/#optimizationmoduleids
-      // moduleIds: 'deterministic'
-    },
+    optimization: {},
   };
 
   webpackConfig = nextWebpack(webpackConfig, {
@@ -186,13 +182,18 @@ function createConfig() {
   } else {
     webpackConfig.optimization = {
       ...webpackConfig.optimization,
-      minimize: true,
-      minimizer: [
+    };
+    // https://webpack.js.org/configuration/optimization/#optimizationmoduleids
+    // moduleIds: 'deterministic'
+    const minimize = buildTargetBrowser !== 'firefox';
+    if (minimize) {
+      webpackConfig.optimization.minimize = true;
+      webpackConfig.optimization.minimizer = [
         new TerserPlugin({
           extractComments: false,
         }),
-      ],
-    };
+      ];
+    }
   }
 
   // console.log('------- webpackConfig.module.rules', webpackConfig.module.rules);
