@@ -193,6 +193,8 @@ function createConfig() {
           extractComments: false,
         }),
       ];
+    } else {
+      webpackConfig.optimization.minimize = false;
     }
   }
 
