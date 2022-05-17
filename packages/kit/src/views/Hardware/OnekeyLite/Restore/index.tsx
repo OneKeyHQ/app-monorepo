@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import { SkipAppLock } from '../../../../components/AppLock';
+import { useNavigationActions } from '../../../../hooks';
 import HardwareConnect, { OperateType } from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 
@@ -39,6 +40,7 @@ type RouteProps = RouteProp<
 
 const Restore: FC = () => {
   const intl = useIntl();
+  const { resetToRoot } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
 
@@ -69,6 +71,7 @@ const Restore: FC = () => {
   };
 
   const goBackHome = () => {
+    resetToRoot();
     tabNavigation.navigate(TabRoutes.Home);
     tabNavigation.dispatch(TabActions.jumpTo(TabRoutes.Home, {}));
     tabNavigation.dispatch(DrawerActions.openDrawer());

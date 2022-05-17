@@ -156,6 +156,7 @@ class ServiceApp extends ServiceBase {
     const { dispatch, engine, appSelector } = this.backgroundApi;
     await engine.updatePassword(oldPassword, newPassword);
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    // TODO: Batch update in one action
     if (!data.isPasswordSet) {
       dispatch(passwordSet());
       dispatch(setEnableAppLock(true));
