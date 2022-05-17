@@ -149,7 +149,11 @@ function createConfig() {
     infrastructureLogging: {
       level: 'info',
     },
-    optimization: {},
+    optimization: {
+      minimize: buildTargetBrowser === 'firefox' ? false : undefined,
+      // https://webpack.js.org/configuration/optimization/#optimizationmoduleids
+      // moduleIds: 'deterministic'
+    },
   };
 
   webpackConfig = nextWebpack(webpackConfig, {
