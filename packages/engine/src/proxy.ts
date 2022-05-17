@@ -161,10 +161,10 @@ export function fillUnsignedTxObj({
     maxPriorityFeePerGas: string;
   };
   // EIP 1559
-  if (
+  const eip1559 =
     typeof maxFeePerGas === 'string' &&
-    typeof maxPriorityFeePerGas === 'string'
-  ) {
+    typeof maxPriorityFeePerGas === 'string';
+  if (eip1559) {
     let maxFeePerGasBN = new BigNumber(maxFeePerGas);
     let maxPriorityFeePerGasBN = new BigNumber(maxPriorityFeePerGas);
 
@@ -190,6 +190,10 @@ export function fillUnsignedTxObj({
   let feePricePerUnitBN = feePricePerUnit;
   if (shiftFeeDecimals) {
     feePricePerUnitBN = feePricePerUnitBN?.shiftedBy(network.feeDecimals);
+  }
+  // TODO remove hack for eip1559 gasPrice=1
+  if (eip1559) {
+    feePricePerUnitBN = new BigNumber(1);
   }
 
   return {

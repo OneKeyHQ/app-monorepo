@@ -1,0 +1,19 @@
+diff --git a/node_modules/metro-react-native-babel-preset/src/configs/main.js b/node_modules/metro-react-native-babel-preset/src/configs/main.js
+index 0421d99..956a1a0 100644
+--- a/node_modules/metro-react-native-babel-preset/src/configs/main.js
++++ b/node_modules/metro-react-native-babel-preset/src/configs/main.js
+@@ -133,10 +133,12 @@ const defaultPlugins = [
+   [require("@babel/plugin-transform-function-name")],
+   [require("@babel/plugin-transform-literals")],
+   [require("@babel/plugin-transform-parameters")],
+-  [require("@babel/plugin-transform-regenerator")],
++  process.env.TRANSFORM_REGENERATOR_DISABLED
++    ? false
++    : [require("@babel/plugin-transform-regenerator")],
+   [require("@babel/plugin-transform-sticky-regex")],
+   [require("@babel/plugin-transform-unicode-regex")]
+-]);
++]).filter(Boolean);
+ const es2015ArrowFunctions = [
+   require("@babel/plugin-transform-arrow-functions")
+ ];
