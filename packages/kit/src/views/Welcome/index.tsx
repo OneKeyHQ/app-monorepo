@@ -15,11 +15,9 @@ import {
 } from '@onekeyhq/components';
 
 import logo from '../../../assets/logo.png';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink, useNavigationActions, useOpenBrowser } from '../../hooks';
 import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
-import { setBoardingCompleted } from '../../store/reducers/status';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -38,12 +36,6 @@ const Welcome = () => {
 
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-
-  const { dispatch } = backgroundApiProxy;
-  const onSkip = useCallback(() => {
-    dispatch(setBoardingCompleted());
-    resetToRoot();
-  }, [dispatch, resetToRoot]);
 
   const onCreate = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -119,7 +111,7 @@ const Welcome = () => {
             <Button
               size={isVertical ? 'xl' : 'base'}
               type="plain"
-              onPress={onSkip}
+              onPress={resetToRoot}
             >
               {intl.formatMessage({ id: 'action__skip' })}
             </Button>

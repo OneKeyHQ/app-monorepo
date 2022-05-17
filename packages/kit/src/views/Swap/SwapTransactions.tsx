@@ -7,6 +7,7 @@ import { Alert, Box, Center } from '@onekeyhq/components';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import { setHaptics } from '../../hooks/setHaptics';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import {
   SerializableTransactionReceipt,
@@ -58,6 +59,7 @@ const PendingTransactions = () => {
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
+    setHaptics();
     navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
   }, [navigation]);
   return pendings.length ? (
@@ -93,6 +95,7 @@ const FulfilledTransactions = () => {
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
+    setHaptics();
     navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
     cleanFulfilledTransaction();
   }, [cleanFulfilledTransaction, navigation]);
@@ -145,6 +148,7 @@ const FailedTransactions = () => {
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
+    setHaptics();
     navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
     cleanFailedTransactions();
   }, [cleanFailedTransactions, navigation]);

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -25,14 +25,17 @@ const Setting = () => {
   const onChange = useCallback((text: string) => {
     setSlippage(text.trim());
   }, []);
-  const onBlur = useCallback(() => {
-    const value = new BigNumber(slippage);
-    if (value.gt(0) && value.lt(50)) {
-      backgroundApiProxy.dispatch(setSwapSlippagePercent(slippage));
-    } else if (value.gte(50)) {
-      backgroundApiProxy.dispatch(setSwapSlippagePercent('3'));
-    }
-  }, [slippage]);
+  useEffect(
+    () => () => {
+      const value = new BigNumber(slippage);
+      if (value.gt(0) && value.lt(50)) {
+        backgroundApiProxy.dispatch(setSwapSlippagePercent(slippage));
+      } else if (value.gte(50)) {
+        backgroundApiProxy.dispatch(setSwapSlippagePercent('3'));
+      }
+    },
+    [slippage],
+  );
   const errorMsg = useMemo(() => {
     const value = new BigNumber(slippage);
     if (!slippage || value.gte(50) || value.eq(0)) {
@@ -63,7 +66,6 @@ const Setting = () => {
           rightText="%"
           value={slippage}
           onChangeText={onChange}
-          onBlur={onBlur}
         />
         <HStack space="2">
           <Pressable
