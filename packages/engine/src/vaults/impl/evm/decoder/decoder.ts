@@ -153,6 +153,7 @@ class EVMTxDecoder {
             amount,
             value: value.toString(),
             token,
+            isUInt256Max: amount === InfiniteAmountText,
           } as EVMDecodedItemERC20Approve;
           break;
         }

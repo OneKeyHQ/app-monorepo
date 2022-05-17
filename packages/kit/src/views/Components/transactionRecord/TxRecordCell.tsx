@@ -62,6 +62,8 @@ const getTransactionTypeStr = (intl: IntlShape, tx: EVMDecodedItem): string => {
     txType === EVMDecodedTxType.SWAP
   ) {
     id = 'transaction__exchange';
+  } else if (txType === EVMDecodedTxType.TOKEN_APPROVE) {
+    id = 'title__approve';
   } else if (txType === EVMDecodedTxType.TRANSACTION) {
     id = 'transaction__contract_interaction';
   }
@@ -124,6 +126,21 @@ const TxRecordCell: FC<{
           <Typography.Body2 color="text-subdued" textAlign="right">
             {`→${buyAmount} ${buyTokenSymbol}`}
           </Typography.Body2>
+        </Box>
+      );
+    }
+
+    if (info?.type === EVMDecodedTxType.TOKEN_APPROVE) {
+      const { isUInt256Max, amount, token } = info;
+      return (
+        <Box alignItems="flex-end" minW="156px" maxW="156px" textAlign="right">
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            {`${
+              isUInt256Max
+                ? intl.formatMessage({ id: 'form__unlimited' })
+                : amount
+            } ${token.symbol}`}
+          </Text>
         </Box>
       );
     }

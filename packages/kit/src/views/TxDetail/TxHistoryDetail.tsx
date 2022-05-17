@@ -25,6 +25,7 @@ const TxHistoryDetail: FC<{
 
   let swapInfo;
   let tokenTransferInfo;
+  let approveInfo;
   if (info) {
     switch (info.type) {
       case EVMDecodedTxType.INTERNAL_SWAP:
@@ -32,6 +33,9 @@ const TxHistoryDetail: FC<{
         break;
       case EVMDecodedTxType.TOKEN_TRANSFER:
         tokenTransferInfo = info;
+        break;
+      case EVMDecodedTxType.TOKEN_APPROVE:
+        approveInfo = info;
         break;
       default:
         break;
@@ -67,6 +71,17 @@ const TxHistoryDetail: FC<{
           <Container.Item
             title={intl.formatMessage({ id: 'content__amount' })}
             describe={`${tokenTransferInfo.amount} ${tokenTransferInfo.token.symbol}`}
+          />
+        )}
+
+        {!!approveInfo && (
+          <Container.Item
+            title={intl.formatMessage({ id: 'content__spend_limit_amount' })}
+            describe={`${
+              approveInfo.isUInt256Max
+                ? intl.formatMessage({ id: 'form__unlimited' })
+                : approveInfo.amount
+            } ${approveInfo.token.symbol}`}
           />
         )}
 

@@ -37,6 +37,7 @@ interface EVMDecodedItemERC20Approve {
   token: Token;
   amount: string;
   value: string;
+  isUInt256Max: boolean;
   spender: string;
 }
 
