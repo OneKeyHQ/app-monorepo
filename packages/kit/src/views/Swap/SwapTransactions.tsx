@@ -59,14 +59,10 @@ const PendingTransactions = () => {
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
-<<<<<<< HEAD
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
-=======
     navigation.navigate(HomeRoutes.TransactionHistoryScreen, {
       isInternalSwapOnly: true,
     });
->>>>>>> feat: [wip] parsers.
   }, [navigation]);
   return pendings.length ? (
     <Box mb="4">

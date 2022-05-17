@@ -82,6 +82,7 @@ interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
   symbol: string; // native currency symbol
   amount: string; // in ether
   value: string; // in wei
+  fiatAmount?: number;
   network: Network;
 
   fromAddress: string;

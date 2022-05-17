@@ -15,9 +15,6 @@ import Address from './Address';
 import HeaderIcon from './HeaderIcon';
 import TotalFee from './TotalFee';
 
-const OnekeyLogoUrl =
-  'https://help.onekey.so/hc/article_attachments/4578205272847/OneKey__1_.png';
-
 const TxConfirmSwapDetail: FC<{
   tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
@@ -37,7 +34,7 @@ const TxConfirmSwapDetail: FC<{
       mb={{ base: 4, md: 0 }}
     >
       <HeaderIcon
-        headerInfo={{ iconUrl: OnekeyLogoUrl, iconName: 'OneKey Swap' }}
+        headerInfo={{ iconName: 'BrandLogoIllus', title: 'OneKey Swap' }}
       />
 
       <Container.Box mt={6}>

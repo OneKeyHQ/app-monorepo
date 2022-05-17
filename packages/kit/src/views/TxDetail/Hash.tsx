@@ -2,12 +2,10 @@ import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Container } from '@onekeyhq/components';
+import { Container, useToast } from '@onekeyhq/components';
 import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-
-import { useToast } from '../../hooks';
 
 export type HashProps = {
   hash: string; // tx hash

@@ -20,7 +20,7 @@ const getHeaderIconInfo = (
     | Network
     | TxStatus
     | Token
-    | { iconUrl: string; iconName: string },
+    | { title: string; imageUrl?: string; iconName?: ICON_NAMES },
 ) => {
   let isStatus = false;
   let statusTitle:
@@ -32,8 +32,9 @@ const getHeaderIconInfo = (
   let iconContainerColor = 'surface-critical-default';
   let textColor = 'text-critical';
 
-  let iconUrl = '';
-  let iconName = '';
+  let imageUrl = '';
+  let title = '';
+  let iconName;
 
   if (typeof headerInfo === 'string') {
     // Trascation status
@@ -58,26 +59,27 @@ const getHeaderIconInfo = (
       default:
         break;
     }
-  } else if ('iconUrl' in headerInfo) {
+  } else if ('title' in headerInfo) {
     // Custom header
-    iconUrl = headerInfo.iconUrl;
+    imageUrl = headerInfo.imageUrl ?? '';
     iconName = headerInfo.iconName;
+    title = headerInfo.title;
     iconContainerColor = '';
     textColor = 'text-default';
   } else if ('tokenIdOnNetwork' in headerInfo) {
     // Toekn icon header
     const token = headerInfo;
     const { name, symbol, logoURI } = token;
-    iconUrl = logoURI;
-    iconName = `${symbol}(${name})`;
+    imageUrl = logoURI;
+    title = `${symbol}(${name})`;
     iconContainerColor = '';
     textColor = 'text-default';
   } else {
     // Native currency symbol header
     const network = headerInfo;
     const { name, symbol, logoURI } = network;
-    iconUrl = logoURI;
-    iconName = `${symbol}(${name})`;
+    imageUrl = logoURI;
+    title = `${symbol}(${name})`;
     iconContainerColor = '';
     textColor = 'text-default';
   }
@@ -89,8 +91,9 @@ const getHeaderIconInfo = (
     iconColor,
     iconContainerColor,
     textColor,
-    iconUrl,
+    imageUrl,
     iconName,
+    title,
   };
 };
 
@@ -99,7 +102,7 @@ const HeaderIcon: FC<{
     | Network
     | TxStatus
     | Token
-    | { iconUrl: string; iconName: string };
+    | { title: string; imageUrl?: string; iconName?: ICON_NAMES };
 }> = ({ headerInfo }) => {
   const intl = useIntl();
 
@@ -110,21 +113,34 @@ const HeaderIcon: FC<{
     iconColor,
     iconContainerColor,
     textColor,
-    iconUrl,
+    imageUrl,
     iconName,
+    title,
   } = useMemo(() => getHeaderIconInfo(headerInfo), [headerInfo]);
+
+  const renderIcon = () => {
+    if (iconName) {
+      return <Icon color={iconColor} name={iconName} size={56} />;
+    }
+    return <Icon color={iconColor} name={statusIconName} />;
+  };
 
   return (
     <Center>
       <Center rounded="full" size="56px" bgColor={iconContainerColor}>
-        {isStatus ? (
-          <Icon color={iconColor} name={statusIconName} />
+        {isStatus || !!iconName ? (
+          renderIcon()
         ) : (
-          <Image src={iconUrl} width="56px" height="56px" borderRadius="full" />
+          <Image
+            src={imageUrl}
+            width="56px"
+            height="56px"
+            borderRadius="full"
+          />
         )}
       </Center>
       <Typography.Heading mt={2} color={textColor}>
-        {isStatus ? intl.formatMessage({ id: statusTitle }) : iconName}
+        {isStatus ? intl.formatMessage({ id: statusTitle }) : title}
       </Typography.Heading>
     </Center>
   );

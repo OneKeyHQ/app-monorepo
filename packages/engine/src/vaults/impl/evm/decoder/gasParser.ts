@@ -6,7 +6,8 @@ import type { EVMDecodedItem, GasInfo } from './types';
 const parseFeeSpend = (covalentTx: Transaction) => {
   const { gasPrice, gasSpent } = covalentTx;
   const gasPriceBn = ethers.BigNumber.from(gasPrice);
-  return gasPriceBn.mul(gasSpent).toString();
+  const feeSpendInWei = gasPriceBn.mul(gasSpent);
+  return ethers.utils.formatEther(feeSpendInWei);
 };
 
 const parseMaxFeeSpend = (tx: ethers.Transaction): string => {
@@ -23,7 +24,7 @@ const parseEffectiveGasPrice = (
   if (covalentTx) {
     return covalentTx.gasPrice.toString();
   }
-  return tx?.gasPrice?.toString() ?? '';
+  return tx?.gasPrice?.toString() ?? '0';
 };
 
 const updateGasInfo = (tx: EVMDecodedItem, covalentTx: Transaction) => {

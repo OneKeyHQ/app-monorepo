@@ -91,8 +91,6 @@ const TxRecordCell: FC<{
   const { size } = useUserDevice();
   const intl = useIntl();
   const formatDate = useFormatDate();
-  // const { prices } = useManageTokens();
-  const mainPrice = 123;
 
   const basicInfo = useCallback(
     () => (
@@ -114,7 +112,8 @@ const TxRecordCell: FC<{
   );
 
   const amountInfo = useCallback(() => {
-    const { fromType, txType, info } = tx;
+    const { fromType, info } = tx;
+
     if (info?.type === EVMDecodedTxType.INTERNAL_SWAP) {
       const { buyTokenSymbol, sellTokenSymbol, buyAmount, sellAmount } = info;
       return (
@@ -129,29 +128,28 @@ const TxRecordCell: FC<{
       );
     }
 
-    let { symbol, amount } = tx;
+    let { symbol, amount, fiatAmount } = tx;
+    const fiat = fiatAmount ? `$ ${fiatAmount.toFixed(2)}` : '';
+    const minus = fromType === 'OUT' ? '-' : '';
+
     if (info && info.type === EVMDecodedTxType.TOKEN_TRANSFER) {
       amount = info.amount;
       symbol = info.token.symbol;
     }
-    const fiat = Number(mainPrice) * Number(amount);
     return (
       <Box alignItems="flex-end" minW="156px" maxW="156px">
         <Text
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           textAlign="right"
         >
-          {fromType === 'OUT' && `-${amount ?? '-'} ${symbol}`}
+          {`${minus}${amount ?? '-'} ${symbol}`}
         </Text>
         <Typography.Body2 color="text-subdued" textAlign="right">
-          {fromType === 'OUT' &&
-            txType !== EVMDecodedTxType.ERC721_TRANSFER &&
-            '-'}
-          {`${fiat} ${symbol}`}
+          {`${minus}${fiat}`}
         </Typography.Body2>
       </Box>
     );
-  }, [mainPrice, tx]);
+  }, [tx]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {

@@ -177,6 +177,20 @@ function eventAdapter(
   let fromType = EVMTxFromType.OUT;
   let isSwap = false;
   const nftToken = [];
+
+  if (!logs || !logs.length) {
+    txType = EVMDecodedTxType.NATIVE_TRANSFER;
+    if (from !== user) {
+      fromType = EVMTxFromType.IN;
+    }
+    return {
+      txType,
+      fromType,
+      events: transferEvent,
+      nftToken: [],
+    };
+  }
+
   if (logs !== undefined) {
     for (let i = 0; i < logs.length; i += 1) {
       const log = logs[i];

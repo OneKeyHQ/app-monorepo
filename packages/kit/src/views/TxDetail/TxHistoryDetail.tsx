@@ -87,7 +87,7 @@ const TxHistoryDetail: FC<{
         {!!blockSignedAt && (
           <Container.Item
             title={intl.formatMessage({ id: 'form__trading_time' })}
-            describe={`${blockSignedAt}`}
+            describe={new Date(blockSignedAt).toLocaleString()}
           />
         )}
 
