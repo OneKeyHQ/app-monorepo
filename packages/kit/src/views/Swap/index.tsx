@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { ScrollView } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageTokens } from '../../hooks';
@@ -44,13 +44,13 @@ const Swap = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [network]);
   return (
-    <Box>
+    <ScrollView>
       <SwapHeader />
       <SwapTransactions />
       <SwapContent />
       <SwapItems />
       <SwapUpdator />
-    </Box>
+    </ScrollView>
   );
 };
 

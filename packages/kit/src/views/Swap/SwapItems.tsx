@@ -5,19 +5,21 @@ import { useIntl } from 'react-intl';
 import { Box, Center, Icon, Pressable, Typography } from '@onekeyhq/components';
 
 import { useNavigation } from '../../hooks';
+import { setHaptics } from '../../hooks/setHaptics';
 import { HomeRoutes, RootRoutes } from '../../routes/types';
 
 const SwapItems = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const onPress = useCallback(() => {
+    setHaptics();
     navigation.navigate(RootRoutes.Root, {
       screen: HomeRoutes.TransactionHistoryScreen,
       params: {},
     });
   }, [navigation]);
   return (
-    <Center>
+    <Center px={4} pb="4">
       <Box
         bg="surface-default"
         shadow="depth.2"
