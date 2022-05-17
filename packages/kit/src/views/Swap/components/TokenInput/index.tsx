@@ -26,6 +26,7 @@ type TokenInputProps = {
   onChange?: (text: string) => void;
   containerProps?: ComponentProps<typeof Box>;
   showMax?: boolean;
+  isDisabled?: boolean;
 };
 
 const TokenInput: FC<TokenInputProps> = ({
@@ -36,6 +37,8 @@ const TokenInput: FC<TokenInputProps> = ({
   onChange,
   containerProps,
   type,
+  showMax,
+  isDisabled,
 }) => {
   const intl = useIntl();
   const { balances } = useManageTokens();
@@ -66,6 +69,9 @@ const TokenInput: FC<TokenInputProps> = ({
         </Typography.Body2>
         <Pressable
           onPress={() => {
+            if (isDisabled) {
+              return;
+            }
             setHaptics();
             onMax();
           }}
@@ -81,6 +87,11 @@ const TokenInput: FC<TokenInputProps> = ({
                 { '0': text },
               )}
             </Typography.Body2>
+            {token && token.tokenIdOnNetwork && Number(value) > 0 && showMax ? (
+              <Typography.Body2 color="text-success" ml="2" onPress={onMax}>
+                {intl.formatMessage({ id: 'action__max' })}
+              </Typography.Body2>
+            ) : null}
           </Box>
         </Pressable>
       </Box>
@@ -99,6 +110,7 @@ const TokenInput: FC<TokenInputProps> = ({
             fontSize={24}
             fontWeight="bold"
             bg="transparent"
+            _disabled={{ bg: 'transparent' }}
             _hover={{ bg: 'transparent' }}
             _focus={{ bg: 'transparent' }}
             defaultValue=""
@@ -109,10 +121,14 @@ const TokenInput: FC<TokenInputProps> = ({
             pb="0"
             pl={2}
             h={10}
+            isDisabled={isDisabled}
           />
         </Box>
         <Pressable
           onPress={() => {
+            if (isDisabled) {
+              return;
+            }
             setHaptics();
             if (onPress) onPress();
           }}

@@ -3,11 +3,23 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { SwapError, SwapQuote } from '../../views/Swap/typings';
 import { Token } from '../typings';
 
+export interface SerializableTransactionReceipt {
+  to: string;
+  from: string;
+  contractAddress: string;
+  transactionIndex: number;
+  blockHash: string;
+  transactionHash: string;
+  blockNumber: number;
+  status?: string;
+}
+
 export interface TransactionDetails {
   hash: string;
   approval?: { tokenAddress: string; spender: string };
   summary?: string;
   claim?: { recipient: string };
+  receipt?: SerializableTransactionReceipt;
   lastCheckedBlockNumber?: number;
   addedTime: number;
   confirmedTime?: number;
@@ -99,6 +111,36 @@ export const swapSlice = createSlice({
       const { networkId } = action.payload;
       state.transactions[networkId] = {};
     },
+    cleanFailedTransactions(
+      state,
+      action: PayloadAction<{ networkId: string }>,
+    ) {
+      const { networkId } = action.payload;
+      const transactions = state.transactions[networkId] || {};
+      const result: { [txHash: string]: TransactionDetails } = {};
+      Object.values(transactions).forEach((tx) => {
+        if (tx.receipt && Number(tx.receipt.status) !== 1) {
+          return;
+        }
+        result[tx.hash] = tx;
+      });
+      state.transactions[networkId] = result;
+    },
+    cleanFulfillTransactions(
+      state,
+      action: PayloadAction<{ networkId: string }>,
+    ) {
+      const { networkId } = action.payload;
+      const transactions = state.transactions[networkId] || {};
+      const result: { [txHash: string]: TransactionDetails } = {};
+      Object.values(transactions).forEach((tx) => {
+        if (tx.receipt && Number(tx.receipt.status) === 1) {
+          return;
+        }
+        result[tx.hash] = tx;
+      });
+      state.transactions[networkId] = result;
+    },
     cleanAllConfirmedTransaction(
       state,
       action: PayloadAction<{ networkId: string }>,
@@ -119,13 +161,15 @@ export const swapSlice = createSlice({
         networkId: string;
         hash: string;
         confirmedTime: number;
+        receipt?: SerializableTransactionReceipt;
       }>,
     ) {
-      const { networkId, hash, confirmedTime } = action.payload;
+      const { networkId, hash, confirmedTime, receipt } = action.payload;
       const tx = state.transactions[networkId]?.[hash];
       if (!tx) {
         return;
       }
+      tx.receipt = receipt;
       tx.confirmedTime = confirmedTime;
     },
     setQuote(state, action: PayloadAction<SwapQuote | undefined>) {
@@ -154,7 +198,8 @@ export const {
   refresh,
   addTransaction,
   cleanAllTransaction,
-  cleanAllConfirmedTransaction,
+  cleanFulfillTransactions,
+  cleanFailedTransactions,
   finalizeTransaction,
   setQuote,
   setLoading,
