@@ -13,10 +13,10 @@ import {
   Icon,
   IconButton,
   Modal,
-  NetImage,
   Pressable,
   Searchbar,
   Spinner,
+  Token as TokenImage,
   Typography,
   useToast,
   utils,
@@ -110,7 +110,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 shadow="depth.2"
               >
                 <Box display="flex" alignItems="center" flexDirection="row">
-                  <NetImage uri={item.logoURI} size={32} borderRadius={16} />
+                  <TokenImage size={8} src={item.logoURI} />
                   <Box ml="3">
                     <Text
                       maxW={56}
@@ -317,7 +317,7 @@ const ListingToken: FC<ListingTokenProps> = ({
       shadow="depth.2"
     >
       <Box display="flex" alignItems="center" flexDirection="row">
-        <NetImage uri={item.logoURI} size={32} borderRadius={16} />
+        <TokenImage size={8} src={item.logoURI} />
         <Box ml="3">
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
