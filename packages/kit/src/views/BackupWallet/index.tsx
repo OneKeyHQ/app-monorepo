@@ -25,7 +25,7 @@ type BackupDoneProps = {
 const BackupDone: FC<BackupDoneProps> = ({ password, walletId }) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   useEffect(() => {
-    navigation.navigate(BackupWalletModalRoutes.BackupWalletAttentionsModal, {
+    navigation.replace(BackupWalletModalRoutes.BackupWalletAttentionsModal, {
       walletId,
       password,
     });
@@ -39,7 +39,7 @@ const Backup = () => {
   const { walletId } = route.params;
   return (
     <Modal footer={null}>
-      <Protected walletId={walletId} field={ValidationFields.Wallet}>
+      <Protected walletId={walletId} field={ValidationFields.Secret}>
         {(password) => <BackupDone password={password} walletId={walletId} />}
       </Protected>
     </Modal>
