@@ -44,6 +44,17 @@ export const DevSettingSection = () => {
               onToggle={onToggleTestVersionUpdate}
             />
           </Container.Item>
+          <Container.Item
+            title="Platform and Channel"
+            titleColor="text-default"
+            subDescribe={[
+              `ONEKEY_PLATFORM: ${process.env.ONEKEY_PLATFORM ?? ''}`,
+              `EXT_CHANNEL: ${process.env.EXT_CHANNEL ?? ''}`,
+              `ANDROID_CHANNEL: ${process.env.ANDROID_CHANNEL ?? ''}`,
+              `DESKTOP_PLATFORM: ${window?.desktopApi?.platform}`,
+              `DESKTOP_PLATFORM_ARCH: ${window?.desktopApi?.arch}`,
+            ]}
+          />
         </Container.Box>
       </Box>
     </>
