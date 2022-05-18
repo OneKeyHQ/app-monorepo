@@ -66,7 +66,7 @@ import {
   Account,
   AccountType,
   DBAccount,
-  DBMulAddrAccount,
+  DBUTXOAccount,
   DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
@@ -485,6 +485,7 @@ class Engine {
       '60': 'evm--1',
       '503': 'cfx--1029',
       '397': 'near--0',
+      '0': 'btc--0',
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -569,20 +570,26 @@ class Engine {
     });
 
     const addresses = accounts.map((a) => {
-      if (a.type === AccountType.MULADDR) {
-        // TODO: rename to UTXO
-        return (a as DBMulAddrAccount).xpub;
+      if (a.type === AccountType.UTXO) {
+        // TODO: utxo should use xpub instead of its first address
+        return (a as DBUTXOAccount).address;
       }
       if (a.type === AccountType.VARIANT) {
         return (a as DBVariantAccount).addresses[networkId];
       }
       return a.address;
     });
+    // TODO: balance is not display when searching now
+    const balances: Array<BigNumber | undefined> = addresses.map(
+      () => undefined,
+    );
+    /*
     const balances = await this.providerManager.proxyGetBalances(
       networkId,
       addresses,
       [],
     );
+    */
     return balances.map((balance, index) => ({
       index: start + index,
       path: accounts[index].path,
