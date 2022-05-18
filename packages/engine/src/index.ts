@@ -336,7 +336,7 @@ class Engine {
       });
       await Promise.all(
         networks.map((networkId) =>
-          this.addHDAccounts(password, wallet.id, networkId).then(
+          this.addHdOrHwAccounts(password, wallet.id, networkId).then(
             undefined,
             (e) => console.error(e),
           ),
@@ -596,7 +596,7 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addHDAccounts(
+  async addHdOrHwAccounts(
     password: string,
     walletId: string,
     networkId: string,

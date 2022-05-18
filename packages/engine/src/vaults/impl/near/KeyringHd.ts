@@ -26,19 +26,6 @@ import type { ISignCredentialOptions } from '../../../types/vault';
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 export class KeyringHd extends KeyringHdBase {
-  // async getSigner(options: ISignCredentialOptions) {
-  //   const { networkId } = this;
-  //   const dbAccount = await this.getDbAccount();
-  //   const credential = await this.getCredential(options);
-  //   const signers = this.engine.providerManager.getSigners(
-  //     networkId,
-  //     credential,
-  //     dbAccount,
-  //   );
-  //   const signer = signers[dbAccount.address];
-  //   return signer;
-  // }
-
   // TODO define a basePrepareAccounts() in base class
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,

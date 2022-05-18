@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-unused-vars */
 import { OneKeyInternalError } from '../../../errors';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
@@ -10,5 +11,9 @@ export class KeyringWatching extends KeyringWatchingBase {
 
   signMessage(messages: any[], options: ISignCredentialOptions): any {
     console.log(messages, options);
+  }
+
+  prepareAccounts(params: any): Promise<Array<any>> {
+    throw new OneKeyInternalError('prepareAccounts is not implemented');
   }
 }

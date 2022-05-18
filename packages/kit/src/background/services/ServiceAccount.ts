@@ -208,7 +208,7 @@ class ServiceAccount extends ServiceBase {
     name?: string[],
   ) {
     const { engine, dispatch } = this.backgroundApi;
-    const accounts = await engine.addHDAccounts(
+    const accounts = await engine.addHdOrHwAccounts(
       password,
       walletId,
       networkId,
@@ -343,7 +343,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    const accounts = await engine.addHDAccounts(
+    const accounts = await engine.addHdOrHwAccounts(
       'Undefined',
       wallet.id,
       networkId,

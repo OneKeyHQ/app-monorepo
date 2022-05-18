@@ -286,4 +286,12 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxAny> {
     throw new Error('Method not implemented: updateEncodedTxTokenApprove');
   }
+
+  createClientFromURL(url: string): any {
+    throw new Error('Method not implemented: createClientFromURL');
+  }
+
+  getExportedCredential(password: string): Promise<string> {
+    throw new Error('Method not implemented: getExportedCredential');
+  }
 }
