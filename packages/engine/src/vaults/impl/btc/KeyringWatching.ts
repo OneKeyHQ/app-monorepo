@@ -1,6 +1,7 @@
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 
 import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
+import { InvalidAddress } from '../../../errors';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { IPrepareWatchingAccountsParams } from '../../../types/vault';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
@@ -13,6 +14,9 @@ export class KeyringWatching extends KeyringWatchingBase {
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
     )) as Provider;
+    if (!provider.isValidXpub(target)) {
+      throw new InvalidAddress();
+    }
     const firstAddressRelPath = '0/0';
     const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
       target,

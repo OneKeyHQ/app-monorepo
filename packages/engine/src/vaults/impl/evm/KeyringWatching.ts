@@ -1,13 +1,20 @@
 import { COINTYPE_ETH as COIN_TYPE } from '../../../constants';
+import { InvalidAddress } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { IPrepareWatchingAccountsParams } from '../../../types/vault';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
 export class KeyringWatching extends KeyringWatchingBase {
-  override prepareAccounts(
+  override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { name, target } = params;
+    const { normalizedAddress, isValid } =
+      await this.engine.providerManager.verifyAddress(this.networkId, target);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+
     return Promise.resolve([
       {
         id: `watching--${COIN_TYPE}--${target}`,
@@ -16,7 +23,7 @@ export class KeyringWatching extends KeyringWatchingBase {
         path: '',
         coinType: COIN_TYPE,
         pub: '', // TODO: only address is supported for now.
-        address: target,
+        address: normalizedAddress,
       },
     ]);
   }

@@ -9,6 +9,7 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import { Features } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
+import bs58check from 'bs58check';
 import natsort from 'natsort';
 
 import {
@@ -20,7 +21,13 @@ import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { IMPL_EVM, IMPL_SOL, SEPERATOR, getSupportedImpls } from './constants';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_SOL,
+  SEPERATOR,
+  getSupportedImpls,
+} from './constants';
 import { DbApi } from './dbs';
 import {
   DBAPI,
@@ -672,10 +679,20 @@ class Engine {
     name?: string,
   ): Promise<Account> {
     const impl = getImplFromNetworkId(networkId);
-    const privateKey = Buffer.from(
-      credential.startsWith('0x') ? credential.slice(2) : credential,
-      'hex',
-    );
+    let privateKey: Buffer;
+    try {
+      privateKey =
+        impl === IMPL_BTC
+          ? bs58check.decode(credential)
+          : Buffer.from(
+              credential.startsWith('0x') ? credential.slice(2) : credential,
+              'hex',
+            );
+    } catch (e) {
+      console.error(e);
+      throw new OneKeyInternalError('Invalid credential to import.');
+    }
+
     const encryptedPrivateKey = encrypt(password, privateKey);
     const vault = await this.getVault({
       networkId,
@@ -707,11 +724,7 @@ class Engine {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
     // TODO: now only adding by address is supported.
-    // TODO: move address validation into vaults.
-    const [, normalizedAddress] = await Promise.all([
-      this.validator.validateAccountNames([name]),
-      this.validator.validateAddress(networkId, target),
-    ]);
+    await this.validator.validateAccountNames([name]);
 
     const impl = getImplFromNetworkId(networkId);
     const vault = await this.getVault({
@@ -720,7 +733,7 @@ class Engine {
       accountId: '',
     });
     const [dbAccount] = await vault.keyring.prepareAccounts({
-      target: normalizedAddress,
+      target,
       name,
     });
 
