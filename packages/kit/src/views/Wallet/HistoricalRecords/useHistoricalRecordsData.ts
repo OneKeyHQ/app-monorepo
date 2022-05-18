@@ -133,7 +133,7 @@ export const useHistoricalRecordsData = ({
       return [];
     }
 
-    const history = await backgroundApiProxy.engine.getTxHistoriesV2(
+    const history = await backgroundApiProxy.engine.getTxHistories(
       params.networkId,
       params.accountId,
       {
