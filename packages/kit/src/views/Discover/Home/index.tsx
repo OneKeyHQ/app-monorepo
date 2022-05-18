@@ -139,7 +139,7 @@ export const Discover: FC<DiscoverProps> = ({
 }) => {
   let onItemSelect: ((item: DAppItemType) => Promise<boolean>) | undefined;
   const route = useRoute<RouteProps>();
-  if (platformEnv.isIOS) {
+  if (platformEnv.isNativeIOS) {
     const { onItemSelect: routeOnItemSelect } = route.params;
     onItemSelect = routeOnItemSelect;
   } else {
@@ -157,7 +157,7 @@ export const Discover: FC<DiscoverProps> = ({
   );
 
   useLayoutEffect(() => {
-    if (platformEnv.isIOS) {
+    if (platformEnv.isNativeIOS) {
       navigation.setOptions({
         title: intl.formatMessage({
           id: 'title__explore',
@@ -169,7 +169,7 @@ export const Discover: FC<DiscoverProps> = ({
   const callback = useCallback(
     (item: DAppItemType) => {
       // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
-      if (platformEnv.isIOS) {
+      if (platformEnv.isNativeIOS) {
         navigation.goBack();
       }
       return onItemSelect?.(item) ?? Promise.resolve(false);
@@ -239,7 +239,7 @@ export const Discover: FC<DiscoverProps> = ({
     } else {
       setPageStatus('loading');
     }
-    if (platformEnv.isIOS) {
+    if (platformEnv.isNativeIOS) {
       requestRankings()
         .then((response2) => {
           setPageStatus('data');
@@ -324,6 +324,6 @@ export const Discover: FC<DiscoverProps> = ({
 };
 
 const Home: FC<DiscoverProps> = ({ ...rest }) =>
-  platformEnv.isIOS ? <DiscoverIOS {...rest} /> : <Discover {...rest} />;
+  platformEnv.isNativeIOS ? <DiscoverIOS {...rest} /> : <Discover {...rest} />;
 
 export default Home;

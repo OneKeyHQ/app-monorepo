@@ -15,28 +15,28 @@ class AppUpdates {
     }
 
     let packageInfo: PackageInfo | undefined;
-    if (platformEnv.isAndroid) {
+    if (platformEnv.isNativeAndroid) {
       packageInfo = releaseInfo.packages?.android?.find(
         (x) => x.os === 'android',
       );
     }
 
-    if (platformEnv.isIOS) {
+    if (platformEnv.isNativeIOS) {
       packageInfo = releaseInfo.packages?.ios?.find((x) => x.os === 'ios');
     }
 
     if (platformEnv.isDesktop) {
-      if (platformEnv.isLinux) {
+      if (platformEnv.isDesktopLinux) {
         packageInfo = releaseInfo.packages?.desktop?.find(
           (x) => x.os === 'linux',
         );
       }
-      if (platformEnv.isMac) {
+      if (platformEnv.isDesktopMac) {
         packageInfo = releaseInfo.packages?.desktop?.find(
           (x) => x.os === 'mac',
         );
       }
-      if (platformEnv.isWindows) {
+      if (platformEnv.isDesktopWin) {
         packageInfo = releaseInfo.packages?.desktop?.find(
           (x) => x.os === 'win',
         );
@@ -44,12 +44,12 @@ class AppUpdates {
     }
 
     if (platformEnv.isExtension) {
-      if (platformEnv.isChrome) {
+      if (platformEnv.isExtChrome) {
         packageInfo = releaseInfo.packages?.extension?.find(
           (x) => x.os === 'any' && x.distribution === 'Chrome',
         );
       }
-      if (platformEnv.isFirefox) {
+      if (platformEnv.isExtFirefox) {
         packageInfo = releaseInfo.packages?.extension?.find(
           (x) => x.os === 'any' && x.distribution === 'FireFox',
         );

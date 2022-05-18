@@ -59,7 +59,7 @@ export function setThemePreloadToLocalStorage(
 ) {
   try {
     const key = THEME_PRELOAD_STORAGE_KEY;
-    if (platformEnv.isBrowser) {
+    if (platformEnv.isRuntimeBrowser) {
       if (forceUpdate || !localStorage.getItem(key)) {
         localStorage.setItem(key, value);
       }

@@ -36,7 +36,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         <ScrollView
           _contentContainerStyle={{
             flex: 1,
-            py: platformEnv.isMac && platformEnv.isDesktop ? 12 : 5,
+            py: platformEnv.isDesktopMac && platformEnv.isDesktop ? 12 : 5,
             px: 4,
           }}
         >

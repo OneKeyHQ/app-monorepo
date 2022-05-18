@@ -4,6 +4,8 @@ import { ipcRenderer } from 'electron';
 export type PrefType = 'camera';
 export type DesktopAPI = {
   hello: string;
+  arch: string;
+  platform: string;
   reload: () => void;
   openPrefs: (prefType: PrefType) => void;
   onAppState: (cb: (state: 'active' | 'background') => void) => void;
@@ -32,6 +34,8 @@ ipcRenderer.on(
 
 const desktopApi = {
   hello: 'world',
+  arch: process.arch,
+  platform: process.platform,
   reload: () => ipcRenderer.send('app/reload'),
   onAppState: (cb: (state: 'active' | 'background') => void) => {
     ipcRenderer.on('appState', (_, value) => {

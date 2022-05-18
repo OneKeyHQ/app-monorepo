@@ -5,7 +5,7 @@ const chromeManifestV3 = require('./chrome_v3');
 const firefoxManifest = require('./firefox');
 
 let browserManifest = {};
-if (process.env.EXT_BUILD_BROWSER === 'firefox') {
+if (process.env.EXT_CHANNEL === 'firefox') {
   browserManifest = firefoxManifest;
 } else {
   // manifest v2

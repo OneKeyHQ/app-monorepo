@@ -138,7 +138,7 @@ const ConnectHardwareModal: FC = () => {
 
   useEffect(() => {
     console.log('Start scanning');
-    if (platformEnv.isBrowser) handleScanDevice();
+    if (platformEnv.isRuntimeBrowser) handleScanDevice();
     return () => {
       handleStopDevice();
     };

@@ -19,7 +19,7 @@ const moduleResolverAliasForAllWebPlatform = {
 };
 
 function normalizeConfig({ platform, config }) {
-  process.env.PLATFORM_NAME = platform;
+  process.env.ONEKEY_PLATFORM = platform;
   let moduleResolver = null;
   if (platform === developmentConsts.platforms.ext) {
     moduleResolver = {
@@ -65,7 +65,9 @@ function normalizeConfig({ platform, config }) {
           'REMOTE_CONSOLE_SERVER',
           'VERSION',
           'BUILD_NUMBER',
-          'PLATFORM_NAME',
+          'ONEKEY_PLATFORM',
+          'EXT_CHANNEL',
+          'ANDROID_CHANNEL',
           'OPENSEA_KEY',
           'COVALENT_KEY',
         ],

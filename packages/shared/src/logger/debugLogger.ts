@@ -1,7 +1,7 @@
 // FIX: Uncaught ReferenceError: global is not defined
 import 'core-js/es7/global';
 
-import { isDev, isInjected, isJest } from '../platformEnv';
+import platformEnv, { isInjected, isJest } from '../platformEnv';
 
 import createDebug from './debug/index.js';
 
@@ -110,7 +110,7 @@ if (isInjected()) {
   global.$onekey = global.$onekey || {};
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   global.$onekey.debugLogger = debugLogger;
-} else if (isDev()) {
+} else if (platformEnv.isDev) {
   // internal console
   global.$$debugLogger = debugLogger;
 }

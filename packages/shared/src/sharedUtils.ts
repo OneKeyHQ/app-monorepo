@@ -1,4 +1,4 @@
-import { isAndroid } from './platformEnv';
+import platformEnv from './platformEnv';
 
 export function toPlainErrorObject(error: {
   className?: any;
@@ -15,14 +15,14 @@ export function toPlainErrorObject(error: {
     data: error.data,
     message: error.message,
     // Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
-    stack: isAndroid()
+    stack: platformEnv.isNativeAndroid
       ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
       : error.stack,
   };
 }
 
 export function safeConsoleLogError(error: Error | unknown) {
-  if (isAndroid()) {
+  if (platformEnv.isNativeAndroid) {
     // sometimes error.stack cause Android hermes engine crash
     delete (error as Error).stack;
   }
