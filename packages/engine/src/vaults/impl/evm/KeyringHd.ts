@@ -1,50 +1,82 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { ISignCredentialOptions } from '../../../types/vault';
+import { COINTYPE_ETH as COIN_TYPE } from '../../../constants';
+import { ExportedSeedCredential } from '../../../dbs/base';
+import { OneKeyInternalError } from '../../../errors';
+import { Signer } from '../../../proxy';
+import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { IPrepareSoftwareAccountsParams } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import type { IUnsignedMessageEvm } from './Vault';
+const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export class KeyringHd extends KeyringHdBase {
-  async signTransaction(
-    unsignedTx: UnsignedTx,
-    options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const { networkId } = this;
+  override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
-    const credential = await this.getCredential(options);
-    const signers = this.engine.providerManager.getSigners(
-      networkId,
-      credential,
-      dbAccount,
+
+    if (addresses.length !== 1) {
+      throw new OneKeyInternalError('EVM signers number should be 1.');
+    } else if (addresses[0] !== dbAccount.address) {
+      throw new OneKeyInternalError('Wrong address required for signing.');
+    }
+
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+      password,
     );
-    debugLogger.engine('EVM signTransaction', unsignedTx, signers);
-    return this.engine.providerManager.signTransaction(
-      networkId,
-      unsignedTx,
-      signers,
-    );
+    if (typeof privateKey === 'undefined') {
+      throw new OneKeyInternalError('Unable to get signer.');
+    }
+
+    return {
+      [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
+    };
   }
 
-  async signMessage(
-    messages: IUnsignedMessageEvm[],
-    options: ISignCredentialOptions,
-  ): Promise<string[]> {
-    const credential = await this.getCredential(options);
-    const network = await this.getNetwork();
-    const dbAccount = await this.getDbAccount();
+  override async prepareAccounts(
+    params: IPrepareSoftwareAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    const { password, indexes, names } = params;
+    const { seed } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
 
-    return this.engine.providerManager.signMessages(
-      credential,
-      options.password || '',
-      network,
-      dbAccount,
-      messages,
+    const pubkeyInfos = batchGetPublicKeys(
+      'secp256k1',
+      seed,
+      password,
+      PATH_PREFIX,
+      indexes.map((index) => index.toString()),
     );
+
+    if (pubkeyInfos.length !== indexes.length) {
+      throw new OneKeyInternalError('Unable to get publick key.');
+    }
+
+    const ret = [];
+    let index = 0;
+    for (const info of pubkeyInfos) {
+      const {
+        path,
+        extendedKey: { key: pubkey },
+      } = info;
+      const pub = pubkey.toString('hex');
+      const address = await this.engine.providerManager.addressFromPub(
+        this.networkId,
+        pub,
+      );
+      const name = (names || [])[index] || `ETH #${indexes[index] + 1}`;
+      ret.push({
+        id: `${this.walletId}--${path}`,
+        name,
+        type: AccountType.SIMPLE,
+        path,
+        coinType: COIN_TYPE,
+        pub,
+        address,
+      });
+      index += 1;
+    }
+    return ret;
   }
 }

@@ -1,5 +1,4 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
-import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { isNil, isString } from 'lodash';
 
 import { VaultHelperBase } from '../../VaultHelperBase';
@@ -101,9 +100,5 @@ export default class VaultHelper extends VaultHelperBase {
 
   override jsonToNativeTx(json: string): Promise<ethers.Transaction> {
     return jsonToEthersTx(json);
-  }
-
-  createClientFromURL(url: string): Geth {
-    return new Geth(url);
   }
 }

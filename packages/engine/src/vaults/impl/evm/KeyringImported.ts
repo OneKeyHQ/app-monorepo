@@ -1,36 +1,52 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { ISignCredentialOptions } from '../../../types/vault';
+import { COINTYPE_ETH as COIN_TYPE } from '../../../constants';
+import { OneKeyInternalError } from '../../../errors';
+import { Signer } from '../../../proxy';
+import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { IPrepareImportedAccountsParams } from '../../../types/vault';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 export class KeyringImported extends KeyringImportedBase {
-  async signTransaction(
-    unsignedTx: UnsignedTx,
-    options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    // return Promise.resolve(undefined);
-    const { networkId } = this;
+  override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
-    const credential = await this.getCredential(options);
-    const signers = this.engine.providerManager.getSigners(
-      networkId,
-      credential,
-      dbAccount,
-    );
-    debugLogger.engine('EVM signTransaction', unsignedTx, signers);
-    return this.engine.providerManager.signTransaction(
-      networkId,
-      unsignedTx,
-      signers,
-    );
+
+    if (addresses.length !== 1) {
+      throw new OneKeyInternalError('EVM signers number should be 1.');
+    } else if (addresses[0] !== dbAccount.address) {
+      throw new OneKeyInternalError('Wrong address required for signing.');
+    }
+
+    const [privateKey] = Object.values(await this.getPrivateKeys(password));
+
+    return {
+      [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
+    };
   }
 
-  signMessage(messages: any[], options: ISignCredentialOptions): any {
-    console.log(messages, options);
+  override async prepareAccounts(
+    params: IPrepareImportedAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    const { name, privateKey } = params;
+    if (privateKey.length !== 32) {
+      throw new OneKeyInternalError('Invalid private key.');
+    }
+    const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
+    // TODO: remove addressFromPub from proxy.ts
+    const address = await this.engine.providerManager.addressFromPub(
+      this.networkId,
+      pub,
+    );
+    return Promise.resolve([
+      {
+        id: `imported--${COIN_TYPE}--${pub}`,
+        name: name || '',
+        type: AccountType.SIMPLE,
+        path: '',
+        coinType: COIN_TYPE,
+        pub,
+        address,
+      },
+    ]);
   }
 }

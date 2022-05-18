@@ -1,11 +1,3 @@
-import { Buffer } from 'buffer';
-
-import {
-  CurveName,
-  batchGetPublicKeys,
-} from '@onekeyfe/blockchain-libs/dist/secret';
-import bs58check from 'bs58check';
-
 import {
   COINTYPE_ALGO,
   COINTYPE_CFX,
@@ -21,12 +13,6 @@ import {
   IMPL_STC,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
-import * as OneKeyHardware from '../hardware';
-import { CredentialSelector, CredentialType } from '../types/credential';
-
-import { implToCoinTypes } from './impl';
-
-const versionBytesMap: Record<string, Buffer> = {};
 
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
@@ -35,15 +21,6 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_NEAR]: [44],
   [IMPL_STC]: [44],
   [IMPL_CFX]: [44],
-};
-
-const curveMap: Record<string, Array<CurveName>> = {
-  [IMPL_EVM]: ['secp256k1'],
-  [IMPL_SOL]: ['ed25519'],
-  [IMPL_ALGO]: ['ed25519'],
-  [IMPL_NEAR]: ['ed25519'],
-  [IMPL_STC]: ['ed25519'],
-  [IMPL_CFX]: ['secp256k1'],
 };
 
 // derive path template by coin types.
@@ -87,98 +64,8 @@ function getPath(purpose: string, coinType: string, index: number) {
   return `${prefix}/${relPaths[0]}`;
 }
 
-async function getXpubs(
-  impl: string,
-  credential: CredentialSelector,
-  outputFormat: 'xpub' | 'pub' | 'address',
-  indexes: Array<number>,
-  purpose?: number,
-  curve?: string,
-): Promise<Array<{ path: string; info: string }>> {
-  const usedCurve = (curve || (curveMap[impl] || [])[0]) as CurveName;
-  if (
-    typeof usedCurve === 'undefined' ||
-    !(curveMap[impl] || []).includes(usedCurve)
-  ) {
-    throw new OneKeyInternalError(
-      `Invalid curve ${usedCurve} for impl ${impl}.`,
-    );
-  }
-
-  const usedPurpose = purpose || (purposeMap[impl] || [])[0];
-  if (
-    typeof usedPurpose === 'undefined' ||
-    !(purposeMap[impl] || []).includes(usedPurpose)
-  ) {
-    throw new OneKeyInternalError(
-      `Invalid purpose ${usedPurpose} for impl ${impl}.`,
-    );
-  }
-
-  const coinType = implToCoinTypes[impl];
-  if (typeof coinType === 'undefined') {
-    throw new OneKeyInternalError(`Cannot find coinType for impl ${impl}.`);
-  }
-
-  const { prefix, depth, relPaths } = getDerivationPaths(
-    usedPurpose.toString(),
-    coinType,
-    indexes,
-  );
-
-  switch (credential.type) {
-    case CredentialType.SOFTWARE:
-      return batchGetPublicKeys(
-        usedCurve,
-        credential.seed,
-        credential.password,
-        prefix,
-        relPaths,
-      ).map(({ path, parentFingerPrint, extendedKey }) => {
-        let info = '';
-        if (outputFormat === 'pub') {
-          info = extendedKey.key.toString('hex');
-        }
-        if (outputFormat === 'xpub') {
-          const lastIndexStr = path.split('/').slice(-1)[0];
-          const lastIndex = lastIndexStr.endsWith("'")
-            ? parseInt(lastIndexStr.slice(0, -1)) + 2 ** 31
-            : parseInt(lastIndexStr);
-          const verionBytes =
-            versionBytesMap[impl] || Buffer.from('0488b21e', 'hex');
-          info = bs58check.encode(
-            Buffer.concat([
-              verionBytes,
-              Buffer.from([depth]),
-              parentFingerPrint,
-              Buffer.from(lastIndex.toString(16).padStart(8, '0'), 'hex'),
-              extendedKey.chainCode,
-              extendedKey.key,
-            ]),
-          );
-        }
-        if (info.length === 0) {
-          throw new OneKeyInternalError('Unable to get public key');
-        }
-        return { path, info };
-      });
-    case CredentialType.HARDWARE: {
-      const paths = relPaths.map((relPath) => `${prefix}/${relPath}`);
-      const ret = await OneKeyHardware.getXpubs(impl, paths, outputFormat);
-      if (ret.length !== paths.length) {
-        throw new OneKeyInternalError(
-          `Hardware methods not supported for ${impl}`,
-        );
-      }
-      return ret;
-    }
-    default:
-      throw new OneKeyInternalError('Incorrect credential selector.');
-  }
-}
-
 function getDefaultPurpose(impl: string): number {
   return (purposeMap[impl] || [44])[0];
 }
 
-export { getPath, getXpubs, getDefaultPurpose };
+export { getPath, getDefaultPurpose };
