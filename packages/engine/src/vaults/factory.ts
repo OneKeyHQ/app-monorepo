@@ -35,27 +35,27 @@ export function createVaultHelperInstance(
 }
 
 export async function createKeyringInstance(vault: VaultBase) {
-  const { accountId } = vault;
+  const { walletId } = vault;
 
   let keyring: KeyringBase | null = null;
 
   // TODO dbAccount type: "simple"
-  if (accountId.startsWith('hd-')) {
+  if (walletId.startsWith('hd-')) {
     keyring = new vault.keyringMap.hd(vault);
   }
-  if (accountId.startsWith('hw-')) {
+  if (walletId.startsWith('hw-')) {
     keyring = new vault.keyringMap.hw(vault);
   }
-  if (!accountId || accountId.startsWith('watching-')) {
+  if (walletId === 'watching') {
     keyring = new vault.keyringMap.watching(vault);
   }
-  if (accountId.startsWith('imported-')) {
+  if (walletId === 'imported') {
     keyring = new vault.keyringMap.imported(vault);
   }
 
   if (!keyring) {
     throw new OneKeyInternalError(
-      `Keyring Class not found for: accountId=${accountId}`,
+      `Keyring Class not found for: walletId=${walletId}`,
     );
   }
   return keyring;

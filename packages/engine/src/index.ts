@@ -90,7 +90,7 @@ import {
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
 } from './types/vault';
-import { WALLET_TYPE_HD, WALLET_TYPE_HW, Wallet } from './types/wallet';
+import { Wallet } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
@@ -559,25 +559,13 @@ class Engine {
     const indexes = Array.from(Array(limit).keys())
       .map((index) => start + index)
       .filter((i) => i < 2 ** 31);
-    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
-    let accounts: Array<DBAccount>;
 
-    if (wallet.type === WALLET_TYPE_HD) {
-      accounts = await vault.prepareSoftwareAccounts({
-        walletId,
-        password,
-        indexes,
-        purpose,
-      });
-    } else if (wallet.type === WALLET_TYPE_HW) {
-      accounts = await vault.prepareHardwareAccounts({
-        walletId,
-        indexes,
-        purpose,
-      });
-    } else {
-      throw new OneKeyInternalError('Incorrect wallet selector.');
-    }
+    const vault = await this.getVault({ networkId, walletId, accountId: '' });
+    const accounts = await vault.keyring.prepareAccounts({
+      password,
+      indexes,
+      purpose,
+    });
 
     const addresses = accounts.map((a) => {
       if (a.type === AccountType.MULADDR) {
@@ -645,30 +633,15 @@ class Engine {
       );
     }
 
-    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
-    let accounts: Array<DBAccount>;
-
-    if (wallet.type === WALLET_TYPE_HD) {
-      accounts = await vault.prepareSoftwareAccounts({
-        walletId,
-        password,
-        indexes: usedIndexes,
-        purpose: usedPurpose,
-        names,
-      });
-    } else if (wallet.type === WALLET_TYPE_HW) {
-      accounts = await vault.prepareHardwareAccounts({
-        walletId,
-        indexes: usedIndexes,
-        purpose: usedPurpose,
-        names,
-      });
-    } else {
-      throw new NotImplemented();
-    }
+    const vault = await this.getVault({ networkId, walletId, accountId: '' });
+    const accounts = await vault.keyring.prepareAccounts({
+      password,
+      indexes: usedIndexes,
+      purpose: usedPurpose,
+      names,
+    });
 
     const ret: Array<Account> = [];
-
     for (const dbAccount of accounts) {
       const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
 
@@ -696,11 +669,15 @@ class Engine {
       'hex',
     );
     const encryptedPrivateKey = encrypt(password, privateKey);
-    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
-    const dbAccount = await vault.prepareImportedAccount(
+    const vault = await this.getVault({
+      networkId,
+      walletId: 'imported',
+      accountId: '',
+    });
+    const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
-      name || '',
-    );
+      name: name || '',
+    });
 
     await this.dbApi.addAccountToWallet('imported', dbAccount, {
       type: CredentialType.PRIVATE_KEY,
@@ -729,11 +706,15 @@ class Engine {
     ]);
 
     const impl = getImplFromNetworkId(networkId);
-    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
-    const dbAccount = await vault.prepareWatchingAccount(
-      normalizedAddress,
+    const vault = await this.getVault({
+      networkId,
+      walletId: 'watching',
+      accountId: '',
+    });
+    const [dbAccount] = await vault.keyring.prepareAccounts({
+      target: normalizedAddress,
       name,
-    );
+    });
 
     const a = await this.dbApi.addAccountToWallet('watching', dbAccount);
 

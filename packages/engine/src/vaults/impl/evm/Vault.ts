@@ -5,8 +5,6 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
@@ -15,24 +13,17 @@ import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_ETH as COIN_TYPE, IMPL_EVM } from '../../../constants';
-import { ExportedSeedCredential } from '../../../dbs/base';
 import {
   NotImplemented,
   OneKeyInternalError,
   PendingQueueTooLong,
 } from '../../../errors';
-import * as OneKeyHardware from '../../../hardware';
 import {
   extractResponseError,
   fillUnsignedTx,
   fillUnsignedTxObj,
 } from '../../../proxy';
-import {
-  AccountType,
-  DBAccount,
-  DBSimpleAccount,
-} from '../../../types/account';
+import { DBAccount } from '../../../types/account';
 import {
   HistoryEntryStatus,
   HistoryEntryTransaction,
@@ -48,8 +39,6 @@ import {
   IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
-  IPrepareHardwareAccountsParams,
-  IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../../types/vault';
@@ -72,7 +61,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 
 const PENDING_QUEUE_MAX_LENGTH = 10;
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export type IUnsignedMessageEvm = ETHMessage & {
   payload?: any;
@@ -657,123 +645,6 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
-
-  override async prepareWatchingAccount(
-    target: string,
-    name: string,
-  ): Promise<DBSimpleAccount> {
-    return Promise.resolve({
-      id: `watching--${COIN_TYPE}--${target}`,
-      name: name || '',
-      type: AccountType.SIMPLE,
-      path: '',
-      coinType: COIN_TYPE,
-      pub: '', // TODO: only address is supported for now.
-      address: target,
-    });
-  }
-
-  override async prepareImportedAccount(
-    privateKey: Buffer,
-    name: string,
-  ): Promise<DBSimpleAccount> {
-    if (privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-    const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
-    // TODO: remove addressFromPub from proxy.ts
-    const address = await this.engine.providerManager.addressFromPub(
-      this.networkId,
-      pub,
-    );
-    return Promise.resolve({
-      id: `imported--${COIN_TYPE}--${pub}`,
-      name: name || '',
-      type: AccountType.SIMPLE,
-      path: '',
-      coinType: COIN_TYPE,
-      pub,
-      address,
-    });
-  }
-
-  override async prepareSoftwareAccounts(
-    params: IPrepareSoftwareAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
-    const { walletId, password, indexes, names } = params;
-    const { seed } = (await this.engine.dbApi.getCredential(
-      walletId,
-      password,
-    )) as ExportedSeedCredential;
-
-    const pubkeyInfos = batchGetPublicKeys(
-      'secp256k1',
-      seed,
-      password,
-      PATH_PREFIX,
-      indexes.map((index) => index.toString()),
-    );
-
-    if (pubkeyInfos.length !== indexes.length) {
-      throw new OneKeyInternalError('Unable to get publick key.');
-    }
-
-    const ret = [];
-    let index = 0;
-    for (const info of pubkeyInfos) {
-      const {
-        path,
-        extendedKey: { key: pubkey },
-      } = info;
-      const pub = pubkey.toString('hex');
-      const address = await this.engine.providerManager.addressFromPub(
-        this.networkId,
-        pub,
-      );
-      const name = (names || [])[index] || `ETH #${indexes[index] + 1}`;
-      ret.push({
-        id: `${walletId}--${path}`,
-        name,
-        type: AccountType.SIMPLE,
-        path,
-        coinType: COIN_TYPE,
-        pub,
-        address,
-      });
-      index += 1;
-    }
-    return ret;
-  }
-
-  override async prepareHardwareAccounts(
-    params: IPrepareHardwareAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
-    const { walletId, indexes, names } = params;
-    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
-    const addressInfos = await OneKeyHardware.getXpubs(
-      IMPL_EVM,
-      paths,
-      'address',
-    );
-
-    const ret = [];
-    let index = 0;
-    for (const info of addressInfos) {
-      const { path, info: address } = info;
-      const name = (names || [])[index] || `ETH #${indexes[index] + 1}`;
-      ret.push({
-        id: `${walletId}--${path}`,
-        name,
-        type: AccountType.SIMPLE,
-        path,
-        coinType: COIN_TYPE,
-        pub: '',
-        address,
-      });
-      index += 1;
-    }
-    return ret;
-  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();

@@ -41,24 +41,6 @@ export type IKeyringMapKey = WalletType;
 abstract class VaultBaseChainOnly extends VaultContext {
   // Methods not related to a single account, but implementation.
 
-  abstract prepareWatchingAccount(
-    target: string,
-    name: string,
-  ): Promise<DBAccount>;
-
-  abstract prepareImportedAccount(
-    privateKey: Buffer,
-    name: string,
-  ): Promise<DBAccount>;
-
-  abstract prepareSoftwareAccounts(
-    params: IPrepareSoftwareAccountsParams,
-  ): Promise<Array<DBAccount>>;
-
-  abstract prepareHardwareAccounts(
-    params: IPrepareHardwareAccountsParams,
-  ): Promise<Array<DBAccount>>;
-
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
   }

@@ -8,6 +8,7 @@ import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 export type IVaultFactoryOptions = {
   networkId: string;
   accountId: string;
+  walletId?: string;
 };
 export type IVaultOptions = IVaultFactoryOptions & {
   engine: Engine;
@@ -94,8 +95,17 @@ export type IFeeInfoPayload = {
   };
 };
 
+export type IPrepareWatchingAccountsParams = {
+  target: string;
+  name: string;
+};
+
+export type IPrepareImportedAccountsParams = {
+  privateKey: Buffer;
+  name: string;
+};
+
 export type IPrepareSoftwareAccountsParams = {
-  walletId: string;
   password: string;
   indexes: Array<number>;
   purpose?: number;
@@ -103,8 +113,13 @@ export type IPrepareSoftwareAccountsParams = {
 };
 
 export type IPrepareHardwareAccountsParams = {
-  walletId: string;
   indexes: Array<number>;
   purpose?: number;
   names?: Array<string>;
 };
+
+export type IPrepareAccountsParams =
+  | IPrepareWatchingAccountsParams
+  | IPrepareImportedAccountsParams
+  | IPrepareSoftwareAccountsParams
+  | IPrepareHardwareAccountsParams;

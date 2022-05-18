@@ -15,9 +15,8 @@ export abstract class KeyringHdBase extends KeyringSoftwareBase {
     const usedRelativePaths = relPaths || [pathComponents.pop() as string];
     const basePath = pathComponents.join('/');
 
-    const walletId = await this.getWalletId();
     const { seed } = (await this.engine.dbApi.getCredential(
-      walletId,
+      this.walletId,
       password,
     )) as ExportedSeedCredential;
     if (typeof seed === 'undefined') {

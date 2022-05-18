@@ -13,11 +13,16 @@ export class VaultContextBase {
     this.options = options;
     this.networkId = options.networkId || '';
     this.accountId = options.accountId || '';
+    this.walletId =
+      options.walletId ||
+      (this.accountId ? getWalletIdFromAccountId(this.accountId) : 'watching');
   }
 
   options: IVaultFactoryOptions;
 
   networkId: string; // "evm--97"
+
+  walletId: string;
 
   accountId: string; // "hd-1--m/44'/60'/0'/0/0"
 
@@ -29,11 +34,6 @@ export class VaultContextBase {
   async getNetworkImpl() {
     const [impl, chainId] = this.networkId.split(SEPERATOR);
     return impl;
-  }
-
-  async getWalletId() {
-    // "hd-1--m/44'/60'/0'/0/0" ---> "hd-1"
-    return getWalletIdFromAccountId(this.accountId);
   }
 }
 

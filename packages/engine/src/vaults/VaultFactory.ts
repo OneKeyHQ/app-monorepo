@@ -20,10 +20,12 @@ export class VaultFactory {
   async getVault({
     networkId,
     accountId,
+    walletId,
   }: IVaultFactoryOptions): Promise<VaultBase> {
     const options = {
       networkId,
       accountId,
+      walletId,
       engine: this.engine,
     };
     const vault: VaultBase = await createVaultInstance(options);
