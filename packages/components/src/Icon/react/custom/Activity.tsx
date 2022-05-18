@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import Svg, { Path, SvgProps } from 'react-native-svg';
+import { Svg, Path, SvgProps } from '../../../Svg';
 
 function SvgActivity(props: SvgProps) {
   return (

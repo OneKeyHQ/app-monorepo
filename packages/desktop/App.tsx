@@ -13,9 +13,12 @@ const App: FC = function () {
           height: 28,
           top: 0,
           // @ts-expect-error
-          '-webkit-user-select': 'none',
-          '-webkit-app-region': 'drag',
-          'pointer-events': 'none',
+          WebkitAppRegion: 'drag',
+          WebkitUserSelect: 'none',
+          pointerEvents: 'none',
+          // '-webkit-app-region': 'drag',
+          // '-webkit-user-select': 'none',
+          // 'pointer-events': 'none',
         }}
       />
       <Provider />
