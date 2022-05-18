@@ -164,7 +164,7 @@ const TxRecordCell: FC<{
         </Typography.Body2>
       </Box>
     );
-  }, [intl, tx]);
+  }, [tx, intl]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
