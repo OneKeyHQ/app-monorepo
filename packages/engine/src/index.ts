@@ -1517,7 +1517,7 @@ class Engine {
     }
 
     const MAX_SIZE = 50;
-    let localHistory = await this.getHistory(
+    const localHistory = await this.getHistory(
       networkId,
       accountId,
       undefined,
