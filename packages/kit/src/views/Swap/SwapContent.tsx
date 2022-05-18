@@ -39,7 +39,10 @@ const SwapContent = () => {
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const addTransaction = useTransactionAdder();
   const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
-  const { account, network } = useActiveWalletAccount();
+  const { account, network, wallet } = useActiveWalletAccount();
+
+  const isDisabled = !isSwapEnabled || !wallet || !account;
+
   const {
     swapQuote,
     formattedAmounts,
@@ -171,7 +174,7 @@ const SwapContent = () => {
         <Box
           borderWidth={{ base: '0.5', md: '1' }}
           borderColor="border-default"
-          bg="surface-subdued"
+          bg={isDisabled ? 'action-secondary-disabled' : 'surface-subdued'}
           borderRadius={12}
           position="relative"
         >
@@ -216,9 +219,7 @@ const SwapContent = () => {
             containerProps={{ pb: '4', pt: '2' }}
             isDisabled={isSwapLoading && independentField === 'INPUT'}
           />
-          {!isSwapEnabled ? (
-            <Box w="full" h="full" position="absolute" />
-          ) : null}
+          {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
         </Box>
         <Box
           display="flex"

@@ -8,6 +8,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import { reset } from '../../store/reducers/swap';
 
 import { useSwapActionHandlers, useSwapEnabled } from './hooks/useSwap';
+import NoWallet from './NoWallet';
 import { refs } from './refs';
 import SwapContent from './SwapContent';
 import SwapHeader from './SwapHeader';
@@ -47,6 +48,7 @@ const Swap = () => {
     <ScrollView>
       <SwapHeader />
       <SwapTransactions />
+      <NoWallet />
       <SwapContent />
       <SwapItems />
       <SwapUpdator />
