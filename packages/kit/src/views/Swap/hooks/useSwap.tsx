@@ -187,10 +187,13 @@ export function useSwapQuoteRequestParams(): QuoteRequestParams | undefined {
     if (!inputToken || !outputToken || !typedValue) {
       return;
     }
+    const slippagePercentage = +swapSlippagePercent / 100;
     const params: QuoteRequestParams = {
       sellToken: inputToken.tokenIdOnNetwork || defaultAddress,
       buyToken: outputToken.tokenIdOnNetwork || defaultAddress,
-      slippagePercentage: +swapSlippagePercent / 100,
+      slippagePercentage: Number.isNaN(slippagePercentage)
+        ? 0.03
+        : slippagePercentage,
       feeRecipient,
       affiliateAddress,
     };
