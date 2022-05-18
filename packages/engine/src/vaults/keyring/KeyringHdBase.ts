@@ -10,6 +10,19 @@ import type { SoftwareCredential } from '../../types/credential';
 import type { ISignCredentialOptions } from '../../types/vault';
 
 export abstract class KeyringHdBase extends KeyringBase {
+  async getSigner(options: ISignCredentialOptions) {
+    const { networkId } = this;
+    const dbAccount = await this.getDbAccount();
+    const credential = await this.getCredential(options);
+    const signers = this.engine.providerManager.getSigners(
+      networkId,
+      credential,
+      dbAccount,
+    );
+    const signer = signers[dbAccount.address];
+    return signer;
+  }
+
   async getCredential(
     options: ISignCredentialOptions,
   ): Promise<SoftwareCredential> {

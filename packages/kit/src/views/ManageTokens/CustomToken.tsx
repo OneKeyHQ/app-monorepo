@@ -123,7 +123,6 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     async function doQuery() {
       const trimedAddress = debouncedAddress.trim();
       if (
-        trimedAddress.length === 42 &&
         !accountTokensMap.has(trimedAddress.toLowerCase()) &&
         activeAccount &&
         activeNetwork
@@ -188,11 +187,12 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                 id: 'form__field_is_required',
               }),
               validate: (value) => {
-                if (value.length !== 42) {
-                  return intl.formatMessage({
-                    id: 'msg__wrong_address_format',
-                  });
-                }
+                // TODO validator.validateTokenAddress
+                // if (value.length !== 42) {
+                //   return intl.formatMessage({
+                //     id: 'msg__wrong_address_format',
+                //   });
+                // }
                 if (accountTokensMap.has(value.toLowerCase())) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',

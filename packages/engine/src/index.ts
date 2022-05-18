@@ -637,6 +637,7 @@ class Engine {
     const tokensToGet = tokenIdsOnNetwork.filter(
       (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
     );
+    // TODO move proxyGetBalances to Vault
     const balances = await this.providerManager.proxyGetBalances(
       networkId,
       dbAccount,
@@ -1414,13 +1415,22 @@ class Engine {
     accountId: string;
     transferInfo: ITransferInfo;
   }) {
+    const transferInfoNew = {
+      ...transferInfo,
+    };
+    transferInfoNew.amount = transferInfoNew.amount || '0';
     // throw new Error('build encodedtx error test');
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-    const result = await vault.buildEncodedTxFromTransfer(transferInfo);
-    debugLogger.sendTx('buildEncodedTxFromTransfer: ', transferInfo, result, {
-      networkId,
-      accountId,
-    });
+    const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
+    debugLogger.sendTx(
+      'buildEncodedTxFromTransfer: ',
+      transferInfoNew,
+      result,
+      {
+        networkId,
+        accountId,
+      },
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
   }
@@ -1725,12 +1735,13 @@ class Engine {
       this.getNetwork(networkId),
     ]);
 
+    // TODO filter EVM history only
     if (network.impl !== IMPL_EVM) {
       return [];
     }
 
     const MAX_SIZE = 50;
-    const localHistory = await this.getHistory(
+    let localHistory = await this.getHistory(
       networkId,
       accountId,
       undefined,

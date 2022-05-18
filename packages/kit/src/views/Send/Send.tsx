@@ -183,6 +183,7 @@ const Transaction = () => {
             setTransferError(null);
           }
         } catch (e) {
+          console.error(e);
           setTransferError(e as Error);
         }
       },
