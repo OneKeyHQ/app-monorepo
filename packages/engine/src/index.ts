@@ -44,12 +44,7 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import {
-  decodedItemToTransaction,
-  getErc20TransferHistories,
-  getTxHistories,
-  updateLocalTransactions,
-} from './managers/covalent';
+import { getErc20TransferHistories } from './managers/covalent';
 import { getDefaultPurpose, getXpubs } from './managers/derivation';
 import {
   getAccountNameInfoByImpl,
@@ -92,7 +87,6 @@ import {
   DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
-import { HistoryDetailList } from './types/covalent';
 import { CredentialSelector, CredentialType } from './types/credential';
 import {
   HistoryEntry,
@@ -119,7 +113,6 @@ import {
   createVaultHelperInstance,
   createVaultHelperInstanceByImpl,
 } from './vaults/factory';
-import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1718,7 +1711,7 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getTxHistoriesV2(
+  async getTxHistories(
     networkId: string,
     accountId: string,
     filterOptions?: {
@@ -1731,6 +1724,10 @@ class Engine {
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
     ]);
+
+    if (network.impl !== IMPL_EVM) {
+      return [];
+    }
 
     const MAX_SIZE = 50;
     const localHistory = await this.getHistory(
@@ -1770,104 +1767,6 @@ class Engine {
     );
 
     return txs;
-  }
-
-  @backgroundMethod()
-  async getTxHistories(
-    networkId: string,
-    accountId: string,
-    pageNumber: number,
-    pageSize: number,
-    pending = true,
-  ) {
-    const [dbAccount, network] = await Promise.all([
-      this.dbApi.getAccount(accountId),
-      this.getNetwork(networkId),
-    ]);
-
-    if (network.impl !== IMPL_EVM) {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    if (typeof dbAccount === 'undefined') {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    if (dbAccount.type !== AccountType.SIMPLE) {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-    const chainId = network.id.split(SEPERATOR)[1];
-
-    if (!pending) {
-      return getTxHistories(chainId, dbAccount.address, pageNumber, pageSize);
-    }
-
-    const localHistory = await this.getHistory(
-      networkId,
-      accountId,
-      undefined,
-      true,
-    );
-    const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
-      (h): h is HistoryEntryTransaction => 'rawTx' in h,
-    );
-
-    const decodedLocalTxHistory = localTxHistory.map(async (h) => {
-      const decodedItem = await EVMTxDecoder.getDecoder(
-        this,
-      ).decodeHistoryEntry(h);
-      const tx = decodedItemToTransaction(decodedItem, h);
-      return tx;
-    });
-
-    const decodedLocalTxHistoryList = await Promise.all(decodedLocalTxHistory);
-
-    let result: HistoryDetailList = {
-      error: false,
-      errorMessage: null,
-      errorCode: null,
-      data: {
-        address: '',
-        updatedAt: '',
-        nextUpdateAt: '',
-        quoteCurrency: '',
-        chainId: Number(chainId),
-        pagination: {
-          hasMore: false,
-          pageNumber: 1,
-          pageSize: 1,
-          totalCount: 1,
-        },
-        items: [],
-        txList: [],
-      },
-    };
-    let txList = result.data.txList ?? [];
-    try {
-      const covalent = await getTxHistories(
-        chainId,
-        dbAccount.address,
-        pageNumber,
-        pageSize,
-      );
-      if (covalent) {
-        result = covalent;
-        // if (!covalent || !covalent.data.txList) {
-        //   throw new OneKeyInternalError('getTxHistories failed.');
-        // }
-        txList = covalent?.data?.txList ?? [];
-        updateLocalTransactions(decodedLocalTxHistoryList, txList);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-
-    const localTxHashSet = new Set(
-      decodedLocalTxHistoryList.map((tx) => tx.txHash),
-    );
-    const filtedTxList = txList.filter((tx) => !localTxHashSet.has(tx.txHash));
-    result.data.txList = [...decodedLocalTxHistoryList, ...filtedTxList];
-    return result;
   }
 
   @backgroundMethod()

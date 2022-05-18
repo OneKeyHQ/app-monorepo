@@ -81,8 +81,6 @@ const getTransactionTypeIcon = (tx: EVMDecodedItem): ICON_NAMES => {
     txType === EVMDecodedTxType.SWAP
   ) {
     icon = 'SwitchHorizontalSolid';
-  } else if (txType === EVMDecodedTxType.TRANSACTION) {
-    icon = 'ArrowUpSolid';
   }
   return icon;
 };
@@ -166,7 +164,7 @@ const TxRecordCell: FC<{
         </Typography.Body2>
       </Box>
     );
-  }, [tx]);
+  }, [intl, tx]);
 
   const ItemInfo = useMemo(() => {
     if (['SMALL', 'NORMAL'].includes(size)) {
