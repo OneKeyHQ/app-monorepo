@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Box,
-  Button,
   Center,
   Divider,
   IconButton,
@@ -17,7 +16,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { setQuote } from '../../store/reducers/swap';
-import { SendRoutes } from '../Send/types';
 
 import TokenInput from './components/TokenInput';
 import ExchangeRate from './ExchangeRate';
@@ -28,8 +26,8 @@ import {
   useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
-import { useTransactionAdder } from './hooks/useTransactions';
-import { ApprovalState, SwapError, SwapRoutes } from './typings';
+import SwapButton from './SwapButton';
+import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
@@ -37,21 +35,12 @@ const SwapContent = () => {
     useSwapState();
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
-  const addTransaction = useTransactionAdder();
   const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
-  const { account, network, wallet } = useActiveWalletAccount();
+  const { account, wallet } = useActiveWalletAccount();
 
   const isDisabled = !isSwapEnabled || !wallet || !account;
 
-  const {
-    swapQuote,
-    formattedAmounts,
-    isSwapLoading,
-    error,
-    approveState,
-    inputAmount,
-    outputAmount,
-  } = useSwap();
+  const { swapQuote, formattedAmounts, isSwapLoading } = useSwap();
   const navigation = useNavigation();
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -82,61 +71,6 @@ const SwapContent = () => {
     [onUserInput],
   );
 
-  const onSubmit = useCallback(() => {
-    if (swapQuote && account && inputAmount && outputAmount) {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendRoutes.SwapPreview,
-        },
-      });
-    }
-  }, [swapQuote, navigation, account, inputAmount, outputAmount]);
-
-  const onApprove = useCallback(async () => {
-    if (account && network && swapQuote && inputAmount) {
-      const encodedTx: { data: string } =
-        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-          spender: swapQuote?.allowanceTarget,
-          networkId: network.id,
-          accountId: account.id,
-          token: inputAmount.token.tokenIdOnNetwork,
-          amount: 'unlimited',
-        });
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendRoutes.SendConfirm,
-          params: {
-            feeInfoEditable: true,
-            feeInfoUseFeeInTx: false,
-            encodedTx: { ...encodedTx, from: account?.address },
-            onSuccess(tx) {
-              addTransaction({
-                hash: tx.txid,
-                approval: {
-                  tokenAddress: inputAmount.token.tokenIdOnNetwork,
-                  spender: swapQuote.allowanceTarget,
-                },
-                summary: `${intl.formatMessage({
-                  id: 'title__approve',
-                })} ${inputAmount.token.symbol.toUpperCase()}`,
-              });
-            },
-          },
-        },
-      });
-    }
-  }, [
-    account,
-    network,
-    inputAmount,
-    swapQuote,
-    navigation,
-    addTransaction,
-    intl,
-  ]);
-
   useEffect(() => {
     backgroundApiProxy.dispatch(setQuote(undefined));
   }, [
@@ -151,16 +85,6 @@ const SwapContent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSwapQuoteCallback]);
 
-  let buttonTitle = intl.formatMessage({ id: 'title__swap' });
-  if (error === SwapError.InsufficientBalance) {
-    buttonTitle = intl.formatMessage(
-      { id: 'form__amount_invalid' },
-      { '0': inputToken?.symbol },
-    );
-  } else if (error === SwapError.QuoteFailed) {
-    buttonTitle = intl.formatMessage({ id: 'transaction__failed' });
-  }
-
   return (
     <Center px="4">
       <Box
@@ -174,7 +98,7 @@ const SwapContent = () => {
         <Box
           borderWidth={{ base: '0.5', md: '1' }}
           borderColor="border-default"
-          bg={isDisabled ? 'action-secondary-disabled' : 'surface-subdued'}
+          bg="surface-subdued"
           borderRadius={12}
           position="relative"
         >
@@ -187,7 +111,7 @@ const SwapContent = () => {
             onPress={onSelectInput}
             containerProps={{ pt: '4', pb: '2' }}
             isDisabled={isSwapLoading && independentField === 'OUTPUT'}
-            showMax
+            showMax={!!(inputToken && inputToken.tokenIdOnNetwork)}
           />
           <Box w="full" h="10" position="relative">
             <Box position="absolute" w="full" h="full">
@@ -252,29 +176,7 @@ const SwapContent = () => {
             />
           </Box>
         ) : null}
-        {!error &&
-        (approveState === ApprovalState.NOT_APPROVED ||
-          approveState === ApprovalState.PENDING) ? (
-          <Button
-            size="xl"
-            type="primary"
-            isDisabled={!!error || !isSwapEnabled || !swapQuote}
-            isLoading={approveState === ApprovalState.PENDING}
-            onPress={onApprove}
-          >
-            {intl.formatMessage({ id: 'title__approve' })}
-          </Button>
-        ) : (
-          <Button
-            size="xl"
-            type="primary"
-            isDisabled={!!error || !isSwapEnabled || !swapQuote}
-            isLoading={isSwapLoading}
-            onPress={onSubmit}
-          >
-            {buttonTitle}
-          </Button>
-        )}
+        <SwapButton />
       </Box>
     </Center>
   );
