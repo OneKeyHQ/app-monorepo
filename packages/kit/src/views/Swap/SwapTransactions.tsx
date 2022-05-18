@@ -60,7 +60,9 @@ const PendingTransactions = () => {
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
+    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {
+      isInternalSwapOnly: true,
+    });
   }, [navigation]);
   return pendings.length ? (
     <Box mb="4">
@@ -96,7 +98,9 @@ const FulfilledTransactions = () => {
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
+    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {
+      isInternalSwapOnly: true,
+    });
     cleanFulfilledTransaction();
   }, [cleanFulfilledTransaction, navigation]);
   if (confirmedTxs.length === 0) {

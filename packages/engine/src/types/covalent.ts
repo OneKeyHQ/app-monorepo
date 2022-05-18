@@ -1,9 +1,8 @@
-import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/decoder';
-
 import type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedItemInternalSwap,
+  EVMDecodedTxType,
 } from '../vaults/impl/evm/decoder/decoder';
 
 enum TxStatus {
@@ -255,4 +254,4 @@ export type {
   NftMetadata,
   BlockTransactionWithLogEvents,
 };
-export { TxStatus, EVMDecodedTxType, EVMTxFromType };
+export { TxStatus, EVMTxFromType };

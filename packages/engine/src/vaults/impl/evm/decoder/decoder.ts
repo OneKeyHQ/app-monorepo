@@ -1,111 +1,27 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
-import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
-import { SwapQuote } from '@onekeyhq/kit/src/views/Swap/typings';
-
-import { Network } from '../../../../types/network';
-import { Token } from '../../../../types/token';
+import { Transaction, TxStatus } from '../../../../types/covalent';
+import { HistoryEntryTransaction } from '../../../../types/history';
 
 import { ABI } from './abi';
+import { parseGasInfo, updateGasInfo } from './gasParser';
+import { updateWithHistoryEntry } from './historyParser';
+import { parsePayload } from './payloadParser';
+import {
+  EVMBaseDecodedItem,
+  EVMDecodedItem,
+  EVMDecodedItemERC20Approve,
+  EVMDecodedItemERC20Transfer,
+  EVMDecodedItemInternalSwap,
+  EVMDecodedTxType,
+} from './types';
+import { jsonToEthersTx } from './util';
 
 import type { Engine } from '../../../..';
 
 export const InfiniteAmountText = 'Infinite';
 export const InfiniteAmountHex =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-
-enum EVMDecodedTxType {
-  // Native currency transfer
-  NATIVE_TRANSFER = 'native_transfer',
-
-  // ERC20
-  TOKEN_TRANSFER = 'erc20_transfer',
-  TOKEN_APPROVE = 'erc20_approve',
-
-  // ERC721 NFT
-  ERC721_TRANSFER = 'erc721_transfer',
-
-  // Swap
-  SWAP = 'swap',
-  INTERNAL_SWAP = 'internal_swap',
-
-  // Generic contract interaction
-  TRANSACTION = 'transaction',
-}
-
-interface EVMBaseDecodedItem {
-  txType: EVMDecodedTxType;
-  protocol?: 'erc20' | 'erc721';
-
-  tx: ethers.Transaction;
-  txDesc?: ethers.utils.TransactionDescription;
-}
-
-interface EVMDecodedItemERC20Transfer {
-  type: EVMDecodedTxType.TOKEN_TRANSFER;
-  token: Token;
-  amount: string;
-  value: string;
-  recipient: string;
-}
-
-interface EVMDecodedItemERC20Approve {
-  type: EVMDecodedTxType.TOKEN_APPROVE;
-  token: Token;
-  amount: string;
-  value: string;
-  spender: string;
-}
-
-interface EVMDecodedItemInternalSwap {
-  type: EVMDecodedTxType.INTERNAL_SWAP;
-  buyTokenAddress: string;
-  sellTokenAddress: string;
-  buyTokenSymbol: string;
-  sellTokenSymbol: string;
-  buyAmount: string;
-  sellAmount: string;
-}
-
-interface EVMDecodedItem {
-  txType: EVMDecodedTxType;
-  protocol: 'erc20' | null;
-
-  symbol: string; // native currency symbol
-  amount: string; // in ether
-  value: string; // in wei
-  network: Network;
-
-  fromAddress: string;
-  toAddress: string;
-  nonce?: number;
-  txHash: string;
-  is1559: boolean;
-  gasLimit: number;
-  gasPrice: string;
-  maxPriorityFeePerGas: string;
-  maxPriorityFeePerGasAmount?: string;
-  maxFeePerGas: string;
-  maxFeePerGasAmount?: string;
-  data: string;
-  chainId: number;
-
-  gasSpend: string; // in ether, estimated gas cost
-  total: string; // in ether, gasSpend + value
-
-  contractCallInfo?: {
-    contractAddress: string;
-    functionName: string;
-    functionSignature: string;
-    args?: string[];
-  };
-
-  info:
-    | EVMDecodedItemERC20Transfer
-    | EVMDecodedItemERC20Approve
-    | EVMDecodedItemInternalSwap
-    | null;
-}
 
 class EVMTxDecoder {
   private static sharedDecoder: EVMTxDecoder;
@@ -126,22 +42,65 @@ class EVMTxDecoder {
     return EVMTxDecoder.sharedDecoder;
   }
 
+  public async decodeHistoryEntry(
+    historyEntry: HistoryEntryTransaction,
+    covalentTx?: Transaction | null,
+  ) {
+    const { rawTx, rawTxPreDecodeCache, payload } = historyEntry;
+    const tx = rawTxPreDecodeCache
+      ? await jsonToEthersTx(rawTxPreDecodeCache)
+      : rawTx;
+    const decoded = await this.decode(tx, payload, covalentTx, historyEntry);
+    decoded.raw = rawTx;
+    return decoded;
+  }
+
   public async decode(
     rawTx: string | ethers.Transaction,
     payload?: any,
+    covalentTx?: Transaction | null,
+    historyEntry?: HistoryEntryTransaction | null,
   ): Promise<EVMDecodedItem> {
-    const { txType, tx, txDesc, protocol } = this.staticDecode(rawTx);
-    const itemBuilder = { txType, protocol } as EVMDecodedItem;
+    let decoded = await this._decode(rawTx);
+
+    if (historyEntry) {
+      decoded = this.updateWithHistoryEntry(decoded, historyEntry);
+    }
+
+    if (payload) {
+      decoded = await this.updateWithPayload(decoded, payload);
+    }
+
+    if (covalentTx) {
+      decoded = this.updateWithCovalentTx(decoded, covalentTx);
+    }
+
+    return decoded;
+  }
+
+  public async _decode(
+    rawTx: string | ethers.Transaction,
+  ): Promise<EVMDecodedItem> {
+    const { txType, tx, txDesc, protocol, mainSource, raw } =
+      this.staticDecode(rawTx);
+    const itemBuilder = { txType, protocol, raw } as EVMDecodedItem;
 
     const networkId = `evm--${tx.chainId}`;
     const network = await this.engine.getNetwork(networkId);
 
+    itemBuilder.gasInfo = parseGasInfo(tx);
+    itemBuilder.fromType = 'OUT';
+    itemBuilder.txStatus = TxStatus.Pending;
+    itemBuilder.mainSource = mainSource;
     itemBuilder.network = network;
     itemBuilder.symbol = network.symbol;
     itemBuilder.amount = ethers.utils.formatEther(tx.value);
-    itemBuilder.gasSpend = this.parseGasSpend(tx);
     itemBuilder.total = ethers.utils.formatEther(
-      tx.value.add(ethers.utils.parseEther(itemBuilder.gasSpend)),
+      tx.value.add(
+        ethers.utils.parseEther(
+          itemBuilder.gasInfo.feeSpend || itemBuilder.gasInfo.maxFeeSpend,
+        ),
+      ),
     );
 
     this.fillTxInfo(itemBuilder, tx);
@@ -194,6 +153,7 @@ class EVMTxDecoder {
             amount,
             value: value.toString(),
             token,
+            isUInt256Max: amount === InfiniteAmountText,
           } as EVMDecodedItemERC20Approve;
           break;
         }
@@ -205,20 +165,28 @@ class EVMTxDecoder {
       itemBuilder.info = infoBuilder;
     }
 
-    return this.updateWithPayload(itemBuilder, payload);
+    return itemBuilder;
   }
 
-  private async updateWithPayload(item: EVMDecodedItem, payload?: any) {
-    if (!payload) {
-      return item;
-    }
-    const parsedPayload = await this.parsePayload(payload, item.network);
-    if (!parsedPayload) {
-      return item;
-    }
-    item.txType = parsedPayload.txType;
-    item.info = parsedPayload.info;
-    return item;
+  private updateWithCovalentTx(item: EVMDecodedItem, covalentTx: Transaction) {
+    return updateGasInfo(item, covalentTx);
+  }
+
+  private updateWithHistoryEntry(
+    item: EVMDecodedItem,
+    historyEntry: HistoryEntryTransaction,
+  ) {
+    return updateWithHistoryEntry(item, historyEntry);
+  }
+
+  private async updateWithPayload(item: EVMDecodedItem, payload: any) {
+    const parsedPayload = await parsePayload(
+      payload,
+      item.network,
+      this.engine,
+    );
+
+    return { ...item, ...parsedPayload };
   }
 
   private staticDecode(rawTx: string | ethers.Transaction): EVMBaseDecodedItem {
@@ -227,8 +195,11 @@ class EVMTxDecoder {
     let tx: ethers.Transaction;
     if (typeof rawTx === 'string') {
       tx = ethers.utils.parseTransaction(rawTx);
+      itemBuilder.mainSource = 'raw';
+      itemBuilder.raw = rawTx;
     } else {
       tx = rawTx;
+      itemBuilder.mainSource = 'ethersTx';
     }
     itemBuilder.tx = tx;
     const { data } = tx;
@@ -250,101 +221,12 @@ class EVMTxDecoder {
     return itemBuilder;
   }
 
-  private async parsePayload(rawPayload: any, network: Network) {
-    if (!rawPayload) {
-      return null;
-    }
-
-    const isSendConfirmPayload = (
-      payload: any,
-    ): payload is SendConfirmPayload => 'payloadType' in payload;
-
-    const isSwapQuote = (payload: SendConfirmPayload): payload is SwapQuote =>
-      payload.payloadType === 'InternalSwap';
-
-    let payload = rawPayload;
-    if (typeof rawPayload === 'string') {
-      try {
-        payload = JSON.parse(rawPayload);
-      } catch (e) {
-        console.error(e);
-        return null;
-      }
-    }
-
-    if (!isSendConfirmPayload(payload)) {
-      return null;
-    }
-
-    if (isSwapQuote(payload)) {
-      const NativeCurrencyPseudoAddress =
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
-
-      const { buyTokenAddress, sellTokenAddress, buyAmount, sellAmount } =
-        payload;
-
-      const tokensInfo = (
-        [
-          [buyTokenAddress, buyAmount],
-          [sellTokenAddress, sellAmount],
-        ] as const
-      ).map(async ([tokenAddress, tokenAmount]) => {
-        const address = tokenAddress.toLowerCase();
-        if (address === NativeCurrencyPseudoAddress) {
-          const amount = ethers.utils.formatEther(tokenAmount);
-          return { amount, symbol: network.symbol };
-        }
-        const token = await this.engine.getOrAddToken(network.id, address);
-        const symbol = token?.symbol ?? '';
-        const amount = ethers.utils.formatUnits(tokenAmount, token?.decimals);
-        return { amount, symbol };
-      });
-
-      const [buy, sell] = await Promise.all(tokensInfo);
-      const info: EVMDecodedItemInternalSwap = {
-        type: EVMDecodedTxType.INTERNAL_SWAP,
-        buyTokenAddress,
-        sellTokenAddress,
-        buyTokenSymbol: buy.symbol,
-        sellTokenSymbol: sell.symbol,
-        buyAmount: buy.amount,
-        sellAmount: sell.amount,
-      };
-      return { txType: EVMDecodedTxType.INTERNAL_SWAP, info };
-    }
-
-    return null;
-  }
-
   private fillTxInfo(itemBuilder: EVMDecodedItem, tx: ethers.Transaction) {
-    // TODO feeDecimals hardcode
-    const feeDecimals = 9;
-
     itemBuilder.value = tx.value.toString();
     itemBuilder.fromAddress = tx.from?.toLowerCase() ?? '';
     itemBuilder.toAddress = tx.to?.toLowerCase() ?? '';
     itemBuilder.nonce = tx.nonce;
     itemBuilder.txHash = tx.hash ?? '';
-    itemBuilder.is1559 = tx.type === 2;
-    itemBuilder.gasLimit = tx.gasLimit.toNumber();
-    itemBuilder.gasPrice = tx.gasPrice?.toString() ?? '';
-    itemBuilder.maxPriorityFeePerGas =
-      tx.maxPriorityFeePerGas?.toString() ?? '';
-    itemBuilder.maxFeePerGas = tx.maxFeePerGas?.toString() ?? '';
-    itemBuilder.maxFeePerGasAmount =
-      (itemBuilder.maxFeePerGas &&
-        this.formatValue(
-          ethers.BigNumber.from(itemBuilder.maxFeePerGas),
-          feeDecimals,
-        )) ??
-      '';
-    itemBuilder.maxPriorityFeePerGasAmount =
-      (itemBuilder.maxPriorityFeePerGas &&
-        this.formatValue(
-          ethers.BigNumber.from(itemBuilder.maxPriorityFeePerGas),
-          feeDecimals,
-        )) ??
-      '';
     itemBuilder.data = tx.data;
     itemBuilder.chainId = tx.chainId;
   }
@@ -354,13 +236,6 @@ class EVMTxDecoder {
       return InfiniteAmountText;
     }
     return ethers.utils.formatUnits(value, decimals) ?? '';
-  }
-
-  private parseGasSpend(tx: ethers.Transaction): string {
-    const { gasLimit, gasPrice, maxFeePerGas } = tx;
-    const priceInWei = gasPrice || maxFeePerGas || ethers.constants.Zero;
-    const gasSpendInWei = gasLimit.mul(priceInWei);
-    return ethers.utils.formatEther(gasSpendInWei);
   }
 
   private parseERC20(

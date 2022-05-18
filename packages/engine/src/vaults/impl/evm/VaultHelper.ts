@@ -4,6 +4,8 @@ import { isNil, isString } from 'lodash';
 
 import { VaultHelperBase } from '../../VaultHelperBase';
 
+import { ethersTxToJson, jsonToEthersTx } from './decoder/util';
+
 import type { IEncodedTxEvm } from './Vault';
 
 /*
@@ -94,20 +96,11 @@ export default class VaultHelper extends VaultHelperBase {
   }
 
   override nativeTxToJson(nativeTx: ethers.Transaction): Promise<string> {
-    const json = JSON.stringify(nativeTx);
-    return Promise.resolve(json);
+    return ethersTxToJson(nativeTx);
   }
 
   override jsonToNativeTx(json: string): Promise<ethers.Transaction> {
-    /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
-    const tx = JSON.parse(json, (key, value) => {
-      if (!!value && value.type === 'BigNumber' && 'hex' in value) {
-        return ethers.BigNumber.from(value.hex);
-      }
-      return value;
-    });
-    return Promise.resolve(tx);
-    /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
+    return jsonToEthersTx(json);
   }
 
   createClientFromURL(url: string): Geth {

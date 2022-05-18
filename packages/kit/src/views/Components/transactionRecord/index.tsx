@@ -16,13 +16,13 @@ import {
 import { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
-  EVMDecodedTxType,
   EVMTxFromType,
   Transaction,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import {

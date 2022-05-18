@@ -120,6 +120,7 @@ import {
   createVaultHelperInstanceByImpl,
 } from './vaults/factory';
 import { EVMTxDecoder } from './vaults/impl/evm/decoder/decoder';
+import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
 
@@ -1480,10 +1481,10 @@ class Engine {
       }
 
       meta.rawTxPreDecodeCache = rawTxPreDecoded;
-    }
 
-    if (payload && 'payload' in meta) {
-      meta.payload = JSON.stringify(payload);
+      if (payload && !meta.payload) {
+        meta.payload = JSON.stringify(payload);
+      }
     }
 
     await this.dbApi.addHistoryEntry(
@@ -1717,6 +1718,61 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getTxHistoriesV2(
+    networkId: string,
+    accountId: string,
+    filterOptions?: {
+      isLocalOnly?: boolean;
+      isHidePending?: boolean;
+      contract?: string | null;
+    },
+  ) {
+    const [dbAccount, network] = await Promise.all([
+      this.dbApi.getAccount(accountId),
+      this.getNetwork(networkId),
+    ]);
+
+    const MAX_SIZE = 50;
+    const localHistory = await this.getHistory(
+      networkId,
+      accountId,
+      undefined,
+      true,
+      MAX_SIZE,
+    );
+
+    const localTxHistory = localHistory.filter<HistoryEntryTransaction>(
+      (h): h is HistoryEntryTransaction => 'rawTx' in h,
+    );
+
+    let filtedHistory = localTxHistory;
+    if (filterOptions) {
+      const { contract, isHidePending } = filterOptions;
+
+      if (contract) {
+        filtedHistory = localTxHistory.filter((h) => h.contract === contract);
+      }
+
+      if (isHidePending) {
+        filtedHistory = filtedHistory.filter(
+          (h) => h.status !== HistoryEntryStatus.PENDING,
+        );
+      }
+    }
+
+    const txs = getMergedTxs(
+      filtedHistory,
+      network,
+      dbAccount.address,
+      this,
+      filterOptions?.contract,
+      filterOptions?.isLocalOnly,
+    );
+
+    return txs;
+  }
+
+  @backgroundMethod()
   async getTxHistories(
     networkId: string,
     accountId: string,
@@ -1756,19 +1812,10 @@ class Engine {
       (h): h is HistoryEntryTransaction => 'rawTx' in h,
     );
 
-    const vaultHelper = createVaultHelperInstance({
-      networkId,
-      accountId,
-    });
     const decodedLocalTxHistory = localTxHistory.map(async (h) => {
-      let nativeTx;
-      if (h.rawTxPreDecodeCache) {
-        nativeTx = await vaultHelper.jsonToNativeTx(h.rawTxPreDecodeCache);
-      }
-      const decodedItem = await EVMTxDecoder.getDecoder(this).decode(
-        nativeTx ?? h.rawTx,
-        h.payload,
-      );
+      const decodedItem = await EVMTxDecoder.getDecoder(
+        this,
+      ).decodeHistoryEntry(h);
       const tx = decodedItemToTransaction(decodedItem, h);
       return tx;
     });

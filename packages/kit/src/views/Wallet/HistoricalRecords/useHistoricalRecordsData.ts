@@ -3,56 +3,93 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Account } from '@onekeyhq/engine/src/types/account';
-import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
+import { TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import {
+  EVMDecodedItem,
+  EVMDecodedTxType,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
 
-export type TransactionGroup = { title: string; data: Transaction[] };
+export type TransactionGroup = { title: string; data: EVMDecodedItem[] };
 
 type UseCollectiblesDataArgs = {
   account?: Account | null | undefined;
   network?: Network | null | undefined;
   tokenId?: string | null | undefined;
+  isInternalSwapOnly?: boolean;
 };
 
 const PAGE_SIZE = 50;
 
 const toTransactionSection = (
   queueStr: string,
-  _data: Transaction[] | null | undefined,
-  formatDate: (date: string) => string,
+  _data: EVMDecodedItem[] | null | undefined,
+  formatDate: (date: number) => string,
 ): TransactionGroup[] => {
   if (!_data) return [];
 
-  const sortData = _data.sort(
-    (a, b) =>
-      new Date(b.blockSignedAt).getTime() - new Date(a.blockSignedAt).getTime(),
-  );
+  const sortData = _data.sort((a, b) => b.blockSignedAt - a.blockSignedAt);
 
-  return sortData.reduce((_pre: TransactionGroup[], _current: Transaction) => {
+  const groups = sortData.reduce((acc: TransactionGroup[], cur) => {
     let key = queueStr;
-    if (_current.successful === TxStatus.Pending) {
-      key = queueStr;
-    } else {
-      key = formatDate(_current.blockSignedAt);
+    if (cur.txStatus !== TxStatus.Pending) {
+      key = formatDate(cur.blockSignedAt);
     }
 
-    let dateGroup = _pre.find((x) => x.title === key);
+    let dateGroup = acc.find((x) => x.title === key);
     if (!dateGroup) {
       dateGroup = { title: key, data: [] };
-      _pre.push(dateGroup);
+      acc.push(dateGroup);
     }
-    dateGroup.data.push(_current);
-    return _pre;
+    dateGroup.data.push(cur);
+    return acc;
   }, []);
+
+  // bring pending txs to the top.
+  const sortedGroups = groups.sort((a) => (a.title === queueStr ? -1 : 1));
+
+  return sortedGroups;
+};
+
+const filtePendingList = (list: EVMDecodedItem[]) => {
+  const pending = list.filter(
+    (h) => h.txStatus === TxStatus.Pending && !!h.nonce,
+  );
+
+  const nonceMap = pending.reduce<Map<number, EVMDecodedItem[]>>((acc, cur) => {
+    const { nonce } = cur;
+
+    if (typeof nonce === 'undefined') {
+      return acc;
+    }
+
+    const origin = acc.get(nonce);
+    if (origin) {
+      acc.set(nonce, [...origin, cur]);
+    } else {
+      acc.set(nonce, [cur]);
+    }
+    return acc;
+  }, new Map<number, EVMDecodedItem[]>());
+
+  const dropList: string[] = [];
+  nonceMap.forEach((i) => {
+    const sameNonceList = i.sort((a, b) => a.blockSignedAt - b.blockSignedAt);
+    sameNonceList.pop(); // pop most recent one.
+    dropList.push(...sameNonceList.map((x) => x.txHash));
+  });
+
+  return list.filter((h) => !dropList.includes(h.txHash));
 };
 
 type RequestParamsType = {
   accountId: string;
   networkId: string;
   tokenId: string | undefined | null;
+  isInternalSwapOnly?: boolean;
   pageNumber: number;
   pageSize: number;
 } | null;
@@ -61,6 +98,7 @@ export const useHistoricalRecordsData = ({
   account,
   network,
   tokenId,
+  isInternalSwapOnly,
 }: UseCollectiblesDataArgs) => {
   const intl = useIntl();
   const formatDate = useFormatDate();
@@ -82,45 +120,36 @@ export const useHistoricalRecordsData = ({
       accountId: account?.id ?? '',
       networkId: network?.id ?? '',
       tokenId,
+      isInternalSwapOnly,
       pageNumber: 0,
       pageSize,
     };
 
     return params;
-  }, [account?.id, hasNoParams, network?.id, tokenId]);
+  }, [account?.id, hasNoParams, isInternalSwapOnly, network?.id, tokenId]);
 
   const requestCall = useCallback(async (params: RequestParamsType) => {
-    // console.log('begin getTxHistories request');
     if (!params) {
       return [];
     }
 
-    let history;
-    if (params.tokenId) {
-      history = await backgroundApiProxy.engine.getErc20TxHistories(
-        params.networkId,
-        params.accountId,
-        params.tokenId,
-        params.pageNumber,
-        params.pageSize,
-      );
-    } else {
-      history = await backgroundApiProxy.engine.getTxHistories(
-        params.networkId,
-        params.accountId,
-        params.pageNumber,
-        params.pageSize,
-      );
+    const history = await backgroundApiProxy.engine.getTxHistoriesV2(
+      params.networkId,
+      params.accountId,
+      {
+        contract: params.tokenId,
+        isHidePending: !!params.tokenId,
+        isLocalOnly: !!params.isInternalSwapOnly,
+      },
+    );
+
+    const filted = filtePendingList(history);
+
+    if (params.isInternalSwapOnly) {
+      return filted.filter((h) => h.txType === EVMDecodedTxType.INTERNAL_SWAP);
     }
 
-    if (history?.error || !history?.data?.txList) {
-      // throw new Error(history?.errorMessage ?? '');
-      return [];
-    }
-
-    const result = history.data.txList;
-    // console.log('end getTxHistories', result.length);
-    return result;
+    return filted;
   }, []);
 
   const refresh = useCallback(() => {
@@ -138,7 +167,8 @@ export const useHistoricalRecordsData = ({
       const transactions = toTransactionSection(
         intl.formatMessage({ id: 'history__queue' }),
         assets,
-        (date: string) => formatDate.formatMonth(date, { hideTheYear: true }),
+        (date: number) =>
+          formatDate.formatMonth(new Date(date), { hideTheYear: true }),
       );
 
       setIsLoading(false);

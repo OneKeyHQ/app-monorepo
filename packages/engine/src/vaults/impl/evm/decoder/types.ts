@@ -1,0 +1,125 @@
+import { ethers } from '@onekeyfe/blockchain-libs';
+
+import { Network } from '../../../../types/network';
+import { Token } from '../../../../types/token';
+
+import type { TxStatus } from '../../../../types/covalent';
+
+enum EVMDecodedTxType {
+  // Native currency transfer
+  NATIVE_TRANSFER = 'native_transfer',
+
+  // ERC20
+  TOKEN_TRANSFER = 'erc20_transfer',
+  TOKEN_APPROVE = 'erc20_approve',
+
+  // ERC721 NFT
+  ERC721_TRANSFER = 'erc721_transfer',
+
+  // Swap
+  SWAP = 'swap',
+  INTERNAL_SWAP = 'internal_swap',
+
+  // Generic contract interaction
+  TRANSACTION = 'transaction',
+}
+
+interface EVMDecodedItemERC20Transfer {
+  type: EVMDecodedTxType.TOKEN_TRANSFER;
+  token: Token;
+  amount: string;
+  value: string;
+  recipient: string;
+}
+
+interface EVMDecodedItemERC20Approve {
+  type: EVMDecodedTxType.TOKEN_APPROVE;
+  token: Token;
+  amount: string;
+  value: string;
+  isUInt256Max: boolean;
+  spender: string;
+}
+
+interface EVMDecodedItemInternalSwap {
+  type: EVMDecodedTxType.INTERNAL_SWAP;
+  buyTokenAddress: string;
+  sellTokenAddress: string;
+  buyTokenSymbol: string;
+  sellTokenSymbol: string;
+  buyAmount: string;
+  sellAmount: string;
+}
+
+interface EVMBaseDecodedItem {
+  txType: EVMDecodedTxType;
+  protocol?: 'erc20' | 'erc721';
+  mainSource: 'raw' | 'ethersTx' | 'covalent';
+  raw?: string;
+
+  tx: ethers.Transaction;
+  txDesc?: ethers.utils.TransactionDescription;
+}
+
+interface GasInfo {
+  gasLimit: number;
+  gasPrice: string;
+  maxPriorityFeePerGas: string;
+  maxFeePerGas: string;
+
+  maxPriorityFeePerGasInGwei: string;
+  maxFeePerGasInGwei: string;
+
+  maxFeeSpend: string; // in ether
+  feeSpend: string; // in ether
+  gasUsed: number; // actual used gas
+  gasUsedRatio: number; // = (gasUsed / gasLimit)
+
+  effectiveGasPrice: string;
+  effectiveGasPriceInGwei: string;
+}
+
+interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
+  symbol: string; // native currency symbol
+  amount: string; // in ether
+  value: string; // in wei
+  fiatAmount?: number;
+  network: Network;
+
+  fromAddress: string;
+  toAddress: string;
+  nonce?: number;
+  txHash: string;
+  blockSignedAt: number;
+  data: string;
+  chainId: number;
+  interactWith?: string; // Dapp name or url
+  fromType: 'IN' | 'OUT';
+  txStatus: TxStatus;
+
+  total: string; // in ether, gasSpend + value
+  gasInfo: GasInfo;
+
+  contractCallInfo?: {
+    contractAddress: string;
+    functionName: string;
+    functionSignature: string;
+    args?: string[];
+  };
+
+  info:
+    | EVMDecodedItemERC20Transfer
+    | EVMDecodedItemERC20Approve
+    | EVMDecodedItemInternalSwap
+    | null;
+}
+
+export { EVMDecodedTxType };
+export type {
+  GasInfo,
+  EVMBaseDecodedItem,
+  EVMDecodedItem,
+  EVMDecodedItemERC20Approve,
+  EVMDecodedItemERC20Transfer,
+  EVMDecodedItemInternalSwap,
+};

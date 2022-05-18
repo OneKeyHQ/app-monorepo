@@ -22,11 +22,11 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
-  EVMDecodedTxType,
   EVMTxFromType,
   Transaction,
   TxStatus,
 } from '@onekeyhq/engine/src/types/covalent';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import {

@@ -20,7 +20,7 @@ const TransactionHistory: FC = () => {
 
   const intl = useIntl();
 
-  const { tokenId } = route.params;
+  const { tokenId, isInternalSwapOnly } = route.params;
 
   const { accountId, networkId } = useActiveWalletAccount();
 
@@ -35,6 +35,7 @@ const TransactionHistory: FC = () => {
       accountId={accountId}
       networkId={networkId}
       tokenId={tokenId}
+      isInternalSwapOnly={isInternalSwapOnly}
       hiddenHeader
     />
   );

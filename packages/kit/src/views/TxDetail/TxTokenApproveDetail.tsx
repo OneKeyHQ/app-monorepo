@@ -55,7 +55,7 @@ const TxTokenApproveDetail: FC<{
         ) : (
           <Container.Item
             title={intl.formatMessage({ id: 'form__fee_estimated' })}
-            describe={`${tx.gasSpend} ${tx.symbol}`}
+            describe={`${tx.gasInfo.maxFeeSpend} ${tx.symbol}`}
             hasArrow
           />
         )}
