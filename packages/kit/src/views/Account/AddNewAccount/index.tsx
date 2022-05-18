@@ -83,6 +83,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           [name],
         );
       } catch (e) {
+        console.error(e);
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
           title: intl.formatMessage({ id: errorKey }),

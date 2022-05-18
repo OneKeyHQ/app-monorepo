@@ -20,14 +20,14 @@ const COINTYPE_CFX = '503';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
+  IMPL_NEAR,
+  IMPL_CFX,
   // IMPL_SOL,  // TODO: bigint issue
   // IMPL_ALGO,  // TODO: bigint issue
-  // IMPL_NEAR,  // TODO: no vault
   // IMPL_STC,  // TODO: bigint issue
-  IMPL_CFX,
 ]);
 
-const PRODUCTION_IMPLS = new Set([IMPL_EVM]);
+const PRODUCTION_IMPLS = new Set([IMPL_EVM, IMPL_NEAR]);
 
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {

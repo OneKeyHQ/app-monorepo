@@ -6,19 +6,6 @@ import { OneKeyInternalError } from '../../errors';
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 
 export abstract class KeyringHdBase extends KeyringSoftwareBase {
-  // async getSigner(options: ISignCredentialOptions) {
-  //   const { networkId } = this;
-  //   const dbAccount = await this.getDbAccount();
-  //   const credential = await this.getCredential(options);
-  //   const signers = this.engine.providerManager.getSigners(
-  //     networkId,
-  //     credential,
-  //     dbAccount,
-  //   );
-  //   const signer = signers[dbAccount.address];
-  //   return signer;
-  // }
-
   override async getPrivateKeys(
     password: string,
     relPaths?: Array<string>,
