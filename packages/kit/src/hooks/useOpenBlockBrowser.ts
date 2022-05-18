@@ -4,8 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Network } from '@onekeyhq/engine/src/types/network';
 
+import { openUrl } from '../utils/openUrl';
+
 import { useRuntime } from './redux';
-import useOpenBrowser from './useOpenBrowser';
 
 function buildTransactionDetailsUrl(
   network: Network | null | undefined,
@@ -35,7 +36,6 @@ export default function useOpenBlockBrowser(
   network: Network | null | undefined,
 ) {
   const intl = useIntl();
-  const webview = useOpenBrowser();
 
   const { networks } = useRuntime();
 
@@ -49,36 +49,36 @@ export default function useOpenBlockBrowser(
     (txId: string | null | undefined, title?: string) => {
       const url = buildTransactionDetailsUrl(network, txId);
 
-      webview.openUrl(
+      openUrl(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
       );
     },
-    [intl, network, webview],
+    [intl, network],
   );
 
   const openAddressDetails = useCallback(
     (txId: string | null | undefined, title?: string) => {
       const url = buildAddressDetailsUrl(network, txId);
 
-      webview.openUrl(
+      openUrl(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
       );
     },
-    [intl, network, webview],
+    [intl, network],
   );
 
   const openBlockDetails = useCallback(
     (txId: string | null | undefined, title?: string) => {
       const url = buildBlockDetailsUrl(network, txId);
 
-      webview.openUrl(
+      openUrl(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
       );
     },
-    [intl, network, webview],
+    [intl, network],
   );
 
   return useMemo(

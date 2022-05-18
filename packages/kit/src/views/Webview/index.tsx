@@ -7,16 +7,15 @@ import { URL } from 'react-native-url-polyfill';
 
 import { Box, Icon, Select, useToast } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import WebView from '../../components/WebView';
+import { openUrlExternal } from '../../utils/openUrl';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.SettingsWebviewScreen>;
 
 export const SettingsWebViews: FC = () => {
   const intl = useIntl();
-  const openBrowser = useOpenBrowser();
   const toast = useToast();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
@@ -79,7 +78,7 @@ export const SettingsWebViews: FC = () => {
           setCurrentOptionType(null);
           break;
         case 'openInBrowser':
-          openBrowser.openUrlExternal(currentUrl);
+          openUrlExternal(currentUrl);
           setCurrentOptionType(null);
           break;
         default:

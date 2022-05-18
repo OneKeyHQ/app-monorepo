@@ -15,9 +15,10 @@ import {
 } from '@onekeyhq/components';
 
 import logo from '../../../assets/logo.png';
-import { useHelpLink, useNavigationActions, useOpenBrowser } from '../../hooks';
+import { useHelpLink, useNavigationActions } from '../../hooks';
 import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
+import { openUrl } from '../../utils/openUrl';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -28,7 +29,6 @@ type NavigationProps = NativeStackNavigationProp<
 
 const Welcome = () => {
   const intl = useIntl();
-  const { openUrl } = useOpenBrowser();
   const { resetToRoot } = useNavigationActions();
   const navigation = useNavigation<NavigationProps>();
   const { bottom } = useSafeAreaInsets();
@@ -63,7 +63,7 @@ const Welcome = () => {
         id: 'form__user_agreement',
       }),
     );
-  }, [intl, openUrl, userAgreementUrl]);
+  }, [intl, userAgreementUrl]);
 
   const onOpenPrivacyPolicy = useCallback(() => {
     openUrl(
@@ -72,7 +72,7 @@ const Welcome = () => {
         id: 'form__privacy_policy',
       }),
     );
-  }, [intl, openUrl, privacyPolicyUrl]);
+  }, [intl, privacyPolicyUrl]);
 
   return (
     <Center w="full" h="full" bg="surface-default" pt="32">
