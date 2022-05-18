@@ -1,9 +1,11 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IMPL_EVM, IMPL_NEAR, SEPERATOR } from '../constants';
+import { IMPL_CFX, IMPL_EVM, IMPL_NEAR, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 
+import VaultCfx from './impl/cfx/Vault';
+import VaultHelperCfx from './impl/cfx/VaultHelper';
 import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultNear from './impl/near/Vault';
@@ -28,6 +30,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_NEAR) {
     return new VaultHelperNear(options);
+  }
+  if (impl === IMPL_CFX) {
+    return new VaultHelperCfx(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -72,6 +77,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_NEAR) {
     vault = new VaultNear(options);
+  }
+  if (network.impl === IMPL_CFX) {
+    vault = new VaultCfx(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

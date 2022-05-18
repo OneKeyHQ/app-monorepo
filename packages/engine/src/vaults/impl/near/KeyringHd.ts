@@ -1,4 +1,7 @@
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import {
+  CurveName,
+  batchGetPublicKeys,
+} from '@onekeyfe/blockchain-libs/dist/secret';
 import {
   SignedTx,
   UnsignedTx,
@@ -8,7 +11,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_NEAR as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { IPrepareSoftwareAccountsParams } from '../../../types/vault';
@@ -18,8 +21,9 @@ import { baseDecode, nearApiJs, serializeTransaction } from './utils';
 
 import type { ISignCredentialOptions } from '../../../types/vault';
 
-// m/44'/397'/0'
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'`;
+// TODO move to abstract attribute
+// m/44'/397'/0', m/44'/397'/1', m/44'/397'/2'
+const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 export class KeyringHd extends KeyringHdBase {
   // async getSigner(options: ISignCredentialOptions) {
@@ -35,9 +39,15 @@ export class KeyringHd extends KeyringHdBase {
   //   return signer;
   // }
 
+  // TODO define a basePrepareAccounts() in base class
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
+    // TODO move to abstract attribute
+    const curve: CurveName = 'ed25519';
+    const accountNamePrefix = 'NEAR';
+    const hardened = true;
+
     const { password, indexes, names } = params;
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
@@ -45,11 +55,11 @@ export class KeyringHd extends KeyringHdBase {
     )) as ExportedSeedCredential;
 
     const pubkeyInfos = batchGetPublicKeys(
-      'ed25519',
+      curve,
       seed,
       password,
       PATH_PREFIX,
-      indexes.map((index) => index.toString()),
+      indexes.map((index) => `${index}${hardened ? "'" : ''}`),
     );
 
     if (pubkeyInfos.length !== indexes.length) {
@@ -68,7 +78,8 @@ export class KeyringHd extends KeyringHdBase {
         this.networkId,
         pub,
       );
-      const name = (names || [])[index] || `ETH #${indexes[index] + 1}`;
+      const name =
+        (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
