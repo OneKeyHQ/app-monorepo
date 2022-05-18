@@ -17,7 +17,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     throw new OneKeyInternalError(
-      'Signing is not supported for watching accounts',
+      'signTransaction is not supported for watching accounts',
     );
   }
 
@@ -26,7 +26,13 @@ export abstract class KeyringWatchingBase extends KeyringBase {
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     throw new OneKeyInternalError(
-      'Signing is not supported for watching accounts',
+      'signMessage is not supported for watching accounts',
     );
   }
+
+  // prepareAccounts(params: any): Promise<Array<any>> {
+  //   throw new OneKeyInternalError(
+  //     'prepareAccounts is not supported for watching accounts',
+  //   );
+  // }
 }
