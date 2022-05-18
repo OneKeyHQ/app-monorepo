@@ -278,10 +278,9 @@ const OnekeyLiteDetail: React.FC = () => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.BackupWallet,
             params: {
-              screen: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
+              screen: BackupWalletModalRoutes.BackupWalletLiteModal,
               params: {
                 walletId: walletItem.id,
-                backupType: 'OnekeyLite',
               },
             },
           });

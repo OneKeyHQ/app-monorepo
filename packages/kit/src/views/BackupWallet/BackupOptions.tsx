@@ -1,10 +1,9 @@
-import React, { ComponentProps, FC, useEffect } from 'react';
+import React, { ComponentProps, FC, useCallback } from 'react';
 
 import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import {
   Badge,
@@ -22,11 +21,8 @@ import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { ModalRoutes, RootRoutes } from '../../routes/types';
-
-import { BackupType } from './types';
 
 export type BackupWalletViewProps = {
   walletId: string;
@@ -35,7 +31,7 @@ export type BackupWalletViewProps = {
 export type BackupItemProps = {
   imageSrc: ComponentProps<typeof Image>['source'];
   title: string;
-  describe?: string;
+  discription?: string;
   badge?: string;
   badgeType?: BadgeType;
   onPress?: () => void;
@@ -47,8 +43,8 @@ const BackupItemDefaultProps = {
 const BackupItem: FC<BackupItemProps> = ({
   imageSrc,
   title,
-  describe,
-  badge,
+  discription,
+  badge = 'default',
   badgeType,
   onPress,
 }) => (
@@ -69,9 +65,9 @@ const BackupItem: FC<BackupItemProps> = ({
         </Box>
       </Box>
       <Typography.Body1Strong mt={4}>{title}</Typography.Body1Strong>
-      {describe && (
+      {discription && (
         <Typography.Body1 mt={1} color="text-subdued">
-          {describe}
+          {discription}
         </Typography.Body1>
       )}
     </Box>
@@ -79,33 +75,29 @@ const BackupItem: FC<BackupItemProps> = ({
 );
 BackupItem.defaultProps = BackupItemDefaultProps;
 
-const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
+type RouteProps = RouteProp<
+  BackupWalletRoutesParams,
+  BackupWalletModalRoutes.BackupWalletOptionsModal
+>;
+
+type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
+
+const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   const intl = useIntl();
+  const { walletId } = useRoute<RouteProps>().params;
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const navigation = useNavigation();
-  const hasSupportNFC = Platform.OS === 'ios' || Platform.OS === 'android';
-
-  const onManualBackup = (backupType: BackupType) => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.BackupWallet,
-      params: {
-        screen: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
-        params: {
-          walletId,
-          backupType,
-        },
-      },
+  const onManual = useCallback(() => {
+    navigation.navigate(BackupWalletModalRoutes.BackupWalletManualModal, {
+      walletId,
     });
-  };
+  }, [navigation, walletId]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      if (navigation.canGoBack()) navigation.goBack();
-
-      onManualBackup('Manual');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const onLite = useCallback(() => {
+    navigation.navigate(BackupWalletModalRoutes.BackupWalletLiteModal, {
+      walletId,
+    });
+  }, [navigation, walletId]);
 
   return (
     <Modal
@@ -117,21 +109,20 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
             <BackupItem
               imageSrc={RecoveryPhrase}
               title={intl.formatMessage({ id: 'backup__manual_backup' })}
-              describe={intl.formatMessage({
+              discription={intl.formatMessage({
                 id: 'backup__manual_backup_desc',
               })}
-              onPress={() => onManualBackup('Manual')}
+              onPress={onManual}
             />
-            {hasSupportNFC && (
+            {platformEnv.isNative && (
               <BackupItem
                 imageSrc={OneKeyLite}
                 title={intl.formatMessage({ id: 'backup__onekey_lite_backup' })}
-                describe={intl.formatMessage({
+                discription={intl.formatMessage({
                   id: 'backup__onekey_lite_backup_desc',
                 })}
-                // badge={intl.formatMessage({ id: 'badge__backed_up' })}
                 badgeType="success"
-                onPress={() => onManualBackup('OnekeyLite')}
+                onPress={onLite}
               />
             )}
           </Column>
@@ -141,14 +132,4 @@ const BackupWalletViewModal: FC<BackupWalletViewProps> = ({ walletId }) => {
   );
 };
 
-type RouteProps = RouteProp<
-  BackupWalletRoutesParams,
-  BackupWalletModalRoutes.BackupWalletModal
->;
-
-const BackupWalletView: FC = () => {
-  const { walletId } = useRoute<RouteProps>().params;
-  return <BackupWalletViewModal walletId={walletId} />;
-};
-
-export { BackupWalletView, BackupWalletViewModal };
+export default BackupWalletOptionsView;
