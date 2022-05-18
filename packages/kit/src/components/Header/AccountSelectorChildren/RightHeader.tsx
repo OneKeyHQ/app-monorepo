@@ -1,5 +1,4 @@
-/* eslint-disable  @typescript-eslint/no-unused-vars */
-import React, { FC, useMemo, useState } from 'react';
+import React, { FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,10 +18,10 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
-import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey';
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
@@ -134,7 +133,9 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
                   navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.BackupWallet,
                     params: {
-                      screen: BackupWalletModalRoutes.BackupWalletModal,
+                      screen: platformEnv.isNative
+                        ? BackupWalletModalRoutes.BackupWalletOptionsModal
+                        : BackupWalletModalRoutes.BackupWalletManualModal,
                       params: {
                         walletId: selectedWallet?.id ?? '',
                       },
@@ -303,7 +304,9 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.BackupWallet,
                 params: {
-                  screen: BackupWalletModalRoutes.BackupWalletModal,
+                  screen: platformEnv.isNative
+                    ? BackupWalletModalRoutes.BackupWalletOptionsModal
+                    : BackupWalletModalRoutes.BackupWalletManualModal,
                   params: {
                     walletId: selectedWallet?.id ?? '',
                   },

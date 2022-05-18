@@ -1,58 +1,31 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import BackupWallet from '@onekeyhq/kit/src/views/BackupWallet';
-import Attentions from '@onekeyhq/kit/src/views/BackupWallet/Attentions';
-import BackupAuthorityWalletVerifyView from '@onekeyhq/kit/src/views/BackupWallet/BackupAuthorityVerify/index';
-import BackupWalletManualHintView from '@onekeyhq/kit/src/views/BackupWallet/BackupManualHint/index';
-import BackupWalletManualSuccessView from '@onekeyhq/kit/src/views/BackupWallet/BackupManualSuccess/index';
-import BackupMnemonicsVerifyView from '@onekeyhq/kit/src/views/BackupWallet/BackupMnemonicsVerify/index';
-import BackupShowMnemonicsView from '@onekeyhq/kit/src/views/BackupWallet/BackupShowMnemonics';
-import BackupWalletWarningView from '@onekeyhq/kit/src/views/BackupWallet/BackupWarning/index';
-import Mnemonic from '@onekeyhq/kit/src/views/BackupWallet/Mnemonic';
-import { BackupType } from '@onekeyhq/kit/src/views/BackupWallet/types';
+import BackupAttentions from '@onekeyhq/kit/src/views/BackupWallet/BackupAttentions';
+import BackupLite from '@onekeyhq/kit/src/views/BackupWallet/BackupLite';
+import BackupManual from '@onekeyhq/kit/src/views/BackupWallet/BackupManual';
+import BackupMnemonic from '@onekeyhq/kit/src/views/BackupWallet/BackupMnemonic';
+import BackupOptions from '@onekeyhq/kit/src/views/BackupWallet/BackupOptions';
 
 import createStackNavigator from './createStackNavigator';
 
 export enum BackupWalletModalRoutes {
-  BackupWalletModal = 'BackupWalletModal',
-  BackupWalletAuthorityVerifyModal = 'BackupWalletAuthorityVerifyModal',
-  BackupWalletManualHintModal = 'BackupWalletManualHintModal',
-  BackupWalletWarningModal = 'BackupWalletWarningModal',
-  BackupShowMnemonicsModal = 'BackupShowMnemonicsModal',
-  BackupWalletMnemonicsVerifyModal = 'BackupWalletMnemonicsVerifyModal',
-  BackupWalletManualSuccessModal = 'BackupWalletManualSuccessModal',
+  BackupWalletOptionsModal = 'BackupWalletOptionsModal',
+  BackupWalletManualModal = 'BackupWalletManualModal',
+  BackupWalletLiteModal = 'BackupWalletLiteModal',
   BackupWalletAttentionsModal = 'BackupWalletAttentionsModal',
   BackupWalletMnemonicModal = 'BackupWalletMnemonicModal',
 }
 
 export type BackupWalletRoutesParams = {
-  [BackupWalletModalRoutes.BackupWalletModal]: {
+  [BackupWalletModalRoutes.BackupWalletManualModal]: {
     walletId: string;
   };
-  [BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal]: {
-    walletId: string;
-    backupType: BackupType;
-  };
-  [BackupWalletModalRoutes.BackupWalletManualHintModal]: {
-    backup: string;
+  [BackupWalletModalRoutes.BackupWalletOptionsModal]: {
     walletId: string;
   };
-  [BackupWalletModalRoutes.BackupWalletWarningModal]: {
-    backup: string;
+  [BackupWalletModalRoutes.BackupWalletLiteModal]: {
     walletId: string;
-  };
-  [BackupWalletModalRoutes.BackupShowMnemonicsModal]: {
-    backup: string;
-    readOnly: boolean;
-    walletId: string;
-  };
-  [BackupWalletModalRoutes.BackupWalletMnemonicsVerifyModal]: {
-    mnemonics: string[];
-    walletId: string;
-  };
-  [BackupWalletModalRoutes.BackupWalletManualSuccessModal]: {
-    walletId: string | null;
   };
   [BackupWalletModalRoutes.BackupWalletAttentionsModal]: {
     walletId: string;
@@ -68,51 +41,24 @@ const BackupWalletNavigator = createStackNavigator<BackupWalletRoutesParams>();
 
 const modalRoutes = [
   {
-    name: BackupWalletModalRoutes.BackupWalletModal,
-    component: BackupWallet,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
-    component: BackupAuthorityWalletVerifyView,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupWalletManualHintModal,
-    component: BackupWalletManualHintView,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupWalletWarningModal,
-    component: BackupWalletWarningView,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupShowMnemonicsModal,
-    component: BackupShowMnemonicsView,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupWalletMnemonicsVerifyModal,
-    component: BackupMnemonicsVerifyView,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupWalletManualSuccessModal,
-    component: BackupWalletManualSuccessView,
+    name: BackupWalletModalRoutes.BackupWalletManualModal,
+    component: BackupManual,
   },
   {
     name: BackupWalletModalRoutes.BackupWalletAttentionsModal,
-    component: Attentions,
+    component: BackupAttentions,
   },
   {
     name: BackupWalletModalRoutes.BackupWalletMnemonicModal,
-    component: Mnemonic,
-  },
-];
-
-const viewMnemonicsModalRoutes = [
-  {
-    name: BackupWalletModalRoutes.BackupWalletAuthorityVerifyModal,
-    component: BackupAuthorityWalletVerifyView,
+    component: BackupMnemonic,
   },
   {
-    name: BackupWalletModalRoutes.BackupShowMnemonicsModal,
-    component: BackupShowMnemonicsView,
+    name: BackupWalletModalRoutes.BackupWalletOptionsModal,
+    component: BackupOptions,
+  },
+  {
+    name: BackupWalletModalRoutes.BackupWalletLiteModal,
+    component: BackupLite,
   },
 ];
 
@@ -136,24 +82,4 @@ const BackupWalletModalStack = () => {
   );
 };
 
-const BackupWalletViewMnemonicsModalStack = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-  return (
-    <BackupWalletNavigator.Navigator
-      screenOptions={{
-        headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
-    >
-      {viewMnemonicsModalRoutes.map((route) => (
-        <BackupWalletNavigator.Screen
-          key={route.name}
-          name={route.name}
-          component={route.component}
-        />
-      ))}
-    </BackupWalletNavigator.Navigator>
-  );
-};
-
-export { BackupWalletModalStack, BackupWalletViewMnemonicsModalStack };
+export default BackupWalletModalStack;

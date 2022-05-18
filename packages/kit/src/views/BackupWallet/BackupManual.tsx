@@ -15,7 +15,7 @@ type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
 
 type RouteProps = RouteProp<
   BackupWalletRoutesParams,
-  BackupWalletModalRoutes.BackupWalletModal
+  BackupWalletModalRoutes.BackupWalletManualModal
 >;
 
 type BackupDoneProps = {
@@ -34,7 +34,7 @@ const BackupDone: FC<BackupDoneProps> = ({ password, walletId }) => {
   return <></>;
 };
 
-const Backup = () => {
+const BackupManual = () => {
   const route = useRoute<RouteProps>();
   const { walletId } = route.params;
   return (
@@ -46,4 +46,4 @@ const Backup = () => {
   );
 };
 
-export default Backup;
+export default BackupManual;
