@@ -14,12 +14,6 @@ import type { HardwareCredential } from '../../types/credential';
 import type { ISignCredentialOptions } from '../../types/vault';
 
 export abstract class KeyringHardwareBase extends KeyringBase {
-  async getCredential(
-    options: ISignCredentialOptions,
-  ): Promise<HardwareCredential> {
-    return { type: CredentialType.HARDWARE };
-  }
-
   async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,

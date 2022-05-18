@@ -18,9 +18,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import {
-  ExtendedKey,
   N,
-  batchGetPrivateKeys,
   sign,
   uncompressPublicKey,
 } from '@onekeyfe/blockchain-libs/dist/secret';
@@ -57,9 +55,7 @@ import {
   DBSimpleAccount,
   DBVariantAccount,
 } from './types/account';
-import { CredentialSelector, CredentialType } from './types/credential';
 import { HistoryEntryStatus } from './types/history';
-import { ETHMessageTypes, Message } from './types/message';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
 
@@ -256,25 +252,30 @@ class Verifier implements IVerifier {
   }
 }
 
-class Signer extends Verifier implements ISigner {
+export class Signer extends Verifier implements ISigner {
   constructor(
-    private encryptedPrivateKey: ExtendedKey,
+    private encryptedPrivateKey: Buffer,
     private password: string,
     private curve: Curve,
   ) {
-    super(N(curve, encryptedPrivateKey, password).key.toString('hex'), curve);
+    super(
+      N(
+        curve,
+        { key: encryptedPrivateKey, chainCode: Buffer.alloc(32) },
+        password,
+      ).key.toString('hex'),
+      curve,
+    );
   }
 
   getPrvkey(): Promise<Buffer> {
-    return Promise.resolve(
-      decrypt(this.password, this.encryptedPrivateKey.key),
-    );
+    return Promise.resolve(decrypt(this.password, this.encryptedPrivateKey));
   }
 
   sign(digest: Buffer): Promise<[Buffer, number]> {
     const signature = sign(
       this.curve,
-      this.encryptedPrivateKey.key,
+      this.encryptedPrivateKey,
       digest,
       this.password,
     );
@@ -338,47 +339,6 @@ class ProviderController extends BaseProviderController {
     const { curve } = this.providers[networkId].chainInfo;
     return new Verifier(pub, curve as Curve);
   }
-
-  public getSigners(
-    networkId: string,
-    credential: CredentialSelector,
-    dbAccount: DBAccount,
-  ): { [p: string]: ISigner } {
-    const provider = this.providers[networkId];
-    if (typeof provider === 'undefined') {
-      throw new OneKeyInternalError('Provider not found.');
-    }
-
-    const { curve } = this.providers[networkId].chainInfo;
-    let extendedKey: ExtendedKey;
-    if (credential.type === CredentialType.SOFTWARE) {
-      const pathComponents = dbAccount.path.split('/');
-      const relPath = pathComponents.pop() as string;
-      extendedKey = batchGetPrivateKeys(
-        curve,
-        credential.seed,
-        credential.password,
-        pathComponents.join('/'),
-        [relPath],
-      )[0].extendedKey;
-    } else if (credential.type === CredentialType.PRIVATE_KEY) {
-      extendedKey = {
-        key: credential.privateKey,
-        chainCode: Buffer.alloc(0),
-      };
-    } else {
-      throw new OneKeyInternalError('Invalid credential type.');
-    }
-
-    return {
-      [dbAccount.address]: new Signer(
-        extendedKey,
-        credential.password,
-        curve as Curve,
-      ),
-    };
-  }
-
   // TODO: set client api to support change.
 
   async getClient(
@@ -648,39 +608,6 @@ class ProviderController extends BaseProviderController {
     });
 
     return ret;
-  }
-
-  async signMessages(
-    credential: CredentialSelector,
-    password: string,
-    network: Network,
-    dbAccount: DBAccount,
-    messages: Array<Message>,
-  ): Promise<Array<string>> {
-    if (network.impl !== IMPL_EVM) {
-      // TODO: other network signing.
-      throw new NotImplemented(
-        `Message signing not support on ${network.name}`,
-      );
-    }
-    await this.getProvider(network.id);
-    dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
-    const defaultType = ETHMessageTypes.PERSONAL_SIGN;
-    const [signer] = Object.values(
-      this.getSigners(network.id, credential, dbAccount),
-    );
-    return Promise.all(
-      messages.map((message) => {
-        if (typeof message === 'string') {
-          return this.signMessage(
-            network.id,
-            { message, type: defaultType },
-            signer,
-          );
-        }
-        return this.signMessage(network.id, message, signer);
-      }),
-    );
   }
 
   // Wrap to throw JSON RPC errors

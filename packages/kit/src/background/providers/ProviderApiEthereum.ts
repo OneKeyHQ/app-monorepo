@@ -324,10 +324,9 @@ class ProviderApiEthereum extends ProviderApiBase {
       // Not interacting with user's credential, only a static method, so any
       // vault would do.
       const evmWatchVault =
-        await this.backgroundApi.engine.vaultFactory.getVault({
+        await this.backgroundApi.engine.vaultFactory.getChainOnlyVault(
           networkId,
-          accountId: '',
-        });
+        );
       const result = await (evmWatchVault as VaultEvm).personalECRecover(
         message,
         signature,

@@ -60,9 +60,12 @@ function getColor(value: number) {
   return 'text-critical';
 }
 
-async function measure(url: string, impl = 'evm'): Promise<number> {
+async function measure(url: string, networkId = 'evm--1'): Promise<number> {
   const { responseTime } =
-    await backgroundApiProxy.serviceNetwork.getRPCEndpointStatus(url, impl);
+    await backgroundApiProxy.serviceNetwork.getRPCEndpointStatus(
+      url,
+      networkId,
+    );
   return responseTime;
 }
 
@@ -124,14 +127,14 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
 
   useEffect(() => {
     rpcUrls.forEach((url) => {
-      measure(url, impl).then(
+      measure(url, id).then(
         (value) => setNetworkStatus((prev) => ({ ...prev, [url]: value })),
         (error) => {
           console.error(error);
         },
       );
     });
-  }, [rpcUrls, impl]);
+  }, [rpcUrls, id]);
 
   const options = useMemo<
     { value: string; label: string; trailing?: React.ReactNode }[]

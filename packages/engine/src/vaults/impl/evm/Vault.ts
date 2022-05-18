@@ -5,6 +5,7 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
@@ -12,7 +13,11 @@ import { isNil, merge } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, PendingQueueTooLong } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+  PendingQueueTooLong,
+} from '../../../errors';
 import {
   extractResponseError,
   fillUnsignedTx,
@@ -37,6 +42,7 @@ import {
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../../types/vault';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import { VaultBase } from '../../VaultBase';
 
 import { Erc20MethodSelectors } from './decoder/abi';
@@ -540,33 +546,49 @@ export default class Vault extends VaultBase {
     return nextNonce;
   }
 
-  private async getSigners(options: ISignCredentialOptions) {
-    // TODO: this can be moved into keyrings.
-    const dbAccount = await this.getDbAccount();
-    const credential = await this.keyring.getCredential(options);
-    await this.engine.providerManager.getProvider(this.networkId);
-    return this.engine.providerManager.getSigners(
-      this.networkId,
-      credential,
-      dbAccount,
-    );
-  }
-
   async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
-    const [signer] = Object.values(await this.getSigners(options));
-    return this.engine.providerManager
-      .getProvider(this.networkId)
-      .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const { password } = options;
+      if (typeof password === 'undefined') {
+        throw new OneKeyInternalError('password required');
+      }
+      const { [dbAccount.address]: signer } = await keyring.getSigners(
+        password,
+        [dbAccount.address],
+      );
+      return this.engine.providerManager
+        .getProvider(this.networkId)
+        .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+    }
+    throw new NotImplemented(
+      'Only software keryings support getting encryption key.',
+    );
   }
 
   async mmDecrypt(
     message: string,
     options: ISignCredentialOptions,
   ): Promise<string> {
-    const [signer] = Object.values(await this.getSigners(options));
-    return this.engine.providerManager
-      .getProvider(this.networkId)
-      .then((provider) => (provider as EthProvider).mmDecrypt(message, signer));
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const { password } = options;
+      if (typeof password === 'undefined') {
+        throw new OneKeyInternalError('password required');
+      }
+      const { [dbAccount.address]: signer } = await keyring.getSigners(
+        password,
+        [dbAccount.address],
+      );
+      return this.engine.providerManager
+        .getProvider(this.networkId)
+        .then((provider) =>
+          (provider as EthProvider).mmDecrypt(message, signer),
+        );
+    }
+    throw new NotImplemented('Only software keryings support mm decryption.');
   }
 
   async personalECRecover(message: string, signature: string): Promise<string> {
@@ -608,6 +630,22 @@ export default class Vault extends VaultBase {
     return new BigNumber(rawAllowanceHex as string).shiftedBy(-token.decimals);
   }
 
+  async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
+  }
+
+  // Chain only functionalities below.
+
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();
     try {
@@ -618,5 +656,9 @@ export default class Vault extends VaultBase {
     } catch (e) {
       throw extractResponseError(e);
     }
+  }
+
+  createClientFromURL(url: string): Geth {
+    return new Geth(url);
   }
 }
