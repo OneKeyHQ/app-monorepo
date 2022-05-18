@@ -19,7 +19,7 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
-  changeActiveNetwork(
+  async changeActiveNetwork(
     networkId: NonNullable<GeneralInitialState['activeNetworkId']>,
   ) {
     const { appSelector, serviceAccount } = this.backgroundApi;
@@ -30,15 +30,24 @@ class ServiceNetwork extends ServiceBase {
     );
     const newNetwork = networks.find((network) => network.id === networkId);
 
+    this.backgroundApi.dispatch(changeActiveNetwork(networkId));
+    this.notifyChainChanged();
+
     if (previousNetwork?.impl !== newNetwork?.impl) {
       // 当切换了不同 impl 类型的链时更新 accounts 内容
-      serviceAccount.reloadAccountsByWalletIdNetworkId(
+      const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
         activeWalletId,
         networkId,
       );
+      const firstAccount = accounts && accounts[0];
+      // TODO cache last active account of network, NOT hardcode to firstAccount
+      if (firstAccount) {
+        await serviceAccount.changeActiveAccount({
+          accountId: firstAccount.id,
+          walletId: activeWalletId,
+        });
+      }
     }
-    this.backgroundApi.dispatch(changeActiveNetwork(networkId));
-    this.notifyChainChanged();
   }
 
   @backgroundMethod()

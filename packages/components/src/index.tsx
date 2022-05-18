@@ -70,6 +70,7 @@ export * from './NumberInput';
 export * from './OverlayContainer';
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
+export * from './Svg';
 export { default as Skeleton } from './Skeleton';
 
 export { useForm, Controller, useWatch, useFormState } from 'react-hook-form';

@@ -1,11 +1,12 @@
 import {
   TokenList,
   evmAllTokenList,
+  nearAllTokenList,
   solAllTokenList,
 } from '@onekeyfe/default-token-list';
 import axios from 'axios';
 
-import { IMPL_EVM, IMPL_SOL } from '../constants';
+import { IMPL_EVM, IMPL_NEAR, IMPL_SOL } from '../constants';
 import { Token } from '../types/token';
 
 import { REMOTE_URL, Version, checkVersion, parseVersion } from './base';
@@ -15,6 +16,7 @@ const caseSensitiveImpls = new Set([IMPL_SOL]);
 let preset: Record<string, TokenList> = {
   [IMPL_EVM]: evmAllTokenList,
   [IMPL_SOL]: solAllTokenList,
+  [IMPL_NEAR]: nearAllTokenList,
 };
 let synced = true; // Change to false to enable remote updating
 //  network.id => token_address => Token

@@ -57,6 +57,23 @@ abstract class VaultBaseChainOnly extends VaultContext {
   }
 }
 
+/*
+TODO
+- validator to vault
+- fetchTokenList: packages/engine/src/presets/token.ts
+  - searchTokens from DB
+    - remove regex match
+  - remove token list in memory
+  - check version and save
+    - fetch cdn
+    - require(npm) fallback
+    - save to DB
+    - correct decimals
+- fetchTokenInfo: single token info
+  - tokenInfo on chain
+  - tokenInfo on tokenList
+  - merge tokenInfo
+ */
 export abstract class VaultBase extends VaultBaseChainOnly {
   keyring!: KeyringBase;
 
@@ -74,20 +91,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     this.keyring = await config.keyringCreator(this);
   }
 
-  // TODO remove
-  abstract simpleTransfer(
-    payload: {
-      to: string;
-      value: string;
-      tokenIdOnNetwork?: string;
-      extra?: { [key: string]: any };
-      gasPrice: string; // TODO remove gasPrice, gasLimit
-      gasLimit: string;
-    },
-    // TODO rename ISignAuthInfo
-    options: ISignCredentialOptions,
-  ): Promise<IBroadcastedTx>;
-
   abstract attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxAny;
     feeInfoValue: IFeeInfoUnit;
@@ -102,10 +105,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxAny>;
 
+  // TODO move to EVM only
   abstract buildEncodedTxFromApprove(
     approveInfo: IApproveInfo,
   ): Promise<IEncodedTxAny>;
 
+  // TODO move to EVM only
   abstract updateEncodedTxTokenApprove(
     encodedTx: IEncodedTxAny,
     amount: string,

@@ -1,13 +1,15 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IMPL_CFX, IMPL_EVM, SEPERATOR } from '../constants';
+import { IMPL_CFX, IMPL_EVM, IMPL_NEAR, SEPERATOR } from '../constants';
 import { OneKeyInternalError } from '../errors';
 
 import VaultCfx from './impl/cfx/Vault';
 import VaultHelperCfx from './impl/cfx/VaultHelper';
 import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
+import VaultNear from './impl/near/Vault';
+import VaultHelperNear from './impl/near/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { IVaultFactoryOptions, IVaultOptions } from '../types/vault';
@@ -25,6 +27,9 @@ export function createVaultHelperInstance(
   const impl = getNetworkImpl(options.networkId);
   if (impl === IMPL_EVM) {
     return new VaultHelperEvm(options);
+  }
+  if (impl === IMPL_NEAR) {
+    return new VaultHelperNear(options);
   }
   if (impl === IMPL_CFX) {
     return new VaultHelperCfx(options);
@@ -69,6 +74,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   debugLogger.engine('createVaultInstance', network, options);
   if (network.impl === IMPL_EVM) {
     vault = new VaultEvm(options);
+  }
+  if (network.impl === IMPL_NEAR) {
+    vault = new VaultNear(options);
   }
   if (network.impl === IMPL_CFX) {
     vault = new VaultCfx(options);

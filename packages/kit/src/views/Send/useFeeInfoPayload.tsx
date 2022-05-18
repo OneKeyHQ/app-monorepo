@@ -114,7 +114,10 @@ export function useFeeInfoPayload({
       info: IFeeInfo;
       index: string | number;
     }): IFeeInfoUnit => {
-      const priceInfo = info.prices[index as number];
+      const indexNum = parseInt(index as string, 10);
+      const priceIndex =
+        indexNum > info.prices.length - 1 ? info.prices.length - 1 : indexNum;
+      const priceInfo = info.prices[priceIndex];
       return {
         eip1559: info.eip1559,
         price: priceInfo,

@@ -330,7 +330,7 @@ class ProviderController extends BaseProviderController {
     }));
   }
 
-  private getVerifier(networkId: string, pub: string): IVerifier {
+  public getVerifier(networkId: string, pub: string): IVerifier {
     const provider = this.providers[networkId];
     if (typeof provider === 'undefined') {
       throw new OneKeyInternalError('Provider not found.');

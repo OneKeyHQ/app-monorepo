@@ -3,18 +3,23 @@ import React, { FC } from 'react';
 import {
   DrawerContentComponentProps,
   DrawerContentScrollView,
+  useDrawerStatus,
 } from '@react-navigation/drawer';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
 
-const AccountSelectorDesktop: FC<DrawerContentComponentProps> = (props) => (
-  <DrawerContentScrollView
-    {...props}
-    scrollEnabled={false}
-    contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
-  >
-    <AccountSelectorChildren />
-  </DrawerContentScrollView>
-);
+const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
+  const status = useDrawerStatus();
 
-export default AccountSelectorDesktop;
+  return (
+    <DrawerContentScrollView
+      {...props}
+      scrollEnabled={false}
+      contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
+    >
+      <AccountSelectorChildren isOpen={status === 'open'} />
+    </DrawerContentScrollView>
+  );
+};
+
+export default AccountSelectorMobile;

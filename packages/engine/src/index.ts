@@ -336,7 +336,7 @@ class Engine {
       });
       await Promise.all(
         networks.map((networkId) =>
-          this.addHDAccounts(password, wallet.id, networkId).then(
+          this.addHdOrHwAccounts(password, wallet.id, networkId).then(
             undefined,
             (e) => console.error(e),
           ),
@@ -516,6 +516,7 @@ class Engine {
     const tokensToGet = tokenIdsOnNetwork.filter(
       (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
     );
+    // TODO move proxyGetBalances to Vault
     const balances = await this.providerManager.proxyGetBalances(
       networkId,
       dbAccount,
@@ -595,7 +596,7 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addHDAccounts(
+  async addHdOrHwAccounts(
     password: string,
     walletId: string,
     networkId: string,
@@ -1190,13 +1191,22 @@ class Engine {
     accountId: string;
     transferInfo: ITransferInfo;
   }) {
+    const transferInfoNew = {
+      ...transferInfo,
+    };
+    transferInfoNew.amount = transferInfoNew.amount || '0';
     // throw new Error('build encodedtx error test');
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-    const result = await vault.buildEncodedTxFromTransfer(transferInfo);
-    debugLogger.sendTx('buildEncodedTxFromTransfer: ', transferInfo, result, {
-      networkId,
-      accountId,
-    });
+    const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
+    debugLogger.sendTx(
+      'buildEncodedTxFromTransfer: ',
+      transferInfoNew,
+      result,
+      {
+        networkId,
+        accountId,
+      },
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
   }
@@ -1501,6 +1511,7 @@ class Engine {
       this.getNetwork(networkId),
     ]);
 
+    // TODO filter EVM history only
     if (network.impl !== IMPL_EVM) {
       return [];
     }

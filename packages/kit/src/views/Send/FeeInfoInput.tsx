@@ -35,7 +35,8 @@ function FeeInfoInput({
   autoNavigateToEdit?: boolean;
 }) {
   const navigation = useNavigation<NavigationProps>();
-  const disabled = loading || !editable || !encodedTx;
+  const disabled =
+    loading || !editable || !encodedTx || !feeInfoPayload?.info?.editable;
   const navigateToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
       if (disabled) {
@@ -103,10 +104,10 @@ function FeeInfoInputForTransfer({
     if (loading) {
       return <Spinner size="sm" />;
     }
-    if (feeInfoPayload) {
+    if (feeInfoPayload && feeInfoPayload.info.editable) {
       return <Icon size={20} name="PencilSolid" />;
     }
-    return <Icon size={20} name="PencilSolid" />;
+    return null;
   }, [encodedTx, feeInfoPayload, loading]);
 
   const title = useMemo(() => {

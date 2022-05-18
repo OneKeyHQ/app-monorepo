@@ -12,7 +12,7 @@ import { Text } from '@onekeyhq/components/src/Typography';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
-import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
@@ -41,6 +41,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
     useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });
+  const { activeNetworkId } = useGeneral();
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
@@ -51,7 +52,10 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
     [selectedWalletId, wallets],
   );
-  const watchNetwork = watch('network', (networks ?? [])[0].id);
+  const watchNetwork = watch(
+    'network',
+    activeNetworkId ?? (networks ?? [])?.[0]?.id,
+  );
   const isSmallScreen = useIsVerticalLayout();
 
   useEffect(() => {
@@ -79,6 +83,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           [name],
         );
       } catch (e) {
+        console.error(e);
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
           title: intl.formatMessage({ id: errorKey }),

@@ -97,6 +97,10 @@ class Validators {
 
   @backgroundMethod()
   async validateAddress(networkId: string, address: string): Promise<string> {
+    // TODO move near address verify to vault
+    if (networkId.startsWith('near--')) {
+      return Promise.resolve(address);
+    }
     const { normalizedAddress, isValid } =
       await this.providerManager.verifyAddress(networkId, address);
     if (!isValid || typeof normalizedAddress === 'undefined') {
@@ -110,6 +114,10 @@ class Validators {
     networkId: string,
     address: string,
   ): Promise<string> {
+    // TODO move near address verify to vault
+    if (networkId.startsWith('near--')) {
+      return Promise.resolve(address);
+    }
     const { normalizedAddress, isValid } =
       await this.providerManager.verifyTokenAddress(networkId, address);
     if (!isValid || typeof normalizedAddress === 'undefined') {

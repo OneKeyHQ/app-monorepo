@@ -175,7 +175,7 @@ class ServiceAccount extends ServiceBase {
     mnemonic?: string;
     avatar?: Avatar;
   }) {
-    const { dispatch, engine, serviceAccount, appSelector } =
+    const { dispatch, engine, appSelector, serviceAccount } =
       this.backgroundApi;
     const wallet = await engine.createHDWallet({
       password,
@@ -194,12 +194,8 @@ class ServiceAccount extends ServiceBase {
     dispatch(unlock());
     dispatch(release());
 
-    await this.initWallets();
-    const accountId = wallet.accounts?.[0] ?? null;
-    serviceAccount.changeActiveAccount({
-      accountId,
-      walletId: wallet.id,
-    });
+    await serviceAccount.initWallets();
+    await serviceAccount.autoChangeAccount({ walletId: wallet.id });
     return wallet;
   }
 
@@ -212,7 +208,7 @@ class ServiceAccount extends ServiceBase {
     name?: string[],
   ) {
     const { engine, dispatch } = this.backgroundApi;
-    const accounts = await engine.addHDAccounts(
+    const accounts = await engine.addHdOrHwAccounts(
       password,
       walletId,
       networkId,
@@ -347,7 +343,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    const accounts = await engine.addHDAccounts(
+    const accounts = await engine.addHdOrHwAccounts(
       'Undefined',
       wallet.id,
       networkId,
