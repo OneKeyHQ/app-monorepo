@@ -72,11 +72,13 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
-const AccountSelectorChildren: FC<{ isOpen?: boolean }> = () => {
+const AccountSelectorChildren: FC<{
+  isOpen?: boolean;
+  toggleOpen?: (...args: any) => any;
+}> = ({ isOpen, toggleOpen }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
-
   const { bottom } = useSafeAreaInsets();
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
@@ -249,8 +251,10 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = () => {
   }
 
   useEffect(() => {
-    setSelectedWallet(defaultSelectedWallet);
-  }, [defaultSelectedWallet]);
+    if (isOpen && defaultSelectedWallet) {
+      setSelectedWallet(defaultSelectedWallet);
+    }
+  }, [defaultSelectedWallet, isOpen]);
 
   useEffect(() => {
     refreshAccounts();
@@ -280,6 +284,7 @@ const AccountSelectorChildren: FC<{ isOpen?: boolean }> = () => {
                   walletId: activeWallet?.id ?? '',
                 });
                 setTimeout(() => {
+                  toggleOpen?.();
                   navigation.dispatch(DrawerActions.closeDrawer());
                 }, 0);
               }}

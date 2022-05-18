@@ -25,6 +25,7 @@ import {
   CreateWalletRoutesParams,
 } from '../../../routes/Modal/CreateWallet';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
+import { wait } from '../../../utils/helper';
 import { savePassword } from '../../../utils/localAuthentication';
 
 type RouteProps = RouteProp<
@@ -174,7 +175,9 @@ const MnemonicContainer = () => {
       toast.show({ title: intl.formatMessage({ id: errorKey }) });
     }
     closeDrawer();
+    await wait(600);
     resetToRoot();
+    await wait(600);
   }, [
     mnemonic,
     password,

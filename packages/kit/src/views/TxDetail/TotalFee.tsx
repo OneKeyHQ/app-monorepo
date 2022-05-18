@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
 import { ethers } from '@onekeyfe/blockchain-libs';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
@@ -19,14 +20,23 @@ const TotalFee: FC<TotalFeeProps> = (props) => {
 
   const { tx, transferAmount, feeInfoPayload } = props;
   const symbol = feeInfoPayload?.info.nativeSymbol ?? tx.symbol;
-  let value = ethers.utils.parseUnits(tx.value, 'wei');
-  if (transferAmount) {
-    value = ethers.utils.parseEther(transferAmount);
+
+  let total = '0';
+  if (feeInfoPayload?.current.totalNative) {
+    total = new BigNumber(feeInfoPayload?.current.totalNative)
+      .plus(transferAmount ?? '0')
+      .toFixed();
+  } else {
+    // TODO move all ethers.utils function call to build encodedTx
+    let value = ethers.utils.parseUnits(tx.value, 'wei');
+    if (transferAmount) {
+      value = ethers.utils.parseEther(transferAmount);
+    }
+    const fee = ethers.utils.parseEther(
+      feeInfoPayload?.current.totalNative ?? tx.gasInfo.maxFeeSpend,
+    );
+    total = ethers.utils.formatEther(value.add(fee));
   }
-  const fee = ethers.utils.parseEther(
-    feeInfoPayload?.current.totalNative ?? tx.gasInfo.maxFeeSpend,
-  );
-  const total = ethers.utils.formatEther(value.add(fee));
 
   return (
     <Container.Item

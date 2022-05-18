@@ -27,6 +27,8 @@ function createMainWindow() {
     titleBarStyle: 'hidden',
     frame: true,
     resizable: true,
+    x: isDev ? 0 : undefined,
+    y: isDev ? 0 : undefined,
     width: Math.min(1200, dimensions.width),
     height: Math.min(1200 / ratio, dimensions.height),
     minWidth: isDev ? undefined : 1024, // OK-8215

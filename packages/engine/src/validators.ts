@@ -110,6 +110,10 @@ class Validators {
     networkId: string,
     address: string,
   ): Promise<string> {
+    // TODO near address verify in chain-libs
+    if (networkId.startsWith('near--')) {
+      return Promise.resolve(address);
+    }
     const { normalizedAddress, isValid } =
       await this.providerManager.verifyTokenAddress(networkId, address);
     if (!isValid || typeof normalizedAddress === 'undefined') {

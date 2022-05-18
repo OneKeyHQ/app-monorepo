@@ -1,4 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { merge } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -81,10 +82,15 @@ export const tokensSlice = createSlice({
       }
       const oldTokensBalance =
         state.accountTokensBalance[activeNetworkId][activeAccountId] || {};
-      state.accountTokensBalance[activeNetworkId][activeAccountId] = {
-        ...oldTokensBalance,
-        ...tokensBalance,
-      };
+      // native token balance defaults to 0
+      oldTokensBalance.main = oldTokensBalance.main ?? '0';
+
+      // use merge() to ignore undefined field updating in tokensBalance
+      state.accountTokensBalance[activeNetworkId][activeAccountId] = merge(
+        {},
+        oldTokensBalance,
+        tokensBalance,
+      );
     },
   },
 });

@@ -85,7 +85,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
           <Skeleton shape="DisplayXLarge" />
         )}
       </Box>
-      {prices.main ? (
+      {prices.main && balances.main ? (
         <FormatCurrency
           numbers={[
             prices?.main,
@@ -134,6 +134,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 
 type AccountOptionProps = { isSmallView: boolean };
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
+  const { getTokenBalance } = useManageTokens();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
@@ -144,7 +145,11 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         leftIconName="ArrowUpSolid"
         minW={{ base: '126px', md: 'auto' }}
         type="basic"
-        isDisabled={wallet?.type === 'watching' || !account}
+        isDisabled={
+          wallet?.type === 'watching' ||
+          !account ||
+          parseFloat(getTokenBalance()) <= 0
+        }
         onPress={() => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Send,
