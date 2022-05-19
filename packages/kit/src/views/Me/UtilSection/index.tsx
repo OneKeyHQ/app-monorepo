@@ -2,7 +2,13 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import { useNavigation } from '../../../hooks';
@@ -11,6 +17,7 @@ import { ScanQrcodeRoutes } from '../../ScanQrcode/types';
 export const UtilSection = () => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const small = useIsVerticalLayout();
   return (
     <Box
       w="full"
@@ -33,7 +40,7 @@ export const UtilSection = () => {
           });
         }}
       >
-        <Icon name="ScanSolid" />
+        <Icon name={small ? 'ScanOutline' : 'ScanSolid'} />
         <Text
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           flex="1"
