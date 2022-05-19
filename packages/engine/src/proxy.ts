@@ -16,6 +16,7 @@ import {
   BaseProvider,
   ClientFilter,
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/blockbook';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import {
   N,
@@ -39,6 +40,7 @@ import { isNil } from 'lodash';
 
 import {
   IMPL_ALGO,
+  IMPL_BTC,
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
@@ -48,11 +50,13 @@ import {
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
+import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import {
   AccountType,
   DBAccount,
   DBSimpleAccount,
+  DBUTXOAccount,
   DBVariantAccount,
 } from './types/account';
 import { HistoryEntryStatus } from './types/history';
@@ -72,6 +76,7 @@ const IMPL_MAPPINGS: Record<
   [IMPL_NEAR]: { defaultClient: 'NearCli' },
   [IMPL_STC]: { defaultClient: 'StcClient' },
   [IMPL_CFX]: { defaultClient: 'Conflux' },
+  [IMPL_BTC]: { defaultClient: 'BlockBook' },
 };
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -94,8 +99,13 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   const chainId = parseInt(dbNetwork.id.split(SEPERATOR)[1]);
   implOptions = { ...implOptions, chainId };
 
+  let code = dbNetwork.id;
+  if (dbNetwork.impl === IMPL_BTC) {
+    code = dbNetwork.impl;
+  }
+
   return {
-    code: dbNetwork.id,
+    code,
     feeCode: dbNetwork.id,
     impl: dbNetwork.impl,
     curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as Curve,
@@ -445,12 +455,38 @@ class ProviderController extends BaseProviderController {
           address = await this.addressFromBase(networkId, dbAccount.address);
         }
         break;
+      case AccountType.UTXO:
+        address = (dbAccount as DBUTXOAccount).xpub;
+        break;
       default:
         throw new NotImplemented();
     }
     return Promise.resolve(address);
   }
 
+  async getBalances(
+    networkId: string,
+    requests: Array<any>,
+  ): Promise<Array<BigNumber | undefined>> {
+    if (getImplFromNetworkId(networkId) === IMPL_BTC) {
+      const provider = await this.getProvider(networkId);
+      const { restful } = await (
+        provider as unknown as { blockbook: Promise<BlockBook> }
+      ).blockbook;
+      return Promise.all(
+        requests.map(({ address }: { address: string }) =>
+          restful
+            .get(`/api/v2/xpub/${address}`, { details: 'basic' })
+            .then((r) => r.json())
+            .then((r: { balance: string }) => new BigNumber(r.balance))
+            .catch(() => new BigNumber(0)),
+        ),
+      );
+    }
+    return super.getBalances(networkId, requests);
+  }
+
+  // TODO: move this into vaults.
   async proxyGetBalances(
     networkId: string,
     target: Array<string> | DBAccount,
