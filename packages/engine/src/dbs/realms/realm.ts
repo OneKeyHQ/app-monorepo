@@ -684,17 +684,7 @@ class RealmDB implements DBAPI {
         return Promise.reject(new AccountAlreadyExists());
       }
       this.realm!.write(() => {
-        const accountNew = this.realm!.create('Account', {
-          id: account.id,
-          name: account.name,
-          type: account.type,
-          path: account.path,
-          coinType: account.coinType,
-          // @ts-ignore
-          pub: account.pub,
-          // @ts-ignore
-          address: account.address,
-        });
+        const accountNew = this.realm!.create('Account', account);
         wallet.accounts!.add(accountNew as AccountSchema);
         switch (wallet.type) {
           case WALLET_TYPE_WATCHING: {
