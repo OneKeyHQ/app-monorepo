@@ -17,6 +17,7 @@ import { DefaultSection } from './DefaultSection';
 import { DevSettingSection } from './DevSetting';
 import { GenaralSection } from './GenaralSection';
 import { SecuritySection } from './SecuritySection';
+import { UtilSection } from './UtilSection';
 
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,6 +35,7 @@ export const Me = () => {
     <Box bg="background-default" flex="1">
       <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
         <Box w="full" maxW={576} mx="auto" pb={inset.bottom}>
+          <UtilSection />
           <DebugSection />
           <DefaultSection />
           <GenaralSection />
