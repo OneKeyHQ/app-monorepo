@@ -3759,10 +3759,10 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@0.0.32":
-  version "0.0.32"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.32.tgz#89cb09685676436726b80c358088ae2ca79530b3"
-  integrity sha512-xMPQ9S9QlF99n6SK7AQ7LZrDqevzKxVgY7MW72Kim7vz6joRYwKL95le8yxQJagfPV0ahr3wxOxvXBN8cFwxCg==
+"@onekeyfe/blockchain-libs@0.0.33":
+  version "0.0.33"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.33.tgz#b1e852bad6de29076b1018b488b4eb8ecdeb7e04"
+  integrity sha512-YbvU+0XDVaKqMMHrYxJhlnVOmqtYGuEptb2t+UewId6ErrBeGSGulfQoemZe7w9hjFB2mS9WmNXNHftTD1r1wQ==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@metamask/eth-sig-util" "^4.0.0"
@@ -3778,6 +3778,7 @@
     bitcoinjs-lib "^6.0.1"
     bitcoinjs-message "^2.2.0"
     bs58 "^4.0.1"
+    bs58check "^2.1.2"
     cosmjs-types "^0.4.0"
     cross-fetch "^3.1.4"
     elliptic "^6.5.4"
@@ -3935,10 +3936,10 @@
     "@onekeyfe/cross-inpage-provider-core" "^0.0.10"
     "@onekeyfe/cross-inpage-provider-types" "^0.0.10"
 
-"@onekeyfe/network-list@1.4.5":
-  version "1.4.5"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.4.5.tgz#1afe93287e57fa28ee32173139cc51ea6b561cd8"
-  integrity sha512-nN6ZWMLEModEcEJ3Li0xLmZv6My72cd217n1NQT4SfDqnNhMSa5PLY29+qSRuxxsJDXEfJqGBJPeLIN+w+pQFA==
+"@onekeyfe/network-list@1.4.6":
+  version "1.4.6"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.4.6.tgz#b94d800c86f9934476319c545c5d5deb76db81fc"
+  integrity sha512-++ib17NqAc2Sowc7jUWTwXBv5wBciZXJhmc6Ed4T1IQq1Kwp1n2o+3+0+dlrkilVJ6ReJCLDdycUyBXj69aB9Q==
 
 "@onekeyfe/onekey-cross-webview@^0.0.10":
   version "0.0.10"

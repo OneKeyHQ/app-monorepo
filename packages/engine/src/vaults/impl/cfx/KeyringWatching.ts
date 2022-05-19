@@ -1,4 +1,5 @@
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
+import { InvalidAddress } from '../../../errors';
 import { AccountType, DBVariantAccount } from '../../../types/account';
 import { IPrepareWatchingAccountsParams } from '../../../types/vault';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
@@ -8,10 +9,16 @@ export class KeyringWatching extends KeyringWatchingBase {
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { name, target } = params;
+    const { normalizedAddress, isValid } =
+      await this.engine.providerManager.verifyAddress(this.networkId, target);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+
     // TODO: remove addressToBase from proxy.ts
     const address = await this.engine.providerManager.addressToBase(
       this.networkId,
-      target,
+      normalizedAddress,
     );
     return [
       {
@@ -22,7 +29,7 @@ export class KeyringWatching extends KeyringWatchingBase {
         coinType: COIN_TYPE,
         pub: '', // TODO: only address is supported for now.
         address,
-        addresses: { [this.networkId]: target },
+        addresses: { [this.networkId]: normalizedAddress },
       },
     ];
   }

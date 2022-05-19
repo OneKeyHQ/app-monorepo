@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
-import { getSupportedImpls } from './constants';
+import { IMPL_BTC, getSupportedImpls } from './constants';
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
@@ -58,6 +59,30 @@ class Validators {
         // TODO: verify private key & return networks with specific curve.
         category = UserCreateInputCategory.PRIVATE_KEY;
         possibleNetworks = enabledNetworks.map((network) => network.id);
+      } else if (/^[xyz]p/.test(input)) {
+        // Extended private/public key, only BTC is supported for now.
+        // TODO: move such checks into vaults
+        const [btcNetwork] = enabledNetworks.filter(
+          (network) => network.impl === IMPL_BTC,
+        );
+        if (typeof btcNetwork !== 'undefined') {
+          const { id: networkId } = btcNetwork;
+          const provider = (await this.providerManager.getProvider(
+            networkId,
+          )) as Provider;
+          if (provider.isValidXprv(input)) {
+            return {
+              category: UserCreateInputCategory.PRIVATE_KEY,
+              possibleNetworks: [networkId],
+            };
+          }
+          if (provider.isValidXpub(input)) {
+            return {
+              category: UserCreateInputCategory.ADDRESS,
+              possibleNetworks: [networkId],
+            };
+          }
+        }
       } else {
         // check whether input is an address of any network
         const selectedImpls = new Set();

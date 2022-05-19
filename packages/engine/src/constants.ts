@@ -18,16 +18,20 @@ const COINTYPE_STC = '101010';
 const IMPL_CFX = 'cfx';
 const COINTYPE_CFX = '503';
 
+const IMPL_BTC = 'btc';
+const COINTYPE_BTC = '0';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_CFX,
+  IMPL_BTC,
   // IMPL_SOL,  // TODO: bigint issue
   // IMPL_ALGO,  // TODO: bigint issue
   // IMPL_STC,  // TODO: bigint issue
 ]);
 
-const PRODUCTION_IMPLS = new Set([IMPL_EVM, IMPL_NEAR]);
+const PRODUCTION_IMPLS = new Set([IMPL_EVM, IMPL_NEAR, IMPL_BTC]);
 
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
@@ -50,5 +54,7 @@ export {
   COINTYPE_STC,
   IMPL_CFX,
   COINTYPE_CFX,
+  IMPL_BTC,
+  COINTYPE_BTC,
   getSupportedImpls,
 };

@@ -3,7 +3,7 @@ import { Token } from './token';
 
 enum AccountType {
   SIMPLE = 'simple',
-  MULADDR = 'muladdr',
+  UTXO = 'utxo',
   VARIANT = 'variant',
 }
 // TODO: ACCOUNT_TYPE_MULVARIANT for cosmos/polkadot
@@ -19,7 +19,7 @@ type DBSimpleAccount = DBBaseAccount & {
   address: string;
 };
 
-type DBMulAddrAccount = DBBaseAccount & {
+type DBUTXOAccount = DBBaseAccount & {
   xpub: string;
   address: string; // Display/selected address
   addresses: Record<string, string>;
@@ -31,7 +31,7 @@ type DBVariantAccount = DBBaseAccount & {
   addresses: Record<string, string>; // Network -> address
 };
 
-type DBAccount = DBSimpleAccount | DBMulAddrAccount | DBVariantAccount;
+type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;
 
 type Account = DBBaseAccount & {
   tokens: Array<Token>;
@@ -49,7 +49,7 @@ type ImportableHDAccount = {
 export { AccountType };
 export type {
   DBSimpleAccount,
-  DBMulAddrAccount,
+  DBUTXOAccount,
   DBVariantAccount,
   DBAccount,
   Account,
