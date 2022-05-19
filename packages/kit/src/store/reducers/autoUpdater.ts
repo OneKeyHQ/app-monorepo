@@ -1,11 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-export type UpdateInfo = {
-  version: string;
-  releaseDate: string;
-  isManualCheck?: boolean;
-  downloadedFile?: string;
-};
+import { VersionInfo } from '../../utils/updates/type';
 
 export type UpdateError = {
   error: Error;
@@ -32,7 +27,7 @@ export interface AutoUpdaterState {
     | 'error';
   skip?: string;
   progress?: UpdateProgress;
-  latest?: UpdateInfo;
+  latest?: VersionInfo;
   window: UpdateWindow;
 }
 
@@ -49,14 +44,17 @@ export const autoUpdaterSlice = createSlice({
     enable(state) {
       state.enabled = true;
     },
+    disable(state) {
+      state.enabled = false;
+    },
     checking(state) {
       state.state = 'checking';
     },
-    available(state, action: PayloadAction<UpdateInfo>) {
+    available(state, action: PayloadAction<VersionInfo>) {
       state.state = 'available';
       state.latest = action.payload;
     },
-    notAvailable(state, action: PayloadAction<UpdateInfo>) {
+    notAvailable(state, action: PayloadAction<VersionInfo>) {
       state.state = 'not-available';
       state.latest = action.payload;
     },
@@ -64,7 +62,7 @@ export const autoUpdaterSlice = createSlice({
       state.state = 'downloading';
       state.progress = action.payload;
     },
-    ready(state, action: PayloadAction<UpdateInfo>) {
+    ready(state, action: PayloadAction<VersionInfo>) {
       state.state = 'ready';
       state.latest = action.payload;
     },
@@ -83,6 +81,7 @@ export const autoUpdaterSlice = createSlice({
 
 export const {
   enable,
+  disable,
   checking,
   available,
   notAvailable,

@@ -18,7 +18,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { isNative } from '@onekeyhq/shared/src/platformEnv';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -62,7 +62,7 @@ const RestoreWalletModal: FC = () => {
           />
           {/* <Icon name="ChevronRightOutline" /> */}
         </PressableItem>
-        {isNative() ? (
+        {platformEnv.isNative ? (
           <PressableItem
             p={4}
             bg="surface-default"

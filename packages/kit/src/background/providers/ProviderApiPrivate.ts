@@ -75,7 +75,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         ],
       },
       walletInfo: {
-        platform: process.env.PLATFORM_NAME,
+        platform: process.env.ONEKEY_PLATFORM,
         version: process.env.VERSION,
         buildNumber: process.env.BUILD_NUMBER,
         isLegacy: false,

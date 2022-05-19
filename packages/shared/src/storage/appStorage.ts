@@ -4,7 +4,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { isDev, isExtension } from '../platformEnv';
+import platformEnv from '../platformEnv';
 
 // TODO use localForage (indexedDB fallback)
 import ExtensionStorage from './ExtensionStorage';
@@ -12,7 +12,9 @@ import MockStorage from './MockStorage';
 
 // const appStorage: WebStorage = storage; // use redux-persist built-in storage
 // const appStorage = AsyncStorage
-const appStorage = isExtension() ? new ExtensionStorage() : AsyncStorage;
+const appStorage = platformEnv.isExtension
+  ? new ExtensionStorage()
+  : AsyncStorage;
 const mockStorage = new MockStorage();
 
 /*
@@ -22,7 +24,7 @@ const mockStorage = new MockStorage();
 - Desktop: AsyncStorage -> window.localStorage
  */
 
-if (isDev()) {
+if (platformEnv.isDev) {
   global.$$appStorage = appStorage;
 }
 

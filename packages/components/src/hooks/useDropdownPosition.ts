@@ -77,7 +77,7 @@ function useDropdownPosition({
 
   useEffect(() => {
     let timer: any = null;
-    if (!platformEnv.isBrowser) {
+    if (!platformEnv.isRuntimeBrowser) {
       return;
     }
     if (triggerEle && visible) {

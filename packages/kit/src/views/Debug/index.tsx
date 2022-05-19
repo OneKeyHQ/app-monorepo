@@ -123,7 +123,7 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                if (platformEnv.isBrowser) {
+                if (platformEnv.isRuntimeBrowser) {
                   console.log({
                     innerWidth: window.innerWidth,
                     innerHeight: window.innerHeight,

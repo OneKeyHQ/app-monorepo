@@ -131,7 +131,7 @@ const getConnectInstance = async (): Promise<typeof OneKeyConnect> => {
   }
 };
 
-if (platformEnv.isBrowser && !platformEnv.isExtension) {
+if (platformEnv.isRuntimeBrowser && !platformEnv.isExtension) {
   getConnectInstance();
 }
 

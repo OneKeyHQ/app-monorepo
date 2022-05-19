@@ -10,7 +10,7 @@ class BleOnekeyConnect {
   initialized = false;
 
   async init(): Promise<boolean> {
-    if (platformEnv.isBrowser) return false;
+    if (platformEnv.isRuntimeBrowser) return false;
     if (!this.initialized) {
       try {
         // @ts-ignore

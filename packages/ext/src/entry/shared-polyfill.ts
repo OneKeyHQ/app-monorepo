@@ -13,7 +13,7 @@ if (platformEnv.isExtensionBackgroundServiceWorker) {
 }
 
 // TODO move to polyfill file
-if (platformEnv.isFirefox) {
+if (platformEnv.isRuntimeFirefox) {
   // @ts-ignore
   browser.$$isPolyfill = true;
   // @ts-ignore

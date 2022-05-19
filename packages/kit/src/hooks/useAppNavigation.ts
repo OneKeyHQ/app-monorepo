@@ -18,7 +18,7 @@ export default function useAppNavigation() {
 
 export function navigationGoHomeForceReload() {
   const navigation = getAppNavigation();
-  if (platformEnv.isBrowser && !platformEnv.isExtensionBackground) {
+  if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionBackground) {
     // navigate() not working
     navigation.navigate(RootRoutes.Root);
     window.location.href = '#/';

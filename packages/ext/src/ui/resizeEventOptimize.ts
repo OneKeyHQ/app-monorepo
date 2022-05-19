@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Open firefox popup, wait for 5s, do NOT click anything
 function checkPerformance() {
-  if (platformEnv.isFirefox && platformEnv.isDev) {
+  if (platformEnv.isRuntimeFirefox && platformEnv.isDev) {
     const { addEventListener } = window;
     setTimeout(() => {
       let times = 0;
@@ -44,7 +44,7 @@ function optimize() {
   // TODO HACK: firefox auto resize event performance fix
   //      ( trigger resize per 1s in popup-ui )
   if (
-    platformEnv.isFirefox &&
+    platformEnv.isRuntimeFirefox &&
     platformEnv.isExtensionUiPopup &&
     // @ts-ignore
     !window.addEventListenerOrigin

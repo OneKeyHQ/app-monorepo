@@ -6,7 +6,7 @@ import {
   Segment,
 } from 'react-native-resegmented-control';
 
-import { isWeb } from '@onekeyhq/shared/src/platformEnv';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
@@ -109,7 +109,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({
             }
             // @ts-expect-error Web should able to accept inline-block
             style={{
-              display: isWeb() ? 'inline-block' : 'flex',
+              display: platformEnv.isWeb ? 'inline-block' : 'flex',
               minWidth: `${100 / options.length}%`,
             }}
           />
