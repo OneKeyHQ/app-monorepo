@@ -60,8 +60,8 @@ function getBuildTargetBrowser() {
   const buildTargetBrowser =
     process.argv[process.argv.length - 1] === '--firefox'
       ? 'firefox'
-      : process.env.EXT_BUILD_BROWSER || 'chrome';
-  process.env.EXT_BUILD_BROWSER = buildTargetBrowser;
+      : process.env.EXT_CHANNEL || 'chrome';
+  process.env.EXT_CHANNEL = buildTargetBrowser;
   return buildTargetBrowser;
 }
 

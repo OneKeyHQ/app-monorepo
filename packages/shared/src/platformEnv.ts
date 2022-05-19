@@ -5,14 +5,28 @@ DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
  */
 
 export type IPlatformEnv = {
-  isMac?: boolean;
-  isWindows?: boolean;
-  isLinux?: boolean;
+  isDev?: boolean;
+  isProduction?: boolean;
 
   isWeb?: boolean;
   isDesktop?: boolean;
-  isManifestV3?: boolean;
   isExtension?: boolean;
+  isNative?: boolean;
+
+  isDesktopLinux?: boolean;
+  isDesktopWin?: boolean;
+  isDesktopMac?: boolean;
+  isDesktopMacArm64?: boolean;
+
+  isExtFirefox?: boolean;
+  isExtChrome?: boolean;
+
+  isNativeIOS?: boolean;
+  isNativeIOSStore?: boolean;
+  isNativeAndroid?: boolean;
+  isNativeAndroidGooglePlay?: boolean;
+
+  isManifestV3?: boolean;
   isExtensionBackground?: boolean;
   isExtensionBackgroundHtml?: boolean;
   isExtensionBackgroundServiceWorker?: boolean;
@@ -20,35 +34,47 @@ export type IPlatformEnv = {
   isExtensionUiPopup?: boolean;
   isExtensionUiExpandTab?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
-  isNative?: boolean;
   isInjected?: boolean;
 
-  isMAS?: boolean;
-  isDev?: boolean;
-  isBrowser?: boolean;
-  isFirefox?: boolean;
-  isChrome?: boolean;
-  isIOS?: boolean;
-  isAndroid?: boolean;
+  isRuntimeBrowser?: boolean;
+  isRuntimeFirefox?: boolean;
+  isRuntimeChrome?: boolean;
+
   canGetClipboard?: boolean;
 };
 
 export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
 
-export const isIOS = (): boolean => Platform.OS === 'ios';
+const isDev = process.env.NODE_ENV !== 'production';
+const isProduction = process.env.NODE_ENV === 'production';
 
-export const isAndroid = (): boolean => Platform.OS === 'android';
+const isWeb = process.env.ONEKEY_PLATFORM === 'web';
+const isDesktop = process.env.ONEKEY_PLATFORM === 'desktop';
+const isExtension = process.env.ONEKEY_PLATFORM === 'ext';
+const isNative = process.env.ONEKEY_PLATFORM === 'app';
 
-export const isNative = (): boolean => isAndroid() || isIOS();
+const isExtChrome = process.env.EXT_CHANNEL === 'chrome';
+const isExtFirefox = process.env.EXT_CHANNEL === 'firefox';
 
-export const isBrowser = (): boolean =>
-  typeof window !== 'undefined' && !isNative();
+const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
+const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';
+const isDesktopWin = isDesktop && window?.desktopApi?.platform === 'win32';
+const isDesktopLinux = isDesktop && window?.desktopApi?.platform === 'linux';
+
+const isNativeIOS = isNative && Platform.OS === 'ios';
+const isNativeIOSStore = isNativeIOS && isProduction;
+const isNativeAndroid = isNative && Platform.OS === 'android';
+const isNativeAndroidGooglePlay =
+  isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
+
+const isRuntimeBrowser = (): boolean =>
+  typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
-export const isFirefox = (): boolean => typeof InstallTrigger !== 'undefined';
+const isRuntimeFirefox = (): boolean => typeof InstallTrigger !== 'undefined';
 
-export const isChrome = (): boolean => {
-  if (!isBrowser()) {
+const isRuntimeChrome = (): boolean => {
+  if (!isRuntimeBrowser()) {
     return false;
   }
   // please note,
@@ -84,24 +110,19 @@ export const isChrome = (): boolean => {
   return false;
 };
 
-export const isWeb = (): boolean => process.env.ONEKEY_BUILD_TYPE === 'web';
-
-export const isExtension = (): boolean =>
-  process.env.ONEKEY_BUILD_TYPE === 'ext';
-
 export const isInjected = (): boolean =>
   process.env.ONEKEY_BUILD_TYPE === 'injected';
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml = (): boolean =>
-  isExtension() &&
-  isBrowser() &&
+  isExtension &&
+  isRuntimeBrowser() &&
   window.location.pathname.startsWith('/background.html');
 
 // Ext manifest v3 background
 export const isExtensionBackgroundServiceWorker = (): boolean =>
-  isExtension() &&
-  !isBrowser() &&
+  isExtension &&
+  !isRuntimeBrowser() &&
   // @ts-ignore
   Boolean(global.serviceWorker) &&
   // @ts-ignore
@@ -111,7 +132,9 @@ export const isExtensionBackground = (): boolean =>
   isExtensionBackgroundHtml() || isExtensionBackgroundServiceWorker();
 
 export const isExtensionUi = (): boolean =>
-  isExtension() && isBrowser() && window.location.pathname.startsWith('/ui-');
+  isExtension &&
+  isRuntimeBrowser() &&
+  window.location.pathname.startsWith('/ui-');
 
 export const isExtensionUiPopup = (): boolean =>
   isExtensionUi() && window.location.pathname.startsWith('/ui-popup.html');
@@ -125,46 +148,33 @@ export const isExtensionUiStandaloneWindow = (): boolean =>
 
 export const isManifestV3 = (): boolean =>
   // TODO firefox check v3
-  isExtension() && chrome.runtime.getManifest().manifest_version === 3;
+  isExtension && chrome.runtime.getManifest().manifest_version === 3;
 
-export const isDesktop = (): boolean =>
-  process.env.ONEKEY_BUILD_TYPE === 'desktop';
-
-export const isMac = (): boolean => {
-  if (typeof process === 'undefined') return false;
-  if (process.platform === 'darwin') return true; // For usage in Electron (SSR)
-  if (typeof navigator === 'undefined') return false;
-  return ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'].includes(
-    navigator.platform,
-  );
-};
-
-export const isWindows = (): boolean => {
-  if (typeof navigator === 'undefined') return false;
-  return ['Win32', 'Win64', 'Windows', 'WinCE'].includes(navigator.platform);
-};
-
-export const isLinux = (): boolean => {
-  if (typeof navigator === 'undefined') return false;
-  return /Linux/.test(navigator.platform);
-};
-
-// MAC APP Store mode
-export const isMAS = (): boolean => !!process.env.IS_MAS;
-
-export const isDev = (): boolean => process.env.NODE_ENV !== 'production';
-
-export const canGetClipboard = (): boolean => !isWeb() && !isExtension();
+export const canGetClipboard = (): boolean => !isWeb && !isExtension;
 
 const platformEnv: IPlatformEnv = {
-  isMac: isMac(),
-  isWindows: isWindows(),
-  isLinux: isLinux(),
+  isDev,
+  isProduction,
 
-  isWeb: isWeb(),
-  isDesktop: isDesktop(),
+  isWeb,
+  isDesktop,
+  isExtension,
+  isNative,
+
+  isDesktopMac,
+  isDesktopWin,
+  isDesktopMacArm64,
+  isDesktopLinux,
+
+  isExtFirefox,
+  isExtChrome,
+
+  isNativeIOS,
+  isNativeIOSStore,
+  isNativeAndroid,
+  isNativeAndroidGooglePlay,
+
   isManifestV3: isManifestV3(),
-  isExtension: isExtension(),
   isExtensionBackground: isExtensionBackground(),
   isExtensionBackgroundHtml: isExtensionBackgroundHtml(),
   isExtensionBackgroundServiceWorker: isExtensionBackgroundServiceWorker(),
@@ -172,22 +182,24 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiPopup: isExtensionUiPopup(),
   isExtensionUiExpandTab: isExtensionUiExpandTab(),
   isExtensionUiStandaloneWindow: isExtensionUiStandaloneWindow(),
-  isNative: isNative(),
+
   isInjected: isInjected(),
 
-  isMAS: isMAS(),
-  isDev: isDev(),
-  isBrowser: isBrowser(),
-  isFirefox: isFirefox(),
-  isChrome: isChrome(),
-  isIOS: isIOS(),
-  isAndroid: isAndroid(),
+  isRuntimeBrowser: isRuntimeBrowser(),
+  isRuntimeFirefox: isRuntimeFirefox(),
+  isRuntimeChrome: isRuntimeChrome(),
 
   canGetClipboard: canGetClipboard(),
 };
 
-if (isDev()) {
+if (isDev) {
   global.$$platformEnv = platformEnv;
+
+  console.log('ONEKEY_PLATFORM', process.env.ONEKEY_PLATFORM);
+  console.log('EXT_CHANNEL', process.env.EXT_CHANNEL);
+  console.log('ANDROID_CHANNEL', process.env.ANDROID_CHANNEL);
+  console.log('DESKTOP_PLATFORM', window?.desktopApi?.platform);
+  console.log('DESKTOP_PLATFORM_ARCH', window?.desktopApi?.arch);
 }
 
 /*

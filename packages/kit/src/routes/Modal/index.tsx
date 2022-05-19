@@ -255,8 +255,8 @@ const ModalStackNavigator = () => (
       ))}
     </ModalStack.Navigator>
     {/* Native Modal must register another for root container */}
-    {platformEnv.isIOS && <Toast bottomOffset={60} />}
-    {platformEnv.isIOS && <DialogManager.Holder />}
+    {platformEnv.isNativeIOS && <Toast bottomOffset={60} />}
+    {platformEnv.isNativeIOS && <DialogManager.Holder />}
   </>
 );
 

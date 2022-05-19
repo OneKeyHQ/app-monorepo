@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { VersionInfo } from '@onekeyhq/kit/src/utils/updates/type';
 import UpdateFeature from '@onekeyhq/kit/src/views/Update/Feature';
 
 import createStackNavigator from './createStackNavigator';
@@ -12,7 +11,8 @@ export enum UpdateFeatureModalRoutes {
 
 export type UpdateFeatureRoutesParams = {
   [UpdateFeatureModalRoutes.UpdateFeatureModal]: {
-    version: VersionInfo;
+    oldVersion: string;
+    newVersion: string;
   };
 };
 

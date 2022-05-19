@@ -206,7 +206,7 @@ const Modal: FC<ModalProps> = ({
           <Box
             height={modalHeight}
             // TODO 100vh in App
-            maxHeight={platformEnv.isBrowser ? '100vh' : undefined}
+            maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
             w="100%"
             borderTopRadius={
               platformEnv.isExtensionUiStandaloneWindow ? 0 : '24px'

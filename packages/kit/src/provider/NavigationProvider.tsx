@@ -38,7 +38,7 @@ const NavigationApp = () => {
   let enableLinkingRoute =
     platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
   // firefox popup window resize issue
-  if (platformEnv.isExtensionUiPopup && platformEnv.isFirefox) {
+  if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
     enableLinkingRoute = false;
   }
 

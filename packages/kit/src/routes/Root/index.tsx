@@ -1,5 +1,6 @@
 import React, { FC, memo, useEffect } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   TransitionPresets,
@@ -12,17 +13,20 @@ import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppLock } from '../../components/AppLock';
-import { useAppSelector } from '../../hooks/redux';
 import Welcome from '../../views/Welcome';
 import ModalStackNavigator from '../Modal';
+import {
+  UpdateFeatureModalRoutes,
+  UpdateFeatureRoutesParams,
+} from '../Modal/UpdateFeature';
 import StackScreen from '../Stack';
-import { RootRoutes } from '../types';
+import { ModalRoutes, ModalScreenProps, RootRoutes } from '../types';
 
 const RootNativeStack = createNativeStackNavigator();
 const RootStack = createStackNavigator();
@@ -93,13 +97,17 @@ const App = () => {
   );
 };
 
+type NavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
+
 const RootStackNavigator = () => {
   const { version, buildNumber } = useSettings();
   const { dispatch } = backgroundApiProxy;
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const hasVersionSet = !!process.env.VERSION && !!process.env.BUILD_NUMBER;
   const versionChanged =
     process.env.VERSION !== version || process.env.BUILD_NUMBER !== buildNumber;
+
   /**
    * previous version number is stored at user local redux store
    * new version number is passed by process.env.VERSION
@@ -108,13 +116,28 @@ const RootStackNavigator = () => {
    */
   // settings.version -> process.env.VERSION
   useEffect(() => {
-    if (hasVersionSet && versionChanged && process.env.VERSION)
+    if (hasVersionSet && versionChanged && process.env.VERSION) {
+      if (!platformEnv.isWeb) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.UpdateFeature,
+          params: {
+            screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+            params: {
+              oldVersion: version,
+              newVersion: process.env.VERSION,
+            },
+          },
+        });
+      }
+
       dispatch(
         updateVersionAndBuildNumber({
           version: process.env.VERSION,
           buildNumber: process.env.BUILD_NUMBER,
         }),
       );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, hasVersionSet, versionChanged]);
 
   useEffect(() => {
