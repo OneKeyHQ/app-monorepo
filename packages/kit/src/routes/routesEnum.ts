@@ -10,6 +10,7 @@ export enum ModalRoutes {
   WalletViewMnemonics = 'WalletViewMnemonics',
   Send = 'Send',
   Receive = 'Receive',
+  FlatPay = 'FlatPay',
   SubmitRequest = 'SubmitRequest',
   HistoryRequest = 'HistoryRequest',
   TransactionDetail = 'TransactionDetail',

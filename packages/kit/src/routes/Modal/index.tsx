@@ -39,6 +39,7 @@ import DappMulticallStack, {
 } from './DappMulticall';
 import DiscoverModal from './Discover';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
+import BuyModal from './FiatPay';
 import OnekeyHardwareModal, {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
@@ -214,6 +215,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.UpdateFeature,
     component: UpdateFeatureModal,
+  },
+  {
+    name: ModalRoutes.FlatPay,
+    component: BuyModal,
   },
 ];
 

@@ -16,6 +16,9 @@ const moduleResolverAliasForAllWebPlatform = {
   'react-native-fast-image': fullPath(
     './module-resolver/react-native-fast-image-mock',
   ),
+  'react-native-auto-size-text': fullPath(
+    './module-resolver/react-native-auto-size-text-mock',
+  ),
 };
 
 function normalizeConfig({ platform, config }) {

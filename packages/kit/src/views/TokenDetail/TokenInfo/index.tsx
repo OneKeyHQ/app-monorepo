@@ -6,7 +6,6 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
-  Button,
   IconButton,
   Token,
   Typography,
@@ -30,6 +29,7 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { SendRoutes } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -114,50 +114,96 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const accountOption = useMemo(
     () => (
       <Box flexDirection="row" justifyContent="center" alignItems="center">
-        <Button
-          size={isVertical ? 'lg' : 'base'}
-          leftIconName="ArrowUpSolid"
-          minW={{ base: '126px', md: 'auto' }}
-          isDisabled={wallet?.type === 'watching'}
-          type="basic"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Send,
-              params: {
-                screen: SendRoutes.Send,
+        <Box paddingX={isVertical ? '21px' : '19px'}>
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowUpSolid"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
                 params: {
-                  token: token as TokenDO,
+                  screen: SendRoutes.Send,
+                  params: {
+                    token: token as TokenDO,
+                  },
                 },
-              },
-            });
-          }}
-        >
-          {intl.formatMessage({ id: 'action__send' })}
-        </Button>
-        <Button
-          isDisabled={wallet?.type === 'watching'}
-          size={isVertical ? 'lg' : 'base'}
-          ml={4}
-          leftIconName="ArrowDownSolid"
-          minW={{ base: '126px', md: 'auto' }}
-          type="basic"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenRoutes.ReceiveToken,
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__send' })}
+          </Typography.CaptionStrong>
+        </Box>
+
+        <Box paddingX={isVertical ? '21px' : '19px'}>
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowDownSolid"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Receive,
                 params: {
-                  // Todo: account conversion
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  address: (account as any)?.address,
-                  name: '',
+                  screen: ReceiveTokenRoutes.ReceiveToken,
+                  params: {
+                    // Todo: account conversion
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    address: (account as any)?.address,
+                    name: '',
+                  },
                 },
-              },
-            });
-          }}
-        >
-          {intl.formatMessage({ id: 'action__receive' })}
-        </Button>
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__receive' })}
+          </Typography.CaptionStrong>
+        </Box>
+
+        {platformEnv.isDev ? (
+          <Box paddingX={isVertical ? '21px' : '19px'}>
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="TagOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {}}
+            />
+            <Typography.CaptionStrong textAlign="center" mt="8px">
+              {intl.formatMessage({ id: 'action__buy' })}
+            </Typography.CaptionStrong>
+          </Box>
+        ) : null}
+
+        {platformEnv.isDev ? (
+          <Box paddingX={isVertical ? '21px' : '19px'}>
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="CashOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FlatPay,
+                  params: {
+                    screen: FiatPayRoutes.AmoutInputModal,
+                  },
+                });
+              }}
+            />
+            <Typography.CaptionStrong textAlign="center" mt="8px">
+              {intl.formatMessage({ id: 'action__sell' })}
+            </Typography.CaptionStrong>
+          </Box>
+        ) : null}
+
         {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
             onPress={() => {

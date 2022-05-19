@@ -45,6 +45,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Swap]: NavigatorScreenParams<SubModalRoutesParams.SwapRoutesParams>;
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
   [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
+  [ModalRoutes.FlatPay]: NavigatorScreenParams<SubModalRoutesParams.FiatPayModalRoutesParams>;
 };
 /** Modal */
 
