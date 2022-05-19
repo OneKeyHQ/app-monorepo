@@ -63,6 +63,7 @@ const CustomToast: FC<Props> = (outerProps) => {
                 maxWidth: 340,
               },
             }}
+            text1NumberOfLines={3}
             text1Style={
               { ...Body1Props, color: fontColor, marginBottom: 0 } as TextStyle
             }

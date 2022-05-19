@@ -11,6 +11,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
@@ -42,7 +43,9 @@ const BackupToast: FC<BackupToastProps> = ({ onClose, walletId }) => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.BackupWallet,
                 params: {
-                  screen: BackupWalletModalRoutes.BackupWalletModal,
+                  screen: platformEnv.isNative
+                    ? BackupWalletModalRoutes.BackupWalletOptionsModal
+                    : BackupWalletModalRoutes.BackupWalletManualModal,
                   params: {
                     walletId: walletId ?? '',
                   },

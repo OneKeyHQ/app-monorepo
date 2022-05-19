@@ -69,7 +69,7 @@ const TokenInput: FC<TokenInputProps> = ({
         </Typography.Body2>
         <Pressable
           onPress={() => {
-            if (isDisabled) {
+            if (isDisabled || !showMax) {
               return;
             }
             setHaptics();
@@ -87,7 +87,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 { '0': text },
               )}
             </Typography.Body2>
-            {token && token.tokenIdOnNetwork && Number(value) > 0 && showMax ? (
+            {showMax && Number(value) > 0 ? (
               <Typography.Body2 color="text-success" ml="2" onPress={onMax}>
                 {intl.formatMessage({ id: 'action__max' })}
               </Typography.Body2>

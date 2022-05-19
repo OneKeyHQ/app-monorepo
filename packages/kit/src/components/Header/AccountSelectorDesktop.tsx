@@ -47,7 +47,10 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
           flexDirection="row"
           shadow="depth.3"
         >
-          <AccountSelectorChildren />
+          <AccountSelectorChildren
+            isOpen={visible}
+            toggleOpen={toggleVisible}
+          />
         </Box>
       </PresenceTransition>
     );

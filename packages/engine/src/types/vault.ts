@@ -8,6 +8,7 @@ import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 export type IVaultFactoryOptions = {
   networkId: string;
   accountId: string;
+  walletId?: string;
 };
 export type IVaultOptions = IVaultFactoryOptions & {
   engine: Engine;
@@ -65,6 +66,7 @@ export type IFeeInfoUnit = {
 
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {
+  editable?: boolean;
   // TODO merge (limit, prices, EIP1559Fee) to single field
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<string | EIP1559Fee>; // preset gasPrices: normal, fast, rapid
@@ -73,7 +75,7 @@ export type IFeeInfo = {
   nativeSymbol?: string; // ETH
   nativeDecimals?: number; // 18
   // TODO rename to feeInTx
-  tx?: IFeeInfoUnit;
+  tx?: IFeeInfoUnit | null;
   eip1559?: boolean;
 };
 
@@ -93,3 +95,32 @@ export type IFeeInfoPayload = {
     value: IFeeInfoUnit;
   };
 };
+
+export type IPrepareWatchingAccountsParams = {
+  target: string;
+  name: string;
+};
+
+export type IPrepareImportedAccountsParams = {
+  privateKey: Buffer;
+  name: string;
+};
+
+export type IPrepareSoftwareAccountsParams = {
+  password: string;
+  indexes: Array<number>;
+  purpose?: number;
+  names?: Array<string>;
+};
+
+export type IPrepareHardwareAccountsParams = {
+  indexes: Array<number>;
+  purpose?: number;
+  names?: Array<string>;
+};
+
+export type IPrepareAccountsParams =
+  | IPrepareWatchingAccountsParams
+  | IPrepareImportedAccountsParams
+  | IPrepareSoftwareAccountsParams
+  | IPrepareHardwareAccountsParams;

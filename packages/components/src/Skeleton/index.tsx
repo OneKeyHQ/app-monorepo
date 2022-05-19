@@ -17,19 +17,19 @@ import {
 } from './Shapes';
 
 type SkeletonProps = {
-  /* 
+  /*
     width of svg viewBox and container
   */
   width?: number | string;
-  /* 
+  /*
     height of svg viewBox and container
   */
   height?: number | string;
-  /* 
+  /*
     size of circle
   */
   size?: number | string;
-  /* 
+  /*
     Specific element
   */
   shape?:

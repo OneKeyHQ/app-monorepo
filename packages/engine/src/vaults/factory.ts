@@ -1,13 +1,23 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IMPL_CFX, IMPL_EVM, SEPERATOR } from '../constants';
+import {
+  IMPL_BTC,
+  IMPL_CFX,
+  IMPL_EVM,
+  IMPL_NEAR,
+  SEPERATOR,
+} from '../constants';
 import { OneKeyInternalError } from '../errors';
 
+import VaultBtc from './impl/btc/Vault';
+import VaultHelperBtc from './impl/btc/VaultHelper';
 import VaultCfx from './impl/cfx/Vault';
 import VaultHelperCfx from './impl/cfx/VaultHelper';
 import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
+import VaultNear from './impl/near/Vault';
+import VaultHelperNear from './impl/near/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { IVaultFactoryOptions, IVaultOptions } from '../types/vault';
@@ -19,19 +29,6 @@ function getNetworkImpl(networkId: string) {
   return impl;
 }
 
-export function createVaultHelperInstanceByImpl(impl: string): VaultHelperBase {
-  // Only network unrelated helper is needed.
-  if (impl === IMPL_EVM) {
-    return new VaultHelperEvm({ networkId: `${impl}--any`, accountId: '' });
-  }
-  if (impl === IMPL_CFX) {
-    return new VaultHelperCfx({ networkId: `${impl}--any`, accountId: '' });
-  }
-  throw new OneKeyInternalError(
-    `VaultHelper Class not found for: impl=${impl}`,
-  );
-}
-
 export function createVaultHelperInstance(
   options: IVaultFactoryOptions,
 ): VaultHelperBase {
@@ -39,8 +36,14 @@ export function createVaultHelperInstance(
   if (impl === IMPL_EVM) {
     return new VaultHelperEvm(options);
   }
+  if (impl === IMPL_NEAR) {
+    return new VaultHelperNear(options);
+  }
   if (impl === IMPL_CFX) {
     return new VaultHelperCfx(options);
+  }
+  if (impl === IMPL_BTC) {
+    return new VaultHelperBtc(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -48,27 +51,27 @@ export function createVaultHelperInstance(
 }
 
 export async function createKeyringInstance(vault: VaultBase) {
-  const { accountId } = vault;
+  const { walletId } = vault;
 
   let keyring: KeyringBase | null = null;
 
   // TODO dbAccount type: "simple"
-  if (accountId.startsWith('hd-')) {
+  if (walletId.startsWith('hd-')) {
     keyring = new vault.keyringMap.hd(vault);
   }
-  if (accountId.startsWith('hw-')) {
+  if (walletId.startsWith('hw-')) {
     keyring = new vault.keyringMap.hw(vault);
   }
-  if (!accountId || accountId.startsWith('watching-')) {
+  if (walletId === 'watching') {
     keyring = new vault.keyringMap.watching(vault);
   }
-  if (accountId.startsWith('imported-')) {
+  if (walletId === 'imported') {
     keyring = new vault.keyringMap.imported(vault);
   }
 
   if (!keyring) {
     throw new OneKeyInternalError(
-      `Keyring Class not found for: accountId=${accountId}`,
+      `Keyring Class not found for: walletId=${walletId}`,
     );
   }
   return keyring;
@@ -83,8 +86,14 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_EVM) {
     vault = new VaultEvm(options);
   }
+  if (network.impl === IMPL_NEAR) {
+    vault = new VaultNear(options);
+  }
   if (network.impl === IMPL_CFX) {
     vault = new VaultCfx(options);
+  }
+  if (network.impl === IMPL_BTC) {
+    vault = new VaultBtc(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

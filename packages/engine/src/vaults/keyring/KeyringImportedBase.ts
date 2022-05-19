@@ -1,22 +1,17 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
 import { ExportedPrivateKeyCredential } from '../../dbs/base';
-import { OneKeyInternalError } from '../../errors';
-import { CredentialType } from '../../types/credential';
+import { NotImplemented, OneKeyInternalError } from '../../errors';
 
-import { KeyringBase } from './KeyringBase';
+import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 
-import type { PrivateKeyCredential } from '../../types/credential';
-import type { ISignCredentialOptions } from '../../types/vault';
-
-export abstract class KeyringImportedBase extends KeyringBase {
-  async getCredential(
-    options: ISignCredentialOptions,
-  ): Promise<PrivateKeyCredential> {
-    const { password } = options;
-    if (!password) {
-      throw new OneKeyInternalError(
-        'KeyringImported.getCredential ERROR: password should NOT be empty',
+export abstract class KeyringImportedBase extends KeyringSoftwareBase {
+  override async getPrivateKeys(
+    password: string,
+    relPaths?: Array<string>,
+  ): Promise<Record<string, Buffer>> {
+    if (typeof relPaths !== 'undefined') {
+      // TODO: derive private keys for UTXO model.
+      throw new NotImplemented(
+        'Getting private keys from extended private key',
       );
     }
 
@@ -24,11 +19,10 @@ export abstract class KeyringImportedBase extends KeyringBase {
       this.accountId,
       password,
     )) as ExportedPrivateKeyCredential;
+    if (typeof privateKey === 'undefined') {
+      throw new OneKeyInternalError('Unable to get credential.');
+    }
 
-    return {
-      type: CredentialType.PRIVATE_KEY,
-      privateKey,
-      password,
-    };
+    return { '': privateKey };
   }
 }

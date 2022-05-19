@@ -1,33 +1,42 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { batchGetPrivateKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 
 import { ExportedSeedCredential } from '../../dbs/base';
 import { OneKeyInternalError } from '../../errors';
-import { CredentialType } from '../../types/credential';
 
-import { KeyringBase } from './KeyringBase';
+import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 
-import type { SoftwareCredential } from '../../types/credential';
-import type { ISignCredentialOptions } from '../../types/vault';
+export abstract class KeyringHdBase extends KeyringSoftwareBase {
+  override async getPrivateKeys(
+    password: string,
+    relPaths?: Array<string>,
+  ): Promise<Record<string, Buffer>> {
+    const dbAccount = await this.getDbAccount();
+    const pathComponents = dbAccount.path.split('/');
+    const usedRelativePaths = relPaths || [pathComponents.pop() as string];
+    const basePath = pathComponents.join('/');
 
-export abstract class KeyringHdBase extends KeyringBase {
-  async getCredential(
-    options: ISignCredentialOptions,
-  ): Promise<SoftwareCredential> {
-    const { password } = options;
-    if (!password) {
-      throw new OneKeyInternalError(
-        'KeyringHD.getCredential ERROR: password should NOT be empty',
-      );
-    }
-    const walletId = await this.getWalletId();
     const { seed } = (await this.engine.dbApi.getCredential(
-      walletId,
+      this.walletId,
       password,
     )) as ExportedSeedCredential;
-    return {
-      type: CredentialType.SOFTWARE,
+    if (typeof seed === 'undefined') {
+      throw new OneKeyInternalError('Unable to get credential.');
+    }
+
+    const provider = await this.engine.providerManager.getProvider(
+      this.networkId,
+    );
+
+    const keys = batchGetPrivateKeys(
+      provider.chainInfo.curve,
       seed,
       password,
-    };
+      basePath,
+      usedRelativePaths,
+    );
+    return keys.reduce(
+      (ret, key) => ({ ...ret, [key.path]: key.extendedKey.key }),
+      {},
+    );
   }
 }

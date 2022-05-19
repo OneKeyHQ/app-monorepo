@@ -137,8 +137,8 @@ export function useFormatAmount() {
 
       return numbers.reduce((memo, curr) => {
         if (curr === undefined || memo === undefined) return memo;
-        const memoBN = new BigNumber(memo);
-        const currBN = new BigNumber(curr);
+        const memoBN = new BigNumber(memo ?? '0');
+        const currBN = new BigNumber(curr ?? '0');
         return memoBN.multipliedBy(currBN);
       }, fiatBN);
     }, [fiat, numbers]);

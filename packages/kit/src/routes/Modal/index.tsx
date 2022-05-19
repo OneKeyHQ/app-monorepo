@@ -9,11 +9,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
-import {
-  BackupWalletModalStack as BackupWalletModal,
+import BackupWalletModal, {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
-  BackupWalletViewMnemonicsModalStack as BackupWalletViewMnemonicsModal,
 } from './BackupWallet';
 import CollectibleModal, {
   CollectiblesModalRoutes,
@@ -130,10 +128,6 @@ const modalStackScreenList = [
     component: BackupWalletModal,
   },
   {
-    name: ModalRoutes.WalletViewMnemonics,
-    component: BackupWalletViewMnemonicsModal,
-  },
-  {
     name: ModalRoutes.TransactionDetail,
     component: TransactionDetailModal,
   },
@@ -236,7 +230,6 @@ export type ModalTypes = {
   [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
   [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
   [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
-  [BackupWalletModalRoutes.BackupWalletModal]: NavigatorScreenParams<BackupWalletRoutesParams>;
   [ManagerWalletModalRoutes.ManagerWalletModal]: NavigatorScreenParams<ManagerWalletRoutesParams>;
   [ManagerAccountModalRoutes.ManagerAccountModal]: NavigatorScreenParams<ManagerAccountRoutesParams>;
   [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;

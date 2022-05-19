@@ -20,14 +20,21 @@ export class VaultFactory {
   async getVault({
     networkId,
     accountId,
+    walletId,
   }: IVaultFactoryOptions): Promise<VaultBase> {
     const options = {
       networkId,
       accountId,
+      walletId,
       engine: this.engine,
     };
     const vault: VaultBase = await createVaultInstance(options);
     this.lastVault = vault;
     return vault;
+  }
+
+  getChainOnlyVault(networkId: string): Promise<VaultBase> {
+    // This in fact returns a watching vault.
+    return this.getVault({ networkId, accountId: '' });
   }
 }
