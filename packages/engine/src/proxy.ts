@@ -328,7 +328,7 @@ class ProviderController extends BaseProviderController {
   private providers: Record<string, BaseProvider> = {};
 
   constructor(
-    private getChainInfoByNetworkId: (networkId: string) => Promise<ChainInfo>,
+    public getChainInfoByNetworkId: (networkId: string) => Promise<ChainInfo>,
   ) {
     super((_chainCode) => ({
       code: '',

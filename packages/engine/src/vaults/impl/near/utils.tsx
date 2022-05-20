@@ -13,9 +13,17 @@ import type {
   Transaction,
 } from 'near-api-js/lib/transaction';
 
+const { parseNearAmount } = nearApiJs.utils.format;
+
 // TODO replace const from nearApiJs
 export const FT_TRANSFER_GAS = '30000000000000';
 export const FT_TRANSFER_DEPOSIT = '1';
+export const FT_STORAGE_DEPOSIT_GAS = parseNearAmount('0.00000000003');
+// account creation costs 0.00125 NEAR for storage, 0.00000000003 NEAR for gas
+// https://docs.near.org/docs/api/naj-cookbook#wrap-and-unwrap-near
+export const FT_MINIMUM_STORAGE_BALANCE = parseNearAmount('0.00125');
+// FT_MINIMUM_STORAGE_BALANCE: nUSDC, nUSDT require minimum 0.0125 NEAR. Came to this conclusion using trial and error.
+export const FT_MINIMUM_STORAGE_BALANCE_LARGE = parseNearAmount('0.0125');
 
 export { baseDecode, baseEncode };
 export { BN, bs58 };
@@ -70,4 +78,8 @@ export function serializeTransaction(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   return message.toString('base64');
+}
+
+export function parseJsonFromRawResponse(response: Uint8Array): any {
+  return JSON.parse(Buffer.from(response).toString());
 }

@@ -791,11 +791,11 @@ class Engine {
       throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
     }
 
+    const vault = await this.getChainOnlyVault(networkId);
     const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
-    const [tokenInfo] = await this.providerManager.getTokenInfos(networkId, [
-      tokenIdOnNetwork,
-    ]);
+    const [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
     if (typeof tokenInfo === 'undefined') {
+      console.error('fetch tokenInfo ERROR: ', networkId, tokenIdOnNetwork);
       return noThisToken;
     }
     const overwrite: Partial<Token> = {
@@ -1248,6 +1248,10 @@ class Engine {
     return this.vaultFactory.getVault(options);
   }
 
+  async getChainOnlyVault(networkId: string) {
+    return this.vaultFactory.getChainOnlyVault(networkId);
+  }
+
   @backgroundMethod()
   async addHistoryEntry({
     id,
@@ -1266,6 +1270,12 @@ class Engine {
     meta: HistoryEntryMeta;
     payload?: SendConfirmPayload;
   }) {
+    const network = await this.getNetwork(networkId);
+    // TODO only save history on EVM
+    if (network.impl !== IMPL_EVM) {
+      return;
+    }
+
     if ('rawTx' in meta && !meta.rawTxPreDecodeCache) {
       let rawTxPreDecoded: string | undefined;
 
