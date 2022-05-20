@@ -17,7 +17,7 @@ function popupSizeFix() {
   document.documentElement.style.minWidth = `${UI_HTML_DEFAULT_MIN_WIDTH}px`;
 
   // firefox should set to body element, chrome should set to html element
-  if (platformEnv.isFirefox) {
+  if (platformEnv.isRuntimeFirefox) {
     document.body.style.minHeight = `${UI_HTML_DEFAULT_MIN_HEIGHT}px`;
     document.body.style.minWidth = `${UI_HTML_DEFAULT_MIN_WIDTH}px`;
   }

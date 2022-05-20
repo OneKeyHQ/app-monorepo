@@ -57,11 +57,11 @@ export default function useClickDocumentClose({
         toggleVisible();
       }, 150);
     };
-    if (platformEnv.isBrowser) {
+    if (platformEnv.isRuntimeBrowser) {
       window.addEventListener('click', documentClick);
     }
     return () => {
-      if (platformEnv.isBrowser) {
+      if (platformEnv.isRuntimeBrowser) {
         window.removeEventListener('click', documentClick);
       }
     };

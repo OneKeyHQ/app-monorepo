@@ -14,38 +14,51 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+  available,
+  enable,
+} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
+import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import {
-  UpdateFeatureModalRoutes,
-  UpdateFeatureRoutesParams,
-} from '../../../routes/Modal/UpdateFeature';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
-type ModalNavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
-
 export const AboutSection = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
-  const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
+  const { dispatch } = backgroundApiProxy;
+
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const [checkUpdateLoading, setCheckUpdateLoading] = useState(false);
   const settings = useSettings();
+
+  let lastTime: Date | undefined;
+  let num = 0;
+  const openDebugMode = () => {
+    const nowTime = new Date();
+    if (
+      lastTime === undefined ||
+      Math.round(nowTime.getTime() - lastTime.getTime()) > 5000
+    ) {
+      // 重置
+      lastTime = nowTime;
+      num = 0;
+    } else {
+      num += 1;
+    }
+    if (num >= 9) {
+      dispatch(setDevMode(true));
+    }
+  };
 
   const onCheckUpdate = useCallback(() => {
     setCheckUpdateLoading(true);
@@ -59,22 +72,15 @@ export const AboutSection = () => {
             }),
           });
         } else {
-          modalNavigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.UpdateFeature,
-            params: {
-              screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
-              params: {
-                version,
-              },
-            },
-          });
+          dispatch(enable());
+          dispatch(available(version));
         }
       })
       .catch(() => {})
       .finally(() => {
         setCheckUpdateLoading(false);
       });
-  }, [intl, modalNavigation, toast]);
+  }, [dispatch, intl, toast]);
   const openWebViewUrl = useCallback(
     (url: string, title?: string) => {
       if (platformEnv.isNative) {
@@ -123,6 +129,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() => {
+            openDebugMode();
             handleCopyVersion(
               `${settings.version}${
                 settings.buildNumber ? `-${settings.buildNumber}` : ''

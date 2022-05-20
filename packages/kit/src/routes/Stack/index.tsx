@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  available,
+  enable,
+} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
+import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import Debug from '@onekeyhq/kit/src/views/Debug';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
@@ -12,6 +18,7 @@ import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
+import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
 import Dev from '../Dev';
@@ -101,9 +108,33 @@ const Dashboard = () => {
 };
 
 function MainScreen() {
+  const { dispatch } = backgroundApiProxy;
+
+  const autoCheckUpdate = () => {
+    appUpdates
+      .checkAppUpdate()
+      .then((versionInfo) => {
+        if (versionInfo) {
+          dispatch(enable());
+          dispatch(available(versionInfo));
+        }
+      })
+      .catch(() => {
+        // TODO sentry collect error
+      });
+  };
+
+  useEffect(() => {
+    autoCheckUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <Box ref={setMainScreenDom} w="full" h="full">
       <Dashboard />
+
+      {/* TODO Waiting notification component */}
+      <UpdateAlert />
     </Box>
   );
 }

@@ -39,6 +39,7 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
       )) as SerializableTransactionReceipt | undefined;
       if (result) {
         finalizeTransaction(tx.hash, result);
+        backgroundApiProxy.serviceToken.fetchTokenBalance();
       }
     }
   }, [tx, networkId, finalizeTransaction]);

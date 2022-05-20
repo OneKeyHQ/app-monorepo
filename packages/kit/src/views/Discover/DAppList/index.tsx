@@ -165,11 +165,11 @@ const DAppList: FC = () => {
       (async () => {
         if (onItemSelect) {
           // iOS 弹窗无法展示在 modal 上面提前返回
-          if (platformEnv.isIOS) {
+          if (platformEnv.isNativeIOS) {
             navigation.goBack();
           }
           const agree = await onItemSelect(item);
-          if (agree && (platformEnv.isDesktop || platformEnv.isAndroid)) {
+          if (agree && (platformEnv.isDesktop || platformEnv.isNativeAndroid)) {
             navigation.goBack();
           }
         }

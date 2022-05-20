@@ -32,7 +32,7 @@ class ErrorBoundary extends React.PureComponent<
         <Box flex="1" bg="background-default" px={4} py={8}>
           <Button
             onPress={() => {
-              if (platformEnv.isBrowser) {
+              if (platformEnv.isRuntimeBrowser) {
                 window.location.href = '#/';
                 window.location.reload();
               }

@@ -49,16 +49,16 @@ type SubmitValues = {
 };
 
 const defaultOption = (): string => {
-  if (platformEnv.isIOS) {
+  if (platformEnv.isNativeIOS) {
     return 'App on iOS';
   }
-  if (platformEnv.isAndroid) {
+  if (platformEnv.isNativeAndroid) {
     return 'App on Android';
   }
   if (platformEnv.isDesktop) {
     return 'App on Desktop';
   }
-  if (platformEnv.isBrowser) {
+  if (platformEnv.isRuntimeBrowser) {
     return 'App on Browser';
   }
   return 'Hardware';

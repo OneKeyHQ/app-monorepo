@@ -21,7 +21,7 @@ function domContains(root: HTMLElement, n: HTMLElement) {
 
 export function setMainScreenDom(dom: HTMLElement | null) {
   // 没有组件卸载场景
-  if (platformEnv.isBrowser) {
+  if (platformEnv.isRuntimeBrowser) {
     mainScreenDom = dom;
   }
 }
@@ -39,7 +39,7 @@ function isAccountSelector(name: string): boolean {
 }
 
 export function autoHideSelectFunc(event: MouseEvent) {
-  if (platformEnv.isBrowser) {
+  if (platformEnv.isRuntimeBrowser) {
     for (const t of desktopRefs) {
       if (t.getVisible() === true) {
         const container = document.getElementById(t.domId);
@@ -84,6 +84,6 @@ export function autoHideSelectFunc(event: MouseEvent) {
   }
 }
 
-if (platformEnv.isBrowser) {
+if (platformEnv.isRuntimeBrowser) {
   document.addEventListener('click', autoHideSelectFunc);
 }

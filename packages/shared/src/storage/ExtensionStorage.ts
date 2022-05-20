@@ -2,7 +2,7 @@
 
 // copy from:
 //    node_modules/@react-native-async-storage/async-storage/types/index.d.ts
-import { isFirefox, isManifestV3 } from '../platformEnv';
+import platformEnv, { isManifestV3 } from '../platformEnv';
 
 export interface IAsyncStorage {
   /**
@@ -87,7 +87,9 @@ export interface IAsyncStorage {
 
 class ExtensionStorage implements IAsyncStorage {
   browserApi: typeof chrome =
-    isFirefox() || !isManifestV3() ? global.browser : global.chrome;
+    platformEnv.isExtFirefox || !isManifestV3()
+      ? global.browser
+      : global.chrome;
 
   async getItem(key: string) {
     const data = (await this.browserApi.storage.local.get(key)) ?? {};

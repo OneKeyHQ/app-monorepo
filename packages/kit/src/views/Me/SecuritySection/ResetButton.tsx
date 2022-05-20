@@ -24,7 +24,7 @@ const ResetButton = () => {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [input, setInput] = useState('');
   const onReset = useCallback(async () => {
-    if (platformEnv.isIOS) {
+    if (platformEnv.isNativeIOS) {
       NativeModules.SplashScreenManager.show();
     }
     resetToWelcome();

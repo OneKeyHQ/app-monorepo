@@ -71,7 +71,7 @@ const Input = React.forwardRef<
     const inputRef = useRef<typeof BaseInput>(null);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     useImperativeHandle(ref, () => inputRef.current!);
-    const shouldFocus = autoFocus && platformEnv.isBrowser;
+    const shouldFocus = autoFocus && platformEnv.isRuntimeBrowser;
     useEffect(() => {
       // node_modules/react-native-web/dist/exports/TextInput/index.js
       //    supportedProps.autoFocus = supportedProps.autoFocus && 'autofocus';
@@ -280,7 +280,7 @@ const Input = React.forwardRef<
         fontFamily={textProps.fontFamily}
         {...props}
         // WEB autofocus in Modal cause modal slow animation, and background jump
-        autoFocus={platformEnv.isBrowser ? false : autoFocus}
+        autoFocus={platformEnv.isRuntimeBrowser ? false : autoFocus}
       />
     );
   },

@@ -55,7 +55,7 @@ const MobileModal: FC<ModalProps> = ({
     <Box
       flex="1"
       bg="surface-subdued"
-      pt={platformEnv.isAndroid ? `${top}px` : 0}
+      pt={platformEnv.isNativeAndroid ? `${top}px` : 0}
     >
       {!!headerShown && (
         <Box

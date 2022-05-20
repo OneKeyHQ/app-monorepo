@@ -41,7 +41,7 @@ class ServiceApp extends ServiceBase {
     if (platformEnv.isExtensionBackground) {
       return chrome.runtime.reload();
     }
-    if (platformEnv.isBrowser) {
+    if (platformEnv.isRuntimeBrowser) {
       return window?.location?.reload?.();
     }
   }
@@ -54,7 +54,7 @@ class ServiceApp extends ServiceBase {
     persistor.pause();
     await persistor.purge();
     await engine.resetApp();
-    if (platformEnv.isBrowser) {
+    if (platformEnv.isRuntimeBrowser) {
       localStorage.clear();
     }
     dispatch({ type: 'LOGOUT', payload: undefined });

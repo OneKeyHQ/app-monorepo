@@ -12,9 +12,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigation } from '../../hooks';
 
-const { isDesktop, isIOS, isAndroid } = platformEnv;
+const { isDesktop, isNative, isNativeIOS, isNativeAndroid } = platformEnv;
 
-const canInvokeSystemSettings = isDesktop || isIOS || isAndroid;
+const canInvokeSystemSettings = isDesktop || isNative;
 
 type PrefContent = Record<PrefType, LocaleIds>;
 const titleIds: PrefContent = {
@@ -49,9 +49,9 @@ const PermissionDialog: FC<{
               },
               onPrimaryActionPress: ({ onClose }) => {
                 onClose?.();
-                if (isIOS) {
+                if (isNativeIOS) {
                   Linking.openURL('app-settings:');
-                } else if (isAndroid) {
+                } else if (isNativeAndroid) {
                   IntentLauncher.startActivityAsync(
                     IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
                     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

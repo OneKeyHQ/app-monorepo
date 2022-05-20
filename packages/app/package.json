@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "start": "react-native start",
-    "android": "expo run:android",
+    "android": "ANDROID_CHANNEL=direct expo run:android",
     "android:device": "expo run:android --device",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
