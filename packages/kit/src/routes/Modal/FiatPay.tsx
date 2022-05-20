@@ -5,6 +5,8 @@ import AmountInput from '@onekeyhq/kit/src/views/FiatPay/AmountInput';
 import MoonpayWebView from '@onekeyhq/kit/src/views/FiatPay/MoonpayWebView';
 import SupportTokenList from '@onekeyhq/kit/src/views/FiatPay/SupportTokenList';
 
+import { CurrencyType } from '../../views/FiatPay/types';
+
 import createStackNavigator from './createStackNavigator';
 
 export enum FiatPayRoutes {
@@ -15,7 +17,7 @@ export enum FiatPayRoutes {
 
 export type FiatPayModalRoutesParams = {
   [FiatPayRoutes.SupportTokenListModal]: undefined;
-  [FiatPayRoutes.AmoutInputModal]: undefined;
+  [FiatPayRoutes.AmoutInputModal]: { token: CurrencyType };
   [FiatPayRoutes.MoonpayWebViewModal]: { url: string };
 };
 

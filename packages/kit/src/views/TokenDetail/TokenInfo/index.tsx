@@ -29,7 +29,7 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
+// import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { SendRoutes } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -190,12 +190,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               type="basic"
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.FlatPay,
-                  params: {
-                    screen: FiatPayRoutes.AmoutInputModal,
-                  },
-                });
+                // navigation.navigate(RootRoutes.Modal, {
+                //   screen: ModalRoutes.FlatPay,
+                //   params: {
+                //     screen: FiatPayRoutes.AmoutInputModal,
+                //   },
+                // });
               }}
             />
             <Typography.CaptionStrong textAlign="center" mt="8px">

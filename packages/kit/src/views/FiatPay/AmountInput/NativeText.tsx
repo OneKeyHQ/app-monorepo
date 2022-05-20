@@ -1,6 +1,8 @@
 /* eslint-disable global-require, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires */
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Text, useTheme } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -26,7 +28,9 @@ try {
 
 export const NativeText: FC<{ text: string }> = ({ text }) => {
   const { themeVariant } = useTheme();
-  const innerText = text.length === 0 ? 'Amount' : text;
+  const intl = useIntl();
+  const innerText =
+    text.length === 0 ? intl.formatMessage({ id: 'content__amount' }) : text;
   if (text.length > 0) {
     if (platformEnv.isNative && !!AutoSizeText && !!ResizeTextMode) {
       return (

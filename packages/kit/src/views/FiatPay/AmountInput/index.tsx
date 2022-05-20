@@ -1,6 +1,6 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Center,
-  Icon,
   Image,
   Input,
   Keyboard,
@@ -17,7 +16,12 @@ import {
   Spinner,
   Text,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import MoonpayIMG from '@onekeyhq/kit/assets/MoonPay.png';
+import {
+  useActiveWalletAccount,
+  useSettings,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,12 +29,19 @@ import {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
 } from '../../../routes/Modal/FiatPay';
+import { requestBuyQuote } from '../Service';
+import { MoonPayBuyQuotePayload, Provider } from '../types';
 
+import { getFiatCode } from './FiatCurrency';
 import { NativeText } from './NativeText';
 
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
+type RouteProps = RouteProp<
+  FiatPayModalRoutesParams,
+  FiatPayRoutes.AmoutInputModal
+>;
 
-function checkInputVaild(text: string) {
+function checkCharVaild(text: string) {
   const asciiCode = text.charCodeAt(0);
   return (
     (asciiCode >= '0'.charCodeAt(0) && asciiCode <= '9'.charCodeAt(0)) ||
@@ -39,60 +50,163 @@ function checkInputVaild(text: string) {
 }
 
 export const AmountInput: FC = () => {
+  const route = useRoute<RouteProps>();
+  const { token } = route.params;
   const intl = useIntl();
-  const [inputText, updateInputText] = useState('150');
+  const { selectedFiatMoneySymbol } = useSettings();
+  const provider: Provider = 'moonpay';
+  const baseCurrencyCode = getFiatCode(provider, selectedFiatMoneySymbol);
+  const [inputText, updateInputText] = useState('');
+  const [descText, updateDescText] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const { account } = useActiveWalletAccount();
 
-  const onChangeText = useCallback((text: string) => {
-    updateInputText((prev) => {
-      if (text.length > prev.length) {
-        if (checkInputVaild(text.slice(text.length - 1, text.length))) {
-          const result = new BigNumber(text);
-          if (!result.isNaN()) {
-            return text;
-          }
-          return text.slice(0, text.length - 1);
+  const [quoteData, updateQuoteData] = useState<MoonPayBuyQuotePayload>();
+  const [amountVaild, setAmountVaild] = useState(false);
+
+  const checkAmountVaild = useCallback(
+    (text: string) => {
+      if (text.length > 0 && quoteData) {
+        const amount = Number(text);
+        if (amount < quoteData.baseCurrency.minBuyAmount) {
+          updateDescText(() =>
+            intl.formatMessage(
+              {
+                id: 'form__buy_int_min_purchase',
+              },
+              { 0: quoteData.baseCurrency.minBuyAmount },
+            ),
+          );
+          setAmountVaild(false);
+        } else if (amount > quoteData.baseCurrency.maxBuyAmount) {
+          updateDescText(() =>
+            intl.formatMessage(
+              {
+                id: 'form__buy_int_max_purchase',
+              },
+              { 0: quoteData.baseCurrency.maxBuyAmount },
+            ),
+          );
+          setAmountVaild(false);
+        } else {
+          updateDescText(
+            () =>
+              `≈ ${(
+                (amount - quoteData.networkFeeAmount) /
+                quoteData.quoteCurrencyPrice
+              ).toFixed(quoteData.currency.precision)}  ${token.symbol}`,
+          );
+          setAmountVaild(true);
         }
-        return prev;
+      } else {
+        setAmountVaild(false);
       }
-      return text;
-    });
-  }, []);
+    },
+    [intl, quoteData, token.symbol],
+  );
+
+  const onChangeText = useCallback(
+    (text: string) => {
+      updateInputText((prev) => {
+        let result = text;
+        if (text.length > prev.length) {
+          if (checkCharVaild(text.slice(text.length - 1, text.length))) {
+            const number = new BigNumber(text);
+            if (number.isNaN()) {
+              result = prev;
+            }
+          } else {
+            result = prev;
+          }
+        }
+        checkAmountVaild(result);
+        return result;
+      });
+    },
+    [checkAmountVaild],
+  );
+
+  const DescriptionItem = () => {
+    if (loading || !descText) {
+      return (
+        <Box height="24px">
+          <Spinner size="sm" />
+        </Box>
+      );
+    }
+    return (
+      <Text height="24px" typography="DisplaySmall" textAlign="center">
+        {descText}
+      </Text>
+    );
+  };
+
+  const getData = useCallback(
+    (baseCurrencyAmount?: number) => {
+      setLoading(true);
+      requestBuyQuote(
+        token.provider.moonpay,
+        baseCurrencyAmount ?? 100,
+        baseCurrencyCode,
+      )
+        .then((response) => {
+          // console.log(response.data);
+          updateQuoteData(() => response.data);
+          if (baseCurrencyAmount === undefined) {
+            updateDescText(() =>
+              intl.formatMessage(
+                {
+                  id: 'form__buy_int_min_purchase',
+                },
+                { 0: response.data.baseCurrency.minBuyAmount },
+              ),
+            );
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    },
+    [baseCurrencyCode, intl, token.provider.moonpay],
+  );
 
   useEffect(() => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-  }, []);
+    getData();
+  }, [getData]);
 
   return (
     <Modal
       height="500px"
-      header="Buy Bitcoin"
-      headerDescription="1FmxQ5...yBjK"
+      header={`${intl.formatMessage({ id: 'action__buy' })} ${token.symbol}`}
+      headerDescription={shortenAddress(account?.address ?? '')}
       hideSecondaryAction
       footer={null}
     >
       <Box flex={1} justifyContent="space-between">
         <Box flex={1} flexDirection="column" justifyContent="center">
           <Text
+            height="24px"
             textAlign="center"
             typography={{ sm: 'DisplaySmall', md: 'Body1Strong' }}
             color="text-subdued"
           >
-            USD
+            {baseCurrencyCode.toUpperCase()}
           </Text>
           <Center flex={1}>
             {platformEnv.isNative ? (
               <NativeText text={inputText} />
             ) : (
               <Input
+                height="112"
                 size="xl"
                 textAlign="center"
                 borderWidth="0"
                 fontSize="42px"
-                placeholder="Amount"
+                placeholder={intl.formatMessage({ id: 'content__amount' })}
                 placeholderTextColor="text-disabled"
                 lineHeight="72px"
                 fontWeight="700"
@@ -101,20 +215,11 @@ export const AmountInput: FC = () => {
                 onChangeText={(text) => {
                   onChangeText(text);
                 }}
-                onContentSizeChange={(e) => {
-                  console.log('contentSize = ', e.nativeEvent.contentSize);
-                }}
                 value={inputText}
               />
             )}
           </Center>
-          {loading ? (
-            <Spinner size="sm" />
-          ) : (
-            <Text typography="DisplaySmall" textAlign="center">
-              ≈ 0.03802 BTC
-            </Text>
-          )}
+          <DescriptionItem />
         </Box>
 
         <Box paddingBottom="24px">
@@ -141,29 +246,31 @@ export const AmountInput: FC = () => {
                 MoonPay
               </Text>
               <Text typography="Body2" color="text-subdued">
-                Third Party Provider
+                {intl.formatMessage({ id: 'form__third_party_provider' })}
               </Text>
             </Box>
-
-            <Icon name="ChevronRightSolid" size={20} />
+            {/* <Icon name="ChevronRightSolid" size={20} /> */}
           </Pressable>
           {platformEnv.isNative ? (
             <Keyboard
               onKeyPress={(key) => {
                 updateInputText((prev) => {
-                  const result = new BigNumber(prev + key);
-                  if (!result.isNaN()) {
-                    return prev + key;
+                  let result = prev;
+                  const number = new BigNumber(prev + key);
+                  if (!number.isNaN()) {
+                    result = prev + key;
                   }
-                  return prev;
+                  checkAmountVaild(result);
+                  return result;
                 });
               }}
               onDelete={() => {
                 updateInputText((prev) => {
-                  const result = prev.slice(0, prev.length - 1);
+                  let result = prev.slice(0, prev.length - 1);
                   if (result.slice(result.length - 1, result.length) === '.') {
-                    return result.slice(0, result.length - 1);
+                    result = result.slice(0, result.length - 1);
                   }
+                  checkAmountVaild(result);
                   return result;
                 });
               }}
@@ -172,11 +279,17 @@ export const AmountInput: FC = () => {
           <Button
             type="primary"
             size="xl"
-            // isDisabled
+            isDisabled={!amountVaild}
             mt={platformEnv.isNative ? '24px' : '0px'}
             onPress={() => {
+              const baseCurrencyAmount = Number(inputText);
+              const url = `https://buy-sandbox.moonpay.com?apiKey=pk_test_Zi6NCCoN2Bp1DaRUQ4P4pKi9b2VEkTp&walletAddress&=${
+                account?.address ?? ''
+              }&currencyCode=${
+                token.provider.moonpay
+              }&baseCurrencyCode=${baseCurrencyCode}&baseCurrencyAmount=${baseCurrencyAmount}`;
               navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
-                url: 'https://buy-sandbox.moonpay.com?apiKey=pk_test_Zi6NCCoN2Bp1DaRUQ4P4pKi9b2VEkTp',
+                url,
               });
             }}
           >
