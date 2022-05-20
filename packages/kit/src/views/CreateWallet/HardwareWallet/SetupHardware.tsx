@@ -37,7 +37,7 @@ const SetupHardwareModal: FC = () => {
   const { device } = route?.params;
 
   const content = (
-    <Center>
+    <>
       <VStack space={4} w="full">
         {/* Setup new device option */}
         <PressableItem
@@ -103,7 +103,7 @@ const SetupHardwareModal: FC = () => {
           </VStack>
         </PressableItem>
       </VStack>
-    </Center>
+    </>
   );
 
   // const footer = (
@@ -120,7 +120,6 @@ const SetupHardwareModal: FC = () => {
       headerDescription={intl.formatMessage({ id: 'content__not_actived' })}
       footer={null}
       scrollViewProps={{
-        pt: 4,
         children: content,
       }}
     />
