@@ -14,7 +14,7 @@ import {
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 
-import { useNavigationActions } from '../../../hooks';
+import { useNavigation, useNavigationActions } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
 
@@ -68,9 +68,13 @@ const Done: FC<DoneProps> = ({
 
 export const AppWalletDone = () => {
   const route = useRoute<RouteProps>();
+  const navigation = useNavigation();
   const { mnemonic } = route.params ?? {};
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: false });
+  }, [navigation]);
   return (
-    <Modal footer={null}>
+    <Modal footer={null} headerShown={false}>
       <Protected
         skipSavePassword
         /** CreateWallet Flow：walletId is null */
