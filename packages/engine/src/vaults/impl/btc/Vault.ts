@@ -3,11 +3,13 @@ import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/bl
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
+import { TxStatus } from '../../../types/covalent';
 import {
   IApproveInfo,
   IEncodedTxAny,
@@ -18,6 +20,7 @@ import {
   ITransferInfo,
 } from '../../../types/vault';
 import { VaultBase } from '../../VaultBase';
+import { EVMDecodedItem } from '../evm/decoder/types';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -138,6 +141,116 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
+  }
+
+  // TODO: BTC history type
+  async getHistory(): Promise<Array<EVMDecodedItem>> {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as Provider;
+
+    const ret = [];
+    let txs;
+    try {
+      txs = (
+        (await provider.getAccount({
+          type: 'history',
+          xpub: dbAccount.xpub,
+        })) as { transactions: Array<any> }
+      ).transactions;
+    } catch (e) {
+      console.error(e);
+      txs = [];
+    }
+
+    const network = await this.engine.getNetwork(this.networkId);
+
+    for (const tx of txs) {
+      try {
+        const item = {} as EVMDecodedItem;
+        item.symbol = network.symbol;
+        item.network = network;
+        item.chainId = 0;
+        item.txStatus = TxStatus.Confirmed;
+        item.info = null;
+
+        const { value, valueIn, fees } = tx as {
+          value: string;
+          valueIn: string;
+          fees: string;
+        };
+        item.amount = new BigNumber(value)
+          .shiftedBy(-network.decimals)
+          .toFixed();
+        item.value = value;
+        item.total = new BigNumber(valueIn).toFixed();
+
+        item.txHash = (tx as { txid: string }).txid;
+        item.blockSignedAt = (tx as { blockTime: number }).blockTime * 1000;
+        item.data = (tx as { hex: string }).hex;
+
+        const txSize = item.data.length / 2;
+        const gasPrice = new BigNumber(fees).div(txSize).toFixed();
+
+        item.gasInfo = {
+          gasLimit: txSize,
+          gasPrice,
+          maxPriorityFeePerGas: '0',
+          maxFeePerGas: '0',
+          maxPriorityFeePerGasInGwei: '0',
+          maxFeePerGasInGwei: '0',
+          maxFeeSpend: '0',
+          feeSpend: new BigNumber(fees).shiftedBy(-network.decimals).toFixed(),
+          gasUsed: txSize,
+          gasUsedRatio: 1,
+          effectiveGasPrice: gasPrice,
+          effectiveGasPriceInGwei: gasPrice,
+        };
+
+        const isSend = (tx as { vin: Array<{ isOwn: boolean }> }).vin.some(
+          ({ isOwn }) => isOwn,
+        );
+
+        if (isSend) {
+          item.fromType = 'OUT';
+          [item.toAddress] = (
+            tx as { vout: Array<{ addresses: Array<string> }> }
+          ).vout[0].addresses;
+          for (const input of (tx as { vin: Array<any> }).vin) {
+            const { isOwn, addresses } = input as {
+              isOwn: boolean;
+              addresses: Array<string>;
+            };
+            if (isOwn) {
+              [item.fromAddress] = addresses;
+              break;
+            }
+          }
+        } else {
+          item.fromType = 'IN';
+          [item.fromAddress] = (
+            tx as { vin: Array<{ addresses: Array<string> }> }
+          ).vin[0].addresses;
+          for (const output of (tx as { vout: Array<any> }).vout) {
+            const { isOwn, addresses } = output as {
+              isOwn: boolean;
+              addresses: Array<string>;
+            };
+            if (isOwn) {
+              [item.toAddress] = addresses;
+              break;
+            }
+          }
+        }
+
+        ret.push(item);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    return ret;
   }
 
   // Chain only functionalities below.

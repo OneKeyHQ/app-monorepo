@@ -105,6 +105,7 @@ import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
+import type BTCVault from './vaults/impl/btc/Vault';
 
 @backgroundClass()
 class Engine {
@@ -1530,6 +1531,11 @@ class Engine {
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
     ]);
+
+    if (network.impl === IMPL_BTC) {
+      const vault = (await this.getVault({ networkId, accountId })) as BTCVault;
+      return vault.getHistory();
+    }
 
     // TODO filter EVM history only
     if (network.impl !== IMPL_EVM) {
