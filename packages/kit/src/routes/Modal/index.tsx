@@ -9,97 +9,33 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
-import BackupWalletModal, {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from './BackupWallet';
-import CollectibleModal, {
-  CollectiblesModalRoutes,
-  CollectiblesRoutesParams,
-} from './Collectibles';
-import CreateAccountModal, {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from './CreateAccount';
-import CreateWalletModalStack, {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from './CreateWallet';
-import DappApproveStack, {
-  DappApproveModalRoutes,
-  DappApproveRoutesParams,
-} from './DappApprove';
-import DappConnectionStack, {
-  DappConnectionModalRoutes,
-  DappConnectionRoutesParams,
-} from './DappConnection';
-import DappMulticallStack, {
-  DappMulticallModalRoutes,
-  DappMulticallRoutesParams,
-} from './DappMulticall';
+import BackupWalletModal from './BackupWallet';
+import CollectibleModal from './Collectibles';
+import CreateAccountModal from './CreateAccount';
+import CreateWalletModalStack from './CreateWallet';
+import DappApproveStack from './DappApprove';
+import DappConnectionStack from './DappConnection';
+import DappMulticallStack from './DappMulticall';
 import DiscoverModal from './Discover';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
-import OnekeyHardwareModal, {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from './HardwareOnekey';
-import HardwareOnekeyLitePinModal, {
-  OnekeyLiteChangePinModalRoutes,
-  OnekeyLiteChangePinRoutesParams,
-} from './HardwareOnekeyLiteChangePin';
-import HardwareOnekeyResetModal, {
-  OnekeyLiteResetModalRoutes,
-  OnekeyLiteResetRoutesParams,
-} from './HardwareOnekeyLiteReset';
-import HistoryRequestModal, {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-} from './HistoryRequest';
-import ImportAccountModal, {
-  ImportAccountModalRoutes,
-  ImportAccountRoutesParams,
-} from './ImportAccount';
+import OnekeyHardwareModal from './HardwareOnekey';
+import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
+import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
+import HistoryRequestModal from './HistoryRequest';
+import ImportAccountModal from './ImportAccount';
 import ManageNetworkModal from './ManageNetwork';
-import {
-  ManagerAccountModalStack as ManagerAccountModal,
-  ManagerAccountModalRoutes,
-  ManagerAccountRoutesParams,
-} from './ManagerAccount';
-import {
-  ManagerWalletModalStack as ManagerWalletModal,
-  ManagerWalletModalRoutes,
-  ManagerWalletRoutesParams,
-} from './ManagerWallet';
+import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
+import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
 import ManageTokenModal from './ManageToken';
-import PasswordModal, {
-  PasswordRoutes,
-  PasswordRoutesParams,
-} from './Password';
-import ReceiveToken, {
-  ReceiveTokenRoutes,
-  ReceiveTokenRoutesParams,
-} from './ReceiveToken';
-import ScanQrcode, {
-  ScanQrcodeRoutes,
-  ScanQrcodeRoutesParams,
-} from './ScanQrcode';
-import Send, { SendRoutes, SendRoutesParams } from './Send';
-import SubmitRequestModal, {
-  SubmitRequestModalRoutesParams,
-  SubmitRequestRoutes,
-} from './SubmitRequest';
+import PasswordModal from './Password';
+import ReceiveToken from './ReceiveToken';
+import ScanQrcode from './ScanQrcode';
+import Send from './Send';
+import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
-import TransactionDetailModal, {
-  TransactionDetailModalRoutes,
-  TransactionDetailRoutesParams,
-} from './TransactionDetail';
+import TransactionDetailModal from './TransactionDetail';
 import UpdateFeatureModal from './UpdateFeature';
-import WatchedAccountModal, {
-  WatchedAccountModalRoutes,
-  WatchedAccountRoutesParams,
-} from './WatchedAccount';
-
-import type { NavigatorScreenParams } from '@react-navigation/native';
+import WatchedAccountModal from './WatchedAccount';
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',
@@ -216,26 +152,6 @@ const modalStackScreenList = [
     component: UpdateFeatureModal,
   },
 ];
-
-// ModalTypes will be delete later, don't update it
-export type ModalTypes = {
-  [CreateAccountModalRoutes.CreateAccountForm]: NavigatorScreenParams<CreateAccountRoutesParams>;
-  [ModalNavigatorRoutes.ReceiveTokenNavigator]: NavigatorScreenParams<ReceiveTokenRoutesParams>;
-  [ModalNavigatorRoutes.SendNavigator]: NavigatorScreenParams<SendRoutesParams>;
-  [TransactionDetailModalRoutes.TransactionDetailModal]: NavigatorScreenParams<TransactionDetailRoutesParams>;
-  [ImportAccountModalRoutes.ImportAccountModal]: NavigatorScreenParams<ImportAccountRoutesParams>;
-  [WatchedAccountModalRoutes.WatchedAccountModal]: NavigatorScreenParams<WatchedAccountRoutesParams>;
-  [CollectiblesModalRoutes.CollectionModal]: NavigatorScreenParams<CollectiblesRoutesParams>;
-  [PasswordRoutes.PasswordRoutes]: NavigatorScreenParams<PasswordRoutesParams>;
-  [SubmitRequestRoutes.SubmitRequestModal]: NavigatorScreenParams<SubmitRequestModalRoutesParams>;
-  [HistoryRequestRoutes.HistoryRequestModal]: NavigatorScreenParams<HistoryRequestModalRoutesParams>;
-  [CreateWalletModalRoutes.CreateWalletModal]: NavigatorScreenParams<CreateWalletRoutesParams>;
-  [ManagerWalletModalRoutes.ManagerWalletModal]: NavigatorScreenParams<ManagerWalletRoutesParams>;
-  [ManagerAccountModalRoutes.ManagerAccountModal]: NavigatorScreenParams<ManagerAccountRoutesParams>;
-  [DappApproveModalRoutes.ApproveModal]: NavigatorScreenParams<DappApproveRoutesParams>;
-  [DappConnectionModalRoutes.ConnectionModal]: NavigatorScreenParams<DappConnectionRoutesParams>;
-  [DappMulticallModalRoutes.MulticallModal]: NavigatorScreenParams<DappMulticallRoutesParams>;
-};
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
 
