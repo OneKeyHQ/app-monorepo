@@ -6,5 +6,4 @@ export { useDebounce } from './useDebounce';
 export { useHelpLink } from './useHelpLink';
 export { useNavigationActions } from './useNavigationActions';
 export { default as useNavigation } from './useNavigation';
-export { default as useOpenBrowser } from './useOpenBrowser';
 export { useAppSelector } from './redux';
