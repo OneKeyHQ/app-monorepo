@@ -15,13 +15,13 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import useOpenBrowser from '@onekeyhq/kit/src/hooks/useOpenBrowser';
 import {
   addWebSiteHistory,
   updateFirstRemindDAPP,
   updateHistory,
   updateWebSiteHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
+import { openUrl, openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Home from '../Home';
@@ -72,8 +72,6 @@ const BrowserPage = 'about:blank';
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-  const openBrowser = useOpenBrowser();
-
   const { dispatch } = backgroundApiProxy;
   const discover = useAppSelector((s) => s.discover);
 
@@ -120,11 +118,11 @@ const Explorer: FC = () => {
   const gotoUrl = async (item: (string | MatchDAppItemType) | undefined) => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       if (typeof item === 'string') {
-        openBrowser.openUrl(item);
+        openUrl(item);
       } else if (item?.dapp) {
-        openBrowser.openUrl(item?.dapp?.url ?? '');
+        openUrl(item?.dapp?.url ?? '');
       } else if (item?.webSite) {
-        openBrowser.openUrl(item?.webSite?.url ?? '');
+        openUrl(item?.webSite?.url ?? '');
       }
       return false;
     }
@@ -342,7 +340,7 @@ const Explorer: FC = () => {
   };
 
   const onOpenBrowser = () => {
-    openBrowser.openUrlExternal(getCurrentUrl());
+    openUrlExternal(getCurrentUrl());
   };
 
   const onShare = () => {
