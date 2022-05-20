@@ -25,9 +25,9 @@ export const SettingsWebViews: FC = () => {
     null,
   );
 
-  const onShare = () => {
+  const onShare = async () => {
     try {
-      Share.share(
+      const result = await Share.share(
         Platform.OS === 'ios'
           ? {
               url,
@@ -35,13 +35,16 @@ export const SettingsWebViews: FC = () => {
           : {
               message: url,
             },
-      )
-        .then((result) => {
-          console.log(result);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+      );
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // shared with activity type of result.activityType
+        } else {
+          // shared
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // dismissed
+      }
     } catch (error) {
       console.warn(error);
     }
@@ -66,27 +69,24 @@ export const SettingsWebViews: FC = () => {
       switch (currentOptionType) {
         case 'refresh':
           onRefresh();
-          setCurrentOptionType(null);
           break;
         case 'share':
           onShare();
-          setCurrentOptionType(null);
           break;
         case 'copyUrl':
           copyToClipboard(currentUrl ?? '');
           toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-          setCurrentOptionType(null);
           break;
         case 'openInBrowser':
           openUrlExternal(currentUrl);
-          setCurrentOptionType(null);
           break;
         default:
           break;
       }
+      setCurrentOptionType(null);
     }
 
-    setTimeout(() => main(), 500);
+    setTimeout(main, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentOptionType]);
 
