@@ -6,7 +6,10 @@ import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import {
+  PartialTokenInfo,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil, merge } from 'lodash';
@@ -662,5 +665,14 @@ export default class Vault extends VaultBase {
 
   createClientFromURL(url: string): Geth {
     return new Geth(url);
+  }
+
+  fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<Array<PartialTokenInfo | undefined>> {
+    return this.engine.providerManager.getTokenInfos(
+      this.networkId,
+      tokenAddresses,
+    );
   }
 }

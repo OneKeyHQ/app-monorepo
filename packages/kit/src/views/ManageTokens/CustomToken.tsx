@@ -125,7 +125,8 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       if (
         !accountTokensMap.has(trimedAddress.toLowerCase()) &&
         activeAccount &&
-        activeNetwork
+        activeNetwork &&
+        trimedAddress
       ) {
         let preResult;
         setSearching(true);
@@ -140,6 +141,9 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
           } else {
             onSearch(undefined);
           }
+        } catch (e) {
+          console.error(e);
+          onSearch(undefined);
         } finally {
           setSearching(false);
         }

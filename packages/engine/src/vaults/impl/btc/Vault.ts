@@ -2,7 +2,10 @@
 import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/blockbook';
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import {
+  PartialTokenInfo,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 
@@ -257,5 +260,11 @@ export default class Vault extends VaultBase {
 
   createClientFromURL(url: string): BlockBook {
     return new BlockBook(url);
+  }
+
+  fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<Array<PartialTokenInfo | undefined>> {
+    throw new NotImplemented();
   }
 }
