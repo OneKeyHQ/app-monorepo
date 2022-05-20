@@ -68,6 +68,13 @@ const ScanQrcode: FC = () => {
       const scanResult: ScanResult = { type: 'other', data };
       if (data.startsWith('https://') || data.startsWith('http://')) {
         scanResult.type = 'url';
+      } else if (/^wc:.+@.+\?.+/.test(data)) {
+        // wc:{topic...}@{version...}?bridge={url...}&key={key...}
+        // https://docs.walletconnect.com/tech-spec
+        await backgroundApiProxy.walletConnect.connect({
+          uri: data,
+        });
+        return;
       } else {
         const { category, possibleNetworks } =
           await backgroundApiProxy.validator.validateCreateInput(data);
