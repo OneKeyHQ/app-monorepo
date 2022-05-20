@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -17,6 +18,7 @@ import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const UpdateAlert: FC = () => {
+  const intl = useIntl();
   const { enabled, latest: lastVersion } = useAutoUpdate();
 
   const isSmallScreen = useIsVerticalLayout();
@@ -50,7 +52,10 @@ const UpdateAlert: FC = () => {
         </Box>
         <Box flex={1} mt={0.5}>
           <Text flex={1} typography="Body2Strong" color="text-default">
-            {`Update to OneKey ${lastVersion?.version ?? ''} is availabel`}
+            {intl.formatMessage(
+              { id: 'msg__update_to_onekey_str_is_available' },
+              { 0: lastVersion?.version ?? '' },
+            )}
           </Text>
           <Button
             mt={3}
@@ -58,7 +63,7 @@ const UpdateAlert: FC = () => {
               if (lastVersion) appUpdates.openAppUpdate(lastVersion);
             }}
           >
-            Update Now
+            {intl.formatMessage({ id: 'action__update_now' })}
           </Button>
         </Box>
         <Pressable
