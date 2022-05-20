@@ -18,6 +18,7 @@ import {
   Empty,
   Modal,
   Spinner,
+  ToastManager,
   Typography,
   useToast,
 } from '@onekeyhq/components';
@@ -139,9 +140,25 @@ const RecoverAccounts: FC = () => {
               return { ...item, selected: isDisabled, isDisabled };
             }),
           ]);
+        })
+        .catch((e) => {
+          ToastManager.show({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            title: intl.formatMessage({ id: e?.message ?? '' }),
+          });
+          navigation?.goBack?.();
+          navigation?.goBack?.();
         });
     },
-    [currentPage, getActiveAccount, network, password, walletId],
+    [
+      currentPage,
+      getActiveAccount,
+      network,
+      password,
+      walletId,
+      intl,
+      navigation,
+    ],
   );
 
   const checkBoxOnChange = useCallback(
