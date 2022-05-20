@@ -16,8 +16,11 @@ export enum FiatPayRoutes {
 }
 
 export type FiatPayModalRoutesParams = {
-  [FiatPayRoutes.SupportTokenListModal]: undefined;
-  [FiatPayRoutes.AmoutInputModal]: { token: CurrencyType };
+  [FiatPayRoutes.SupportTokenListModal]: { networkId: string };
+  [FiatPayRoutes.AmoutInputModal]: {
+    token: CurrencyType;
+    type: 'Buy' | 'Sell';
+  };
   [FiatPayRoutes.MoonpayWebViewModal]: { url: string };
 };
 

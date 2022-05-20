@@ -22,7 +22,10 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useFiatPay,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -135,13 +138,15 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 type AccountOptionProps = { isSmallView: boolean };
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { getTokenBalance } = useManageTokens();
+  const { network: activeNetwork } = useActiveWalletAccount();
+  const currencies = useFiatPay(activeNetwork?.id ?? '');
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
   return (
     <Box
       flexDirection="row"
-      justifyContent="space-between"
+      justifyContent="space-around"
       alignItems="center"
       paddingX={isSmallView ? '16px' : '0px'}
     >
@@ -195,27 +200,39 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box paddingX={isSmallView ? '21px' : '19px'}>
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="TagOutline"
-          type="basic"
-          isDisabled={wallet?.type === 'watching' || !account}
-          onPress={() => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayRoutes.SupportTokenListModal,
-              },
-            });
-          }}
-        />
-        <Typography.CaptionStrong textAlign="center" mt="8px">
-          {intl.formatMessage({ id: 'action__buy' })}
-        </Typography.CaptionStrong>
-      </Box>
+      {platformEnv.isDev && (
+        <Box
+          paddingX={isSmallView ? '21px' : '19px'}
+          display={
+            wallet?.type === 'watching' || !account || currencies.length === 0
+              ? 'none'
+              : 'flex'
+          }
+        >
+          <IconButton
+            circle
+            size={isSmallView ? 'xl' : 'lg'}
+            name="TagOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={() => {
+              if (!account) return;
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.FiatPay,
+                params: {
+                  screen: FiatPayRoutes.SupportTokenListModal,
+                  params: {
+                    networkId: activeNetwork?.id ?? '',
+                  },
+                },
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__buy' })}
+          </Typography.CaptionStrong>
+        </Box>
+      )}
       {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
         <IconButton
           onPress={() => {

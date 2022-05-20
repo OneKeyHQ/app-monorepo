@@ -108,3 +108,8 @@ export const useGetWalletDetail = (walletId: string | null) => {
     ) ?? null;
   return wallet;
 };
+
+export const useFiatPay = (networkId: string) => {
+  const currencies = useAppSelector((s) => s.data.currencies);
+  return currencies.filter((item) => item.networkId === networkId);
+};

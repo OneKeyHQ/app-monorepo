@@ -16,7 +16,10 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useFiatPay,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -29,7 +32,7 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
+import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { SendRoutes } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -43,7 +46,17 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
+
   const { wallet, account } = useActiveWalletAccount();
+  const currencies = useFiatPay(network?.id ?? '');
+
+  const fiatCurrency = currencies.filter(
+    (item) => item.contract === token?.tokenIdOnNetwork,
+  );
+
+  console.log('token = ', token);
+  console.log('currencies = ', currencies);
+
   const { prices, balances } = useManageTokens();
   const tokenPrice = useDeepCompareMemo(
     () => prices[token?.tokenIdOnNetwork ?? 'main'],
@@ -113,7 +126,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
 
   const accountOption = useMemo(
     () => (
-      <Box flexDirection="row" justifyContent="center" alignItems="center">
+      <Box
+        flexDirection="row"
+        justifyContent="space-around"
+        alignItems="center"
+      >
         <Box paddingX={isVertical ? '21px' : '19px'}>
           <IconButton
             circle
@@ -166,14 +183,28 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         </Box>
 
         {platformEnv.isDev ? (
-          <Box paddingX={isVertical ? '21px' : '19px'}>
+          <Box
+            paddingX={isVertical ? '21px' : '19px'}
+            display={fiatCurrency.length > 0 ? 'flex' : 'none'}
+          >
             <IconButton
               circle
               size={isVertical ? 'xl' : 'lg'}
               name="TagOutline"
               type="basic"
               isDisabled={wallet?.type === 'watching'}
-              onPress={() => {}}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
+                  params: {
+                    screen: FiatPayRoutes.AmoutInputModal,
+                    params: {
+                      token: fiatCurrency[0],
+                      type: 'Buy',
+                    },
+                  },
+                });
+              }}
             />
             <Typography.CaptionStrong textAlign="center" mt="8px">
               {intl.formatMessage({ id: 'action__buy' })}
@@ -182,7 +213,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         ) : null}
 
         {platformEnv.isDev ? (
-          <Box paddingX={isVertical ? '21px' : '19px'}>
+          <Box
+            paddingX={isVertical ? '21px' : '19px'}
+            display={fiatCurrency.length > 0 ? 'flex' : 'none'}
+          >
             <IconButton
               circle
               size={isVertical ? 'xl' : 'lg'}
@@ -190,12 +224,16 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               type="basic"
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {
-                // navigation.navigate(RootRoutes.Modal, {
-                //   screen: ModalRoutes.FiatPay,
-                //   params: {
-                //     screen: FiatPayRoutes.AmoutInputModal,
-                //   },
-                // });
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
+                  params: {
+                    screen: FiatPayRoutes.AmoutInputModal,
+                    params: {
+                      token: fiatCurrency[0],
+                      type: 'Sell',
+                    },
+                  },
+                });
               }}
             />
             <Typography.CaptionStrong textAlign="center" mt="8px">

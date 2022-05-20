@@ -1,4 +1,4 @@
-import { Provider } from '../types';
+import { Provider } from '../views/FiatPay/types';
 
 const FiatInfo: Record<Provider, string[]> = {
   'moonpay': ['usd', 'cny', 'jpy', 'hkd'],

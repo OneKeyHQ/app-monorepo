@@ -1,6 +1,6 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import Fuse from 'fuse.js';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -18,12 +18,18 @@ import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import { useManageTokens } from '../../../hooks';
+import { useFiatPay } from '../../../hooks/redux';
 import {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
 } from '../../../routes/Modal/FiatPay';
-import { requestCurrencies } from '../Service';
+import { TokenBalanceValue } from '../../../store/reducers/tokens';
 import { CurrencyType } from '../types';
+
+type RouteProps = RouteProp<
+  FiatPayModalRoutesParams,
+  FiatPayRoutes.SupportTokenListModal
+>;
 
 const options = {
   keys: [
@@ -42,13 +48,6 @@ export function searchTokens(
   const searchResult = fuse.search(terms);
   return searchResult.map((item) => item.item);
 }
-
-const buildUrl = (_chain = '', _address = '') => {
-  const chain = _chain.toLowerCase();
-  const address = _address.toLowerCase();
-  if (chain && !address) return `${CDN_PREFIX}assets/${chain}/${chain}.png`;
-  return `${CDN_PREFIX}assets/${chain}/${address}.png`;
-};
 
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 type HeaderProps = {
@@ -78,17 +77,41 @@ const Header: FC<HeaderProps> = ({ onChange }) => {
   );
 };
 
+const buildUrl = (_chain = '', _address = '') => {
+  const chain = _chain.toLowerCase();
+  const address = _address.toLowerCase();
+  if (chain && !address) return `${CDN_PREFIX}assets/${chain}/${chain}.png`;
+  return `${CDN_PREFIX}assets/${chain}/${address}.png`;
+};
+
+function fetchBalance(
+  currencies: CurrencyType[],
+  balances: Record<string, TokenBalanceValue>,
+): CurrencyType[] {
+  return currencies.map((item) => {
+    let balance: TokenBalanceValue = '0';
+    const logoURI = buildUrl(item.networkName, item.contract);
+    if (item.contract === '') {
+      balance = balances.main;
+    } else {
+      balance = balances[item.contract];
+    }
+    return { ...item, balance, logoURI };
+  });
+}
 export const SupportTokenList: FC = () => {
   const intl = useIntl();
-
+  const route = useRoute<RouteProps>();
+  const { networkId } = route.params;
+  const currenciesNobalance = useFiatPay(networkId);
   const { balances } = useManageTokens();
-  const [allCurrency, updateAllCurrency] = useState<CurrencyType[]>([]);
+  const currencies = fetchBalance(currenciesNobalance, balances);
   const [searchResult, updateSearchResult] = useState<CurrencyType[]>([]);
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const flatListData = useMemo(
-    () => (searchResult.length > 0 ? searchResult : allCurrency),
-    [allCurrency, searchResult],
+    () => (searchResult.length > 0 ? searchResult : currencies),
+    [currencies, searchResult],
   );
   const renderItem: ListRenderItem<CurrencyType> = useCallback(
     ({ item, index }) => (
@@ -103,7 +126,10 @@ export const SupportTokenList: FC = () => {
         alignItems="center"
         padding="16px"
         onPress={() => {
-          navigation.navigate(FiatPayRoutes.AmoutInputModal, { token: item });
+          navigation.navigate(FiatPayRoutes.AmoutInputModal, {
+            token: item,
+            type: 'Buy',
+          });
         }}
       >
         <Box flexDirection="row" alignItems="center">
@@ -125,23 +151,6 @@ export const SupportTokenList: FC = () => {
     [flatListData.length, navigation],
   );
 
-  const getData = useCallback(async () => {
-    const currencies = await requestCurrencies('evm--1');
-    currencies.forEach((item) => {
-      if (item.contract === '') {
-        item.balance = balances.main;
-      } else {
-        item.balance = balances[item.contract];
-      }
-      item.logoURI = buildUrl(item.networkName, item.contract);
-    });
-    updateAllCurrency(() => currencies);
-  }, [balances]);
-
-  useEffect(() => {
-    getData();
-  }, [getData]);
-
   return (
     <Modal
       height="560px"
@@ -162,7 +171,7 @@ export const SupportTokenList: FC = () => {
         ListHeaderComponent: (
           <Header
             onChange={(text) => {
-              updateSearchResult(() => searchTokens(allCurrency, text));
+              updateSearchResult(() => searchTokens(currencies, text));
             }}
           />
         ),

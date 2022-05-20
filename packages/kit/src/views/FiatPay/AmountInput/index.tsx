@@ -1,8 +1,9 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 import {
   Box,
@@ -28,11 +29,11 @@ import {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
 } from '../../../routes/Modal/FiatPay';
-import { requestBuyQuote } from '../Service';
+import { getFiatCode } from '../../../utils/FiatCurrency';
+import { buyQuoteUri } from '../Service';
 import { MoonPayBuyQuotePayload, Provider } from '../types';
 
 import { AutoSizeText } from './AutoSizeText';
-import { getFiatCode } from './FiatCurrency';
 
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 type RouteProps = RouteProp<
@@ -61,8 +62,25 @@ export const AmountInput: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { account } = useActiveWalletAccount();
 
-  const [quoteData, updateQuoteData] = useState<MoonPayBuyQuotePayload>();
   const [amountVaild, setAmountVaild] = useState(false);
+
+  const quoteUri = buyQuoteUri(token.provider.moonpay, 100, baseCurrencyCode);
+  const { data: quoteData } = useSWR<MoonPayBuyQuotePayload>(quoteUri);
+  if (quoteData) {
+    setTimeout(() => {
+      if (loading) {
+        updateDescText(() =>
+          intl.formatMessage(
+            {
+              id: 'form__buy_int_min_purchase',
+            },
+            { 0: quoteData.baseCurrency.minBuyAmount },
+          ),
+        );
+        setLoading(false);
+      }
+    }, 500);
+  }
 
   const checkAmountVaild = useCallback(
     (text: string) => {
@@ -126,57 +144,6 @@ export const AmountInput: FC = () => {
     [checkAmountVaild],
   );
 
-  const DescriptionItem = () => {
-    if (loading || !descText) {
-      return (
-        <Box height="24px">
-          <Spinner size="sm" />
-        </Box>
-      );
-    }
-    return (
-      <Text height="24px" typography="DisplaySmall" textAlign="center">
-        {descText}
-      </Text>
-    );
-  };
-
-  const getData = useCallback(
-    (baseCurrencyAmount?: number) => {
-      setLoading(true);
-      requestBuyQuote(
-        token.provider.moonpay,
-        baseCurrencyAmount ?? 100,
-        baseCurrencyCode,
-      )
-        .then((response) => {
-          // console.log(response.data);
-          updateQuoteData(() => response.data);
-          if (baseCurrencyAmount === undefined) {
-            updateDescText(() =>
-              intl.formatMessage(
-                {
-                  id: 'form__buy_int_min_purchase',
-                },
-                { 0: response.data.baseCurrency.minBuyAmount },
-              ),
-            );
-          }
-        })
-        .catch((e) => {
-          console.log(e);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    },
-    [baseCurrencyCode, intl, token.provider.moonpay],
-  );
-
-  useEffect(() => {
-    getData();
-  }, [getData]);
-
   return (
     <Modal
       height="500px"
@@ -198,7 +165,15 @@ export const AmountInput: FC = () => {
           <Center flex={1}>
             <AutoSizeText text={inputText} onChangeText={onChangeText} />
           </Center>
-          <DescriptionItem />
+          <Box height="24px">
+            {loading ? (
+              <Spinner size="sm" />
+            ) : (
+              <Text typography="DisplaySmall" textAlign="center">
+                {descText}
+              </Text>
+            )}
+          </Box>
         </Box>
 
         <Box paddingBottom="24px">

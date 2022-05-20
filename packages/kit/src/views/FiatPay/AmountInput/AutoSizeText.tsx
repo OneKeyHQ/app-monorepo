@@ -14,8 +14,6 @@ export const AutoSizeText: FC<{
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }> = ({ text, onChangeText }) => {
   const { themeVariant } = useTheme();
-  console.log('Native');
-
   const intl = useIntl();
   const innerText =
     text.length === 0 ? intl.formatMessage({ id: 'content__amount' }) : text;
