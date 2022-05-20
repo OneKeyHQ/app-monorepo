@@ -217,7 +217,7 @@ const modalStackScreenList = [
     component: UpdateFeatureModal,
   },
   {
-    name: ModalRoutes.FlatPay,
+    name: ModalRoutes.FiatPay,
     component: BuyModal,
   },
 ];

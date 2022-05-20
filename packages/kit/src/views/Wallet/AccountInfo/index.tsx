@@ -205,7 +205,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           onPress={() => {
             if (!account) return;
             navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FlatPay,
+              screen: ModalRoutes.FiatPay,
               params: {
                 screen: FiatPayRoutes.SupportTokenListModal,
               },

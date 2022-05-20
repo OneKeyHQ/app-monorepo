@@ -9,7 +9,6 @@ import {
   Button,
   Center,
   Image,
-  Input,
   Keyboard,
   Modal,
   Pressable,
@@ -32,8 +31,8 @@ import {
 import { requestBuyQuote } from '../Service';
 import { MoonPayBuyQuotePayload, Provider } from '../types';
 
+import { AutoSizeText } from './AutoSizeText';
 import { getFiatCode } from './FiatCurrency';
-import { NativeText } from './NativeText';
 
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 type RouteProps = RouteProp<
@@ -197,27 +196,7 @@ export const AmountInput: FC = () => {
             {baseCurrencyCode.toUpperCase()}
           </Text>
           <Center flex={1}>
-            {platformEnv.isNative ? (
-              <NativeText text={inputText} />
-            ) : (
-              <Input
-                height="112"
-                size="xl"
-                textAlign="center"
-                borderWidth="0"
-                fontSize="42px"
-                placeholder={intl.formatMessage({ id: 'content__amount' })}
-                placeholderTextColor="text-disabled"
-                lineHeight="72px"
-                fontWeight="700"
-                bgColor="surface-subdued"
-                multiline
-                onChangeText={(text) => {
-                  onChangeText(text);
-                }}
-                value={inputText}
-              />
-            )}
+            <AutoSizeText text={inputText} onChangeText={onChangeText} />
           </Center>
           <DescriptionItem />
         </Box>

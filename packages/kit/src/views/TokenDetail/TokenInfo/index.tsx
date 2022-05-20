@@ -191,7 +191,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {
                 // navigation.navigate(RootRoutes.Modal, {
-                //   screen: ModalRoutes.FlatPay,
+                //   screen: ModalRoutes.FiatPay,
                 //   params: {
                 //     screen: FiatPayRoutes.AmoutInputModal,
                 //   },
