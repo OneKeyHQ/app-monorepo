@@ -4,16 +4,8 @@ import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Center,
-  HStack,
-  Image,
-  Modal,
-  Typography,
-  VStack,
-} from '@onekeyhq/components';
-import RestoreWalletPng from '@onekeyhq/kit/assets/wallet/restore-wallet.png';
+import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
+import ClassicRestoreWalletPng from '@onekeyhq/kit/assets/wallet/classic-restore-wallet.png';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -34,81 +26,72 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-
   const { device } = route?.params;
+
+  const numberedList = [
+    {
+      title: intl.formatMessage({
+        id: 'content__enter_your_recovery_seed',
+      }),
+      description: intl.formatMessage({
+        id: 'content__enter_your_recovery_seed_desc',
+      }),
+    },
+    {
+      title: intl.formatMessage({ id: 'content__set_a_pin_code' }),
+      description: intl.formatMessage({ id: 'content__set_a_pin_code_desc' }),
+    },
+    {
+      title: intl.formatMessage({ id: 'content__follow_instructions' }),
+      description: intl.formatMessage({
+        id: 'content__follow_instructions_desc',
+      }),
+    },
+  ];
+
   const content = (
-    <Center>
-      <VStack space={4}>
-        <Box bgColor="surface-neutral-subdued" h="160px" borderRadius="12px">
-          <Image
-            source={RestoreWalletPng}
-            w="full"
-            h="full"
-            resizeMode="cover"
-          />
+    <>
+      <Box
+        bgColor="surface-neutral-subdued"
+        w="full"
+        h="160px"
+        borderRadius="12px"
+        mb={8}
+      >
+        <Image
+          source={ClassicRestoreWalletPng}
+          w="full"
+          h="full"
+          resizeMode="cover"
+        />
+      </Box>
+      <Box>
+        <Typography.DisplayMedium mb={2}>
+          {intl.formatMessage({ id: 'content__select_restore_wallet' })}
+        </Typography.DisplayMedium>
+        <Typography.Body2 color="text-subdued">
+          {intl.formatMessage({
+            id: 'content__select_restore_wallet_desc',
+          })}
+        </Typography.Body2>
+      </Box>
+
+      {numberedList.map((item, index) => (
+        <Box key={index} flexDirection="row" mt={4}>
+          <Center rounded="full" bg="decorative-surface-one" size={8} mr={4}>
+            <Typography.Body2Strong color="decorative-icon-one">
+              {index + 1}
+            </Typography.Body2Strong>
+          </Center>
+          <Box flex={1} pt={1}>
+            <Typography.Body1Strong>{item.title}</Typography.Body1Strong>
+            <Typography.Body2 color="text-subdued" mt={1.5}>
+              {item.description}
+            </Typography.Body2>
+          </Box>
         </Box>
-        <VStack space={2} mt={4}>
-          <Typography.DisplayMedium>
-            {intl.formatMessage({ id: 'content__select_restore_wallet' })}
-          </Typography.DisplayMedium>
-          <Typography.Body2 color="text-subdued">
-            {intl.formatMessage({ id: 'content__select_restore_wallet_desc' })}
-          </Typography.Body2>
-        </VStack>
-
-        <HStack space={4}>
-          <Center borderRadius="full" bg="decorative-surface-one" size="32px">
-            <Typography.Body2Strong color="decorative-icon-one">
-              1
-            </Typography.Body2Strong>
-          </Center>
-          <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'content__enter_your_recovery_seed' })}
-            </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" mt="6px">
-              {intl.formatMessage({
-                id: 'content__enter_your_recovery_seed_desc',
-              })}
-            </Typography.Body2>
-          </VStack>
-        </HStack>
-
-        <HStack space={4}>
-          <Center borderRadius="full" bg="decorative-surface-one" size="32px">
-            <Typography.Body2Strong color="decorative-icon-one">
-              2
-            </Typography.Body2Strong>
-          </Center>
-          <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'content__set_a_pin_code' })}
-            </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" mt="6px">
-              {intl.formatMessage({ id: 'content__set_a_pin_code_desc' })}
-            </Typography.Body2>
-          </VStack>
-        </HStack>
-
-        <HStack space={4}>
-          <Center borderRadius="full" bg="decorative-surface-one" size="32px">
-            <Typography.Body2Strong color="decorative-icon-one">
-              3
-            </Typography.Body2Strong>
-          </Center>
-          <VStack flex="1" pt="4px">
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'content__follow_instructions' })}
-            </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" mt="6px">
-              {intl.formatMessage({
-                id: 'content__follow_instructions_restore_desc',
-              })}
-            </Typography.Body2>
-          </VStack>
-        </HStack>
-      </VStack>
-    </Center>
+      ))}
+    </>
   );
 
   return (
