@@ -14,6 +14,7 @@ import { ScanQrcodeRoutes } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 import Box from '../Box';
 import FormControl from '../FormControl';
 import IconButton from '../IconButton';
+import { useIsVerticalLayout } from '../Provider/hooks';
 import Stack from '../Stack';
 import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';
@@ -51,6 +52,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
       callback?.('');
     }
   }, []);
+  const small = useIsVerticalLayout();
 
   return (
     <Controller
@@ -101,7 +103,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         type="plain"
                         size="xs"
                         circle
-                        name="ScanSolid"
+                        name={small ? 'ScanOutline' : 'ScanSolid'}
                         onPress={() => {
                           const navigation = getAppNavigation();
                           navigation.navigate(RootRoutes.Modal, {
