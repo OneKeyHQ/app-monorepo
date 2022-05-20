@@ -200,7 +200,7 @@ import RssOutline from './react/outline/Rss';
 import SaveOutline from './react/outline/Save';
 import SaveAsOutline from './react/outline/SaveAs';
 import ScaleOutline from './react/outline/Scale';
-import ScanOutline from '/react/outline/Scan';
+import ScanOutline from './react/outline/Scan';
 import ScissorsOutline from './react/outline/Scissors';
 import SearchOutline from './react/outline/Search';
 import SearchCircleOutline from './react/outline/SearchCircle';
