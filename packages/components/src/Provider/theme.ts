@@ -89,7 +89,7 @@ export const light = {
   'surface-success-subdued': '#EBF9EC',
   'surface-highlight-default': '#BDDCFF',
   'surface-neutral-default': '#E8E8ED',
-  'surface-neutral-subdued': '#F9F9FB',
+  'surface-neutral-subdued': '#F0F0F4',
   'surface-neutral-hovered': '#DCDCE5',
   'surface-neutral-pressed': '#D3D3DE',
   'surface-neutral-disabled': '#D4D4DD',
