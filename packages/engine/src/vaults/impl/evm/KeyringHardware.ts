@@ -48,6 +48,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       IMPL_EVM,
       paths,
       'address',
+      params.type,
     );
 
     const ret = [];

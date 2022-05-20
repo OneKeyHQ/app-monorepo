@@ -4,9 +4,7 @@ import React, {
   ReactElement,
   ReactNode,
   cloneElement,
-  useCallback,
   useMemo,
-  useState,
 } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -93,21 +91,6 @@ const Modal: FC<ModalProps> = ({
   ...rest
 }) => {
   const { size } = useUserDevice();
-  const [innerVisible, setInnerVisible] = useState(false);
-  const visible = outerVisible ?? innerVisible;
-
-  const handleClose = useCallback(() => {
-    if (typeof onClose === 'function') {
-      const status = onClose();
-      // only onClose return false, will not trigger modal close
-      if (status === false) return;
-    }
-    setInnerVisible((v) => !v);
-  }, [onClose]);
-
-  const handleOpen = useCallback(() => {
-    setInnerVisible((v) => !v);
-  }, []);
 
   const modalContent = useMemo(() => {
     if (sectionListProps) {
@@ -213,13 +196,7 @@ const Modal: FC<ModalProps> = ({
             }
             overflow="hidden"
           >
-            <Mobile
-              headerShown={headerShown}
-              header={header}
-              visible={visible}
-              onClose={handleClose}
-              {...rest}
-            >
+            <Mobile headerShown={headerShown} header={header} {...rest}>
               {modalContent}
             </Mobile>
           </Box>
@@ -228,34 +205,19 @@ const Modal: FC<ModalProps> = ({
     }
 
     return (
-      <Desktop
-        headerShown={headerShown}
-        header={header}
-        visible={visible}
-        onClose={handleClose}
-        {...rest}
-      >
+      <Desktop headerShown={headerShown} header={header} {...rest}>
         {modalContent}
       </Desktop>
     );
-  }, [
-    size,
-    header,
-    headerShown,
-    visible,
-    handleClose,
-    rest,
-    modalContent,
-    modalHeight,
-  ]);
+  }, [size, header, headerShown, rest, modalContent, modalHeight]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;
     return cloneElement(trigger, {
       /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
-      onPress: trigger.props.onPress ?? handleOpen,
+      onPress: trigger.props.onPress,
     });
-  }, [trigger, handleOpen]);
+  }, [trigger]);
 
   const node = (
     <>

@@ -167,6 +167,7 @@ const Transaction = () => {
   // build encodedTx
   useEffect(() => {
     if (!transferInfo.to || !isValid) {
+      // transferInfo.amount === '' // empty value will show loading text
       return;
     }
     setEncodedTx(null);
@@ -194,10 +195,15 @@ const Transaction = () => {
     const formValues = getValues();
     let { to, value } = formValues;
     const from = (account as { address: string }).address;
-    // max token transfer
-    if (selectedToken?.tokenIdOnNetwork && isMax) {
-      value = getTokenBalance(selectedToken, '');
+    if (isMax) {
+      // max token transfer
+      if (selectedToken?.tokenIdOnNetwork) {
+        value = getTokenBalance(selectedToken, '');
+      } else {
+        value = '0';
+      }
     }
+
     const info = {
       from,
       to,

@@ -88,14 +88,13 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        // 10s timeout for device connection
-        const result = await Promise.race([
-          await onekeyBleConnect.getFeatures({
-            id: currentWalletDevice.mac,
-            deviceType: getDeviceTypeByDeviceId(currentWalletDevice.id),
-          } as any),
-          new Promise((resolve, reject) => setTimeout(reject, 30 * 1000)),
-        ]);
+        const p1 = onekeyBleConnect.getFeatures({
+          id: currentWalletDevice.mac,
+          deviceType: getDeviceTypeByDeviceId(currentWalletDevice.id),
+        } as any);
+        const p2 = new Promise((_r, reject) => setTimeout(reject, 30 * 1000));
+
+        const result = await Promise.race([p1, p2]);
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
         safeGoBack();

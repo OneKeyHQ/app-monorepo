@@ -105,6 +105,7 @@ import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
+import type BTCVault from './vaults/impl/btc/Vault';
 
 @backgroundClass()
 class Engine {
@@ -571,6 +572,7 @@ class Engine {
 
     const vault = await this.getVault({ networkId, walletId, accountId: '' });
     const accounts = await vault.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
       password,
       indexes,
       purpose,
@@ -650,6 +652,7 @@ class Engine {
 
     const vault = await this.getVault({ networkId, walletId, accountId: '' });
     const accounts = await vault.keyring.prepareAccounts({
+      type: 'ADD_ACCOUNTS',
       password,
       indexes: usedIndexes,
       purpose: usedPurpose,
@@ -790,11 +793,11 @@ class Engine {
       throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
     }
 
+    const vault = await this.getChainOnlyVault(networkId);
     const toAdd = getPresetToken(networkId, tokenIdOnNetwork);
-    const [tokenInfo] = await this.providerManager.getTokenInfos(networkId, [
-      tokenIdOnNetwork,
-    ]);
+    const [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
     if (typeof tokenInfo === 'undefined') {
+      console.error('fetch tokenInfo ERROR: ', networkId, tokenIdOnNetwork);
       return noThisToken;
     }
     const overwrite: Partial<Token> = {
@@ -1247,6 +1250,10 @@ class Engine {
     return this.vaultFactory.getVault(options);
   }
 
+  async getChainOnlyVault(networkId: string) {
+    return this.vaultFactory.getChainOnlyVault(networkId);
+  }
+
   @backgroundMethod()
   async addHistoryEntry({
     id,
@@ -1265,6 +1272,12 @@ class Engine {
     meta: HistoryEntryMeta;
     payload?: SendConfirmPayload;
   }) {
+    const network = await this.getNetwork(networkId);
+    // TODO only save history on EVM
+    if (network.impl !== IMPL_EVM) {
+      return;
+    }
+
     if ('rawTx' in meta && !meta.rawTxPreDecodeCache) {
       let rawTxPreDecoded: string | undefined;
 
@@ -1530,6 +1543,11 @@ class Engine {
       this.dbApi.getAccount(accountId),
       this.getNetwork(networkId),
     ]);
+
+    if (network.impl === IMPL_BTC) {
+      const vault = (await this.getVault({ networkId, accountId })) as BTCVault;
+      return vault.getHistory();
+    }
 
     // TODO filter EVM history only
     if (network.impl !== IMPL_EVM) {

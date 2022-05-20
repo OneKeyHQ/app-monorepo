@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 /* eslint max-classes-per-file: "off" */
 
-import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import {
+  BaseClient,
+  BaseProvider,
+} from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
@@ -38,7 +42,7 @@ export type IVaultInitConfig = {
 };
 export type IKeyringMapKey = WalletType;
 
-abstract class VaultBaseChainOnly extends VaultContext {
+export abstract class VaultBaseChainOnly extends VaultContext {
   // Methods not related to a single account, but implementation.
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
@@ -55,6 +59,10 @@ abstract class VaultBaseChainOnly extends VaultContext {
     const latestBlock = (await client.getInfo()).bestBlockNumber;
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
+
+  abstract fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<Array<PartialTokenInfo | undefined>>;
 }
 
 /*
@@ -79,12 +87,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   helper!: VaultHelperBase;
 
+  engineProvider!: BaseProvider;
+
   abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBaseMock>;
 
   async init(config: IVaultInitConfig) {
-    // TODO wait context init
-    // await this.initContext();
     await this.initKeyring(config);
+    // TODO create network matched provider in engine, should remove in future
+    this.engineProvider = await this.engine.providerManager.getProvider(
+      this.networkId,
+    );
   }
 
   async initKeyring(config: IVaultInitConfig) {
@@ -184,5 +196,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  // TODO move to keyring
   abstract getExportedCredential(password: string): Promise<string>;
 }

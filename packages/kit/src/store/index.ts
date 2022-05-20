@@ -25,7 +25,6 @@ import appStorage, {
 } from '@onekeyhq/shared/src/storage/appStorage';
 
 import { IBackgroundApi } from '../background/IBackgroundApi';
-import { ensureBackgroundObject } from '../background/utils';
 
 import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
@@ -102,7 +101,8 @@ export function makeStore() {
 
 const { store, persistor: persistorStore } = makeStore();
 
-export const persistor = ensureBackgroundObject(persistorStore);
+// export const persistor = ensureBackgroundObject(persistorStore);
+export const persistor = persistorStore;
 
 export type IAppState = ReturnType<typeof store.getState>;
 

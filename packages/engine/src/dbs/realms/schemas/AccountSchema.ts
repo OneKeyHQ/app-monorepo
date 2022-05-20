@@ -2,7 +2,13 @@ import { TokenSchema, WalletSchema } from '.';
 
 import Realm from 'realm';
 
-import { AccountType, DBAccount } from '../../../types/account';
+import {
+  AccountType,
+  DBAccount,
+  DBSimpleAccount,
+  DBUTXOAccount,
+  DBVariantAccount,
+} from '../../../types/account';
 
 class AccountSchema extends Realm.Object {
   public id!: string;
@@ -50,16 +56,24 @@ class AccountSchema extends Realm.Object {
   };
 
   get internalObj(): DBAccount {
-    // TODO: return base on type
-    return {
+    const ret = {
       id: this.id,
       name: this.name,
       type: this.type,
       path: this.path || '',
       coinType: this.coinType,
-      pub: this.pub || '',
       address: this.address || '',
-    };
+    } as DBAccount;
+    if (this.type === AccountType.SIMPLE) {
+      (ret as DBSimpleAccount).pub = this.pub || '';
+    } else if (this.type === AccountType.VARIANT) {
+      (ret as DBVariantAccount).pub = this.pub || '';
+      (ret as DBVariantAccount).addresses = this.addresses || {};
+    } else if (this.type === AccountType.UTXO) {
+      (ret as DBUTXOAccount).xpub = this.xpub || '';
+      (ret as DBUTXOAccount).addresses = this.addresses || {};
+    }
+    return ret;
   }
 }
 export { AccountSchema };

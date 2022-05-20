@@ -4,7 +4,7 @@ import { createVaultInstance } from './factory';
 
 import type { Engine } from '../index';
 import type { IVaultFactoryOptions } from '../types/vault';
-import type { VaultBase } from './VaultBase';
+import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
 
 // TODO debugLogger
 // TODO simulate hardware account, solana account
@@ -33,7 +33,7 @@ export class VaultFactory {
     return vault;
   }
 
-  getChainOnlyVault(networkId: string): Promise<VaultBase> {
+  getChainOnlyVault(networkId: string): Promise<VaultBaseChainOnly> {
     // This in fact returns a watching vault.
     return this.getVault({ networkId, accountId: '' });
   }

@@ -69,7 +69,7 @@ export const useManageTokens = ({
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (pollingInterval && isFocused && activeAccountId) {
+    if (pollingInterval && isFocused && activeAccountId && activeNetworkId) {
       // TODO may cause circular refresh in UI
       backgroundApiProxy.serviceToken.fetchAccountTokens();
       timer = setInterval(() => {
@@ -81,7 +81,7 @@ export const useManageTokens = ({
         clearInterval(timer);
       }
     };
-  }, [isFocused, pollingInterval, activeAccountId]);
+  }, [isFocused, pollingInterval, activeAccountId, activeNetworkId]);
 
   useEffect(() => {
     if (fetchTokensOnMount) {
