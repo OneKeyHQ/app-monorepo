@@ -36,6 +36,7 @@ export const getTransactionStatusStr = (
     [TxStatus.Pending]: 'transaction__pending',
     [TxStatus.Confirmed]: 'transaction__success',
     [TxStatus.Failed]: 'transaction__failed',
+    [TxStatus.Dropped]: 'transaction__dropped',
   } as const;
   return intl.formatMessage({
     id: stringKeys[tx.txStatus],
@@ -47,6 +48,7 @@ const getTransactionStatusColor = (tx: EVMDecodedItem) => {
     [TxStatus.Pending]: 'text-warning',
     [TxStatus.Confirmed]: 'text-subdued',
     [TxStatus.Failed]: 'text-critical',
+    [TxStatus.Dropped]: 'text-critical',
   } as const;
   return stringKeys[tx.txStatus];
 };

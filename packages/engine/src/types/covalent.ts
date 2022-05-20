@@ -9,6 +9,7 @@ enum TxStatus {
   Pending = 'Pending',
   Confirmed = 'Confirmed',
   Failed = 'Failed',
+  Dropped = 'Dropped',
 }
 
 enum EVMTxFromType {
