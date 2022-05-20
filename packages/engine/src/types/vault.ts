@@ -114,6 +114,7 @@ export type IPrepareSoftwareAccountsParams = {
 };
 
 export type IPrepareHardwareAccountsParams = {
+  type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS';
   indexes: Array<number>;
   purpose?: number;
   names?: Array<string>;

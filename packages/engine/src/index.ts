@@ -572,6 +572,7 @@ class Engine {
 
     const vault = await this.getVault({ networkId, walletId, accountId: '' });
     const accounts = await vault.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
       password,
       indexes,
       purpose,
@@ -651,6 +652,7 @@ class Engine {
 
     const vault = await this.getVault({ networkId, walletId, accountId: '' });
     const accounts = await vault.keyring.prepareAccounts({
+      type: 'ADD_ACCOUNTS',
       password,
       indexes: usedIndexes,
       purpose: usedPurpose,

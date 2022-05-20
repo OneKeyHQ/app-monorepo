@@ -78,8 +78,6 @@ const DeviceStatusCheckModal: FC = () => {
       }
 
       if (!features.initialized) {
-        safeGoBack();
-
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
           params: {

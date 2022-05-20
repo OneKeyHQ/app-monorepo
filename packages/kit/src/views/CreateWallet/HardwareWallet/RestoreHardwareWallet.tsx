@@ -1,6 +1,5 @@
 import React, { FC } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -13,28 +12,14 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import UnboxingPng from '@onekeyhq/kit/assets/wallet/unboxing.png';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-type RouteProps = RouteProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.RestoreHardwareWalletModal
->;
 
 const RestoreHardwareWalletModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const route = useRoute<RouteProps>();
-
-  const { device } = route?.params;
 
   const content = (
     <Center>
@@ -67,14 +52,7 @@ const RestoreHardwareWalletModal: FC = () => {
       primaryActionTranslationId="action__continue"
       secondaryActionTranslationId="action__contact"
       onPrimaryActionPress={() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen:
-              CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal,
-            params: { device },
-          },
-        });
+        navigation.popToTop();
       }}
       scrollViewProps={{
         children: content,

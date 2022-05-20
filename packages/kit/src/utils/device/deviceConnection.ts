@@ -7,6 +7,7 @@
 import OneKeyConnect from '@onekeyfe/js-sdk';
 
 import { ToastManager } from '@onekeyhq/components';
+import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import deviceUtils from '@onekeyhq/kit/src/utils/device/deviceUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -78,6 +79,7 @@ export const UICallback = (event: any) => {
       break;
     case 'ui-invalid_pin': {
       ToastManager.hide();
+      navigationRef.current?.goBack?.();
       break;
     }
     case 'ui-button':

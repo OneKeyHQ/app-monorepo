@@ -20,6 +20,8 @@ import OneKeyConnect, {
   Unsuccessful,
 } from '@onekeyfe/js-sdk';
 
+import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/types/vault';
+
 import { IMPL_EVM, SEPERATOR } from './constants';
 import * as engineUtils from './engineUtils';
 import {
@@ -334,6 +336,7 @@ export async function getXpubs(
   impl: string,
   paths: Array<string>,
   outputFormat: 'xpub' | 'pub' | 'address',
+  type: IPrepareHardwareAccountsParams['type'],
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);
@@ -343,7 +346,13 @@ export async function getXpubs(
   try {
     if (paths.length > 1) {
       response = await OneKeyConnect.ethereumGetAddress({
-        bundle: paths.map((path) => ({ path, showOnTrezor: false })),
+        bundle: paths.map((path) => ({
+          path,
+          /**
+           * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+           */
+          showOnTrezor: type === 'ADD_ACCOUNTS',
+        })),
       });
     } else {
       response = await OneKeyConnect.ethereumGetAddress({ path: paths[0] });
