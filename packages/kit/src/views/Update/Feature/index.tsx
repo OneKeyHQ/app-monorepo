@@ -56,7 +56,10 @@ const UpdateFeature: FC = () => {
         children: changeLog ? (
           <>
             <Typography.DisplayMedium>
-              {`What’s new in OneKey ${newVersion}`}
+              {intl.formatMessage(
+                { id: 'modal__what_is_new_in_onekey_str' },
+                { 0: newVersion },
+              )}
             </Typography.DisplayMedium>
             <Markdown>{changeLog}</Markdown>
           </>
