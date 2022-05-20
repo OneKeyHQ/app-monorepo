@@ -88,7 +88,7 @@ const TokenInput: FC<TokenInputProps> = ({
               )}
             </Typography.Body2>
             {showMax && Number(value) > 0 ? (
-              <Typography.Body2 color="text-success" ml="2" onPress={onMax}>
+              <Typography.Body2 color="text-success" ml="2">
                 {intl.formatMessage({ id: 'action__max' })}
               </Typography.Body2>
             ) : null}

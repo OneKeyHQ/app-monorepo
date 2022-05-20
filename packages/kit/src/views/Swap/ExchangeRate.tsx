@@ -10,16 +10,25 @@ type ExchangeRateProps = {
   tokenA?: Token;
   tokenB?: Token;
   quote?: SwapQuote;
+  independentField: 'INPUT' | 'OUTPUT';
 };
 
-const ExchangeRate: FC<ExchangeRateProps> = ({ tokenA, tokenB, quote }) => {
+const ExchangeRate: FC<ExchangeRateProps> = ({
+  tokenA,
+  tokenB,
+  quote,
+  independentField,
+}) => {
   const [isSwitched, setSwitched] = useState(false);
   if (!tokenA || !tokenB || !quote) {
     return <Typography.Body2 color="text-default">---</Typography.Body2>;
   }
+
   const symbolA = tokenA.symbol;
   const symbolB = tokenB.symbol;
-  const { price } = quote;
+  const { price: basePrice } = quote;
+  const price =
+    independentField === 'INPUT' ? basePrice : 1 / Number(basePrice);
   if (!isSwitched) {
     const title = `1${symbolA} = ${Number(price).toFixed(4)}${symbolB}`;
     return (
@@ -28,7 +37,6 @@ const ExchangeRate: FC<ExchangeRateProps> = ({ tokenA, tokenB, quote }) => {
         alignItems="center"
         justifyContent="flex-end"
         flex="1"
-        maxW="4/5"
       >
         <Typography.Body2 color="text-default" textAlign="right" pl="2">
           {title}

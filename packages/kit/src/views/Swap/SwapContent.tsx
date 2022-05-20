@@ -161,6 +161,7 @@ const SwapContent = () => {
               tokenA={inputToken}
               tokenB={outputToken}
               quote={swapQuote}
+              independentField={independentField}
             />
           </Box>
         </Box>
