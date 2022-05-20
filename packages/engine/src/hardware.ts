@@ -372,9 +372,9 @@ export async function getXpubs(
     }
     return [
       {
-        path: response.payload.serializedPath,
+        path: (response.payload as EthereumAddress).serializedPath,
         info: engineUtils.fixAddressCase({
-          address: response.payload.address,
+          address: (response.payload as EthereumAddress).address,
           impl,
         }),
       },

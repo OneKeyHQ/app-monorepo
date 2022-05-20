@@ -1,32 +1,18 @@
 import React, { FC } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
 import ClassicSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/classic-setup-new-device.png';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-type RouteProps = RouteProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.SetupHardwareModal
->;
 
 const SetupNewDeviceModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const route = useRoute<RouteProps>();
-  const { device } = route?.params;
 
   const numberedList = [
     {
@@ -102,13 +88,7 @@ const SetupNewDeviceModal: FC = () => {
       // TODO: Where do `learn more` redirect to?
       secondaryActionTranslationId="action__learn_more"
       onPrimaryActionPress={() => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.DeviceStatusCheckModal,
-            params: { device },
-          },
-        });
+        navigation.popToTop();
       }}
       scrollViewProps={{
         children: content,
