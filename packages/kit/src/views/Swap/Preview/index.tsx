@@ -17,7 +17,7 @@ import { useNavigation } from '../../../hooks';
 import { useActiveWalletAccount, useSettings } from '../../../hooks/redux';
 import { SendRoutes } from '../../Send/types';
 import ExchangeRate from '../ExchangeRate';
-import { useSwap, useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
+import { useSwap, useSwapState } from '../hooks/useSwap';
 import { useTransactionAdder } from '../hooks/useTransactions';
 
 import { Timer } from './Timer';
@@ -28,7 +28,6 @@ const Preview = () => {
   const addTransaction = useTransactionAdder();
   const { swapSlippagePercent } = useSettings();
   const { account } = useActiveWalletAccount();
-  const { onReset } = useSwapActionHandlers();
   const { inputToken, outputToken, independentField } = useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
   const onSubmit = useCallback(() => {
@@ -51,8 +50,6 @@ const Preview = () => {
                   2,
                 )} ${outputAmount.token.symbol.toUpperCase()}`,
               });
-              setTimeout(onReset, 500);
-              navigation.goBack();
             },
           },
         },
@@ -65,13 +62,16 @@ const Preview = () => {
     inputAmount,
     outputAmount,
     swapQuote,
-    onReset,
   ]);
   const minimumReceived = useMemo(() => {
     if (inputAmount && swapQuote) {
-      return inputAmount.value.multipliedBy(swapQuote.guaranteedPrice);
+      return inputAmount.value.multipliedBy(
+        independentField === 'INPUT'
+          ? swapQuote.guaranteedPrice
+          : 1 / Number(swapQuote.guaranteedPrice),
+      );
     }
-  }, [inputAmount, swapQuote]);
+  }, [inputAmount, swapQuote, independentField]);
   return (
     <Modal
       header={intl.formatMessage({ id: 'modal__preview' })}
@@ -152,6 +152,7 @@ const Preview = () => {
                 tokenA={inputToken}
                 tokenB={outputToken}
                 quote={swapQuote}
+                independentField={independentField}
               />
             </Box>
           </Box>
