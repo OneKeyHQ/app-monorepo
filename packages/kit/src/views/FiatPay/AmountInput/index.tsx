@@ -198,6 +198,7 @@ export const AmountInput: FC = () => {
               pattern={/^([0-9]+|[0-9]+\.?)([0-9]{1,2})?$/}
               onTextChange={(text) => {
                 updateInputText(() => text);
+                checkAmountVaild(text);
               }}
             />
           ) : null}
