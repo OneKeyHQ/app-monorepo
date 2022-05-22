@@ -1,7 +1,6 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
@@ -41,12 +40,9 @@ type RouteProps = RouteProp<
   FiatPayRoutes.AmoutInputModal
 >;
 
-function checkCharVaild(text: string) {
-  const asciiCode = text.charCodeAt(0);
-  return (
-    (asciiCode >= '0'.charCodeAt(0) && asciiCode <= '9'.charCodeAt(0)) ||
-    asciiCode === '.'.charCodeAt(0)
-  );
+function checkVaild(text: string) {
+  const pattern = /^([0-9]+|[0-9]+\.?)([0-9]{1,2})?$/;
+  return pattern.test(text) || text === '';
 }
 
 export const AmountInput: FC = () => {
@@ -66,21 +62,6 @@ export const AmountInput: FC = () => {
 
   const quoteUri = buyQuoteUri(token.provider.moonpay, 100, baseCurrencyCode);
   const { data: quoteData } = useSWR<MoonPayBuyQuotePayload>(quoteUri);
-  if (quoteData) {
-    setTimeout(() => {
-      if (loading) {
-        updateDescText(() =>
-          intl.formatMessage(
-            {
-              id: 'form__buy_int_min_purchase',
-            },
-            { 0: quoteData.baseCurrency.minBuyAmount },
-          ),
-        );
-        setLoading(false);
-      }
-    }, 500);
-  }
 
   const checkAmountVaild = useCallback(
     (text: string) => {
@@ -127,15 +108,8 @@ export const AmountInput: FC = () => {
     (text: string) => {
       updateInputText((prev) => {
         let result = text;
-        if (text.length > prev.length) {
-          if (checkCharVaild(text.slice(text.length - 1, text.length))) {
-            const number = new BigNumber(text);
-            if (number.isNaN()) {
-              result = prev;
-            }
-          } else {
-            result = prev;
-          }
+        if (!checkVaild(text)) {
+          result = prev;
         }
         checkAmountVaild(result);
         return result;
@@ -143,6 +117,20 @@ export const AmountInput: FC = () => {
     },
     [checkAmountVaild],
   );
+
+  useEffect(() => {
+    if (quoteData && loading) {
+      updateDescText(() =>
+        intl.formatMessage(
+          {
+            id: 'form__buy_int_min_purchase',
+          },
+          { 0: quoteData.baseCurrency.minBuyAmount },
+        ),
+      );
+      setLoading(false);
+    }
+  }, [intl, loading, quoteData]);
 
   return (
     <Modal
@@ -207,26 +195,9 @@ export const AmountInput: FC = () => {
           </Pressable>
           {platformEnv.isNative ? (
             <Keyboard
-              onKeyPress={(key) => {
-                updateInputText((prev) => {
-                  let result = prev;
-                  const number = new BigNumber(prev + key);
-                  if (!number.isNaN()) {
-                    result = prev + key;
-                  }
-                  checkAmountVaild(result);
-                  return result;
-                });
-              }}
-              onDelete={() => {
-                updateInputText((prev) => {
-                  let result = prev.slice(0, prev.length - 1);
-                  if (result.slice(result.length - 1, result.length) === '.') {
-                    result = result.slice(0, result.length - 1);
-                  }
-                  checkAmountVaild(result);
-                  return result;
-                });
+              pattern={/^([0-9]+|[0-9]+\.?)([0-9]{1,2})?$/}
+              onTextChange={(text) => {
+                updateInputText(() => text);
               }}
             />
           ) : null}
