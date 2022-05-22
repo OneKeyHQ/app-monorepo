@@ -2,8 +2,6 @@ import React, { ComponentProps, FC } from 'react';
 
 import {
   Box,
-  Center,
-  Divider,
   HStack,
   IconButton,
   Pressable,

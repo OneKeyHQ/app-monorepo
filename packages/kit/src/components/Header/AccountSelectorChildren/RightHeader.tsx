@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -81,7 +80,6 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const navigation = useAppNavigation();
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { network: activeNetwork } = useActiveWalletAccount();
 
   const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);

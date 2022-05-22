@@ -2,17 +2,16 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { SectionListRenderItemInfo } from 'react-native';
+import { SectionList } from 'react-native';
 
 import {
   Account,
   Box,
-  FlatList,
   HStack,
   Icon,
   Pressable,
-  SectionList,
   Select,
+  Text,
   Token,
   Typography,
   VStack,
@@ -20,7 +19,7 @@ import {
   useSafeAreaInsets,
   useToast,
 } from '@onekeyhq/components';
-import NetworksAllIndicator from '@onekeyhq/components/img/networks_all.png';
+import { SelectItem } from '@onekeyhq/components/src/Select';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -36,11 +35,15 @@ import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthent
 import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
+  ManageNetworkRoutes,
 } from '@onekeyhq/kit/src/routes';
 import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
+
+import { useManageNetworks } from '../../../hooks';
+import { NetworkIcon } from '../../../views/ManageNetworks/Listing/NetworkIcon';
 
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
@@ -77,14 +80,17 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
-type AccountGroup = { network: Network; accounts: Array<AccountEngineType> };
+type AccountGroup = { title: Network; data: AccountEngineType[] };
+
+const AllNetwork = 'all';
 
 const AccountSelectorChildren: FC<{
   isOpen?: boolean;
   toggleOpen?: (...args: any) => any;
-}> = ({ isOpen, toggleOpen }) => {
+}> = ({ isOpen }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+
   const navigation = useAppNavigation();
   const toast = useToast();
   const { bottom } = useSafeAreaInsets();
@@ -96,7 +102,7 @@ const AccountSelectorChildren: FC<{
   const [modifyNameAccount, setModifyNameAccount] =
     useState<AccountEngineType>();
 
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceAccount, serviceNetwork } = backgroundApiProxy;
 
   const {
     account: currentSelectedAccount,
@@ -104,11 +110,15 @@ const AccountSelectorChildren: FC<{
     network: activeNetwork,
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
+  const { enabledNetworks } = useManageNetworks();
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
     defaultSelectedWallet,
   );
 
   const [activeAccounts, setActiveAccounts] = useState<AccountGroup[]>([]);
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
+    activeNetwork?.id ?? AllNetwork,
+  );
 
   const activeWallet = useMemo(() => {
     const wallet =
@@ -118,31 +128,72 @@ const AccountSelectorChildren: FC<{
   }, [defaultSelectedWallet, selectedWallet?.id, wallets]);
 
   const refreshAccounts = useCallback(async () => {
-    console.log('refreshAccounts');
     if (!activeWallet) {
       setActiveAccounts([]);
       return;
     }
-    console.log('refreshAccounts activeWallet:', JSON.stringify(activeWallet));
 
     const networksMap = new Map(
       (await engine.listNetworks()).map((key) => [key.id, key]),
     );
 
-    const accountsGroup = (
-      await engine.getWalletAccountsGroupedByNetwork(activeWallet.id)
-    )
-      .reduce((accumulate, current) => {
-        const network = networksMap.get(current.networkId);
-        if (!network) return accumulate;
-        return [...accumulate, { network, accounts: current.accounts }];
-      }, [] as AccountGroup[])
-      .filter((group) => group.accounts.length > 0);
+    let accountsGroup: AccountGroup[] = [];
 
-    console.log('accountsGroup', accountsGroup.length);
+    if (selectedNetworkId === 'all') {
+      accountsGroup = (
+        await engine.getWalletAccountsGroupedByNetwork(activeWallet.id)
+      )
+        .reduce((accumulate, current) => {
+          const network = networksMap.get(current.networkId);
+          if (!network) return accumulate;
+          return [...accumulate, { title: network, data: current.accounts }];
+        }, [] as AccountGroup[])
+        .filter((group) => group.data.length > 0);
+    } else {
+      const network = networksMap.get(selectedNetworkId);
+      if (!network || !activeWallet) return;
+      const data = await engine.getAccounts(activeWallet.accounts, network.id);
+      accountsGroup = [
+        {
+          title: network,
+          data,
+        },
+      ];
+    }
 
     setActiveAccounts(accountsGroup);
-  }, [activeWallet, engine]);
+  }, [activeWallet, engine, selectedNetworkId]);
+
+  const options = useMemo(() => {
+    const selectNetworkExists = enabledNetworks.find(
+      (network) => network.id === selectedNetworkId,
+    );
+    if (!selectNetworkExists)
+      setTimeout(() => setSelectedNetworkId(AllNetwork));
+
+    if (!enabledNetworks) return [];
+
+    const networks: SelectItem<string>[] = enabledNetworks.map((network) => ({
+      label: network.shortName,
+      value: network.id,
+      tokenProps: {
+        src: network.logoURI,
+        letter: network.shortName,
+      },
+      badge: network.impl === 'evm' ? 'EVM' : undefined,
+    }));
+    networks.unshift({
+      label: intl.formatMessage({ id: 'option__all' }),
+      value: AllNetwork,
+      iconProps: {
+        name: 'GlobeSolid',
+        size: 24,
+      },
+    });
+
+    return networks;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabledNetworks, intl]);
 
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
@@ -292,109 +343,110 @@ const AccountSelectorChildren: FC<{
       />
       <VStack flex={1} pb={bottom}>
         <RightHeader selectedWallet={activeWallet} />
-        <Box p={2}>
+        <Box m={2}>
           <Select
+            setPositionOnlyMounted
+            positionTranslateY={4}
+            dropdownPosition="right"
+            value={selectedNetworkId}
+            onChange={setSelectedNetworkId}
             title={intl.formatMessage({ id: 'network__networks' })}
-            footer={null}
-            defaultValue="all"
-            options={[
-              {
-                label: intl.formatMessage({ id: 'option__all' }),
-                value: 'all',
-                tokenProps: {
-                  chain: 'all',
-                },
-              },
-              {
-                label: 'ETH',
-                value: 'ethereum',
-                tokenProps: {
-                  chain: 'eth',
-                },
-              },
-              {
-                label: 'BSC',
-                value: 'bsc',
-                tokenProps: {
-                  chain: 'bsc',
-                },
-              },
-            ]}
+            options={options}
+            isTriggerPlain
+            footerText={intl.formatMessage({ id: 'action__customize_network' })}
+            footerIcon="PencilSolid"
+            onPressFooter={() => {
+              setTimeout(() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageNetwork,
+                  params: {
+                    screen: ManageNetworkRoutes.Listing,
+                    params: { onEdited: refreshAccounts },
+                  },
+                });
+              }, 500);
+            }}
+            renderTrigger={(activeOption, isHovered, visible) => (
+              <Box
+                display="flex"
+                flexDirection="row"
+                alignItems="center"
+                py={2}
+                pl="3"
+                pr="2.5"
+                borderWidth="1"
+                borderColor={
+                  // eslint-disable-next-line no-nested-ternary
+                  visible
+                    ? 'focused-default'
+                    : isHovered
+                    ? 'border-hovered'
+                    : 'border-default'
+                }
+                borderRadius="xl"
+                bg={
+                  // eslint-disable-next-line no-nested-ternary
+                  visible
+                    ? 'surface-selected'
+                    : // eslint-disable-next-line no-nested-ternary
+                    isHovered
+                    ? 'surface-hovered'
+                    : 'surface-default'
+                }
+              >
+                <Box
+                  display="flex"
+                  flex={1}
+                  flexDirection="row"
+                  alignItems="center"
+                  mr="1"
+                >
+                  {!!activeOption.tokenProps && (
+                    <Box mr="3">
+                      <Token
+                        size={activeOption.description ? 8 : 6}
+                        {...activeOption.tokenProps}
+                      />
+                    </Box>
+                  )}
+                  {!!activeOption.iconProps && (
+                    <Box mr="3">
+                      <Icon size={6} {...activeOption.iconProps} />
+                    </Box>
+                  )}
+                  <Box flex={1}>
+                    <Text
+                      typography={{ sm: 'Body1', md: 'Body2' }}
+                      numberOfLines={1}
+                      flex={1}
+                      isTruncated
+                    >
+                      {activeOption.label ?? '-'}
+                    </Text>
+                  </Box>
+                </Box>
+                <Icon size={20} name="ChevronDownSolid" />
+              </Box>
+            )}
           />
         </Box>
-        {/* <FlatList
-          px={2}
-          contentContainerStyle={{
-            paddingBottom: 16,
-          }}
-          data={activeAccounts}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => {
-                setHaptics();
-                backgroundApiProxy.serviceAccount.changeActiveAccount({
-                  accountId: item.id,
-                  walletId: activeWallet?.id ?? '',
-                });
-                setTimeout(() => {
-                  toggleOpen?.();
-                  navigation.dispatch(DrawerActions.closeDrawer());
-                }, 0);
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <HStack
-                  p="7px"
-                  borderWidth={1}
-                  borderColor={isHovered ? 'border-hovered' : 'transparent'}
-                  bg={
-                    // eslint-disable-next-line no-nested-ternary
-                    isPressed
-                      ? 'surface-pressed'
-                      : currentSelectedAccount?.id === item.id
-                      ? 'surface-selected'
-                      : 'transparent'
-                  }
-                  space={4}
-                  borderRadius="xl"
-                  alignItems="center"
-                >
-                  <Box flex={1}>
-                    <Account
-                      hiddenAvatar
-                      address={item?.address ?? ''}
-                      name={item.name}
-                    />
-                  </Box>
-                  {renderSideAction(activeWallet?.type, (v) =>
-                    handleChange(item, v),
-                  )}
-                </HStack>
-              )}
-            </Pressable>
-          )}
-          ItemSeparatorComponent={() => <Box h={2} />}
-          ListFooterComponent={
-        /> */}
+
         <SectionList
-          px={2}
           stickySectionHeadersEnabled
           sections={activeAccounts}
-          // SectionSeparatorComponent={(
-          //   section: SectionListData<AccountEngineType, Network>,
-          // ) => (
-          //   // <Box h={section.leadingItem ? 2 : 0} />
-          //   <Box />
-          // )}
-          keyExtractor={(item, index) => `${index}`}
-          renderItem={({
-            item,
-            section,
-          }: SectionListRenderItemInfo<AccountEngineType, Network>) => (
+          SectionSeparatorComponent={(section) => (
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            <Box h={section?.leadingItem ? 2 : 0} />
+          )}
+          ItemSeparatorComponent={() => <Box h={2} />}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          renderItem={({ item, section }) => (
             <Pressable
+              px={2}
               onPress={() => {
-                backgroundApiProxy.serviceAccount.changeActiveAccount({
+                setHaptics();
+                serviceNetwork.changeActiveNetwork(section?.title?.id);
+                serviceAccount.changeActiveAccount({
                   accountId: item.id,
                   walletId: activeWallet?.id ?? '',
                 });
@@ -412,7 +464,7 @@ const AccountSelectorChildren: FC<{
                   borderStyle="dashed"
                   bg={
                     currentSelectedAccount?.id === item.id &&
-                    activeNetwork?.id === section?.id
+                    activeNetwork?.id === section?.title?.id
                       ? 'surface-selected'
                       : 'transparent'
                   }
@@ -434,17 +486,24 @@ const AccountSelectorChildren: FC<{
               )}
             </Pressable>
           )}
-          renderSectionHeader={({
-            section,
-          }: SectionListRenderItemInfo<AccountEngineType, Network>) => (
-            <Box p={2} bg="surface-subdued" flexDirection="row">
-              <Token chain={chain} size={4} />
-              <Typography.Subheading color="text-subdued" ml={2}>
-                {title}
-              </Typography.Subheading>
-            </Box>
-          )}
+          renderSectionHeader={({ section: { title } }) =>
+            activeAccounts.length > 1 ? (
+              <Box
+                px={4}
+                p={2}
+                bg="surface-subdued"
+                flexDirection="row"
+                alignItems="center"
+              >
+                <NetworkIcon network={title} size={4} mr={2} />
+                <Typography.Subheading color="text-subdued">
+                  {title.shortName}
+                </Typography.Subheading>
+              </Box>
+            ) : null
+          }
         />
+
         <Box p={2}>
           <Pressable
             onPress={() => {
