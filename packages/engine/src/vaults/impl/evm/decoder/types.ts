@@ -79,6 +79,12 @@ interface GasInfo {
   effectiveGasPriceInGwei: string;
 }
 
+type EVMDecodedInfoType =
+  | EVMDecodedItemERC20Transfer
+  | EVMDecodedItemERC20Approve
+  | EVMDecodedItemInternalSwap
+  | null;
+
 interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
   symbol: string; // native currency symbol
   amount: string; // in ether
@@ -107,11 +113,7 @@ interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
     args?: string[];
   };
 
-  info:
-    | EVMDecodedItemERC20Transfer
-    | EVMDecodedItemERC20Approve
-    | EVMDecodedItemInternalSwap
-    | null;
+  info: EVMDecodedInfoType;
 }
 
 export { EVMDecodedTxType };
@@ -122,4 +124,5 @@ export type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedItemInternalSwap,
+  EVMDecodedInfoType,
 };

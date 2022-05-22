@@ -164,6 +164,9 @@ type Transaction = {
     | EVMDecodedItemInternalSwap
     | null;
   rawTx?: string;
+
+  chainId: number;
+  logEvents: Array<LogEvent>;
 };
 
 type Erc20TransferEvent = {
