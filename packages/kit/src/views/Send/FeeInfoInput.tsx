@@ -7,6 +7,7 @@ import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 
 import { FormatCurrencyNative } from '../../components/Format';
+import { useActiveWalletAccount } from '../../hooks/redux';
 
 import { FeeSpeedLabel } from './SendEditFee';
 import { TxTitleDetailView } from './TxTitleDetailView';
@@ -19,6 +20,14 @@ type NavigationProps = StackNavigationProp<
   SendRoutes.SendConfirm
 >;
 
+export type IFeeInfoInputProps = {
+  encodedTx: any;
+  feeInfoPayload: IFeeInfoPayload | null;
+  loading?: boolean;
+  editable?: boolean;
+  renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
+  autoNavigateToEdit?: boolean;
+};
 function FeeInfoInput({
   encodedTx,
   feeInfoPayload,
@@ -26,17 +35,9 @@ function FeeInfoInput({
   renderChildren,
   editable,
   autoNavigateToEdit,
-}: {
-  encodedTx: any;
-  feeInfoPayload: IFeeInfoPayload | null;
-  loading?: boolean;
-  editable?: boolean;
-  renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
-  autoNavigateToEdit?: boolean;
-}) {
+}: IFeeInfoInputProps) {
   const navigation = useNavigation<NavigationProps>();
-  const disabled =
-    loading || !editable || !encodedTx || !feeInfoPayload?.info?.editable;
+  const disabled = loading || !editable || !encodedTx;
   const navigateToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
       if (disabled) {
@@ -84,14 +85,23 @@ function FeeInfoInput({
   );
 }
 
+const FeeInfoInputContainer = React.memo((props: IFeeInfoInputProps) => {
+  const { network } = useActiveWalletAccount();
+
+  const editable = network?.settings?.feeInfoEditable && props.editable;
+  return <FeeInfoInput {...props} editable={editable} />;
+});
+
 function FeeInfoInputForTransfer({
   encodedTx,
   feeInfoPayload,
   loading,
+  editable,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
   loading: boolean;
+  editable?: boolean;
 }) {
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
@@ -104,11 +114,11 @@ function FeeInfoInputForTransfer({
     if (loading) {
       return <Spinner size="sm" />;
     }
-    if (feeInfoPayload && feeInfoPayload.info.editable) {
+    if (feeInfoPayload && editable) {
       return <Icon size={20} name="PencilSolid" />;
     }
     return null;
-  }, [encodedTx, feeInfoPayload, loading]);
+  }, [editable, encodedTx, feeInfoPayload, loading]);
 
   const title = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
@@ -230,8 +240,8 @@ function FeeInfoInputForTransfer({
     [hint, icon, loading, loadingView, subTitle, title],
   );
   return (
-    <FeeInfoInput
-      editable
+    <FeeInfoInputContainer
+      editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
       loading={loading}
@@ -275,7 +285,7 @@ function FeeInfoInputForConfirm({
     [editable, feeInfoPayload, intl, loading],
   );
   return (
-    <FeeInfoInput
+    <FeeInfoInputContainer
       editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -299,7 +309,7 @@ function FeeInfoInputForSpeedUpOrCancel({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const renderChildren = useCallback(({ isHovered }) => null, []);
   return (
-    <FeeInfoInput
+    <FeeInfoInputContainer
       editable={editable}
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
@@ -312,6 +322,7 @@ function FeeInfoInputForSpeedUpOrCancel({
 
 export {
   FeeInfoInput,
+  FeeInfoInputContainer,
   FeeInfoInputForTransfer,
   FeeInfoInputForConfirm,
   FeeInfoInputForSpeedUpOrCancel,

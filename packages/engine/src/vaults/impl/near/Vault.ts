@@ -427,8 +427,6 @@ export default class Vault extends VaultBase {
     }
 
     return {
-      editable: false,
-
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       symbol: network.feeSymbol,

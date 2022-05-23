@@ -33,7 +33,7 @@ import settings from './settings';
 
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
-  settings =  settings;
+  settings = settings;
 
   private async getJsonRPCClient(): Promise<Conflux> {
     return (await this.engine.providerManager.getClient(

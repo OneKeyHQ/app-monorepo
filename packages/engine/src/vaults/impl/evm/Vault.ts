@@ -458,8 +458,6 @@ export default class Vault extends VaultBase {
     ).toFixed();
 
     return {
-      editable: true,
-
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       symbol: network.feeSymbol,
