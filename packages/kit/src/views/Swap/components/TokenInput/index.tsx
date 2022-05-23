@@ -62,97 +62,107 @@ const TokenInput: FC<TokenInputProps> = ({
     text = '0';
   }
   return (
-    <Box px={2} {...containerProps}>
-      <Box display="flex" flexDirection="row" justifyContent="space-between">
-        <Typography.Body2 color="text-subdued" p={2}>
-          {label}
-        </Typography.Body2>
-        <Pressable
-          onPress={() => {
-            if (isDisabled || !showMax) {
-              return;
-            }
-            setHaptics();
-            onMax();
-          }}
-          p={2}
-          rounded="xl"
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-        >
-          <Box flexDirection="row" alignItems="center">
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage(
-                { id: 'content__balance_str' },
-                { '0': text },
-              )}
-            </Typography.Body2>
-            {showMax && Number(value) > 0 ? (
-              <Typography.Body2 color="text-success" ml="2">
-                {intl.formatMessage({ id: 'action__max' })}
-              </Typography.Body2>
-            ) : null}
-          </Box>
-        </Pressable>
-      </Box>
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <Box flex="1">
-          <NumberInput
-            w="full"
-            size="xl"
-            borderWidth={0}
-            placeholder="0.00"
-            fontSize={24}
-            fontWeight="bold"
-            bg="transparent"
-            _disabled={{ bg: 'transparent' }}
-            _hover={{ bg: 'transparent' }}
-            _focus={{ bg: 'transparent' }}
-            defaultValue=""
-            value={inputValue}
-            borderRadius={0}
-            onChangeText={onChange}
-            pt="0"
-            pb="0"
-            pl={2}
-            h={10}
-            isDisabled={isDisabled}
-          />
-        </Box>
-        <Pressable
-          onPress={() => {
-            if (isDisabled) {
-              return;
-            }
-            setHaptics();
-            if (onPress) onPress();
-          }}
+    <Box px={2} {...containerProps} position="relative">
+      <Box position="relative">
+        <Box
+          display="flex"
           flexDirection="row"
-          alignItems="center"
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-          borderRadius={12}
-          p={2}
+          justifyContent="space-between"
+          alignItems="flex-end"
         >
-          {token && (
-            <Box mr={3}>
-              <Token size="6" src={token.logoURI} />
+          <Box flex="1">
+            <NumberInput
+              w="full"
+              h="auto"
+              borderWidth={0}
+              placeholder="0.00"
+              fontSize={24}
+              fontWeight="bold"
+              bg="transparent"
+              _disabled={{ bg: 'transparent' }}
+              _hover={{ bg: 'transparent' }}
+              _focus={{ bg: 'transparent' }}
+              defaultValue=""
+              value={inputValue}
+              borderRadius={0}
+              onChangeText={onChange}
+              pt="9"
+              pb="2"
+              pl={2}
+              isDisabled={isDisabled}
+            />
+          </Box>
+          <Pressable
+            onPress={() => {
+              if (isDisabled) {
+                return;
+              }
+              setHaptics();
+              if (onPress) onPress();
+            }}
+            flexDirection="row"
+            alignItems="center"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            borderRadius={12}
+            p={2}
+          >
+            {token && (
+              <Box mr={3}>
+                <Token size="6" src={token.logoURI} />
+              </Box>
+            )}
+            <Typography.Body1>
+              {token
+                ? token.symbol
+                : intl.formatMessage({ id: 'title__select_a_token' })}
+            </Typography.Body1>
+            <Center w="5" h="5" ml={1}>
+              <Icon size={20} name="ChevronDownSolid" />
+            </Center>
+          </Pressable>
+        </Box>
+        <Box position="absolute" top="0" w="full">
+          <Typography.Body2
+            color="text-subdued"
+            p={2}
+            position="absolute"
+            left="0"
+            top="0"
+          >
+            {label}
+          </Typography.Body2>
+          <Pressable
+            onPress={() => {
+              if (isDisabled || !showMax) {
+                return;
+              }
+              setHaptics();
+              onMax();
+            }}
+            p={2}
+            rounded="xl"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            right="0"
+            top="0"
+            position="absolute"
+          >
+            <Box flexDirection="row" alignItems="center">
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage(
+                  { id: 'content__balance_str' },
+                  { '0': text },
+                )}
+              </Typography.Body2>
+              {showMax && Number(value) > 0 ? (
+                <Typography.Body2 color="text-success" ml="2">
+                  {intl.formatMessage({ id: 'action__max' })}
+                </Typography.Body2>
+              ) : null}
             </Box>
-          )}
-          <Typography.Body1>
-            {token
-              ? token.symbol
-              : intl.formatMessage({ id: 'title__select_a_token' })}
-          </Typography.Body1>
-          <Center w="5" h="5" ml={1}>
-            <Icon size={20} name="ChevronDownSolid" />
-          </Center>
-        </Pressable>
+          </Pressable>
+        </Box>
       </Box>
     </Box>
   );

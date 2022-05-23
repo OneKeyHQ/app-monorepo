@@ -215,10 +215,14 @@ export function useSwapQuoteRequestParams(): QuoteRequestParams | undefined {
 export const useSwapQuoteCallback = function (
   options: { silent: boolean } = { silent: true },
 ) {
-  const requestParams = useSwapQuoteRequestParams();
   const { silent } = options;
-  const params = useDebounce(requestParams, 500);
+  const requestParams = useSwapQuoteRequestParams();
   const baseUrl = useSwapQuoteBaseUrl();
+  const memo = useMemo(
+    () => ({ params: requestParams, url: baseUrl }),
+    [requestParams, baseUrl],
+  );
+  const { params, url } = useDebounce(memo, 500);
   const onSwapQuote = useCallback(async () => {
     if (!params) {
       backgroundApiProxy.dispatch(setQuote(undefined));
@@ -229,7 +233,7 @@ export const useSwapQuoteCallback = function (
     }
     backgroundApiProxy.dispatch(setError(undefined));
     try {
-      const result = await client.get(baseUrl, { params });
+      const result = await client.get(url, { params });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const quoteData = result.data.data as SwapQuote;
       quoteData.payloadType = 'InternalSwap';
@@ -241,7 +245,7 @@ export const useSwapQuoteCallback = function (
         backgroundApiProxy.dispatch(setLoading(false));
       }
     }
-  }, [params, silent, baseUrl]);
+  }, [params, silent, url]);
   return onSwapQuote;
 };
 
