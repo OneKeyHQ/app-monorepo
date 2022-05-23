@@ -81,14 +81,14 @@ const AddExistingWallet = () => {
         navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal, {
           mnemonic: values.text,
         });
-      } else if (category === UserCreateInputCategory.ADDRESS) {
-        navigation.navigate(CreateWalletModalRoutes.AddWatchAccountModal, {
-          address: values.text,
-          selectableNetworks,
-        });
       } else if (category === UserCreateInputCategory.PRIVATE_KEY) {
         navigation.navigate(CreateWalletModalRoutes.AddImportedAccountModal, {
           privatekey: values.text,
+          selectableNetworks,
+        });
+      } else if (category === UserCreateInputCategory.ADDRESS) {
+        navigation.navigate(CreateWalletModalRoutes.AddWatchAccountModal, {
+          address: values.text,
           selectableNetworks,
         });
       }

@@ -489,6 +489,7 @@ const Transaction = () => {
                   encodedTx={encodedTx}
                   feeInfoPayload={feeInfoPayload}
                   loading={feeInfoLoading}
+                  editable
                 />
                 <FormErrorMessage message={feeInfoError?.message ?? ''} />
                 <FormErrorMessage message={transferError?.message ?? ''} />

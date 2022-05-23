@@ -16,17 +16,22 @@ import { AccountType } from './types/account';
 import { UserCreateInput, UserCreateInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
+import type { Engine } from './index';
+
 const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
 const FEE_PRICE_HIGH_VALUE_TIMES = 4;
 
 class Validators {
   private _dbApi: DBAPI;
 
+  private engine: Engine;
+
   private readonly providerManager: ProviderController;
 
-  constructor(dbApi: DBAPI, providerManager: ProviderController) {
-    this._dbApi = dbApi;
-    this.providerManager = providerManager;
+  constructor(engine: Engine) {
+    this.engine = engine;
+    this._dbApi = engine.dbApi;
+    this.providerManager = engine.providerManager;
   }
 
   get dbApi(): DBAPI {
@@ -50,15 +55,14 @@ class Validators {
         console.log('Invalid mnemonic', input);
       }
     } else {
-      const enabledNetworks = (await this.dbApi.listNetworks()).filter(
-        (dbNetwork) =>
-          dbNetwork.enabled && getSupportedImpls().has(dbNetwork.impl),
-      );
+      const enabledNetworks = await this.engine.listNetworks(true);
       if (/^(0x)?[0-9a-zA-Z]{64}$/.test(input)) {
         // a 64-char hexstring with or without 0x prefix, try private key only
         // TODO: verify private key & return networks with specific curve.
         category = UserCreateInputCategory.PRIVATE_KEY;
-        possibleNetworks = enabledNetworks.map((network) => network.id);
+        possibleNetworks = enabledNetworks
+          .filter((network) => network.settings.importedAccountEnabled)
+          .map((network) => network.id);
       } else if (/^[xyz]p/.test(input)) {
         // Extended private/public key, only BTC is supported for now.
         // TODO: move such checks into vaults
@@ -87,20 +91,22 @@ class Validators {
         // check whether input is an address of any network
         const selectedImpls = new Set();
         for (const network of enabledNetworks) {
-          const { id: networkId, impl } = network;
-          let networkIsPossible = true;
-          if (!selectedImpls.has(impl)) {
-            try {
-              await this.validateAddress(networkId, input);
-              if (implToAccountType[impl] === AccountType.SIMPLE) {
-                selectedImpls.add(impl);
+          if (network.settings.watchingAccountEnabled) {
+            const { id: networkId, impl } = network;
+            let networkIsPossible = true;
+            if (!selectedImpls.has(impl)) {
+              try {
+                await this.validateAddress(networkId, input);
+                if (implToAccountType[impl] === AccountType.SIMPLE) {
+                  selectedImpls.add(impl);
+                }
+              } catch {
+                networkIsPossible = false;
               }
-            } catch {
-              networkIsPossible = false;
             }
-          }
-          if (networkIsPossible) {
-            possibleNetworks.push(networkId);
+            if (networkIsPossible) {
+              possibleNetworks.push(networkId);
+            }
           }
         }
         if (possibleNetworks.length > 0) {
