@@ -614,7 +614,7 @@ class ProviderController extends BaseProviderController {
 
   async refreshPendingTxs(
     networkId: string,
-    pendingTxs: Array<{ id: string; createdAt: number }>,
+    pendingTxs: Array<{ id: string }>,
   ): Promise<Record<string, HistoryEntryStatus>> {
     if (pendingTxs.length === 0) {
       return {};
@@ -626,17 +626,10 @@ class ProviderController extends BaseProviderController {
       networkId,
       pendingTxs.map((tx) => tx.id.replace(regex, '')),
     );
-    const now = Date.now();
+
     updatedStatuses.forEach((status, index) => {
-      const { createdAt, id } = pendingTxs[index];
-      if (
-        status === TransactionStatus.NOT_FOUND ||
-        status === TransactionStatus.INVALID
-      ) {
-        if (now - createdAt > 60 * 5 * 1000) {
-          ret[id] = HistoryEntryStatus.DROPPED;
-        }
-      } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
+      const { id } = pendingTxs[index];
+      if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
         ret[id] = HistoryEntryStatus.SUCCESS;
       } else if (status === TransactionStatus.CONFIRM_BUT_FAILED) {
         ret[id] = HistoryEntryStatus.FAILED;

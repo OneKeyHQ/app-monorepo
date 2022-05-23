@@ -8,6 +8,7 @@ import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
+  TransactionStatus,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
@@ -28,6 +29,7 @@ import {
 } from '../../../proxy';
 import { DBAccount } from '../../../types/account';
 import {
+  HistoryEntry,
   HistoryEntryStatus,
   HistoryEntryTransaction,
 } from '../../../types/history';
@@ -58,6 +60,7 @@ import {
   InfiniteAmountHex,
   InfiniteAmountText,
 } from './decoder/decoder';
+import { getTxCount } from './decoder/util';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -674,5 +677,61 @@ export default class Vault extends VaultBase {
       this.networkId,
       tokenAddresses,
     );
+  }
+
+  override async updatePendingTxs(histories: Array<HistoryEntry>) {
+    const decoder = EVMTxDecoder.getDecoder(this.engine);
+    const decodedPendings = histories
+      .filter<HistoryEntryTransaction>(
+        (h): h is HistoryEntryTransaction => 'rawTx' in h,
+      )
+      .filter((h) => h.status === HistoryEntryStatus.PENDING)
+      .map(async (h) => ({
+        entry: h,
+        decodedItem: await decoder.decodeHistoryEntry(h),
+      }));
+
+    if (!decodedPendings.length) {
+      return {};
+    }
+
+    const pendings = await Promise.all(decodedPendings);
+
+    const updatedStatuses =
+      await this.engine.providerManager.getTransactionStatuses(
+        this.networkId,
+        pendings.map(({ decodedItem }) => decodedItem.txHash),
+      );
+
+    // TODO: handle different addresses.
+    const {
+      decodedItem: { fromAddress },
+    } = pendings[0];
+    const nonce = await getTxCount(fromAddress, this);
+
+    const updatedStatusMap: Record<string, HistoryEntryStatus> = {};
+    updatedStatuses.forEach((status, index) => {
+      const { entry, decodedItem } = pendings[index];
+      const { id } = entry;
+      const txNonce = decodedItem.nonce;
+      if (
+        status === TransactionStatus.NOT_FOUND ||
+        status === TransactionStatus.INVALID
+      ) {
+        if (!isNil(txNonce) && txNonce < nonce) {
+          updatedStatusMap[id] = HistoryEntryStatus.DROPPED;
+        }
+      } else if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
+        updatedStatusMap[id] = HistoryEntryStatus.SUCCESS;
+      } else if (status === TransactionStatus.CONFIRM_BUT_FAILED) {
+        updatedStatusMap[id] = HistoryEntryStatus.FAILED;
+      }
+    });
+
+    if (Object.keys(updatedStatusMap).length > 0) {
+      await this.engine.dbApi.updateHistoryEntryStatuses(updatedStatusMap);
+    }
+
+    return updatedStatusMap;
   }
 }
