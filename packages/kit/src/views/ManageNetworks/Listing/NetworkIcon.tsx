@@ -15,6 +15,7 @@ export const NetworkIcon: FC<NetworkIconProps> = ({ network, size, mr }) =>
       alt="logoURI"
       size={size ?? { base: 8, md: 6 }}
       source={{ uri: network.logoURI }}
+      borderRadius="full"
       mr={mr ?? '3'}
     />
   ) : (
