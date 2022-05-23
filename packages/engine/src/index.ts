@@ -129,7 +129,7 @@ class Engine {
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
-    this.validator = new Validators(this.dbApi, this.providerManager);
+    this.validator = new Validators(this);
   }
 
   async syncPresetNetworks(): Promise<void> {
@@ -1254,6 +1254,11 @@ class Engine {
     return this.vaultFactory.getChainOnlyVault(networkId);
   }
 
+  async getVaultSettings(networkId: string) {
+    const vault = await this.getChainOnlyVault(networkId);
+    return vault.settings;
+  }
+
   @backgroundMethod()
   async addHistoryEntry({
     id,
@@ -1356,13 +1361,21 @@ class Engine {
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
-    return networks
-      .filter(
-        (dbNetwork) =>
-          (enabledOnly ? dbNetwork.enabled : true) &&
-          getSupportedImpls().has(dbNetwork.impl),
-      )
-      .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
+    return Promise.all(
+      networks
+        .filter(
+          (dbNetwork) =>
+            (enabledOnly ? dbNetwork.enabled : true) &&
+            getSupportedImpls().has(dbNetwork.impl),
+        )
+        .map(async (dbNetwork) => {
+          const network = fromDBNetworkToNetwork(dbNetwork);
+          // TODO cache
+          const settings = await this.getVaultSettings(network.id);
+          network.settings = settings;
+          return Promise.resolve(network);
+        }),
+    );
   }
 
   @backgroundMethod()

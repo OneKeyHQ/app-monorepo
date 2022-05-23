@@ -15,6 +15,7 @@ import {
   VStack,
   useIsVerticalLayout,
   useSafeAreaInsets,
+  useToast,
 } from '@onekeyhq/components';
 // import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
@@ -79,6 +80,7 @@ const AccountSelectorChildren: FC<{
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
+  const toast = useToast();
   const { bottom } = useSafeAreaInsets();
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
@@ -326,7 +328,17 @@ const AccountSelectorChildren: FC<{
               mt={2}
               onPress={() => {
                 if (!activeWallet) return;
+                const networkSettings = activeNetwork?.settings;
+                const showNotSupportToast = () => {
+                  toast.show({
+                    title: intl.formatMessage({ id: 'badge__coming_soon' }),
+                  });
+                };
                 if (activeWallet?.type === 'imported') {
+                  if (!networkSettings?.importedAccountEnabled) {
+                    showNotSupportToast();
+                    return;
+                  }
                   return navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.CreateWallet,
                     params: {
@@ -336,6 +348,10 @@ const AccountSelectorChildren: FC<{
                   });
                 }
                 if (activeWallet?.type === 'watching') {
+                  if (!networkSettings?.watchingAccountEnabled) {
+                    showNotSupportToast();
+                    return;
+                  }
                   return navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.CreateWallet,
                     params: {

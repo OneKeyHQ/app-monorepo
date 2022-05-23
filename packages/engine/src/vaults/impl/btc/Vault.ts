@@ -30,8 +30,11 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { getAccountDefaultByPurpose } from './utils';
+import settings from './settings';
 
 export default class Vault extends VaultBase {
+  settings = settings;
+
   keyringMap = {
     hd: KeyringHd,
     hw: KeyringHardware,

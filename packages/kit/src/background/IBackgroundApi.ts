@@ -53,9 +53,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceCronJob: ServiceCronJob;
   serviceOnboarding: ServiceOnboarding;
-
-  // ----------------------------------------------
-  listNetworks(): any;
 }
 
 export type IDappCallParams = {

@@ -62,6 +62,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import settings from './settings';
 
 const PENDING_QUEUE_MAX_LENGTH = 10;
 
@@ -105,6 +106,8 @@ function decodeUnsignedTxFeeData(unsignedTx: UnsignedTx) {
 }
 
 export default class Vault extends VaultBase {
+  settings = settings;
+
   keyringMap = {
     hd: KeyringHd,
     hw: KeyringHardware,

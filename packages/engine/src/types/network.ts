@@ -1,4 +1,5 @@
-import { HasName } from './base';
+import type { IVaultSettings } from '../vaults/types';
+import type { HasName } from './base';
 
 type NetworkBase = HasName & {
   impl: string;
@@ -61,6 +62,7 @@ type Network = NetworkBase & {
   accountNameInfo: Record<string, AccountNameInfo>;
   // TODO: rpcURLs
   blockExplorerURL: BlockExplorer;
+  settings: IVaultSettings;
 };
 
 type AddEVMNetworkParams = {
