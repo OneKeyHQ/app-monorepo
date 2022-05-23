@@ -6,7 +6,7 @@ const host = 'https://dapp-server.onekey.so';
 // const host = 'https://dapp-test-server.onekey.so';
 
 const syncUri = (timestamp: number, locale: string) =>
-  `${host}/api/v1.0/sync/${locale}/${timestamp}`;
+  `${host}/api/v1.0/sync/${locale.replaceAll('-', '_')}/${timestamp}`;
 
 const rankingsUri = () => `${host}/api/v1.0/rankings`;
 
