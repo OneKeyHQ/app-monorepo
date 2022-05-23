@@ -62,6 +62,10 @@ export class VaultContext extends VaultContextBase {
     return (await this.getDbAccount()).path;
   }
 
+  async getAccountAddress() {
+    return (await this.getDbAccount()).address;
+  }
+
   async getNetwork() {
     // TODO cache available?
     return this.engine.getNetwork(this.networkId);
