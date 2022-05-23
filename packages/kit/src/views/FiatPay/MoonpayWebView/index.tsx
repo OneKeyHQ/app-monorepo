@@ -21,7 +21,7 @@ export const MoonpayWebView: FC = () => {
   const navigation = useNavigation();
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: '123' });
+    // navigation.setOptions({ title: '123' });
   }, [navigation]);
   useEffect(() => {}, []);
 

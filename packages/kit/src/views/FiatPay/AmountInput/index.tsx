@@ -29,7 +29,7 @@ import {
   FiatPayRoutes,
 } from '../../../routes/Modal/FiatPay';
 import { getFiatCode } from '../../../utils/FiatCurrency';
-import { buyQuoteUri } from '../Service';
+import { buyQuoteUri, signMoonpayUrl } from '../Service';
 import { MoonPayBuyQuotePayload, Provider } from '../types';
 
 import { AutoSizeText } from './AutoSizeText';
@@ -197,7 +197,7 @@ export const AmountInput: FC = () => {
             <Keyboard
               pattern={/^([0-9]+|[0-9]+\.?)([0-9]{1,2})?$/}
               onTextChange={(text) => {
-                updateInputText(() => text);
+                updateInputText(text);
                 checkAmountVaild(text);
               }}
             />
@@ -207,15 +207,15 @@ export const AmountInput: FC = () => {
             size="xl"
             isDisabled={!amountVaild}
             mt={platformEnv.isNative ? '24px' : '0px'}
-            onPress={() => {
-              const baseCurrencyAmount = Number(inputText);
-              const url = `https://buy-sandbox.moonpay.com?apiKey=pk_test_Zi6NCCoN2Bp1DaRUQ4P4pKi9b2VEkTp&walletAddress&=${
-                account?.address ?? ''
-              }&currencyCode=${
-                token.provider.moonpay
-              }&baseCurrencyCode=${baseCurrencyCode}&baseCurrencyAmount=${baseCurrencyAmount}`;
+            onPress={async () => {
+              const signedUrl = await signMoonpayUrl({
+                walletAddress: account?.address ?? '',
+                currencyCode: token.provider.moonpay,
+                baseCurrencyCode,
+                baseCurrencyAmount: inputText,
+              });
               navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
-                url,
+                url: signedUrl,
               });
             }}
           >
