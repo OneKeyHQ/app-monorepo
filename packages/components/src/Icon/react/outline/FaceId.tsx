@@ -3,7 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgFaceId(props: SvgProps) {
   return (
-    <Svg width={24} height={24} fill="none" {...props}>
+    <Svg viewBox="0 0 24 24" fill="none" {...props}>
       <Path
         fillRule="evenodd"
         clipRule="evenodd"

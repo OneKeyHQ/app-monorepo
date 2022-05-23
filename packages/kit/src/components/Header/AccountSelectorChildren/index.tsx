@@ -186,14 +186,15 @@ const AccountSelectorChildren: FC<{
       label: intl.formatMessage({ id: 'option__all' }),
       value: AllNetwork,
       iconProps: {
-        name: 'GlobeSolid',
-        size: 24,
+        name: 'OptionListAllSolid',
+        size: isVerticalLayout ? 32 : 24,
+        color: 'surface-neutral-default',
       },
     });
 
     return networks;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabledNetworks, intl]);
+  }, [enabledNetworks, isVerticalLayout, intl]);
 
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
