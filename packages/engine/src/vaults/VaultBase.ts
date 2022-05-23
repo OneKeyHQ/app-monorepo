@@ -13,6 +13,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented } from '../errors';
 import { Account, DBAccount } from '../types/account';
+import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -198,4 +199,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // TODO move to keyring
   abstract getExportedCredential(password: string): Promise<string>;
+
+  async updatePendingTxs(
+    pendingTxs: Array<HistoryEntry>,
+  ): Promise<Record<string, HistoryEntryStatus>> {
+    throw new NotImplemented();
+  }
 }

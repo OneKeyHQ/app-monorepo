@@ -9,6 +9,7 @@ enum TxStatus {
   Pending = 'Pending',
   Confirmed = 'Confirmed',
   Failed = 'Failed',
+  Dropped = 'Dropped',
 }
 
 enum EVMTxFromType {
@@ -163,6 +164,9 @@ type Transaction = {
     | EVMDecodedItemInternalSwap
     | null;
   rawTx?: string;
+
+  chainId: number;
+  logEvents: Array<LogEvent>;
 };
 
 type Erc20TransferEvent = {
