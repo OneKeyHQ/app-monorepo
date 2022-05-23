@@ -319,6 +319,8 @@ async function txAdapter(
     txType: EVMDecodedTxType.TRANSACTION,
     source: 'covalent',
     info: null,
+    logEvents: tx.logEvents,
+    chainId: parseInt(chainId),
   };
 
   const adapter = eventAdapter(
@@ -557,6 +559,8 @@ function decodedItemToTransaction(
     source: 'local',
     info: item.info,
     rawTx,
+    logEvents: [],
+    chainId: item.chainId,
   };
 }
 

@@ -26,6 +26,7 @@ const getHeaderIconInfo = (
   let statusTitle:
     | 'transaction__failed'
     | 'transaction__pending'
+    | 'transaction__dropped'
     | 'transaction__success' = 'transaction__failed';
   let statusIconName: ICON_NAMES = 'CloseCircleOutline';
   let iconColor: keyof ThemeValues = 'icon-critical';
@@ -55,6 +56,9 @@ const getHeaderIconInfo = (
         iconColor = 'icon-success';
         textColor = 'text-success';
         iconContainerColor = 'surface-success-default';
+        break;
+      case TxStatus.Dropped:
+        statusTitle = 'transaction__dropped';
         break;
       default:
         break;

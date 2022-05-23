@@ -5,13 +5,13 @@ import { EVMDecodedItem } from './types';
 
 const txStatusFromHistoryEntry = (historyEntry: HistoryEntryTransaction) => {
   const { status } = historyEntry;
-  if (status === 'success') {
-    return TxStatus.Confirmed;
-  }
-  if (status === 'pending') {
-    return TxStatus.Pending;
-  }
-  return TxStatus.Failed;
+  return {
+    success: TxStatus.Confirmed,
+    pending: TxStatus.Pending,
+    dropped: TxStatus.Dropped,
+    failed: TxStatus.Failed,
+    signed: TxStatus.Failed,
+  }[status];
 };
 
 const updateWithHistoryEntry = (
