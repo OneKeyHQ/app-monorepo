@@ -132,7 +132,7 @@ class EVMTxDecoder {
           // transfer(address _to, uint256 _value)
           const recipient = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
-          const amount = this.formatValue(value, token.decimals);
+          const amount = EVMTxDecoder.formatValue(value, token.decimals);
           infoBuilder = {
             type: EVMDecodedTxType.TOKEN_TRANSFER,
             value: value.toString(),
@@ -146,7 +146,7 @@ class EVMTxDecoder {
           // approve(address _spender, uint256 _value)
           const spender = (txDesc?.args[0] as string).toLowerCase();
           const value = txDesc?.args[1] as ethers.BigNumber;
-          const amount = this.formatValue(value, token.decimals);
+          const amount = EVMTxDecoder.formatValue(value, token.decimals);
           infoBuilder = {
             type: EVMDecodedTxType.TOKEN_APPROVE,
             spender,
@@ -231,11 +231,12 @@ class EVMTxDecoder {
     itemBuilder.chainId = tx.chainId;
   }
 
-  private formatValue(value: ethers.BigNumber, decimals: number): string {
-    if (ethers.constants.MaxUint256.eq(value)) {
+  static formatValue(value: ethers.BigNumberish, decimals: number): string {
+    const valueBn = ethers.BigNumber.from(value);
+    if (ethers.constants.MaxUint256.eq(valueBn)) {
       return InfiniteAmountText;
     }
-    return ethers.utils.formatUnits(value, decimals) ?? '';
+    return ethers.utils.formatUnits(valueBn, decimals) ?? '0';
   }
 
   private parseERC20(

@@ -1324,20 +1324,14 @@ class Engine {
       contract,
       before,
     );
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+
     let updatedStatusMap: Record<string, HistoryEntryStatus> = {};
-
     if (updatePending) {
-      const pendings = entries.filter(
-        (entry) => entry.status === HistoryEntryStatus.PENDING,
-      );
-
-      updatedStatusMap = await this.providerManager.refreshPendingTxs(
-        networkId,
-        pendings,
-      );
-      if (Object.keys(updatedStatusMap).length > 0) {
-        await this.dbApi.updateHistoryEntryStatuses(updatedStatusMap);
-      }
+      updatedStatusMap = await vault.updatePendingTxs(entries);
     }
 
     return entries.map((entry) => {
