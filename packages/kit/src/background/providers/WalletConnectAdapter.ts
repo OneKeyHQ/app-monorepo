@@ -6,7 +6,9 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import Connector from '@walletconnect/core';
 import * as cryptoLib from '@walletconnect/iso-crypto';
+import { IClientMeta } from '@walletconnect/types';
 import { isWalletConnectSession } from '@walletconnect/utils';
+import { Platform } from 'react-native';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -111,6 +113,7 @@ class WalletConnectAdapter {
   connector?: WalletConnect;
 
   // TODO once() instead
+  // TODO waitConnectorPeerReady timeout
   async waitConnectorPeerReady({
     connector,
     logName,
@@ -222,9 +225,20 @@ class WalletConnectAdapter {
     const network = new URL(uri).searchParams.get('network') || IMPL_EVM;
     await this.disconnect();
 
+    const clientMeta: IClientMeta = {
+      description: `OneKey Wallet: ${process.env.ONEKEY_PLATFORM ?? ''} ${
+        process.env.EXT_CHANNEL ?? ''
+      } ${Platform.OS ?? ''}`,
+      url: 'https://www.onekey.so',
+      icons: [],
+      name: 'OneKey Wallet',
+    };
     const connector = new WalletConnect({
       uri,
+      clientMeta,
     });
+    // @ts-ignore
+    connector._clientMeta = clientMeta;
     this.connector = connector;
 
     await this.setupConnector(connector);

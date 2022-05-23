@@ -13,9 +13,9 @@ class ErrorBoundary extends React.PureComponent<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  state: { error: Error | null } = { error: null };
+  override state: { error: Error | null } = { error: null };
 
-  componentDidCatch(
+  override componentDidCatch(
     error: Error,
     // Loosely typed because it depends on the React version and was
     // accidentally excluded in some versions.
@@ -25,7 +25,7 @@ class ErrorBoundary extends React.PureComponent<
     this.setState({ error });
   }
 
-  render() {
+  override render() {
     if (platformEnv.isDev && this.state.error) {
       return (
         // The component has to be unmounted or else it would continue to error
