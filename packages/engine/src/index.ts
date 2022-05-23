@@ -87,6 +87,7 @@ import {
 } from './types/history';
 import {
   AddNetworkParams,
+  DBNetwork,
   EIP1559Fee,
   Network,
   UpdateNetworkParams,
@@ -102,6 +103,7 @@ import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
+import { IVaultSettings } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
@@ -1368,14 +1370,15 @@ class Engine {
             (enabledOnly ? dbNetwork.enabled : true) &&
             getSupportedImpls().has(dbNetwork.impl),
         )
-        .map(async (dbNetwork) => {
-          const network = fromDBNetworkToNetwork(dbNetwork);
-          // TODO cache
-          const settings = await this.getVaultSettings(network.id);
-          network.settings = settings;
-          return Promise.resolve(network);
-        }),
+        .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
     );
+  }
+
+  async dbNetworkToNetwork(dbNetwork: DBNetwork) {
+    // TODO cache
+    const settings = await this.getVaultSettings(dbNetwork.id);
+    const network = fromDBNetworkToNetwork(dbNetwork, settings);
+    return network;
   }
 
   @backgroundMethod()
@@ -1459,13 +1462,14 @@ class Engine {
     const dbObj = await this.dbApi.addNetwork(
       getEVMNetworkToCreate(`${impl}--${networkId}`, params),
     );
-    return fromDBNetworkToNetwork(dbObj);
+    return this.dbNetworkToNetwork(dbObj);
   }
 
   @backgroundMethod()
   async getNetwork(networkId: string): Promise<Network> {
     const dbObj = await this.dbApi.getNetwork(networkId);
-    return fromDBNetworkToNetwork(dbObj);
+    // this.dbNetworkToNetwork(dbObj) may cause cycle calling
+    return fromDBNetworkToNetwork(dbObj, {} as IVaultSettings);
   }
 
   @backgroundMethod()
@@ -1514,7 +1518,7 @@ class Engine {
     }
     // TODO: chain interaction to check rpc url works correctly.
     const dbObj = await this.dbApi.updateNetwork(networkId, params);
-    return fromDBNetworkToNetwork(dbObj);
+    return this.dbNetworkToNetwork(dbObj);
   }
 
   @backgroundMethod()

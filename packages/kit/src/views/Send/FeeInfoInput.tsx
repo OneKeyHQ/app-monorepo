@@ -85,10 +85,14 @@ function FeeInfoInput({
   );
 }
 
-const FeeInfoInputContainer = React.memo((props: IFeeInfoInputProps) => {
+function useNetworkFeeInfoEditable() {
   const { network } = useActiveWalletAccount();
+  return Boolean(network?.settings?.feeInfoEditable);
+}
 
-  const editable = network?.settings?.feeInfoEditable && props.editable;
+const FeeInfoInputContainer = React.memo((props: IFeeInfoInputProps) => {
+  const networkFeeInfoEditable = useNetworkFeeInfoEditable();
+  const editable = networkFeeInfoEditable && props.editable;
   return <FeeInfoInput {...props} editable={editable} />;
 });
 
@@ -106,6 +110,7 @@ function FeeInfoInputForTransfer({
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
   const showFirstTimeHint = useRef(true);
+  const networkFeeInfoEditable = useNetworkFeeInfoEditable();
 
   const icon: React.ReactElement | null = useMemo(() => {
     if (!encodedTx) {
@@ -114,11 +119,11 @@ function FeeInfoInputForTransfer({
     if (loading) {
       return <Spinner size="sm" />;
     }
-    if (feeInfoPayload && editable) {
+    if (feeInfoPayload && editable && networkFeeInfoEditable) {
       return <Icon size={20} name="PencilSolid" />;
     }
     return null;
-  }, [editable, encodedTx, feeInfoPayload, loading]);
+  }, [editable, encodedTx, feeInfoPayload, loading, networkFeeInfoEditable]);
 
   const title = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
@@ -262,12 +267,15 @@ function FeeInfoInputForConfirm({
   editable?: boolean;
 }) {
   const intl = useIntl();
+  const networkFeeInfoEditable = useNetworkFeeInfoEditable();
 
   const renderChildren = useCallback(
     ({ isHovered }) => (
       <TxTitleDetailView
         isHovered={isHovered}
-        arrow={editable && !loading && !!feeInfoPayload}
+        arrow={
+          editable && networkFeeInfoEditable && !loading && !!feeInfoPayload
+        }
         title={`${intl.formatMessage({
           id: 'content__fee',
         })}(${intl.formatMessage({ id: 'content__estimated' })})`}
@@ -282,7 +290,7 @@ function FeeInfoInputForConfirm({
         }
       />
     ),
-    [editable, feeInfoPayload, intl, loading],
+    [editable, feeInfoPayload, intl, loading, networkFeeInfoEditable],
   );
   return (
     <FeeInfoInputContainer

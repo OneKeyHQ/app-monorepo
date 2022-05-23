@@ -7,6 +7,7 @@ import {
   DBNetwork,
   Network,
 } from '../types/network';
+import { IVaultSettings } from '../vaults/types';
 
 import { getAccountNameInfoByImpl } from './impl';
 
@@ -67,7 +68,10 @@ function generateEIP3091(customExplorerURL?: string):
   }
 }
 
-function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
+function fromDBNetworkToNetwork(
+  dbNetwork: DBNetwork,
+  settings: IVaultSettings,
+): Network {
   const { position, curve, ...forNetwork } = dbNetwork;
   const preset = networkIsPreset(dbNetwork.id);
   let shortName = dbNetwork.name;
@@ -117,6 +121,7 @@ function fromDBNetworkToNetwork(dbNetwork: DBNetwork): Network {
     extraInfo,
     accountNameInfo: getAccountNameInfoByImpl(dbNetwork.impl),
     blockExplorerURL: { name, ...blockExplorerURL } as BlockExplorer,
+    settings,
   };
 }
 
