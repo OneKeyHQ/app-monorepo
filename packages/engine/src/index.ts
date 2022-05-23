@@ -87,6 +87,7 @@ import {
 } from './types/history';
 import {
   AddNetworkParams,
+  DBNetwork,
   EIP1559Fee,
   Network,
   UpdateNetworkParams,
@@ -102,6 +103,7 @@ import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
+import { IVaultSettings } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
@@ -129,7 +131,7 @@ class Engine {
         .getNetwork(networkId)
         .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
     );
-    this.validator = new Validators(this.dbApi, this.providerManager);
+    this.validator = new Validators(this);
   }
 
   async syncPresetNetworks(): Promise<void> {
@@ -1254,6 +1256,11 @@ class Engine {
     return this.vaultFactory.getChainOnlyVault(networkId);
   }
 
+  async getVaultSettings(networkId: string) {
+    const vault = await this.getChainOnlyVault(networkId);
+    return vault.settings;
+  }
+
   @backgroundMethod()
   async addHistoryEntry({
     id,
@@ -1350,13 +1357,22 @@ class Engine {
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const networks = await this.dbApi.listNetworks();
-    return networks
-      .filter(
-        (dbNetwork) =>
-          (enabledOnly ? dbNetwork.enabled : true) &&
-          getSupportedImpls().has(dbNetwork.impl),
-      )
-      .map((dbNetwork) => fromDBNetworkToNetwork(dbNetwork));
+    return Promise.all(
+      networks
+        .filter(
+          (dbNetwork) =>
+            (enabledOnly ? dbNetwork.enabled : true) &&
+            getSupportedImpls().has(dbNetwork.impl),
+        )
+        .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
+    );
+  }
+
+  async dbNetworkToNetwork(dbNetwork: DBNetwork) {
+    // TODO cache
+    const settings = await this.getVaultSettings(dbNetwork.id);
+    const network = fromDBNetworkToNetwork(dbNetwork, settings);
+    return network;
   }
 
   @backgroundMethod()
@@ -1440,13 +1456,14 @@ class Engine {
     const dbObj = await this.dbApi.addNetwork(
       getEVMNetworkToCreate(`${impl}--${networkId}`, params),
     );
-    return fromDBNetworkToNetwork(dbObj);
+    return this.dbNetworkToNetwork(dbObj);
   }
 
   @backgroundMethod()
   async getNetwork(networkId: string): Promise<Network> {
     const dbObj = await this.dbApi.getNetwork(networkId);
-    return fromDBNetworkToNetwork(dbObj);
+    // this.dbNetworkToNetwork(dbObj) may cause cycle calling
+    return fromDBNetworkToNetwork(dbObj, {} as IVaultSettings);
   }
 
   @backgroundMethod()
@@ -1495,7 +1512,7 @@ class Engine {
     }
     // TODO: chain interaction to check rpc url works correctly.
     const dbObj = await this.dbApi.updateNetwork(networkId, params);
-    return fromDBNetworkToNetwork(dbObj);
+    return this.dbNetworkToNetwork(dbObj);
   }
 
   @backgroundMethod()
