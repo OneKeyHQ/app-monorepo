@@ -109,7 +109,7 @@ const SwapContent = () => {
             inputValue={formattedAmounts.INPUT}
             onChange={onChangeInput}
             onPress={onSelectInput}
-            containerProps={{ pt: '4', pb: '2' }}
+            containerProps={{ pt: '4', pb: '0' }}
             isDisabled={isSwapLoading && independentField === 'OUTPUT'}
             showMax={!!(inputToken && inputToken.tokenIdOnNetwork)}
           />
@@ -140,7 +140,7 @@ const SwapContent = () => {
             inputValue={formattedAmounts.OUTPUT}
             onChange={onChangeOutput}
             onPress={onSelectOutput}
-            containerProps={{ pb: '4', pt: '2' }}
+            containerProps={{ pb: '4', pt: '0' }}
             isDisabled={isSwapLoading && independentField === 'INPUT'}
           />
           {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
