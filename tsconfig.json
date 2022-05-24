@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "noImplicitOverride": true,
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
     "lib": ["dom", "esnext", "webworker"],

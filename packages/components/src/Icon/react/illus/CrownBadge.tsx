@@ -10,7 +10,7 @@ import Svg, {
 
 function SvgCrownBadge(props: SvgProps) {
   return (
-    <Svg width={20} height={20} fill="none" {...props}>
+    <Svg viewBox="0 0 20 20" fill="none" {...props}>
       <Circle
         cx={10}
         cy={10}

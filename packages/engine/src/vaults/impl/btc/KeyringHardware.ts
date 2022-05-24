@@ -8,6 +8,7 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
+import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -29,7 +30,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
-    throw new NotImplemented();
+    const path = await this.getAccountPath();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return OneKeyHardware.btcSignTransaction(this.networkId, path, unsignedTx);
   }
 
   async signMessage(

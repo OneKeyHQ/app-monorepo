@@ -35,6 +35,7 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
         style={{ width: '100%' }}
       >
         <Box
+          marginTop="4px"
           nativeID={domId}
           right="0px"
           position="absolute"

@@ -6,7 +6,7 @@ export enum ManageNetworkRoutes {
 }
 
 export type ManageNetworkRoutesParams = {
-  [ManageNetworkRoutes.Listing]: undefined;
+  [ManageNetworkRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkRoutes.AddNetwork]: undefined;
   [ManageNetworkRoutes.CustomNetwork]: {
     id: string;

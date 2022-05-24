@@ -439,6 +439,45 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getWalletAccountsGroupedByNetwork(
+    walletId: string,
+  ): Promise<Array<{ networkId: string; accounts: Array<Account> }>> {
+    const wallet = await this.getWallet(walletId);
+    const accounts = await this.getAccounts(wallet.accounts);
+    const networks = await this.listNetworks();
+
+    const networkToAccounts: Record<string, Array<Account>> = {};
+    const coinTypeToNetworks: Record<string, Array<string>> = {};
+    for (const network of networks) {
+      networkToAccounts[network.id] = [];
+      const coinType = implToCoinTypes[network.impl];
+      if (coinType in coinTypeToNetworks) {
+        coinTypeToNetworks[coinType].push(network.id);
+      } else {
+        coinTypeToNetworks[coinType] = [network.id];
+      }
+    }
+
+    for (const account of accounts) {
+      for (const networkId of coinTypeToNetworks[account.coinType] || []) {
+        if (account.type !== AccountType.VARIANT) {
+          networkToAccounts[networkId].push(account);
+        } else {
+          const vault = await this.getVault({
+            networkId,
+            accountId: account.id,
+          });
+          networkToAccounts[networkId].push(await vault.getOutputAccount());
+        }
+      }
+    }
+    return networks.map(({ id: networkId }) => ({
+      networkId,
+      accounts: networkToAccounts[networkId],
+    }));
+  }
+
+  @backgroundMethod()
   async getAccounts(
     accountIds: Array<string>,
     networkId?: string,

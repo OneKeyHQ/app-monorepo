@@ -22,7 +22,7 @@ import OneKeyConnect, {
 
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/types/vault';
 
-import { IMPL_EVM, SEPERATOR } from './constants';
+import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';
 import {
   NotImplemented,
@@ -142,6 +142,17 @@ export async function ethereumGetAddress(
 export function solanaSignTransaction(...args: any[]): Promise<any> {
   throw new NotImplemented();
 }
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function btcSignTransaction(...args: any[]): Promise<any> {
+  throw new NotImplemented();
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function nearSignTransaction(...args: any[]): Promise<any> {
+  throw new NotImplemented();
+}
+
 /**
  * get Solana address from the hardware wallet with the specified derivation path
  * @param path drivation path
@@ -385,16 +396,4 @@ export async function getXpubs(
     code: response.payload.code,
     message: response.payload.error,
   });
-}
-
-export async function signTransaction(
-  networkId: string,
-  path: string,
-  unsignedTx: UnsignedTx,
-): Promise<SignedTx> {
-  const [impl, chainId] = networkId.split(SEPERATOR);
-  if (impl === IMPL_EVM) {
-    return ethereumSignTransaction(path, chainId, unsignedTx);
-  }
-  throw new NotImplemented();
 }

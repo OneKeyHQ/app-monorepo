@@ -5,22 +5,25 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 
 type NetworkIconProps = {
   network: Network;
+  size?: number;
+  mr?: number;
 };
 
-export const NetworkIcon: FC<NetworkIconProps> = ({ network }) =>
+export const NetworkIcon: FC<NetworkIconProps> = ({ network, size, mr }) =>
   network.preset ? (
     <Image
       alt="logoURI"
-      size={{ base: 8, md: 6 }}
+      size={size ?? { base: 8, md: 6 }}
       source={{ uri: network.logoURI }}
-      mr="3"
+      borderRadius="full"
+      mr={mr ?? '3'}
     />
   ) : (
     <Box
       mr="3"
       borderRadius="full"
-      w={{ base: '8', md: '6' }}
-      h={{ base: '8', md: '6' }}
+      w={size ?? { base: '8', md: '6' }}
+      h={size ?? { base: '8', md: '6' }}
       display="flex"
       justifyContent="center"
       alignItems="center"

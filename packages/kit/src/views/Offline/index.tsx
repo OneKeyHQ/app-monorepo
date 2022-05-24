@@ -37,7 +37,7 @@ const OfflineView: FC<OfflineProps> = ({ offline }) => {
         alignItems="center"
         bgColor="surface-neutral-default"
       >
-        <Icon name="OfficeSolid" size={20} />
+        <Icon name="OfflineSolid" size={20} />
         <Typography.Body2Strong>
           {intl.formatMessage({ id: 'msg__offline' })}
         </Typography.Body2Strong>

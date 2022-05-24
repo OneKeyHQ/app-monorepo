@@ -2,8 +2,6 @@ import React, { ComponentProps, FC } from 'react';
 
 import {
   Box,
-  Center,
-  Divider,
   HStack,
   IconButton,
   Pressable,
@@ -93,12 +91,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   avatar={wallet.avatar}
                 />
               ))}
-
-            {wallets.some((wallet) => wallet.type === 'hd') && (
-              <Center pt={2} pb={4}>
-                <Divider bgColor="border-default" w={6} />
-              </Center>
-            )}
+            {wallets.some((wallet) => wallet.type === 'hd') && <Box h={4} />}
           </VStack>
           {/* Hardware Wallet */}
           <VStack space={2}>
@@ -120,13 +113,8 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   )}
                 />
               ))}
-
-            {wallets.some((wallet) => wallet.type === 'hw') && (
-              <Center pt={2} pb={4}>
-                <Divider bgColor="border-default" w={6} />
-              </Center>
-            )}
           </VStack>
+          {wallets.some((wallet) => wallet.type === 'hw') && <Box h={4} />}
           {/* Imported or watched wallet */}
           <VStack space={2}>
             {importedWallet ? (
@@ -158,8 +146,9 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
       </ScrollView>
       <Box p={2}>
         <IconButton
-          type="plain"
+          type="primary"
           name="PlusOutline"
+          circle
           size="xl"
           onPress={() =>
             navigation.navigate(RootRoutes.Modal, {
