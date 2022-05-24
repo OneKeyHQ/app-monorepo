@@ -2,7 +2,7 @@ import { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = {
   feeInfoEditable: false,
-  privateKeyExportEnabled: false,
+  privateKeyExportEnabled: true,
 
   importedAccountEnabled: false,
   hardwareAccountEnabled: false,
