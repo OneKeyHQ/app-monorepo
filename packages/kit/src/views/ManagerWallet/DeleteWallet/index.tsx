@@ -2,12 +2,9 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { Dialog, useToast } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks/redux';
-import { setRefreshTS } from '../../../store/reducers/settings';
 
 export type DeleteWalletProp = {
   walletId: string;
@@ -27,8 +24,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { wallet: activeWallet } = useActiveWalletAccount();
-  const { dispatch, engine, serviceAccount } = backgroundApiProxy;
+  const { engine, serviceAccount } = backgroundApiProxy;
 
   const { walletId, password } = deleteWallet ?? {};
   const [isLoading, setIsLoading] = React.useState(false);
@@ -61,11 +57,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
           engine
             .getWallet(walletId)
             .then(async (wallet) => {
-              await engine.removeWallet(walletId, password ?? '');
-              if (activeWallet?.id === walletId) {
-                await serviceAccount.autoChangeWallet();
-              }
-              dispatch(setRefreshTS());
+              await serviceAccount.removeWallet(walletId, password);
               toast.show({
                 title: intl.formatMessage(
                   { id: 'msg__wallet_deleted' },

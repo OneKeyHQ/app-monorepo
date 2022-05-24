@@ -1,7 +1,6 @@
 import React, { FC, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import {
   Box,
@@ -18,6 +17,7 @@ import lottieNFCConnectComplete from '@onekeyhq/kit/assets/hardware/lottie_oneke
 import lottieNFCConnecting from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_connect.json';
 import lottieNFCTransferData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transfer.json';
 import lottieNFCTransmittingData from '@onekeyhq/kit/assets/hardware/lottie_onekey_lite_nfc_transmitting.json';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type ConnectType = 'ble' | 'nfc';
 export type OperateType =
@@ -51,11 +51,12 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
   actionPressContent,
 }) => {
   const intl = useIntl();
+
   const [visibleIosHint, setVisibleIosHint] = useState(false);
   const [lottieConnectingIcon, setLottieConnectingIcon] =
     useState<any>(lottieNFCConnecting);
   const [lottieAutoPlay, setLottieAutoPlay] = useState<boolean>(
-    Platform.OS !== 'ios',
+    !platformEnv.isNativeIOS,
   );
   const [lottieLoopPlay, setLottieLoopPlay] = useState<boolean>(true);
 
@@ -65,13 +66,13 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
 
     if (operateType === 'guide') {
       setLottieConnectingIcon(lottieNFCConnecting);
-      if (Platform.OS === 'ios') {
+      if (platformEnv.isNativeIOS) {
         setVisibleIosHint(false);
       }
     }
     if (operateType === 'connect') {
       setLottieConnectingIcon(lottieNFCConnecting);
-      if (Platform.OS === 'ios') {
+      if (platformEnv.isNativeIOS) {
         setVisibleIosHint(true);
       }
     }
@@ -80,13 +81,13 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
       setTimeout(() => {
         setLottieConnectingIcon(lottieNFCTransmittingData);
       }, 1000);
-      if (Platform.OS === 'ios') {
+      if (platformEnv.isNativeIOS) {
         setVisibleIosHint(false);
       }
     }
     if (operateType === 'complete' || operateType === 'done') {
       setLottieConnectingIcon(lottieNFCConnectComplete);
-      if (Platform.OS === 'ios') {
+      if (platformEnv.isNativeIOS) {
         setVisibleIosHint(false);
       }
     }
@@ -106,7 +107,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
           <Button
             size="xl"
             mx={4}
-            mb={Platform.OS === 'ios' ? 12 : 4}
+            mb={platformEnv.isNativeIOS ? 12 : 4}
             onPress={() => onActionPress?.()}
             type={actionPressStyle}
           >
@@ -156,26 +157,26 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
         }}
       />
       {!!visibleIosHint && (
-        <Box
-          w="100%"
-          h="212px"
-          zIndex={99999}
-          bg="action-secondary-default"
-          display="none"
-          style={{ position: 'absolute' }}
-          borderColor="border-hovered"
-          borderWidth="1px"
-          borderRadius={36}
-          borderStyle="dashed"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon name="CursorClickOutline" size={48} />
-          <Typography.DisplayMedium px={12} mt={5}>
-            {intl.formatMessage({
-              id: 'content__place_your_onekey_lite_close_to_the_back_of_here',
-            })}
-          </Typography.DisplayMedium>
+        <Box w="100%" p={4} h="212px" position="absolute">
+          <Box
+            w="100%"
+            h="212px"
+            zIndex={99999}
+            bg="action-secondary-default"
+            borderColor="border-hovered"
+            borderWidth="1px"
+            borderRadius={36}
+            borderStyle="dashed"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon name="CursorClickOutline" size={48} />
+            <Typography.DisplayMedium px={12} mt={5} textAlign="center">
+              {intl.formatMessage({
+                id: 'content__place_your_onekey_lite_close_to_the_back_of_here',
+              })}
+            </Typography.DisplayMedium>
+          </Box>
         </Box>
       )}
     </>

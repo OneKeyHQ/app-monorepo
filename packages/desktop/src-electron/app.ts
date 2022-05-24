@@ -24,7 +24,7 @@ function createMainWindow() {
   const ratio = 16 / 9;
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
-    titleBarStyle: 'hidden',
+    titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
     frame: true,
     resizable: true,
     x: isDev ? 0 : undefined,
