@@ -200,39 +200,37 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Box>
-      {platformEnv.isDev && (
-        <Box
-          paddingX={isSmallView ? '21px' : '19px'}
-          display={
-            wallet?.type === 'watching' || !account || currencies.length === 0
-              ? 'none'
-              : 'flex'
-          }
-        >
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="TagOutline"
-            type="basic"
-            isDisabled={wallet?.type === 'watching' || !account}
-            onPress={() => {
-              if (!account) return;
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.FiatPay,
+      <Box
+        paddingX={isSmallView ? '21px' : '19px'}
+        display={
+          wallet?.type === 'watching' || !account || currencies.length === 0
+            ? 'none'
+            : 'flex'
+        }
+      >
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="TagOutline"
+          type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={() => {
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.FiatPay,
+              params: {
+                screen: FiatPayRoutes.SupportTokenListModal,
                 params: {
-                  screen: FiatPayRoutes.SupportTokenListModal,
-                  params: {
-                    networkId: activeNetwork?.id ?? '',
-                  },
+                  networkId: activeNetwork?.id ?? '',
                 },
-              });
-            }}
-          />
-          <Typography.CaptionStrong textAlign="center" mt="8px">
-            {intl.formatMessage({ id: 'action__buy' })}
-          </Typography.CaptionStrong>
-        </Box>
-      )}
+              },
+            });
+          }}
+        />
+        <Typography.CaptionStrong textAlign="center" mt="8px">
+          {intl.formatMessage({ id: 'action__buy' })}
+        </Typography.CaptionStrong>
+      </Box>
       {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
         <IconButton
           onPress={() => {

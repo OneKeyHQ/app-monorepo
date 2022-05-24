@@ -151,7 +151,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
             {intl.formatMessage({ id: 'action__send' })}
           </Typography.CaptionStrong>
         </Box>
-
         <Box paddingX={isVertical ? '21px' : '19px'}>
           <IconButton
             circle
@@ -179,35 +178,33 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
           </Typography.CaptionStrong>
         </Box>
 
-        {platformEnv.isDev ? (
-          <Box
-            paddingX={isVertical ? '21px' : '19px'}
-            display={fiatCurrency.length > 0 ? 'flex' : 'none'}
-          >
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="TagOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching'}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.FiatPay,
+        <Box
+          paddingX={isVertical ? '21px' : '19px'}
+          display={fiatCurrency.length > 0 ? 'flex' : 'none'}
+        >
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="TagOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.FiatPay,
+                params: {
+                  screen: FiatPayRoutes.AmoutInputModal,
                   params: {
-                    screen: FiatPayRoutes.AmoutInputModal,
-                    params: {
-                      token: fiatCurrency[0],
-                      type: 'Buy',
-                    },
+                    token: fiatCurrency[0],
+                    type: 'Buy',
                   },
-                });
-              }}
-            />
-            <Typography.CaptionStrong textAlign="center" mt="8px">
-              {intl.formatMessage({ id: 'action__buy' })}
-            </Typography.CaptionStrong>
-          </Box>
-        ) : null}
+                },
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__buy' })}
+          </Typography.CaptionStrong>
+        </Box>
 
         {/* {platformEnv.isDev ? (
           <Box
@@ -238,7 +235,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
             </Typography.CaptionStrong>
           </Box>
         ) : null} */}
-
         {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
             onPress={() => {
