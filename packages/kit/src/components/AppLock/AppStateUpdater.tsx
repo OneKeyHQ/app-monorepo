@@ -83,7 +83,7 @@ const DesktopUpdator = () => {
   return <></>;
 };
 
-export const AppStateUpdator = () => {
+export const AppStateUpdater = () => {
   const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   if (!enableAppLock || !isPasswordSet) {

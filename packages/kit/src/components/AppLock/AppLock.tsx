@@ -7,7 +7,7 @@ import { useAppSelector, useDebounce } from '../../hooks';
 
 import { AppStateHeartbeat } from './AppStateHeartbeat';
 import { AppStateUnlock } from './AppStateUnlock';
-import { AppStateUpdator } from './AppStateUpdator';
+import { AppStateUpdater } from './AppStateUpdater';
 
 type AppLockProps = { children: JSX.Element };
 
@@ -33,7 +33,7 @@ export const AppLockOverlayMode: FC<AppLockProps> = ({ children }) => {
           <AppStateUnlock />
         </OverlayContainer>
       ) : null}
-      {prerequisites && isUnlock ? <AppStateUpdator /> : null}
+      {prerequisites && isUnlock ? <AppStateUpdater /> : null}
       {prerequisites && isUnlock ? <AppStateHeartbeat /> : null}
       {children}
     </Box>
@@ -60,7 +60,7 @@ export const AppLockNormalMode: FC<AppLockProps> = ({ children }) => {
   }
   return (
     <Box w="full" h="full">
-      {prerequisites && isUnlock ? <AppStateUpdator /> : null}
+      {prerequisites && isUnlock ? <AppStateUpdater /> : null}
       {prerequisites && isUnlock ? <AppStateHeartbeat /> : null}
       {children}
     </Box>
