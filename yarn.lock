@@ -3936,10 +3936,10 @@
     "@onekeyfe/cross-inpage-provider-core" "^0.0.10"
     "@onekeyfe/cross-inpage-provider-types" "^0.0.10"
 
-"@onekeyfe/network-list@1.4.6":
-  version "1.4.6"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.4.6.tgz#b94d800c86f9934476319c545c5d5deb76db81fc"
-  integrity sha512-++ib17NqAc2Sowc7jUWTwXBv5wBciZXJhmc6Ed4T1IQq1Kwp1n2o+3+0+dlrkilVJ6ReJCLDdycUyBXj69aB9Q==
+"@onekeyfe/network-list@1.4.7":
+  version "1.4.7"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.4.7.tgz#547c0a4398d9337583bf8bcb711d01de1224eec3"
+  integrity sha512-mHYlkgoKRww+ALXh9zvywMBJdqBiKIkOSOm+eAY2AOGSbIFyVvwM3e84JNmQ99DofV7V7PSY6Yk8Av+3BjlyKA==
 
 "@onekeyfe/onekey-cross-webview@^0.0.10":
   version "0.0.10"
@@ -9144,6 +9144,11 @@ code-point-at@^1.0.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/code-point-at/-/code-point-at-1.1.0.tgz#0d070b4d043a5bea33a2f1a40e2edb3d9a4ccf77"
   integrity sha1-DQcLTQQ6W+ozovGkDi7bPZpMz3c=
+
+coinselect@^3.1.12:
+  version "3.1.12"
+  resolved "https://registry.yarnpkg.com/coinselect/-/coinselect-3.1.12.tgz#2255794c4002f7ecac9cf6d1cefe9f0adfd2fe7f"
+  integrity sha512-XKnm9wwZzJRGuvR1BGNbFZEfa4SEr38do8Z5riq0797QwMT836EqhdPuhtbn8uAX8vCMqJ7+gS4CHa1G9M5xhw==
 
 collect-v8-coverage@^1.0.0:
   version "1.0.1"

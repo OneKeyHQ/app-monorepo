@@ -22,6 +22,13 @@ export class VaultFactory {
     accountId,
     walletId,
   }: IVaultFactoryOptions): Promise<VaultBase> {
+    if (
+      this.lastVault &&
+      this.lastVault.networkId === networkId &&
+      this.lastVault.accountId === accountId
+    ) {
+      return this.lastVault;
+    }
     const options = {
       networkId,
       accountId,

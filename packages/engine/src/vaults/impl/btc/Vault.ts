@@ -4,10 +4,15 @@ import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/pro
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
+  TxInput,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
+// @ts-ignore
+import coinSelect from 'coinselect';
+// @ts-ignore
+import coinSelectSplit from 'coinselect/split';
 
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
@@ -15,6 +20,7 @@ import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
   IApproveInfo,
+  IBroadcastedTx,
   IEncodedTxAny,
   IEncodedTxUpdateOptions,
   IFeeInfo,
@@ -32,7 +38,87 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { getAccountDefaultByPurpose } from './utils';
 
+type UTXO = {
+  txid: string;
+  vout: number;
+  value: string;
+  address: string;
+  path: string;
+};
+
+type IEncodedTxBTC = {
+  inputs: Array<UTXO>;
+  outputs: Array<{ address: string; value: string }>;
+  fee: string;
+  transferInfo: ITransferInfo;
+};
+
 export default class Vault extends VaultBase {
+  lastFeeRate?: { updatedAt: number; rates: Array<string> };
+
+  cachedUTXOs?: { updatedAt: number; utxos: Array<UTXO> };
+
+  private async getFeeRate(): Promise<Array<string>> {
+    const now = Date.now();
+    const { updatedAt, rates } = this.lastFeeRate ?? {
+      updatedAt: 0,
+      rates: [],
+    };
+    if (now - updatedAt <= 30 * 1000) {
+      // 30 seconds cache.  TODO: may differ for different network?
+      return rates;
+    }
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as Provider;
+    const client = await provider.blockbook;
+    const newRates = [];
+    try {
+      for (const blocks of [15, 10, 5]) {
+        newRates.push(
+          new BigNumber(await client.estimateFee(blocks)).toFixed(0),
+        );
+        // TODO: blockbook API rate limit.
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    } catch (e) {
+      console.error(e);
+      throw new OneKeyInternalError('Failed to get fee rates.');
+    }
+    this.lastFeeRate = { updatedAt: Date.now(), rates: newRates };
+    return newRates;
+  }
+
+  async collectUTXOs(): Promise<Array<UTXO>> {
+    const now = Date.now();
+    const { updatedAt, utxos } = this.cachedUTXOs ?? {
+      updatedAt: 0,
+      utxos: [],
+    };
+    if (now - updatedAt <= 60 * 1000) {
+      // One minute cache.  TODO: may differ for different network?
+      return utxos;
+    }
+
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as Provider;
+    const client = await provider.blockbook;
+    let newUTXOs: Array<UTXO> = [];
+    try {
+      // TODO: use updated blockchain-libs API
+      newUTXOs = await client.restful
+        .get(`/api/v2/utxo/${dbAccount.xpub}`)
+        .then((i) => i.json());
+    } catch (e) {
+      console.error(e);
+      throw new OneKeyInternalError('Failed to get UTXOs of the account.');
+    }
+    this.cachedUTXOs = { updatedAt: Date.now(), utxos: newUTXOs };
+    return newUTXOs;
+  }
+
   settings = settings;
 
   keyringMap = {
@@ -42,33 +128,105 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
   };
 
-  simpleTransfer(
-    payload: {
-      to: string;
-      value: string;
-      tokenIdOnNetwork?: string;
-      extra?: { [key: string]: any };
-      gasPrice: string; // TODO remove gasPrice, gasLimit
-      gasLimit: string;
-    },
-    options: ISignCredentialOptions,
-  ): Promise<any> {
-    throw new NotImplemented();
-  }
-
   attachFeeInfoToEncodedTx(params: {
-    encodedTx: any;
+    encodedTx: IEncodedTxBTC;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<any> {
-    throw new NotImplemented();
+  }): Promise<IEncodedTxBTC> {
+    const feeRate = params.feeInfoValue.price;
+    if (typeof feeRate === 'string') {
+      return this.buildEncodedTxFromTransfer(
+        params.encodedTx.transferInfo,
+        feeRate,
+      );
+    }
+    return Promise.resolve(params.encodedTx);
   }
 
-  decodeTx(encodedTx: IEncodedTxAny, payload?: any): Promise<any> {
-    throw new NotImplemented();
+  async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<any> {
+    const { inputs, outputs, fee } = encodedTx;
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    return {
+      symbol: network.symbol,
+      amount: new BigNumber(outputs[0].value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      value: outputs[0].value,
+      network,
+      fromAddress: dbAccount.address,
+      toAddress: outputs[0].address,
+      data: '',
+      total: BigNumber.sum
+        .apply(
+          null,
+          inputs.map(({ value }) => value),
+        )
+        .toFixed(),
+    };
   }
 
-  buildEncodedTxFromTransfer(transferInfo: ITransferInfo): Promise<any> {
-    throw new NotImplemented();
+  async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+    specifiedFeeRate?: string,
+  ): Promise<IEncodedTxBTC> {
+    const { to, amount, max } = transferInfo;
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const utxos = await this.collectUTXOs();
+    const feeRate = specifiedFeeRate || (await this.getFeeRate())[1];
+
+    const {
+      inputs,
+      outputs,
+      fee,
+    }: {
+      inputs: Array<{
+        txId: string;
+        vout: number;
+        value: number;
+        address: string;
+        path: string;
+      }>;
+      outputs: Array<{ address: string; value: number }>;
+      fee: number;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    } = (max ? coinSelectSplit : coinSelect)(
+      utxos.map(({ txid, vout, value, address, path }) => ({
+        txId: txid,
+        vout,
+        value: parseInt(value),
+        address,
+        path,
+      })),
+      [
+        max
+          ? { address: to }
+          : {
+              address: to,
+              value: parseInt(
+                new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+              ),
+            },
+      ],
+      parseInt(feeRate),
+    );
+    if (!inputs || !outputs) {
+      // TODO: balance not enough.
+      throw new OneKeyInternalError('Failed to select UTXOs');
+    }
+    return {
+      inputs: inputs.map(({ txId, value, ...keep }) => ({
+        ...keep,
+        txid: txId,
+        value: value.toString(),
+      })),
+      outputs: outputs.map(({ value, address }) => ({
+        address: address || dbAccount.address, // change amount
+        value: value.toString(),
+      })),
+      fee: fee.toString(),
+      transferInfo,
+    };
   }
 
   buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
@@ -90,12 +248,50 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxAny): Promise<UnsignedTx> {
-    throw new NotImplemented();
+  buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxBTC): Promise<UnsignedTx> {
+    const { inputs, outputs } = encodedTx;
+
+    const inputsInUnsignedTx: Array<TxInput> = [];
+    for (const input of inputs) {
+      const value = new BigNumber(input.value);
+      inputsInUnsignedTx.push({
+        address: input.address,
+        value,
+        utxo: { txid: input.txid, vout: input.vout, value },
+      });
+    }
+    const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
+      address,
+      value: new BigNumber(value),
+    }));
+
+    const ret = {
+      inputs: inputsInUnsignedTx,
+      outputs: outputsInUnsignedTx,
+      payload: {},
+    };
+    return Promise.resolve(ret);
   }
 
-  fetchFeeInfo(encodedTx: IEncodedTxAny): Promise<IFeeInfo> {
-    throw new NotImplemented();
+  async fetchFeeInfo(encodedTx: IEncodedTxBTC): Promise<IFeeInfo> {
+    const network = await this.engine.getNetwork(this.networkId);
+    const { feeLimit } = await this.engine.providerManager.buildUnsignedTx(
+      this.networkId,
+      {
+        ...(await this.buildUnsignedTxFromEncodedTx(encodedTx)),
+        feePricePerUnit: new BigNumber(1),
+      },
+    );
+    const prices = await this.getFeeRate();
+    return {
+      limit: (feeLimit ?? new BigNumber(0)).toFixed(),
+      prices,
+      symbol: 'sats',
+      decimals: network.feeDecimals, // TODO: UI calculation incorrect?
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null, // Must be null if network not support feeInTx
+    };
   }
 
   async getExportedCredential(password: string): Promise<string> {

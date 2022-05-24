@@ -12,7 +12,7 @@ export type DataInitialState = {
 };
 
 const initialState: DataInitialState = {
-  isUnlock: platformEnv.isNative ? !!platformEnv.isDev : true, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
+  isUnlock: !!platformEnv.isDev, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
   onekeySupportList: [],
   currencyList: [],
