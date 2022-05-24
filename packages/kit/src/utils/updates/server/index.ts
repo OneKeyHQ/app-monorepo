@@ -1,21 +1,36 @@
 import axios from 'axios';
+import semver from 'semver';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PackageInfo, PackagesInfo, ReleasesInfo } from '../type';
 
 import { ReleasesVersion } from './GithubReleases';
+import { getIosAppStoreCurrentVersion } from './IOSAppStoreVersion';
 
-function handleReleaseInfo(releasesVersion: ReleasesVersion): ReleasesInfo {
+async function handleReleaseInfo(
+  releasesVersion: ReleasesVersion,
+): Promise<ReleasesInfo> {
   const androidPackages: PackageInfo[] = [];
   const extPackages: PackageInfo[] = [];
   const desktopPackages: PackageInfo[] = [];
-  const iosPackages: PackageInfo[] = [
-    {
-      os: 'ios',
-      channel: 'AppStore',
-      download:
-        'https://apps.apple.com/app/onekey-open-source-wallet/id1609559473',
-    },
-  ];
+  const iosPackages: PackageInfo[] = [];
+
+  if (platformEnv.isNativeIOS) {
+    // iOS check AppStore
+    const iosVersion = await getIosAppStoreCurrentVersion();
+    if (
+      iosVersion &&
+      // iosVersion >= releasesVersion
+      semver.gte(iosVersion.version, releasesVersion.tag_name)
+    ) {
+      iosPackages.push({
+        os: 'ios',
+        channel: 'AppStore',
+        download: iosVersion.trackViewUrl,
+      });
+    }
+  }
 
   androidPackages.push({
     os: 'android',
