@@ -7,12 +7,15 @@ import {
   updateWallet,
   updateWallets,
 } from '@onekeyhq/kit/src/store/reducers/runtime';
+import {
+  setEnableAppLock,
+  setRefreshTS,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 import { randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
-import { setEnableAppLock } from '../../store/reducers/settings';
 import { setBoardingCompleted, unlock } from '../../store/reducers/status';
 import { Avatar } from '../../utils/emojiUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -92,7 +95,7 @@ class ServiceAccount extends ServiceBase {
         wallet.accounts,
         activeNetworkId,
       );
-      accountId = account?.[0].id ?? null;
+      accountId = account?.[0]?.id ?? null;
     }
     serviceAccount.changeActiveAccount({
       accountId,
@@ -385,6 +388,41 @@ class ServiceAccount extends ServiceBase {
       return accounts[0]?.id ?? null;
     }
     return previousAccountId;
+  }
+
+  @backgroundMethod()
+  async removeWallet(walletId: string, password: string | undefined) {
+    const { appSelector, engine, dispatch } = this.backgroundApi;
+    const activeWalletId = appSelector((s) => s.general.activeWalletId);
+    await engine.removeWallet(walletId, password ?? '');
+
+    if (activeWalletId === walletId) {
+      await this.autoChangeWallet();
+    } else {
+      await this.initWallets();
+    }
+
+    dispatch(setRefreshTS());
+  }
+
+  @backgroundMethod()
+  async removeAccount(
+    walletId: string,
+    accountId: string,
+    password: string | undefined,
+  ) {
+    const { appSelector, engine, dispatch } = this.backgroundApi;
+    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    await engine.removeAccount(accountId, password ?? '');
+
+    if (activeAccountId === accountId) {
+      await this.autoChangeAccount({ walletId });
+    } else {
+      const wallet: Wallet | null = await engine.getWallet(walletId);
+      dispatch(updateWallet(wallet));
+    }
+
+    dispatch(setRefreshTS());
   }
 }
 
