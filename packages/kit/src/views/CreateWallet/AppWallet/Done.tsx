@@ -13,6 +13,7 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigation, useNavigationActions } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
@@ -54,6 +55,9 @@ const Done: FC<DoneProps> = ({
       }
       closeDrawer();
       openRootHome();
+      if (platformEnv.isExtensionUiStandaloneWindow) {
+        window?.close?.();
+      }
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps

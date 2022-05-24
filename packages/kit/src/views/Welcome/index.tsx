@@ -13,6 +13,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import logo from '../../../assets/logo.png';
 import { useHelpLink, useNavigationActions } from '../../hooks';
@@ -74,6 +75,13 @@ const Welcome = () => {
     );
   }, [intl, privacyPolicyUrl]);
 
+  const onSkip = useCallback(() => {
+    resetToRoot();
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      window?.close?.();
+    }
+  }, [resetToRoot]);
+
   return (
     <Center w="full" h="full" bg="surface-default" pt="32">
       <Box h="full" w="full" maxW="400px" px={8}>
@@ -111,7 +119,7 @@ const Welcome = () => {
             <Button
               size={isVertical ? 'xl' : 'base'}
               type="plain"
-              onPress={resetToRoot}
+              onPress={onSkip}
             >
               {intl.formatMessage({ id: 'action__skip' })}
             </Button>
