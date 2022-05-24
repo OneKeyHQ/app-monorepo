@@ -6,7 +6,6 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Box,
-  Button,
   IconButton,
   Token,
   Typography,
@@ -17,7 +16,10 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useFiatPay,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -30,6 +32,7 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { SendRoutes } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -43,7 +46,14 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
+
   const { wallet, account } = useActiveWalletAccount();
+  const currencies = useFiatPay(network?.id ?? '');
+
+  const fiatCurrency = currencies.filter(
+    (item) => item.contract === token?.tokenIdOnNetwork,
+  );
+
   const { prices, balances } = useManageTokens();
   const tokenPrice = useDeepCompareMemo(
     () => prices[token?.tokenIdOnNetwork ?? 'main'],
@@ -113,51 +123,118 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
 
   const accountOption = useMemo(
     () => (
-      <Box flexDirection="row" justifyContent="center" alignItems="center">
-        <Button
-          size={isVertical ? 'lg' : 'base'}
-          leftIconName="ArrowUpSolid"
-          minW={{ base: '126px', md: 'auto' }}
-          isDisabled={wallet?.type === 'watching'}
-          type="basic"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Send,
-              params: {
-                screen: SendRoutes.Send,
+      <Box
+        flexDirection="row"
+        justifyContent="space-around"
+        alignItems="center"
+      >
+        <Box paddingX={isVertical ? '21px' : '19px'}>
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowUpSolid"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
                 params: {
-                  token: token as TokenDO,
+                  screen: SendRoutes.Send,
+                  params: {
+                    token: token as TokenDO,
+                  },
                 },
-              },
-            });
-          }}
-        >
-          {intl.formatMessage({ id: 'action__send' })}
-        </Button>
-        <Button
-          isDisabled={wallet?.type === 'watching'}
-          size={isVertical ? 'lg' : 'base'}
-          ml={4}
-          leftIconName="ArrowDownSolid"
-          minW={{ base: '126px', md: 'auto' }}
-          type="basic"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenRoutes.ReceiveToken,
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__send' })}
+          </Typography.CaptionStrong>
+        </Box>
+        <Box paddingX={isVertical ? '21px' : '19px'}>
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowDownSolid"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Receive,
                 params: {
-                  // Todo: account conversion
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  address: (account as any)?.address,
-                  name: '',
+                  screen: ReceiveTokenRoutes.ReceiveToken,
+                  params: {
+                    // Todo: account conversion
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    address: (account as any)?.address,
+                    name: '',
+                  },
                 },
-              },
-            });
-          }}
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__receive' })}
+          </Typography.CaptionStrong>
+        </Box>
+
+        <Box
+          paddingX={isVertical ? '21px' : '19px'}
+          display={fiatCurrency.length > 0 ? 'flex' : 'none'}
         >
-          {intl.formatMessage({ id: 'action__receive' })}
-        </Button>
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="TagOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.FiatPay,
+                params: {
+                  screen: FiatPayRoutes.AmoutInputModal,
+                  params: {
+                    token: fiatCurrency[0],
+                    type: 'Buy',
+                  },
+                },
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__buy' })}
+          </Typography.CaptionStrong>
+        </Box>
+
+        {/* {platformEnv.isDev ? (
+          <Box
+            paddingX={isVertical ? '21px' : '19px'}
+            display={fiatCurrency.length > 0 ? 'flex' : 'none'}
+          >
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="CashOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
+                  params: {
+                    screen: FiatPayRoutes.AmoutInputModal,
+                    params: {
+                      token: fiatCurrency[0],
+                      type: 'Sell',
+                    },
+                  },
+                });
+              }}
+            />
+            <Typography.CaptionStrong textAlign="center" mt="8px">
+              {intl.formatMessage({ id: 'action__sell' })}
+            </Typography.CaptionStrong>
+          </Box>
+        ) : null} */}
         {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
             onPress={() => {
@@ -169,7 +246,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         )}
       </Box>
     ),
-    [isVertical, wallet?.type, intl, navigation, token, account],
+    [isVertical, wallet?.type, intl, fiatCurrency, navigation, token, account],
   );
 
   return useMemo(

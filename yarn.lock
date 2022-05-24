@@ -3936,10 +3936,10 @@
     "@onekeyfe/cross-inpage-provider-core" "^0.0.10"
     "@onekeyfe/cross-inpage-provider-types" "^0.0.10"
 
-"@onekeyfe/network-list@1.4.6":
-  version "1.4.6"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.4.6.tgz#b94d800c86f9934476319c545c5d5deb76db81fc"
-  integrity sha512-++ib17NqAc2Sowc7jUWTwXBv5wBciZXJhmc6Ed4T1IQq1Kwp1n2o+3+0+dlrkilVJ6ReJCLDdycUyBXj69aB9Q==
+"@onekeyfe/network-list@1.4.7":
+  version "1.4.7"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/network-list/-/network-list-1.4.7.tgz#547c0a4398d9337583bf8bcb711d01de1224eec3"
+  integrity sha512-mHYlkgoKRww+ALXh9zvywMBJdqBiKIkOSOm+eAY2AOGSbIFyVvwM3e84JNmQ99DofV7V7PSY6Yk8Av+3BjlyKA==
 
 "@onekeyfe/onekey-cross-webview@^0.0.10":
   version "0.0.10"
@@ -5325,6 +5325,13 @@
   integrity sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==
   dependencies:
     defer-to-connect "^2.0.0"
+
+"@testing-library/react-native@^7.2.0":
+  version "7.2.0"
+  resolved "https://registry.yarnpkg.com/@testing-library/react-native/-/react-native-7.2.0.tgz#e5ec5b0974e4e5f525f8057563417d1e9f820d96"
+  integrity sha512-rDKzJjAAeGgyoJT0gFQiMsIL09chdWcwZyYx6WZHMgm2c5NDqY52hUuyTkzhqddMYWmSRklFphSg7B2HX+246Q==
+  dependencies:
+    pretty-format "^26.0.1"
 
 "@tootallnate/once@1":
   version "1.1.2"
@@ -9137,6 +9144,11 @@ code-point-at@^1.0.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/code-point-at/-/code-point-at-1.1.0.tgz#0d070b4d043a5bea33a2f1a40e2edb3d9a4ccf77"
   integrity sha1-DQcLTQQ6W+ozovGkDi7bPZpMz3c=
+
+coinselect@^3.1.12:
+  version "3.1.12"
+  resolved "https://registry.yarnpkg.com/coinselect/-/coinselect-3.1.12.tgz#2255794c4002f7ecac9cf6d1cefe9f0adfd2fe7f"
+  integrity sha512-XKnm9wwZzJRGuvR1BGNbFZEfa4SEr38do8Z5riq0797QwMT836EqhdPuhtbn8uAX8vCMqJ7+gS4CHa1G9M5xhw==
 
 collect-v8-coverage@^1.0.0:
   version "1.0.1"
@@ -20016,7 +20028,7 @@ pretty-error@^2.1.1:
     lodash "^4.17.20"
     renderkid "^2.0.4"
 
-pretty-format@^26.5.2, pretty-format@^26.6.2:
+pretty-format@^26.0.1, pretty-format@^26.5.2, pretty-format@^26.6.2:
   version "26.6.2"
   resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-26.6.2.tgz#e35c2705f14cb7fe2fe94fa078345b444120fc93"
   integrity sha512-7AeGuCYNGmycyQbCqd/3PWH4eOoX/OiCa0uphp57NVTeAGdJGaAliecxwBDHYQCIvrW7aDBZCYeNTP/WX69mkg==
@@ -20558,6 +20570,13 @@ react-native-animatable@1.3.3:
   integrity sha512-2ckIxZQAsvWn25Ho+DK3d1mXIgj7tITkrS4pYDvx96WyOttSvzzFeQnM2od0+FUMzILbdHDsDEqZvnz1DYNQ1w==
   dependencies:
     prop-types "^15.7.2"
+
+react-native-auto-size-text@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/react-native-auto-size-text/-/react-native-auto-size-text-1.1.1.tgz#5b209d4805f7eb61505a73665366349025d1a217"
+  integrity sha512-pau8hu3HV6ulJZc2Ez6QUCUxv9mGO7bozOpYwyPR3AclzUB8BjZFSXzBrfHuzTFbqwmcmHxSsow7rOBy3kGhZg==
+  dependencies:
+    "@testing-library/react-native" "^7.2.0"
 
 react-native-base64@^0.2.1:
   version "0.2.1"
@@ -21945,6 +21964,13 @@ semver@^7.2.1, semver@^7.3.2, semver@^7.3.4, semver@^7.3.5, semver@~7.3.2:
   version "7.3.5"
   resolved "https://registry.yarnpkg.com/semver/-/semver-7.3.5.tgz#0b621c879348d8998e4b0e4be94b3f12e6018ef7"
   integrity sha512-PoeGJYh8HK4BTO/a9Tf6ZG3veo/A7ZVsYrSA6J8ny9nb3B1VrpkuN+z9OE5wfE5p6H4LchYZsegiQgbJD94ZFQ==
+  dependencies:
+    lru-cache "^6.0.0"
+
+semver@^7.3.7:
+  version "7.3.7"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-7.3.7.tgz#12c5b649afdbf9049707796e22a4028814ce523f"
+  integrity sha512-QlYTucUYOews+WeEujDoEGziz4K6c47V/Bd+LjSSYcA94p+DmINdf7ncaUinThfvZyu13lN9OY1XDxt8C0Tw0g==
   dependencies:
     lru-cache "^6.0.0"
 

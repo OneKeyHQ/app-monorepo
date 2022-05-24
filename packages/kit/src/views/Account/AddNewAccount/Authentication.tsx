@@ -12,6 +12,8 @@ import {
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 
+import { useNavigation } from '../../../hooks';
+
 export type EnableLocalAuthenticationProps = {
   password: string;
   onDone?: (password: string) => void;
@@ -40,9 +42,13 @@ const HDAccountAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
 
 export const HDAccountAuthentication: FC = () => {
   const route = useRoute<RouteProps>();
+  const navigation = useNavigation();
   const { onDone, walletId } = route.params;
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: false });
+  }, []);
   return (
-    <Modal footer={null}>
+    <Modal footer={null} headerShown={false}>
       <Protected walletId={walletId} field={ValidationFields.Account}>
         {(password) => (
           <HDAccountAuthenticationDone

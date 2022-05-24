@@ -5,6 +5,7 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Box } from '@onekeyhq/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -29,6 +30,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId } = route.params;
   const [account, setAccount] = useState<Account>();
+  const [network, setNetwork] = useState<Network>();
   const { accountTokensMap, nativeToken } = useManageTokens();
 
   const token = useDeepCompareMemo(
@@ -45,6 +47,9 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
       .catch(() => {
         console.error('find account error');
       });
+    backgroundApiProxy.engine.getNetwork(networkId).then((result) => {
+      setNetwork(result);
+    });
   }, [accountId, networkId]);
 
   useLayoutEffect(() => {
@@ -53,8 +58,8 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   }, [navigation, account, token, nativeToken]);
 
   const headerView = useMemo(
-    () => <TokenInfo token={token} network={undefined} />,
-    [token],
+    () => <TokenInfo token={token} network={network} />,
+    [network, token],
   );
 
   return (
