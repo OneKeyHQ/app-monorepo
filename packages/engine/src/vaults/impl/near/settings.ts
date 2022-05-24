@@ -6,7 +6,7 @@ const settings: IVaultSettings = {
 
   importedAccountEnabled: false,
   hardwareAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
 };
 
 export default settings;
