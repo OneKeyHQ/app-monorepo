@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useState } from 'react';
 
 import { chunk } from 'lodash';
 import { Center, Column, Pressable, Row } from 'native-base';
@@ -42,9 +42,10 @@ const defaultKeys: KeyType[] = [
 
 type KeyboardProps = {
   keys?: KeyType[];
-  onKeyPress?: (text: KeyType) => void;
-  onDelete?: () => void;
+  onTextChange?: (text: string) => void;
   secure?: boolean;
+  pattern?: RegExp;
+  itemHeight?: string;
 };
 
 type KeyBoardItemProps = {
@@ -63,18 +64,31 @@ const KeyBoardItem: FC<KeyBoardItemProps> = ({ item, secure }) => {
 
 const Keyboard: FC<KeyboardProps> = ({
   keys,
-  onKeyPress,
-  onDelete,
   secure = false,
+  onTextChange,
+  pattern,
+  itemHeight,
 }) => {
   const innerKeyArray = chunk(keys ?? defaultKeys, 3);
+  const [inputText, updateInputText] = useState('');
   const onPress = (item: KeyType) => {
-    if (item === 'del' && onDelete) {
-      onDelete();
-    } else if (onKeyPress) {
-      onKeyPress(item);
-    }
+    updateInputText((prev) => {
+      let changeText = '';
+      if (item === 'del') {
+        changeText = inputText.slice(0, inputText.length - 1);
+      } else {
+        changeText = prev + item;
+        if (pattern && !pattern.test(prev + item)) {
+          changeText = prev;
+        }
+      }
+      if (onTextChange) {
+        onTextChange(changeText);
+      }
+      return changeText;
+    });
   };
+
   return (
     <Box width="full" height="auto" paddingX="10px">
       <Column space="8px">
@@ -87,7 +101,7 @@ const Keyboard: FC<KeyboardProps> = ({
                 onPress={() => {
                   onPress(item);
                 }}
-                height="56px"
+                height={itemHeight ?? '56px'}
                 flex={1}
                 _pressed={{ bg: 'surface-pressed' }}
                 _hover={{ bg: 'surface-hovered' }}
