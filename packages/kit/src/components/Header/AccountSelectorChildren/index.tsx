@@ -2,23 +2,26 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DrawerActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { SectionList } from 'react-native';
 
 import {
   Account,
   Box,
-  FlatList,
   HStack,
   Icon,
   Pressable,
   Select,
+  Text,
+  Token,
   Typography,
   VStack,
   useIsVerticalLayout,
   useSafeAreaInsets,
   useToast,
 } from '@onekeyhq/components';
-// import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import { SelectItem } from '@onekeyhq/components/src/Select';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
@@ -32,11 +35,15 @@ import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthent
 import {
   CreateAccountModalRoutes,
   CreateWalletModalRoutes,
+  ManageNetworkRoutes,
 } from '@onekeyhq/kit/src/routes';
 import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
+
+import { useManageNetworks } from '../../../hooks';
+import { NetworkIcon } from '../../../views/ManageNetworks/Listing/NetworkIcon';
 
 import LeftSide from './LeftSide';
 import RightHeader from './RightHeader';
@@ -73,12 +80,17 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </Box>
 );
 
+type AccountGroup = { title: Network; data: AccountEngineType[] };
+
+const AllNetwork = 'all';
+
 const AccountSelectorChildren: FC<{
   isOpen?: boolean;
   toggleOpen?: (...args: any) => any;
-}> = ({ isOpen, toggleOpen }) => {
+}> = ({ isOpen }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+
   const navigation = useAppNavigation();
   const toast = useToast();
   const { bottom } = useSafeAreaInsets();
@@ -90,17 +102,23 @@ const AccountSelectorChildren: FC<{
   const [modifyNameAccount, setModifyNameAccount] =
     useState<AccountEngineType>();
 
+  const { engine, serviceAccount, serviceNetwork } = backgroundApiProxy;
+
   const {
     account: currentSelectedAccount,
     wallet: defaultSelectedWallet,
     network: activeNetwork,
   } = useActiveWalletAccount();
   const { wallets } = useRuntime();
+  const { enabledNetworks } = useManageNetworks();
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(
     defaultSelectedWallet,
   );
 
-  const [activeAccounts, setActiveAccounts] = useState<AccountEngineType[]>([]);
+  const [activeAccounts, setActiveAccounts] = useState<AccountGroup[]>([]);
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
+    activeNetwork?.id ?? AllNetwork,
+  );
 
   const activeWallet = useMemo(() => {
     const wallet =
@@ -114,13 +132,69 @@ const AccountSelectorChildren: FC<{
       setActiveAccounts([]);
       return;
     }
-    const accounts = await backgroundApiProxy.engine.getAccounts(
-      activeWallet.accounts,
-      activeNetwork?.id,
+
+    const networksMap = new Map(
+      (await engine.listNetworks()).map((key) => [key.id, key]),
     );
 
-    setActiveAccounts(accounts);
-  }, [activeNetwork?.id, activeWallet]);
+    let accountsGroup: AccountGroup[] = [];
+
+    if (selectedNetworkId === 'all') {
+      accountsGroup = (
+        await engine.getWalletAccountsGroupedByNetwork(activeWallet.id)
+      )
+        .reduce((accumulate, current) => {
+          const network = networksMap.get(current.networkId);
+          if (!network) return accumulate;
+          return [...accumulate, { title: network, data: current.accounts }];
+        }, [] as AccountGroup[])
+        .filter((group) => group.data.length > 0);
+    } else {
+      const network = networksMap.get(selectedNetworkId);
+      if (!network || !activeWallet) return;
+      const data = await engine.getAccounts(activeWallet.accounts, network.id);
+      accountsGroup = [
+        {
+          title: network,
+          data,
+        },
+      ];
+    }
+
+    setActiveAccounts(accountsGroup);
+  }, [activeWallet, engine, selectedNetworkId]);
+
+  const options = useMemo(() => {
+    const selectNetworkExists = enabledNetworks.find(
+      (network) => network.id === selectedNetworkId,
+    );
+    if (!selectNetworkExists)
+      setTimeout(() => setSelectedNetworkId(AllNetwork));
+
+    if (!enabledNetworks) return [];
+
+    const networks: SelectItem<string>[] = enabledNetworks.map((network) => ({
+      label: network.shortName,
+      value: network.id,
+      tokenProps: {
+        src: network.logoURI,
+        letter: network.shortName,
+      },
+      badge: network.impl === 'evm' ? 'EVM' : undefined,
+    }));
+    networks.unshift({
+      label: intl.formatMessage({ id: 'option__all' }),
+      value: AllNetwork,
+      iconProps: {
+        name: 'OptionListAllSolid',
+        size: isVerticalLayout ? 32 : 24,
+        color: 'surface-neutral-default',
+      },
+    });
+
+    return networks;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabledNetworks, isVerticalLayout, intl]);
 
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
@@ -270,25 +344,116 @@ const AccountSelectorChildren: FC<{
       />
       <VStack flex={1} pb={bottom}>
         <RightHeader selectedWallet={activeWallet} />
-        <FlatList
-          px={2}
-          contentContainerStyle={{
-            paddingBottom: 16,
-          }}
-          data={activeAccounts}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
+        <Box m={2}>
+          <Select
+            setPositionOnlyMounted
+            positionTranslateY={4}
+            dropdownPosition="right"
+            value={selectedNetworkId}
+            onChange={setSelectedNetworkId}
+            title={intl.formatMessage({ id: 'network__networks' })}
+            options={options}
+            isTriggerPlain
+            footerText={intl.formatMessage({ id: 'action__customize_network' })}
+            footerIcon="PencilSolid"
+            onPressFooter={() => {
+              setTimeout(() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageNetwork,
+                  params: {
+                    screen: ManageNetworkRoutes.Listing,
+                    params: { onEdited: refreshAccounts },
+                  },
+                });
+              }, 500);
+            }}
+            renderTrigger={(activeOption, isHovered, visible) => (
+              <Box
+                display="flex"
+                flexDirection="row"
+                alignItems="center"
+                py={2}
+                pl="3"
+                pr="2.5"
+                borderWidth="1"
+                borderColor={
+                  // eslint-disable-next-line no-nested-ternary
+                  visible
+                    ? 'focused-default'
+                    : isHovered
+                    ? 'border-hovered'
+                    : 'border-default'
+                }
+                borderRadius="xl"
+                bg={
+                  // eslint-disable-next-line no-nested-ternary
+                  visible
+                    ? 'surface-selected'
+                    : // eslint-disable-next-line no-nested-ternary
+                    isHovered
+                    ? 'surface-hovered'
+                    : 'surface-default'
+                }
+              >
+                <Box
+                  display="flex"
+                  flex={1}
+                  flexDirection="row"
+                  alignItems="center"
+                  mr="1"
+                >
+                  {!!activeOption.tokenProps && (
+                    <Box mr="3">
+                      <Token
+                        size={activeOption.description ? 8 : 6}
+                        {...activeOption.tokenProps}
+                      />
+                    </Box>
+                  )}
+                  {!!activeOption.iconProps && (
+                    <Box mr="3">
+                      <Icon size={6} {...activeOption.iconProps} />
+                    </Box>
+                  )}
+                  <Box flex={1}>
+                    <Text
+                      typography={{ sm: 'Body1', md: 'Body2' }}
+                      numberOfLines={1}
+                      flex={1}
+                      isTruncated
+                    >
+                      {activeOption.label ?? '-'}
+                    </Text>
+                  </Box>
+                </Box>
+                <Icon size={20} name="ChevronDownSolid" />
+              </Box>
+            )}
+          />
+        </Box>
+
+        <SectionList
+          stickySectionHeadersEnabled
+          sections={activeAccounts}
+          SectionSeparatorComponent={(section) => (
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            <Box h={section?.leadingItem ? 2 : 0} />
+          )}
+          ItemSeparatorComponent={() => <Box h={2} />}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          renderItem={({ item, section }) => (
             <Pressable
+              px={2}
               onPress={() => {
                 setHaptics();
-                backgroundApiProxy.serviceAccount.changeActiveAccount({
+                serviceNetwork.changeActiveNetwork(section?.title?.id);
+                serviceAccount.changeActiveAccount({
                   accountId: item.id,
                   walletId: activeWallet?.id ?? '',
                 });
                 setTimeout(() => {
-                  toggleOpen?.();
                   navigation.dispatch(DrawerActions.closeDrawer());
-                }, 0);
+                });
               }}
             >
               {({ isHovered, isPressed }) => (
@@ -296,11 +461,11 @@ const AccountSelectorChildren: FC<{
                   p="7px"
                   borderWidth={1}
                   borderColor={isHovered ? 'border-hovered' : 'transparent'}
+                  bgColor={isPressed ? 'surface-pressed' : undefined}
+                  borderStyle="dashed"
                   bg={
-                    // eslint-disable-next-line no-nested-ternary
-                    isPressed
-                      ? 'surface-pressed'
-                      : currentSelectedAccount?.id === item.id
+                    currentSelectedAccount?.id === item.id &&
+                    activeNetwork?.id === section?.title?.id
                       ? 'surface-selected'
                       : 'transparent'
                   }
@@ -322,76 +487,91 @@ const AccountSelectorChildren: FC<{
               )}
             </Pressable>
           )}
-          ItemSeparatorComponent={() => <Box h={2} />}
-          ListFooterComponent={
-            <Pressable
-              mt={2}
-              onPress={() => {
-                if (!activeWallet) return;
-                const networkSettings = activeNetwork?.settings;
-                const showNotSupportToast = () => {
-                  toast.show({
-                    title: intl.formatMessage({ id: 'badge__coming_soon' }),
-                  });
-                };
-                if (activeWallet?.type === 'imported') {
-                  if (!networkSettings?.importedAccountEnabled) {
-                    showNotSupportToast();
-                    return;
-                  }
-                  return navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                      params: { mode: 'privatekey' },
-                    },
-                  });
-                }
-                if (activeWallet?.type === 'watching') {
-                  if (!networkSettings?.watchingAccountEnabled) {
-                    showNotSupportToast();
-                    return;
-                  }
-                  return navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.CreateWallet,
-                    params: {
-                      screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                      params: { mode: 'address' },
-                    },
-                  });
-                }
-
-                return navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.CreateAccount,
-                  params: {
-                    screen: CreateAccountModalRoutes.CreateAccountForm,
-                    params: {
-                      walletId: activeWallet.id,
-                    },
-                  },
-                });
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <HStack
-                  p={2}
-                  borderRadius="xl"
-                  space={3}
-                  borderWidth={1}
-                  borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
-                  bgColor={isPressed ? 'surface-pressed' : undefined}
-                  borderStyle="dashed"
-                  alignItems="center"
-                >
-                  <Icon name="PlusCircleOutline" />
-                  <Typography.Body2Strong color="text-subdued">
-                    {intl.formatMessage({ id: 'action__add_account' })}
-                  </Typography.Body2Strong>
-                </HStack>
-              )}
-            </Pressable>
+          renderSectionHeader={({ section: { title } }) =>
+            activeAccounts.length > 1 ? (
+              <Box
+                px={4}
+                p={2}
+                bg="surface-subdued"
+                flexDirection="row"
+                alignItems="center"
+              >
+                <NetworkIcon network={title} size={4} mr={2} />
+                <Typography.Subheading color="text-subdued">
+                  {title.shortName}
+                </Typography.Subheading>
+              </Box>
+            ) : null
           }
         />
+
+        <Box p={2}>
+          <Pressable
+            onPress={() => {
+              if (!activeWallet) return;
+              const networkSettings = activeNetwork?.settings;
+              const showNotSupportToast = () => {
+                toast.show({
+                  title: intl.formatMessage({ id: 'badge__coming_soon' }),
+                });
+              };
+              if (activeWallet?.type === 'imported') {
+                if (!networkSettings?.importedAccountEnabled) {
+                  showNotSupportToast();
+                  return;
+                }
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateWallet,
+                  params: {
+                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                    params: { mode: 'privatekey' },
+                  },
+                });
+              }
+              if (activeWallet?.type === 'watching') {
+                if (!networkSettings?.watchingAccountEnabled) {
+                  showNotSupportToast();
+                  return;
+                }
+                return navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CreateWallet,
+                  params: {
+                    screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                    params: { mode: 'address' },
+                  },
+                });
+              }
+
+              return navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateAccount,
+                params: {
+                  screen: CreateAccountModalRoutes.CreateAccountForm,
+                  params: {
+                    walletId: activeWallet.id,
+                  },
+                },
+              });
+            }}
+          >
+            {({ isHovered }) => (
+              <HStack
+                py={3}
+                borderRadius="xl"
+                space={3}
+                borderWidth={1}
+                borderColor={isHovered ? 'border-hovered' : 'border-subdued'}
+                borderStyle="dashed"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon name="UserAddOutline" />
+                <Typography.Body2Strong color="text-subdued">
+                  {intl.formatMessage({ id: 'action__add_account' })}
+                </Typography.Body2Strong>
+              </HStack>
+            )}
+          </Pressable>
+        </Box>
       </VStack>
       {RemoveAccountDialog}
       <AccountModifyNameDialog

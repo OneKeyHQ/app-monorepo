@@ -3,7 +3,7 @@ import Svg, { SvgProps, G, Rect, Defs, ClipPath } from 'react-native-svg';
 
 function SvgEmptyNft(props: SvgProps) {
   return (
-    <Svg width={98} height={98} fill="none" {...props}>
+    <Svg viewBox="0 0 98 98" fill="none" {...props}>
       <G clipPath="url(#empty-nft_svg__clip0)">
         <Rect width={97.225} height={97.225} rx={7.292} fill="#ededed" />
         <G opacity={0.3}>

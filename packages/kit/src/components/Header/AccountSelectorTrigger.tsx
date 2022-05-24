@@ -76,7 +76,8 @@ const AccountSelectorTrigger: FC<Props> = ({
     <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
       {({ isHovered }) => (
         <HStack
-          p="2"
+          p={1}
+          pr={2}
           alignItems="center"
           borderRadius="12px"
           bg={
@@ -100,10 +101,10 @@ const AccountSelectorTrigger: FC<Props> = ({
               size="sm"
               mr={3}
             />
-            <Typography.Body2Strong isTruncated numberOfLines={1} mr={3}>
+            <Typography.Body2Strong isTruncated numberOfLines={1} mr={1}>
               {name}
             </Typography.Body2Strong>
-            <Icon size={20} name="SelectorSolid" />
+            <Icon size={20} name="ChevronDownSolid" />
           </Box>
         </HStack>
       )}

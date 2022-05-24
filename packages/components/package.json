@@ -38,7 +38,7 @@
     "prettier": "^2.4.1"
   },
   "scripts": {
-    "build:icons": "rm -rf src/Icon/react && npx @svgr/cli --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
+    "build:icons": "rm -rf src/Icon/react && npx @svgr/cli --no-dimensions --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "fetch:locale": "translations fetch",
     "clean": "rimraf node_modules"

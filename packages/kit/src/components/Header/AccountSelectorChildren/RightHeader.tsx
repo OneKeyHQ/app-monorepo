@@ -9,12 +9,10 @@ import {
   Icon,
   Select,
   Typography,
-  VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -69,7 +67,12 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   } else if (selectedWallet?.type === 'watching') {
     title = intl.formatMessage({ id: 'wallet__watched_accounts' });
   }
-  return <Typography.Body1Strong key={title}>{title}</Typography.Body1Strong>;
+  return (
+    // The lineHeight use to keep the Header has same height when switch to Imported/Watched accounts.
+    <Typography.Body1Strong flex={1} key={title} lineHeight={36}>
+      {title}
+    </Typography.Body1Strong>
+  );
 };
 
 const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
@@ -77,7 +80,6 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const navigation = useAppNavigation();
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { network: activeNetwork } = useActiveWalletAccount();
 
   const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);
@@ -106,13 +108,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   return (
     <>
       <HStack py={3} px={4} space={4} alignItems="center">
-        <VStack flex={1}>
-          <HeaderTitle selectedWallet={selectedWallet} />
-          <Typography.Caption color="text-subdued">
-            {intl.formatMessage({ id: 'network__network' })}:{' '}
-            {activeNetwork?.name ?? '-'}
-          </Typography.Caption>
-        </VStack>
+        <HeaderTitle selectedWallet={selectedWallet} />
         {['hd', 'normal'].includes(selectedWallet?.type ?? '') ? (
           <Select
             onChange={(_value) => {
