@@ -28,16 +28,21 @@ try {
 type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
   source: LottieWebProps['animationData'] | LottieNativeProps['source'];
   style?: LottieNativeProps['style'];
+  autoPlay?: boolean;
 };
 
-const LottieView = ({ source, ...props }: LottieViewProps) => {
+const LottieView = ({ source, autoPlay, ...props }: LottieViewProps) => {
   const animationRef = useRef<AnimatedLottieView | null>();
 
   useEffect(() => {
     setTimeout(() => {
-      animationRef.current?.play?.();
+      if (autoPlay) {
+        animationRef.current?.play?.();
+      } else {
+        animationRef.current?.pause?.();
+      }
     }, 50);
-  }, []);
+  }, [autoPlay]);
 
   if (platformEnv.isNative && !!LottieViewNative) {
     return (
@@ -56,4 +61,7 @@ const LottieView = ({ source, ...props }: LottieViewProps) => {
   return null;
 };
 
+LottieView.defaultProps = {
+  autoPlay: false,
+};
 export default LottieView;

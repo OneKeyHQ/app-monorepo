@@ -52,6 +52,11 @@ const ChangePin: FC = () => {
   const [operateType, setOperateType] = useState<OperateType>('guide');
   const [errorCode, setErrorCode] = useState(0);
 
+  const goBack = () => {
+    const inst = navigation.getParent() || navigation;
+    inst.goBack();
+  };
+
   const stateNfcSearch = () => {
     setActionPressStyle('basic');
     setActionPressContent(intl.formatMessage({ id: 'action__cancel' }));
@@ -117,11 +122,11 @@ const ChangePin: FC = () => {
       case 'transfer':
         if (Platform.OS === 'ios') return;
         OnekeyLite.cancel();
-        navigation.goBack();
+        goBack();
         break;
 
       default:
-        navigation.goBack();
+        goBack();
         break;
     }
   };
@@ -180,11 +185,11 @@ const ChangePin: FC = () => {
         }
         onRetryConnect={() => startNfcScan()}
         onExit={() => {
-          navigation.goBack();
+          goBack();
         }}
         onIntoNfcSetting={() => {
           OnekeyLite.intoSetting();
-          navigation.goBack();
+          goBack();
         }}
         onDialogClose={() => setErrorCode(0)}
       />
