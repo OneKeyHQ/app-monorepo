@@ -4,6 +4,7 @@ import {
   Provider as NearProvider,
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/near';
 import { NearAccessKey } from '@onekeyfe/blockchain-libs/dist/provider/chains/near/nearcli';
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
   UnsignedTx,
@@ -13,7 +14,7 @@ import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented } from '../../../errors';
+import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount, DBVariantAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
@@ -29,6 +30,7 @@ import {
   ISignCredentialOptions,
   ITransferInfo,
 } from '../../../types/vault';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import { VaultBase } from '../../VaultBase';
 import {
   EVMDecodedItem,
@@ -479,8 +481,18 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented: createClientFromURL');
   }
 
-  getExportedCredential(password: string): Promise<string> {
-    throw new Error('Method not implemented: getExportedCredential');
+  async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
   }
 
   // TODO batch rpc call not supports by near

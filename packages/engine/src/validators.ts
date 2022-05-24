@@ -56,8 +56,9 @@ class Validators {
       }
     } else {
       const enabledNetworks = await this.engine.listNetworks(true);
-      if (/^(0x)?[0-9a-zA-Z]{64}$/.test(input)) {
-        // a 64-char hexstring with or without 0x prefix, try private key only
+      if (/^0x[0-9a-zA-Z]{64}$/.test(input)) {
+        // TODO: move this into vault
+        // a 64-char hexstring with 0x prefix, try private key only
         // TODO: verify private key & return networks with specific curve.
         category = UserCreateInputCategory.PRIVATE_KEY;
         possibleNetworks = enabledNetworks

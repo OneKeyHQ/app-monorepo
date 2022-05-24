@@ -2,11 +2,11 @@ import { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = {
   feeInfoEditable: false,
-  privateKeyExportEnabled: false,
+  privateKeyExportEnabled: true,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
 };
 
 export default settings;

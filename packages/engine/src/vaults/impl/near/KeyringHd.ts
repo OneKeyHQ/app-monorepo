@@ -7,8 +7,6 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import { COINTYPE_NEAR as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
@@ -17,7 +15,7 @@ import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { IPrepareSoftwareAccountsParams } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { baseDecode, nearApiJs, serializeTransaction } from './utils';
+import { signTransaction } from './utils';
 
 import type { ISignCredentialOptions } from '../../../types/vault';
 
@@ -108,40 +106,12 @@ export class KeyringHd extends KeyringHdBase {
   ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
 
-    const transaction = unsignedTx.payload
-      .nativeTx as nearApiJs.transactions.Transaction;
-
     const signers = await this.getSigners(options.password || '', [
       dbAccount.address,
     ]);
     const signer = signers[dbAccount.address];
 
-    const txHash: string = serializeTransaction(transaction, {
-      encoding: 'sha256_bs58',
-    });
-    const res = await signer.sign(baseDecode(txHash));
-    const signature = new Uint8Array(res[0]);
-
-    const signedTx = new nearApiJs.transactions.SignedTransaction({
-      transaction,
-      signature: new nearApiJs.transactions.Signature({
-        keyType: transaction.publicKey.keyType,
-        data: signature,
-      }),
-    });
-    const rawTx = serializeTransaction(signedTx);
-
-    debugLogger.engine('NEAR signTransaction', {
-      unsignedTx,
-      signedTx,
-      signer,
-      txHash,
-    });
-
-    return {
-      txid: txHash,
-      rawTx,
-    };
+    return signTransaction(unsignedTx, signer);
   }
 
   override signMessage(messages: any[], options: ISignCredentialOptions): any {
