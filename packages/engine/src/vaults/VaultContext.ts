@@ -49,7 +49,7 @@ export class VaultContext extends VaultContextBase {
     }
   }
 
-  options: IVaultOptions;
+  override options: IVaultOptions;
 
   engine: Engine;
 

@@ -2,6 +2,7 @@ import RNRestart from 'react-native-restart';
 
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { passwordSet, release } from '../../store/reducers/data';
 import {
@@ -57,6 +58,7 @@ class ServiceApp extends ServiceBase {
     if (platformEnv.isRuntimeBrowser) {
       localStorage.clear();
     }
+    await appStorage.clear();
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();

@@ -95,6 +95,7 @@ const FeeInfoInputContainer = React.memo((props: IFeeInfoInputProps) => {
   const editable = networkFeeInfoEditable && props.editable;
   return <FeeInfoInput {...props} editable={editable} />;
 });
+FeeInfoInputContainer.displayName = 'FeeInfoInputContainer';
 
 function FeeInfoInputForTransfer({
   encodedTx,
