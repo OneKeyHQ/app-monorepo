@@ -1,9 +1,9 @@
 import * as Linking from 'expo-linking';
+import semver from 'semver';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import store from '../../store';
-import { compVersion } from '../version';
 
 import { getPreReleaseInfo, getReleaseInfo } from './server';
 import { PackageInfo, ReleasesInfo, VersionInfo } from './type.d';
@@ -24,10 +24,11 @@ class AppUpdates {
 
     if (
       !releaseInfo ||
-      compVersion(
+      // localVersion >= releaseVersion
+      semver.gte(
         store.getState().settings.version ?? '0.0.0',
         releaseInfo.version,
-      ) >= 0
+      )
     ) {
       //  没有更新
       return;

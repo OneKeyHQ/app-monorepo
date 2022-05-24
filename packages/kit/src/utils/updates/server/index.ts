@@ -1,8 +1,8 @@
 import axios from 'axios';
+import semver from 'semver';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { compVersion } from '../../version';
 import { PackageInfo, PackagesInfo, ReleasesInfo } from '../type';
 
 import { ReleasesVersion } from './GithubReleases';
@@ -21,7 +21,8 @@ async function handleReleaseInfo(
     const iosVersion = await getIosAppStoreCurrentVersion();
     if (
       iosVersion &&
-      compVersion(iosVersion.version, releasesVersion.tag_name) > -1
+      // iosVersion >= releasesVersion
+      semver.gte(iosVersion.version, releasesVersion.tag_name)
     ) {
       iosPackages.push({
         os: 'ios',
