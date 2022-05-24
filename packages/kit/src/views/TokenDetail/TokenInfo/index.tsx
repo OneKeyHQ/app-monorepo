@@ -54,9 +54,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
     (item) => item.contract === token?.tokenIdOnNetwork,
   );
 
-  console.log('token = ', token);
-  console.log('currencies = ', currencies);
-
   const { prices, balances } = useManageTokens();
   const tokenPrice = useDeepCompareMemo(
     () => prices[token?.tokenIdOnNetwork ?? 'main'],
@@ -212,7 +209,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
           </Box>
         ) : null}
 
-        {platformEnv.isDev ? (
+        {/* {platformEnv.isDev ? (
           <Box
             paddingX={isVertical ? '21px' : '19px'}
             display={fiatCurrency.length > 0 ? 'flex' : 'none'}
@@ -240,7 +237,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               {intl.formatMessage({ id: 'action__sell' })}
             </Typography.CaptionStrong>
           </Box>
-        ) : null}
+        ) : null} */}
 
         {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
@@ -253,7 +250,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         )}
       </Box>
     ),
-    [isVertical, wallet?.type, intl, navigation, token, account],
+    [isVertical, wallet?.type, intl, fiatCurrency, navigation, token, account],
   );
 
   return useMemo(

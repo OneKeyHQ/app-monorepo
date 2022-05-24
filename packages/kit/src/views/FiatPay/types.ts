@@ -28,3 +28,16 @@ export type MoonPayBuyQuotePayload = {
   networkFeeAmount: number;
   totalAmount: number;
 };
+
+export type MoonpayCurrencyListPayload = MoonpayListType[];
+export type MoonpayListType = {
+  type: string;
+  name: string;
+  code: string;
+  precision: number;
+  minBuyAmount: string;
+  maxBuyAmount: string;
+  minSellAmount: string;
+  maxSellAmount: string;
+  isSellSupported: boolean;
+};

@@ -110,6 +110,9 @@ export const useGetWalletDetail = (walletId: string | null) => {
 };
 
 export const useFiatPay = (networkId: string) => {
-  const currencies = useAppSelector((s) => s.data.currencies);
+  const currencies = useAppSelector((s) => s.data.onekeySupportList);
   return currencies.filter((item) => item.networkId === networkId);
 };
+
+export const useMoonpayPayCurrency = (code: string) =>
+  useAppSelector((s) => s.data.currencyList).find((item) => item.code === code);

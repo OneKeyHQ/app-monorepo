@@ -2,18 +2,20 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { CurrencyType } from '../../views/FiatPay/types';
+import { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
 
 export type DataInitialState = {
   isUnlock: boolean;
   isPasswordSet: boolean;
-  currencies: CurrencyType[];
+  onekeySupportList: CurrencyType[];
+  currencyList: MoonpayListType[];
 };
 
 const initialState: DataInitialState = {
   isUnlock: platformEnv.isNative ? !!platformEnv.isDev : true, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
-  currencies: [],
+  onekeySupportList: [],
+  currencyList: [],
 };
 
 export const dataSlice = createSlice({
@@ -26,8 +28,15 @@ export const dataSlice = createSlice({
     passwordSet(state) {
       state.isPasswordSet = true;
     },
-    currenciesSet(state, action: PayloadAction<CurrencyType[]>) {
-      state.currencies = action.payload;
+    currenciesSet(
+      state,
+      action: PayloadAction<{
+        onekeySupportList: CurrencyType[];
+        currencyList: MoonpayListType[];
+      }>,
+    ) {
+      state.onekeySupportList = action.payload.onekeySupportList;
+      state.currencyList = action.payload.currencyList;
     },
   },
 });

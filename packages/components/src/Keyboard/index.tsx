@@ -45,6 +45,7 @@ type KeyboardProps = {
   onTextChange?: (text: string) => void;
   secure?: boolean;
   pattern?: RegExp;
+  itemHeight?: string;
 };
 
 type KeyBoardItemProps = {
@@ -66,9 +67,9 @@ const Keyboard: FC<KeyboardProps> = ({
   secure = false,
   onTextChange,
   pattern,
+  itemHeight,
 }) => {
   const innerKeyArray = chunk(keys ?? defaultKeys, 3);
-
   const [inputText, updateInputText] = useState('');
   const onPress = (item: KeyType) => {
     updateInputText((prev) => {
@@ -100,7 +101,7 @@ const Keyboard: FC<KeyboardProps> = ({
                 onPress={() => {
                   onPress(item);
                 }}
-                height="56px"
+                height={itemHeight ?? '56px'}
                 flex={1}
                 _pressed={{ bg: 'surface-pressed' }}
                 _hover={{ bg: 'surface-hovered' }}
