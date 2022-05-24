@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -30,6 +31,8 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   field,
 }) => {
   const intl = useIntl();
+  const [isLoading, setLoading] = useState(false);
+  const loading = useRef(false);
   const toast = useToast();
   const appState = useRef(AppState.currentState);
   const { enableLocalAuthentication, validationState = {} } = useSettings();
@@ -37,23 +40,33 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const { localAuthenticate, getPassword } = useLocalAuthentication();
 
   const onLocalAuthenticate = useCallback(async () => {
-    const localAuthenticateResult = await localAuthenticate();
-    if (localAuthenticateResult.success) {
-      const password = await getPassword();
-      if (password) {
-        const result = await backgroundApiProxy.serviceApp.verifyPassword(
-          password,
-        );
-        if (result) {
-          onOk?.(password);
-          return;
+    if (loading.current) {
+      return;
+    }
+    loading.current = true;
+    setLoading(true);
+    try {
+      const localAuthenticateResult = await localAuthenticate();
+      if (localAuthenticateResult.success) {
+        const password = await getPassword();
+        if (password) {
+          const result = await backgroundApiProxy.serviceApp.verifyPassword(
+            password,
+          );
+          if (result) {
+            onOk?.(password);
+            return;
+          }
         }
       }
+      toast.show({
+        title: intl.formatMessage({ id: 'msg__verification_failure' }),
+      });
+      onNg?.();
+    } finally {
+      loading.current = false;
+      setLoading(false);
     }
-    toast.show({
-      title: intl.formatMessage({ id: 'msg__verification_failure' }),
-    });
-    onNg?.();
   }, [onOk, onNg, localAuthenticate, getPassword, toast, intl]);
 
   const onChange = useCallback(
@@ -107,6 +120,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
 
   return (
     <IconButton
+      isLoading={isLoading}
       size="xl"
       name={
         authenticationType === 'FACIAL' ? 'FaceIdIllus' : 'FingerPrintIllus'

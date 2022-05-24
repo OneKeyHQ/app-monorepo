@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Icon, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Center, Icon, Pressable, Text } from '@onekeyhq/components';
 
 import { useNavigation } from '../../hooks';
 import { setHaptics } from '../../hooks/setHaptics';
@@ -36,11 +36,11 @@ const SwapItems = () => {
           px="6"
           onPress={onPress}
         >
-          <Box flexDirection="row">
-            <Icon name="ClockSolid" size={24} />
-            <Typography.Body2Strong ml="4">
+          <Box flexDirection="row" alignItems="center">
+            <Icon name="ClockOutline" size={24} />
+            <Text ml="4" typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
               {intl.formatMessage({ id: 'transaction__history' })}
-            </Typography.Body2Strong>
+            </Text>
           </Box>
           <Box>
             <Icon name="ChevronRightSolid" size={20} />

@@ -66,7 +66,7 @@ const SwapHeader = () => {
                 ],
               }}
             >
-              <Icon name="RefreshOutline" size={20} />
+              <Icon name="RefreshSolid" size={20} />
             </Animated.View>
           </Button>
           <IconButton ml={2} type="plain" name="CogSolid" onPress={onSetting} />

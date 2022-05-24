@@ -6,7 +6,6 @@ import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   Icon,
   Image,
@@ -45,7 +44,6 @@ const BackupItem: FC<BackupItemProps> = ({
   title,
   discription,
   badge = 'default',
-  badgeType,
   onPress,
 }) => (
   <Pressable.Item borderRadius={12} onPress={() => onPress?.()}>
@@ -57,11 +55,7 @@ const BackupItem: FC<BackupItemProps> = ({
       >
         <Image size={16} source={imageSrc} />
         <Box>
-          {badge ? (
-            <Badge title={badge} size="sm" type={badgeType} />
-          ) : (
-            <Icon title={badge} size={24} name="ChevronRightSolid" />
-          )}
+          <Icon title={badge} size={24} name="ChevronRightSolid" />
         </Box>
       </Box>
       <Typography.Body1Strong mt={4}>{title}</Typography.Body1Strong>
