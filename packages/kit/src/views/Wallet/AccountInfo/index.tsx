@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Icon,
   IconButton,
   Pressable,
@@ -23,7 +22,10 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useFiatPay,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -36,12 +38,13 @@ import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { setHaptics } from '../../../hooks/setHaptics';
+import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
 
-export const FIXED_VERTICAL_HEADER_HEIGHT = 258;
+export const FIXED_VERTICAL_HEADER_HEIGHT = 298;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 214;
 
 type AccountAmountInfoProps = { isCenter: boolean };
@@ -135,56 +138,99 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 type AccountOptionProps = { isSmallView: boolean };
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { getTokenBalance } = useManageTokens();
+  const { network: activeNetwork } = useActiveWalletAccount();
+  const currencies = useFiatPay(activeNetwork?.id ?? '');
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
   return (
-    <Box flexDirection="row" justifyContent="center" alignItems="center">
-      <Button
-        size={isSmallView ? 'lg' : 'base'}
-        leftIconName="ArrowUpSolid"
-        minW={{ base: '126px', md: 'auto' }}
-        type="basic"
-        isDisabled={
-          wallet?.type === 'watching' ||
-          !account ||
-          parseFloat(getTokenBalance()) <= 0
-        }
-        onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Send,
-            params: {
-              screen: SendRoutes.Send,
-              params: {},
-            },
-          });
-        }}
-      >
-        {intl.formatMessage({ id: 'action__send' })}
-      </Button>
-      <Button
-        size={isSmallView ? 'lg' : 'base'}
-        ml={4}
-        leftIconName="ArrowDownSolid"
-        minW={{ base: '126px', md: 'auto' }}
-        type="basic"
-        isDisabled={wallet?.type === 'watching' || !account}
-        onPress={() => {
-          if (!account) return;
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Receive,
-            params: {
-              screen: ReceiveTokenRoutes.ReceiveToken,
+    <Box
+      flexDirection="row"
+      justifyContent="space-around"
+      alignItems="center"
+      paddingX={isSmallView ? '16px' : '0px'}
+    >
+      <Box paddingX={isSmallView ? '21px' : '19px'}>
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="ArrowUpSolid"
+          type="basic"
+          isDisabled={
+            wallet?.type === 'watching' ||
+            !account ||
+            parseFloat(getTokenBalance()) <= 0
+          }
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
               params: {
-                address: account.address,
-                name: account.name,
+                screen: SendRoutes.Send,
+                params: {},
               },
-            },
-          });
-        }}
+            });
+          }}
+        />
+        <Typography.CaptionStrong textAlign="center" mt="8px">
+          {intl.formatMessage({ id: 'action__send' })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box paddingX={isSmallView ? '21px' : '19px'}>
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="ArrowDownSolid"
+          type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={() => {
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Receive,
+              params: {
+                screen: ReceiveTokenRoutes.ReceiveToken,
+                params: {
+                  address: account.address,
+                  name: account.name,
+                },
+              },
+            });
+          }}
+        />
+        <Typography.CaptionStrong textAlign="center" mt="8px">
+          {intl.formatMessage({ id: 'action__receive' })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box
+        paddingX={isSmallView ? '21px' : '19px'}
+        display={
+          wallet?.type === 'watching' || !account || currencies.length === 0
+            ? 'none'
+            : 'flex'
+        }
       >
-        {intl.formatMessage({ id: 'action__receive' })}
-      </Button>
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="TagOutline"
+          type="basic"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={() => {
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.FiatPay,
+              params: {
+                screen: FiatPayRoutes.SupportTokenListModal,
+                params: {
+                  networkId: activeNetwork?.id ?? '',
+                },
+              },
+            });
+          }}
+        />
+        <Typography.CaptionStrong textAlign="center" mt="8px">
+          {intl.formatMessage({ id: 'action__buy' })}
+        </Typography.CaptionStrong>
+      </Box>
       {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
         <IconButton
           onPress={() => {
@@ -203,9 +249,9 @@ const AccountInfo = () => {
   if (isSmallView) {
     return (
       <Box
-        py={8}
+        py="24px"
         w="100%"
-        px={4}
+        px="16px"
         flexDirection="column"
         bgColor="background-default"
         h={FIXED_VERTICAL_HEADER_HEIGHT}

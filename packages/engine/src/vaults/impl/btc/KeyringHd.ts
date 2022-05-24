@@ -13,6 +13,8 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { getAccountDefaultByPurpose } from './utils';
 
+import type BTCVault from './Vault';
+
 const DEFAULT_PURPOSE = 49;
 
 export class KeyringHd extends KeyringHdBase {
@@ -20,7 +22,28 @@ export class KeyringHd extends KeyringHdBase {
     password: string,
     addresses: Array<string>,
   ): Promise<Record<string, Signer>> {
-    throw new NotImplemented();
+    const relPathToAddresses: Record<string, string> = {};
+    const utxos = await (this.vault as BTCVault).collectUTXOs();
+    for (const utxo of utxos) {
+      const { address, path } = utxo;
+      if (addresses.includes(address)) {
+        relPathToAddresses[path] = address;
+      }
+    }
+
+    const relPaths = Object.keys(relPathToAddresses).map((fullPath) =>
+      fullPath.split('/').slice(-2).join('/'),
+    );
+    if (relPaths.length === 0) {
+      throw new OneKeyInternalError('No signers would be chosen.');
+    }
+    const privateKeys = await this.getPrivateKeys(password, relPaths);
+    const ret: Record<string, Signer> = {};
+    for (const [path, privateKey] of Object.entries(privateKeys)) {
+      const address = relPathToAddresses[path];
+      ret[address] = new Signer(privateKey, password, 'secp256k1');
+    }
+    return ret;
   }
 
   override async prepareAccounts(

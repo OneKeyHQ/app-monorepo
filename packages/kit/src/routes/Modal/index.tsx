@@ -18,6 +18,7 @@ import DappConnectionStack from './DappConnection';
 import DappMulticallStack from './DappMulticall';
 import DiscoverModal from './Discover';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
+import BuyModal from './FiatPay';
 import OnekeyHardwareModal from './HardwareOnekey';
 import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
 import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
@@ -150,6 +151,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.UpdateFeature,
     component: UpdateFeatureModal,
+  },
+  {
+    name: ModalRoutes.FiatPay,
+    component: BuyModal,
   },
 ];
 

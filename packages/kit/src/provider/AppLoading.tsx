@@ -10,12 +10,17 @@ import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
 import { UICallback } from '@onekeyhq/kit/src/utils/device/deviceConnection';
 
+import { fetchCurrencies } from '../views/FiatPay/Service';
+
 const AppLoading: FC = ({ children }) => {
   const [appIsReady, setAppIsReady] = useState(false);
   const { serviceApp, serviceCronJob } = backgroundApiProxy;
+
   useSWR('fiat-money', () => serviceCronJob.getFiatMoney(), {
     refreshInterval: 1 * 60 * 1000,
   });
+
+  useSWR('currencies', () => fetchCurrencies());
 
   const showSplashScreen = async () => {
     try {

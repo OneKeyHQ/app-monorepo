@@ -102,7 +102,7 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  async signTransaction(
+  override async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
@@ -144,7 +144,7 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  signMessage(messages: any[], options: ISignCredentialOptions): any {
+  override signMessage(messages: any[], options: ISignCredentialOptions): any {
     console.log(messages, options);
   }
 }

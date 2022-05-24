@@ -8,6 +8,7 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
+import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -17,6 +18,7 @@ import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../../types/vault';
+import type BTCVault from './Vault';
 import type {
   SignedTx,
   UnsignedTx,
@@ -29,7 +31,22 @@ export class KeyringHardware extends KeyringHardwareBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
-    throw new NotImplemented();
+    const addresses = unsignedTx.inputs.map((output) => output.address);
+    const utxos = await (this.vault as BTCVault).collectUTXOs();
+
+    const signers: Record<string, string> = {};
+    for (const utxo of utxos) {
+      const { address, path } = utxo;
+      if (addresses.includes(address)) {
+        signers[address] = path;
+      }
+    }
+
+    const provider = (await this.engine.providerManager.getProvider(
+      this.networkId,
+    )) as Provider;
+
+    return provider.hardwareSignTransaction(unsignedTx, signers);
   }
 
   async signMessage(

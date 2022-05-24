@@ -19,7 +19,7 @@ function domParentMatches(n: HTMLElement, selector: string) {
 }
 
 class App extends React.Component {
-  state = {
+  override state = {
     wsOpen: false,
     isDarkMode: true,
     logs: [
@@ -69,7 +69,7 @@ class App extends React.Component {
     this.setState((state) => update(state, { logs: { $push: logsWithTime } }));
   };
 
-  componentDidMount() {
+  override componentDidMount() {
     Hook(window.console, this.appendLogs);
     const ws = new WebSocket('ws://127.0.0.1:8136');
     this.ws = ws;
@@ -115,7 +115,7 @@ class App extends React.Component {
     this.setState({ searchKeywords });
   };
 
-  render() {
+  override render() {
     const { isDarkMode, wsOpen } = this.state;
     // @ts-ignore
     return (

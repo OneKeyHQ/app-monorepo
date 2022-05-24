@@ -351,7 +351,7 @@ class ProviderController extends BaseProviderController {
   }
   // TODO: set client api to support change.
 
-  async getClient(
+  override async getClient(
     networkId: string,
     filter?: ClientFilter,
   ): Promise<BaseClient> {
@@ -377,7 +377,7 @@ class ProviderController extends BaseProviderController {
     return Promise.reject(new OneKeyInternalError('Unable to init client.'));
   }
 
-  async getProvider(networkId: string): Promise<BaseProvider> {
+  override async getProvider(networkId: string): Promise<BaseProvider> {
     if (typeof this.providers[networkId] === 'undefined') {
       const chainInfo = await this.getChainInfoByNetworkId(networkId);
       const { Provider } = this.requireChainImpl(chainInfo.impl);
@@ -396,7 +396,7 @@ class ProviderController extends BaseProviderController {
     return Promise.reject(new OneKeyInternalError('Unable to init provider.'));
   }
 
-  requireChainImpl(impl: string): any {
+  override requireChainImpl(impl: string): any {
     return super.requireChainImpl(IMPL_MAPPINGS[impl]?.implName || impl);
   }
 
@@ -464,7 +464,7 @@ class ProviderController extends BaseProviderController {
     return Promise.resolve(address);
   }
 
-  async getBalances(
+  override async getBalances(
     networkId: string,
     requests: Array<any>,
   ): Promise<Array<BigNumber | undefined>> {
@@ -640,7 +640,7 @@ class ProviderController extends BaseProviderController {
   }
 
   // Wrap to throw JSON RPC errors
-  async buildUnsignedTx(
+  override async buildUnsignedTx(
     networkId: string,
     unsignedTx: UnsignedTx,
   ): Promise<UnsignedTx> {
@@ -652,7 +652,7 @@ class ProviderController extends BaseProviderController {
   }
 
   // Wrap to throw JSON RPC errors
-  async broadcastTransaction(
+  override async broadcastTransaction(
     networkId: string,
     rawTx: string,
   ): Promise<string> {

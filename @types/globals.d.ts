@@ -1,10 +1,10 @@
 /* eslint-disable no-var,vars-on-top */
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import { EnhancedStore } from '@reduxjs/toolkit/src/configureStore';
-import WebView from 'react-native-webview';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { IBackgroundApi } from '@onekeyhq/kit/src/background/IBackgroundApi';
 
-import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { IBackgroundApi } from '@onekeyhq/kit/src/background/IBackgroundApi';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { EnhancedStore } from '@reduxjs/toolkit';
+import type WebView from 'react-native-webview';
 
 declare const self: ServiceWorkerGlobalScope;
 

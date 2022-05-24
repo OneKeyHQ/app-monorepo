@@ -80,7 +80,7 @@ export default class AppIntroSlider<ItemT = any> extends React.Component<
     bottomButton: false,
   };
 
-  state = {
+  override state = {
     width: 0,
     height: 0,
     activeIndex: 0,
@@ -285,7 +285,7 @@ export default class AppIntroSlider<ItemT = any> extends React.Component<
     }
   };
 
-  render() {
+  override render() {
     // Separate props used by the component to props passed to FlatList
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const {
