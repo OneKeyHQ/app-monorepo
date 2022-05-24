@@ -40,6 +40,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import settings from './settings';
 import { INearAccountStorageBalance } from './types';
 import {
   BN,
@@ -64,6 +65,8 @@ export default class Vault extends VaultBase {
     imported: KeyringImported,
     watching: KeyringWatching,
   };
+
+  settings = settings;
 
   helperApi = axios.create({
     // TODO testnet, mainnet in config
@@ -424,8 +427,6 @@ export default class Vault extends VaultBase {
     }
 
     return {
-      editable: false,
-
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       symbol: network.feeSymbol,

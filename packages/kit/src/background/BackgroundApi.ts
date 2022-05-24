@@ -1,7 +1,6 @@
 import { Engine } from '@onekeyhq/engine';
 
 import BackgroundApiBase from './BackgroundApiBase';
-import { backgroundMethod } from './decorators';
 import { IBackgroundApi } from './IBackgroundApi';
 import WalletConnectAdapter from './providers/WalletConnectAdapter';
 import ServiceAccount from './services/ServiceAccount';
@@ -55,11 +54,5 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   serviceToken = new ServiceToken({
     backgroundApi: this,
   });
-  // ----------------------------------------------
-
-  @backgroundMethod()
-  listNetworks(...params: any) {
-    return this.engine.listNetworks(...params);
-  }
 }
 export default BackgroundApi;

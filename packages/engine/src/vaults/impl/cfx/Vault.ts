@@ -29,9 +29,12 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import settings from './settings';
 
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
+  settings = settings;
+
   private async getJsonRPCClient(): Promise<Conflux> {
     return (await this.engine.providerManager.getClient(
       this.networkId,

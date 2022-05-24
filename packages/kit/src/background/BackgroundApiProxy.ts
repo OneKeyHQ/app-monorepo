@@ -74,12 +74,6 @@ class BackgroundApiProxy
     );
     return NOOP;
   }
-
-  // ----------------------------------------------
-
-  listNetworks(...args: any) {
-    return this.callBackground('listNetworks', ...args);
-  }
 }
 
 export default BackgroundApiProxy;

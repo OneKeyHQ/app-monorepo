@@ -35,6 +35,7 @@ import type {
   ISignCredentialOptions,
 } from '../types/vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
+import type { IVaultSettings } from './types';
 import type { VaultHelperBase } from './VaultHelperBase';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
@@ -44,6 +45,8 @@ export type IVaultInitConfig = {
 export type IKeyringMapKey = WalletType;
 
 export abstract class VaultBaseChainOnly extends VaultContext {
+  abstract settings: IVaultSettings;
+
   // Methods not related to a single account, but implementation.
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
