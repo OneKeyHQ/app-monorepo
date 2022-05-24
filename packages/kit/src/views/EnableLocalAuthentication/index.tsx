@@ -35,7 +35,10 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
           toast.show({
             title: intl.formatMessage({ id: 'msg__verification_failure' }),
           });
-          navigation?.goBack?.();
+          setTimeout(() => {
+            // delay 1000ms goBack, otherwise the keyboard will be showup
+            navigation?.goBack?.();
+          }, 1000);
           return;
         }
       }
