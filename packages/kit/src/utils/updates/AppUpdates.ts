@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import semver from 'semver';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -23,10 +24,11 @@ class AppUpdates {
 
     if (
       !releaseInfo ||
-      this.compVersion(
+      // localVersion >= releaseVersion
+      semver.gte(
         store.getState().settings.version ?? '0.0.0',
         releaseInfo.version,
-      ) >= 0
+      )
     ) {
       //  没有更新
       return;
@@ -139,33 +141,6 @@ class AppUpdates {
     } else {
       window.open(url, '_blank');
     }
-  }
-
-  _formatVersion(version: string): string {
-    return version.replace('V', '').replace('v', '');
-  }
-
-  /**
-   *
-   * @param version1
-   * @param version2
-   * @returns -1: version1 < version2 ; 0: version1 = version2 ; 1: version1 > version2
-   */
-  compVersion(version1: string, version2: string): number {
-    const arr1 = this._formatVersion(version1).split('.');
-    const arr2 = this._formatVersion(version2).split('.');
-
-    const len = Math.max(arr1.length, arr2.length);
-    for (let i = 0; i < len; ) {
-      if (arr1[i] === arr2[i]) {
-        i += 1;
-      } else if (!arr1[i] || arr1[i] < arr2[i]) {
-        return -1;
-      } else {
-        return 1;
-      }
-    }
-    return 0;
   }
 }
 const appUpdates = new AppUpdates();
