@@ -6,15 +6,15 @@ import { AppState, AppStateStatus } from 'react-native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useData, useSettings, useStatus } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { lock } from '../../store/reducers/status';
 
 import { AppLockBypass } from './AppLockBypass';
 
 const NativeUpdator = () => {
   const appState = useRef(AppState.currentState);
-  const { appLockDuration } = useSettings();
-  const { lastActivity } = useStatus();
+  const appLockDuration = useAppSelector((s) => s.settings.appLockDuration);
+  const lastActivity = useAppSelector((s) => s.status.lastActivity);
 
   const onChange = useCallback(
     (nextState: AppStateStatus) => {
@@ -54,8 +54,8 @@ type Status = 'active' | 'background';
 
 const DesktopUpdator = () => {
   const appState = useRef<Status>();
-  const { appLockDuration } = useSettings();
-  const { lastActivity } = useStatus();
+  const appLockDuration = useAppSelector((s) => s.settings.appLockDuration);
+  const lastActivity = useAppSelector((s) => s.status.lastActivity);
 
   const onChange = useCallback(
     (nextState: Status) => {
@@ -75,16 +75,17 @@ const DesktopUpdator = () => {
     },
     [appLockDuration, lastActivity],
   );
-  useEffect(() => {
-    window.desktopApi.onAppState(onChange);
+  useEffect(
+    () => window.desktopApi.onAppState(onChange),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    [onChange],
+  );
   return <></>;
 };
 
-export const AppStateUpdator = () => {
-  const { enableAppLock } = useSettings();
-  const { isPasswordSet } = useData();
+export const AppStateUpdater = () => {
+  const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
+  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   if (!enableAppLock || !isPasswordSet) {
     return <></>;
   }

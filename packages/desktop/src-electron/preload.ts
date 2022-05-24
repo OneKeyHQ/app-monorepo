@@ -8,7 +8,7 @@ export type DesktopAPI = {
   platform: string;
   reload: () => void;
   openPrefs: (prefType: PrefType) => void;
-  onAppState: (cb: (state: 'active' | 'background') => void) => void;
+  onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
 };
 declare global {
   interface Window {
@@ -38,9 +38,11 @@ const desktopApi = {
   platform: process.platform,
   reload: () => ipcRenderer.send('app/reload'),
   onAppState: (cb: (state: 'active' | 'background') => void) => {
-    ipcRenderer.on('appState', (_, value) => {
-      cb(value);
-    });
+    const handler = (_: any, value: any) => cb(value);
+    ipcRenderer.addListener('appState', handler);
+    return () => {
+      ipcRenderer.removeListener('appState', handler);
+    };
   },
   openPrefs: () => ipcRenderer.send('app/openPrefs'),
 };
