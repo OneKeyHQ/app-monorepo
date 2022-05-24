@@ -81,7 +81,10 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
 
   const paramsMap = parseDecodedParams(firstEvent);
   const token = parseToken(firstEvent, covalentTx.chainId);
-  const amount = EVMTxDecoder.formatValue(paramsMap.value, token.decimals);
+  const amount = EVMTxDecoder.formatValue(
+    paramsMap.value ?? '0',
+    token.decimals,
+  );
 
   if (name === 'Transfer') {
     return {
