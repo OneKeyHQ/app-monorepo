@@ -1,11 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // import * as transactions from '@onekeyfe/blockchain-libs/dist/provider/chains/near/sdk/transaction';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BN from 'bn.js';
 import { baseDecode, baseEncode, serialize } from 'borsh';
 import bs58 from 'bs58';
 import sha256 from 'js-sha256';
 import { isFunction, isString } from 'lodash';
 import * as nearApiJs from 'near-api-js';
+
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { Signer } from '../../../proxy';
 
 import type {
   Action,
@@ -82,4 +90,38 @@ export function serializeTransaction(
 
 export function parseJsonFromRawResponse(response: Uint8Array): any {
   return JSON.parse(Buffer.from(response).toString());
+}
+
+export async function signTransaction(
+  unsignedTx: UnsignedTx,
+  signer: Signer,
+): Promise<SignedTx> {
+  const transaction = unsignedTx.payload
+    .nativeTx as nearApiJs.transactions.Transaction;
+  const txHash: string = serializeTransaction(transaction, {
+    encoding: 'sha256_bs58',
+  });
+  const res = await signer.sign(baseDecode(txHash));
+  const signature = new Uint8Array(res[0]);
+
+  const signedTx = new nearApiJs.transactions.SignedTransaction({
+    transaction,
+    signature: new nearApiJs.transactions.Signature({
+      keyType: transaction.publicKey.keyType,
+      data: signature,
+    }),
+  });
+  const rawTx = serializeTransaction(signedTx);
+
+  debugLogger.engine('NEAR signTransaction', {
+    unsignedTx,
+    signedTx,
+    signer,
+    txHash,
+  });
+
+  return {
+    txid: txHash,
+    rawTx,
+  };
 }

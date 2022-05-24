@@ -4,7 +4,7 @@ const settings: IVaultSettings = {
   feeInfoEditable: false,
   privateKeyExportEnabled: true,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: false,
   watchingAccountEnabled: true,
 };

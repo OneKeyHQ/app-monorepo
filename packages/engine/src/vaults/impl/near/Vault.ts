@@ -483,7 +483,7 @@ export default class Vault extends VaultBase {
 
   async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
-    if (dbAccount.id.startsWith('hd-')) {
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
         await keyring.getPrivateKeys(password),
@@ -491,7 +491,7 @@ export default class Vault extends VaultBase {
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
     throw new OneKeyInternalError(
-      'Only credential of HD accounts can be exported',
+      'Only credential of HD or imported accounts can be exported',
     );
   }
 
