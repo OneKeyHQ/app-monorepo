@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // import * as transactions from '@onekeyfe/blockchain-libs/dist/provider/chains/near/sdk/transaction';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
@@ -7,6 +11,9 @@ import sha256 from 'js-sha256';
 import { isString } from 'lodash';
 import * as nearApiJs from 'near-api-js';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { Signer } from '../../../proxy';
 import { TxStatus } from '../../../types/covalent';
 import {
   IDecodedTx,
@@ -25,9 +32,6 @@ import type {
   SignedTransaction,
   Transaction,
 } from 'near-api-js/lib/transaction';
-import { SignedTx, UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { Signer } from '../../../proxy';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 const { parseNearAmount } = nearApiJs.utils.format;
 
@@ -198,7 +202,6 @@ export function decodedTxToLegacy(tx: IDecodedTx): IDecodedTxLegacy {
     total: '0',
   };
 }
-
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,

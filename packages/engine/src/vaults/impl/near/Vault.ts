@@ -20,6 +20,7 @@ import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount, DBVariantAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import { Token } from '../../../types/token';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -35,7 +36,6 @@ import {
   IFeeInfoUnit,
   ITransferInfo,
 } from '../../types';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import { VaultBase } from '../../VaultBase';
 import {
   EVMDecodedItem,
