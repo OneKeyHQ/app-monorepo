@@ -7,7 +7,7 @@ module.exports = {
     'version': process.env.VERSION,
   },
   'appId': 'so.onekey.wallet.desktop',
-  'productName': 'OneKey Wallet',
+  'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
   'electronVersion': '15.3.1',
