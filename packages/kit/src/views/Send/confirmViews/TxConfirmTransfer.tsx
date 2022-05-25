@@ -4,13 +4,13 @@ import BigNumber from 'bignumber.js';
 
 import { Spinner } from '@onekeyhq/components';
 import {
-  IEncodedTxUpdatePayloadTransfer,
-  IEncodedTxUpdateType,
-} from '@onekeyhq/engine/src/types/vault';
-import {
   EVMDecodedItemERC20Transfer,
   EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import {
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks/redux';
