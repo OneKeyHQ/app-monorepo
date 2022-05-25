@@ -45,7 +45,7 @@ const UpdateFeature: FC = () => {
     <Modal
       size="sm"
       headerShown={false}
-      maxHeight={640}
+      maxHeight={560}
       hideSecondaryAction
       primaryActionTranslationId="action__close"
       primaryActionProps={{
