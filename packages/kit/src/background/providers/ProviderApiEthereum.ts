@@ -58,6 +58,29 @@ export interface Transaction {
   estimatedBaseFee?: string;
 }
 
+export type WatchAssetParameters = {
+  type: string; // The asset's interface, e.g. 'ERC20'
+  options: {
+    address: string; // The hexadecimal Ethereum address of the token contract
+    symbol?: string; // A ticker symbol or shorthand, up to 5 alphanumerical characters
+    decimals?: number; // The number of asset decimals
+    image?: string; // A string url of the token logo
+  };
+};
+
+export type AddEthereumChainParameter = {
+  chainId: string;
+  blockExplorerUrls?: string[];
+  chainName?: string;
+  iconUrls?: string[];
+  nativeCurrency?: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+  rpcUrls?: string[];
+};
+
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
@@ -144,8 +167,19 @@ class ProviderApiEthereum extends ProviderApiBase {
    * });
    */
   @permissionRequired()
-  wallet_watchAsset() {
-    return true;
+  async wallet_watchAsset(
+    request: IJsBridgeMessagePayload,
+    params: WatchAssetParameters,
+  ) {
+    const type = params.type ?? '';
+    if (type !== 'ERC20') {
+      throw new Error(`Asset of type '${type}' not supported`);
+    }
+    const result = await this.backgroundApi.serviceDapp?.openAddTokenModal(
+      request,
+      params,
+    );
+    return result;
   }
 
   // Not gonna do in this schedule but this method allow us to open ConnectionModal when connected account has cached
@@ -418,9 +452,15 @@ class ProviderApiEthereum extends ProviderApiBase {
       rpcUrls,
     },
    */
-  wallet_addEthereumChain() {
-    // TODO
-    return false;
+  async wallet_addEthereumChain(
+    request: IJsBridgeMessagePayload,
+    params: AddEthereumChainParameter,
+  ) {
+    const result = await this.backgroundApi.serviceDapp?.openAddNetworkModal(
+      request,
+      params,
+    );
+    return result;
   }
 
   /**

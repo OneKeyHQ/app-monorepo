@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,52 +16,66 @@ import {
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
-import { useManageTokens } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
-
-import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AddEthereumChainParameter } from '../../../background/providers/ProviderApiEthereum';
+import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<
-  ManageTokenRoutesParams,
-  ManageTokenRoutes.AddToken
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.AddNetworkConfirm
 >;
 
 type NavigationProps = NativeStackNavigationProp<
-  ManageTokenRoutesParams,
-  ManageTokenRoutes.AddToken
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.AddNetworkConfirm
 >;
 
-type ListItem = { label: string; value: string };
+type ListItem = { label: string; value?: string };
 
-export type IViewTokenModalProps = ModalProps;
+export type IViewNetworkModalProps = ModalProps;
 
 const useRouteParams = () => {
   const routeProps = useRoute<RouteProps>();
   const { params } = routeProps;
   if ('query' in params) {
-    const query: WatchAssetParameters = JSON.parse(params.query);
-    const { address, symbol, decimals, image } = query.options;
+    const query: AddEthereumChainParameter = JSON.parse(params.query);
+    const {
+      chainName,
+      chainId,
+      blockExplorerUrls,
+      nativeCurrency,
+      rpcUrls,
+      iconUrls,
+    } = query;
+    const rpcURL = rpcUrls?.at(0);
+    const symbol = nativeCurrency?.symbol;
+    const exploreUrl = blockExplorerUrls?.at(0);
+    const iconUrl = iconUrls?.at(0);
     return {
-      name: '',
-      address,
-      symbol: symbol ?? '',
-      decimal: decimals ?? 0,
-      logoURI: image ?? '',
+      id: chainId,
+      chainId,
+      name: chainName,
+      rpcURL,
+      symbol,
+      exploreUrl,
+      iconUrl,
     };
   }
   return params;
 };
 
-function ViewTokenModal(props: IViewTokenModalProps) {
-  const { balances } = useManageTokens();
-  const { account: activeAccount, network: activeNetwork } =
-    useActiveWalletAccount();
+const Placeholder = () => (
+  <Center w="56px" h="56px" rounded="full" bgColor="surface-neutral-default">
+    <Icon size={32} name="QuestionMarkOutline" />
+  </Center>
+);
+
+function ViewNetworkModal(props: IViewNetworkModalProps) {
   const intl = useIntl();
-  const { name, symbol, decimal, address, logoURI } = useRouteParams();
+  const { name, symbol, chainId, rpcURL, exploreUrl, iconUrl } =
+    useRouteParams();
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -73,6 +87,20 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       },
       {
         label: intl.formatMessage({
+          id: 'form__url',
+          defaultMessage: 'URL',
+        }),
+        value: rpcURL,
+      },
+      {
+        label: intl.formatMessage({
+          id: 'form__chain_id',
+          defaultMessage: 'Chain ID',
+        }),
+        value: String(parseInt(chainId ?? '0')),
+      },
+      {
+        label: intl.formatMessage({
           id: 'form__symbol',
           defaultMessage: 'Symbol',
         }),
@@ -80,39 +108,15 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       },
       {
         label: intl.formatMessage({
-          id: 'form__contract',
-          defaultMessage: 'Contact',
+          id: 'form__explorer',
+          defaultMessage: 'Explorer',
         }),
-        value: address,
+        value: exploreUrl,
       },
-      {
-        label: intl.formatMessage({
-          id: 'form__decimal',
-          defaultMessage: 'Decimal',
-        }),
-        value: String(decimal),
-      },
-    ].filter(({ value }) => !!value);
-
-    if (balances[address]) {
-      data.push({
-        label: intl.formatMessage({
-          id: 'content__balance',
-          defaultMessage: 'Balance',
-        }),
-        value: balances[address] ?? '0',
-      });
-    }
+    ];
     return data;
-  }, [name, symbol, address, decimal, balances, intl]);
-  useEffect(() => {
-    async function fetchBalance() {
-      if (activeAccount && activeNetwork) {
-        await backgroundApiProxy.serviceToken.fetchTokenBalance([address]);
-      }
-    }
-    fetchBalance();
-  }, [activeAccount, activeNetwork, address]);
+  }, [intl, name, rpcURL, chainId, symbol, exploreUrl]);
+
   return (
     <Modal
       height="560px"
@@ -128,26 +132,20 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 mb="8"
                 mt="6"
               >
-                <Image
-                  src={logoURI}
-                  alt="logoURI"
-                  size="56px"
-                  borderRadius="full"
-                  fallbackElement={
-                    <Center
-                      w="56px"
-                      h="56px"
-                      rounded="full"
-                      bgColor="surface-neutral-default"
-                    >
-                      <Icon size={32} name="QuestionMarkOutline" />
-                    </Center>
-                  }
-                />
+                {iconUrl ? (
+                  <Image
+                    src={iconUrl}
+                    alt="logoURI"
+                    size="56px"
+                    borderRadius="full"
+                    fallbackElement={<Placeholder />}
+                  />
+                ) : (
+                  <Placeholder />
+                )}
                 <Typography.PageHeading mt="4">{`${intl.formatMessage({
-                  id: 'title__adding_str' as any,
-                  defaultMessage: 'Adding',
-                })} ${symbol}`}</Typography.PageHeading>
+                  id: 'title__add_a_network',
+                })}`}</Typography.PageHeading>
               </Box>
               <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
                 {items.map((item, index) => (
@@ -190,35 +188,66 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   );
 }
 
-function AddTokenModal() {
+function AddNetworkConfirmModal() {
   const toast = useToast();
-  const { account: activeAccount, network: activeNetwork } =
-    useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
-  const { address } = useRouteParams();
+  const { rpcURL, name, symbol, exploreUrl } = useRouteParams();
+  const { serviceNetwork } = backgroundApiProxy;
 
   const onPrimaryActionPress = useCallback(async () => {
-    if (activeAccount && activeNetwork) {
-      await backgroundApiProxy.engine.quickAddToken(
-        activeAccount.id,
-        activeNetwork.id,
-        address,
-      );
+    if (!rpcURL) {
+      return;
+    }
+
+    try {
+      const { existingNetwork } = await serviceNetwork.preAddNetwork(rpcURL);
+      if (existingNetwork) {
+        toast.show({
+          title: intl.formatMessage(
+            {
+              id: 'form__rpc_url_invalid_exist',
+            },
+            { name: existingNetwork.name },
+          ),
+        });
+        return;
+      }
+
+      await serviceNetwork.addNetwork('evm', {
+        name: name ?? '-',
+        rpcURL,
+        symbol,
+        explorerURL: exploreUrl,
+      });
+
+      toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
+    } catch (error) {
+      console.error(error);
       toast.show({
         title: intl.formatMessage({
-          id: 'msg__token_added',
-          defaultMessage: 'Token Added',
+          id: 'form__rpc_fetched_failed',
         }),
       });
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      }
+      return;
     }
-  }, [intl, activeAccount, navigation, activeNetwork, toast, address]);
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [
+    rpcURL,
+    toast,
+    intl,
+    navigation,
+    serviceNetwork,
+    name,
+    symbol,
+    exploreUrl,
+  ]);
 
   return (
-    <ViewTokenModal
+    <ViewNetworkModal
       footer
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"
@@ -229,6 +258,5 @@ function AddTokenModal() {
   );
 }
 
-export { ViewTokenModal, AddTokenModal };
-export const AddToken = AddTokenModal;
-export default AddToken;
+export { ViewNetworkModal, AddNetworkConfirmModal };
+export const AddNetworkConfirm = AddNetworkConfirmModal;

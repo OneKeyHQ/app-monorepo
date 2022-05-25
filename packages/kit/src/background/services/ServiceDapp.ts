@@ -15,6 +15,8 @@ import {
   dappSaveSiteConnection,
 } from '../../store/reducers/dapp';
 import extUtils from '../../utils/extUtils';
+import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
+import { ManageTokenRoutes } from '../../views/ManageTokens/types';
 import { SendRoutes } from '../../views/Send/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappCallParams } from '../IBackgroundApi';
@@ -76,6 +78,25 @@ class ServiceDapp extends ServiceBase {
     return this.openModal({
       request,
       screens: [ModalRoutes.Send, SendRoutes.SendConfirmFromDapp],
+      params,
+    });
+  }
+
+  openAddTokenModal(request: IJsBridgeMessagePayload, params: any) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.ManageToken, ManageTokenRoutes.AddToken],
+      params,
+    });
+  }
+
+  openAddNetworkModal(request: IJsBridgeMessagePayload, params: any) {
+    return this.openModal({
+      request,
+      screens: [
+        ModalRoutes.ManageNetwork,
+        ManageNetworkRoutes.AddNetworkConfirm,
+      ],
       params,
     });
   }

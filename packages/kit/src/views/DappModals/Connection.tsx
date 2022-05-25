@@ -1,19 +1,23 @@
 import React, { useCallback, useState } from 'react';
 
-import { Column } from 'native-base';
+import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Center,
-  CheckBox,
+  HStack,
+  Icon,
   Modal,
   Token,
   Typography,
+  VStack,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { Text } from '@onekeyhq/components/src/Typography';
-import { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import Dots from '@onekeyhq/kit/assets/3_dots.png';
+import AccountIcon from '@onekeyhq/kit/assets/account_icon.png';
+import Logo from '@onekeyhq/kit/assets/logo_round.png';
+import ChainNetworkIcon from '@onekeyhq/kit/assets/network_icon.png';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -21,10 +25,9 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
-import { DescriptionList, DescriptionListItem } from './DescriptionList';
 import RugConfirmDialog from './RugConfirmDialog';
 
-type PermissionType = 'view-addresses';
+type PermissionType = 'view-addresses' | 'sign-and-send-transactions';
 type Permission = {
   type: PermissionType;
   required: boolean;
@@ -36,6 +39,10 @@ const MockData = {
       type: 'view-addresses',
       required: true,
     },
+    {
+      type: 'sign-and-send-transactions',
+      required: true,
+    },
   ] as Permission[],
 };
 
@@ -43,6 +50,8 @@ const getPermissionTransId = (type: PermissionType): LocaleIds => {
   switch (type) {
     case 'view-addresses':
       return 'content__view_the_address_of_your_permitted_accounts_required';
+    case 'sign-and-send-transactions':
+      return 'content__send_transactions_and_signature_request';
     default:
       return type;
   }
@@ -56,8 +65,7 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const { account, networkImpl, accountAddress } = useActiveWalletAccount();
-  const accountInfo = account as DBSimpleAccount | null;
+  const { networkImpl, network, accountAddress } = useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? ({} as IDappCallParams);
   const computedIsRug = isRug(origin);
@@ -102,10 +110,6 @@ const Connection = () => {
     closeOnError: true,
   });
 
-  const [permissionValues, setPermissionValues] = React.useState(
-    MockData.permissions.map(({ type }) => type),
-  );
-
   // TODO
   //  - check scope=ethereum and active chain is EVM
   //  - check active account exists
@@ -142,46 +146,32 @@ const Connection = () => {
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
-            <Column flex="1" pb="20" space={6}>
-              <Center>
-                <Token size="56px" />
-                <Typography.Heading mt="8px">{origin}</Typography.Heading>
+            <VStack flex="1" pb="20" space={6}>
+              <Center flex="1">
+                <HStack>
+                  <Image
+                    size="56px"
+                    borderRadius="full"
+                    source={{ uri: `${origin}/favicon.ico` }}
+                    fallbackElement={<Token size="56px" />}
+                  />
+                  <Image
+                    w="28px"
+                    h="56px"
+                    source={Dots}
+                    resizeMode="center"
+                    marginLeft="16px"
+                    marginRight="16px"
+                  />
+                  <Image size="56px" source={Logo} />
+                </HStack>
+                <Typography.PageHeading mt="8px">
+                  {intl.formatMessage({
+                    id: 'title__connect_to_website',
+                  })}
+                </Typography.PageHeading>
               </Center>
-              <DescriptionList>
-                {/* Account */}
-                <DescriptionListItem
-                  title={intl.formatMessage({
-                    id: 'form__account',
-                  })}
-                  detail={
-                    <Column alignItems="flex-end" w="auto" flex={1}>
-                      <Text
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      >
-                        {accountInfo?.name}
-                      </Text>
-                      <Typography.Body2
-                        textAlign="right"
-                        color="text-subdued"
-                        numberOfLines={3}
-                      >
-                        {accountInfo?.address}
-                      </Typography.Body2>
-                    </Column>
-                  }
-                />
-                {/* Interact target */}
-                <DescriptionListItem
-                  title={intl.formatMessage({
-                    id: 'content__interact_with',
-                  })}
-                  detail={origin}
-                  isRug={computedIsRug}
-                />
-              </DescriptionList>
-
-              {/* Permissions */}
-              <Column space={2}>
+              <VStack space={2}>
                 <Box>
                   <Typography.Subheading mt="24px" color="text-subdued">
                     {intl.formatMessage({
@@ -189,27 +179,72 @@ const Connection = () => {
                     })}
                   </Typography.Subheading>
                 </Box>
-                <CheckBox.Group
-                  onChange={setPermissionValues}
-                  value={permissionValues}
-                  accessibilityLabel="choose numbers"
-                >
-                  {MockData.permissions.map((permission, index) => (
-                    <CheckBox
-                      key={index}
-                      value={permission.type}
-                      isChecked={permission.required}
-                      isDisabled={permission.required}
-                      defaultIsChecked={permission.required}
-                      my={2}
-                      title={intl.formatMessage({
+
+                {MockData.permissions.map((permission) => (
+                  <HStack alignItems="center">
+                    <Icon size={20} name="CheckSolid" />
+                    <Typography.Body1 ml="7px">
+                      {intl.formatMessage({
                         id: getPermissionTransId(permission.type),
                       })}
-                    />
-                  ))}
-                </CheckBox.Group>
-              </Column>
-            </Column>
+                    </Typography.Body1>
+                  </HStack>
+                ))}
+              </VStack>
+
+              {/* Account */}
+              <VStack space={2}>
+                <Box
+                  // h="52px"
+                  borderWidth="1px"
+                  borderColor="border-disabled"
+                  borderRadius="12px"
+                >
+                  <HStack flex="1" pt="4px" pb="4px">
+                    <HStack flex="1">
+                      <Image
+                        mt="6px"
+                        mr="8px"
+                        ml="8px"
+                        size="16px"
+                        source={AccountIcon}
+                      />
+                      <VStack mt="6px" mb="6px">
+                        <Typography.Subheading color="text-disabled">
+                          ACCOUNT
+                        </Typography.Subheading>
+                        <Typography.Body2>ACCOUNT#1</Typography.Body2>
+                      </VStack>
+                    </HStack>
+                    <HStack
+                      flex="1"
+                      borderLeftWidth={1}
+                      borderColor="border-disabled"
+                    >
+                      <Image
+                        mt="6px"
+                        mr="8px"
+                        ml="8px"
+                        size="16px"
+                        source={ChainNetworkIcon}
+                      />
+                      <VStack mt="6px" mb="6px">
+                        <Typography.Subheading color="text-disabled">
+                          NETWORK
+                        </Typography.Subheading>
+                        <Typography.Body2>{network?.name}</Typography.Body2>
+                      </VStack>
+                    </HStack>
+                  </HStack>
+                </Box>
+                <Center>
+                  <Typography.Body2 color="text-disabled">
+                    Approving will redirect to:
+                  </Typography.Body2>
+                  <Typography.Body2>{origin}</Typography.Body2>
+                </Center>
+              </VStack>
+            </VStack>
           ),
         }}
       />
