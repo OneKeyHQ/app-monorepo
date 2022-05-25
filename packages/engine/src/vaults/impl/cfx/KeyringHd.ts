@@ -1,10 +1,19 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { Transaction } from 'js-conflux-sdk';
 
 import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBVariantAccount } from '../../../types/account';
+import {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { IPrepareSoftwareAccountsParams } from '../../types';
 
@@ -82,5 +91,39 @@ export class KeyringHd extends KeyringHdBase {
       index += 1;
     }
     return ret;
+  }
+
+  async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const { password } = options;
+    const transaction = new Transaction(
+      // TODO: 数据转换需要放在上一层 decode 中
+      Object.keys(unsignedTx.payload).reduce(
+        (prev: { [key: string]: any }, key: string) => {
+          const value = unsignedTx.payload[key];
+          prev[key] = typeof value === 'bigint' ? value.toString() : value;
+          return prev;
+        },
+        {},
+      ) as any,
+    );
+    if (typeof password === 'undefined') {
+      throw new OneKeyInternalError('password required');
+    }
+
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+    const signers = await this.getSigners(password, [selectedAddress]);
+    const privateKey = await signers[selectedAddress].getPrvkey();
+    // WARN: the type privateKey can be buffer, but it is string in index.d.ts now.
+    transaction.sign(privateKey as any, 1);
+    return {
+      txid: transaction.hash,
+      rawTx: transaction.serialize(),
+    };
   }
 }

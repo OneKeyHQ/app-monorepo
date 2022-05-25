@@ -1,20 +1,37 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { Conflux } from '@onekeyfe/blockchain-libs/dist/provider/chains/cfx/conflux';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
+  SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { TransactionOptions } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
+import { Conflux as ConfluxJs, Drip, JSBI, Transaction } from 'js-conflux-sdk';
+import { isNil } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
-import { extractResponseError, fillUnsignedTx } from '../../../proxy';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+  PendingQueueTooLong,
+} from '../../../errors';
+import {
+  extractResponseError,
+  fillUnsignedTx,
+  fillUnsignedTxObj,
+} from '../../../proxy';
 import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
 import { UserCreateInputCategory } from '../../../types/credential';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import {
+  HistoryEntryStatus,
+  HistoryEntryTransaction,
+} from '../../../types/history';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -35,9 +52,61 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-// TODO extends evm/Vault
+import type { IEncodedTxEvm } from '../evm/Vault';
+import type {
+  Address,
+  Transaction as TransactionClassType,
+} from 'js-conflux-sdk';
+
+// fields in https://docs.confluxnetwork.org/js-conflux-sdk/docs/how_to_send_tx#send-transaction-complete
+// export type IEncodedTxCfx = {
+//   from: string;
+//   to: string;
+//   value: string;
+//   data: string;
+//   gas?: string;
+//   // gasLimit is not a CFX transaction field.
+//   gasLimit?: string;
+//   gasPrice?: string;
+//   maxFeePerGas?: string;
+//   maxPriorityFeePerGas?: string;
+//   nonce?: number;
+// };
+
+export type IEncodedTxCfx = IEncodedTxEvm;
+
+export enum IDecodedTxCfxType {
+  NativeTransfer = 'NativeTransfer',
+  TokenTransfer = 'TokenTransfer',
+  TokenApprove = 'TokenApprove',
+  Swap = 'Swap',
+  NftTransfer = 'NftTransfer',
+  ContractDeploy = 'ContractDeploy',
+}
+
+export interface IConfluxTransactionOption {
+  from: Address;
+  nonce?: JSBI;
+  gasPrice?: JSBI;
+  gas?: JSBI;
+  to?: Address | null;
+  value?: JSBI;
+  storageLimit?: JSBI;
+  epochHeight?: number;
+  chainId?: number;
+  data?: Buffer | string;
+  r?: Buffer | string;
+  s?: Buffer | string;
+  v?: number;
+}
+
 export default class Vault extends VaultBase {
   settings = settings;
+  private conflux = new ConfluxJs({
+    // should replace to dynamic address
+    url: 'https://portal-test.confluxrpc.com',
+    networkId: 1,
+  });
 
   private async getJsonRPCClient(): Promise<Conflux> {
     return (await this.engine.providerManager.getClient(
@@ -46,10 +115,10 @@ export default class Vault extends VaultBase {
   }
 
   attachFeeInfoToEncodedTx(params: {
-    encodedTx: any;
+    encodedTx: IEncodedTxAny;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<any> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(params.encodedTx);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -60,8 +129,26 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  buildEncodedTxFromTransfer(transferInfo: ITransferInfo): Promise<any> {
-    throw new Error('Method not implemented.');
+  async getGasLimit(estimateTractionOptions: TransactionOptions) {
+    const gasAndCollateral = await this.conflux.estimateGasAndCollateral(
+      new Transaction(estimateTractionOptions),
+    );
+    return gasAndCollateral.gasLimit[0];
+  }
+
+  async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxCfx> {
+    const { amount } = transferInfo;
+    const network = await this.getNetwork();
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(amountBN.shiftedBy(network.decimals));
+    return {
+      from: transferInfo.from,
+      to: transferInfo.to,
+      value: amountHex,
+      data: '0x',
+    };
   }
 
   buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
@@ -75,12 +162,68 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<UnsignedTx> {
-    throw new Error('Method not implemented.');
+  async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxCfx,
+  ): Promise<UnsignedTx> {
+    // const network = await this.getNetwork();
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const {
+      to,
+      value,
+      data,
+      gas,
+      gasLimit,
+      gasPrice,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      ...others
+    } = encodedTx;
+    debugLogger.sendTx(
+      'buildUnsignedTxFromEncodedTx >>>> buildUnsignedTx',
+      encodedTx,
+    );
+    const nextNonce =
+      typeof nonce !== 'undefined'
+        ? nonce
+        : await this.conflux.getNextNonce(dbAccount.addresses[this.networkId]);
+    return Promise.resolve({
+      inputs: [],
+      outputs: [],
+      // type?: string;
+      nonce: nextNonce,
+      // feeLimit?: BigNumber;
+      // feePricePerUnit?: BigNumber;
+      payload: {
+        to: encodedTx.to, // receiver address
+        nonce: nextNonce,
+        value: encodedTx.amount,
+        // 临时写死 gas
+        gas: 21000,
+        epochHeight: await this.conflux.getEpochNumber(),
+        storageLimit: 0,
+        chainId: 1,
+        data: '0x',
+        gasPrice: 1000000000,
+        value: Drip.fromCFX(parseFloat(encodedTx.value)),
+      },
+    });
   }
 
-  fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
-    throw new Error('Method not implemented.');
+  async fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
+    const network = await this.getNetwork();
+    // TODO: should replace by constant variable
+    const price: [number, boolean] = (await this.conflux.getGasPrice()) as any;
+    return Promise.resolve({
+      editable: true,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      symbol: network.feeSymbol,
+      decimals: network.feeDecimals,
+      limit: '2100',
+      prices: [price.toString()],
+      tx: null, // Must be null if network not support feeInTx
+    });
   }
 
   keyringMap = {
@@ -132,6 +275,18 @@ export default class Vault extends VaultBase {
       fillUnsignedTx(network, dbAccount, to, valueBN, token, extraCombined),
     );
     return this.signAndSendTransaction(unsignedTx, options);
+  }
+
+  async signAndSendTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const signedTx = await this.signTransaction(unsignedTx, options);
+    const hash = await this.conflux.sendRawTransaction(signedTx.rawTx);
+    return {
+      txid: hash,
+      rawTx: signedTx.rawTx,
+    };
   }
 
   async updateEncodedTx(
