@@ -13,10 +13,12 @@ module.exports = function (api) {
     config: {
       presets: ['babel-preset-expo'],
       plugins: [
-        'react-native-reanimated/plugin',
-        {
-          globals: ['__scanCodes'],
-        },
+        [
+          'react-native-reanimated/plugin',
+          {
+            globals: ['__scanCodes'],
+          },
+        ],
       ],
     },
   });

@@ -64,11 +64,13 @@
     "react-native-screens": "~3.10.1",
     "react-native-svg": "12.1.1",
     "react-native-toast-message": "2.1.2",
+    "react-native-vision-camera": "^2.13.3",
     "react-native-web": "0.17.1",
     "react-native-webview": "11.15.0",
     "readable-stream": "^3.6.0",
     "realm": "^10.20.0-beta.0",
-    "text-encoding": "^0.7.0"
+    "text-encoding": "^0.7.0",
+    "vision-camera-code-scanner": "^0.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",

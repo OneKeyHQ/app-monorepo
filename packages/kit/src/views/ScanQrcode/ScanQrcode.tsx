@@ -6,12 +6,22 @@ import {
   useIsFocused,
   useRoute,
 } from '@react-navigation/core';
-import { BarCodeScanner } from 'expo-barcode-scanner';
-import { Camera } from 'expo-camera';
+import { Camera as ExpoCamera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
+import { runOnJS } from 'react-native-reanimated';
+import {
+  Camera,
+  useCameraDevices,
+  useFrameProcessor,
+} from 'react-native-vision-camera';
+import {
+  BarcodeFormat,
+  scanBarcodes,
+  useScanBarcodes,
+} from 'vision-camera-code-scanner';
 
 import {
   Icon,
@@ -46,6 +56,8 @@ const ScanQrcode: FC = () => {
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
     PermissionStatus.UNDETERMINED,
   );
+  const devices = useCameraDevices();
+  const device = devices.back;
   const [scanned, setScanned] = useState(false);
   const isFocused = useIsFocused();
 
@@ -54,7 +66,7 @@ const ScanQrcode: FC = () => {
   const onScanCompleted = route.params?.onScanCompleted;
 
   const handleBarCodeScanned = useCallback(
-    async (data: string | null) => {
+    async (data?: string | null) => {
       if (!data) {
         return;
       }
@@ -104,7 +116,7 @@ const ScanQrcode: FC = () => {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
+      const { status } = await ExpoCamera.requestCameraPermissionsAsync();
       setCurrentPermission(status);
     })();
   }, []);
@@ -116,8 +128,17 @@ const ScanQrcode: FC = () => {
     }
   }, [isFocused]);
 
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+
+    const detectedBarcodes = scanBarcodes(frame, [BarcodeFormat.QR_CODE], {
+      checkInverted: true,
+    });
+    runOnJS(handleBarCodeScanned)(detectedBarcodes[0]?.rawValue);
+  }, []);
+
   const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
-  if (currentPermission === PermissionStatus.GRANTED) {
+  if (device && currentPermission === PermissionStatus.GRANTED) {
     return (
       <Modal
         hidePrimaryAction
@@ -140,28 +161,23 @@ const ScanQrcode: FC = () => {
           isApp ? { flex: 1 } : { width: '100%', height: 209 }
         }
       >
-        {isFocused && (
-          <Camera
-            style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-            onBarCodeScanned={
-              scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
-            }
-            barCodeScannerSettings={{
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
-            }}
-          >
-            <SvgScanArea
-              style={{ position: 'absolute' }}
-              width={144}
-              height={144}
-            />
-          </Camera>
-        )}
+        <Camera
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          device={device}
+          isActive={isFocused && !scanned}
+          frameProcessor={frameProcessor}
+          frameProcessorFps={5}
+        >
+          <SvgScanArea
+            style={{ position: 'absolute' }}
+            width={144}
+            height={144}
+          />
+        </Camera>
       </Modal>
     );
   }
