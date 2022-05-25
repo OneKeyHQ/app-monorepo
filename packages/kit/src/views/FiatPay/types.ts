@@ -35,9 +35,9 @@ export type MoonpayListType = {
   name: string;
   code: string;
   precision: number;
-  minBuyAmount: string;
-  maxBuyAmount: string;
-  minSellAmount: string;
-  maxSellAmount: string;
+  minBuyAmount: number;
+  maxBuyAmount: number;
+  minSellAmount: number;
+  maxSellAmount: number;
   isSellSupported: boolean;
 };

@@ -144,7 +144,7 @@ export const SupportTokenList: FC = () => {
           </Text>
         </Box>
         <Text typography="Body1Strong" color="text-subdued">
-          {`${item.balance ?? 0} ${item.symbol ?? ''}`}
+          {item.balance ?? 0}
         </Text>
       </Pressable>
     ),
