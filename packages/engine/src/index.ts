@@ -817,10 +817,23 @@ class Engine {
   }
 
   @backgroundMethod()
+  public async isTokenExistsInDb({
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    networkId: string;
+    tokenIdOnNetwork: string;
+  }) {
+    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
+    const token = await this.dbApi.getToken(tokenId);
+    return !!token;
+  }
+
+  @backgroundMethod()
   public async getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
-    requireAlreadyAdded = false,
+    requireAlreadyAdded = false, // TODO remove
   ): Promise<Token | undefined> {
     let noThisToken: undefined;
 
@@ -832,7 +845,9 @@ class Engine {
     }
 
     if (requireAlreadyAdded) {
-      throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
+      // DO Not throw error here, may cause workflow crash.
+      //    if you need check token exists, please use `isTokenExistsInDb()`
+      // throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
     }
 
     const vault = await this.getChainOnlyVault(networkId);
