@@ -8,8 +8,8 @@ import { ExportedSeedCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
-import { IPrepareSoftwareAccountsParams } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { IPrepareSoftwareAccountsParams } from '../../types';
 
 import { getAccountDefaultByPurpose } from './utils';
 

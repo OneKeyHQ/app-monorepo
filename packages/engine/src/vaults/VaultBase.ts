@@ -14,28 +14,29 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { NotImplemented } from '../errors';
 import { Account, DBAccount } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
+import { WalletType } from '../types/wallet';
+
 import {
   IApproveInfo,
   IDecodedTx,
-  IEncodedTxAny,
+  IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
-} from '../types/vault';
-import { WalletType } from '../types/wallet';
-
+} from './types';
 import { VaultContext } from './VaultContext';
 
+import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
 import type {
-  IBroadcastedTx,
   IPrepareHardwareAccountsParams,
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
-} from '../types/vault';
-import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
-import type { IVaultSettings } from './types';
+  ISignedTx,
+  IVaultSettings,
+} from './types';
 import type { VaultHelperBase } from './VaultHelperBase';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
@@ -108,44 +109,43 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   abstract attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTxAny;
+    encodedTx: IEncodedTx;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTxAny>;
+  }): Promise<IEncodedTx>;
 
-  abstract decodeTx(
-    encodedTx: IEncodedTxAny,
-    payload?: any,
-  ): Promise<IDecodedTx>;
+  abstract decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx>;
+
+  abstract decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy>;
 
   abstract buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
-  ): Promise<IEncodedTxAny>;
+  ): Promise<IEncodedTx>;
 
   // TODO move to EVM only
   abstract buildEncodedTxFromApprove(
     approveInfo: IApproveInfo,
-  ): Promise<IEncodedTxAny>;
+  ): Promise<IEncodedTx>;
 
   // TODO move to EVM only
   abstract updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     amount: string,
-  ): Promise<IEncodedTxAny>;
+  ): Promise<IEncodedTx>;
 
   abstract updateEncodedTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTxAny>;
+  ): Promise<IEncodedTx>;
 
   // buildEncodedTxFromNftTransfer
   // buildEncodedTxFromSwap
 
   abstract buildUnsignedTxFromEncodedTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
   ): Promise<UnsignedTx>;
 
-  abstract fetchFeeInfo(encodedTx: IEncodedTxAny): Promise<IFeeInfo>;
+  abstract fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo>;
 
   async signTransaction(
     unsignedTx: UnsignedTx,
@@ -157,7 +157,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async signAndSendTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
-  ): Promise<IBroadcastedTx> {
+  ): Promise<ISignedTx> {
     const signedTx = await this.signTransaction(unsignedTx, options);
     return this.broadcastTransaction(signedTx.rawTx, options);
   }
@@ -165,7 +165,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async broadcastTransaction(
     rawTx: string,
     options: ISignCredentialOptions,
-  ): Promise<IBroadcastedTx> {
+  ): Promise<ISignedTx> {
     debugLogger.engine('broadcastTransaction START:', { rawTx });
     // TODO RPC Error format return: EIP-1474 EIP-1193
     const txid = await this.engine.providerManager.broadcastTransaction(

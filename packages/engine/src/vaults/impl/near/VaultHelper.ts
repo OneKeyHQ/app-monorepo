@@ -3,12 +3,12 @@ import { VaultHelperBase } from '../../VaultHelperBase';
 
 import { deserializeTransaction, nearApiJs } from './utils';
 
-import type { IEncodedTxAny } from '../../../types/vault';
+import type { IEncodedTx } from '../../types';
 
 export default class VaultHelper extends VaultHelperBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseToNativeTx(
-    _encodedTx: IEncodedTxAny,
+    _encodedTx: IEncodedTx,
   ): Promise<nearApiJs.transactions.Transaction> {
     return Promise.resolve(deserializeTransaction(_encodedTx));
   }

@@ -10,6 +10,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 
 function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
   const { accountId, networkId, networkImpl } = useActiveWalletAccount();
+  const { engine } = backgroundApiProxy;
 
   const decodeTxTest = useCallback(async () => {
     // call vaultHelper in UI (not recommend)
@@ -30,18 +31,25 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
 
     // ----------------------------------------------
     // call vaultHelper from background
-    const decodedTx = await backgroundApiProxy.engine.decodeTx({
+    const decodedTxLegacy = await engine.decodeTx({
       accountId,
       networkId,
       encodedTx,
+    });
+    const decodedTx = await engine.decodeTx({
+      accountId,
+      networkId,
+      encodedTx,
+      legacy: false,
     });
     console.log('decodeTxTest >>>> ', {
       encodedTx,
       decodedTx,
       nativeTx,
+      decodedTxLegacy,
       _nativeTxFromRawTx: nativeTxFromRawTx,
     });
-  }, [networkId, accountId, networkImpl, encodedTx]);
+  }, [networkId, accountId, networkImpl, encodedTx, engine]);
 
   if (!platformEnv.isDev) {
     return null;

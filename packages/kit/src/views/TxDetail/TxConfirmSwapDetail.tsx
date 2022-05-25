@@ -3,11 +3,11 @@ import React, { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 import {
   EVMDecodedItem,
   EVMDecodedItemInternalSwap,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 

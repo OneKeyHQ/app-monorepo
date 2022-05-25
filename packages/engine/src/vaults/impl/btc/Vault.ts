@@ -20,14 +20,15 @@ import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
   IApproveInfo,
-  IBroadcastedTx,
-  IEncodedTxAny,
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
-} from '../../../types/vault';
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedItem } from '../evm/decoder/types';
 
@@ -142,6 +143,10 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.encodedTx);
   }
 
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    throw new NotImplemented();
+  }
+
   async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<any> {
     const { inputs, outputs, fee } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
@@ -234,17 +239,17 @@ export default class Vault extends VaultBase {
   }
 
   updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     amount: string,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
 
   updateEncodedTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
 

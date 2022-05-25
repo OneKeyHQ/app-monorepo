@@ -4,8 +4,8 @@ import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBVariantAccount } from '../../../types/account';
-import { IPrepareImportedAccountsParams } from '../../../types/vault';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { IPrepareImportedAccountsParams } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {

@@ -6,8 +6,8 @@ import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
 import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
 import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 export type TotalFeeProps = {
   tx: EVMDecodedItem;
