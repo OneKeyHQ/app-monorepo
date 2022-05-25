@@ -208,7 +208,7 @@ export default class Vault extends VaultBase {
             const tokenInfo = await this.engine.getOrAddToken(
               this.networkId,
               nativeTx.receiverId,
-              true,
+              false,
             );
             if (tokenInfo) {
               const transferData = parseJsonFromRawResponse(

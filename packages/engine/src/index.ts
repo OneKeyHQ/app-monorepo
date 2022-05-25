@@ -575,10 +575,14 @@ class Engine {
       withMain,
     );
     const ret: Record<string, string | undefined> = {};
-    if (withMain && typeof balances[0] !== 'undefined') {
-      ret.main = balances[0]
-        .div(new BigNumber(10).pow(network.decimals))
-        .toFixed();
+    if (withMain) {
+      if (typeof balances[0] !== 'undefined') {
+        ret.main = balances[0]
+          .div(new BigNumber(10).pow(network.decimals))
+          .toFixed();
+      } else {
+        ret.main = undefined;
+      }
     }
     balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
       const tokenId1 = tokensToGet[index];
