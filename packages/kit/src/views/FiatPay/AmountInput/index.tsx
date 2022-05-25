@@ -32,12 +32,12 @@ import {
 } from '../../../routes/Modal/FiatPay';
 import { getFiatCode } from '../../../utils/FiatCurrency';
 import {
-  buyQuoteUri,
   buyWidgetUrl,
-  sellQuoteUri,
+  getAmountInputInfo,
+  sellWidgetUrl,
   signMoonpayUrl,
 } from '../Service';
-import { MoonPayBuyQuotePayload, Provider } from '../types';
+import { MoonpayListType, Provider } from '../types';
 
 import { AutoSizeText } from './AutoSizeText';
 
@@ -53,18 +53,20 @@ function checkVaild(text: string) {
 }
 
 export const AmountInput: FC = () => {
-  const route = useRoute<RouteProps>();
-  const { token, type } = route.params;
   const intl = useIntl();
+  const route = useRoute<RouteProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const { token, type } = route.params;
   const { selectedFiatMoneySymbol } = useSettings();
   const provider: Provider = 'moonpay';
-  const baseCurrencyCode = getFiatCode(provider, selectedFiatMoneySymbol);
+  const fiatCode = getFiatCode(provider, selectedFiatMoneySymbol);
+  const cryptoCode = token.provider.moonpay;
 
-  const displayCurrency = type === 'Buy' ? baseCurrencyCode : token.symbol;
+  const displayCurrency = type === 'Buy' ? fiatCode : token.symbol;
   const [inputText, updateInputText] = useState('');
   const [descText, updateDescText] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const { account } = useActiveWalletAccount();
 
   const { height } = useWindowDimensions();
@@ -73,77 +75,92 @@ export const AmountInput: FC = () => {
   const [amountVaild, setAmountVaild] = useState(false);
   const [minAmount, setMinAmount] = useState<number>(0);
   const [maxAmount, setMaxAmount] = useState<number>(0);
-  const [quotePrice, setQuotePrice] = useState<number>(0);
+  const [askPrice, setAskPrice] = useState<number>(0);
 
-  const fiatCurrency = useMoonpayPayCurrency(baseCurrencyCode);
-  const cryptoCurrency = useMoonpayPayCurrency(token.provider.moonpay);
+  const fiatCurrency = useMoonpayPayCurrency(fiatCode) as MoonpayListType;
+  const cryptoCurrency = useMoonpayPayCurrency(cryptoCode) as MoonpayListType;
 
-  const quoteUri =
-    type === 'Buy'
-      ? buyQuoteUri(token.provider.moonpay, {
-          baseCurrencyCode,
-          // baseCurrencyAmount: fiatCurrency?.minBuyAmount as string,
-          baseCurrencyAmount: '300',
-        })
-      : sellQuoteUri(token.provider.moonpay, {
-          baseCurrencyCode,
-          baseCurrencyAmount: cryptoCurrency?.minSellAmount as string,
-        });
-  useSWR<MoonPayBuyQuotePayload>(quoteUri, {
-    onSuccess: (res) => {
-      if (loading) {
-        setLoading(false);
-      }
-      if (type === 'Buy') {
-        setMinAmount(res.baseCurrency.minBuyAmount);
-        setMaxAmount(res.baseCurrency.maxBuyAmount);
-        setQuotePrice(res.quoteCurrencyPrice);
+  useSWR(
+    'quoteAmount',
+    () => getAmountInputInfo(type, cryptoCurrency, fiatCurrency),
+    {
+      onSuccess: (response) => {
+        if (loading) {
+          setLoading(false);
+        }
+        setMinAmount(response?.minAmount as number);
+        if (type === 'Buy') {
+          setMaxAmount(response?.maxAmount as number);
+        } else {
+          const balance = Number(token.balance);
+          setMinAmount(Math.min(balance, response?.minAmount as number));
+          setMaxAmount(Math.min(balance, response?.maxAmount as number));
+        }
+        setAskPrice(response?.askPrice as number);
         updateDescText(
           intl.formatMessage(
             {
               id: 'form__buy_int_min_purchase',
             },
-            { 0: res.baseCurrency.minBuyAmount },
+            { 0: response?.minAmount },
           ),
         );
-      }
+      },
     },
-    onError: () => {
-      if (loading) {
-        setLoading(false);
-      }
-    },
-  });
+  );
 
   const checkAmountVaild = useCallback(
     (text: string) => {
       if (text.length > 0) {
         const amount = Number(text);
+
+        console.log('maxAmount = ', maxAmount);
+
         if (amount < minAmount) {
-          updateDescText(
-            intl.formatMessage(
+          updateDescText(() => {
+            if (type === 'Buy') {
+              return intl.formatMessage(
+                {
+                  id: 'form__buy_int_min_purchase',
+                },
+                { 0: minAmount },
+              );
+            }
+            return `${intl.formatMessage(
               {
-                id: 'form__buy_int_min_purchase',
+                id: 'form__sell_min_transaction_amount',
               },
               { 0: minAmount },
-            ),
-          );
+            )} ${token.symbol}`;
+          });
           setAmountVaild(false);
         } else if (amount > maxAmount) {
-          updateDescText(
-            intl.formatMessage(
+          updateDescText(() => {
+            if (type === 'Buy') {
+              return intl.formatMessage(
+                {
+                  id: 'form__buy_int_max_purchase',
+                },
+                { 0: maxAmount },
+              );
+            }
+            return `${intl.formatMessage(
               {
-                id: 'form__buy_int_max_purchase',
+                id: 'form__sell_max_transaction_amount',
               },
               { 0: maxAmount },
-            ),
-          );
+            )} ${token.symbol}`;
+          });
           setAmountVaild(false);
         } else {
           updateDescText(
-            `≈ ${(amount / quotePrice).toFixed(fiatCurrency?.precision)}  ${
-              token.symbol
-            }`,
+            type === 'Buy'
+              ? `≈ ${(amount / askPrice).toFixed(fiatCurrency?.precision)}  ${
+                  token.symbol
+                }`
+              : `≈ ${(amount * askPrice).toFixed(
+                  fiatCurrency?.precision,
+                )}  ${fiatCurrency.code.toUpperCase()}`,
           );
           setAmountVaild(true);
         }
@@ -152,12 +169,14 @@ export const AmountInput: FC = () => {
       }
     },
     [
-      fiatCurrency?.precision,
-      intl,
-      maxAmount,
       minAmount,
-      quotePrice,
+      maxAmount,
+      type,
+      intl,
       token.symbol,
+      askPrice,
+      fiatCurrency?.precision,
+      fiatCurrency.code,
     ],
   );
 
@@ -260,14 +279,19 @@ export const AmountInput: FC = () => {
             isDisabled={!amountVaild}
             mt={platformEnv.isNative ? space : '0px'}
             onPress={async () => {
-              const signedUrl = await signMoonpayUrl(
-                buyWidgetUrl({
-                  walletAddress: account?.address ?? '',
-                  currencyCode: token.provider.moonpay,
-                  baseCurrencyCode,
-                  baseCurrencyAmount: inputText,
-                }),
-              );
+              const url =
+                type === 'Buy'
+                  ? buyWidgetUrl({
+                      walletAddress: account?.address ?? '',
+                      currencyCode: cryptoCode,
+                      baseCurrencyCode: fiatCode,
+                      baseCurrencyAmount: inputText,
+                    })
+                  : sellWidgetUrl({
+                      baseCurrencyCode: cryptoCode,
+                      baseCurrencyAmount: inputText,
+                    });
+              const signedUrl = await signMoonpayUrl(url);
               navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
                 url: signedUrl,
               });

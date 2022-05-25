@@ -8,10 +8,10 @@ import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
-  IDecodedTx,
-  IEncodedTxAny,
+  IDecodedTxLegacy,
+  IEncodedTx,
   IFeeInfoPayload,
-} from '@onekeyhq/engine/src/types/vault';
+} from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappCallParams } from '../../../background/IBackgroundApi';
 import { useManageTokens } from '../../../hooks';
@@ -26,20 +26,18 @@ export type ITxConfirmViewPropsHandleConfirm = ({
 }: {
   onClose?: () => void;
   close: () => void;
-  encodedTx: IEncodedTxAny;
+  encodedTx: IEncodedTx;
 }) => void;
 // TODO networkId, accountId, onSuccess
 export type ITxConfirmViewProps = ModalProps & {
   // TODO rename sourceInfo
   sourceInfo?: IDappCallParams;
-  encodedTx: IEncodedTxAny;
-  decodedTx?: IDecodedTx;
-  updateEncodedTxBeforeConfirm?: (
-    encodedTx: IEncodedTxAny,
-  ) => Promise<IEncodedTxAny>;
+  encodedTx: IEncodedTx;
+  decodedTx?: IDecodedTxLegacy | null;
+  updateEncodedTxBeforeConfirm?: (encodedTx: IEncodedTx) => Promise<IEncodedTx>;
   confirmDisabled?: boolean;
   handleConfirm: ITxConfirmViewPropsHandleConfirm;
-  onEncodedTxUpdate?: (encodedTx: IEncodedTxAny) => void; // TODO remove
+  onEncodedTxUpdate?: (encodedTx: IEncodedTx) => void; // TODO remove
   feeInfoPayload: IFeeInfoPayload | null;
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;

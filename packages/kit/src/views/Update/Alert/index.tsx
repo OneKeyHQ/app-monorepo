@@ -1,7 +1,6 @@
 import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -22,23 +21,22 @@ const UpdateAlert: FC = () => {
   const { enabled, latest: lastVersion } = useAutoUpdate();
 
   const isSmallScreen = useIsVerticalLayout();
-  const screenWidth = useWindowDimensions().width;
 
   if (platformEnv.isWeb) return null;
 
   return enabled ? (
     <Box
       position="absolute"
-      width={isSmallScreen ? `${screenWidth - 32}px` : '358px'}
-      top={isSmallScreen ? undefined : '32px'}
-      right={isSmallScreen ? '16px' : '32px'}
-      bottom={isSmallScreen ? '58px' : undefined}
+      width={isSmallScreen ? 'full' : '358px'}
+      left={isSmallScreen ? 0 : '288px'}
+      bottom={isSmallScreen ? '58px' : '32px'}
       justifyContent="center"
       alignItems="center"
+      px={{ base: 4, md: 0 }}
     >
       <Box
         flexDirection="row"
-        width="auto"
+        width="full"
         px={4}
         py={4}
         bg="surface-default"
@@ -58,6 +56,7 @@ const UpdateAlert: FC = () => {
             )}
           </Text>
           <Button
+            alignSelf="flex-start"
             mt={3}
             onPress={() => {
               if (lastVersion) appUpdates.openAppUpdate(lastVersion);

@@ -14,9 +14,24 @@ import {
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { SendRoutes } from '../Send/types';
 
-import { useSwap, useSwapEnabled, useSwapState } from './hooks/useSwap';
+import {
+  useSwap,
+  useSwapEnabled,
+  useSwapQuoteCallback,
+  useSwapState,
+} from './hooks/useSwap';
 import { useTransactionAdder } from './hooks/useTransactions';
 import { ApprovalState, SwapError } from './typings';
+
+const RetryQuoteButton = () => {
+  const intl = useIntl();
+  const onQuote = useSwapQuoteCallback({ silent: false });
+  return (
+    <Button size="xl" type="primary" key="network_error" onPress={onQuote}>
+      {intl.formatMessage({ id: 'action__retry' })}
+    </Button>
+  );
+};
 
 const SwapButton = () => {
   const intl = useIntl();
@@ -162,16 +177,22 @@ const SwapButton = () => {
   }
 
   if (error) {
-    return (
-      <Button size="xl" type="primary" isDisabled key="error">
-        {error === SwapError.InsufficientBalance
-          ? intl.formatMessage(
-              { id: 'form__amount_invalid' },
-              { '0': inputToken?.symbol },
-            )
-          : intl.formatMessage({ id: 'transaction__failed' })}
-      </Button>
-    );
+    if (error === SwapError.InsufficientBalance) {
+      return (
+        <Button
+          size="xl"
+          type="primary"
+          isDisabled
+          key="insufficient_balance_error"
+        >
+          {intl.formatMessage(
+            { id: 'form__amount_invalid' },
+            { '0': inputToken?.symbol },
+          )}
+        </Button>
+      );
+    }
+    return <RetryQuoteButton />;
   }
   if (
     approveState === ApprovalState.NOT_APPROVED ||

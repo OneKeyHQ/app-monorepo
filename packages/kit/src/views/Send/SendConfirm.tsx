@@ -7,9 +7,9 @@ import {
   HistoryEntryStatus,
   HistoryEntryType,
 } from '@onekeyhq/engine/src/types/history';
-import { IBroadcastedTx } from '@onekeyhq/engine/src/types/vault';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -156,7 +156,7 @@ const TransactionConfirm = () => {
   }, [encodedTx, feeInfoPayload, params]);
 
   const saveHistory = useCallback(
-    (tx: IBroadcastedTx) => {
+    (tx: ISignedTx) => {
       const historyId = `${networkId}--${tx.txid}`;
       const historyBase = {
         id: historyId,
@@ -244,7 +244,7 @@ const TransactionConfirm = () => {
         walletId,
         networkId,
         // TODO onComplete
-        onSuccess: async (tx: IBroadcastedTx) => {
+        onSuccess: async (tx: ISignedTx) => {
           saveHistory(tx);
           backgroundApiProxy.serviceToken.fetchAccountTokens();
           await dappApprove.resolve({

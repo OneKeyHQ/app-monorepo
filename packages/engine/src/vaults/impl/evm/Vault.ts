@@ -35,9 +35,12 @@ import {
 } from '../../../types/history';
 import { ETHMessage, ETHMessageTypes } from '../../../types/message';
 import { EIP1559Fee, EvmExtraInfo } from '../../../types/network';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
-  IEncodedTxAny,
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdatePayloadTokenApprove,
   IEncodedTxUpdatePayloadTransfer,
@@ -46,8 +49,7 @@ import {
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
-} from '../../../types/vault';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { Erc20MethodSelectors } from './decoder/abi';
@@ -168,10 +170,16 @@ export default class Vault extends VaultBase {
     return this.signAndSendTransaction(unsignedTx, options);
   }
 
+  // @ts-ignore
+  decodedTxToLegacy(decodedTx: IDecodedTxLegacy): Promise<IDecodedTxLegacy> {
+    return Promise.resolve(decodedTx);
+  }
+
+  // @ts-ignore
   override async decodeTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     payload?: any,
-  ): Promise<EVMDecodedItem> {
+  ): Promise<IDecodedTxLegacy> {
     const ethersTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as ethers.Transaction;
@@ -267,10 +275,10 @@ export default class Vault extends VaultBase {
   }
 
   async updateEncodedTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     if (options.type === IEncodedTxUpdateType.tokenApprove) {
       const p = payload as IEncodedTxUpdatePayloadTokenApprove;
       return this.updateEncodedTxTokenApprove(encodedTx, p.amount);
@@ -284,7 +292,7 @@ export default class Vault extends VaultBase {
   async updateEncodedTxTransfer(
     encodedTx: IEncodedTxEvm,
     payload: IEncodedTxUpdatePayloadTransfer,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     const decodedTx = await this.decodeTx(encodedTx);
     const { amount } = payload;
     const amountBN = new BigNumber(amount);

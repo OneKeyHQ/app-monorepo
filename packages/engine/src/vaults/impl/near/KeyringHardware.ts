@@ -4,7 +4,7 @@ import { OneKeyInternalError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import type { ISignCredentialOptions } from '../../../types/vault';
+import type { ISignCredentialOptions } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<any> {
