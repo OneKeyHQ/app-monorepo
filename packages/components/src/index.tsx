@@ -64,6 +64,7 @@ export { default as Keyboard } from './Keyboard';
 export { default as KeyboardAvoidingView } from './KeyboardAvoidingView';
 export { default as KeyboardDismissView } from './KeyboardDismissView';
 export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
+export { default as DesktopDragZoneBox } from './DesktopDragZoneBox';
 
 export { default as LottieView } from './LottieView';
 export * from './NumberInput';

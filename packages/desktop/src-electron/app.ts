@@ -104,6 +104,16 @@ function createMainWindow() {
     }
   });
 
+  ipcMain.on('app/toggleMaximizeWindow', () => {
+    if (browserWindow.isMaximized()) {
+      // Restore the original window size
+      browserWindow.unmaximize();
+    } else {
+      // Maximized window
+      browserWindow.maximize();
+    }
+  });
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send('appState', undefined);
