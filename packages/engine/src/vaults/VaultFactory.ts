@@ -24,6 +24,7 @@ export class VaultFactory {
   }: IVaultFactoryOptions): Promise<VaultBase> {
     if (
       this.lastVault &&
+      accountId !== '' &&
       this.lastVault.networkId === networkId &&
       this.lastVault.accountId === accountId
     ) {
