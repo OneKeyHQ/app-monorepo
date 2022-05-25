@@ -485,6 +485,8 @@
   "form__searching_token": "Токеныг хайж байна...",
   "form__security_uppercase": "АЮУЛГҮЙ БАЙДАЛ",
   "form__select_all": "Бүгдийг сонгох",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Токен илгээх",
   "form__show_all": "Бүгдийг харуулах",
   "form__slippage_tolerance": "Гулсах хүлцэл",

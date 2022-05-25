@@ -19,6 +19,7 @@ import {
 import {
   useActiveWalletAccount,
   useFiatPay,
+  useMoonpayPayCurrency,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -33,6 +34,7 @@ import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
+import { CurrencyType } from '../../FiatPay/types';
 import { SendRoutes } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -50,7 +52,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
   const { wallet, account } = useActiveWalletAccount();
   const currencies = useFiatPay(network?.id ?? '');
 
-  const fiatCurrency = currencies.filter(
+  let cryptoCurrency = currencies.find(
     (item) => item.contract === token?.tokenIdOnNetwork,
   );
 
@@ -64,6 +66,14 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
     [balances],
   );
 
+  if (cryptoCurrency) {
+    cryptoCurrency = { ...cryptoCurrency, balance: amount };
+  }
+  const moonpayCurrency = useMoonpayPayCurrency(
+    cryptoCurrency?.provider.moonpay,
+  );
+
+  const sellEnable = cryptoCurrency && moonpayCurrency?.isSellSupported;
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box
@@ -180,7 +190,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
 
         <Box
           paddingX={isVertical ? '21px' : '19px'}
-          display={fiatCurrency.length > 0 ? 'flex' : 'none'}
+          display={cryptoCurrency ? 'flex' : 'none'}
         >
           <IconButton
             circle
@@ -194,7 +204,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
                 params: {
                   screen: FiatPayRoutes.AmoutInputModal,
                   params: {
-                    token: fiatCurrency[0],
+                    token: cryptoCurrency as CurrencyType,
                     type: 'Buy',
                   },
                 },
@@ -206,35 +216,33 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
           </Typography.CaptionStrong>
         </Box>
 
-        {/* {platformEnv.isDev ? (
-          <Box
-            paddingX={isVertical ? '21px' : '19px'}
-            display={fiatCurrency.length > 0 ? 'flex' : 'none'}
-          >
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="CashOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching'}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.FiatPay,
+        <Box
+          paddingX={isVertical ? '21px' : '19px'}
+          display={sellEnable ? 'flex' : 'none'}
+        >
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="CashOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.FiatPay,
+                params: {
+                  screen: FiatPayRoutes.AmoutInputModal,
                   params: {
-                    screen: FiatPayRoutes.AmoutInputModal,
-                    params: {
-                      token: fiatCurrency[0],
-                      type: 'Sell',
-                    },
+                    token: cryptoCurrency as CurrencyType,
+                    type: 'Sell',
                   },
-                });
-              }}
-            />
-            <Typography.CaptionStrong textAlign="center" mt="8px">
-              {intl.formatMessage({ id: 'action__sell' })}
-            </Typography.CaptionStrong>
-          </Box>
-        ) : null} */}
+                },
+              });
+            }}
+          />
+          <Typography.CaptionStrong textAlign="center" mt="8px">
+            {intl.formatMessage({ id: 'action__sell' })}
+          </Typography.CaptionStrong>
+        </Box>
         {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
             onPress={() => {
@@ -246,7 +254,16 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
         )}
       </Box>
     ),
-    [isVertical, wallet?.type, intl, fiatCurrency, navigation, token, account],
+    [
+      isVertical,
+      wallet?.type,
+      intl,
+      cryptoCurrency,
+      sellEnable,
+      navigation,
+      token,
+      account,
+    ],
   );
 
   return useMemo(

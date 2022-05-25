@@ -20,16 +20,17 @@ import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
   IApproveInfo,
-  IBroadcastedTx,
-  IEncodedTxAny,
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
-} from '../../../types/vault';
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
-import { EVMDecodedItem } from '../evm/decoder/types';
+import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -142,11 +143,17 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.encodedTx);
   }
 
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return Promise.resolve(decodedTx as any);
+  }
+
   async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<any> {
     const { inputs, outputs, fee } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     return {
+      txType: EVMDecodedTxType.NATIVE_TRANSFER,
       symbol: network.symbol,
       amount: new BigNumber(outputs[0].value)
         .shiftedBy(-network.decimals)
@@ -173,6 +180,7 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const utxos = await this.collectUTXOs();
+    // const feeRate = '2';
     const feeRate = specifiedFeeRate || (await this.getFeeRate())[1];
 
     const {
@@ -234,17 +242,17 @@ export default class Vault extends VaultBase {
   }
 
   updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     amount: string,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
 
   updateEncodedTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
 
@@ -355,12 +363,13 @@ export default class Vault extends VaultBase {
     const ret = [];
     let txs;
     try {
-      txs = (
-        (await provider.getAccount({
-          type: 'history',
-          xpub: dbAccount.xpub,
-        })) as { transactions: Array<any> }
-      ).transactions;
+      txs =
+        (
+          (await provider.getAccount({
+            type: 'history',
+            xpub: dbAccount.xpub,
+          })) as { transactions: Array<any> }
+        ).transactions ?? [];
     } catch (e) {
       console.error(e);
       txs = [];

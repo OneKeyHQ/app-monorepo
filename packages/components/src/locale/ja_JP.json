@@ -485,6 +485,8 @@
   "form__searching_token": "トークンを探す...",
   "form__security_uppercase": "セキュリティー",
   "form__select_all": "すべて選択",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "トークンの送信",
   "form__show_all": "すべて表示",
   "form__slippage_tolerance": "スリッページ許容値",

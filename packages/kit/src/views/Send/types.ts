@@ -1,9 +1,6 @@
 import { Token } from '@onekeyhq/engine/src/types/token';
-import {
-  IBroadcastedTx,
-  IFeeInfoSelected,
-} from '@onekeyhq/engine/src/types/vault';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { IFeeInfoSelected, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
@@ -74,7 +71,7 @@ export type SendConfirmPayload =
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string;
   payload?: SendConfirmPayload;
-  onSuccess?: (tx: IBroadcastedTx) => void;
+  onSuccess?: (tx: ISignedTx) => void;
   sourceInfo?: IDappCallParams;
   actionType?: SendConfirmActionType;
   backRouteName?: keyof SendRoutesParams;

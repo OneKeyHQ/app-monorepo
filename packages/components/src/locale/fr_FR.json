@@ -485,6 +485,8 @@
   "form__searching_token": "Recherche de jetons...",
   "form__security_uppercase": "SÉCURITÉ",
   "form__select_all": "Tout sélectionner",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Envoyer des jetons",
   "form__show_all": "Afficher tous",
   "form__slippage_tolerance": "Tolérance de glissement",

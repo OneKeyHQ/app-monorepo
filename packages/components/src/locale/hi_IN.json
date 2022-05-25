@@ -485,6 +485,8 @@
   "form__searching_token": "टोकन खोजा जा रहा है...",
   "form__security_uppercase": "सुरक्षा",
   "form__select_all": "सबका चयन करें",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "टोकन भेजें",
   "form__show_all": "सब दिखाएं",
   "form__slippage_tolerance": "फिसलन सहिष्णुता",

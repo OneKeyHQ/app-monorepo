@@ -485,6 +485,8 @@
   "form__searching_token": "กำลังค้นหาโทเค็น...",
   "form__security_uppercase": "ความปลอดภัย",
   "form__select_all": "เลือกทั้งหมด",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "ส่งโทเค็น",
   "form__show_all": "แสดงทั้งหมด",
   "form__slippage_tolerance": "ความทนทานต่อการเลื่อนหลุด",

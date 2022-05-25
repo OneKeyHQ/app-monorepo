@@ -485,6 +485,8 @@
   "form__searching_token": "Tìm kiếm Mã thông báo ...",
   "form__security_uppercase": "BẢO VỆ",
   "form__select_all": "Chọn tất cả",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Gửi mã thông báo",
   "form__show_all": "Hiển thị tất cả",
   "form__slippage_tolerance": "Khả năng chịu trượt",

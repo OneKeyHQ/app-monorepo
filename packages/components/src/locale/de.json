@@ -485,6 +485,8 @@
   "form__searching_token": "Suche nach Token...",
   "form__security_uppercase": "SICHERHEIT",
   "form__select_all": "Wählen Sie Alle",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Token senden",
   "form__show_all": "Alle anzeigen",
   "form__slippage_tolerance": "Schlupftoleranz",

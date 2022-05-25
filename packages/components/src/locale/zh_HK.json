@@ -485,6 +485,8 @@
   "form__searching_token": "正在搜索令牌...",
   "form__security_uppercase": "安全",
   "form__select_all": "全選",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "發送令牌",
   "form__show_all": "顯示所有",
   "form__slippage_tolerance": "滑點公差",

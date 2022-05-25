@@ -114,5 +114,5 @@ export const useFiatPay = (networkId: string) => {
   return currencies.filter((item) => item.networkId === networkId);
 };
 
-export const useMoonpayPayCurrency = (code: string) =>
+export const useMoonpayPayCurrency = (code?: string) =>
   useAppSelector((s) => s.data.currencyList).find((item) => item.code === code);

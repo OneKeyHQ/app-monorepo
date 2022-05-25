@@ -485,6 +485,8 @@
   "form__searching_token": "Naghahanap ng Token...",
   "form__security_uppercase": "SEGURIDAD",
   "form__select_all": "Piliin lahat",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Magpadala ng mga Token",
   "form__show_all": "Ipakita lahat",
   "form__slippage_tolerance": "Pagpaparaya sa slippage",

@@ -93,21 +93,22 @@ import {
   UpdateNetworkParams,
 } from './types/network';
 import { Token } from './types/token';
-import {
-  IEncodedTxAny,
-  IEncodedTxUpdateOptions,
-  IFeeInfoUnit,
-} from './types/vault';
 import { Wallet } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
-import { IVaultSettings } from './vaults/types';
+import {
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IFeeInfoUnit,
+  IVaultSettings,
+} from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
-import type { ITransferInfo, IVaultFactoryOptions } from './types/vault';
 import type BTCVault from './vaults/impl/btc/Vault';
+import type { ITransferInfo, IVaultFactoryOptions } from './vaults/types';
 
 @backgroundClass()
 class Engine {
@@ -574,10 +575,14 @@ class Engine {
       withMain,
     );
     const ret: Record<string, string | undefined> = {};
-    if (withMain && typeof balances[0] !== 'undefined') {
-      ret.main = balances[0]
-        .div(new BigNumber(10).pow(network.decimals))
-        .toFixed();
+    if (withMain) {
+      if (typeof balances[0] !== 'undefined') {
+        ret.main = balances[0]
+          .div(new BigNumber(10).pow(network.decimals))
+          .toFixed();
+      } else {
+        ret.main = undefined;
+      }
     }
     balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
       const tokenId1 = tokensToGet[index];
@@ -816,10 +821,23 @@ class Engine {
   }
 
   @backgroundMethod()
+  public async isTokenExistsInDb({
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    networkId: string;
+    tokenIdOnNetwork: string;
+  }) {
+    const tokenId = `${networkId}--${tokenIdOnNetwork}`;
+    const token = await this.dbApi.getToken(tokenId);
+    return !!token;
+  }
+
+  @backgroundMethod()
   public async getOrAddToken(
     networkId: string,
     tokenIdOnNetwork: string,
-    requireAlreadyAdded = false,
+    requireAlreadyAdded = false, // TODO remove
   ): Promise<Token | undefined> {
     let noThisToken: undefined;
 
@@ -831,7 +849,9 @@ class Engine {
     }
 
     if (requireAlreadyAdded) {
-      throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
+      // DO Not throw error here, may cause workflow crash.
+      //    if you need check token exists, please use `isTokenExistsInDb()`
+      // throw new OneKeyInternalError(`token ${tokenIdOnNetwork} not found.`);
     }
 
     const vault = await this.getChainOnlyVault(networkId);
@@ -978,6 +998,20 @@ class Engine {
     ];
   }
 
+  async getNativeTokenInfo(networkId: string) {
+    const dbNetwork = await this.dbApi.getNetwork(networkId);
+
+    return {
+      id: dbNetwork.id,
+      name: dbNetwork.name,
+      networkId,
+      tokenIdOnNetwork: '',
+      symbol: dbNetwork.symbol,
+      decimals: dbNetwork.decimals,
+      logoURI: dbNetwork.logoURI,
+    };
+  }
+
   @backgroundMethod()
   async getTokens(
     networkId: string,
@@ -988,16 +1022,8 @@ class Engine {
     const tokens = await this.dbApi.getTokens(networkId, accountId);
     if (typeof accountId !== 'undefined') {
       if (withMain) {
-        const dbNetwork = await this.dbApi.getNetwork(networkId);
-        tokens.unshift({
-          id: dbNetwork.id,
-          name: dbNetwork.name,
-          networkId,
-          tokenIdOnNetwork: '',
-          symbol: dbNetwork.symbol,
-          decimals: dbNetwork.decimals,
-          logoURI: dbNetwork.logoURI,
-        });
+        const nativeToken = await this.getNativeTokenInfo(networkId);
+        tokens.unshift(nativeToken);
       }
       return tokens;
     }
@@ -1183,14 +1209,12 @@ class Engine {
   async attachFeeInfoToEncodedTx(params: {
     networkId: string;
     accountId: string;
-    encodedTx: IEncodedTxAny;
+    encodedTx: IEncodedTx;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTxAny> {
+  }): Promise<IEncodedTx> {
     const { networkId, accountId } = params;
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-    const txWithFee: IEncodedTxAny = await vault.attachFeeInfoToEncodedTx(
-      params,
-    );
+    const txWithFee: IEncodedTx = await vault.attachFeeInfoToEncodedTx(params);
     debugLogger.sendTx('attachFeeInfoToEncodedTx', txWithFee);
     return txWithFee as unknown;
   }
@@ -1201,14 +1225,23 @@ class Engine {
     accountId,
     encodedTx,
     payload,
+    legacy,
   }: {
     networkId: string;
     accountId: string;
-    encodedTx: IEncodedTxAny;
+    encodedTx: IEncodedTx;
     payload?: any;
-  }) {
+    legacy?: boolean;
+  }): Promise<IDecodedTxLegacy> {
+    const isLegacy = legacy ?? true;
     const vault = await this.vaultFactory.getVault({ networkId, accountId });
-    return vault.decodeTx(encodedTx, payload);
+    const decodedTx = await vault.decodeTx(encodedTx, payload);
+    if (!isLegacy) {
+      // @ts-ignore
+      return decodedTx;
+    }
+    // convert to legacy decodedTx
+    return vault.decodedTxToLegacy(decodedTx);
   }
 
   @backgroundMethod()
@@ -1221,7 +1254,7 @@ class Engine {
   }: {
     networkId: string;
     accountId: string;
-    encodedTx: IEncodedTxAny;
+    encodedTx: IEncodedTx;
     payload: any;
     options: IEncodedTxUpdateOptions;
   }) {
@@ -1238,7 +1271,7 @@ class Engine {
   }: {
     networkId: string;
     accountId: string;
-    encodedTx: IEncodedTxAny;
+    encodedTx: IEncodedTx;
     amount: string;
   }) {
     const vault = await this.vaultFactory.getVault({ networkId, accountId });

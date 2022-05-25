@@ -485,6 +485,8 @@
   "form__searching_token": "Пошук маркера...",
   "form__security_uppercase": "БЕЗПЕКА",
   "form__select_all": "Вибрати все",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Надіслати токени",
   "form__show_all": "Покажи все",
   "form__slippage_tolerance": "Допуск до ковзання",

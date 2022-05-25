@@ -5,16 +5,28 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BN from 'bn.js';
-import { baseDecode, baseEncode, serialize } from 'borsh';
+import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
 import sha256 from 'js-sha256';
-import { isFunction, isString } from 'lodash';
+import { isString } from 'lodash';
 import * as nearApiJs from 'near-api-js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { Signer } from '../../../proxy';
+import { TxStatus } from '../../../types/covalent';
+import {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
+  IDecodedTxLegacy,
+} from '../../types';
+import {
+  EVMDecodedItemERC20Transfer,
+  EVMDecodedTxType,
+} from '../evm/decoder/types';
 
+import type { Engine } from '../../../index';
 import type {
   Action,
   SignedTransaction,
@@ -90,6 +102,105 @@ export function serializeTransaction(
 
 export function parseJsonFromRawResponse(response: Uint8Array): any {
   return JSON.parse(Buffer.from(response).toString());
+}
+
+function getLegacyActionInfo(tx: IDecodedTx) {
+  let txAction = tx.actions.length === 1 ? tx.actions[0] : null;
+  const isNativeTransfer =
+    txAction && txAction?.type === IDecodedTxActionType.NATIVE_TRANSFER;
+  const defaultResult = {
+    txType: EVMDecodedTxType.NATIVE_TRANSFER,
+    actionInfo: txAction,
+  };
+  if (isNativeTransfer) {
+    return defaultResult;
+  }
+  const testIsTokenTransfer = (action: IDecodedTxAction | null) =>
+    action && action.type === IDecodedTxActionType.TOKEN_TRANSFER;
+  let isTokenTransfer = testIsTokenTransfer(txAction);
+  if (!isTokenTransfer) {
+    txAction = tx.actions.length === 2 ? tx.actions[1] : null;
+  }
+  isTokenTransfer = testIsTokenTransfer(txAction);
+  if (isTokenTransfer) {
+    return {
+      txType: EVMDecodedTxType.TOKEN_TRANSFER,
+      actionInfo: txAction,
+    };
+  }
+  return defaultResult;
+}
+
+export function decodedTxToLegacy(tx: IDecodedTx): IDecodedTxLegacy {
+  const { network } = tx;
+  const { txType, actionInfo } = getLegacyActionInfo(tx);
+  let amount = '0';
+  let valueOnChain = '0';
+  let info = null;
+  let to = '';
+  if (
+    actionInfo?.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+    actionInfo?.nativeTransfer
+  ) {
+    amount = actionInfo.nativeTransfer.amount;
+    valueOnChain = actionInfo.nativeTransfer.amountValue;
+    to = actionInfo.nativeTransfer?.to;
+  }
+  if (
+    actionInfo?.type === IDecodedTxActionType.TOKEN_TRANSFER &&
+    actionInfo?.tokenTransfer
+  ) {
+    const infoLegacy: EVMDecodedItemERC20Transfer = {
+      type: EVMDecodedTxType.TOKEN_TRANSFER,
+      token: actionInfo.tokenTransfer.tokenInfo,
+      amount: actionInfo.tokenTransfer.amount,
+      value: actionInfo.tokenTransfer.amountValue,
+      recipient: actionInfo?.tokenTransfer.recipient,
+    };
+    to = actionInfo.tokenTransfer.recipient;
+    info = infoLegacy;
+  }
+  return {
+    txType,
+    blockSignedAt: 0,
+    fromType: 'OUT',
+    txStatus: TxStatus.Pending,
+    mainSource: 'raw',
+
+    symbol: network.symbol,
+    amount,
+    value: valueOnChain,
+    network,
+
+    fromAddress: tx.signer,
+    toAddress: to,
+    nonce: tx.nonce,
+    txHash: tx.txid,
+
+    info, // tokenTransferInfo
+    // @ts-ignore
+    _infoActionsLength: tx.actions.length,
+
+    gasInfo: {
+      gasLimit: 0,
+      gasPrice: '0',
+      maxFeePerGas: '0',
+      maxPriorityFeePerGas: '0',
+      maxPriorityFeePerGasInGwei: '0',
+      maxFeePerGasInGwei: '0',
+      maxFeeSpend: '0',
+      feeSpend: '0',
+      gasUsed: 0,
+      gasUsedRatio: 0,
+      effectiveGasPrice: '0',
+      effectiveGasPriceInGwei: '0',
+    },
+
+    data: '',
+    chainId: 0,
+
+    total: '0',
+  };
 }
 
 export async function signTransaction(

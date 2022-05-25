@@ -485,6 +485,8 @@
   "form__searching_token": "جاري البحث في الرمز المميز ...",
   "form__security_uppercase": "الأمان",
   "form__select_all": "اختر الكل",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "إرسال الرموز",
   "form__show_all": "عرض الكل",
   "form__slippage_tolerance": "تحمل الانزلاق",

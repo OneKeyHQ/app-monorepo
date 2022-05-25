@@ -485,6 +485,8 @@
   "form__searching_token": "Поиск жетона...",
   "form__security_uppercase": "БЕЗОПАСНОСТЬ",
   "form__select_all": "Выбрать все",
+  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
+  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
   "form__send_tokens": "Отправить маркеры",
   "form__show_all": "Показать все",
   "form__slippage_tolerance": "Допуск проскальзывания",

@@ -3,10 +3,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SEPERATOR } from '../constants';
 import { getWalletIdFromAccountId } from '../managers/account';
-import { IVaultFactoryOptions } from '../types/vault';
+
+import { IVaultFactoryOptions } from './types';
 
 import type { Engine } from '../index';
-import type { IVaultOptions } from '../types/vault';
+import type { IVaultOptions } from './types';
 
 export class VaultContextBase {
   constructor(options: IVaultFactoryOptions) {
