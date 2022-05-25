@@ -36,7 +36,7 @@ const Done: FC<DoneProps> = ({
 }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer, resetToRoot } = useNavigationActions();
+  const { closeDrawer, openRootHome } = useNavigationActions();
   useEffect(() => {
     async function main() {
       try {
@@ -53,7 +53,7 @@ const Done: FC<DoneProps> = ({
         toast.show({ title: intl.formatMessage({ id: errorKey }) });
       }
       closeDrawer();
-      resetToRoot();
+      openRootHome();
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
