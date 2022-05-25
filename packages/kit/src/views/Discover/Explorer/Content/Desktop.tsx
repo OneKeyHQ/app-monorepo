@@ -91,16 +91,21 @@ const Desktop: FC<ExplorerViewProps> = ({
 
   useEffect(() => {
     try {
-      if (!searchContent) setHttpSafeState('ExclamationCircleSolid');
+      if (!searchContent || !searchContent?.searchContent) {
+        setHttpSafeState('SearchCircleSolid');
+        return;
+      }
 
       const url = new URL(searchContent?.searchContent ?? '');
       if (url.protocol === 'https:') {
         setHttpSafeState('LockClosedSolid');
-      } else {
+      } else if (url.protocol === 'http:') {
         setHttpSafeState('ExclamationCircleSolid');
+      } else {
+        setHttpSafeState('SearchCircleSolid');
       }
     } catch (e) {
-      setHttpSafeState('ExclamationCircleSolid');
+      setHttpSafeState('SearchCircleSolid');
     }
   }, [searchContent]);
 
