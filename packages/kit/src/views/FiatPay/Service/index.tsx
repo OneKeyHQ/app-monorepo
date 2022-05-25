@@ -3,36 +3,27 @@ import axios from 'axios';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { currenciesSet } from '../../../store/reducers/data';
-import { CurrenciesPayload, MoonpayCurrencyListPayload } from '../types';
+import {
+  CurrenciesPayload,
+  MoonpayCurrencyListPayload,
+  MoonpayListType,
+} from '../types';
 
 const moonpayHost = 'https://api.moonpay.com';
 const moonpayApiKey = 'pk_test_Zi6NCCoN2Bp1DaRUQ4P4pKi9b2VEkTp';
-// api.moonpay.com/v3/currencies?apiKey=pk_test_Zi6NCCoN2Bp1DaRUQ4P4pKi9b2VEkTp
+
 export const currenciesListUri = `${moonpayHost}/v3/currencies?apiKey=${moonpayApiKey}`;
 
-export const buyQuoteUri = (
-  code: string,
-  params: {
-    baseCurrencyAmount: string;
-    baseCurrencyCode: string;
-  },
-) => {
-  const urlParams = new URLSearchParams(params);
-  return `${moonpayHost}/v3/currencies/${code}/buy_quote/?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
-};
+type AskPricePayload = Record<string, Record<string, number>>;
 
-export const sellQuoteUri = (
-  code: string,
-  params: {
-    baseCurrencyAmount: string;
-    baseCurrencyCode: string;
-  },
-) => {
+export const askPrice = async (params: {
+  cryptoCurrencies: string;
+  fiatCurrencies: string;
+}) => {
   const urlParams = new URLSearchParams(params);
-  return `${moonpayHost}/v3/currencies/${code}/sell_quote/?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
+  const url = `${moonpayHost}/v3/currencies/ask_price?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
+  return axios.get<AskPricePayload>(url);
 };
-
-export const requestQuote = async (url: string) => axios(url);
 
 export const buyWidgetUrl = (params: {
   currencyCode: string; // 要购买的币种
@@ -66,6 +57,53 @@ export const fetchCurrencies = async () => {
       currencyList: request2,
     }),
   );
+};
+
+export const getAmountInputInfo = async (
+  type: 'Buy' | 'Sell',
+  cryptoCurrency: MoonpayListType,
+  fiatCurrency: MoonpayListType,
+) => {
+  try {
+    const cryptoCode = cryptoCurrency.code;
+    const fiatCode = fiatCurrency.code;
+    const requestAskPrice = await askPrice({
+      cryptoCurrencies: cryptoCurrency.code,
+      fiatCurrencies: fiatCurrency.code,
+    });
+    const cryptoPrice =
+      requestAskPrice.data[cryptoCode.toUpperCase()][fiatCode.toUpperCase()];
+    console.log('cryptoPrice = ', cryptoPrice);
+
+    if (type === 'Buy') {
+      let { minBuyAmount } = fiatCurrency;
+      if (cryptoCurrency.minBuyAmount) {
+        minBuyAmount = Math.max(
+          minBuyAmount,
+          cryptoCurrency.minBuyAmount * cryptoPrice,
+        );
+      }
+      let { maxBuyAmount } = fiatCurrency;
+      if (cryptoCurrency.maxBuyAmount) {
+        maxBuyAmount = Math.min(
+          maxBuyAmount,
+          cryptoCurrency.maxBuyAmount * cryptoPrice,
+        );
+      }
+      return {
+        askPrice: cryptoPrice,
+        minAmount: minBuyAmount,
+        maxAmount: maxBuyAmount,
+      };
+    } // Sell
+    return {
+      askPrice: cryptoPrice,
+      minAmount: cryptoCurrency.minSellAmount,
+      maxAmount: cryptoCurrency.maxSellAmount,
+    };
+  } catch (error) {
+    console.log('getAmountInputInfo error ', error);
+  }
 };
 
 export const signMoonpayUrl = async (url: string) =>
