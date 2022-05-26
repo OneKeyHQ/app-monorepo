@@ -446,6 +446,7 @@ export default class Vault extends VaultBase {
 
       limit,
       prices: [price],
+      defaultPresetIndex: '0',
 
       tx: null, // Must be null if network not support feeInTx
     };

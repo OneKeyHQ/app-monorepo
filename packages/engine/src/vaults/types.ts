@@ -90,6 +90,7 @@ export type IFeeInfo = {
   // TODO merge (limit, prices, EIP1559Fee) to single field
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
+  defaultPresetIndex: string; // '0' | '1' | '2';
   symbol?: string; // feeSymbol: GWEI
   decimals?: number; // feeDecimals: 9
   nativeSymbol?: string; // ETH
