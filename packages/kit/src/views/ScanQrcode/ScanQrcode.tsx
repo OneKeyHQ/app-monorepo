@@ -20,15 +20,16 @@ import {
 } from '@onekeyhq/components';
 import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
+import { setHaptics } from '../../hooks/setHaptics';
 import useNavigation from '../../hooks/useNavigation';
 
+import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
-import ScanCamera from './ScanCamera';
-import { setHaptics } from '../../hooks/setHaptics';
 
 const { isWeb, isNative: isApp } = platformEnv;
 
