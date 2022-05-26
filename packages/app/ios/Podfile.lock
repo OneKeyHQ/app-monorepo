@@ -189,6 +189,23 @@ PODS:
     - GoogleUtilities/Environment (~> 7.2)
     - nanopb (~> 2.30908.0)
     - PromisesObjC (< 3.0, >= 1.2)
+  - GoogleMLKit/BarcodeScanning (3.0.0):
+    - GoogleMLKit/MLKitCore
+    - MLKitBarcodeScanning (~> 2.0.0)
+  - GoogleMLKit/MLKitCore (3.0.0):
+    - MLKitCommon (~> 6.0.0)
+  - GoogleToolboxForMac/DebugUtils (2.3.2):
+    - GoogleToolboxForMac/Defines (= 2.3.2)
+  - GoogleToolboxForMac/Defines (2.3.2)
+  - GoogleToolboxForMac/Logger (2.3.2):
+    - GoogleToolboxForMac/Defines (= 2.3.2)
+  - "GoogleToolboxForMac/NSData+zlib (2.3.2)":
+    - GoogleToolboxForMac/Defines (= 2.3.2)
+  - "GoogleToolboxForMac/NSDictionary+URLArguments (2.3.2)":
+    - GoogleToolboxForMac/DebugUtils (= 2.3.2)
+    - GoogleToolboxForMac/Defines (= 2.3.2)
+    - "GoogleToolboxForMac/NSString+URLArguments (= 2.3.2)"
+  - "GoogleToolboxForMac/NSString+URLArguments (2.3.2)"
   - GoogleUtilities/AppDelegateSwizzler (7.7.0):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
@@ -208,6 +225,9 @@ PODS:
     - GoogleUtilities/Logger
   - GoogleUtilities/UserDefaults (7.7.0):
     - GoogleUtilities/Logger
+  - GoogleUtilitiesComponents (1.1.0):
+    - GoogleUtilities/Logger
+  - GTMSessionFetcher/Core (1.7.2)
   - IQKeyboardManagerSwift (6.5.4)
   - libwebp (1.2.1):
     - libwebp/demux (= 1.2.1)
@@ -222,6 +242,26 @@ PODS:
   - lottie-react-native (5.0.1):
     - lottie-ios (~> 3.2.3)
     - React-Core
+  - MLImage (1.0.0-beta2)
+  - MLKitBarcodeScanning (2.0.0):
+    - MLKitCommon (~> 6.0)
+    - MLKitVision (~> 4.0)
+  - MLKitCommon (6.0.0):
+    - GoogleDataTransport (~> 9.0)
+    - GoogleToolboxForMac/Logger (~> 2.1)
+    - "GoogleToolboxForMac/NSData+zlib (~> 2.1)"
+    - "GoogleToolboxForMac/NSDictionary+URLArguments (~> 2.1)"
+    - GoogleUtilities/UserDefaults (~> 7.0)
+    - GoogleUtilitiesComponents (~> 1.0)
+    - GTMSessionFetcher/Core (~> 1.1)
+    - Protobuf (~> 3.12)
+  - MLKitVision (4.0.0):
+    - GoogleToolboxForMac/Logger (~> 2.1)
+    - "GoogleToolboxForMac/NSData+zlib (~> 2.1)"
+    - GTMSessionFetcher/Core (~> 1.1)
+    - MLImage (= 1.0.0-beta2)
+    - MLKitCommon (~> 6.0)
+    - Protobuf (~> 3.12)
   - MultiplatformBleAdapter (0.1.9)
   - nanopb (2.30908.0):
     - nanopb/decode (= 2.30908.0)
@@ -229,6 +269,7 @@ PODS:
   - nanopb/decode (2.30908.0)
   - nanopb/encode (2.30908.0)
   - PromisesObjC (2.1.0)
+  - Protobuf (3.20.1)
   - RCT-Folly (2021.06.28.00-v2):
     - boost
     - DoubleConversion
@@ -566,6 +607,13 @@ PODS:
     - SDWebImage/Core (~> 5.10)
   - UMTaskManagerInterface (7.1.1):
     - ExpoModulesCore
+  - vision-camera-code-scanner (0.2.0):
+    - GoogleMLKit/BarcodeScanning
+    - React-Core
+  - VisionCamera (2.13.3):
+    - React
+    - React-callinvoker
+    - React-Core
   - Yoga (1.14.0)
   - ZXingObjC/Core (3.6.5)
   - ZXingObjC/OneD (3.6.5):
@@ -650,6 +698,8 @@ DEPENDENCIES:
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - UMTaskManagerInterface (from `../../../node_modules/unimodules-task-manager-interface/ios`)
+  - vision-camera-code-scanner (from `../../../node_modules/vision-camera-code-scanner`)
+  - VisionCamera (from `../../../node_modules/react-native-vision-camera`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -662,12 +712,21 @@ SPEC REPOS:
     - fmt
     - GoogleAppMeasurement
     - GoogleDataTransport
+    - GoogleMLKit
+    - GoogleToolboxForMac
     - GoogleUtilities
+    - GoogleUtilitiesComponents
+    - GTMSessionFetcher
     - IQKeyboardManagerSwift
     - libwebp
+    - MLImage
+    - MLKitBarcodeScanning
+    - MLKitCommon
+    - MLKitVision
     - MultiplatformBleAdapter
     - nanopb
     - PromisesObjC
+    - Protobuf
     - SDWebImage
     - SDWebImageWebPCoder
     - ZXingObjC
@@ -819,6 +878,10 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-svg"
   UMTaskManagerInterface:
     :path: "../../../node_modules/unimodules-task-manager-interface/ios"
+  vision-camera-code-scanner:
+    :path: "../../../node_modules/vision-camera-code-scanner"
+  VisionCamera:
+    :path: "../../../node_modules/react-native-vision-camera"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
@@ -861,14 +924,23 @@ SPEC CHECKSUMS:
   glog: 5337263514dd6f09803962437687240c5dc39aa4
   GoogleAppMeasurement: 4c19f031220c72464d460c9daa1fb5d1acce958e
   GoogleDataTransport: 629c20a4d363167143f30ea78320d5a7eb8bd940
+  GoogleMLKit: 69ae034947ca5220c842a3096d574765c9b6b8b8
+  GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
   GoogleUtilities: e0913149f6b0625b553d70dae12b49fc62914fd1
+  GoogleUtilitiesComponents: 679b2c881db3b615a2777504623df6122dd20afe
+  GTMSessionFetcher: 5595ec75acf5be50814f81e9189490412bad82ba
   IQKeyboardManagerSwift: 2dde0fc70110e8eac7ccce2a46fdbec6a850b414
   libwebp: 98a37e597e40bfdb4c911fc98f2c53d0b12d05fc
   lottie-ios: c058aeafa76daa4cf64d773554bccc8385d0150e
   lottie-react-native: a029a86e1689c86a07169c520ae770e84348cd20
+  MLImage: a454f9f8ecfd537783a12f9488f5be1a68820829
+  MLKitBarcodeScanning: 05aaf6edc24417fa195a4e5d5dcb11550e80fb92
+  MLKitCommon: 534d2b24c1f8676db247bd7ee5733eca1b52968b
+  MLKitVision: 5e393f4d8a28be57b6384a3665f5f041deff9c2e
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
   PromisesObjC: 99b6f43f9e1044bd87a95a60beff28c2c44ddb72
+  Protobuf: b60ec2f51ad74765f44d0c09d2e0579d7de21745
   RCT-Folly: a21c126816d8025b547704b777a2ba552f3d9fa9
   RCTRequired: 4bf86c70714490bca4bf2696148638284622644b
   RCTTypeSafety: c475a7059eb77935fa53d2c17db299893f057d5d
@@ -912,6 +984,8 @@ SPEC CHECKSUMS:
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: f93010f3f6c031e2f8fb3081ca4ee6966c539815
   UMTaskManagerInterface: 3184c93ecc290bd422c6e344badc89b601e9c29b
+  vision-camera-code-scanner: dda884a7f3ec8243a2a6d6489b91860648371bca
+  VisionCamera: 7bcf3a81533a1c9ad13930804377ad13a03fcded
   Yoga: e7dc4e71caba6472ff48ad7d234389b91dadc280
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
