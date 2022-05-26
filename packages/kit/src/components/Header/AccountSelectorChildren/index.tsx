@@ -412,7 +412,7 @@ const AccountSelectorChildren: FC<{
                   )}
                   {!!activeOption.iconProps && (
                     <Box mr="3">
-                      <Icon size={6} {...activeOption.iconProps} />
+                      <Icon {...activeOption.iconProps} size={24} />
                     </Box>
                   )}
                   <Box flex={1}>
