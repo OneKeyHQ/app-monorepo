@@ -8,8 +8,6 @@ export type { TransactionDetailRoutesParams } from './TransactionDetail';
 export type { OnekeyLiteChangePinRoutesParams } from './HardwareOnekeyLiteChangePin';
 export type { OnekeyLiteResetRoutesParams } from './HardwareOnekeyLiteReset';
 export type { SendRoutesParams } from './Send';
-export type { DappApproveRoutesParams } from './DappApprove';
-export type { DappMulticallRoutesParams } from './DappMulticall';
 export type { DappConnectionRoutesParams } from './DappConnection';
 export type { PasswordRoutesParams } from './Password';
 export type { ManageTokenRoutesParams } from './ManageToken';

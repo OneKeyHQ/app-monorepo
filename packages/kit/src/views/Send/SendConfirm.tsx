@@ -289,7 +289,7 @@ const TransactionConfirm = () => {
       dappApprove.reject();
       close();
     },
-    onClose: dappApprove.reject,
+    onModalClose: dappApprove.reject,
     sourceInfo: params.sourceInfo,
     decodedTx,
   };
