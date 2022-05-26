@@ -3,9 +3,17 @@
   "typescript": true,
   "svgoConfig": {
     "plugins": [
-      { "cleanupIDs": false },
-      { "removeUselessDefs": false },
-      { "removeXMLNS": true }
+      { "name": "removeDimensions" },
+      { "name": "removeXMLNS" },
+      {
+        "name": "preset-default",
+        "params": {
+          "overrides": {
+            "cleanupIDs": false,
+            "removeUselessDefs": false
+          }
+        }
+      }
     ]
   }
 }
