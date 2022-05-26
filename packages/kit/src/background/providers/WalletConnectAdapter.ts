@@ -194,6 +194,7 @@ class WalletConnectAdapter {
     return Promise.resolve(resp.result);
   }
 
+  // TODO check if current chain is EVM
   async getChainIdInteger(connector: WalletConnect) {
     return parseInt(
       await this.ethereumRequest(connector, { method: 'net_version' }),
@@ -221,6 +222,7 @@ class WalletConnectAdapter {
     }
   }
 
+  // TODO check if current chain is EVM
   @backgroundMethod()
   async connect({ uri }: { uri: string }) {
     // uri network param defaults to evm
