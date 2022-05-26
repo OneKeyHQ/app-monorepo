@@ -8,6 +8,7 @@ export type DesktopAPI = {
   platform: string;
   reload: () => void;
   openPrefs: (prefType: PrefType) => void;
+  toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
 };
 declare global {
@@ -45,6 +46,7 @@ const desktopApi = {
     };
   },
   openPrefs: () => ipcRenderer.send('app/openPrefs'),
+  toggleMaximizeWindow: () => ipcRenderer.send('app/toggleMaximizeWindow'),
 };
 
 window.desktopApi = desktopApi;
