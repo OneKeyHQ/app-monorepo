@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
-import { ITransferInfo } from '@onekeyhq/engine/src/types/vault';
+import { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

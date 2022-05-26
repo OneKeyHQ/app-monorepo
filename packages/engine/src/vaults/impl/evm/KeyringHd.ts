@@ -5,8 +5,8 @@ import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { IPrepareSoftwareAccountsParams } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { IPrepareSoftwareAccountsParams } from '../../types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

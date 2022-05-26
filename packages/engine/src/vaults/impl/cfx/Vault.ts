@@ -13,16 +13,18 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
-  IEncodedTxAny,
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
-} from '../../../types/vault';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -48,7 +50,11 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  decodeTx(encodedTx: IEncodedTxAny, payload?: any): Promise<any> {
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    throw new NotImplemented();
+  }
+
+  decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx> {
     throw new NotImplemented();
   }
 
@@ -61,9 +67,9 @@ export default class Vault extends VaultBase {
   }
 
   updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     amount: string,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new Error('Method not implemented.');
   }
 
@@ -127,10 +133,10 @@ export default class Vault extends VaultBase {
   }
 
   async updateEncodedTx(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new Error('Method not implemented.');
   }
 

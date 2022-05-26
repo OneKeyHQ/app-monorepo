@@ -7,8 +7,8 @@ import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
-import { IPrepareImportedAccountsParams } from '../../../types/vault';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { IPrepareImportedAccountsParams } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(

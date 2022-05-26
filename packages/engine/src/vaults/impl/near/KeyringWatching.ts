@@ -1,19 +1,31 @@
-/* eslint-disable  @typescript-eslint/no-unused-vars */
-import { OneKeyInternalError } from '../../../errors';
+import { COINTYPE_NEAR as COIN_TYPE } from '../../../constants';
+import { InvalidAddress } from '../../../errors';
+import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
-import type { ISignCredentialOptions } from '../../../types/vault';
+import type { IPrepareWatchingAccountsParams } from '../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
-  override signTransaction(): Promise<any> {
-    throw new OneKeyInternalError('Watching account can not signTransaction');
-  }
+  override async prepareAccounts(
+    params: IPrepareWatchingAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    const { name, target } = params;
+    const { normalizedAddress, isValid } =
+      await this.engine.providerManager.verifyAddress(this.networkId, target);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
 
-  override signMessage(messages: any[], options: ISignCredentialOptions): any {
-    console.log(messages, options);
-  }
-
-  prepareAccounts(params: any): Promise<Array<any>> {
-    throw new OneKeyInternalError('prepareAccounts is not implemented');
+    return Promise.resolve([
+      {
+        id: `watching--${COIN_TYPE}--${target}`,
+        name: name || '',
+        type: AccountType.SIMPLE,
+        path: '',
+        coinType: COIN_TYPE,
+        pub: '', // TODO: only address is supported for now.
+        address: normalizedAddress,
+      },
+    ]);
   }
 }

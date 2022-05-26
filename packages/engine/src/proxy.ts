@@ -479,7 +479,7 @@ class ProviderController extends BaseProviderController {
             .get(`/api/v2/xpub/${address}`, { details: 'basic' })
             .then((r) => r.json())
             .then((r: { balance: string }) => new BigNumber(r.balance))
-            .catch(() => new BigNumber(0)),
+            .catch(() => undefined),
         ),
       );
     }
