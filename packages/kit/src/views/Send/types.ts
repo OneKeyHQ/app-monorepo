@@ -69,17 +69,20 @@ export type SendConfirmPayload =
   | TransferSendParamsPayload
   | SwapQuote;
 export type SendConfirmParams = EditFeeParams & {
-  payloadType?: string;
-  payload?: SendConfirmPayload;
+  payloadType?: string; // TODO remove
+  payload?: SendConfirmPayload; // use payload.payloadType
   onSuccess?: (tx: ISignedTx) => void;
   sourceInfo?: IDappCallParams;
   actionType?: SendConfirmActionType;
   backRouteName?: keyof SendRoutesParams;
-  feeInfoUseFeeInTx?: boolean;
-  feeInfoEditable?: boolean;
+  feeInfoUseFeeInTx: boolean;
+  feeInfoEditable: boolean;
 };
 
-export type SendAuthenticationParams = SendConfirmParams & {
+export type SendAuthenticationParams = Omit<
+  SendConfirmParams,
+  'feeInfoEditable' | 'feeInfoUseFeeInTx'
+> & {
   accountId: string;
   walletId: string;
   networkId: string;
