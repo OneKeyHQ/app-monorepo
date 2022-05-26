@@ -99,7 +99,6 @@ const Connection = () => {
 
   const dappApprove = useDappApproveAction({
     id,
-    getResolveData,
     closeOnError: true,
   });
 
@@ -126,16 +125,20 @@ const Connection = () => {
         secondaryActionTranslationId="action__reject"
         header={intl.formatMessage({ id: 'title__approve' })}
         headerDescription={scope}
-        onPrimaryActionPress={({ close }) => {
+        onPrimaryActionPress={async ({ close }) => {
           if (!computedIsRug) {
-            return dappApprove.resolve({ close });
+            const result = getResolveData();
+            return dappApprove.resolve({ close, result });
           }
           // Do confirm before approve
           setRugConfirmDialogVisible(true);
         }}
-        onSecondaryActionPress={dappApprove.reject}
+        onSecondaryActionPress={({ close }) => {
+          dappApprove.reject();
+          close();
+        }}
         // TODO onClose may trigger many times
-        onClose={dappApprove.reject}
+        onModalClose={dappApprove.reject}
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
