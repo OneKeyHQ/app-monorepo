@@ -10,6 +10,4 @@ export * from './Modal/SubmitRequest';
 export * from './Modal/HistoryRequest';
 export * from './Modal/HardwareOnekeyLiteReset';
 export * from './Modal/HardwareOnekeyLiteChangePin';
-export * from './Modal/DappApprove';
-export * from './Modal/DappMulticall';
 export * from './Modal/DappConnection';
