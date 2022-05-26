@@ -34,8 +34,8 @@ const DesktopDragZoneBox: FC<IBoxProps> = ({ ...props }) => {
       onPress={toggleMaxWindow}
       style={{
         // @ts-expect-error
-        '-webkit-app-region': 'drag',
-        '-webkit-user-select': 'none',
+        WebkitAppRegion: 'drag',
+        WebkitUserSelect: 'none',
         cursor: 'default',
       }}
     >
