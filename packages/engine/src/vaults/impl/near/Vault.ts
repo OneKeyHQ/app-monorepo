@@ -4,6 +4,7 @@ import {
   Provider as NearProvider,
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/near';
 import { NearAccessKey } from '@onekeyfe/blockchain-libs/dist/provider/chains/near/nearcli';
+import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
@@ -496,7 +497,9 @@ export default class Vault extends VaultBase {
       const [encryptedPrivateKey] = Object.values(
         await keyring.getPrivateKeys(password),
       );
-      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+      const privateKey = decrypt(password, encryptedPrivateKey);
+      const publicKey = ed25519.publicFromPrivate(privateKey);
+      return `ed25519:${baseEncode(Buffer.concat([privateKey, publicKey]))}`;
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
@@ -575,7 +578,15 @@ export default class Vault extends VaultBase {
 
   async guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
     const ret = [];
-    // TODO: private key input
+    if (this.settings.importedAccountEnabled) {
+      const [prefix, encoded] = input.split(':');
+      if (
+        prefix === 'ed25519' &&
+        Buffer.from(baseDecode(encoded)).length === 64
+      ) {
+        ret.push(UserCreateInputCategory.PRIVATE_KEY);
+      }
+    }
     if (
       this.settings.watchingAccountEnabled &&
       (await this.engineProvider.verifyAddress(input)).isValid
