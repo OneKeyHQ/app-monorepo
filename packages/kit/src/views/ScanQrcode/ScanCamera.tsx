@@ -16,6 +16,7 @@ const ScanCamera: FC<ScanCameraProps> = ({
   onQrcodeScanned,
 }) => {
   const devices = useCameraDevices();
+  const device = devices.back;
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
 
@@ -24,17 +25,17 @@ const ScanCamera: FC<ScanCameraProps> = ({
     });
     runOnJS(onQrcodeScanned)(detectedBarcodes[0]?.rawValue);
   }, []);
-  return (
+  return device ? (
     <Camera
       style={style}
-      device={devices.back!}
+      device={device}
       isActive={isActive}
       frameProcessor={frameProcessor}
       frameProcessorFps={5}
     >
       {children}
     </Camera>
-  );
+  ) : null;
 };
 ScanCamera.displayName = 'ScanCamera';
 
