@@ -46,7 +46,7 @@ function TokenApproveAmountEdit({ ...rest }) {
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const { networkId, accountId, network } = useActiveWalletAccount();
   const { encodedTx, tokenApproveAmount, isMaxAmount } = route.params;
   const [isMax, setIsMax] = useState(isMaxAmount);
   const decodedTx = route.params.decodedTx as EVMDecodedItem | null;
@@ -142,7 +142,12 @@ function TokenApproveAmountEdit({ ...rest }) {
                 {
                   id: 'content__if_you_choose_max',
                 },
-                { 0: route.params.sourceInfo?.origin ?? '--' },
+                {
+                  0:
+                    route.params.sourceInfo?.origin ??
+                    network?.shortName ??
+                    '--',
+                },
               )}
             >
               <Form.NumberInput
