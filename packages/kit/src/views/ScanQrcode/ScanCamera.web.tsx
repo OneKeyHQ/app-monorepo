@@ -4,13 +4,14 @@ import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 
 import { ScanCameraProps } from './types';
+
 const ScanCamera: FC<ScanCameraProps> = ({
   style,
   isActive,
   children,
   onQrcodeScanned,
-}) => {
-  return isActive ? (
+}) =>
+  isActive ? (
     <Camera
       style={style}
       onBarCodeScanned={({ data }) => onQrcodeScanned(data)}
@@ -22,7 +23,6 @@ const ScanCamera: FC<ScanCameraProps> = ({
       {children}
     </Camera>
   ) : null;
-};
 ScanCamera.displayName = 'ScanCamera';
 
 export default ScanCamera;

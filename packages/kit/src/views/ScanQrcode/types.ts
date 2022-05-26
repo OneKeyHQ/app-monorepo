@@ -1,5 +1,7 @@
 import { ReactNode } from 'react';
+
 import { StyleProp, ViewStyle } from 'react-native';
+
 export type ScanResultType = 'address' | 'url' | 'other';
 export interface ScanResult {
   type: ScanResultType;

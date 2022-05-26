@@ -9,6 +9,7 @@ import {
 import { BarcodeFormat, scanBarcodes } from 'vision-camera-code-scanner';
 
 import { ScanCameraProps } from './types';
+
 const ScanCamera: FC<ScanCameraProps> = ({
   style,
   isActive,
