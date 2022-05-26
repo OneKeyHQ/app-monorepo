@@ -25,6 +25,7 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
+    autoHideMenuBar: true,
     frame: true,
     resizable: true,
     x: isDev ? 0 : undefined,
