@@ -48,6 +48,7 @@ const LottieView = ({ source, autoPlay, ...props }: LottieViewProps) => {
     return (
       <LottieViewNative
         source={source}
+        autoPlay={autoPlay}
         {...props}
         ref={animationRef as LegacyRef<AnimatedLottieView>}
       />
