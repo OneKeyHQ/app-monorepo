@@ -11,17 +11,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
-import { runOnJS } from 'react-native-reanimated';
-import {
-  Camera,
-  useCameraDevices,
-  useFrameProcessor,
-} from 'react-native-vision-camera';
-import {
-  BarcodeFormat,
-  scanBarcodes,
-  useScanBarcodes,
-} from 'vision-camera-code-scanner';
 
 import {
   Icon,
@@ -31,7 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
 import useNavigation from '../../hooks/useNavigation';
@@ -39,6 +27,8 @@ import useNavigation from '../../hooks/useNavigation';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
+import ScanCamera from './ScanCamera';
+import { setHaptics } from '../../hooks/setHaptics';
 
 const { isWeb, isNative: isApp } = platformEnv;
 
@@ -56,8 +46,6 @@ const ScanQrcode: FC = () => {
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
     PermissionStatus.UNDETERMINED,
   );
-  const devices = useCameraDevices();
-  const device = devices.back;
   const [scanned, setScanned] = useState(false);
   const isFocused = useIsFocused();
 
@@ -71,6 +59,7 @@ const ScanQrcode: FC = () => {
         return;
       }
       setScanned(true);
+      setHaptics();
       if (onScanCompleted) {
         onScanCompleted(data);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -128,17 +117,8 @@ const ScanQrcode: FC = () => {
     }
   }, [isFocused]);
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-
-    const detectedBarcodes = scanBarcodes(frame, [BarcodeFormat.QR_CODE], {
-      checkInverted: true,
-    });
-    runOnJS(handleBarCodeScanned)(detectedBarcodes[0]?.rawValue);
-  }, []);
-
   const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
-  if (device && currentPermission === PermissionStatus.GRANTED) {
+  if (currentPermission === PermissionStatus.GRANTED) {
     return (
       <Modal
         hidePrimaryAction
@@ -161,23 +141,21 @@ const ScanQrcode: FC = () => {
           isApp ? { flex: 1 } : { width: '100%', height: 209 }
         }
       >
-        <Camera
+        <ScanCamera
           style={{
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
           }}
-          device={device}
           isActive={isFocused && !scanned}
-          frameProcessor={frameProcessor}
-          frameProcessorFps={5}
+          onQrcodeScanned={handleBarCodeScanned}
         >
           <SvgScanArea
             style={{ position: 'absolute' }}
             width={144}
             height={144}
           />
-        </Camera>
+        </ScanCamera>
       </Modal>
     );
   }
