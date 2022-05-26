@@ -1,7 +1,6 @@
 import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import { DrawerActions, TabActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
@@ -18,11 +17,7 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import {
-  ModalScreenProps,
-  TabRoutes,
-  TabRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import { SkipAppLock } from '../../../../components/AppLock';
 import { useNavigationActions } from '../../../../hooks';
@@ -31,8 +26,6 @@ import ErrorDialog from '../ErrorDialog';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-type TabNavigationProps = ModalScreenProps<TabRoutesParams>;
-
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
   CreateWalletModalRoutes.OnekeyLiteRestoreModal
@@ -40,9 +33,8 @@ type RouteProps = RouteProp<
 
 const Restore: FC = () => {
   const intl = useIntl();
-  const { resetToRoot } = useNavigationActions();
+  const { openRootHome, openDrawer } = useNavigationActions();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const tabNavigation = useNavigation<TabNavigationProps['navigation']>();
 
   const { pinCode } = useRoute<RouteProps>().params;
   const [pinRetryCount, setPinRetryCount] = useState<string>('');
@@ -71,10 +63,8 @@ const Restore: FC = () => {
   };
 
   const goBackHome = () => {
-    resetToRoot();
-    tabNavigation.navigate(TabRoutes.Home);
-    tabNavigation.dispatch(TabActions.jumpTo(TabRoutes.Home, {}));
-    tabNavigation.dispatch(DrawerActions.openDrawer());
+    openRootHome();
+    openDrawer();
   };
 
   const stateNfcSearch = () => {

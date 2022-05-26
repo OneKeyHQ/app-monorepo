@@ -6,8 +6,7 @@ import {
   useIsFocused,
   useRoute,
 } from '@react-navigation/core';
-import { BarCodeScanner } from 'expo-barcode-scanner';
-import { Camera } from 'expo-camera';
+import { Camera as ExpoCamera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
@@ -24,8 +23,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
+import { setHaptics } from '../../hooks/setHaptics';
 import useNavigation from '../../hooks/useNavigation';
 
+import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
@@ -54,11 +55,12 @@ const ScanQrcode: FC = () => {
   const onScanCompleted = route.params?.onScanCompleted;
 
   const handleBarCodeScanned = useCallback(
-    async (data: string | null) => {
+    async (data?: string | null) => {
       if (!data) {
         return;
       }
       setScanned(true);
+      setHaptics();
       if (onScanCompleted) {
         onScanCompleted(data);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -104,7 +106,7 @@ const ScanQrcode: FC = () => {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
+      const { status } = await ExpoCamera.requestCameraPermissionsAsync();
       setCurrentPermission(status);
     })();
   }, []);
@@ -140,28 +142,21 @@ const ScanQrcode: FC = () => {
           isApp ? { flex: 1 } : { width: '100%', height: 209 }
         }
       >
-        {isFocused && (
-          <Camera
-            style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-            onBarCodeScanned={
-              scanned ? undefined : ({ data }) => handleBarCodeScanned(data)
-            }
-            barCodeScannerSettings={{
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
-            }}
-          >
-            <SvgScanArea
-              style={{ position: 'absolute' }}
-              width={144}
-              height={144}
-            />
-          </Camera>
-        )}
+        <ScanCamera
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          isActive={isFocused && !scanned}
+          onQrcodeScanned={handleBarCodeScanned}
+        >
+          <SvgScanArea
+            style={{ position: 'absolute' }}
+            width={144}
+            height={144}
+          />
+        </ScanCamera>
       </Modal>
     );
   }
