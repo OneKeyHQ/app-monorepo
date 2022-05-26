@@ -28,13 +28,13 @@ import {
   OneKeyValidatorError,
 } from '@onekeyhq/engine/src/errors';
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IFeeInfo,
   IFeeInfoPayload,
   IFeeInfoSelectedType,
   IFeeInfoUnit,
-} from '@onekeyhq/engine/src/types/vault';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+} from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 

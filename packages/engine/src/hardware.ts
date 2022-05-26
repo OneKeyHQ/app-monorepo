@@ -20,7 +20,7 @@ import OneKeyConnect, {
   Unsuccessful,
 } from '@onekeyfe/js-sdk';
 
-import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/types/vault';
+import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 
 import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';

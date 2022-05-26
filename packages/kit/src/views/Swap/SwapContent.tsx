@@ -27,11 +27,11 @@ import {
   useSwapState,
 } from './hooks/useSwap';
 import SwapButton from './SwapButton';
-import { SwapRoutes } from './typings';
+import { SwapError, SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
-  const { inputToken, outputToken, typedValue, independentField } =
+  const { inputToken, outputToken, typedValue, independentField, error } =
     useSwapState();
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
@@ -173,6 +173,15 @@ const SwapContent = () => {
                 id: 'msg__wrong_network_desc',
               })}
               alertType="error"
+              dismiss={false}
+            />
+          </Box>
+        ) : null}
+        {error === SwapError.QuoteFailed ? (
+          <Box mb="6">
+            <Alert
+              title={intl.formatMessage({ id: 'msg__failed_to_get_price' })}
+              alertType="warn"
               dismiss={false}
             />
           </Box>

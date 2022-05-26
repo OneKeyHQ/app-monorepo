@@ -12,12 +12,12 @@ import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { IPrepareSoftwareAccountsParams } from '../../../types/vault';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { IPrepareSoftwareAccountsParams } from '../../types';
 
 import { signTransaction } from './utils';
 
-import type { ISignCredentialOptions } from '../../../types/vault';
+import type { ISignCredentialOptions } from '../../types';
 
 // TODO move to abstract attribute
 // m/44'/397'/0', m/44'/397'/1', m/44'/397'/2'

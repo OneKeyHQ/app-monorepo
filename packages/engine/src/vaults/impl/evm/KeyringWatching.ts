@@ -1,8 +1,8 @@
 import { COINTYPE_ETH as COIN_TYPE } from '../../../constants';
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { IPrepareWatchingAccountsParams } from '../../../types/vault';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
+import { IPrepareWatchingAccountsParams } from '../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(

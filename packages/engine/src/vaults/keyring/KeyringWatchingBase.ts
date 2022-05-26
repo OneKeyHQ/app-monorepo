@@ -9,7 +9,7 @@ import { OneKeyInternalError } from '../../errors';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { ISignCredentialOptions } from '../../types/vault';
+import type { ISignCredentialOptions } from '../types';
 
 export abstract class KeyringWatchingBase extends KeyringBase {
   async signTransaction(

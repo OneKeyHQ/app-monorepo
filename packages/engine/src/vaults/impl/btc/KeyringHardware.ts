@@ -17,7 +17,7 @@ import { getAccountDefaultByPurpose } from './utils';
 import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
-} from '../../../types/vault';
+} from '../../types';
 import type BTCVault from './Vault';
 import type {
   SignedTx,

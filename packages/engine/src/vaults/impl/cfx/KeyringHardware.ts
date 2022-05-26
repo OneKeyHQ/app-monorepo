@@ -8,7 +8,7 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
-} from '../../../types/vault';
+} from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<any> {
