@@ -11,6 +11,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { last } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -19,18 +20,22 @@ import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount, DBVariantAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import { Token } from '../../../types/token';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
   IDecodedTx,
-  IEncodedTxAny,
+  IDecodedTxAction,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxLegacy,
+  IDecodedTxStatus,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
-  ISignCredentialOptions,
   ITransferInfo,
-} from '../../../types/vault';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 import {
   EVMDecodedItem,
@@ -46,13 +51,13 @@ import settings from './settings';
 import { INearAccountStorageBalance } from './types';
 import {
   BN,
-  FT_MINIMUM_STORAGE_BALANCE,
   FT_MINIMUM_STORAGE_BALANCE_LARGE,
   FT_STORAGE_DEPOSIT_GAS,
   FT_TRANSFER_DEPOSIT,
   FT_TRANSFER_GAS,
   baseDecode,
   baseEncode,
+  decodedTxToLegacy,
   deserializeTransaction,
   nearApiJs,
   parseJsonFromRawResponse,
@@ -167,91 +172,93 @@ export default class Vault extends VaultBase {
     return defaultResult;
   }
 
-  async decodeTx(encodedTx: IEncodedTxAny, payload?: any): Promise<IDecodedTx> {
+  async nativeTxActionToEncodedTxAction(
+    nativeTx: nearApiJs.transactions.Transaction,
+  ) {
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const actions = await Promise.all(
+      nativeTx.actions.map(async (action) => {
+        const encodedTxAction: IDecodedTxAction = {
+          type: IDecodedTxActionType.TRANSACTION,
+          transaction: {
+            // TODO other actions parse
+            extra: JSON.stringify(action),
+          },
+        };
+        if (action.enum === 'transfer') {
+          encodedTxAction.type = IDecodedTxActionType.NATIVE_TRANSFER;
+
+          const amountValue = action.transfer.deposit.toString();
+          const amount = new BigNumber(amountValue)
+            .shiftedBy(nativeToken.decimals * -1)
+            .toFixed();
+          encodedTxAction.nativeTransfer = {
+            tokenInfo: nativeToken,
+            from: nativeTx.signerId,
+            to: nativeTx.receiverId,
+            amount,
+            amountValue,
+            extra: null,
+          };
+        }
+        if (action.enum === 'functionCall') {
+          if (action?.functionCall?.methodName === 'ft_transfer') {
+            encodedTxAction.type = IDecodedTxActionType.TOKEN_TRANSFER;
+            const tokenInfo = await this.engine.getOrAddToken(
+              this.networkId,
+              nativeTx.receiverId,
+              false,
+            );
+            if (tokenInfo) {
+              const transferData = parseJsonFromRawResponse(
+                action.functionCall?.args,
+              ) as {
+                receiver_id: string;
+                amount: string;
+              };
+              const amountValue = transferData.amount;
+              const amount = new BigNumber(amountValue)
+                .shiftedBy(tokenInfo.decimals * -1)
+                .toFixed();
+              encodedTxAction.tokenTransfer = {
+                tokenInfo,
+                recipient: transferData.receiver_id,
+                amount,
+                amountValue,
+                extra: null,
+              };
+            }
+          }
+        }
+        return encodedTxAction;
+      }),
+    );
+    return actions;
+  }
+
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    return Promise.resolve(decodedTxToLegacy(decodedTx));
+  }
+
+  async decodeTx(encodedTx: IEncodedTx, payload?: any): Promise<IDecodedTx> {
     const nativeTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as nearApiJs.transactions.Transaction;
     const network = await this.getNetwork();
-    const { txType, actionInfo } = this.getActionInfo(nativeTx);
+    const decodedTx: IDecodedTx = {
+      txid: baseEncode(nativeTx.blockHash),
+      signer: nativeTx.signerId,
+      nonce: parseFloat(nativeTx.nonce.toString()),
+      actions: await this.nativeTxActionToEncodedTxAction(nativeTx),
 
-    let info = null;
-    if (txType === EVMDecodedTxType.TOKEN_TRANSFER) {
-      const tokenIdOnNetwork = nativeTx.receiverId;
-      const token = await this.engine.getOrAddToken(
-        this.networkId,
-        tokenIdOnNetwork,
-        true,
-      );
-      if (token) {
-        // TODO use near sdk parse token transfer
-        const transferData = parseJsonFromRawResponse(
-          (actionInfo as nearApiJs.transactions.FunctionCall)?.args,
-        ) as {
-          receiver_id: string;
-          amount: string;
-        };
-        const value = transferData.amount;
-        const amount = new BigNumber(value)
-          .shiftedBy(token.decimals * -1)
-          .toFixed();
-        const tokenTransferInfo: EVMDecodedItemERC20Transfer | null = {
-          type: EVMDecodedTxType.TOKEN_TRANSFER,
-          token,
-          amount,
-          value,
-          recipient: transferData.receiver_id,
-        };
-        info = tokenTransferInfo;
-      }
-    }
-    const valueOnChain =
-      txType === EVMDecodedTxType.NATIVE_TRANSFER
-        ? (actionInfo as nearApiJs.transactions.Transfer).deposit.toString()
-        : '0';
-    const amount = new BigNumber(valueOnChain)
-      .shiftedBy(network.decimals * -1)
-      .toFixed();
-    const decodedTx: EVMDecodedItem = {
-      txType,
-      blockSignedAt: 0,
-      fromType: 'OUT',
-      txStatus: TxStatus.Pending,
-      mainSource: 'raw',
-
-      symbol: network.symbol,
-      amount,
-      value: valueOnChain,
+      status: IDecodedTxStatus.Pending,
+      direction: IDecodedTxDirection.OUT,
       network,
 
-      fromAddress: nativeTx.signerId,
-      toAddress: nativeTx.receiverId,
-      nonce: parseFloat(nativeTx.nonce.toString()),
-      txHash: baseEncode(nativeTx.blockHash),
-
-      info, // tokenTransferInfo
-      // @ts-ignore
-      _infoActionsLength: nativeTx.actions.length,
-
-      gasInfo: {
-        gasLimit: 0,
-        gasPrice: '0',
-        maxFeePerGas: '0',
-        maxPriorityFeePerGas: '0',
-        maxPriorityFeePerGasInGwei: '0',
-        maxFeePerGasInGwei: '0',
-        maxFeeSpend: '0',
-        feeSpend: '0',
-        gasUsed: 0,
-        gasUsedRatio: 0,
-        effectiveGasPrice: '0',
-        effectiveGasPriceInGwei: '0',
-      },
-
-      data: '',
-      chainId: 0,
-
-      total: '0',
+      extra: null,
     };
+
     return decodedTx;
   }
 
@@ -413,18 +420,21 @@ export default class Vault extends VaultBase {
     limit = new BigNumber(FT_TRANSFER_GAS).toFixed();
 
     const decodedTx = await this.decodeTx(encodedTx);
-    if (decodedTx?.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
-      const info = decodedTx.info as EVMDecodedItemERC20Transfer;
-      const hasStorageBalance = await this.isStorageBalanceAvailable({
-        address: info.recipient,
-        tokenAddress: info.token.tokenIdOnNetwork,
-      });
-      if (!hasStorageBalance) {
-        // tokenTransfer with token activation
-        limit = new BigNumber(transfer_cost.execution)
-          .plus(action_receipt_creation_config.execution)
-          .multipliedBy(2)
-          .toFixed();
+    const lastAction = last(decodedTx?.actions);
+    if (lastAction && lastAction.type === IDecodedTxActionType.TOKEN_TRANSFER) {
+      const info = lastAction.tokenTransfer;
+      if (info) {
+        const hasStorageBalance = await this.isStorageBalanceAvailable({
+          address: info.recipient,
+          tokenAddress: info.tokenInfo.tokenIdOnNetwork,
+        });
+        if (!hasStorageBalance) {
+          // tokenTransfer with token activation
+          limit = new BigNumber(transfer_cost.execution)
+            .plus(action_receipt_creation_config.execution)
+            .multipliedBy(2)
+            .toFixed();
+        }
       }
     }
 
@@ -471,9 +481,9 @@ export default class Vault extends VaultBase {
   }
 
   updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTxAny,
+    encodedTx: IEncodedTx,
     amount: string,
-  ): Promise<IEncodedTxAny> {
+  ): Promise<IEncodedTx> {
     throw new Error('Method not implemented: updateEncodedTxTokenApprove');
   }
 

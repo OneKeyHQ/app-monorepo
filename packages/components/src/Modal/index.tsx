@@ -42,7 +42,7 @@ export type ModalProps = {
     onClose,
     close,
   }: {
-    onClose?: () => void;
+    onClose?: () => void; // TODO remove
     close: () => void;
   }) => void;
   onSecondaryActionPress?: ({ close }: { close: () => void }) => void;
@@ -51,7 +51,9 @@ export type ModalProps = {
   primaryActionProps?: ComponentProps<typeof Button>;
   secondaryActionProps?: ComponentProps<typeof Button>;
   footer?: ReactNode;
+  // TODO remove, use `onModalClose` if you need modal closed event
   onClose?: () => void | boolean;
+  onModalClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
   scrollViewProps?: ComponentProps<typeof ScrollView>;
   flatListProps?: ComponentProps<typeof FlatList>;
@@ -80,6 +82,7 @@ const Modal: FC<ModalProps> = ({
   trigger,
   visible: outerVisible,
   onClose,
+  onModalClose,
   sectionListProps,
   flatListProps,
   scrollViewProps,
@@ -196,7 +199,12 @@ const Modal: FC<ModalProps> = ({
             }
             overflow="hidden"
           >
-            <Mobile headerShown={headerShown} header={header} {...rest}>
+            <Mobile
+              onClose={onModalClose}
+              headerShown={headerShown}
+              header={header}
+              {...rest}
+            >
               {modalContent}
             </Mobile>
           </Box>
@@ -205,11 +213,24 @@ const Modal: FC<ModalProps> = ({
     }
 
     return (
-      <Desktop headerShown={headerShown} header={header} {...rest}>
+      <Desktop
+        onClose={onModalClose}
+        headerShown={headerShown}
+        header={header}
+        {...rest}
+      >
         {modalContent}
       </Desktop>
     );
-  }, [size, header, headerShown, rest, modalContent, modalHeight]);
+  }, [
+    size,
+    onModalClose,
+    headerShown,
+    header,
+    rest,
+    modalContent,
+    modalHeight,
+  ]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;

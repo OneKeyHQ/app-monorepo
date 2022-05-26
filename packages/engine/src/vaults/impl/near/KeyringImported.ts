@@ -8,12 +8,14 @@ import { COINTYPE_NEAR as COIN_TYPE } from '../../../constants';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { IPrepareImportedAccountsParams } from '../../../types/vault';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import { signTransaction } from './utils';
 
-import type { ISignCredentialOptions } from '../../../types/vault';
+import type {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(

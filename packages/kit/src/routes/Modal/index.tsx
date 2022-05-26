@@ -13,9 +13,7 @@ import BackupWalletModal from './BackupWallet';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
 import CreateWalletModalStack from './CreateWallet';
-import DappApproveStack from './DappApprove';
 import DappConnectionStack from './DappConnection';
-import DappMulticallStack from './DappMulticall';
 import DiscoverModal from './Discover';
 import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
 import BuyModal from './FiatPay';
@@ -101,16 +99,8 @@ const modalStackScreenList = [
     component: HardwareOnekeyLitePinModal,
   },
   {
-    name: ModalRoutes.DappApproveModal,
-    component: DappApproveStack,
-  },
-  {
     name: ModalRoutes.DappConnectionModal,
     component: DappConnectionStack,
-  },
-  {
-    name: ModalRoutes.DappMulticallModal,
-    component: DappMulticallStack,
   },
   {
     name: ModalRoutes.Collectibles,

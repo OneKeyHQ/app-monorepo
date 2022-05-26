@@ -20,8 +20,8 @@ import VaultNear from './impl/near/Vault';
 import VaultHelperNear from './impl/near/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
-import type { IVaultFactoryOptions, IVaultOptions } from '../types/vault';
 import type { KeyringBase } from './keyring/KeyringBase';
+import type { IVaultFactoryOptions, IVaultOptions } from './types';
 import type { VaultBase } from './VaultBase';
 
 function getNetworkImpl(networkId: string) {
@@ -84,6 +84,8 @@ export async function createVaultInstance(options: IVaultOptions) {
   let vault: VaultBase | null = null;
   debugLogger.engine('createVaultInstance', network, options);
   if (network.impl === IMPL_EVM) {
+    // TODO remove ts ignore
+    // @ts-ignore
     vault = new VaultEvm(options);
   }
   if (network.impl === IMPL_NEAR) {

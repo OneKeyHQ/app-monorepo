@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/types/vault';
+import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNative } from '../../components/Format';
 import { useActiveWalletAccount } from '../../hooks/redux';

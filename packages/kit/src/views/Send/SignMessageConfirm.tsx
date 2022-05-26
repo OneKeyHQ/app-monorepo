@@ -86,7 +86,7 @@ const SignMessageConfirm = () => {
       dappApprove.reject();
       close();
     },
-    onClose: dappApprove.reject,
+    onModalClose: dappApprove.reject,
     sourceInfo,
     unsignedMessage,
   };

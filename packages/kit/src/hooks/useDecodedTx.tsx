@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { IEncodedTxAny } from '@onekeyhq/engine/src/types/vault';
 import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -11,7 +11,7 @@ function useDecodedTx({
   encodedTx,
   payload,
 }: {
-  encodedTx: IEncodedTxAny;
+  encodedTx: IEncodedTx;
   payload?: any;
 }) {
   const [decodedTx, setDecodedTx] = useState<EVMDecodedItem | null>(null);

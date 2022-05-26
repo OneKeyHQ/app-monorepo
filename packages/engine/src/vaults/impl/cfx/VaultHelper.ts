@@ -1,11 +1,11 @@
 import { NotImplemented } from '../../../errors';
 import { VaultHelperBase } from '../../VaultHelperBase';
 
-import type { IEncodedTxAny } from '../../../types/vault';
+import type { IEncodedTx } from '../../types';
 
 export default class VaultHelper extends VaultHelperBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  parseToNativeTx(_encodedTx: IEncodedTxAny): Promise<any> {
+  parseToNativeTx(_encodedTx: IEncodedTx): Promise<any> {
     console.log('staticDecodeTx in CFX');
     throw new NotImplemented();
   }

@@ -2,10 +2,10 @@
 import { NotImplemented } from '../../../errors';
 import { VaultHelperBase } from '../../VaultHelperBase';
 
-import type { IEncodedTxAny } from '../../../types/vault';
+import type { IEncodedTx } from '../../types';
 
 export default class VaultHelper extends VaultHelperBase {
-  parseToNativeTx(encodedTx: IEncodedTxAny): Promise<any> {
+  parseToNativeTx(encodedTx: IEncodedTx): Promise<any> {
     throw new NotImplemented();
   }
 

@@ -3,7 +3,7 @@
 import { createVaultInstance } from './factory';
 
 import type { Engine } from '../index';
-import type { IVaultFactoryOptions } from '../types/vault';
+import type { IVaultFactoryOptions } from './types';
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
 
 // TODO debugLogger
@@ -24,6 +24,7 @@ export class VaultFactory {
   }: IVaultFactoryOptions): Promise<VaultBase> {
     if (
       this.lastVault &&
+      accountId !== '' &&
       this.lastVault.networkId === networkId &&
       this.lastVault.accountId === accountId
     ) {

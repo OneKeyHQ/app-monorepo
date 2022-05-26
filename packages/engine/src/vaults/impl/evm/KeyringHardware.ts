@@ -7,11 +7,11 @@ import {
 import { COINTYPE_ETH as COIN_TYPE, IMPL_EVM } from '../../../constants';
 import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
-} from '../../../types/vault';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+} from '../../types';
 
 import type { IUnsignedMessageEvm } from './Vault';
 
