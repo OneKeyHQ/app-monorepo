@@ -26,6 +26,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
+  IUserInputGuessingResult,
 } from './types';
 import { VaultContext } from './VaultContext';
 
@@ -57,6 +58,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }
 
   // Methods not related to a single account, but implementation.
+
+  abstract guessUserCreateInput(
+    input: string,
+  ): Promise<IUserInputGuessingResult>;
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();

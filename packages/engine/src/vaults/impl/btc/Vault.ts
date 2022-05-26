@@ -18,6 +18,7 @@ import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
+import { UserCreateInputCategory } from '../../../types/credential';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -28,6 +29,7 @@ import {
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
+  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
@@ -453,6 +455,20 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
+    // TODO: different network support.
+    if (/^[xyz]p/.test(input)) {
+      const provider = this.engineProvider as Provider;
+      if (this.settings.importedAccountEnabled && provider.isValidXprv(input)) {
+        return Promise.resolve([UserCreateInputCategory.PRIVATE_KEY]);
+      }
+      if (this.settings.watchingAccountEnabled && provider.isValidXpub(input)) {
+        return Promise.resolve([UserCreateInputCategory.ADDRESS]);
+      }
+    }
+    return Promise.resolve([]);
+  }
 
   createClientFromURL(url: string): BlockBook {
     return new BlockBook(url);
