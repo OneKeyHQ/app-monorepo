@@ -6,6 +6,8 @@
 #import <React/RCTLinkingManager.h>
 #import <React/RCTConvert.h>
 
+#import <Firebase.h>
+
 #if defined(EX_DEV_MENU_ENABLED)
 @import EXDevMenu;
 #endif
@@ -24,7 +26,9 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
- 
+    
+    [FIRApp configure];
+    
 #if defined(EX_DEV_LAUNCHER_ENABLED)
   EXDevLauncherController *controller = [EXDevLauncherController sharedInstance];
   [controller startWithWindow:self.window delegate:(id<EXDevLauncherControllerDelegate>)self launchOptions:launchOptions];
