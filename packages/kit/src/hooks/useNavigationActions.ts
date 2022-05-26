@@ -1,9 +1,15 @@
 import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { CommonActions, DrawerActions } from '@react-navigation/native';
+import {
+  CommonActions,
+  DrawerActions,
+  TabActions,
+} from '@react-navigation/native';
 
-import { RootRoutes } from '../routes/types';
+import { RootRoutes, TabRoutes } from '../routes/types';
+
+import { getAppNavigation } from './useAppNavigation';
 
 export function useNavigationActions() {
   const navigation = useNavigation();
@@ -28,6 +34,23 @@ export function useNavigationActions() {
     });
   }, [navigation]);
 
+  const openRootHome = useCallback(() => {
+    const root = getAppNavigation()
+      .getRootState()
+      .routes.find((route) => route.name === 'root');
+
+    if (root) {
+      const inst = navigation.getParent() || navigation;
+      inst.goBack();
+      // @ts-expect-error
+      navigation.navigate(TabRoutes.Home);
+      navigation.dispatch(TabActions.jumpTo(TabRoutes.Home, {}));
+      return;
+    }
+
+    resetToRoot();
+  }, [navigation, resetToRoot]);
+
   const resetToWelcome = useCallback(() => {
     navigation.dispatch(
       CommonActions.reset({
@@ -37,7 +60,13 @@ export function useNavigationActions() {
     );
   }, [navigation]);
   return useMemo(
-    () => ({ closeDrawer, openDrawer, resetToRoot, resetToWelcome }),
-    [closeDrawer, openDrawer, resetToRoot, resetToWelcome],
+    () => ({
+      closeDrawer,
+      openDrawer,
+      resetToRoot,
+      resetToWelcome,
+      openRootHome,
+    }),
+    [closeDrawer, openDrawer, resetToRoot, resetToWelcome, openRootHome],
   );
 }
