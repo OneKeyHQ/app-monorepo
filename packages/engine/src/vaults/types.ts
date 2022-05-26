@@ -240,8 +240,8 @@ export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & {
   buy: IDecodedTxActionInternalSwapInfo;
   sell: IDecodedTxActionInternalSwapInfo;
 };
-// other Unknown TRANSACTION
-export type IDecodedTxActionTransaction = IDecodedTxActionBase;
+// other Unknown Action
+export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxAction = {
   type: IDecodedTxActionType;
   nativeTransfer?: IDecodedTxActionNativeTransfer;
@@ -249,7 +249,8 @@ export type IDecodedTxAction = {
   tokenApprove?: IDecodedTxActionTokenApprove;
   internalSwap?: IDecodedTxActionInternalSwap;
   functionCall?: IDecodedTxActionFunctionCall;
-  transaction?: IDecodedTxActionTransaction;
+  // other Unknown Action
+  unknownAction?: IDecodedTxActionUnknown;
 };
 export type IDecodedTx = {
   txid: string; // blockHash
