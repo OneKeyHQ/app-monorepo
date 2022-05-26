@@ -129,16 +129,8 @@ class Validators {
 
   @backgroundMethod()
   async validateAddress(networkId: string, address: string): Promise<string> {
-    // TODO move near address verify to vault
-    if (networkId.startsWith('near--')) {
-      return Promise.resolve(address);
-    }
-    const { normalizedAddress, isValid } =
-      await this.providerManager.verifyAddress(networkId, address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new errors.InvalidAddress();
-    }
-    return Promise.resolve(normalizedAddress);
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    return vault.validateAddress(address);
   }
 
   @backgroundMethod()
@@ -146,16 +138,8 @@ class Validators {
     networkId: string,
     address: string,
   ): Promise<string> {
-    // TODO move near address verify to vault
-    if (networkId.startsWith('near--')) {
-      return Promise.resolve(address);
-    }
-    const { normalizedAddress, isValid } =
-      await this.providerManager.verifyTokenAddress(networkId, address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new errors.InvalidTokenAddress();
-    }
-    return Promise.resolve(normalizedAddress);
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    return vault.validateTokenAddress(address);
   }
 
   @backgroundMethod()

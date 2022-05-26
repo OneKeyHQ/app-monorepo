@@ -246,10 +246,7 @@ export default class Vault extends VaultBase {
     const [network, token, spender] = await Promise.all([
       this.getNetwork(),
       this.engine.getOrAddToken(this.networkId, approveInfo.token),
-      this.engine.validator.validateAddress(
-        this.networkId,
-        approveInfo.spender,
-      ),
+      this.validateAddress(approveInfo.spender),
     ]);
     if (typeof token === 'undefined') {
       throw new Error(`Token not found: ${approveInfo.token}`);
@@ -575,9 +572,7 @@ export default class Vault extends VaultBase {
         password,
         [dbAccount.address],
       );
-      return this.engine.providerManager
-        .getProvider(this.networkId)
-        .then((provider) => (provider as EthProvider).mmGetPublicKey(signer));
+      return (this.engineProvider as EthProvider).mmGetPublicKey(signer);
     }
     throw new NotImplemented(
       'Only software keryings support getting encryption key.',
@@ -599,24 +594,16 @@ export default class Vault extends VaultBase {
         password,
         [dbAccount.address],
       );
-      return this.engine.providerManager
-        .getProvider(this.networkId)
-        .then((provider) =>
-          (provider as EthProvider).mmDecrypt(message, signer),
-        );
+      return (this.engineProvider as EthProvider).mmDecrypt(message, signer);
     }
     throw new NotImplemented('Only software keryings support mm decryption.');
   }
 
   async personalECRecover(message: string, signature: string): Promise<string> {
-    return this.engine.providerManager
-      .getProvider(this.networkId)
-      .then((provider) =>
-        (provider as EthProvider).ecRecover(
-          { type: ETHMessageTypes.PERSONAL_SIGN, message },
-          signature,
-        ),
-      );
+    return (this.engineProvider as EthProvider).ecRecover(
+      { type: ETHMessageTypes.PERSONAL_SIGN, message },
+      signature,
+    );
   }
 
   override async getTokenAllowance(
