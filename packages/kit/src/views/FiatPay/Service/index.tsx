@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { currenciesSet } from '../../../store/reducers/data';
 import {
   CurrenciesPayload,
+  MoonPayBuyQuotePayload,
   MoonpayCurrencyListPayload,
   MoonpayListType,
 } from '../types';
@@ -23,6 +24,15 @@ export const askPrice = async (params: {
   const urlParams = new URLSearchParams(params);
   const url = `${moonpayHost}/v3/currencies/ask_price?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
   return axios.get<AskPricePayload>(url);
+};
+
+export const buyQuoteUri = (
+  code: string,
+  baseCurrencyCode: string,
+  baseCurrencyAmount: number,
+) => {
+  const url = `${moonpayHost}/v3/currencies/${code}/buy_quote/?apiKey=${moonpayApiKey}&baseCurrencyCode=${baseCurrencyCode}&baseCurrencyAmount=${baseCurrencyAmount}`;
+  return axios.get<MoonPayBuyQuotePayload>(url);
 };
 
 export const buyWidgetUrl = (params: {
@@ -71,35 +81,45 @@ export const getAmountInputInfo = async (
       cryptoCurrencies: cryptoCurrency.code,
       fiatCurrencies: fiatCurrency.code,
     });
+
     const cryptoPrice =
       requestAskPrice.data[cryptoCode.toUpperCase()][fiatCode.toUpperCase()];
-    console.log('cryptoPrice = ', cryptoPrice);
 
     if (type === 'Buy') {
       let { minBuyAmount } = fiatCurrency;
       if (cryptoCurrency.minBuyAmount) {
-        minBuyAmount = Math.max(
-          minBuyAmount,
-          cryptoCurrency.minBuyAmount * cryptoPrice,
+        minBuyAmount = Math.ceil(
+          Math.max(minBuyAmount, cryptoCurrency.minBuyAmount * cryptoPrice),
         );
       }
+
       let { maxBuyAmount } = fiatCurrency;
       if (cryptoCurrency.maxBuyAmount) {
-        maxBuyAmount = Math.min(
-          maxBuyAmount,
-          cryptoCurrency.maxBuyAmount * cryptoPrice,
+        maxBuyAmount = Math.floor(
+          Math.min(maxBuyAmount, cryptoCurrency.maxBuyAmount * cryptoPrice),
         );
       }
+
+      const requestBuyQuote = await buyQuoteUri(
+        cryptoCode,
+        fiatCode,
+        minBuyAmount,
+      );
+
+      const fees = Math.ceil(
+        requestBuyQuote.data.feeAmount + requestBuyQuote.data.networkFeeAmount,
+      );
       return {
         askPrice: cryptoPrice,
-        minAmount: minBuyAmount,
+        minAmount: minBuyAmount + fees,
         maxAmount: maxBuyAmount,
+        fees,
       };
     } // Sell
     return {
       askPrice: cryptoPrice,
-      minAmount: cryptoCurrency.minSellAmount,
-      maxAmount: cryptoCurrency.maxSellAmount,
+      minAmount: Math.ceil(cryptoCurrency.minSellAmount),
+      maxAmount: Math.floor(cryptoCurrency.maxSellAmount),
     };
   } catch (error) {
     console.log('getAmountInputInfo error ', error);

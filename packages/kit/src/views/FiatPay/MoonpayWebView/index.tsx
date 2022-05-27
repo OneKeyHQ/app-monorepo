@@ -38,6 +38,7 @@ export const MoonpayWebView: FC = () => {
     >
       <Box flex="1">
         <WebView
+          containerProps={{ borderBottomRadius: '24px' }}
           src={url}
           onSrcChange={(res) => {
             console.log('onSrcChange', res);
