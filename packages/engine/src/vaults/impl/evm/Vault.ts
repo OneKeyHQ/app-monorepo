@@ -477,6 +477,7 @@ export default class Vault extends VaultBase {
       eip1559,
       limit,
       prices,
+      defaultPresetIndex: '1',
 
       // feeInfo in original tx
       tx: {
