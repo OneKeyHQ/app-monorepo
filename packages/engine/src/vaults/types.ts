@@ -91,6 +91,7 @@ export type IFeeInfo = {
   // TODO merge (limit, prices, EIP1559Fee) to single field
   limit?: string; // calculated gasLimit of encodedTx
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
+  defaultPresetIndex: string; // '0' | '1' | '2';
   symbol?: string; // feeSymbol: GWEI
   decimals?: number; // feeDecimals: 9
   nativeSymbol?: string; // ETH
@@ -241,8 +242,8 @@ export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & {
   buy: IDecodedTxActionInternalSwapInfo;
   sell: IDecodedTxActionInternalSwapInfo;
 };
-// other Unknown TRANSACTION
-export type IDecodedTxActionTransaction = IDecodedTxActionBase;
+// other Unknown Action
+export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxAction = {
   type: IDecodedTxActionType;
   nativeTransfer?: IDecodedTxActionNativeTransfer;
@@ -250,7 +251,8 @@ export type IDecodedTxAction = {
   tokenApprove?: IDecodedTxActionTokenApprove;
   internalSwap?: IDecodedTxActionInternalSwap;
   functionCall?: IDecodedTxActionFunctionCall;
-  transaction?: IDecodedTxActionTransaction;
+  // other Unknown Action
+  unknownAction?: IDecodedTxActionUnknown;
 };
 export type IDecodedTx = {
   txid: string; // blockHash

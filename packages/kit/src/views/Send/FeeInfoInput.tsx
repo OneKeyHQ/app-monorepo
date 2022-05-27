@@ -191,7 +191,7 @@ function FeeInfoInputForTransfer({
   const loadingView = useMemo(
     () => (
       <Text color="text-subdued" flex={1}>
-        {intl.formatMessage({ id: 'content__just_a_moment' })}
+        {intl.formatMessage({ id: 'content__calculate_fee' })}
       </Text>
     ),
     [intl],

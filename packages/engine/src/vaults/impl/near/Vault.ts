@@ -181,7 +181,7 @@ export default class Vault extends VaultBase {
       nativeTx.actions.map(async (action) => {
         const encodedTxAction: IDecodedTxAction = {
           type: IDecodedTxActionType.TRANSACTION,
-          transaction: {
+          unknownAction: {
             // TODO other actions parse
             extra: JSON.stringify(action),
           },
@@ -446,6 +446,7 @@ export default class Vault extends VaultBase {
 
       limit,
       prices: [price],
+      defaultPresetIndex: '0',
 
       tx: null, // Must be null if network not support feeInTx
     };

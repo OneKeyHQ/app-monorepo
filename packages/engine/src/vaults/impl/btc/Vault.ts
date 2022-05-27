@@ -294,6 +294,7 @@ export default class Vault extends VaultBase {
     return {
       limit: (feeLimit ?? new BigNumber(0)).toFixed(),
       prices,
+      defaultPresetIndex: '0',
       symbol: 'sats',
       decimals: network.feeDecimals, // TODO: UI calculation incorrect?
       nativeSymbol: network.symbol,

@@ -151,6 +151,7 @@ export function useFeeInfoPayload({
         decimals: feeDecimals,
         symbol: feeSymbol,
         prices: [],
+        defaultPresetIndex: DEFAULT_PRESET_INDEX,
       };
       let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
       if (fetchAnyway) {
@@ -180,6 +181,12 @@ export function useFeeInfoPayload({
           return null;
         }
       }
+      if (parseFloat(info.defaultPresetIndex) > info.prices.length - 1) {
+        info.defaultPresetIndex = `${info.prices.length - 1}`;
+      }
+      if (parseFloat(info.defaultPresetIndex) < 0) {
+        info.defaultPresetIndex = '0';
+      }
       let currentInfoUnit: IFeeInfoUnit = {
         price: '0',
         limit: '0',
@@ -191,12 +198,12 @@ export function useFeeInfoPayload({
         feeInfoSelected = {
           type: 'custom',
           custom: info.tx,
-          preset: DEFAULT_PRESET_INDEX,
+          preset: info.defaultPresetIndex,
         };
       }
       feeInfoSelected = feeInfoSelected || {
         type: 'preset',
-        preset: DEFAULT_PRESET_INDEX,
+        preset: info.defaultPresetIndex,
       };
 
       // TODO reset to type=preset if custom.limit < info.limit (switch native token to erc20)
