@@ -3,6 +3,7 @@ import React from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Select, Typography } from '@onekeyhq/components';
+import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -94,24 +95,7 @@ export const GenaralSection = () => {
               defaultValue={locale}
               headerShown={false}
               onChange={(l) => dispatch(setLocale(l as 'zh-CN'))}
-              options={[
-                { label: 'English', value: 'en-US' },
-                { label: '简体中文', value: 'zh-CN' },
-                { label: '繁體中文', value: 'zh-HK' },
-                { label: 'Deutsch', value: 'de' },
-                { label: 'Español', value: 'es' },
-                // { label: 'Filipino', value: 'fil-PH' },
-                { label: 'Français', value: 'fr-FR' },
-                { label: '日本語', value: 'ja-JP' },
-                { label: '한국어', value: 'ko-KR' },
-                { label: 'Pусский', value: 'ru' },
-                { label: 'ภาษาไทย', value: 'th-TH' },
-                // { label: 'Tiếng Việt', value: 'vi-VN' },
-                { label: 'Italiano', value: 'it-IT' },
-                { label: 'Монгол', value: 'mn-MN' },
-                { label: 'Українська', value: 'uk-UA' },
-                { label: 'भाषा', value: 'hi-IN' },
-              ]}
+              options={LOCALES_OPTION}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
               renderTrigger={(activeOption) => (
