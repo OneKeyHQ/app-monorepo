@@ -9,6 +9,7 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import { Features } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
+import { baseDecode } from 'borsh';
 import bs58check from 'bs58check';
 import natsort from 'natsort';
 
@@ -24,6 +25,7 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import {
   IMPL_BTC,
   IMPL_EVM,
+  IMPL_NEAR,
   IMPL_SOL,
   SEPERATOR,
   getSupportedImpls,
@@ -728,17 +730,31 @@ class Engine {
     name?: string,
   ): Promise<Account> {
     const impl = getImplFromNetworkId(networkId);
-    let privateKey: Buffer;
+    let privateKey: Buffer | undefined;
+    // TODO: use vault to extract private key.
     try {
-      privateKey =
-        impl === IMPL_BTC
-          ? bs58check.decode(credential)
-          : Buffer.from(
-              credential.startsWith('0x') ? credential.slice(2) : credential,
-              'hex',
-            );
+      switch (impl) {
+        case IMPL_BTC:
+          privateKey = bs58check.decode(credential);
+          break;
+        case IMPL_NEAR: {
+          const [prefix, encoded] = credential.split(':');
+          const decodedPrivateKey = Buffer.from(baseDecode(encoded));
+          if (prefix === 'ed25519' && decodedPrivateKey.length === 64) {
+            privateKey = decodedPrivateKey.slice(0, 32);
+          }
+          break;
+        }
+        default:
+          privateKey = Buffer.from(
+            credential.startsWith('0x') ? credential.slice(2) : credential,
+            'hex',
+          );
+      }
     } catch (e) {
       console.error(e);
+    }
+    if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Invalid credential to import.');
     }
 

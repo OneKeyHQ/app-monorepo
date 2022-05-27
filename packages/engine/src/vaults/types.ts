@@ -1,4 +1,5 @@
 import type { Engine } from '../index';
+import type { UserCreateInputCategory } from '../types/credential';
 import type { EIP1559Fee, Network } from '../types/network';
 import type { Token } from '../types/token';
 import type {
@@ -279,3 +280,6 @@ export type IDecodedTx = {
   // nativeTx: ethers.Transaction;
   // nativeTxDesc?: ethers.utils.TransactionDescription;
 };
+
+// User input guessing----------------------------------------------
+export type IUserInputGuessingResult = Array<UserCreateInputCategory>;

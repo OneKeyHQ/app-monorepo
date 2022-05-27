@@ -4,6 +4,7 @@ import {
   Provider as NearProvider,
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/near';
 import { NearAccessKey } from '@onekeyfe/blockchain-libs/dist/provider/chains/near/nearcli';
+import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
@@ -19,6 +20,7 @@ import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount, DBVariantAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
+import { UserCreateInputCategory } from '../../../types/credential';
 import { Token } from '../../../types/token';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -35,6 +37,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
+  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import {
@@ -488,10 +491,6 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented: updateEncodedTxTokenApprove');
   }
 
-  createClientFromURL(url: string): any {
-    throw new Error('Method not implemented: createClientFromURL');
-  }
-
   async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
@@ -499,25 +498,13 @@ export default class Vault extends VaultBase {
       const [encryptedPrivateKey] = Object.values(
         await keyring.getPrivateKeys(password),
       );
-      return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
+      const privateKey = decrypt(password, encryptedPrivateKey);
+      const publicKey = ed25519.publicFromPrivate(privateKey);
+      return `ed25519:${baseEncode(Buffer.concat([privateKey, publicKey]))}`;
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
-  }
-
-  // TODO batch rpc call not supports by near
-  async fetchTokenInfos(
-    tokenAddresses: string[],
-  ): Promise<Array<PartialTokenInfo | undefined>> {
-    const cli = await this._getNearCli();
-    // https://docs.near.org/docs/roles/integrator/fungible-tokens#get-info-about-the-ft
-    const results: PartialTokenInfo[] = await Promise.all(
-      tokenAddresses.map(async (addr) =>
-        cli.callContract(addr, 'ft_metadata', {}),
-      ),
-    );
-    return results;
   }
 
   // TODO cache
@@ -586,5 +573,45 @@ export default class Vault extends VaultBase {
     const publicKey = await this._getPublicKey();
     const info = result.find((item) => item.pubkey === publicKey);
     return info;
+  }
+
+  // Chain only functionalities below.
+
+  async guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
+    const ret = [];
+    if (this.settings.importedAccountEnabled) {
+      const [prefix, encoded] = input.split(':');
+      if (
+        prefix === 'ed25519' &&
+        Buffer.from(baseDecode(encoded)).length === 64
+      ) {
+        ret.push(UserCreateInputCategory.PRIVATE_KEY);
+      }
+    }
+    if (
+      this.settings.watchingAccountEnabled &&
+      (await this.engineProvider.verifyAddress(input)).isValid
+    ) {
+      ret.push(UserCreateInputCategory.ADDRESS);
+    }
+    return Promise.resolve(ret);
+  }
+
+  createClientFromURL(url: string): any {
+    throw new Error('Method not implemented: createClientFromURL');
+  }
+
+  // TODO batch rpc call not supports by near
+  async fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<Array<PartialTokenInfo | undefined>> {
+    const cli = await this._getNearCli();
+    // https://docs.near.org/docs/roles/integrator/fungible-tokens#get-info-about-the-ft
+    const results: PartialTokenInfo[] = await Promise.all(
+      tokenAddresses.map(async (addr) =>
+        cli.callContract(addr, 'ft_metadata', {}),
+      ),
+    );
+    return results;
   }
 }

@@ -15,7 +15,7 @@ import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { IPrepareSoftwareAccountsParams } from '../../types';
 
-import { signTransaction } from './utils';
+import { baseEncode, signTransaction } from './utils';
 
 import type { ISignCredentialOptions } from '../../types';
 
@@ -58,11 +58,7 @@ export class KeyringHd extends KeyringHdBase {
         path,
         extendedKey: { key: pubkey },
       } = info;
-      const pub = pubkey.toString('hex');
-      const address = await this.engine.providerManager.addressFromPub(
-        this.networkId,
-        pub,
-      );
+      const address = pubkey.toString('hex');
       const name =
         (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
       ret.push({
@@ -71,7 +67,7 @@ export class KeyringHd extends KeyringHdBase {
         type: AccountType.SIMPLE,
         path,
         coinType: COIN_TYPE,
-        pub,
+        pub: `ed25519:${baseEncode(pubkey)}`,
         address,
       });
       index += 1;
