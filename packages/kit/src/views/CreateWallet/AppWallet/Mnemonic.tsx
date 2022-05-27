@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -178,6 +179,9 @@ const MnemonicContainer = () => {
     await wait(600);
     resetToRoot();
     await wait(600);
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      window?.close?.();
+    }
   }, [
     mnemonic,
     password,

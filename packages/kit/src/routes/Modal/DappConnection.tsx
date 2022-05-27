@@ -3,15 +3,13 @@ import React from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 
+import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
+import {
+  DappConnectionModalRoutes,
+  DappConnectionRoutesParams,
+} from '../../views/DappModals/types';
+
 import createStackNavigator from './createStackNavigator';
-
-export enum DappConnectionModalRoutes {
-  ConnectionModal = 'ConnectionModal',
-}
-
-export type DappConnectionRoutesParams = {
-  [DappConnectionModalRoutes.ConnectionModal]: undefined;
-};
 
 const DappConnectionModalNavigator =
   createStackNavigator<DappConnectionRoutesParams>();
@@ -24,6 +22,7 @@ const modalRoutes = [
 ];
 
 const DappConnectionStack = () => {
+  useOnboardingFinished();
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <DappConnectionModalNavigator.Navigator
@@ -44,3 +43,5 @@ const DappConnectionStack = () => {
 };
 
 export default DappConnectionStack;
+export { DappConnectionModalRoutes };
+export type { DappConnectionRoutesParams };
