@@ -485,8 +485,8 @@
   "form__searching_token": "جاري البحث في الرمز المميز ...",
   "form__security_uppercase": "الأمان",
   "form__select_all": "اختر الكل",
-  "form__sell_max_transaction_amount": "The maximum transaction amount is {0}.",
-  "form__sell_min_transaction_amount": "The minimum transaction amount is {0}.",
+  "form__sell_max_transaction_amount": "{0} Maximum Sale.",
+  "form__sell_min_transaction_amount": "{0} Minimum Sale",
   "form__send_tokens": "إرسال الرموز",
   "form__show_all": "عرض الكل",
   "form__slippage_tolerance": "تحمل الانزلاق",
@@ -615,8 +615,8 @@
   "modal_remind_back_up_wallet": "النسخ الاحتياطي للمحفظة",
   "modal_remind_back_up_wallet_desc": "من أجل سلامة الأصول الخاصة بك ، يرجى عدم نقل أي عملات معدنية إلى هذه المحفظة قبل الانتهاء من النسخ الاحتياطي.",
   "model__keep_device_close_desc": "تأكد من تشغيل الجهاز وتواجده في النطاق ، واستمر في الضغط عليه وانقر فوق الزر أدناه لبدء الاتصال.",
-  "msg__account_created": "تم إنشاء الحساب!",
-  "msg__account_imported": "تم استيراد الحساب!",
+  "msg__account_created": "تم إنشاء الحساب",
+  "msg__account_imported": "تم استيراد الحساب",
   "msg__added": "مضاف",
   "msg__address_added": "تمت إضافة العنوان!",
   "msg__address_changed": "تم تغيير العنوان!",
@@ -651,7 +651,7 @@
   "msg__history_deleted": "تم حذف السجل",
   "msg__image_saved": "تم حفظ الصورة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
-  "msg__network_added": "تمت إضافة الشبكة!",
+  "msg__network_added": "تمت إضافة الشبكة",
   "msg__network_removed": "إزالة الشبكة!",
   "msg__network_reset": "إعادة تعيين الشبكة!",
   "msg__offline": "غير متصل على الانترنت",
@@ -660,7 +660,7 @@
   "msg__password_needs_to_be_the_same": "يجب أن تكون كلمة المرور هي نفسها لكلا الإدخالين.",
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 24 رقمًا.",
   "msg__removed": "إزالة!",
-  "msg__renamed": "أعيدت تسميته!",
+  "msg__renamed": "أعيدت تسميته",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
