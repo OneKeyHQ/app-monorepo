@@ -175,43 +175,61 @@ export async function waitForDataLoaded({
   data,
   wait = 600,
   logName,
+  timeout = 0,
 }: {
   data: (...args: any) => any;
   wait?: number;
   logName: string;
+  timeout?: number;
 }) {
-  const getDataArrFunc = ([] as ((...args: any) => any)[]).concat(data);
-  // TODO timeout break
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    let isAllLoaded = true;
+  return new Promise<void>((resolve, reject) => {
+    (async () => {
+      let timeoutReject = false;
+      let timer: any = null;
+      const getDataArrFunc = ([] as ((...args: any) => any)[]).concat(data);
+      if (timeout) {
+        timer = setTimeout(() => {
+          timeoutReject = true;
+        }, timeout);
+      }
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let isAllLoaded = true;
 
-    if (logName) {
-      console.log(`waitForDataLoaded: ${logName}`);
-    }
-
-    await Promise.all(
-      getDataArrFunc.map(async (getData) => {
-        const d = await getData();
-        if (d === false) {
-          isAllLoaded = false;
+        if (logName) {
+          console.log(`waitForDataLoaded: ${logName}`);
         }
 
-        if (isNil(d)) {
-          isAllLoaded = false;
-        }
+        await Promise.all(
+          getDataArrFunc.map(async (getData) => {
+            const d = await getData();
+            if (d === false) {
+              isAllLoaded = false;
+            }
 
-        if (isEmpty(d)) {
-          if (isPlainObject(d) || isArray(d)) {
-            isAllLoaded = false;
-          }
-        }
-      }),
-    );
+            if (isNil(d)) {
+              isAllLoaded = false;
+            }
 
-    if (isAllLoaded) {
-      break;
-    }
-    await delay(wait);
-  }
+            if (isEmpty(d)) {
+              if (isPlainObject(d) || isArray(d)) {
+                isAllLoaded = false;
+              }
+            }
+          }),
+        );
+
+        if (isAllLoaded || timeoutReject) {
+          break;
+        }
+        await delay(wait);
+      }
+      clearTimeout(timer);
+      if (timeoutReject) {
+        reject(new Error(`waitForDataLoaded: ${logName ?? ''} timeout`));
+      } else {
+        resolve();
+      }
+    })();
+  });
 }
