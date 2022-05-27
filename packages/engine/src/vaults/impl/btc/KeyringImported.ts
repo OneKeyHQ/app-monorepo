@@ -1,6 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
+import { ExtendedKey } from '@onekeyfe/blockchain-libs/dist/secret';
+import {
+  BaseBip32KeyDeriver,
+  Bip32KeyDeriver,
+} from '@onekeyfe/blockchain-libs/dist/secret/bip32';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import bs58check from 'bs58check';
 
 import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
@@ -10,12 +19,67 @@ import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import { IPrepareImportedAccountsParams } from '../../types';
 
+import type BTCVault from './Vault';
+
+const deriver = new BaseBip32KeyDeriver(
+  Buffer.from('Bitcoin seed'),
+  secp256k1,
+) as Bip32KeyDeriver;
+
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(
     password: string,
     addresses: Array<string>,
   ): Promise<Record<string, Signer>> {
-    throw new NotImplemented();
+    const relPathToAddresses: Record<string, string> = {};
+    const utxos = await (this.vault as BTCVault).collectUTXOs();
+    for (const utxo of utxos) {
+      const { address, path } = utxo;
+      if (addresses.includes(address)) {
+        const relPath = path.split('/').slice(-2).join('/');
+        relPathToAddresses[relPath] = address;
+      }
+    }
+
+    const relPaths = Object.keys(relPathToAddresses);
+    if (relPaths.length === 0) {
+      throw new OneKeyInternalError('No signers would be chosen.');
+    }
+
+    const ret: Record<string, Signer> = {};
+    const cache: Record<string, ExtendedKey> = {};
+
+    const [encryptedXprv] = Object.values(await this.getPrivateKeys(password));
+    const xprv = decrypt(password, encryptedXprv);
+    const startKey = { chainCode: xprv.slice(13, 45), key: xprv.slice(46, 78) };
+
+    relPaths.forEach((relPath) => {
+      const pathComponents = relPath.split('/');
+
+      let currentPath = '';
+      let parent = startKey;
+      pathComponents.forEach((pathComponent) => {
+        currentPath =
+          currentPath.length > 0
+            ? `${currentPath}/${pathComponent}`
+            : pathComponent;
+        if (typeof cache[currentPath] === 'undefined') {
+          const index = pathComponent.endsWith("'")
+            ? parseInt(pathComponent.slice(0, -1)) + 2 ** 31
+            : parseInt(pathComponent);
+          const thisPrivKey = deriver.CKDPriv(parent, index);
+          cache[currentPath] = thisPrivKey;
+        }
+        parent = cache[currentPath];
+      });
+      const address = relPathToAddresses[relPath];
+      ret[address] = new Signer(
+        encrypt(password, cache[relPath].key),
+        password,
+        'secp256k1',
+      );
+    });
+    return ret;
   }
 
   override async prepareAccounts(
