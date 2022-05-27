@@ -18,7 +18,7 @@ const defaultPriority = {
 
 const defaultLanguage = {
   'zh-CN': '简体中文',
-  'zh-HK': '繁体中文',
+  'zh-HK': '繁體中文',
 };
 
 const getLanguage = (symbol) => {
