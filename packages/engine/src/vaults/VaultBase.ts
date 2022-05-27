@@ -11,7 +11,7 @@ import BigNumber from 'bignumber.js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented } from '../errors';
+import { InvalidAddress, InvalidTokenAddress, NotImplemented } from '../errors';
 import { Account, DBAccount } from '../types/account';
 import { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import { WalletType } from '../types/wallet';
@@ -26,6 +26,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
+  IUserInputGuessingResult,
 } from './types';
 import { VaultContext } from './VaultContext';
 
@@ -48,7 +49,19 @@ export type IKeyringMapKey = WalletType;
 export abstract class VaultBaseChainOnly extends VaultContext {
   abstract settings: IVaultSettings;
 
+  engineProvider!: BaseProvider;
+
+  async initProvider() {
+    this.engineProvider = await this.engine.providerManager.getProvider(
+      this.networkId,
+    );
+  }
+
   // Methods not related to a single account, but implementation.
+
+  abstract guessUserCreateInput(
+    input: string,
+  ): Promise<IUserInputGuessingResult>;
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     throw new NotImplemented();
@@ -68,6 +81,24 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>>;
+
+  async validateAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } =
+      await this.engineProvider.verifyAddress(address);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  async validateTokenAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } =
+      await this.engineProvider.verifyTokenAddress(address);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidTokenAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
 }
 
 /*
@@ -92,16 +123,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   helper!: VaultHelperBase;
 
-  engineProvider!: BaseProvider;
-
   abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBaseMock>;
 
   async init(config: IVaultInitConfig) {
+    await this.initProvider();
     await this.initKeyring(config);
-    // TODO create network matched provider in engine, should remove in future
-    this.engineProvider = await this.engine.providerManager.getProvider(
-      this.networkId,
-    );
   }
 
   async initKeyring(config: IVaultInitConfig) {

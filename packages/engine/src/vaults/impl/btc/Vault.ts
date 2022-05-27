@@ -18,16 +18,21 @@ import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
+import { UserCreateInputCategory } from '../../../types/credential';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxLegacy,
+  IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
+  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
@@ -69,10 +74,7 @@ export default class Vault extends VaultBase {
       // 30 seconds cache.  TODO: may differ for different network?
       return rates;
     }
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    const client = await provider.blockbook;
+    const client = await (this.engineProvider as Provider).blockbook;
     const newRates = [];
     try {
       for (const blocks of [15, 10, 5]) {
@@ -102,10 +104,7 @@ export default class Vault extends VaultBase {
     }
 
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    const client = await provider.blockbook;
+    const client = await (this.engineProvider as Provider).blockbook;
     let newUTXOs: Array<UTXO> = [];
     try {
       // TODO: use updated blockchain-libs API
@@ -144,31 +143,79 @@ export default class Vault extends VaultBase {
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return Promise.resolve(decodedTx as any);
-  }
-
-  async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<any> {
-    const { inputs, outputs, fee } = encodedTx;
-    const network = await this.engine.getNetwork(this.networkId);
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    return {
+    const { type, nativeTransfer } = decodedTx.actions[0];
+    if (
+      type !== IDecodedTxActionType.NATIVE_TRANSFER ||
+      typeof nativeTransfer === 'undefined'
+    ) {
+      // shouldn't happen.
+      throw new OneKeyInternalError('Incorrect decodedTx.');
+    }
+    return Promise.resolve({
       txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      symbol: network.symbol,
-      amount: new BigNumber(outputs[0].value)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      value: outputs[0].value,
-      network,
-      fromAddress: dbAccount.address,
-      toAddress: outputs[0].address,
+      symbol: decodedTx.network.symbol,
+      amount: nativeTransfer.amount,
+      value: nativeTransfer.amountValue,
+      network: decodedTx.network,
+      fromAddress: nativeTransfer.from,
+      toAddress: nativeTransfer.to,
       data: '',
       total: BigNumber.sum
         .apply(
           null,
-          inputs.map(({ value }) => value),
+          (nativeTransfer.utxoFrom || []).map(
+            ({ balanceValue }) => balanceValue,
+          ),
         )
         .toFixed(),
+    } as IDecodedTxLegacy);
+  }
+
+  async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<IDecodedTx> {
+    const { inputs, outputs, fee } = encodedTx;
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const nativeTransfer = {
+      tokenInfo: token,
+      utxoFrom: inputs.map((input) => ({
+        address: input.address,
+        balance: new BigNumber(input.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        balanceValue: input.value,
+        symbol: network.symbol,
+        isMine: true,
+      })),
+      utxoTo: outputs.map((output) => ({
+        address: output.address,
+        balance: new BigNumber(output.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        balanceValue: output.value,
+        symbol: network.symbol,
+        isMine: output.address === dbAccount.address,
+      })),
+      from: dbAccount.address,
+      to: outputs[0].address,
+      amount: new BigNumber(outputs[0].value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      amountValue: outputs[0].value,
+      extra: null,
+    };
+    return {
+      txid: '',
+      signer: dbAccount.address,
+      nonce: 0,
+      actions: [{ type: IDecodedTxActionType.NATIVE_TRANSFER, nativeTransfer }],
+      status: IDecodedTxStatus.Pending,
+      direction:
+        outputs[0].address === dbAccount.address
+          ? IDecodedTxDirection.OUT
+          : IDecodedTxDirection.SELF,
+      network,
+      extra: null,
     };
   }
 
@@ -294,6 +341,7 @@ export default class Vault extends VaultBase {
     return {
       limit: (feeLimit ?? new BigNumber(0)).toFixed(),
       prices,
+      defaultPresetIndex: '0',
       symbol: 'sats',
       decimals: network.feeDecimals, // TODO: UI calculation incorrect?
       nativeSymbol: network.symbol,
@@ -308,10 +356,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-')) {
       const purpose = parseInt(dbAccount.path.split('/')[1]);
       const { addressEncoding } = getAccountDefaultByPurpose(purpose);
-      const provider = (await this.engine.providerManager.getProvider(
-        this.networkId,
-      )) as Provider;
-      const { network } = provider;
+      const { network } = this.engineProvider as Provider;
       const { private: xprvVersionBytes } =
         (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
@@ -356,16 +401,13 @@ export default class Vault extends VaultBase {
   // TODO: BTC history type
   async getHistory(): Promise<Array<EVMDecodedItem>> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
 
     const ret = [];
     let txs;
     try {
       txs =
         (
-          (await provider.getAccount({
+          (await (this.engineProvider as Provider).getAccount({
             type: 'history',
             xpub: dbAccount.xpub,
           })) as { transactions: Array<any> }
@@ -465,6 +507,20 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
+    // TODO: different network support.
+    if (/^[xyz]p/.test(input)) {
+      const provider = this.engineProvider as Provider;
+      if (this.settings.importedAccountEnabled && provider.isValidXprv(input)) {
+        return Promise.resolve([UserCreateInputCategory.PRIVATE_KEY]);
+      }
+      if (this.settings.watchingAccountEnabled && provider.isValidXpub(input)) {
+        return Promise.resolve([UserCreateInputCategory.ADDRESS]);
+      }
+    }
+    return Promise.resolve([]);
+  }
 
   createClientFromURL(url: string): BlockBook {
     return new BlockBook(url);

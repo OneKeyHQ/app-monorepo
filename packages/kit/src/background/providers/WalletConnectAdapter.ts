@@ -117,16 +117,18 @@ class WalletConnectAdapter {
   async waitConnectorPeerReady({
     connector,
     logName,
+    timeout,
   }: {
     connector: WalletConnect;
     logName: string;
+    timeout: number;
   }) {
     // on("session_request") peerMeta peerId ready
     // needs to wait for this.connector.peerId ready
     await waitForDataLoaded({
-      data: () => Boolean(connector.peerId),
+      data: () => Boolean(connector?.peerId),
       logName,
-      // TODO websocket timeout, maybe uri is wrong or expired
+      timeout,
     });
   }
 
@@ -134,10 +136,10 @@ class WalletConnectAdapter {
     if (connector) {
       this.unregisterEvents(connector);
       if (connector.connected) {
-        // TODO timeout 3s
         await this.waitConnectorPeerReady({
           connector,
           logName: 'waitConnectorPeerReady -> disconnect()',
+          timeout: 3 * 1000, // timeout 3s
         });
         await connector.killSession();
       }
@@ -168,10 +170,10 @@ class WalletConnectAdapter {
     this.registerEvents(connector);
 
     // TODO use once('session_request') trigger means pear ready
-    // TODO timeout 10s
     await this.waitConnectorPeerReady({
       connector,
       logName: 'waitConnectorPeerReady -> connect()',
+      timeout: 10 * 1000, //  timeout 10s
     });
 
     if (!connector.connected) {
@@ -192,6 +194,7 @@ class WalletConnectAdapter {
     return Promise.resolve(resp.result);
   }
 
+  // TODO check if current chain is EVM
   async getChainIdInteger(connector: WalletConnect) {
     return parseInt(
       await this.ethereumRequest(connector, { method: 'net_version' }),
@@ -219,6 +222,7 @@ class WalletConnectAdapter {
     }
   }
 
+  // TODO check if current chain is EVM
   @backgroundMethod()
   async connect({ uri }: { uri: string }) {
     // uri network param defaults to evm

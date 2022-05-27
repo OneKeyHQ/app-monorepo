@@ -10,7 +10,7 @@ import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { signTransaction } from './utils';
+import { baseEncode, signTransaction } from './utils';
 
 import type {
   IPrepareImportedAccountsParams,
@@ -25,16 +25,16 @@ export class KeyringImported extends KeyringImportedBase {
     if (privateKey.length !== 32) {
       throw new OneKeyInternalError('Invalid private key.');
     }
-    const pub = ed25519.publicFromPrivate(privateKey).toString('hex');
-    const address = pub; // near address is the public key hexstring itself.
+    const pub = ed25519.publicFromPrivate(privateKey);
+    const address = pub.toString('hex'); // implicit account
     return Promise.resolve([
       {
-        id: `imported--${COIN_TYPE}--${pub}`,
+        id: `imported--${COIN_TYPE}--${address}`,
         name: name || '',
         type: AccountType.SIMPLE,
         path: '',
         coinType: COIN_TYPE,
-        pub,
+        pub: `ed25519:${baseEncode(pub)}`,
         address,
       },
     ]);
