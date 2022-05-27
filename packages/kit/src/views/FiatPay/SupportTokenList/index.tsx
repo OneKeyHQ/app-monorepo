@@ -32,9 +32,11 @@ type RouteProps = RouteProp<
 >;
 
 const options = {
+  includeScore: true,
+  threshold: 0.4,
   keys: [
     {
-      name: 'tokenName',
+      name: 'symbol',
       weight: 1,
     },
   ],
@@ -67,7 +69,10 @@ const Header: FC<HeaderProps> = ({ onChange }) => {
         })}
         mb="6"
         value={value}
-        onClear={() => onChange('')}
+        onClear={() => {
+          onChange('');
+          setValue('');
+        }}
         onChangeText={(text) => {
           setValue(text);
           onChange(text);

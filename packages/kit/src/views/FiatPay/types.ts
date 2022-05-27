@@ -25,7 +25,8 @@ export type MoonPayBuyQuotePayload = {
   };
   quoteCurrencyPrice: number;
   quoteCurrencyAmount: number;
-  networkFeeAmount: number;
+  networkFeeAmount: number; // 信用卡手续费
+  feeAmount: number; // 矿工费
   totalAmount: number;
 };
 
