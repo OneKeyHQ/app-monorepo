@@ -25,6 +25,7 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
+    autoHideMenuBar: true,
     frame: true,
     resizable: true,
     x: isDev ? 0 : undefined,
@@ -101,6 +102,16 @@ function createMainWindow() {
       }
     } else {
       // Linux ??
+    }
+  });
+
+  ipcMain.on('app/toggleMaximizeWindow', () => {
+    if (browserWindow.isMaximized()) {
+      // Restore the original window size
+      browserWindow.unmaximize();
+    } else {
+      // Maximized window
+      browserWindow.maximize();
     }
   });
 

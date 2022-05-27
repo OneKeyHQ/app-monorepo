@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unused-vars */
-import React, { useEffect, useState } from 'react';
+import React, { ComponentProps, useEffect, useState } from 'react';
 
 import {
   IWebViewWrapperRef,
@@ -24,6 +24,7 @@ function WebView({
   onWebViewRef,
   onNavigationStateChange,
   allowpopups = false,
+  containerProps,
 }: {
   src: string;
   onSrcChange?: (src: string) => void;
@@ -31,6 +32,7 @@ function WebView({
   onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
+  containerProps?: ComponentProps<typeof Box>;
 }): JSX.Element {
   const isFocused = useIsFocused();
   const { jsBridge, webviewRef, setWebViewRef } = useWebViewBridge();
@@ -88,7 +90,7 @@ function WebView({
   }
 
   return (
-    <Box flex={1} bg="background-default">
+    <Box flex={1} bg="background-default" {...containerProps}>
       <Box flex={1}>
         {webviewVisible && src && (
           <InpageProviderWebView

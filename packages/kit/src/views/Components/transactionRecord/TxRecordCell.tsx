@@ -223,8 +223,6 @@ const TxRecordCell: FC<{
         data,
       };
 
-      console.log(actionType, newEncodedTx);
-
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -232,6 +230,8 @@ const TxRecordCell: FC<{
           params: {
             encodedTx: newEncodedTx,
             actionType,
+            feeInfoEditable: true,
+            feeInfoUseFeeInTx: true,
           },
         },
       });

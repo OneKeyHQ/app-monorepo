@@ -89,6 +89,7 @@ const Transaction = () => {
     getValues,
     setValue,
     clearErrors,
+    formState,
   } = useForm<TransactionValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -97,7 +98,8 @@ const Transaction = () => {
       value: '', // TODO rename to amount
     },
   });
-  const { isValid } = useFormState({ control });
+  // formState.isValid is NOT working, needs errors length check
+  const isValid = formState.isValid && !Object.keys(formState.errors).length;
   const {
     account,
     accountId,
@@ -168,11 +170,10 @@ const Transaction = () => {
 
   // build encodedTx
   useEffect(() => {
-    if (!transferInfo.to || !isValid) {
-      // transferInfo.amount === '' // empty value will show loading text
+    setEncodedTx(null);
+    if (!transferInfo.to || !isValid || transferInfo.amount === '') {
       return;
     }
-    setEncodedTx(null);
 
     buildEncodedTxFromTransferDebounced({
       networkId,
@@ -493,8 +494,12 @@ const Transaction = () => {
                   loading={feeInfoLoading}
                   editable
                 />
-                <FormErrorMessage message={feeInfoError?.message ?? ''} />
-                <FormErrorMessage message={transferError?.message ?? ''} />
+                {encodedTx && isValid ? (
+                  <>
+                    <FormErrorMessage message={feeInfoError?.message ?? ''} />
+                    <FormErrorMessage message={transferError?.message ?? ''} />
+                  </>
+                ) : null}
               </Box>
             </Form>
             <Box display={{ md: 'none' }} h={10} />

@@ -2,6 +2,7 @@ import React, { FC, ReactNode } from 'react';
 
 import { StyleSheet } from 'react-native';
 
+import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import HStack from '../../HStack';
 import {
   useSafeAreaInsets,
@@ -34,44 +35,51 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
   const headerLeftNode = headerLeft?.();
 
   return (
-    <HStack
-      height={`${headerHeight + insets.top}px`}
-      pt={`${insets.top}px`}
-      alignItems="center"
-      justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-      px={2}
-      bg={bgColor}
-      borderColor={borderColor}
-      borderWidth="0"
-      borderBottomWidth={StyleSheet.hairlineWidth}
-    >
-      {headerLeftNode ? (
+    <DesktopDragZoneBox>
+      <HStack
+        height={`${headerHeight + insets.top}px`}
+        pt={`${insets.top}px`}
+        alignItems="center"
+        justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
+        px={2}
+        bg={bgColor}
+        borderColor={borderColor}
+        borderWidth="0"
+        borderBottomWidth={StyleSheet.hairlineWidth}
+        style={{
+          // @ts-expect-error
+          '-webkit-app-region': 'drag',
+          '-webkit-user-select': 'none',
+        }}
+      >
+        {headerLeftNode ? (
+          <HStack
+            flex={isHorizontal ? undefined : 1}
+            alignItems="center"
+            h="full"
+            pl={{ md: 2 }}
+            pr={{ md: 4 }}
+            flexShrink={0}
+          >
+            {headerLeftNode}
+          </HStack>
+        ) : null}
+
+        {/* {isHorizontal && (
+          <HStack alignItems="center" flex={1} pl={8}>
+            <Typography.Heading>Home</Typography.Heading>
+          </HStack>
+        )} */}
         <HStack
           flex={isHorizontal ? undefined : 1}
           alignItems="center"
-          h="full"
-          pl={{ md: 2 }}
-          pr={{ md: 4 }}
-          flexShrink={0}
+          justifyContent="flex-end"
+          pr={{ md: 6 }}
         >
-          {headerLeftNode}
+          {headerRight()}
         </HStack>
-      ) : null}
-
-      {/* {isHorizontal && (
-        <HStack alignItems="center" flex={1} pl={8}>
-          <Typography.Heading>Home</Typography.Heading>
-        </HStack>
-      )} */}
-      <HStack
-        flex={isHorizontal ? undefined : 1}
-        alignItems="center"
-        justifyContent="flex-end"
-        pr={{ md: 6 }}
-      >
-        {headerRight()}
       </HStack>
-    </HStack>
+    </DesktopDragZoneBox>
   );
 };
 
