@@ -13,38 +13,30 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceToken extends ServiceBase {
   @backgroundMethod()
-  async fetchTokens(balance = true) {
-    const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { activeAccountId, activeNetworkId } = appSelector(
-      (s) => s.general,
-    ) as GeneralInitialState;
-    if (!activeAccountId || !activeNetworkId) {
-      return;
-    }
+  async fetchTokens(activeAccountId: string, activeNetworkId: string) {
+    const { engine, dispatch } = this.backgroundApi;
     const topTokens = await engine.getTopTokensOnNetwork(activeNetworkId, 50);
     dispatch(setTokens({ activeNetworkId, tokens: topTokens }));
-    if (balance) {
-      const tokensBalance = await engine.getAccountBalance(
+    const tokensBalance = await engine.getAccountBalance(
+      activeAccountId,
+      activeNetworkId,
+      topTokens.map((i) => i.tokenIdOnNetwork),
+      true,
+    );
+    dispatch(
+      setAccountTokensBalances({
         activeAccountId,
         activeNetworkId,
-        topTokens.map((i) => i.tokenIdOnNetwork),
-        true,
-      );
-      dispatch(
-        setAccountTokensBalances({
-          activeAccountId,
-          activeNetworkId,
-          tokensBalance,
-        }),
-      );
-      return topTokens;
-    }
+        tokensBalance,
+      }),
+    );
     const prices = await engine.getPrices(
       activeNetworkId,
       topTokens.map((i) => i.tokenIdOnNetwork),
       true,
     );
     dispatch(setPrices({ activeNetworkId, prices }));
+    return topTokens;
   }
 
   @backgroundMethod()
@@ -87,14 +79,12 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenBalance(tokenIds: string[] = []) {
+  async fetchTokenBalance(
+    networkId: string,
+    accountId: string,
+    tokenIds: string[] = [],
+  ) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { activeAccountId, activeNetworkId } = appSelector(
-      (s) => s.general,
-    ) as GeneralInitialState;
-    if (!activeAccountId || !activeNetworkId) {
-      return;
-    }
     const { tokens, accountTokens } = appSelector(
       (s) => s.tokens,
     ) as TokenInitialState;
@@ -102,20 +92,20 @@ export default class ServiceToken extends ServiceBase {
     if (tokenIds.length > 0) {
       tokenIdsOnNetwork = tokenIds;
     } else {
-      const ids1 = tokens[activeNetworkId] || [];
-      const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
+      const ids1 = tokens[networkId] || [];
+      const ids2 = accountTokens[networkId]?.[accountId] || [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
     }
     const tokensBalance = await engine.getAccountBalance(
-      activeAccountId,
-      activeNetworkId,
+      accountId,
+      networkId,
       tokenIdsOnNetwork,
       true,
     );
     dispatch(
       setAccountTokensBalances({
-        activeAccountId,
-        activeNetworkId,
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
         tokensBalance,
       }),
     );
@@ -148,5 +138,43 @@ export default class ServiceToken extends ServiceBase {
     );
     dispatch(setPrices({ activeNetworkId, prices }));
     return prices;
+  }
+
+  @backgroundMethod()
+  async fetchAccountTokensWithId(
+    activeAccountId: string,
+    activeNetworkId: string,
+  ) {
+    const { engine, dispatch } = this.backgroundApi;
+    if (!activeAccountId || !activeNetworkId) {
+      return;
+    }
+    const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
+    dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
+    const tokensAddresses = tokens
+      .filter((i) => i.tokenIdOnNetwork)
+      .map((token) => token.tokenIdOnNetwork);
+
+    const balances = await engine.getAccountBalance(
+      activeAccountId,
+      activeNetworkId,
+      tokensAddresses,
+      true,
+    );
+
+    dispatch(
+      setAccountTokensBalances({
+        activeAccountId,
+        activeNetworkId,
+        tokensBalance: balances,
+      }),
+    );
+    const prices = await engine.getPrices(
+      activeNetworkId,
+      tokens.map((i) => i.tokenIdOnNetwork),
+      true,
+    );
+    dispatch(setPrices({ activeNetworkId, prices }));
+    return tokens;
   }
 }

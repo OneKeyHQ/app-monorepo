@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
+  useAccountTokensBalance,
   useActiveWalletAccount,
   useAppSelector,
-  useSettings,
-} from '../../../hooks/redux';
-import { useDebounce } from '../../../hooks/useDebounce';
-import { useManageTokens } from '../../../hooks/useManageTokens';
+  useDebounce,
+} from '../../../hooks';
 import {
   refresh,
   reset,
+  setActiveNetwork,
   setError,
   setInputToken,
   setLoading,
@@ -23,26 +25,12 @@ import {
   switchTokens,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { ApprovalState, SwapError, SwapQuote } from '../typings';
+import { SwapQuoter } from '../quoter';
+import { ApprovalState, QuoteParams, SwapError } from '../typings';
 
 import { useHasPendingApproval } from './useTransactions';
 
-type QuoteRequestParams = {
-  sellToken?: string;
-  sellAmount?: string;
-  buyToken?: string;
-  buyAmount?: string;
-  buyTokenPercentageFee?: string;
-  takerAddress?: string;
-  slippagePercentage?: number;
-  feeRecipient?: string;
-  affiliateAddress?: string;
-};
-
-const client = axios.create();
-const defaultAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
-const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
-const affiliateAddress = '0x4F5FC02bE49Bea15229041b87908148b04c14717';
+const swapClient = new SwapQuoter();
 
 enum Chains {
   MAINNET = '1',
@@ -117,16 +105,6 @@ export function useSwapEnabled() {
   return !!NETWORKS[index];
 }
 
-export function useSwapQuoteBaseUrl(): string {
-  const { network } = useActiveWalletAccount();
-  const chainId = network?.extraInfo?.chainId;
-  const index = chainId ? String(+chainId) : '1';
-  // Since we have mainnet as fallback,
-  // there should be alwasys an url to return
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  return NETWORKS[index];
-}
-
 export function useSwapState() {
   return useAppSelector((s) => s.swap);
 }
@@ -148,11 +126,11 @@ export function useSwapActionHandlers() {
     [],
   );
   const onSelectToken = useCallback(
-    (token: Token, typedField: 'INPUT' | 'OUTPUT') => {
+    (token: Token, typedField: 'INPUT' | 'OUTPUT', network?: Network) => {
       if (typedField === 'INPUT') {
-        backgroundApiProxy.dispatch(setInputToken(token));
+        backgroundApiProxy.dispatch(setInputToken({ token, network }));
       } else {
-        backgroundApiProxy.dispatch(setOutputToken(token));
+        backgroundApiProxy.dispatch(setOutputToken({ token, network }));
       }
     },
     [],
@@ -160,52 +138,82 @@ export function useSwapActionHandlers() {
   const onReset = useCallback(() => {
     backgroundApiProxy.dispatch(reset());
   }, []);
-  return { onUserInput, onSelectToken, onSwitchTokens, onRefresh, onReset };
+  const onSelectNetwork = useCallback((network: Network) => {
+    backgroundApiProxy.dispatch(setActiveNetwork(network));
+  }, []);
+  return {
+    onUserInput,
+    onSelectToken,
+    onSwitchTokens,
+    onRefresh,
+    onReset,
+    onSelectNetwork,
+  };
 }
 
-export function useTokenBalance(token?: Token): BigNumber | undefined {
-  const { balances } = useManageTokens();
+export function useTokenBalance(
+  token?: Token,
+  networkId?: string,
+  accountId?: string,
+): BigNumber | undefined {
+  const balances = useAccountTokensBalance(networkId ?? '', accountId ?? '');
   useEffect(() => {
-    if (token && balances[token.tokenIdOnNetwork || 'main'] === undefined) {
-      backgroundApiProxy.serviceToken.fetchTokenBalance([
+    if (
+      token &&
+      networkId &&
+      accountId &&
+      balances[token.tokenIdOnNetwork || 'main'] === undefined
+    ) {
+      backgroundApiProxy.serviceToken.fetchTokenBalance(networkId, accountId, [
         token.tokenIdOnNetwork,
       ]);
     }
-  }, [token, balances]);
+  }, [token, balances, networkId, accountId]);
   const balance = balances[token?.tokenIdOnNetwork || 'main'];
-  if (!token || !balance) {
+  if (!token || !balance || !networkId || !accountId) {
     return;
   }
   return new TokenAmount(token, balance).toNumber();
 }
 
-export function useSwapQuoteRequestParams(): QuoteRequestParams | undefined {
-  const { inputToken, outputToken, independentField, typedValue } =
-    useSwapState();
-  const { swapSlippagePercent } = useSettings();
+export function useSwapQuoteRequestParams(): QuoteParams | undefined {
+  const swapSlippagePercent = useAppSelector(
+    (s) => s.settings.swapSlippagePercent,
+  );
+  const {
+    inputToken,
+    outputToken,
+    independentField,
+    typedValue,
+    inputTokenNetwork,
+    outputTokenNetwork,
+  } = useSwapState();
+
   return useMemo(() => {
-    if (!inputToken || !outputToken || !typedValue) {
+    if (
+      !inputToken ||
+      !outputToken ||
+      !typedValue ||
+      !inputTokenNetwork ||
+      !outputTokenNetwork ||
+      new BigNumber(typedValue).lte(0)
+    ) {
       return;
     }
-    const slippagePercentage = +swapSlippagePercent / 100;
-    const params: QuoteRequestParams = {
-      sellToken: inputToken.tokenIdOnNetwork || defaultAddress,
-      buyToken: outputToken.tokenIdOnNetwork || defaultAddress,
-      slippagePercentage: Number.isNaN(slippagePercentage)
-        ? 0.03
-        : slippagePercentage,
-      feeRecipient,
-      affiliateAddress,
+    return {
+      networkOut: outputTokenNetwork,
+      networkIn: inputTokenNetwork,
+      tokenOut: outputToken,
+      tokenIn: inputToken,
+      slippagePercentage: swapSlippagePercent,
+      typedValue,
+      independentField,
     };
-    if (independentField === 'INPUT') {
-      params.sellAmount = new TokenAmount(inputToken, typedValue).toFormat();
-    } else {
-      params.buyAmount = new TokenAmount(outputToken, typedValue).toFormat();
-    }
-    return params;
   }, [
     inputToken,
     outputToken,
+    inputTokenNetwork,
+    outputTokenNetwork,
     typedValue,
     swapSlippagePercent,
     independentField,
@@ -217,12 +225,7 @@ export const useSwapQuoteCallback = function (
 ) {
   const { silent } = options;
   const requestParams = useSwapQuoteRequestParams();
-  const baseUrl = useSwapQuoteBaseUrl();
-  const memo = useMemo(
-    () => ({ params: requestParams, url: baseUrl }),
-    [requestParams, baseUrl],
-  );
-  const { params, url } = useDebounce(memo, 500);
+  const params = useDebounce(requestParams, 500);
   const onSwapQuote = useCallback(async () => {
     if (!params) {
       backgroundApiProxy.dispatch(setQuote(undefined));
@@ -233,19 +236,21 @@ export const useSwapQuoteCallback = function (
     }
     backgroundApiProxy.dispatch(setError(undefined));
     try {
-      const result = await client.get(url, { params });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const quoteData = result.data.data as SwapQuote;
-      quoteData.payloadType = 'InternalSwap';
-      backgroundApiProxy.dispatch(setQuote(quoteData));
-    } catch (_) {
+      const data = await swapClient.getQuote(params);
+      if (data) {
+        backgroundApiProxy.dispatch(setQuote(data));
+      } else {
+        backgroundApiProxy.dispatch(setError(SwapError.NotSupport));
+      }
+    } catch (e) {
+      console.warn('swap error', e);
       backgroundApiProxy.dispatch(setError(SwapError.QuoteFailed));
     } finally {
       if (!silent) {
         backgroundApiProxy.dispatch(setLoading(false));
       }
     }
-  }, [params, silent, url]);
+  }, [params, silent]);
   return onSwapQuote;
 };
 
@@ -308,13 +313,24 @@ export function useSwap() {
     independentField,
     typedValue,
     inputToken,
+    inputTokenNetwork,
     outputToken,
+    outputTokenNetwork,
     loading: isSwapLoading,
     quote: swapQuote,
     error: swapError,
   } = useSwapState();
-  const inputBalance = useTokenBalance(inputToken);
-  const outputBalance = useTokenBalance(outputToken);
+  const { accountId } = useActiveWalletAccount();
+  const inputBalance = useTokenBalance(
+    inputToken,
+    inputTokenNetwork?.id,
+    accountId,
+  );
+  const outputBalance = useTokenBalance(
+    outputToken,
+    outputTokenNetwork?.id,
+    accountId,
+  );
   const inputAmount = useTokenAmount(inputToken, swapQuote?.sellAmount);
   const outputAmount = useTokenAmount(outputToken, swapQuote?.buyAmount);
   const approveState = useApproveState(
@@ -347,4 +363,35 @@ export function useSwap() {
     formattedAmounts,
     approveState,
   };
+}
+
+export function useDepositLimit() {
+  const intl = useIntl();
+  const { inputToken } = useSwapState();
+  const { inputAmount, swapQuote } = useSwap();
+  return useMemo(() => {
+    let message = '';
+    if (inputAmount && swapQuote && inputToken) {
+      const { depositMax, depositMin } = swapQuote;
+      if (depositMin) {
+        const min = new TokenAmount(inputToken, depositMin);
+        if (min.amount.gt(inputAmount.amount)) {
+          message = intl.formatMessage(
+            { id: 'msg__str_minimum_amount' },
+            { '0': `${depositMin} ${inputToken.symbol}` },
+          );
+        }
+      }
+      if (depositMax) {
+        const max = new TokenAmount(inputToken, depositMax);
+        if (max.amount.lt(inputAmount.amount)) {
+          message = intl.formatMessage(
+            { id: 'msg__str_maximum_amount' },
+            { '0': `${depositMax} ${inputToken.symbol}` },
+          );
+        }
+      }
+    }
+    return { limited: !!message, message };
+  }, [inputAmount, inputToken, swapQuote, intl]);
 }

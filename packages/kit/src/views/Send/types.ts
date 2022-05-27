@@ -4,7 +4,7 @@ import { IFeeInfoSelected, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
-import type { SwapQuote } from '../Swap/typings';
+import type { SwapQuoteTx } from '../Swap/typings';
 
 export enum SendRoutes {
   Send = 'Send',
@@ -68,7 +68,7 @@ export type SendConfirmPayloadBase = {
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
   | TransferSendParamsPayload
-  | SwapQuote;
+  | SwapQuoteTx;
 export type SendConfirmParams = EditFeeParams & {
   payloadType?: string; // TODO remove
   payload?: SendConfirmPayload; // use payload.payloadType

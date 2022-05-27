@@ -3,7 +3,6 @@ import React, { useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Box,
   Center,
   Divider,
@@ -26,13 +25,20 @@ import {
   useSwapQuoteCallback,
   useSwapState,
 } from './hooks/useSwap';
+import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
-import { SwapError, SwapRoutes } from './typings';
+import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
-  const { inputToken, outputToken, typedValue, independentField, error } =
-    useSwapState();
+  const {
+    inputToken,
+    inputTokenNetwork,
+    outputToken,
+    outputTokenNetwork,
+    typedValue,
+    independentField,
+  } = useSwapState();
   const isSwapEnabled = useSwapEnabled();
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
@@ -106,6 +112,7 @@ const SwapContent = () => {
             type="INPUT"
             label={intl.formatMessage({ id: 'content__from' })}
             token={inputToken}
+            tokenNetwork={inputTokenNetwork}
             inputValue={formattedAmounts.INPUT}
             onChange={onChangeInput}
             onPress={onSelectInput}
@@ -127,6 +134,11 @@ const SwapContent = () => {
                 borderRadius="full"
                 borderColor="border-disabled"
                 borderWidth="0.5"
+                disabled={
+                  inputTokenNetwork &&
+                  outputTokenNetwork &&
+                  inputTokenNetwork !== outputTokenNetwork
+                }
                 bg="surface-default"
                 onPress={onSwitchTokens}
                 size="lg"
@@ -137,6 +149,7 @@ const SwapContent = () => {
             type="OUTPUT"
             label={intl.formatMessage({ id: 'content__to' })}
             token={outputToken}
+            tokenNetwork={outputTokenNetwork}
             inputValue={formattedAmounts.OUTPUT}
             onChange={onChangeOutput}
             onPress={onSelectOutput}
@@ -165,27 +178,7 @@ const SwapContent = () => {
             />
           </Box>
         </Box>
-        {!isSwapEnabled ? (
-          <Box mb="6">
-            <Alert
-              title={intl.formatMessage({ id: 'msg__wrong_network' })}
-              description={intl.formatMessage({
-                id: 'msg__wrong_network_desc',
-              })}
-              alertType="error"
-              dismiss={false}
-            />
-          </Box>
-        ) : null}
-        {error === SwapError.QuoteFailed ? (
-          <Box mb="6">
-            <Alert
-              title={intl.formatMessage({ id: 'msg__failed_to_get_price' })}
-              alertType="warn"
-              dismiss={false}
-            />
-          </Box>
-        ) : null}
+        <SwapAlert />
         <SwapButton />
       </Box>
     </Center>

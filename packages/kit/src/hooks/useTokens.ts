@@ -1,0 +1,29 @@
+import { useMemo } from 'react';
+
+import { useAppSelector } from './redux';
+
+export function useAccountTokens(networkId: string, accountId: string) {
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+  return useMemo(
+    () => accountTokens[networkId]?.[accountId] ?? [],
+    [networkId, accountId, accountTokens],
+  );
+}
+
+export function useAccountTokensBalance(networkId: string, accountId: string) {
+  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+  return useMemo(
+    () => balances[networkId]?.[accountId] ?? {},
+    [networkId, accountId, balances],
+  );
+}
+
+export function useNetworkTokens(networkId: string) {
+  const tokens = useAppSelector((s) => s.tokens.tokens);
+  return useMemo(() => tokens[networkId] ?? [], [networkId, tokens]);
+}
+
+export function useNetworkTokensPrice(networkId: string) {
+  const tokensPrice = useAppSelector((s) => s.tokens.tokensPrice);
+  return useMemo(() => tokensPrice[networkId] ?? {}, [networkId, tokensPrice]);
+}

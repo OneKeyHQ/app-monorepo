@@ -35,7 +35,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
 
   const transferAmount = useMemo(() => {
     // invoked from Dapp
-    if (!transferPayload) {
+    if (!transferPayload || Object.keys(transferPayload).length === 0) {
       if (!decodedTx) {
         return '0';
       }

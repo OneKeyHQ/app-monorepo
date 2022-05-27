@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect } from 'react';
 
+import axios from 'axios';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Center } from '@onekeyhq/components';
@@ -29,7 +30,7 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
-  const { networkId } = useActiveWalletAccount();
+  const { networkId, accountId } = useActiveWalletAccount();
   const finalizeTransaction = useFinalizeTransaction();
   const onQuery = useCallback(async () => {
     if (networkId) {
@@ -39,12 +40,42 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
       )) as SerializableTransactionReceipt | undefined;
       if (result) {
         finalizeTransaction(tx.hash, result);
-        backgroundApiProxy.serviceToken.fetchTokenBalance();
+        backgroundApiProxy.serviceToken.fetchTokenBalance(networkId, accountId);
       }
     }
-  }, [tx, networkId, finalizeTransaction]);
+  }, [tx, networkId, accountId, finalizeTransaction]);
   useEffect(() => {
     const timer = setInterval(onQuery, 1000 * 5);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [onQuery]);
+  return <></>;
+};
+
+const PendingCrossTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
+  const { networkId, accountId } = useActiveWalletAccount();
+  const finalizeTransaction = useFinalizeTransaction();
+  const onQuery = useCallback(async () => {
+    if (tx.orderId) {
+      const res = await axios.post(
+        'https://www.swftc.info/api/v2/queryOrderState',
+        {
+          equipmentNo: tx.from,
+          sourceType: 'H5',
+          orderId: tx.orderId,
+        },
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const data = res.data.data as { tradeState: string };
+      if (data.tradeState === 'complete') {
+        finalizeTransaction(tx.hash);
+        backgroundApiProxy.serviceToken.fetchTokenBalance(networkId, accountId);
+      }
+    }
+  }, [tx, networkId, accountId, finalizeTransaction]);
+  useEffect(() => {
+    const timer = setInterval(onQuery, 1000 * 20);
     return () => {
       clearInterval(timer);
     };
@@ -80,9 +111,9 @@ const PendingTransactions = () => {
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={onAction}
       />
-      {pendings.map((tx) => (
-        <PendingTx tx={tx} />
-      ))}
+      {pendings.map((tx) =>
+        tx.orderId ? <PendingCrossTx tx={tx} /> : <PendingTx tx={tx} />,
+      )}
     </Box>
   ) : null;
 };
@@ -92,7 +123,9 @@ const FulfilledTransactions = () => {
   const allTransactions = useAllTransactions();
   const cleanFulfilledTransaction = useCleanFulfilledTransactions();
   const confirmedTxs = Object.values(allTransactions).filter(
-    (tx) => tx.receipt && Number(tx.receipt.status) === 1,
+    (tx) =>
+      (tx.receipt && Number(tx.receipt.status) === 1) ||
+      (tx.orderId && tx.confirmedTime),
   );
   const navigation = useNavigation<NavigationProps>();
   const onAction = useCallback(() => {
