@@ -617,6 +617,7 @@ function ScreenSendEditFee({ ...rest }) {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
+  // autoConfirmAfterFeeSaved=true   speedUp & cancel
   const { encodedTx, autoConfirmAfterFeeSaved } = route.params;
 
   useDisableNavigationAnimation({
@@ -688,6 +689,8 @@ function ScreenSendEditFee({ ...rest }) {
         actionType: 'cancel',
         feeInfoSelected,
         autoConfirmAfterFeeSaved,
+        feeInfoUseFeeInTx: false,
+        feeInfoEditable: true,
       });
     }
 
@@ -769,6 +772,7 @@ function ScreenSendEditFee({ ...rest }) {
       const customValues = cloneDeep(selected?.custom ?? {});
       setFeeType(FeeType.advanced);
       if (customValues) {
+        // build fee customValues for speedUp & cancel tx
         if (autoConfirmAfterFeeSaved) {
           const highPriceData = last(feeInfoPayload?.info?.prices ?? []);
           // TODO set limit to feeInfoPayload?.info?.limit (21000 in L1) if cancel action
@@ -903,4 +907,4 @@ function ScreenSendEditFee({ ...rest }) {
   );
 }
 
-export default ScreenSendEditFee;
+export default React.memo(ScreenSendEditFee);
