@@ -5,6 +5,7 @@ import { CommonActions } from '@react-navigation/native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
+import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import { useThemeValue } from '../../Provider/hooks';
@@ -17,6 +18,7 @@ import type { BottomTabBarProps } from '../BottomTabs/types';
 
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
+
   const [activeFontColor, inactiveFontColor] = useThemeValue([
     'text-default',
     'text-subdued',
@@ -32,11 +34,14 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
       borderRightColor="border-subdued"
     >
       <VStack flex={1}>
+        {!!platformEnv.isDesktopMac && (
+          <DesktopDragZoneBox w="100%" height={7} />
+        )}
         {/* Scrollable area */}
         <ScrollView
           _contentContainerStyle={{
             flex: 1,
-            py: platformEnv.isDesktopMac && platformEnv.isDesktop ? 12 : 5,
+            py: 5,
             px: 4,
           }}
         >
