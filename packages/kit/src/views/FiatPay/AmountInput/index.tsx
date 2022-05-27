@@ -48,7 +48,7 @@ type RouteProps = RouteProp<
 >;
 
 function checkVaild(text: string) {
-  const pattern = /^([0-9]+|[0-9]+\.?)([0-9]{1,2})?$/;
+  const pattern = /^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/;
   return pattern.test(text) || text === '';
 }
 
@@ -76,6 +76,7 @@ export const AmountInput: FC = () => {
   const [minAmount, setMinAmount] = useState<number>(0);
   const [maxAmount, setMaxAmount] = useState<number>(0);
   const [askPrice, setAskPrice] = useState<number>(0);
+  const [fees, setFees] = useState<number>(0);
 
   const fiatCurrency = useMoonpayPayCurrency(fiatCode) as MoonpayListType;
   const cryptoCurrency = useMoonpayPayCurrency(cryptoCode) as MoonpayListType;
@@ -85,26 +86,29 @@ export const AmountInput: FC = () => {
     () => getAmountInputInfo(type, cryptoCurrency, fiatCurrency),
     {
       onSuccess: (response) => {
-        if (loading) {
-          setLoading(false);
+        if (response) {
+          if (loading) {
+            setLoading(false);
+          }
+          if (type === 'Buy') {
+            setMinAmount(response.minAmount);
+            setMaxAmount(response.maxAmount);
+            setFees(response?.fees as number);
+          } else {
+            const balance = Number(token.balance);
+            setMinAmount(Math.min(balance, response.minAmount));
+            setMaxAmount(Math.min(balance, response.maxAmount));
+          }
+          setAskPrice(response.askPrice);
+          updateDescText(
+            intl.formatMessage(
+              {
+                id: 'form__buy_int_min_purchase',
+              },
+              { 0: response.minAmount },
+            ),
+          );
         }
-        setMinAmount(response?.minAmount as number);
-        if (type === 'Buy') {
-          setMaxAmount(response?.maxAmount as number);
-        } else {
-          const balance = Number(token.balance);
-          setMinAmount(Math.min(balance, response?.minAmount as number));
-          setMaxAmount(Math.min(balance, response?.maxAmount as number));
-        }
-        setAskPrice(response?.askPrice as number);
-        updateDescText(
-          intl.formatMessage(
-            {
-              id: 'form__buy_int_min_purchase',
-            },
-            { 0: response?.minAmount },
-          ),
-        );
       },
     },
   );
@@ -113,9 +117,6 @@ export const AmountInput: FC = () => {
     (text: string) => {
       if (text.length > 0) {
         const amount = Number(text);
-
-        console.log('maxAmount = ', maxAmount);
-
         if (amount < minAmount) {
           updateDescText(() => {
             if (type === 'Buy') {
@@ -155,9 +156,9 @@ export const AmountInput: FC = () => {
         } else {
           updateDescText(
             type === 'Buy'
-              ? `≈ ${(amount / askPrice).toFixed(fiatCurrency?.precision)}  ${
-                  token.symbol
-                }`
+              ? `≈ ${((amount - fees) / askPrice).toFixed(
+                  cryptoCurrency?.precision,
+                )}  ${token.symbol}`
               : `≈ ${(amount * askPrice).toFixed(
                   fiatCurrency?.precision,
                 )}  ${fiatCurrency.code.toUpperCase()}`,
@@ -174,7 +175,9 @@ export const AmountInput: FC = () => {
       type,
       intl,
       token.symbol,
+      fees,
       askPrice,
+      cryptoCurrency?.precision,
       fiatCurrency?.precision,
       fiatCurrency.code,
     ],
@@ -196,7 +199,7 @@ export const AmountInput: FC = () => {
 
   return (
     <Modal
-      height="500px"
+      height="560px"
       header={`${intl.formatMessage({
         id: type === 'Buy' ? 'action__buy' : 'action__sell',
       })} ${token.symbol}`}
@@ -266,7 +269,7 @@ export const AmountInput: FC = () => {
           {platformEnv.isNative ? (
             <Keyboard
               itemHeight={shortScreen ? '44px' : undefined}
-              pattern={/^([0-9]+|[0-9]+\.?)([0-9]{1,2})?$/}
+              pattern={/^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/}
               onTextChange={(text) => {
                 updateInputText(text);
                 checkAmountVaild(text);
@@ -291,6 +294,7 @@ export const AmountInput: FC = () => {
                       baseCurrencyCode: cryptoCode,
                       baseCurrencyAmount: inputText,
                     });
+
               const signedUrl = await signMoonpayUrl(url);
               navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
                 url: signedUrl,
