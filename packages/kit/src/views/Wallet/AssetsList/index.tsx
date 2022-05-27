@@ -45,7 +45,7 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-const ListHeaderComponent = () => {
+const ListHeaderComponent = ({ tokenEnabled }: { tokenEnabled: boolean }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   return (
@@ -58,18 +58,22 @@ const ListHeaderComponent = () => {
       <Typography.Heading>
         {intl.formatMessage({ id: 'asset__tokens' })}
       </Typography.Heading>
-      <IconButton
-        onPress={() =>
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManageToken,
-            params: { screen: ManageTokenRoutes.Listing },
-          })
-        }
-        size="sm"
-        name="AdjustmentsSolid"
-        type="plain"
-        circle
-      />
+      {tokenEnabled ? (
+        <IconButton
+          onPress={() =>
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageToken,
+              params: { screen: ManageTokenRoutes.Listing },
+            })
+          }
+          size="sm"
+          name="AdjustmentsSolid"
+          type="plain"
+          circle
+        />
+      ) : (
+        <Box w={5} />
+      )}
     </Box>
   );
 };
@@ -79,6 +83,7 @@ const AssetsList = () => {
   const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
+  const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
 
   useFocusEffect(
     useCallback(() => {
@@ -180,7 +185,7 @@ const AssetsList = () => {
       }}
       data={accountTokens}
       renderItem={renderItem}
-      ListHeaderComponent={<ListHeaderComponent />}
+      ListHeaderComponent={<ListHeaderComponent tokenEnabled={tokenEnabled} />}
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h={8} />}
       keyExtractor={(_item: TokenType) => _item.id}

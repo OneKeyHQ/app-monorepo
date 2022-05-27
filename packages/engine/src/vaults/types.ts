@@ -19,6 +19,7 @@ import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 export type IVaultSettings = {
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
+  tokenEnabled: boolean;
 
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;
