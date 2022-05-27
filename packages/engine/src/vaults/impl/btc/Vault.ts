@@ -77,7 +77,7 @@ export default class Vault extends VaultBase {
     const client = await (this.engineProvider as Provider).blockbook;
     const newRates = [];
     try {
-      for (const blocks of [15, 10, 5]) {
+      for (const blocks of [20, 10, 5]) {
         newRates.push(
           new BigNumber(await client.estimateFee(blocks)).toFixed(0),
         );
@@ -228,7 +228,9 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const utxos = await this.collectUTXOs();
     // const feeRate = '2';
-    const feeRate = specifiedFeeRate || (await this.getFeeRate())[1];
+    // Select the slowest fee rate as default, otherwise the UTXO selection
+    // would be failed.
+    const feeRate = specifiedFeeRate || (await this.getFeeRate())[0];
 
     const {
       inputs,
