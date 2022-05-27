@@ -1,18 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
-import { IMPL_BTC, getSupportedImpls } from './constants';
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
-import { implToAccountType } from './managers/impl';
-import { ProviderController } from './proxy';
-import { AccountType } from './types/account';
 import { UserCreateInput, UserCreateInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
@@ -26,12 +21,9 @@ class Validators {
 
   private engine: Engine;
 
-  private readonly providerManager: ProviderController;
-
   constructor(engine: Engine) {
     this.engine = engine;
     this._dbApi = engine.dbApi;
-    this.providerManager = engine.providerManager;
   }
 
   get dbApi(): DBAPI {
@@ -45,7 +37,8 @@ class Validators {
   @backgroundMethod()
   async validateCreateInput(input: string): Promise<UserCreateInput> {
     let category = UserCreateInputCategory.INVALID;
-    let possibleNetworks: Array<string> = [];
+    const possibleNetworks: Array<string> = [];
+
     if (/\s/g.test(input)) {
       // white space in input, only try mnemonic
       try {
@@ -54,67 +47,38 @@ class Validators {
       } catch {
         console.log('Invalid mnemonic', input);
       }
-    } else {
-      const enabledNetworks = await this.engine.listNetworks(true);
-      if (/^0x[0-9a-zA-Z]{64}$/.test(input)) {
-        // TODO: move this into vault
-        // a 64-char hexstring with 0x prefix, try private key only
-        // TODO: verify private key & return networks with specific curve.
-        category = UserCreateInputCategory.PRIVATE_KEY;
-        possibleNetworks = enabledNetworks
-          .filter((network) => network.settings.importedAccountEnabled)
-          .map((network) => network.id);
-      } else if (/^[xyz]p/.test(input)) {
-        // Extended private/public key, only BTC is supported for now.
-        // TODO: move such checks into vaults
-        const [btcNetwork] = enabledNetworks.filter(
-          (network) => network.impl === IMPL_BTC,
-        );
-        if (typeof btcNetwork !== 'undefined') {
-          const { id: networkId } = btcNetwork;
-          const provider = (await this.providerManager.getProvider(
-            networkId,
-          )) as Provider;
-          if (provider.isValidXprv(input)) {
-            return {
-              category: UserCreateInputCategory.PRIVATE_KEY,
-              possibleNetworks: [networkId],
-            };
-          }
-          if (provider.isValidXpub(input)) {
-            return {
-              category: UserCreateInputCategory.ADDRESS,
-              possibleNetworks: [networkId],
-            };
-          }
-        }
-      } else {
-        // check whether input is an address of any network
-        const selectedImpls = new Set();
-        for (const network of enabledNetworks) {
-          if (network.settings.watchingAccountEnabled) {
-            const { id: networkId, impl } = network;
-            let networkIsPossible = true;
-            if (!selectedImpls.has(impl)) {
-              try {
-                await this.validateAddress(networkId, input);
-                if (implToAccountType[impl] === AccountType.SIMPLE) {
-                  selectedImpls.add(impl);
-                }
-              } catch {
-                networkIsPossible = false;
-              }
-            }
-            if (networkIsPossible) {
-              possibleNetworks.push(networkId);
-            }
-          }
-        }
-        if (possibleNetworks.length > 0) {
-          category = UserCreateInputCategory.ADDRESS;
+      return { category, possibleNetworks };
+    }
+
+    // Otherwise, iterate networks to check user input.
+    // TODO: return multiple types for user to choose.
+
+    const enabledNetworks = await this.engine.listNetworks(true);
+
+    // TODO: performance can be improved if only one EVM network is checked and
+    // use the result for all EVM compatible networks.
+    for (const network of enabledNetworks) {
+      const vault = await this.engine.getChainOnlyVault(network.id);
+      // TODO: only get the first possibility now.
+      let thisCategory: UserCreateInputCategory | undefined;
+      try {
+        [thisCategory] = await vault.guessUserCreateInput(input);
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (typeof thisCategory !== 'undefined') {
+        if (category === UserCreateInputCategory.INVALID) {
+          // Not any category is selected, choose this one.
+          category = thisCategory;
+          possibleNetworks.push(network.id);
+        } else if (category === thisCategory) {
+          // Already selected a category, push the network if the same.
+          possibleNetworks.push(network.id);
         }
       }
     }
+
     return { category, possibleNetworks };
   }
 
@@ -129,16 +93,8 @@ class Validators {
 
   @backgroundMethod()
   async validateAddress(networkId: string, address: string): Promise<string> {
-    // TODO move near address verify to vault
-    if (networkId.startsWith('near--')) {
-      return Promise.resolve(address);
-    }
-    const { normalizedAddress, isValid } =
-      await this.providerManager.verifyAddress(networkId, address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new errors.InvalidAddress();
-    }
-    return Promise.resolve(normalizedAddress);
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    return vault.validateAddress(address);
   }
 
   @backgroundMethod()
@@ -146,16 +102,8 @@ class Validators {
     networkId: string,
     address: string,
   ): Promise<string> {
-    // TODO move near address verify to vault
-    if (networkId.startsWith('near--')) {
-      return Promise.resolve(address);
-    }
-    const { normalizedAddress, isValid } =
-      await this.providerManager.verifyTokenAddress(networkId, address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new errors.InvalidTokenAddress();
-    }
-    return Promise.resolve(normalizedAddress);
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    return vault.validateTokenAddress(address);
   }
 
   @backgroundMethod()

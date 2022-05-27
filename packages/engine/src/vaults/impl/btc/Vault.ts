@@ -18,6 +18,7 @@ import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
+import { UserCreateInputCategory } from '../../../types/credential';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -31,6 +32,7 @@ import {
   IFeeInfoUnit,
   ISignCredentialOptions,
   ITransferInfo,
+  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
@@ -72,10 +74,7 @@ export default class Vault extends VaultBase {
       // 30 seconds cache.  TODO: may differ for different network?
       return rates;
     }
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    const client = await provider.blockbook;
+    const client = await (this.engineProvider as Provider).blockbook;
     const newRates = [];
     try {
       for (const blocks of [15, 10, 5]) {
@@ -105,10 +104,7 @@ export default class Vault extends VaultBase {
     }
 
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    const client = await provider.blockbook;
+    const client = await (this.engineProvider as Provider).blockbook;
     let newUTXOs: Array<UTXO> = [];
     try {
       // TODO: use updated blockchain-libs API
@@ -360,10 +356,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-')) {
       const purpose = parseInt(dbAccount.path.split('/')[1]);
       const { addressEncoding } = getAccountDefaultByPurpose(purpose);
-      const provider = (await this.engine.providerManager.getProvider(
-        this.networkId,
-      )) as Provider;
-      const { network } = provider;
+      const { network } = this.engineProvider as Provider;
       const { private: xprvVersionBytes } =
         (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
@@ -408,16 +401,13 @@ export default class Vault extends VaultBase {
   // TODO: BTC history type
   async getHistory(): Promise<Array<EVMDecodedItem>> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
 
     const ret = [];
     let txs;
     try {
       txs =
         (
-          (await provider.getAccount({
+          (await (this.engineProvider as Provider).getAccount({
             type: 'history',
             xpub: dbAccount.xpub,
           })) as { transactions: Array<any> }
@@ -517,6 +507,20 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
+    // TODO: different network support.
+    if (/^[xyz]p/.test(input)) {
+      const provider = this.engineProvider as Provider;
+      if (this.settings.importedAccountEnabled && provider.isValidXprv(input)) {
+        return Promise.resolve([UserCreateInputCategory.PRIVATE_KEY]);
+      }
+      if (this.settings.watchingAccountEnabled && provider.isValidXpub(input)) {
+        return Promise.resolve([UserCreateInputCategory.ADDRESS]);
+      }
+    }
+    return Promise.resolve([]);
+  }
 
   createClientFromURL(url: string): BlockBook {
     return new BlockBook(url);
