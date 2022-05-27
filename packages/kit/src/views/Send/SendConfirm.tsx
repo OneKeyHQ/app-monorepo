@@ -18,6 +18,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
+import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
 import { wait } from '../../utils/helper';
 import { SwapQuote } from '../Swap/typings';
 
@@ -79,6 +80,7 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 }
 
 const TransactionConfirm = () => {
+  useOnboardingFinished();
   // do not remove this line, call account balance fetch
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { balances } = useManageTokens({

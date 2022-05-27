@@ -12,6 +12,7 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigationActions } from '../../../hooks';
 
@@ -56,6 +57,9 @@ const AddWatchAccount = () => {
         );
         closeDrawer();
         resetToRoot();
+        if (platformEnv.isExtensionUiStandaloneWindow) {
+          window?.close?.();
+        }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({
