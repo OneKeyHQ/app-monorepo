@@ -12,14 +12,10 @@ import {
   SignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { TransactionOptions } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import {
   address as ConfluxAddress,
   Conflux as ConfluxJs,
-  Drip,
-  JSBI,
-  Transaction,
 } from 'js-conflux-sdk';
 import { isNil } from 'lodash';
 
@@ -30,15 +26,9 @@ import {
   OneKeyInternalError,
   PendingQueueTooLong,
 } from '../../../errors';
-import {
-  extractResponseError,
-} from '../../../proxy';
+import { extractResponseError } from '../../../proxy';
 import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
 import { UserCreateInputCategory } from '../../../types/credential';
-import {
-  HistoryEntryStatus,
-  HistoryEntryTransaction,
-} from '../../../types/history';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
@@ -60,12 +50,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-import type { IEncodedTxEvm } from '../evm/Vault';
-import type {
-  Address,
-  Transaction as TransactionClassType,
-} from 'js-conflux-sdk';
-
 export interface IEncodedTxCfx {
   from: string;
   to: string;
@@ -77,31 +61,6 @@ export interface IEncodedTxCfx {
   maxPriorityFeePerGas?: string;
   nonce?: number;
   feeLimit?: string;
-}
-
-export enum IDecodedTxCfxType {
-  NativeTransfer = 'NativeTransfer',
-  TokenTransfer = 'TokenTransfer',
-  TokenApprove = 'TokenApprove',
-  Swap = 'Swap',
-  NftTransfer = 'NftTransfer',
-  ContractDeploy = 'ContractDeploy',
-}
-
-export interface IConfluxTransactionOption {
-  from: Address;
-  nonce?: JSBI;
-  gasPrice?: JSBI;
-  gas?: JSBI;
-  to?: Address | null;
-  value?: JSBI;
-  storageLimit?: JSBI;
-  epochHeight?: number;
-  chainId?: number;
-  data?: Buffer | string;
-  r?: Buffer | string;
-  s?: Buffer | string;
-  v?: number;
 }
 
 export default class Vault extends VaultBase {
@@ -126,10 +85,9 @@ export default class Vault extends VaultBase {
   }
 
   async attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTxEvm;
+    encodedTx: IEncodedTxCfx;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTxEvm> {
-    const network = await this.getNetwork();
+  }): Promise<IEncodedTxCfx> {
     const { encodedTx, feeInfoValue } = params;
     const encodedTxWithFee = { ...encodedTx };
     if (!isNil(feeInfoValue.limit)) {
@@ -252,9 +210,7 @@ export default class Vault extends VaultBase {
     others?: EstimatedPrice[] | undefined;
   }> {
     const cfxClient = await this.getCfxClient();
-    const gasPriceHex: string = await (
-      await cfxClient.getGasPrice()
-    ).toString();
+    const gasPriceHex: string = (await cfxClient.getGasPrice()).toString();
     const gasPrice = fromBigIntHex(gasPriceHex);
 
     const slow =
@@ -272,7 +228,7 @@ export default class Vault extends VaultBase {
   }
 
   // TODO: 参考了 blockchain-libs 中 cfx provider 的 buildencodedTx 的实现
-  async buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<encodedTx> {
+  async buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<any> {
     const cfxClient = await this.getCfxClient();
     const input = encodedTx.inputs[0];
     const output = encodedTx.outputs[0];
@@ -540,7 +496,7 @@ export default class Vault extends VaultBase {
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     const signedTx = await this.signTransaction(rawTx, options);
-    const cfxClient = await this.getCfxClient()
+    const cfxClient = await this.getCfxClient();
     const hash = await cfxClient.sendRawTransaction(signedTx.rawTx);
     return {
       txid: hash,
