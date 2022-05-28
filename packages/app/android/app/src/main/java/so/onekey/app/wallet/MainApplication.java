@@ -17,6 +17,8 @@ import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
 import com.facebook.soloader.SoLoader;
+import com.facebook.react.bridge.JavaScriptExecutorFactory;
+import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
@@ -29,6 +31,8 @@ import com.swmansion.reanimated.ReanimatedJSIModulePackage;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import android.webkit.WebView;
+
+import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
 
 public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
   private final ViewModelStore mViewModelStore = new ViewModelStore();
@@ -54,6 +58,15 @@ public class MainApplication extends Application implements ReactApplication , V
     @Override
     protected String getJSMainModuleName() {
       return "__generated__/AppEntry.js";
+    }
+
+    @Override
+    protected JavaScriptExecutorFactory getJavaScriptExecutorFactory() {
+      return new V8ExecutorFactory(
+          getApplicationContext(),
+          getPackageName(),
+          AndroidInfoHelpers.getFriendlyDeviceName(),
+          getUseDeveloperSupport());
     }
 
     @Override
