@@ -73,7 +73,17 @@ import type {
 //   nonce?: number;
 // };
 
-export type IEncodedTxCfx = IEncodedTxEvm;
+export interface IEncodedTxCfx {
+  from: string;
+  to: string;
+  value: string;
+  gas?: string; // alias for gasLimit
+  gasLimit?: string;
+  gasPrice?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  nonce?: number;
+}
 
 export enum IDecodedTxCfxType {
   NativeTransfer = 'NativeTransfer',
@@ -139,15 +149,43 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxCfx> {
-    const { amount } = transferInfo;
     const network = await this.getNetwork();
-    const amountBN = new BigNumber(amount);
+    const isMax = transferInfo.max;
+    const isTransferToken = Boolean(transferInfo.token);
+    const isTransferNativeToken = !isTransferToken;
+    const { amount } = transferInfo;
+    let amountBN = new BigNumber(amount);
+    if (amountBN.isNaN()) {
+      amountBN = new BigNumber('0');
+    }
+    if (isMax && isTransferNativeToken) {
+      amountBN = new BigNumber('0');
+    }
+
+    if (isTransferToken) {
+      // TODO:
+      // getOrAddToken 代码 CFX IMPL 未实现，代码在 packages/engine/src/presets/token.ts
+      // 目测需要在 @onekeyfe/default-token-list 中添加
+      const token = await this.engine.getOrAddToken(
+        this.networkId,
+        transferInfo.token ?? '',
+        true,
+      );
+      if (!token) {
+        throw new Error(`Token not found: ${transferInfo.token as string}`);
+      }
+      return {
+        from: transferInfo.from,
+        to: transferInfo.token ?? '',
+        value: '0x0',
+      };
+    }
+
     const amountHex = toBigIntHex(amountBN.shiftedBy(network.decimals));
     return {
       from: transferInfo.from,
       to: transferInfo.to,
       value: amountHex,
-      data: '0x',
     };
   }
 
@@ -377,5 +415,39 @@ export default class Vault extends VaultBase {
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
     throw new NotImplemented();
+  }
+
+  override async broadcastTransaction(
+    rawTx: string,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    // const dbAccount = await this.getDbAccount();
+    // const { password } = options;
+    // const transaction = new Transaction(
+    //   // TODO: 数据转换需要放在上一层 decode 中
+    //   Object.keys(unsignedTx.payload).reduce(
+    //     (prev: { [key: string]: any }, key: string) => {
+    //       const value = unsignedTx.payload[key];
+    //       prev[key] = typeof value === 'bigint' ? value.toString() : value;
+    //       return prev;
+    //     },
+    //     {},
+    //   ) as any,
+    // );
+    // if (typeof password === 'undefined') {
+    //   throw new OneKeyInternalError('password required');
+    // }
+
+    // const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+    //   this.networkId
+    // ];
+    // const signers = await this.getSigners(password, [selectedAddress]);
+    // const privateKey = await signers[selectedAddress].getPrvkey();
+    // WARN: the type privateKey can be buffer, but it is string in index.d.ts now.
+    transaction.sign(privateKey as any, 1);
+    return {
+      txid: transaction.hash,
+      rawTx: transaction.serialize(),
+    };
   }
 }
