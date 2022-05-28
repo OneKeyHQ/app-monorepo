@@ -16,6 +16,9 @@ const moduleResolverAliasForAllWebPlatform = {
   'react-native-fast-image': fullPath(
     './module-resolver/react-native-fast-image-mock',
   ),
+  'react-native-keyboard-manager': fullPath(
+    './module-resolver/react-native-keyboard-manager-mock',
+  ),
 };
 
 function normalizeConfig({ platform, config }) {
