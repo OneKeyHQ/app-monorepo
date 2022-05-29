@@ -17,7 +17,11 @@
     "react": "17.0.1",
     "react-dom": "17.0.1",
     "react-hot-loader": "^4.13.0",
-    "@vespaiach/axios-fetch-adapter": "^0.1.1"
+    "@vespaiach/axios-fetch-adapter": "^0.1.1",
+    "next-compose-plugins": "^2.2.0",
+    "next-transpile-modules": "^8.0.0",
+    "@expo/next-adapter": "^3",
+    "next": "^11.1.2"
   },
   "devDependencies": {}
 }

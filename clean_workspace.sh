@@ -35,7 +35,6 @@ rm -rf ./packages/app/src/public/static/js-sdk
 rm -rf ./packages/desktop/node_modules
 rm -rf ./packages/desktop/.expo
 rm -rf ./packages/desktop/__generated__
-rm -rf ./packages/desktop/.next
 rm -rf ./packages/desktop/dist
 rm -rf ./packages/desktop/build
 rm -rf ./packages/desktop/build-electron
@@ -46,7 +45,6 @@ rm -rf ./packages/desktop/public/static/preload.js
 rm -rf ./packages/web/node_modules
 rm -rf ./packages/web/.expo
 rm -rf ./packages/web/__generated__
-rm -rf ./packages/web/.next
 rm -rf ./packages/web/dist
 rm -rf ./packages/web/web-build
 rm -rf ./packages/web/.expo-shared
@@ -60,4 +58,3 @@ rm -rf ./packages/ext/src/entry/injected.text-js
 rm -rf ./packages/engine/node_modules
 
 rm -rf ./packages/remote-console/node_modules
-rm -rf ./packages/remote-console/.next
