@@ -4,7 +4,6 @@ import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
   Center,
   HStack,
   Icon,
@@ -13,11 +12,10 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
-import Dots from '@onekeyhq/kit/assets/3_dots.png';
-import AccountIcon from '@onekeyhq/kit/assets/account_icon.png';
+import Check from '@onekeyhq/kit/assets/connect_check.png';
+import Sight from '@onekeyhq/kit/assets/connect_sight.png';
+import X from '@onekeyhq/kit/assets/connect_x.png';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
-import ChainNetworkIcon from '@onekeyhq/kit/assets/network_icon.png';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,35 +25,23 @@ import useDappParams from '../../hooks/useDappParams';
 
 import RugConfirmDialog from './RugConfirmDialog';
 
-type PermissionType = 'view-addresses' | 'sign-and-send-transactions';
-type Permission = {
-  type: PermissionType;
-  required: boolean;
-};
-
 const MockData = {
   permissions: [
     {
-      type: 'view-addresses',
-      required: true,
+      text: 'content__view_the_address_of_your_permitted_accounts_required',
+      icon: Sight,
     },
     {
-      type: 'sign-and-send-transactions',
-      required: true,
+      text: 'content__send_transactions_and_signature_request',
+      icon: Check,
     },
-  ] as Permission[],
+    {
+      text: 'content__send_transactions_and_signature_request',
+      icon: X,
+    },
+  ] as const,
 };
 
-const getPermissionTransId = (type: PermissionType): LocaleIds => {
-  switch (type) {
-    case 'view-addresses':
-      return 'content__view_the_address_of_your_permitted_accounts_required';
-    case 'sign-and-send-transactions':
-      return 'content__send_transactions_and_signature_request';
-    default:
-      return type;
-  }
-};
 const isRug = (target: string) => {
   const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
@@ -65,7 +51,8 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const { networkImpl, network, accountAddress } = useActiveWalletAccount();
+  const { networkImpl, network, accountAddress, account } =
+    useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? ({} as IDappCallParams);
   const computedIsRug = isRug(origin);
@@ -127,8 +114,6 @@ const Connection = () => {
       <Modal
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__reject"
-        header={intl.formatMessage({ id: 'title__approve' })}
-        headerDescription={scope}
         onPrimaryActionPress={async ({ close }) => {
           if (!computedIsRug) {
             const result = getResolveData();
@@ -146,103 +131,57 @@ const Connection = () => {
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
-            <VStack flex="1" pb="20" space={6}>
-              <Center flex="1">
+            <VStack flex="1" space={6}>
+              <Center flex="1" mt="12px">
                 <HStack>
                   <Image
-                    size="56px"
+                    size="64px"
                     borderRadius="full"
-                    source={{ uri: `${origin}/favicon.ico` }}
-                    fallbackElement={<Token size="56px" />}
+                    mr="-16px"
+                    zIndex={100}
+                    source={Logo}
                   />
                   <Image
-                    w="28px"
-                    h="56px"
-                    source={Dots}
-                    resizeMode="center"
-                    marginLeft="16px"
-                    marginRight="16px"
+                    size="64px"
+                    source={{ uri: `${origin}/favicon.ico` }}
+                    fallbackElement={<Token size="64px" />}
                   />
-                  <Image size="56px" source={Logo} />
                 </HStack>
-                <Typography.PageHeading mt="8px">
+
+                <Typography.PageHeading mt="24px">
                   {intl.formatMessage({
                     id: 'title__connect_to_website',
                   })}
                 </Typography.PageHeading>
-              </Center>
-              <VStack space={2}>
-                <Box>
-                  <Typography.Subheading mt="24px" color="text-subdued">
-                    {intl.formatMessage({
-                      id: 'form__allow_this_site_to_uppercase',
-                    })}
-                  </Typography.Subheading>
-                </Box>
 
+                <HStack justifyContent="center" alignItems="center" mt="16px">
+                  <Typography.Body1 mr="18px">
+                    {origin?.split('://')[1] ?? 'DApp'}
+                  </Typography.Body1>
+                  <Icon size={20} name="SwitchHorizontalSolid" />
+                  <Image
+                    src={network?.logoURI}
+                    ml="18px"
+                    mr="8px"
+                    width="16px"
+                    height="16px"
+                    borderRadius="full"
+                  />
+                  <Typography.Body2>{account?.name}</Typography.Body2>
+                </HStack>
+              </Center>
+
+              <VStack space={6} ml="12px" mt="24px">
                 {MockData.permissions.map((permission) => (
-                  <HStack alignItems="center">
-                    <Icon size={20} name="CheckSolid" />
-                    <Typography.Body1 ml="7px">
+                  <HStack>
+                    <Image size="36px" source={permission.icon} />
+                    <Typography.Body1 ml="16px" alignSelf="center">
                       {intl.formatMessage({
-                        id: getPermissionTransId(permission.type),
+                        id: permission.text,
                       })}
                     </Typography.Body1>
                   </HStack>
                 ))}
-              </VStack>
-
-              {/* Account */}
-              <VStack space={2}>
-                <Box
-                  // h="52px"
-                  borderWidth="1px"
-                  borderColor="border-disabled"
-                  borderRadius="12px"
-                >
-                  <HStack flex="1" pt="4px" pb="4px">
-                    <HStack flex="1">
-                      <Image
-                        mt="6px"
-                        mr="8px"
-                        ml="8px"
-                        size="16px"
-                        source={AccountIcon}
-                      />
-                      <VStack mt="6px" mb="6px">
-                        <Typography.Subheading color="text-disabled">
-                          ACCOUNT
-                        </Typography.Subheading>
-                        <Typography.Body2>ACCOUNT#1</Typography.Body2>
-                      </VStack>
-                    </HStack>
-                    <HStack
-                      flex="1"
-                      borderLeftWidth={1}
-                      borderColor="border-disabled"
-                    >
-                      <Image
-                        mt="6px"
-                        mr="8px"
-                        ml="8px"
-                        size="16px"
-                        source={ChainNetworkIcon}
-                      />
-                      <VStack mt="6px" mb="6px">
-                        <Typography.Subheading color="text-disabled">
-                          NETWORK
-                        </Typography.Subheading>
-                        <Typography.Body2>{network?.name}</Typography.Body2>
-                      </VStack>
-                    </HStack>
-                  </HStack>
-                </Box>
-                <Center>
-                  <Typography.Body2 color="text-disabled">
-                    Approving will redirect to:
-                  </Typography.Body2>
-                  <Typography.Body2>{origin}</Typography.Body2>
-                </Center>
               </VStack>
             </VStack>
           ),

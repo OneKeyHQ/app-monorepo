@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
+  HStack,
   Icon,
   Image,
   KeyboardDismissView,
@@ -24,6 +25,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import useDappParams from '../../hooks/useDappParams';
 
 type RouteProps = RouteProp<
   ManageTokenRoutesParams,
@@ -61,6 +63,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const intl = useIntl();
+  const { sourceInfo } = useDappParams();
   const { name, symbol, decimal, address, logoURI } = useRouteParams();
   const items: ListItem[] = useMemo(() => {
     const data = [
@@ -144,11 +147,33 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                     </Center>
                   }
                 />
-                <Typography.PageHeading mt="4">{`${intl.formatMessage({
-                  id: 'title__adding_str' as any,
-                  defaultMessage: 'Adding',
-                })} ${symbol}`}</Typography.PageHeading>
+
+                <Typography.PageHeading mt="4">
+                  {intl.formatMessage(
+                    { id: 'title__adding_str' },
+                    {
+                      0: symbol,
+                    },
+                  )}
+                </Typography.PageHeading>
+
+                <HStack justifyContent="center" alignItems="center" mt="16px">
+                  <Typography.Body1 mr="18px">
+                    {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
+                  </Typography.Body1>
+                  <Icon size={20} name="SwitchHorizontalSolid" />
+                  <Image
+                    src={activeNetwork?.logoURI}
+                    ml="18px"
+                    mr="8px"
+                    width="16px"
+                    height="16px"
+                    borderRadius="full"
+                  />
+                  <Typography.Body2>{activeAccount?.name}</Typography.Body2>
+                </HStack>
               </Box>
+
               <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
                 {items.map((item, index) => (
                   <Box
