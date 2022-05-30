@@ -311,7 +311,7 @@ export default class Vault extends VaultBase {
     payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
-    throw new NotImplemented();
+    return Promise.resolve(encodedTx);
   }
 
   buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxBTC): Promise<UnsignedTx> {
