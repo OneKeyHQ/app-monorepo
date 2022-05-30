@@ -41,7 +41,7 @@
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.2.1 --no-dimensions --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "fetch:locale": "node src/locale/script.js && translations fetch",
+    "fetch:locale": "rimraf ./src/locale/*.json && translations fetch",
     "clean": "rimraf node_modules"
   }
 }
