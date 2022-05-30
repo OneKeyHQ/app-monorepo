@@ -118,7 +118,11 @@ export default class Vault extends VaultBase {
 
     const verifier = this.engine.providerManager.getVerifier(
       this.networkId,
-      dbAccount.pub,
+      // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
+      // in hexstring, afterwards it is stored using encoded format.
+      dbAccount.pub.startsWith('ed25519:')
+        ? baseDecode(dbAccount.pub.split(':')[1]).toString('hex')
+        : dbAccount.pub,
     );
     const pubKeyBuffer = await verifier.getPubkey(true);
 
