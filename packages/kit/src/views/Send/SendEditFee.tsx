@@ -858,6 +858,15 @@ function ScreenSendEditFee({ ...rest }) {
         useFormReturn={useFormReturn}
       />
     );
+    const presetFeeForm = (
+      <StandardFee
+        feeInfoPayload={feeInfoPayload}
+        value={radioValue}
+        onChange={(value) => {
+          setRadioValue(value);
+        }}
+      />
+    );
     content = feeInfoPayload ? (
       <>
         <EditFeeTabs
@@ -867,17 +876,7 @@ function ScreenSendEditFee({ ...rest }) {
           }}
         />
         <Box>
-          {feeType === FeeType.standard ? (
-            <StandardFee
-              feeInfoPayload={feeInfoPayload}
-              value={radioValue}
-              onChange={(value) => {
-                setRadioValue(value);
-              }}
-            />
-          ) : (
-            customFeeForm
-          )}
+          {feeType === FeeType.standard ? presetFeeForm : customFeeForm}
         </Box>
       </>
     ) : (
@@ -885,6 +884,13 @@ function ScreenSendEditFee({ ...rest }) {
         <Box>{customFeeForm}</Box>
       </>
     );
+    if (feeInfoPayload?.info?.customDisabled) {
+      content = (
+        <>
+          <Box>{presetFeeForm}</Box>
+        </>
+      );
+    }
   }
 
   return (
