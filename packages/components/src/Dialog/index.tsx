@@ -14,6 +14,7 @@ import Modal from 'react-native-modal';
 
 import Box from '../Box';
 import Pressable from '../Pressable';
+import ScrollView from '../ScrollView';
 
 import DialogCommon from './components';
 
@@ -128,38 +129,40 @@ const Dialog: FC<DialogProps> = ({
           maxW="432px"
           onPress={() => Keyboard.dismiss()}
         >
-          <Box
-            w="100%"
-            p={{ base: '4', lg: '6' }}
-            shadow="depth.5"
-            alignSelf="center"
-            borderRadius="24px"
-            bg="surface-subdued"
-          >
-            {props.children ? (
-              props.children
-            ) : (
-              <Box minW={{ md: '80', sm: '4/5' }}>
-                {!!contentProps && <DialogCommon.Content {...contentProps} />}
-                {footerMoreView ?? footerMoreView}
-                {(!footerButtonProps?.hidePrimaryAction ||
-                  !footerButtonProps?.hideSecondaryAction) && (
-                  <DialogCommon.FooterButton
-                    {...footerButtonProps}
-                    onSecondaryActionPress={() => {
-                      handleClose();
-                      setTimeout(() => {
-                        footerButtonProps?.onSecondaryActionPress?.();
-                      }, 500);
-                    }}
-                    onPrimaryActionPress={() => {
-                      footerButtonProps?.onPrimaryActionPress?.({ onClose });
-                    }}
-                  />
-                )}
-              </Box>
-            )}
-          </Box>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            <Box
+              w="100%"
+              p={{ base: '4', lg: '6' }}
+              shadow="depth.5"
+              alignSelf="center"
+              borderRadius="24px"
+              bg="surface-subdued"
+            >
+              {props.children ? (
+                props.children
+              ) : (
+                <Box minW={{ md: '80', sm: '4/5' }}>
+                  {!!contentProps && <DialogCommon.Content {...contentProps} />}
+                  {footerMoreView ?? footerMoreView}
+                  {(!footerButtonProps?.hidePrimaryAction ||
+                    !footerButtonProps?.hideSecondaryAction) && (
+                    <DialogCommon.FooterButton
+                      {...footerButtonProps}
+                      onSecondaryActionPress={() => {
+                        handleClose();
+                        setTimeout(() => {
+                          footerButtonProps?.onSecondaryActionPress?.();
+                        }, 500);
+                      }}
+                      onPrimaryActionPress={() => {
+                        footerButtonProps?.onPrimaryActionPress?.({ onClose });
+                      }}
+                    />
+                  )}
+                </Box>
+              )}
+            </Box>
+          </ScrollView>
         </Pressable>
       </Outer>
     ),
