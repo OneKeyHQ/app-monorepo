@@ -21,11 +21,11 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
 import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappParams from '../../hooks/useDappParams';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import useDappParams from '../../hooks/useDappParams';
 
 type RouteProps = RouteProp<
   ManageTokenRoutesParams,
