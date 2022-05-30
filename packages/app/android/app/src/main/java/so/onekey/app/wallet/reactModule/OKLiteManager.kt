@@ -150,7 +150,9 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     }
 
     override fun onHostDestroy() {
-        Utils.getTopActivity()?.unregisterReceiver(mNfcStateBroadcastReceiver)
+        try {
+            Utils.getTopActivity()?.unregisterReceiver(mNfcStateBroadcastReceiver)
+        } catch(ignore: Exception) {}
     }
 
     private val mNfcStateBroadcastReceiver by lazy {

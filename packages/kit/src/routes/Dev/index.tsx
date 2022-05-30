@@ -18,6 +18,7 @@ import DeviceConnection from '@onekeyhq/kit/src/views/Components/stories/DeviceC
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
+import FirebaseGallery from '@onekeyhq/kit/src/views/Components/stories/Firebase';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
 import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/stories/HeaderTabViewContainer';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -93,6 +94,7 @@ export enum StackRoutes {
   ComponentReduxMessage = 'component/redux-message',
   ComponentHeaderTabViewContainerGallery = 'component/header-tab-view',
   ComponentLogger = 'component/logger',
+  ComponentFirebase = 'component/firebase',
   ComponentWebview = 'component/webview',
   ComponentPinCode = 'component/pincode',
   ComponentRestfulRequest = 'component/restful-request',
@@ -145,6 +147,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentReduxMessage]: undefined;
   [StackRoutes.ComponentHeaderTabViewContainerGallery]: undefined;
   [StackRoutes.ComponentLogger]: undefined;
+  [StackRoutes.ComponentFirebase]: undefined;
   [StackRoutes.ComponentWebview]: undefined;
   [StackRoutes.ComponentPinCode]: undefined;
   [StackRoutes.ComponentRestfulRequest]: undefined;
@@ -204,6 +207,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentLogger,
     component: LoggerGallery,
+  },
+  {
+    name: StackRoutes.ComponentFirebase,
+    component: FirebaseGallery,
   },
   {
     name: StackRoutes.ComponentWebview,
