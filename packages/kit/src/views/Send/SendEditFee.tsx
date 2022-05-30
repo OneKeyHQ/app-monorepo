@@ -570,7 +570,9 @@ function StandardFee({ feeInfoPayload, value, onChange }: IStandardFeeProps) {
           />
         ),
         describeSecond: `${totalFeeNative}${
-          feeInfoPayload?.info?.nativeSymbol ?? ''
+          feeInfoPayload?.info?.nativeSymbol
+            ? ` ${feeInfoPayload?.info?.nativeSymbol}`
+            : ''
         }`,
       };
     });
