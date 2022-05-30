@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { NativeModules } from 'react-native';
@@ -6,6 +6,7 @@ import { NativeModules } from 'react-native';
 import {
   Box,
   Dialog,
+  DialogManager,
   Icon,
   Input,
   Pressable,
@@ -17,36 +18,96 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
 
+export type ResetDialogProps = {
+  onConfirm: () => Promise<void>;
+  onClose?: () => void;
+};
+
+const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
+  const isSmallScreen = useIsVerticalLayout();
+  const intl = useIntl();
+
+  const [input, setInput] = useState('');
+
+  return (
+    <Dialog
+      hasFormInsideDialog
+      visible
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__delete',
+        primaryActionProps: {
+          type: 'destructive',
+          isDisabled: input.toUpperCase() !== 'RESET',
+        },
+        onPrimaryActionPress: async () => {
+          await onConfirm?.();
+          onClose?.();
+        },
+        onSecondaryActionPress: () => {
+          onClose?.();
+        },
+      }}
+      contentProps={{
+        iconType: 'danger',
+        title: intl.formatMessage({
+          id: 'form__reset_app',
+          defaultMessage: 'Reset App',
+        }),
+        content: intl.formatMessage({
+          id: 'modal__reset_app_desc',
+          defaultMessage:
+            'This will delete all the data you have created at OneKey, enter "RESET" to reset the App',
+        }),
+        input: (
+          <Box w="full" mt="4">
+            <Input
+              w="full"
+              value={input}
+              size={isSmallScreen ? 'xl' : 'default'}
+              onChangeText={(text) => setInput(text.trim())}
+            />
+          </Box>
+        ),
+      }}
+    />
+  );
+};
+
 const ResetButton = () => {
   const intl = useIntl();
   const { resetToWelcome } = useNavigationActions();
-  const [showResetModal, setShowResetModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
-  const [input, setInput] = useState('');
+
   const onReset = useCallback(async () => {
     if (platformEnv.isNativeIOS) {
       NativeModules.SplashScreenManager.show();
     }
     resetToWelcome();
-    await backgroundApiProxy.serviceApp.resetApp();
-    setShowResetModal(false);
+    return backgroundApiProxy.serviceApp.resetApp();
   }, [resetToWelcome]);
-  const isSmallScreen = useIsVerticalLayout();
+
+  const onOpenResetHintDialog = useCallback(() => {
+    DialogManager.show({
+      render: <ResetDialog onConfirm={async () => onReset()} />,
+    });
+  }, [onReset]);
 
   const onOpenResetModal = useCallback(async () => {
     const wallets = await backgroundApiProxy.engine.getWallets();
     const isBackup = wallets.filter((wallet) => !wallet.backuped).length === 0;
     if (isBackup) {
-      setShowResetModal(true);
+      // setShowResetModal(true);
+      onOpenResetHintDialog();
     } else {
       setShowBackupModal(true);
     }
-  }, []);
+  }, [onOpenResetHintDialog]);
 
   const onBackupConfirm = useCallback(() => {
     setShowBackupModal(false);
-    setTimeout(() => setShowResetModal(true), 500);
-  }, []);
+    // setTimeout(() => setShowResetModal(true), 500);
+    setTimeout(() => onOpenResetHintDialog(), 500);
+  }, [onOpenResetHintDialog]);
 
   return (
     <>
@@ -76,41 +137,6 @@ const ResetButton = () => {
           <Icon name="ChevronRightSolid" size={20} />
         </Box>
       </Pressable>
-      <Dialog
-        hasFormInsideDialog
-        visible={showResetModal}
-        onClose={() => setShowResetModal(false)}
-        footerButtonProps={{
-          primaryActionTranslationId: 'action__delete',
-          primaryActionProps: {
-            type: 'destructive',
-            isDisabled: input.toUpperCase() !== 'RESET',
-            onPromise: onReset,
-          },
-        }}
-        contentProps={{
-          iconType: 'danger',
-          title: intl.formatMessage({
-            id: 'form__reset_app',
-            defaultMessage: 'Reset App',
-          }),
-          content: intl.formatMessage({
-            id: 'modal__reset_app_desc',
-            defaultMessage:
-              'This will delete all the data you have created at OneKey, enter "RESET" to reset the App',
-          }),
-          input: (
-            <Box w="full" mt="4">
-              <Input
-                w="full"
-                value={input}
-                size={isSmallScreen ? 'xl' : 'default'}
-                onChangeText={(text) => setInput(text.trim())}
-              />
-            </Box>
-          ),
-        }}
-      />
       <Dialog
         visible={showBackupModal}
         onClose={() => setShowBackupModal(false)}
