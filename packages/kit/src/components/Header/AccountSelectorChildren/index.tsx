@@ -7,6 +7,7 @@ import { SectionList } from 'react-native';
 import {
   Account,
   Box,
+  DialogManager,
   HStack,
   Icon,
   Pressable,
@@ -97,10 +98,6 @@ const AccountSelectorChildren: FC<{
   const { showVerify } = useLocalAuthenticationModal();
   const { show: showRemoveAccountDialog, RemoveAccountDialog } =
     useRemoveAccountDialog();
-
-  const [modifyNameVisible, setModifyNameVisible] = useState(false);
-  const [modifyNameAccount, setModifyNameAccount] =
-    useState<AccountEngineType>();
 
   const { engine, serviceAccount, serviceNetwork } = backgroundApiProxy;
 
@@ -200,8 +197,17 @@ const AccountSelectorChildren: FC<{
     (item: AccountEngineType, value) => {
       switch (value) {
         case 'rename':
-          setModifyNameAccount(item);
-          setModifyNameVisible(true);
+          DialogManager.show({
+            render: (
+              <AccountModifyNameDialog
+                visible
+                account={item}
+                onDone={() => {
+                  refreshAccounts();
+                }}
+              />
+            ),
+          });
 
           break;
         case 'detail':
@@ -574,14 +580,6 @@ const AccountSelectorChildren: FC<{
         </Box>
       </VStack>
       {RemoveAccountDialog}
-      <AccountModifyNameDialog
-        visible={modifyNameVisible}
-        account={modifyNameAccount}
-        onClose={() => setModifyNameVisible(false)}
-        onDone={() => {
-          refreshAccounts();
-        }}
-      />
     </>
   );
 };

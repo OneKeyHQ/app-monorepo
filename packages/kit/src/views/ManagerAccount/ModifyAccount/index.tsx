@@ -20,7 +20,7 @@ export type AccountModifyNameDialogProps = {
   visible: boolean;
   account: Account | undefined;
   onDone: (account: Account) => void;
-  onClose: () => void;
+  onClose?: () => void;
 };
 
 const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
@@ -57,7 +57,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
 
     if (changedAccount) {
       toast.show({ title: intl.formatMessage({ id: 'msg__renamed' }) });
-      onClose();
+      onClose?.();
       onDone(account);
     } else {
       setError('name', {
@@ -99,7 +99,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
             <DialogCommon.FooterButton
               marginTop={0}
               secondaryActionTranslationId="action__cancel"
-              onSecondaryActionPress={() => onClose()}
+              onSecondaryActionPress={() => onClose?.()}
               onPrimaryActionPress={() => onSubmit()}
               primaryActionTranslationId="action__rename"
               primaryActionProps={{
