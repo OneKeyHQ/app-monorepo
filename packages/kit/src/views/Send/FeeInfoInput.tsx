@@ -271,27 +271,41 @@ function FeeInfoInputForConfirm({
   const networkFeeInfoEditable = useNetworkFeeInfoEditable();
 
   const renderChildren = useCallback(
-    ({ isHovered }) => (
-      <TxTitleDetailView
-        isHovered={isHovered}
-        arrow={
-          editable && networkFeeInfoEditable && !loading && !!feeInfoPayload
-        }
-        title={`${intl.formatMessage({
-          id: 'content__fee',
-        })}(${intl.formatMessage({ id: 'content__estimated' })})`}
-        detail={
-          loading ? (
-            <Spinner />
-          ) : (
-            `${feeInfoPayload?.current?.totalNative || '-'} ${
-              feeInfoPayload?.info?.nativeSymbol || ''
-            }`
-          )
-        }
-      />
-    ),
-    [editable, feeInfoPayload, intl, loading, networkFeeInfoEditable],
+    ({ isHovered }) => {
+      let totalFeeInNative = feeInfoPayload?.current?.totalNative || '-';
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (!editable && encodedTx.totalFeeInNative) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        totalFeeInNative = encodedTx.totalFeeInNative;
+      }
+      return (
+        <TxTitleDetailView
+          isHovered={isHovered}
+          arrow={
+            editable && networkFeeInfoEditable && !loading && !!feeInfoPayload
+          }
+          title={`${intl.formatMessage({
+            id: 'content__fee',
+          })}(${intl.formatMessage({ id: 'content__estimated' })})`}
+          detail={
+            loading ? (
+              <Spinner />
+            ) : (
+              `${totalFeeInNative} ${feeInfoPayload?.info?.nativeSymbol || ''}`
+            )
+          }
+        />
+      );
+    },
+    [
+      editable,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      encodedTx.totalFeeInNative,
+      feeInfoPayload,
+      intl,
+      loading,
+      networkFeeInfoEditable,
+    ],
   );
   return (
     <FeeInfoInputContainer

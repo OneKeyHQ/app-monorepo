@@ -123,6 +123,16 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
+                navigation.navigate(HomeRoutes.Dev, {
+                  screen: StackRoutes.ComponentFirebase,
+                });
+              }}
+            >
+              <Typography.Body1>Firebase 测试</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
                 if (platformEnv.isRuntimeBrowser) {
                   console.log({
                     innerWidth: window.innerWidth,
