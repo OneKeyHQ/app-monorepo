@@ -1667,17 +1667,17 @@
   dependencies:
     jsbi "^3.1.4"
 
+"@conflux-dev/conflux-address-js@^1.3.10", "@conflux-dev/conflux-address-js@^1.3.12", "@conflux-dev/conflux-address-js@^1.3.13":
+  version "1.3.13"
+  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
+  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
+  dependencies:
+    jsbi "^3.1.4"
+
 "@conflux-dev/conflux-address-js@^1.3.11":
   version "1.3.11"
   resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.11.tgz#d600bb3f3b111a3e122e05ab0cb06f54d235f056"
   integrity sha512-j8Gc4usgH3jvMDtJL7vImPyPn0NOJWLwhIURbHefw5g5dyCOjgmjVscTew3choeGlFX57CH3lYkvDl8kZffBUg==
-  dependencies:
-    jsbi "^3.1.4"
-
-"@conflux-dev/conflux-address-js@^1.3.12", "@conflux-dev/conflux-address-js@^1.3.13":
-  version "1.3.13"
-  resolved "https://registry.yarnpkg.com/@conflux-dev/conflux-address-js/-/conflux-address-js-1.3.13.tgz#055909fe15e0eaa9ab890061a4845f323923a6ae"
-  integrity sha512-gFmo1goyt3wTauyRSfIooymaJSj+e7Lv4gRXpUQA+DZnJWsdPTuoPTKWLrQ6e661RTSFpcusmDrq6j6FWP9njw==
   dependencies:
     jsbi "^3.1.4"
 
@@ -6613,6 +6613,13 @@ abab@^2.0.3, abab@^2.0.5:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/abab/-/abab-2.0.5.tgz#c0b678fb32d60fc1219c784d6a826fe385aeb79a"
   integrity sha512-9IK9EadsbHo6jLWIpxpR6pL0sazTXV6+SQv25ZB+F7Bj9mJNaOc4nCRabwd5M/JwmUa8idz6Eci6eKfJryPs6Q==
+
+abi-util-lite@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.npmmirror.com/abi-util-lite/-/abi-util-lite-0.1.0.tgz#dd4687b2a64920598bec92c45f3a2f6787122ce2"
+  integrity sha512-iUXhIEXq2RFrT+Cc4lkG+H+Q+7xfZYnmv531oP4wgyP/wRfC15j5nbUNvE6LqoJyvEwRkV9ku+36w+MWor0jpA==
+  dependencies:
+    "@ethersproject/logger" "^5.5.0"
 
 abort-controller@^3.0.0:
   version "3.0.0"
@@ -16084,6 +16091,23 @@ joi@^17.2.1:
     "@sideway/formula" "^3.0.0"
     "@sideway/pinpoint" "^2.0.0"
 
+js-conflux-sdk@2.0.7:
+  version "2.0.7"
+  resolved "https://registry.npmmirror.com/js-conflux-sdk/-/js-conflux-sdk-2.0.7.tgz#a95dec80d664b3eedb3f56656ee00840787aeafd"
+  integrity sha512-g6l88HqQtwFcw658zfWf+iYH2cr+DLXmvMjJ5C7QhzvGQjx67fzmvBiJOQVTplcwNK8aVEjm9NlQOm7goFprPQ==
+  dependencies:
+    "@conflux-dev/conflux-address-js" "^1.3.10"
+    abi-util-lite "^0.1.0"
+    big.js "^5.2.2"
+    commander "^8.0.0"
+    keccak "^2.0.0"
+    lodash "^4.17.19"
+    rlp "^2.2.7"
+    scrypt-js "^3.0.1"
+    secp256k1 "^3.7.1"
+    superagent "^6.1.0"
+    websocket "^1.0.31"
+
 js-conflux-sdk@^1.7.1:
   version "1.7.3"
   resolved "https://registry.yarnpkg.com/js-conflux-sdk/-/js-conflux-sdk-1.7.3.tgz#e1734b7818da6074b43c92137a99c4355e5bf775"
@@ -21675,7 +21699,7 @@ ripple-lib@1.8.2:
     ripple-lib-transactionparser "0.8.2"
     ws "^7.2.0"
 
-rlp@^2.0.0, rlp@^2.2.3, rlp@^2.2.4:
+rlp@^2.0.0, rlp@^2.2.3, rlp@^2.2.4, rlp@^2.2.7:
   version "2.2.7"
   resolved "https://registry.yarnpkg.com/rlp/-/rlp-2.2.7.tgz#33f31c4afac81124ac4b283e2bd4d9720b30beaf"
   integrity sha512-d5gdPmgQ0Z+AklL2NVXr/IoSjNZFfTVvQWzL/AM2AOcSzYP2xjlb0AC8YyCLc41MSNf6P6QVtjgPdmVtzb+4lQ==
