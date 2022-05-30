@@ -16,11 +16,15 @@ import com.bitgo.randombytes.RandomBytesPackage;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
+import com.facebook.react.config.ReactFeatureFlags;
 import com.facebook.soloader.SoLoader;
+import com.facebook.react.bridge.JavaScriptExecutorFactory;
+import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
 import expo.modules.devlauncher.DevLauncherController;
+import so.onekey.app.wallet.newarchitecture.MainApplicationReactNativeHost;
 import so.onekey.app.wallet.utils.Utils;
 
 import com.facebook.react.bridge.JSIModulePackage;
@@ -30,8 +34,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import android.webkit.WebView;
 
+//import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
+
 public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
   private final ViewModelStore mViewModelStore = new ViewModelStore();
+  private final ReactNativeHost mNewArchitectureNativeHost =
+          new ReactNativeHostWrapper(this, new MainApplicationReactNativeHost(this));
   private final ReactNativeHost mReactNativeHost = new ReactNativeHostWrapper(
     this,
     new ReactNativeHost(this) {
@@ -56,15 +64,24 @@ public class MainApplication extends Application implements ReactApplication , V
       return "__generated__/AppEntry.js";
     }
 
-    @Override
-    protected JSIModulePackage getJSIModulePackage() {
-      return new ReanimatedJSIModulePackage();
-    }
+//    @Override
+//    protected JavaScriptExecutorFactory getJavaScriptExecutorFactory() {
+//      return new V8ExecutorFactory(
+//          getApplicationContext(),
+//          getPackageName(),
+//          AndroidInfoHelpers.getFriendlyDeviceName(),
+//          getUseDeveloperSupport());
+//    }
+
   });
 
   @Override
   public ReactNativeHost getReactNativeHost() {
-    return mReactNativeHost;
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+      return mNewArchitectureNativeHost;
+    } else {
+      return mReactNativeHost;
+    }
   }
 
   /**
@@ -83,6 +100,8 @@ public class MainApplication extends Application implements ReactApplication , V
   @Override
   public void onCreate() {
     super.onCreate();
+    // If you opted-in for the New Architecture, we enable the TurboModule system
+    ReactFeatureFlags.useTurboModules = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
     Utils.init(this);
     SoLoader.init(this, /* native exopackage */ false);
 

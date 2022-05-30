@@ -22,8 +22,11 @@ const TotalFee: FC<TotalFeeProps> = (props) => {
   const symbol = feeInfoPayload?.info.nativeSymbol ?? tx.symbol;
 
   let total = '0';
+
   if (feeInfoPayload?.current.totalNative) {
-    total = new BigNumber(feeInfoPayload?.current.totalNative)
+    const totalFeeInNative =
+      tx.totalFeeInNative ?? feeInfoPayload?.current.totalNative;
+    total = new BigNumber(totalFeeInNative)
       .plus(transferAmount ?? '0')
       .toFixed();
   } else {

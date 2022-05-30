@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 
 import axios from 'axios';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
@@ -27,13 +28,15 @@ const KitProvider: FC = () => {
       }}
     >
       <ReduxProvider store={store}>
-        <ThemeApp>
-          <AppLoading>
-            <ErrorBoundary>
-              <NavigationApp />
-            </ErrorBoundary>
-          </AppLoading>
-        </ThemeApp>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <ThemeApp>
+            <AppLoading>
+              <ErrorBoundary>
+                <NavigationApp />
+              </ErrorBoundary>
+            </AppLoading>
+          </ThemeApp>
+        </GestureHandlerRootView>
       </ReduxProvider>
     </SWRConfig>
   );

@@ -103,6 +103,7 @@ interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
   fromType: 'IN' | 'OUT';
   txStatus: TxStatus;
 
+  totalFeeInNative?: string;
   total: string; // in ether, gasSpend + value
   gasInfo: GasInfo;
 
