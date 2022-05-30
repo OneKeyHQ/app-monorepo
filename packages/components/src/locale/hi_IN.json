@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "ऐप को रीसेट करने से पहले, सुनिश्चित करें कि आपने अपने सभी वॉलेट का बैकअप ले लिया है।",
   "modal__backup_interrupted": "बैकअप बाधित",
   "modal__backup_interrupted_desc": "सुनिश्चित करें कि डिवाइस फोन के एनएफसी मॉड्यूल के करीब है, फिर पुनः प्रयास करें",
+  "modal__bluetooth_access_not_granted": "ब्लूटूथ एक्सेस नहीं दिया गया",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "कैमरा एक्सेस नहीं दिया गया",
   "modal__camera_access_not_granted_desc": "कैमरा एक्सेस चालू करने के लिए सेटिंग में जाएं.",
   "modal__charts": "चार्ट",

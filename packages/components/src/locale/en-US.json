@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Before resetting the App, make sure you've backed up all of your wallets.",
   "modal__backup_interrupted": "Backup Interrupted",
   "modal__backup_interrupted_desc": "Make sure the device is close to the phone's NFC module, then try again",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Camera Access not Granted",
   "modal__camera_access_not_granted_desc": "Go to Settings to turn on camera access.",
   "modal__charts": "Charts",

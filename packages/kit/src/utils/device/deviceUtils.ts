@@ -1,9 +1,8 @@
 import OneKeyConnect, { Features } from '@onekeyfe/js-sdk';
 
+import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/device/ble/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
-
-import bleUtils, { BleDevice } from '../ble/utils';
 
 import { getDeviceType } from './ble/OnekeyHardware';
 import './deviceConnection';
@@ -46,6 +45,10 @@ class DeviceUtils {
   connect(_id: string, deviceType: IOneKeyDeviceType): Promise<void> {
     this.connectedDeviceType = deviceType;
     return Promise.resolve();
+  }
+
+  checkTransportState(): boolean {
+    return true;
   }
 }
 

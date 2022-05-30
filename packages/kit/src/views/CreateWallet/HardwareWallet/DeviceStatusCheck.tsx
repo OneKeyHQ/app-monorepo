@@ -21,7 +21,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/ble/BleOnekeyConnect';
+import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/device/ble/BleOnekeyConnect';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;

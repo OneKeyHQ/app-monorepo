@@ -48,6 +48,7 @@
     "react-native": "^0.66.0",
     "react-native-auto-size-text": "^1.1.1",
     "react-native-base64": "^0.2.1",
+    "react-native-ble-manager": "^8.1.0",
     "react-native-ble-plx": "^2.0.3",
     "react-native-collapsible-tab-view": "^4.4.0",
     "react-native-config": "^1.4.5",

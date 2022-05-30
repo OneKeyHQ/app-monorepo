@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Аппликешныг дахин тохируулахын өмнө бүх түрийвчээ нөөцөлсөн эсэхээ шалгаарай.",
   "modal__backup_interrupted": "Нөөцлөлт тасалдсан",
   "modal__backup_interrupted_desc": "Төхөөрөмж нь утасны NFC модульд ойрхон байгаа эсэхийг шалгаад дахин оролдоно уу",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Камерт хандах эрх олгоогүй",
   "modal__camera_access_not_granted_desc": "Камерын хандалтыг идэвхжүүлэхийн тулд Тохиргоо руу очно уу.",
   "modal__charts": "График",

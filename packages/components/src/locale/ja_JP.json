@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "アプリをリセットする前に、すべてのウォレットをバックアップしていることを確認してください。",
   "modal__backup_interrupted": "バックアップの中断",
   "modal__backup_interrupted_desc": "デバイスが携帯電話のNFCモジュールに近いことを確認してから、もう一度試してみてください",
+  "modal__bluetooth_access_not_granted": "Bluetoothアクセスが許可されていません",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "カメラアクセスが許可されていません",
   "modal__camera_access_not_granted_desc": "[設定]に移動して、カメラアクセスをオンにします。",
   "modal__charts": "チャート",

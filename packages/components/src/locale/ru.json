@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Перед сбросом приложения убедитесь, что вы сделали резервную копию всех своих кошельков.",
   "modal__backup_interrupted": "Резервное копирование прервано",
   "modal__backup_interrupted_desc": "Убедитесь, что устройство находится рядом с модулем NFC телефона, затем повторите попытку.",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Доступ к камере не предоставлен",
   "modal__camera_access_not_granted_desc": "Перейдите в «Настройки», чтобы включить доступ к камере.",
   "modal__charts": "Графики",

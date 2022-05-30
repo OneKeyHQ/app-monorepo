@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "قبل إعادة تعيين التطبيق ، تأكد من عمل نسخة احتياطية لجميع محافظك.",
   "modal__backup_interrupted": "توقف النسخ الاحتياطي",
   "modal__backup_interrupted_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "لم يتم منح الوصول إلى الكاميرا",
   "modal__camera_access_not_granted_desc": "انتقل إلى \"الإعدادات\" لتشغيل الوصول إلى الكاميرا.",
   "modal__charts": "الرسوم البيانية",

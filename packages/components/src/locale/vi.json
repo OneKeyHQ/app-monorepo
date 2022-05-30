@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Trước khi đặt lại Ứng dụng, hãy đảm bảo bạn đã sao lưu tất cả các ví của mình.",
   "modal__backup_interrupted": "Sao lưu bị gián đoạn",
   "modal__backup_interrupted_desc": "Đảm bảo thiết bị ở gần mô-đun NFC của điện thoại, sau đó thử lại",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Quyền truy cập máy ảnh không được cấp",
   "modal__camera_access_not_granted_desc": "Đi tới Cài đặt để bật quyền truy cập máy ảnh.",
   "modal__charts": "Biểu đồ",

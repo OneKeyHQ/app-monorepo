@@ -8,7 +8,8 @@
 /* eslint-disable no-plusplus */
 /* eslint-disable no-bitwise */
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
-import { BleManager, ScanMode, Device } from 'react-native-ble-plx';
+import { BleManager, ScanMode, Device, BleError } from 'react-native-ble-plx';
+import RNBleManager from 'react-native-ble-manager';
 
 import { Buffer } from 'buffer';
 import state from './state';
@@ -24,6 +25,8 @@ const LENGTH_FILED_END_OFFSET = 18;
 const HEAD_LENGTH = 9;
 
 class BleUtils {
+  connectedDeviceType: IOneKeyDeviceType = 'classic';
+
   // 蓝牙是否连接
   isConnecting: boolean;
 
@@ -39,13 +42,20 @@ class BleUtils {
     return this.manager.connectedDevices([SERVICE_ID]);
   }
 
+  checkTransportState(): boolean {
+    return RNBleManager.checkState();
+  }
+
   async getManager(): Promise<BleManager> {
     if (this.manager) return Promise.resolve(this.manager);
+
+    RNBleManager.start({ showAlert: true });
 
     const manager = new BleManager();
     return new Promise((resolve) => {
       const subscription = manager.onStateChange((managerState) => {
-        if (managerState === 'PoweredOn') {
+        // will catch error at connect process
+        if (managerState === 'PoweredOn' || managerState === 'PoweredOff') {
           this.manager = manager;
           subscription.remove();
           resolve(manager);
@@ -58,9 +68,10 @@ class BleUtils {
    * 搜索蓝牙
    * */
   async startDeviceScan(
-    listener: (device: Device | null) => void,
+    listener: (device: Device | null | BleError) => void,
   ): Promise<void> {
     await this.checkPermission();
+
     const manager = await this.getManager();
     manager.startDeviceScan(
       null,
@@ -69,10 +80,7 @@ class BleUtils {
       },
       (error, device_1) => {
         if (error) {
-          if (error.errorCode === 102) {
-            this.alert('请打开手机蓝牙后再搜索');
-          }
-          throw error;
+          listener(error);
         } else {
           if (device_1) {
             listener(device_1);
@@ -93,8 +101,7 @@ class BleUtils {
   /**
    * 连接蓝牙
    * */
-  async connect(id: string) {
-    console.log('isConneting:', id);
+  async connect(id: string, deviceType: IOneKeyDeviceType) {
 
     const manager = await this.getManager();
     this.isConnecting = true;
@@ -102,20 +109,21 @@ class BleUtils {
       await this.checkPermission();
       const connected = await manager.isDeviceConnected(id);
       if (connected) {
+        this.connectedDeviceType = deviceType;
         return;
       }
       const device = await manager.connectToDevice(id, {
         timeout: 3000,
         requestMTU: 512,
       });
-      console.log('connect success:', device.name, device.id);
+      this.connectedDeviceType = deviceType;
       await device.discoverAllServicesAndCharacteristics();
       this.peripheralId = device.id;
       this.isConnecting = false;
       this.startNotification();
     } catch (err) {
       this.isConnecting = false;
-      console.log('connect fail: ', err);
+      throw err;
     }
   }
 
