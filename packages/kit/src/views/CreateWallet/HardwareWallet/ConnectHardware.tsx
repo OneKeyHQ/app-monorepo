@@ -2,7 +2,6 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { BleError } from 'react-native-ble-plx';
 
 import {
   Box,
