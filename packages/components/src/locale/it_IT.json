@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Prima di resettare l'App, assicurati di aver fatto il backup di tutti i tuoi portafogli.",
   "modal__backup_interrupted": "Backup interrotto",
   "modal__backup_interrupted_desc": "Assicurati che il dispositivo sia vicino al modulo NFC del telefono, poi riprova",
+  "modal__bluetooth_access_not_granted": "Accesso Bluetooth non concesso",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Accesso alla fotocamera non concesso",
   "modal__camera_access_not_granted_desc": "Vai su Impostazioni per attivare l'accesso alla fotocamera.",
   "modal__charts": "Grafici",

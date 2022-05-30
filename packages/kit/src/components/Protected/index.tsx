@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -5,9 +6,10 @@ import { useIntl } from 'react-intl';
 
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/ble/BleOnekeyConnect';
-import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/ble/OnekeyHardware';
+import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/device/ble/BleOnekeyConnect';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/device/ble/OnekeyHardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Setup from './Setup';
@@ -44,6 +46,7 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
+  const [errorDialog, setErrorDialog] = useState(false);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -97,6 +100,11 @@ const Protected: FC<ProtectedProps> = ({
         const result = await Promise.race([p1, p2]);
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
+        // @ts-expect-error
+        if (e?.errorCode === 102) {
+          setErrorDialog(true);
+          return;
+        }
         safeGoBack();
         ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
@@ -150,12 +158,20 @@ const Protected: FC<ProtectedProps> = ({
     }
 
     return (
-      <Box h="100%" justifyContent="center" alignItems="center">
-        <Spinner size="lg" />
-        <Typography.DisplayMedium mt={6}>
-          {intl.formatMessage({ id: 'modal__device_status_check' })}
-        </Typography.DisplayMedium>
-      </Box>
+      <>
+        {errorDialog ? (
+          <PermissionDialog
+            type="bluetooth"
+            onClose={() => navigation.goBack()}
+          />
+        ) : null}
+        <Box h="100%" justifyContent="center" alignItems="center">
+          <Spinner size="lg" />
+          <Typography.DisplayMedium mt={6}>
+            {intl.formatMessage({ id: 'modal__device_status_check' })}
+          </Typography.DisplayMedium>
+        </Box>
+      </>
     );
   }
 

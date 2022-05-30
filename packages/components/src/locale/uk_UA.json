@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Перш ніж скинути програму, переконайтеся, що ви створили резервні копії всіх своїх гаманців.",
   "modal__backup_interrupted": "Резервне копіювання перервано",
   "modal__backup_interrupted_desc": "Переконайтеся, що пристрій близько до модуля NFC телефону, а потім повторіть спробу",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Доступ до камери не надано",
   "modal__camera_access_not_granted_desc": "Перейдіть у налаштування, щоб увімкнути доступ до камери.",
   "modal__charts": "Діаграми",

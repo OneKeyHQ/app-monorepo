@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "앱을 재설정하기 전에 모든 지갑을 백업했는지 확인하십시오.",
   "modal__backup_interrupted": "백업 중단",
   "modal__backup_interrupted_desc": "기기가 휴대전화의 NFC 모듈에 가까이 있는지 확인하고 다시 시도하세요.",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "카메라 액세스 권한이 부여되지 않음",
   "modal__camera_access_not_granted_desc": "설정으로 이동하여 카메라 액세스를 켭니다.",
   "modal__charts": "차트",

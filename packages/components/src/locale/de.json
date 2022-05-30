@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Bevor Sie die App zurücksetzen, stellen Sie sicher, dass Sie eine Sicherungskopie aller Ihrer Geldbörsen erstellt haben.",
   "modal__backup_interrupted": "Sicherung unterbrochen",
   "modal__backup_interrupted_desc": "Stellen Sie sicher, dass sich das Gerät in der Nähe des NFC-Moduls des Telefons befindet, und versuchen Sie es dann erneut.",
+  "modal__bluetooth_access_not_granted": "Bluetooth-Zugriff nicht gewährt",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Kamerazugriff nicht gewährt",
   "modal__camera_access_not_granted_desc": "Gehen Sie zu Einstellungen, um den Kamerazugriff zu aktivieren.",
   "modal__charts": "Diagramme",

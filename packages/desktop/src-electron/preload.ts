@@ -1,7 +1,6 @@
 import { ipcRenderer } from 'electron';
 
-// export type PrefType = 'camera' | 'bluetooth';
-export type PrefType = 'camera';
+export type PrefType = 'camera' | 'bluetooth';
 export type DesktopAPI = {
   hello: string;
   arch: string;

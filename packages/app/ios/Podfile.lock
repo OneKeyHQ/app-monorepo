@@ -468,6 +468,8 @@ PODS:
   - React-jsinspector (0.66.4)
   - React-logger (0.66.4):
     - glog
+  - react-native-ble-manager (8.1.0):
+    - React-Core
   - react-native-ble-plx (2.0.3):
     - MultiplatformBleAdapter (= 0.1.9)
     - React-Core
@@ -669,6 +671,7 @@ DEPENDENCIES:
   - React-jsiexecutor (from `../../../node_modules/react-native/ReactCommon/jsiexecutor`)
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
+  - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
@@ -820,6 +823,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/jsinspector"
   React-logger:
     :path: "../../../node_modules/react-native/ReactCommon/logger"
+  react-native-ble-manager:
+    :path: "../../../node_modules/react-native-ble-manager"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
   react-native-config:
@@ -953,6 +958,7 @@ SPEC CHECKSUMS:
   React-jsiexecutor: 94ce921e1d8ce7023366873ec371f3441383b396
   React-jsinspector: d0374f7509d407d2264168b6d0fad0b54e300b85
   React-logger: 933f80c97c633ee8965d609876848148e3fef438
+  react-native-ble-manager: d2ed36acf9051fa0ecf6efb3da5b3570b1e92771
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1

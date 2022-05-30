@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Antes de reiniciar la aplicación, asegúrate de haber hecho una copia de seguridad de todos tus monederos.",
   "modal__backup_interrupted": "Copia de seguridad interrumpida",
   "modal__backup_interrupted_desc": "Asegúrate de que el dispositivo está cerca del módulo NFC del teléfono y vuelve a intentarlo",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Acceso a la cámara no concedido",
   "modal__camera_access_not_granted_desc": "Vaya a Configuración para activar el acceso a la cámara.",
   "modal__charts": "Gráficos",

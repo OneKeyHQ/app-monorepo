@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "Bago i-reset ang App, tiyaking na-back up mo ang lahat ng iyong mga wallet.",
   "modal__backup_interrupted": "Naantala ang pag-back up",
   "modal__backup_interrupted_desc": "Tiyaking malapit ang device sa NFC module ng telepono, pagkatapos ay subukang muli",
+  "modal__bluetooth_access_not_granted": "Hindi Ipinagkaloob ang Bluetooth Access",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "Hindi Ipinagkaloob ang Access sa Camera",
   "modal__camera_access_not_granted_desc": "Pumunta sa Mga Setting para i-on ang access sa camera.",
   "modal__charts": "Mga tsart",

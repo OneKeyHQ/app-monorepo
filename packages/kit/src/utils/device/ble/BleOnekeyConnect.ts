@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import OneKeyConnect, { Features, UiResponse } from '@onekeyfe/js-sdk';
 
-import bleUtils from '@onekeyhq/kit/src/utils/ble/utils';
+import bleUtils from '@onekeyhq/kit/src/utils/device/ble/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BLEHandler from './handler';
@@ -31,6 +31,7 @@ class BleOnekeyConnect {
 
   async getFeatures(device: any): Promise<Features | null> {
     await bleUtils?.connect(device.id, device.deviceType);
+
     await this.init();
 
     const features = await OneKeyConnect.getFeatures();

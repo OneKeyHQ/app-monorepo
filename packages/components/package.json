@@ -11,6 +11,7 @@
     "@mui/styled-engine-sc": "^5.1.0",
     "@react-native-aria/overlays": "^0.3.2",
     "@react-navigation/native": "^6.0.6",
+    "lodash": "^4.17.21",
     "native-base": "^3.2.2",
     "qrcode": "^1.5.0",
     "react-content-loader": "^6.1.0",
@@ -34,9 +35,7 @@
     "@types/styled-components": "^5.1.15",
     "@types/styled-components-react-native": "^5.1.3",
     "iso-639-1": "^2.1.13",
-    "lodash": "^4.17.21",
-    "lokalise-client": "^1.1.9",
-    "prettier": "^2.4.1"
+    "lokalise-client": "^1.1.9"
   },
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.2.1 --no-dimensions --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",

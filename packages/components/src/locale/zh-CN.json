@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "在重置应用程序之前，请确保您已备份所有钱包",
   "modal__backup_interrupted": "备份中断",
   "modal__backup_interrupted_desc": "确保设备放在靠近手机的 NFC 模块的位置，然后再试一次",
+  "modal__bluetooth_access_not_granted": "未授予蓝牙访问权限",
+  "modal__bluetooth_access_not_granted_desc": "请到设置中打开蓝牙权限",
   "modal__camera_access_not_granted": "未获得摄像头访问权限",
   "modal__camera_access_not_granted_desc": "请到设置中打开摄像头权限",
   "modal__charts": "图表",

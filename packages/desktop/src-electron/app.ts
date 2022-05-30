@@ -100,6 +100,7 @@ function createMainWindow() {
       if (prefType === 'camera') {
         shell.openExternal('ms-settings:privacy-webcam');
       }
+      // BlueTooth is not supported on desktop currently
     } else {
       // Linux ??
     }

@@ -19,22 +19,28 @@ const canInvokeSystemSettings = isDesktop || isNative;
 type PrefContent = Record<PrefType, LocaleIds>;
 const titleIds: PrefContent = {
   camera: 'modal__camera_access_not_granted',
+  bluetooth: 'modal__bluetooth_access_not_granted',
 };
 
 const contentIds: PrefContent = {
   camera: 'modal__camera_access_not_granted_desc',
+  bluetooth: 'modal__bluetooth_access_not_granted_desc',
 };
 
 const PermissionDialog: FC<{
   type: PrefType;
-}> = ({ type }) => {
+  onClose?: () => void;
+}> = ({ type, onClose }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   return (
     <Dialog
       visible
       onClose={() => {
-        navigation.getParent()?.goBack();
+        if (onClose) {
+          return onClose();
+        }
+        return navigation.getParent()?.goBack();
       }}
       contentProps={{
         icon: <Icon name="ExclamationOutline" size={48} />,
@@ -47,6 +53,7 @@ const PermissionDialog: FC<{
               primaryActionProps: {
                 children: intl.formatMessage({ id: 'action__go_to_setting' }),
               },
+              // eslint-disable-next-line @typescript-eslint/no-shadow
               onPrimaryActionPress: ({ onClose }) => {
                 onClose?.();
                 if (isNativeIOS) {

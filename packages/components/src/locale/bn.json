@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "অ্যাপটি রিসেট করার আগে, নিশ্চিত করুন যে আপনি আপনার সমস্ত ওয়ালেটের ব্যাক আপ নিয়েছেন৷",
   "modal__backup_interrupted": "ব্যাকআপ ব্যাহত",
   "modal__backup_interrupted_desc": "ডিভাইসটি ফোনের NFC মডিউলের কাছাকাছি আছে তা নিশ্চিত করুন, তারপর আবার চেষ্টা করুন",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "ক্যামেরা অ্যাক্সেস দেওয়া হয়নি",
   "modal__camera_access_not_granted_desc": "ক্যামেরা অ্যাক্সেস চালু করতে সেটিংসে যান।",
   "modal__charts": "চার্ট",

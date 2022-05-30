@@ -19,6 +19,7 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
+import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -31,8 +32,8 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import isOnekeyDevice, {
   getDeviceType,
-} from '@onekeyhq/kit/src/utils/ble/OnekeyHardware';
-// import bleUtils, { BleDevice } from '@onekeyhq/kit/src/utils/ble/utils';
+} from '@onekeyhq/kit/src/utils/device/ble/OnekeyHardware';
+import { BleDevice } from '@onekeyhq/kit/src/utils/device/ble/utils';
 import deviceUtils, {
   ScannedDevice,
 } from '@onekeyhq/kit/src/utils/device/deviceUtils';
@@ -70,6 +71,7 @@ const ConnectHardwareModal: FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
+  const [errorDialog, setErrorDialog] = useState(false);
 
   const isConnectedDeviceActivated = false;
   // Do connect device on desktop
@@ -119,12 +121,27 @@ const ConnectHardwareModal: FC = () => {
     const scanDevice: Device[] = [];
 
     deviceUtils.startDeviceScan((_device) => {
-      if (_device && isOnekeyDevice(_device.name, _device.id)) {
-        if (!scanDevice.find((device) => device.device.id === _device.id)) {
+      // @ts-expect-error
+      const isError = !!_device?.errorCode;
+      if (isError) {
+        setErrorDialog(true);
+        setIsSearching(false);
+        return;
+      }
+      const scannedBleDevice = _device as BleDevice;
+      if (
+        _device &&
+        isOnekeyDevice(scannedBleDevice.name, scannedBleDevice.id)
+      ) {
+        if (
+          !scanDevice.find((device) => device.device.id === scannedBleDevice.id)
+        ) {
           scanDevice.push({
-            type: getDeviceType(_device as IOneKeyDeviceFeatures),
-            name: _device.name ?? '',
-            device: _device,
+            type: getDeviceType(
+              scannedBleDevice as unknown as IOneKeyDeviceFeatures,
+            ),
+            name: scannedBleDevice.name ?? '',
+            device: scannedBleDevice,
           });
 
           setDevices([...scanDevice]);
@@ -137,7 +154,6 @@ const ConnectHardwareModal: FC = () => {
   }, []);
 
   useEffect(() => {
-    console.log('Start scanning');
     if (platformEnv.isRuntimeBrowser) handleScanDevice();
     return () => {
       handleStopDevice();
@@ -257,7 +273,15 @@ const ConnectHardwareModal: FC = () => {
   };
 
   const content = platformEnv.isNative ? (
-    <Center>{renderConnectScreen()}</Center>
+    <>
+      {errorDialog ? (
+        <PermissionDialog
+          type="bluetooth"
+          onClose={() => navigation.goBack()}
+        />
+      ) : null}
+      <Center>{renderConnectScreen()}</Center>
+    </>
   ) : (
     <VStack space={8} alignItems="center">
       <Box>

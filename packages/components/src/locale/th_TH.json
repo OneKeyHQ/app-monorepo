@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "ก่อนรีเซ็ตแอป ตรวจสอบให้แน่ใจว่าคุณได้สำรองข้อมูลกระเป๋าเงินทั้งหมดของคุณแล้ว",
   "modal__backup_interrupted": "การสำรองข้อมูลถูกขัดจังหวะ",
   "modal__backup_interrupted_desc": "ตรวจสอบให้แน่ใจว่าอุปกรณ์อยู่ใกล้กับโมดูล NFC ของโทรศัพท์ แล้วลองอีกครั้ง",
+  "modal__bluetooth_access_not_granted": "Bluetooth Access not Granted",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "ไม่อนุญาตให้เข้าถึงกล้อง",
   "modal__camera_access_not_granted_desc": "ไปที่การตั้งค่าเพื่อเปิดการเข้าถึงกล้อง",
   "modal__charts": "ชาร์ต",

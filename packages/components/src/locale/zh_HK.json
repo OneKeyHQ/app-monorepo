@@ -536,6 +536,8 @@
   "modal__back_up_your_wallet_desc": "在重置應用程序之前，請確保您已備份所有錢包",
   "modal__backup_interrupted": "備份中斷",
   "modal__backup_interrupted_desc": "確保設備放在靠近手機的NFC 模塊的位置，然後再試一次",
+  "modal__bluetooth_access_not_granted": "未授予藍牙訪問權限",
+  "modal__bluetooth_access_not_granted_desc": "Go to Settings to turn on Bluetooth access.",
   "modal__camera_access_not_granted": "未授予相機訪問權限",
   "modal__camera_access_not_granted_desc": "轉到設置以打開相機訪問權限。",
   "modal__charts": "圖表",
