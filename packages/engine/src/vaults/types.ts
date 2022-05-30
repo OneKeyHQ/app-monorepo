@@ -100,6 +100,7 @@ export type IFeeInfo = {
   // TODO rename to feeInTx
   tx?: IFeeInfoUnit | null;
   eip1559?: boolean;
+  customDisabled?: boolean;
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {
@@ -273,6 +274,9 @@ export type IDecodedTx = {
 
   // TODO use nativeTx & decodedTx in frontend UI render
   extra: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
+
+  // TODO remove
+  totalFeeInNative?: string;
 
   // protocol?: 'erc20' | 'erc721';
   // txSource: 'raw' | 'ethersTx' | 'covalent';

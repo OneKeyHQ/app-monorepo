@@ -22,6 +22,7 @@ import { UserCreateInputCategory } from '../../../types/credential';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxLegacy,
@@ -55,7 +56,8 @@ type UTXO = {
 type IEncodedTxBTC = {
   inputs: Array<UTXO>;
   outputs: Array<{ address: string; value: string }>;
-  fee: string;
+  totalFee: string;
+  totalFeeInNative: string;
   transferInfo: ITransferInfo;
 };
 
@@ -160,6 +162,7 @@ export default class Vault extends VaultBase {
       fromAddress: nativeTransfer.from,
       toAddress: nativeTransfer.to,
       data: '',
+      totalFeeInNative: decodedTx.totalFeeInNative,
       total: BigNumber.sum
         .apply(
           null,
@@ -172,11 +175,11 @@ export default class Vault extends VaultBase {
   }
 
   async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<IDecodedTx> {
-    const { inputs, outputs, fee } = encodedTx;
+    const { inputs, outputs } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
-    const nativeTransfer = {
+    const nativeTransfer: IDecodedTxActionNativeTransfer = {
       tokenInfo: token,
       utxoFrom: inputs.map((input) => ({
         address: input.address,
@@ -216,6 +219,7 @@ export default class Vault extends VaultBase {
           : IDecodedTxDirection.SELF,
       network,
       extra: null,
+      totalFeeInNative: encodedTx.totalFeeInNative,
     };
   }
 
@@ -271,6 +275,10 @@ export default class Vault extends VaultBase {
       // TODO: balance not enough.
       throw new OneKeyInternalError('Failed to select UTXOs');
     }
+    const totalFee = fee.toString();
+    const totalFeeInNative = new BigNumber(totalFee)
+      .shiftedBy(-1 * network.feeDecimals)
+      .toFixed();
     return {
       inputs: inputs.map(({ txId, value, ...keep }) => ({
         ...keep,
@@ -281,7 +289,8 @@ export default class Vault extends VaultBase {
         address: address || dbAccount.address, // change amount
         value: value.toString(),
       })),
-      fee: fee.toString(),
+      totalFee,
+      totalFeeInNative,
       transferInfo,
     };
   }
@@ -341,7 +350,8 @@ export default class Vault extends VaultBase {
     );
     const prices = await this.getFeeRate();
     return {
-      limit: (feeLimit ?? new BigNumber(0)).toFixed(),
+      customDisabled: true,
+      limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
       defaultPresetIndex: '0',
       symbol: 'sats',
