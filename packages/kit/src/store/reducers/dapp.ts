@@ -32,6 +32,10 @@ export const dappSlicer = createSlice({
     dappClearSiteConnection(state) {
       state.connections = [];
     },
+    // TODO batch remove site connections
+    dappRemoveSiteConnections() {
+      // noop
+    },
     dappSaveSiteConnection(
       state,
       action: PayloadAction<DappSiteConnectionSavePayload>,

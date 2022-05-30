@@ -43,7 +43,7 @@ export type ITransferInfo = {
   to: string;
   amount: string;
   token?: string;
-  max?: boolean;
+  max?: boolean; // TODO rename to isMax
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -196,6 +196,8 @@ export enum IDecodedTxActionType {
 }
 
 export type IDecodedTxActionBase = {
+  nativeAmount?: string;
+  nativeAmountValue?: string;
   extra: any | null; // extra should be different in each network (eg. serialized from nativeTx actions)
 };
 

@@ -162,10 +162,16 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={async () => {
-                const connectUri = (await getClipboard()) || '';
-                setUri(connectUri);
+                let uriText = uri;
+                try {
+                  const connectUri = (await getClipboard()) || '';
+                  setUri(connectUri);
+                  uriText = connectUri;
+                } catch (err) {
+                  console.error(err);
+                }
                 await backgroundApiProxy.walletConnect.connect({
-                  uri: connectUri,
+                  uri: uriText,
                 });
               }}
             >
