@@ -248,7 +248,7 @@ const Input = React.forwardRef<
         py="2"
         pl={pl}
         pr={pr}
-        autoCompleteType="off"
+        // autoCompleteType="off"
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',

@@ -42,9 +42,7 @@
     "@onekeyfe/cross-inpage-provider-types": "^0.0.10",
     "@onekeyfe/extension-bridge-hosted": "^0.0.10",
     "@onekeyfe/onekey-cross-webview": "^0.0.10",
-    "axios": "^0.26.0",
-    "global": "^4.4.0",
-    "events": "^3.3.0"
+    "axios": "^0.26.0"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
