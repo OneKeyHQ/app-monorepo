@@ -1,0 +1,13 @@
+diff --git a/node_modules/metro-react-native-babel-preset/src/configs/main.js b/node_modules/metro-react-native-babel-preset/src/configs/main.js
+index 6d25b29..f4357db 100644
+--- a/node_modules/metro-react-native-babel-preset/src/configs/main.js
++++ b/node_modules/metro-react-native-babel-preset/src/configs/main.js
+@@ -196,7 +196,7 @@ const getPreset = (src, options) => {
+       {
+         plugins: [
+           ...defaultPluginsBeforeRegenerator,
+-          isHermes ? null : require("@babel/plugin-transform-regenerator"),
++          isHermes || process.env.TRANSFORM_REGENERATOR_DISABLED ? null : require("@babel/plugin-transform-regenerator"),
+           ...defaultPluginsAfterRegenerator,
+         ].filter(Boolean),
+       },

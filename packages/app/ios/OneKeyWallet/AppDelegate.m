@@ -75,7 +75,7 @@
   #if defined(EX_DEV_LAUNCHER_ENABLED)
     return [[EXDevLauncherController sharedInstance] sourceUrl];
   #else
-    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"__generated__/AppEntry.js" fallbackResource:nil];
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"__generated__/AppEntry.js"];
   #endif 
  #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];

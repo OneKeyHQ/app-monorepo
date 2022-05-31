@@ -1,14 +1,14 @@
 package so.onekey.app.wallet
-
-import android.content.Intent;
-import android.os.Bundle
-import com.facebook.react.ReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
+
+import android.content.Intent
+import android.os.Bundle
+import com.facebook.react.ReactActivity
+import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.ReactRootView
-import expo.modules.devlauncher.DevLauncherController;
-import expo.modules.devmenu.react.DevMenuAwareReactActivity;
-import com.swmansion.gesturehandler.react.RNGestureHandlerEnabledRootView
-import expo.modules.devlauncher.launcher.DevLauncherReactActivityDelegateSupplier
+import expo.modules.devlauncher.DevLauncherController
+import expo.modules.devmenu.react.DevMenuAwareReactActivity
+
 
 class MainActivity : DevMenuAwareReactActivity() {
 
@@ -28,25 +28,22 @@ class MainActivity : DevMenuAwareReactActivity() {
         return "main"
     }
 
-    override fun createReactActivityDelegate(): ReactActivityDelegate {
-        if (BuildConfig.ENABLE_DEV_CLI) {
-            return DevLauncherController.wrapReactActivityDelegate(
-                    this,
-                    object : DevLauncherReactActivityDelegateSupplier {
-                        override fun get() = object : ReactActivityDelegate(this@MainActivity, mainComponentName) {
-                            override fun createRootView() = RNGestureHandlerEnabledRootView(this@MainActivity)
-                        }
-                    }
-            )
-        }
+    /**
+     * Returns the instance of the [ReactActivityDelegate]. There the RootView is created and
+     * you can specify the rendered you wish to use (Fabric or the older renderer).
+     */
+    override fun createReactActivityDelegate(): ReactActivityDelegate? {
+        return ReactActivityDelegateWrapper(this, MainActivityDelegate(this, mainComponentName))
+    }
 
-        return ReactActivityDelegateWrapper(
-                this,
-                object : ReactActivityDelegate(this, mainComponentName) {
-                    override fun createRootView(): ReactRootView {
-                        return RNGestureHandlerEnabledRootView(this@MainActivity)
-                    }
-                })
+    class MainActivityDelegate(activity: ReactActivity?, mainComponentName: String?) :
+        ReactActivityDelegate(activity, mainComponentName) {
+        override fun createRootView(): ReactRootView {
+            val reactRootView = ReactRootView(context)
+            // If you opted-in for the New Architecture, we enable the Fabric Renderer.
+            reactRootView.setIsFabric(BuildConfig.IS_NEW_ARCHITECTURE_ENABLED)
+            return reactRootView
+        }
     }
 
     @Override
