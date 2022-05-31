@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, new-cap */
 
+import memoizee from 'memoizee';
+
 import { createVaultInstance } from './factory';
 
 import type { Engine } from '../index';
@@ -13,23 +15,13 @@ export class VaultFactory {
     this.engine = engine;
   }
 
-  lastVault: VaultBase | null = null;
-
   engine: Engine;
 
-  async getVault({
+  _getVaultWithoutCache = async ({
     networkId,
     accountId,
     walletId,
-  }: IVaultFactoryOptions): Promise<VaultBase> {
-    if (
-      this.lastVault &&
-      accountId !== '' &&
-      this.lastVault.networkId === networkId &&
-      this.lastVault.accountId === accountId
-    ) {
-      return this.lastVault;
-    }
+  }: IVaultFactoryOptions): Promise<VaultBase> => {
     const options = {
       networkId,
       accountId,
@@ -37,12 +29,51 @@ export class VaultFactory {
       engine: this.engine,
     };
     const vault: VaultBase = await createVaultInstance(options);
-    this.lastVault = vault;
     return vault;
-  }
+  };
 
-  getChainOnlyVault(networkId: string): Promise<VaultBaseChainOnly> {
-    // This in fact returns a watching vault.
-    return this.getVault({ networkId, accountId: '' });
-  }
+  getVault = memoizee(
+    async ({
+      networkId,
+      accountId,
+    }: IVaultFactoryOptions): Promise<VaultBase> =>
+      this._getVaultWithoutCache({ networkId, accountId }),
+    {
+      promise: true,
+      primitive: true,
+      normalizer: (args) => JSON.stringify(args),
+      max: 3,
+      maxAge: 1000 * 60 * 15,
+    },
+  );
+
+  getChainOnlyVault = memoizee(
+    (networkId: string): Promise<VaultBaseChainOnly> =>
+      // This in fact returns a watching vault.
+      this._getVaultWithoutCache({ networkId, accountId: '' }),
+    {
+      promise: true,
+      primitive: true,
+      normalizer: (args) => `${args[0]}`,
+      max: 1,
+      maxAge: 1000 * 60 * 15,
+    },
+  );
+
+  getWalletOnlyVault = memoizee(
+    (networkId: string, walletId: string): Promise<VaultBase> =>
+      // This in fact returns a watching vault.
+      this._getVaultWithoutCache({
+        networkId,
+        walletId,
+        accountId: '',
+      }),
+    {
+      promise: true,
+      primitive: true,
+      normalizer: (args) => `${args[0]}:${args[1]}`,
+      max: 1,
+      maxAge: 1000 * 60 * 15,
+    },
+  );
 }
