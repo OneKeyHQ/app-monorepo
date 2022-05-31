@@ -28,7 +28,7 @@ type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { accountId, networkId, tokenId } = route.params;
+  const { accountId, networkId, tokenId, historyFilter } = route.params;
   const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
   const { accountTokensMap, nativeToken } = useManageTokens();
@@ -70,6 +70,7 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
           networkId={networkId}
           tokenId={tokenId}
           headerView={headerView}
+          historyFilter={historyFilter}
         />
       </Box>
     </Box>

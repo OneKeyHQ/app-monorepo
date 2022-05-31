@@ -4,6 +4,7 @@ import {
   EVMTxFromType,
   LogEvent,
   Transaction,
+  Transfer,
 } from '../../../../types/covalent';
 import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
@@ -19,23 +20,34 @@ type ParseResult = {
 
 type TypeParser = (covalentTx: Transaction) => ParseResult;
 
-const parseToken = (logEvent: LogEvent, chainId: number): Token => {
-  const {
-    senderName,
-    senderAddress,
-    senderContractTickerSymbol,
-    senderContractDecimals,
-    senderLogoUrl,
-  } = logEvent;
+const parseToken = (log: LogEvent | Transfer, chainId: number): Token => {
+  let senderAddress;
+  let name;
+  let symbol;
+  let decimals;
+  let logoURI;
+  if ('senderName' in log) {
+    senderAddress = log.senderAddress;
+    name = log.senderName;
+    symbol = log.senderContractTickerSymbol;
+    decimals = log.senderContractDecimals;
+    logoURI = log.senderLogoUrl;
+  } else {
+    senderAddress = log.fromAddress;
+    name = log.contractName;
+    symbol = log.contractTickerSymbol;
+    decimals = log.contractDecimals;
+    logoURI = log.logoUrl;
+  }
   const networkId = `evm--${chainId}`;
   return {
     id: `${networkId}--${senderAddress}`,
-    name: senderName,
+    name,
     networkId,
     tokenIdOnNetwork: senderAddress,
-    symbol: senderContractTickerSymbol,
-    decimals: senderContractDecimals,
-    logoURI: senderLogoUrl,
+    symbol,
+    decimals,
+    logoURI,
   };
 };
 
@@ -56,6 +68,25 @@ const paraseSpam: TypeParser = (covalentTx) => {
   return null;
 };
 
+const paraseTokenTransferLog: TypeParser = (covalentTx) => {
+  if (!covalentTx.transfers) {
+    return null;
+  }
+  const tokenTx = covalentTx.transfers[0];
+  const token = parseToken(tokenTx, covalentTx.chainId);
+  const amount = EVMTxDecoder.formatValue(tokenTx.delta ?? '0', token.decimals);
+  return {
+    type: EVMDecodedTxType.TOKEN_TRANSFER,
+    info: {
+      type: EVMDecodedTxType.TOKEN_TRANSFER,
+      token,
+      amount,
+      value: tokenTx.delta,
+      recipient: tokenTx.toAddress,
+    },
+  };
+};
+
 const paraseNativeTransfer: TypeParser = (covalentTx) => {
   if (covalentTx.gasSpent === 21000) {
     return { type: EVMDecodedTxType.NATIVE_TRANSFER, info: null };
@@ -65,12 +96,16 @@ const paraseNativeTransfer: TypeParser = (covalentTx) => {
 
 const paraseTokenInteraction: TypeParser = (covalentTx) => {
   const { logEvents } = covalentTx;
-  if (!logEvents || !logEvents.length || !logEvents[0].decoded) {
+  if (!logEvents || !logEvents.length) {
     return null;
   }
 
-  const firstEvent = logEvents[0];
-  const { name, params } = firstEvent.decoded;
+  const event = logEvents.find((e) => !!e.decoded);
+  if (!event) {
+    return null;
+  }
+
+  const { name, params } = event.decoded;
   if (
     (name !== 'Transfer' && name !== 'Approval') ||
     !params ||
@@ -79,8 +114,8 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
     return null;
   }
 
-  const paramsMap = parseDecodedParams(firstEvent);
-  const token = parseToken(firstEvent, covalentTx.chainId);
+  const paramsMap = parseDecodedParams(event);
+  const token = parseToken(event, covalentTx.chainId);
   const amount = EVMTxDecoder.formatValue(
     paramsMap.value ?? '0',
     token.decimals,
@@ -113,7 +148,12 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
 };
 
 const parseCovalentType = (covalentTx: Transaction) => {
-  const parsers = [paraseNativeTransfer, paraseSpam, paraseTokenInteraction];
+  const parsers = [
+    paraseTokenTransferLog,
+    paraseNativeTransfer,
+    paraseSpam,
+    paraseTokenInteraction,
+  ];
 
   let parseResult: ParseResult = null;
   for (const parser of parsers) {

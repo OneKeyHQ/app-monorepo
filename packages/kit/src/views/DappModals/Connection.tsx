@@ -1,19 +1,21 @@
 import React, { useCallback, useState } from 'react';
 
-import { Column } from 'native-base';
+import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
   Center,
-  CheckBox,
+  HStack,
+  Icon,
   Modal,
   Token,
   Typography,
+  VStack,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { Text } from '@onekeyhq/components/src/Typography';
-import { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import Check from '@onekeyhq/kit/assets/connect_check.png';
+import Sight from '@onekeyhq/kit/assets/connect_sight.png';
+import X from '@onekeyhq/kit/assets/connect_x.png';
+import Logo from '@onekeyhq/kit/assets/logo_round.png';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -21,32 +23,25 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
-import { DescriptionList, DescriptionListItem } from './DescriptionList';
 import RugConfirmDialog from './RugConfirmDialog';
-
-type PermissionType = 'view-addresses';
-type Permission = {
-  type: PermissionType;
-  required: boolean;
-};
 
 const MockData = {
   permissions: [
     {
-      type: 'view-addresses',
-      required: true,
+      text: 'content__view_the_address_of_your_permitted_accounts_required',
+      icon: Sight,
     },
-  ] as Permission[],
+    {
+      text: 'content__send_transactions_and_signature_request',
+      icon: Check,
+    },
+    {
+      text: 'content__send_transactions_and_signature_request',
+      icon: X,
+    },
+  ] as const,
 };
 
-const getPermissionTransId = (type: PermissionType): LocaleIds => {
-  switch (type) {
-    case 'view-addresses':
-      return 'content__view_the_address_of_your_permitted_accounts_required';
-    default:
-      return type;
-  }
-};
 const isRug = (target: string) => {
   const RUG_LIST: string[] = [];
   return RUG_LIST.some((item) => item.includes(target.toLowerCase()));
@@ -56,8 +51,8 @@ const isRug = (target: string) => {
 const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const { account, networkImpl, accountAddress } = useActiveWalletAccount();
-  const accountInfo = account as DBSimpleAccount | null;
+  const { networkImpl, network, accountAddress, account } =
+    useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? ({} as IDappCallParams);
   const computedIsRug = isRug(origin);
@@ -102,10 +97,6 @@ const Connection = () => {
     closeOnError: true,
   });
 
-  const [permissionValues, setPermissionValues] = React.useState(
-    MockData.permissions.map(({ type }) => type),
-  );
-
   // TODO
   //  - check scope=ethereum and active chain is EVM
   //  - check active account exists
@@ -123,8 +114,6 @@ const Connection = () => {
       <Modal
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__reject"
-        header={intl.formatMessage({ id: 'title__approve' })}
-        headerDescription={scope}
         onPrimaryActionPress={async ({ close }) => {
           if (!computedIsRug) {
             const result = getResolveData();
@@ -142,74 +131,59 @@ const Connection = () => {
         scrollViewProps={{
           children: (
             // Add padding to escape the footer
-            <Column flex="1" pb="20" space={6}>
-              <Center>
-                <Token size="56px" />
-                <Typography.Heading mt="8px">{origin}</Typography.Heading>
-              </Center>
-              <DescriptionList>
-                {/* Account */}
-                <DescriptionListItem
-                  title={intl.formatMessage({
-                    id: 'form__account',
-                  })}
-                  detail={
-                    <Column alignItems="flex-end" w="auto" flex={1}>
-                      <Text
-                        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      >
-                        {accountInfo?.name}
-                      </Text>
-                      <Typography.Body2
-                        textAlign="right"
-                        color="text-subdued"
-                        numberOfLines={3}
-                      >
-                        {accountInfo?.address}
-                      </Typography.Body2>
-                    </Column>
-                  }
-                />
-                {/* Interact target */}
-                <DescriptionListItem
-                  title={intl.formatMessage({
-                    id: 'content__interact_with',
-                  })}
-                  detail={origin}
-                  isRug={computedIsRug}
-                />
-              </DescriptionList>
+            <VStack flex="1" space={6}>
+              <Center flex="1" mt="12px">
+                <HStack>
+                  <Image
+                    size="64px"
+                    borderRadius="full"
+                    mr="-16px"
+                    zIndex={100}
+                    source={Logo}
+                  />
+                  <Image
+                    size="64px"
+                    source={{ uri: `${origin}/favicon.ico` }}
+                    fallbackElement={<Token size="64px" />}
+                  />
+                </HStack>
 
-              {/* Permissions */}
-              <Column space={2}>
-                <Box>
-                  <Typography.Subheading mt="24px" color="text-subdued">
-                    {intl.formatMessage({
-                      id: 'form__allow_this_site_to_uppercase',
-                    })}
-                  </Typography.Subheading>
-                </Box>
-                <CheckBox.Group
-                  onChange={setPermissionValues}
-                  value={permissionValues}
-                  accessibilityLabel="choose numbers"
-                >
-                  {MockData.permissions.map((permission, index) => (
-                    <CheckBox
-                      key={index}
-                      value={permission.type}
-                      isChecked={permission.required}
-                      isDisabled={permission.required}
-                      defaultIsChecked={permission.required}
-                      my={2}
-                      title={intl.formatMessage({
-                        id: getPermissionTransId(permission.type),
+                <Typography.PageHeading mt="24px">
+                  {intl.formatMessage({
+                    id: 'title__connect_to_website',
+                  })}
+                </Typography.PageHeading>
+
+                <HStack justifyContent="center" alignItems="center" mt="16px">
+                  <Typography.Body1 mr="18px">
+                    {origin?.split('://')[1] ?? 'DApp'}
+                  </Typography.Body1>
+                  <Icon size={20} name="SwitchHorizontalSolid" />
+                  <Image
+                    src={network?.logoURI}
+                    ml="18px"
+                    mr="8px"
+                    width="16px"
+                    height="16px"
+                    borderRadius="full"
+                  />
+                  <Typography.Body2>{account?.name}</Typography.Body2>
+                </HStack>
+              </Center>
+
+              <VStack space={6} ml="12px" mt="24px">
+                {MockData.permissions.map((permission) => (
+                  <HStack>
+                    <Image size="36px" source={permission.icon} />
+                    <Typography.Body1 ml="16px" alignSelf="center">
+                      {intl.formatMessage({
+                        id: permission.text,
                       })}
-                    />
-                  ))}
-                </CheckBox.Group>
-              </Column>
-            </Column>
+                    </Typography.Body1>
+                  </HStack>
+                ))}
+              </VStack>
+            </VStack>
           ),
         }}
       />

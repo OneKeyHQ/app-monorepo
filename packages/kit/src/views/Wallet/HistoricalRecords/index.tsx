@@ -43,7 +43,7 @@ export type HistoricalRecordProps = {
   accountId: string | null | undefined;
   networkId: string | null | undefined;
   tokenId?: string | null | undefined;
-  isInternalSwapOnly?: boolean;
+  historyFilter?: (item: any) => boolean;
   headerView?: React.ReactNode | null | undefined;
   hiddenHeader?: boolean;
   isTab?: boolean;
@@ -51,7 +51,7 @@ export type HistoricalRecordProps = {
 
 const defaultProps = {
   tokenId: null,
-  isInternalSwapOnly: false,
+  historyFilter: undefined,
   headerView: null,
   hiddenHeader: false,
   isTab: false,
@@ -61,7 +61,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   accountId,
   networkId,
   tokenId,
-  isInternalSwapOnly,
+  historyFilter,
   headerView,
   hiddenHeader,
   isTab,
@@ -77,7 +77,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     account,
     network,
     tokenId,
-    isInternalSwapOnly,
+    historyFilter,
   });
 
   const hiddenHeaderMemo = useDeepCompareMemo(

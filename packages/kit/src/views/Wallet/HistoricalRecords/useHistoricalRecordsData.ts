@@ -5,10 +5,7 @@ import { useIntl } from 'react-intl';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { TxStatus } from '@onekeyhq/engine/src/types/covalent';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import {
-  EVMDecodedItem,
-  EVMDecodedTxType,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -19,7 +16,7 @@ type UseCollectiblesDataArgs = {
   account?: Account | null | undefined;
   network?: Network | null | undefined;
   tokenId?: string | null | undefined;
-  isInternalSwapOnly?: boolean;
+  historyFilter?: (item: any) => boolean;
 };
 
 const PAGE_SIZE = 50;
@@ -89,7 +86,7 @@ type RequestParamsType = {
   accountId: string;
   networkId: string;
   tokenId: string | undefined | null;
-  isInternalSwapOnly?: boolean;
+  historyFilter?: (item: any) => boolean;
   pageNumber: number;
   pageSize: number;
 } | null;
@@ -98,7 +95,7 @@ export const useHistoricalRecordsData = ({
   account,
   network,
   tokenId,
-  isInternalSwapOnly,
+  historyFilter,
 }: UseCollectiblesDataArgs) => {
   const intl = useIntl();
   const formatDate = useFormatDate();
@@ -120,13 +117,13 @@ export const useHistoricalRecordsData = ({
       accountId: account?.id ?? '',
       networkId: network?.id ?? '',
       tokenId,
-      isInternalSwapOnly,
+      historyFilter,
       pageNumber: 0,
       pageSize,
     };
 
     return params;
-  }, [account?.id, hasNoParams, isInternalSwapOnly, network?.id, tokenId]);
+  }, [account?.id, hasNoParams, historyFilter, network?.id, tokenId]);
 
   const requestCall = useCallback(async (params: RequestParamsType) => {
     if (!params) {
@@ -139,14 +136,14 @@ export const useHistoricalRecordsData = ({
       {
         contract: params.tokenId,
         isHidePending: !!params.tokenId,
-        isLocalOnly: !!params.isInternalSwapOnly,
       },
     );
 
-    const filted = filtePendingList(history);
+    let filted = filtePendingList(history);
 
-    if (params.isInternalSwapOnly) {
-      return filted.filter((h) => h.txType === EVMDecodedTxType.INTERNAL_SWAP);
+    const itemFilter = params.historyFilter;
+    if (itemFilter) {
+      filted = filted.filter((h) => itemFilter(h));
     }
 
     return filted;
