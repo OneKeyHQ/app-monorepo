@@ -80,7 +80,10 @@ export const dappSlicer = createSlice({
   },
 });
 
-export const { dappSaveSiteConnection, dappClearSiteConnection, dappRemoveSiteConnections } =
-  dappSlicer.actions;
+export const {
+  dappSaveSiteConnection,
+  dappClearSiteConnection,
+  dappRemoveSiteConnections,
+} = dappSlicer.actions;
 
 export default dappSlicer.reducer;
