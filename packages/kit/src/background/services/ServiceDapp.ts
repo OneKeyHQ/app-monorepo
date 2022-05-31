@@ -11,7 +11,9 @@ import {
 } from '../../routes/routesEnum';
 import {
   DappSiteConnection,
+  DappSiteConnectionRemovePayload,
   DappSiteConnectionSavePayload,
+  dappRemoveSiteConnections,
   dappSaveSiteConnection,
 } from '../../store/reducers/dapp';
 import extUtils from '../../utils/extUtils';
@@ -50,6 +52,11 @@ class ServiceDapp extends ServiceBase {
   @backgroundMethod()
   saveConnectedAccounts(payload: DappSiteConnectionSavePayload) {
     this.backgroundApi.dispatch(dappSaveSiteConnection(payload));
+  }
+
+  @backgroundMethod()
+  removeConnectedAccounts(payload: DappSiteConnectionRemovePayload) {
+    this.backgroundApi.dispatch(dappRemoveSiteConnections(payload));
   }
 
   // TODO to decorator @permissionRequired()

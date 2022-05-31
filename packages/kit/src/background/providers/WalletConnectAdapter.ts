@@ -132,9 +132,20 @@ class WalletConnectAdapter {
     });
   }
 
+  removeConnectedAccounts(connector: WalletConnect) {
+    const { accounts } = connector;
+    const origin = this.getConnectorOrigin(connector);
+    this.backgroundApi.serviceDapp.removeConnectedAccounts({
+      origin,
+      networkImpl: IMPL_EVM,
+      addresses: accounts,
+    });
+  }
+
   async _destroyConnector(connector?: WalletConnect) {
     if (connector) {
       this.unregisterEvents(connector);
+
       if (connector.connected) {
         await this.waitConnectorPeerReady({
           connector,
@@ -143,6 +154,8 @@ class WalletConnectAdapter {
         });
         await connector.killSession();
       }
+
+      this.removeConnectedAccounts(connector);
     }
   }
 
@@ -415,11 +428,14 @@ class WalletConnectAdapter {
       const accounts = await this.ethereumRequest(connector, {
         method: 'eth_accounts',
       });
-      // TODO if accounts=[] killSession()
-      connector.updateSession({
-        chainId,
-        accounts,
-      });
+      if (accounts && (accounts as string[]).length) {
+        connector.updateSession({
+          chainId,
+          accounts,
+        });
+      } else {
+        await this.disconnect();
+      }
     }
   }
 }

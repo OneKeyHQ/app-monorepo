@@ -12,6 +12,12 @@ export type DappSiteConnectionSavePayload = {
   address: string;
 };
 
+export type DappSiteConnectionRemovePayload = {
+  origin: string;
+  networkImpl: string;
+  addresses: string[];
+};
+
 export type DappSiteConnection = DappSiteConnectionSavePayload & {
   created: number;
   lastTime: number;
@@ -32,9 +38,21 @@ export const dappSlicer = createSlice({
     dappClearSiteConnection(state) {
       state.connections = [];
     },
-    // TODO batch remove site connections
-    dappRemoveSiteConnections() {
-      // noop
+    dappRemoveSiteConnections(
+      state,
+      action: PayloadAction<DappSiteConnectionRemovePayload>,
+    ) {
+      let connections = [...state.connections];
+      const { payload } = action;
+      connections = connections.filter(
+        (connc) =>
+          !(
+            payload.origin === connc.site.origin &&
+            payload.networkImpl === connc.networkImpl &&
+            payload.addresses.includes(connc.address)
+          ),
+      );
+      state.connections = connections;
     },
     dappSaveSiteConnection(
       state,
@@ -62,7 +80,7 @@ export const dappSlicer = createSlice({
   },
 });
 
-export const { dappSaveSiteConnection, dappClearSiteConnection } =
+export const { dappSaveSiteConnection, dappClearSiteConnection, dappRemoveSiteConnections } =
   dappSlicer.actions;
 
 export default dappSlicer.reducer;
