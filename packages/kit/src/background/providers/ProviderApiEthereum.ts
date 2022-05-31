@@ -460,6 +460,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: AddEthereumChainParameter,
   ) {
+    const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
+    const networkId = `evm--${parseInt(params.chainId)}`;
+    const included = networks.some((network) => network.id === networkId);
+    if (included) {
+      return this.wallet_switchEthereumChain(request, {
+        chainId: params.chainId,
+      });
+    }
+
     const result = await this.backgroundApi.serviceDapp?.openAddNetworkModal(
       request,
       params,
