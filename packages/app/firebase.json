@@ -2,7 +2,6 @@
   "react-native": {
     "android_task_executor_maximum_pool_size": 10,
     "android_task_executor_keep_alive_seconds": 3,
-    "crashlytics_debug_enabled": true,
     "crashlytics_is_error_generation_on_js_crash_enabled": true,
     "crashlytics_javascript_exception_handler_chaining_enabled": true
   }
