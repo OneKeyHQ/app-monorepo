@@ -3,6 +3,8 @@ import React, { FC, useState } from 'react';
 import { chunk } from 'lodash';
 import { Center, Column, Pressable, Row } from 'native-base';
 
+import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
+
 import Box from '../Box';
 import Icon from '../Icon';
 import Typography from '../Typography';
@@ -83,6 +85,7 @@ const Keyboard: FC<KeyboardProps> = ({
         }
       }
       if (onTextChange) {
+        setHaptics();
         onTextChange(changeText);
       }
       return changeText;
@@ -90,7 +93,7 @@ const Keyboard: FC<KeyboardProps> = ({
   };
 
   return (
-    <Box width="full" height="auto" paddingX="10px">
+    <Box width="full" height="auto">
       <Column space="8px">
         {innerKeyArray.map((row, rowIndex) => (
           <Row width="full" space="8px" key={`keyboard row${rowIndex}`}>
