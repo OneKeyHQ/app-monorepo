@@ -7,13 +7,15 @@ export enum ManageTokenRoutes {
 
 export type ManageTokenRoutesParams = {
   [ManageTokenRoutes.Listing]: undefined;
-  [ManageTokenRoutes.AddToken]: {
-    name: string;
-    symbol: string;
-    address: string;
-    decimal: number;
-    logoURI: string;
-  };
+  [ManageTokenRoutes.AddToken]:
+    | {
+        name: string;
+        symbol: string;
+        address: string;
+        decimal: number;
+        logoURI: string;
+      }
+    | { query: string };
   [ManageTokenRoutes.ViewToken]: {
     name: string;
     symbol: string;

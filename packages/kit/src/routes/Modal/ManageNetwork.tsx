@@ -10,6 +10,9 @@ import {
   ManageNetworkRoutesParams,
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
+import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
+import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';
+
 import createStackNavigator from './createStackNavigator';
 
 const ManageNetworkNavigator =
@@ -31,6 +34,14 @@ const modalRoutes = [
   {
     name: ManageNetworkRoutes.PresetNetwork,
     component: PresetNetwork,
+  },
+  {
+    name: ManageNetworkRoutes.AddNetworkConfirm,
+    component: AddNetworkConfirm,
+  },
+  {
+    name: ManageNetworkRoutes.SwitchNetwork,
+    component: SwitchNetwork,
   },
 ];
 

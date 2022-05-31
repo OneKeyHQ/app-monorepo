@@ -3,6 +3,8 @@ export enum ManageNetworkRoutes {
   AddNetwork = 'AddNetwork',
   CustomNetwork = 'CustomNetwork',
   PresetNetwork = 'PresetNetwork',
+  AddNetworkConfirm = 'AddNetworkConfirm',
+  SwitchNetwork = 'SwitchNetwork',
 }
 
 export type ManageNetworkRoutesParams = {
@@ -25,4 +27,16 @@ export type ManageNetworkRoutesParams = {
     exploreUrl?: string;
     impl?: string;
   };
+  [ManageNetworkRoutes.AddNetworkConfirm]:
+    | {
+        id: string;
+        name?: string;
+        rpcURL?: string;
+        chainId?: string;
+        symbol?: string;
+        exploreUrl?: string;
+        iconUrl?: string;
+      }
+    | { query: string };
+  [ManageNetworkRoutes.SwitchNetwork]: { query: string };
 };

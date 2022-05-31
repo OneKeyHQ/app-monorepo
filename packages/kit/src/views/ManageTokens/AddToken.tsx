@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
+  HStack,
   Icon,
   Image,
   KeyboardDismissView,
@@ -17,8 +18,10 @@ import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
 import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappParams from '../../hooks/useDappParams';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -37,14 +40,31 @@ type NavigationProps = NativeStackNavigationProp<
 type ListItem = { label: string; value: string };
 
 export type IViewTokenModalProps = ModalProps;
+
+const useRouteParams = () => {
+  const routeProps = useRoute<RouteProps>();
+  const { params } = routeProps;
+  if ('query' in params) {
+    const query: WatchAssetParameters = JSON.parse(params.query);
+    const { address, symbol, decimals, image } = query.options;
+    return {
+      name: '',
+      address,
+      symbol: symbol ?? '',
+      decimal: decimals ?? 0,
+      logoURI: image ?? '',
+    };
+  }
+  return params;
+};
+
 function ViewTokenModal(props: IViewTokenModalProps) {
   const { balances } = useManageTokens();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const intl = useIntl();
-  const {
-    params: { name, symbol, decimal, address, logoURI },
-  } = useRoute<RouteProps>();
+  const { sourceInfo } = useDappParams();
+  const { name, symbol, decimal, address, logoURI } = useRouteParams();
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -75,7 +95,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
         }),
         value: String(decimal),
       },
-    ];
+    ].filter(({ value }) => !!value);
+
     if (balances[address]) {
       data.push({
         label: intl.formatMessage({
@@ -97,7 +118,6 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   }, [activeAccount, activeNetwork, address]);
   return (
     <Modal
-      header={symbol}
       height="560px"
       footer={null}
       scrollViewProps={{
@@ -108,7 +128,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
-                mb="4"
+                mb="8"
+                mt="6"
               >
                 <Image
                   src={logoURI}
@@ -126,10 +147,33 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                     </Center>
                   }
                 />
-                <Typography.Heading mt="2">
-                  {name}({symbol})
-                </Typography.Heading>
+
+                <Typography.PageHeading mt="4">
+                  {intl.formatMessage(
+                    { id: 'title__adding_str' },
+                    {
+                      0: symbol,
+                    },
+                  )}
+                </Typography.PageHeading>
+
+                <HStack justifyContent="center" alignItems="center" mt="16px">
+                  <Typography.Body1 mr="18px">
+                    {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
+                  </Typography.Body1>
+                  <Icon size={20} name="SwitchHorizontalSolid" />
+                  <Image
+                    src={activeNetwork?.logoURI}
+                    ml="18px"
+                    mr="8px"
+                    width="16px"
+                    height="16px"
+                    borderRadius="full"
+                  />
+                  <Typography.Body2>{activeAccount?.name}</Typography.Body2>
+                </HStack>
               </Box>
+
               <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
                 {items.map((item, index) => (
                   <Box
@@ -177,10 +221,7 @@ function AddTokenModal() {
     useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
-  const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    params: { name, symbol, decimal, address, logoURI },
-  } = useRoute<RouteProps>();
+  const { address } = useRouteParams();
 
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
@@ -203,10 +244,6 @@ function AddTokenModal() {
 
   return (
     <ViewTokenModal
-      header={intl.formatMessage({
-        id: 'title__add_token',
-        defaultMessage: 'Add Token',
-      })}
       footer
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"

@@ -21,6 +21,10 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import {
+  EVMDecodedItem,
+  EVMDecodedTxType,
+} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
@@ -100,19 +104,23 @@ const AssetsList = () => {
       index === 0
         ? network?.nativeDisplayDecimals
         : network?.tokenDisplayDecimals;
+
+    // TODO: make it work with multi chains.
+    const filter = item.tokenIdOnNetwork
+      ? undefined
+      : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+
     return (
       <Pressable.Item
-        disabled={!item.tokenIdOnNetwork}
         p={4}
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
         onPress={() => {
-          // if (!item.tokenIdOnNetwork) return;
-
           navigation.navigate(HomeRoutes.ScreenTokenDetail, {
             accountId: account?.id ?? '',
             networkId: item.networkId ?? '',
-            tokenId: item.tokenIdOnNetwork ?? '',
+            tokenId: item.tokenIdOnNetwork,
+            historyFilter: filter,
           });
         }}
       >
@@ -167,11 +175,7 @@ const AssetsList = () => {
               )}
             </Box>
           )}
-          {item.tokenIdOnNetwork ? (
-            <Icon size={20} name="ChevronRightSolid" />
-          ) : (
-            <Box w={5} />
-          )}
+          <Icon size={20} name="ChevronRightSolid" />
         </Box>
       </Pressable.Item>
     );

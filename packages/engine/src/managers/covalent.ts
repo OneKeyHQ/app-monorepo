@@ -320,6 +320,7 @@ async function txAdapter(
     source: 'covalent',
     info: null,
     logEvents: tx.logEvents,
+    transfers: tx.transfers,
     chainId: parseInt(chainId),
   };
 
@@ -560,6 +561,7 @@ function decodedItemToTransaction(
     info: item.info,
     rawTx,
     logEvents: [],
+    transfers: [],
     chainId: item.chainId,
   };
 }

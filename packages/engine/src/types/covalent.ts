@@ -167,6 +167,7 @@ type Transaction = {
 
   chainId: number;
   logEvents: Array<LogEvent>;
+  transfers: Array<Transfer>;
 };
 
 type Erc20TransferEvent = {
