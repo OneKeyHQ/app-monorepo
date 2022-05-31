@@ -4,7 +4,6 @@
   },
   "build": {
     "base": {
-      "node": "16.10.0",
       "yarn": "1.18.0",
       "android": {
         "image": "ubuntu-20.04-jdk-11-ndk-r21e",
@@ -15,7 +14,7 @@
       },
       "ios": {
         "cocoapods": "1.11.3",
-        "image": "latest",
+        "image": "macos-big-sur-11.4-xcode-13.0",
         "env": {
           "PLATFORM": "ios"
         }
