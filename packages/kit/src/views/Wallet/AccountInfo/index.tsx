@@ -136,6 +136,7 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 };
 
 type AccountOptionProps = { isSmallView: boolean };
+
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { getTokenBalance } = useManageTokens();
   const { network: activeNetwork } = useActiveWalletAccount();
@@ -143,14 +144,10 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
+
   return (
-    <Box
-      flexDirection="row"
-      justifyContent="space-around"
-      alignItems="center"
-      paddingX={isSmallView ? '16px' : '0px'}
-    >
-      <Box paddingX={isSmallView ? '21px' : '19px'}>
+    <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
+      <Box flex={1} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -171,11 +168,21 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             });
           }}
         />
-        <Typography.CaptionStrong textAlign="center" mt="8px">
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color={
+            wallet?.type === 'watching' ||
+            !account ||
+            parseFloat(getTokenBalance()) <= 0
+              ? 'text-disabled'
+              : 'text-default'
+          }
+        >
           {intl.formatMessage({ id: 'action__send' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box paddingX={isSmallView ? '21px' : '19px'}>
+      <Box flex={1} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -196,41 +203,54 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
             });
           }}
         />
-        <Typography.CaptionStrong textAlign="center" mt="8px">
+        <Typography.CaptionStrong
+          textAlign="center"
+          mt="8px"
+          color={
+            wallet?.type === 'watching' || !account
+              ? 'text-disabled'
+              : 'text-default'
+          }
+        >
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box
-        paddingX={isSmallView ? '21px' : '19px'}
-        display={
-          wallet?.type === 'watching' || !account || currencies.length === 0
-            ? 'none'
-            : 'flex'
-        }
-      >
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="TagOutline"
-          type="basic"
-          isDisabled={wallet?.type === 'watching' || !account}
-          onPress={() => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayRoutes.SupportTokenListModal,
+
+      {(wallet?.type !== 'watching' || account || currencies.length !== 0) && (
+        <Box flex={1} mx={3} minW="56px" alignItems="center">
+          <IconButton
+            circle
+            size={isSmallView ? 'xl' : 'lg'}
+            name="TagOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={() => {
+              if (!account) return;
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.FiatPay,
                 params: {
-                  networkId: activeNetwork?.id ?? '',
+                  screen: FiatPayRoutes.SupportTokenListModal,
+                  params: {
+                    networkId: activeNetwork?.id ?? '',
+                  },
                 },
-              },
-            });
-          }}
-        />
-        <Typography.CaptionStrong textAlign="center" mt="8px">
-          {intl.formatMessage({ id: 'action__buy' })}
-        </Typography.CaptionStrong>
-      </Box>
+              });
+            }}
+          />
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' || !account
+                ? 'text-disabled'
+                : 'text-default'
+            }
+          >
+            {intl.formatMessage({ id: 'action__buy' })}
+          </Typography.CaptionStrong>
+        </Box>
+      )}
+
       {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
         <IconButton
           onPress={() => {
