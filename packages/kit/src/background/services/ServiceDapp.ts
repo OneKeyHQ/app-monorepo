@@ -101,6 +101,14 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
+  openSwitchNetworkModal(request: IJsBridgeMessagePayload, params: any) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.ManageNetwork, ManageNetworkRoutes.SwitchNetwork],
+      params,
+    });
+  }
+
   async openModal({
     request,
     screens = [],

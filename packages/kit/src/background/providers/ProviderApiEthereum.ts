@@ -81,6 +81,10 @@ export type AddEthereumChainParameter = {
   rpcUrls?: string[];
 };
 
+export type SwitchEthereumChainParameter = {
+  chainId: string;
+};
+
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
@@ -467,9 +471,25 @@ class ProviderApiEthereum extends ProviderApiBase {
    * Add switch to a chain, we also need a request modal UI
    * req: IJsBridgeMessagePayload, { chainId }
    */
-  wallet_switchEthereumChain() {
-    // TODO
-    return false;
+  async wallet_switchEthereumChain(
+    request: IJsBridgeMessagePayload,
+    params: SwitchEthereumChainParameter,
+  ) {
+    const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
+    const networkId = `evm--${parseInt(params.chainId)}`;
+    const included = networks.some((network) => network.id === networkId);
+    if (!included) {
+      // throw new Error(
+      //   `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+      // );
+      return false;
+    }
+
+    const result = await this.backgroundApi.serviceDapp?.openSwitchNetworkModal(
+      request,
+      params,
+    );
+    return result;
   }
 
   // ----------------------------------------------
