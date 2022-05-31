@@ -15,7 +15,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { waitForDataLoaded } from '../utils';
+import { delay, waitForDataLoaded } from '../utils';
 
 import type { IBackgroundApi } from '../IBackgroundApi';
 import type {
@@ -132,14 +132,18 @@ class WalletConnectAdapter {
     });
   }
 
-  removeConnectedAccounts(connector: WalletConnect) {
+  async removeConnectedAccounts(connector: WalletConnect) {
     const { accounts } = connector;
     const origin = this.getConnectorOrigin(connector);
-    this.backgroundApi.serviceDapp.removeConnectedAccounts({
-      origin,
-      networkImpl: IMPL_EVM,
-      addresses: accounts,
-    });
+    if (accounts.length && origin) {
+      this.backgroundApi.serviceDapp.removeConnectedAccounts({
+        origin,
+        networkImpl: IMPL_EVM,
+        addresses: accounts,
+      });
+      await delay(1500);
+      this.backgroundApi.serviceAccount.notifyAccountsChanged();
+    }
   }
 
   async _destroyConnector(connector?: WalletConnect) {
