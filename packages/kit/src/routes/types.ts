@@ -91,6 +91,7 @@ export type HomeRoutesParams = {
     accountId: string;
     networkId: string;
     tokenId: string;
+    historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.DebugScreen]: undefined;
   [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
@@ -105,7 +106,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.TransactionHistoryScreen]: {
     tokenId?: string;
-    isInternalSwapOnly?: boolean;
+    historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FaceId]: undefined;
 };
