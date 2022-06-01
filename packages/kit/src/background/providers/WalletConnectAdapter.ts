@@ -15,7 +15,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
-import { waitForDataLoaded } from '../utils';
+import { delay, waitForDataLoaded } from '../utils';
 
 import type { IBackgroundApi } from '../IBackgroundApi';
 import type {
@@ -132,9 +132,24 @@ class WalletConnectAdapter {
     });
   }
 
+  async removeConnectedAccounts(connector: WalletConnect) {
+    const { accounts } = connector;
+    const origin = this.getConnectorOrigin(connector);
+    if (accounts.length && origin) {
+      this.backgroundApi.serviceDapp.removeConnectedAccounts({
+        origin,
+        networkImpl: IMPL_EVM,
+        addresses: accounts,
+      });
+      await delay(1500);
+      this.backgroundApi.serviceAccount.notifyAccountsChanged();
+    }
+  }
+
   async _destroyConnector(connector?: WalletConnect) {
     if (connector) {
       this.unregisterEvents(connector);
+
       if (connector.connected) {
         await this.waitConnectorPeerReady({
           connector,
@@ -143,9 +158,12 @@ class WalletConnectAdapter {
         });
         await connector.killSession();
       }
+
+      this.removeConnectedAccounts(connector);
     }
   }
 
+  // TODO disconnect 3 days ago sessions
   async autoConnectLastSession() {
     const session = await sessionStorage.getSession();
     let { connector } = this;
@@ -371,6 +389,10 @@ class WalletConnectAdapter {
         debugLogger.walletConnect('EVENT', 'call_request', payload);
         // https://docs.walletconnect.com/client-api#send-custom-request
         // await window.$connector.sendCustomRequest({method:'eth_gasPrice'})
+
+        if (payload.method === 'eth_signTypedData') {
+          payload.method = 'eth_signTypedData_v3';
+        }
         return this.responseCallRequest(
           connector,
           this.ethereumRequest(connector, payload),
@@ -410,11 +432,14 @@ class WalletConnectAdapter {
       const accounts = await this.ethereumRequest(connector, {
         method: 'eth_accounts',
       });
-      // TODO if accounts=[] killSession()
-      connector.updateSession({
-        chainId,
-        accounts,
-      });
+      if (accounts && (accounts as string[]).length) {
+        connector.updateSession({
+          chainId,
+          accounts,
+        });
+      } else {
+        await this.disconnect();
+      }
     }
   }
 }
