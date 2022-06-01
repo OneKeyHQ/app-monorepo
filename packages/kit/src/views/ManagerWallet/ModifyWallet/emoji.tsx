@@ -170,12 +170,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
             size="xl"
           />
         </Box>
-        <ColorSelecter
-          color={color}
-          onPress={(selectColor) => {
-            updateColor(selectColor);
-          }}
-        />
+        <ColorSelecter color={color} onPress={updateColor} />
         <Box
           flex={1}
           borderTopLeftRadius="24px"
