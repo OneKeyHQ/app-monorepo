@@ -11,6 +11,7 @@ import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
 import bs58check from 'bs58check';
+import memoizee from 'memoizee';
 import natsort from 'natsort';
 
 import {
@@ -759,11 +760,7 @@ class Engine {
     }
 
     const encryptedPrivateKey = encrypt(password, privateKey);
-    const vault = await this.getVault({
-      networkId,
-      walletId: 'imported',
-      accountId: '',
-    });
+    const vault = await this.getWalletOnlyVault(networkId, 'imported');
     const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
       name: name || '',
@@ -792,11 +789,7 @@ class Engine {
     await this.validator.validateAccountNames([name]);
 
     const impl = getImplFromNetworkId(networkId);
-    const vault = await this.getVault({
-      networkId,
-      walletId: 'watching',
-      accountId: '',
-    });
+    const vault = await this.getWalletOnlyVault(networkId, 'watching');
     const [dbAccount] = await vault.keyring.prepareAccounts({
       target,
       name,
@@ -1192,7 +1185,7 @@ class Engine {
     accountId: string;
     encodedTx: any;
   }) {
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
     return vault.fetchFeeInfo(encodedTx);
   }
@@ -1211,7 +1204,7 @@ class Engine {
     amount: string;
     spender: string;
   }) {
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     const { address } = await this.getAccount(accountId, networkId);
     return vault.buildEncodedTxFromApprove({
       token,
@@ -1229,7 +1222,7 @@ class Engine {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
     const { networkId, accountId } = params;
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     const txWithFee: IEncodedTx = await vault.attachFeeInfoToEncodedTx(params);
     debugLogger.sendTx('attachFeeInfoToEncodedTx', txWithFee);
     return txWithFee as unknown;
@@ -1250,7 +1243,7 @@ class Engine {
     legacy?: boolean;
   }): Promise<IDecodedTxLegacy> {
     const isLegacy = legacy ?? true;
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     const decodedTx = await vault.decodeTx(encodedTx, payload);
     if (!isLegacy) {
       // @ts-ignore
@@ -1274,7 +1267,7 @@ class Engine {
     payload: any;
     options: IEncodedTxUpdateOptions;
   }) {
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     return vault.updateEncodedTx(encodedTx, payload, options);
   }
 
@@ -1290,7 +1283,7 @@ class Engine {
     encodedTx: IEncodedTx;
     amount: string;
   }) {
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     return vault.updateEncodedTxTokenApprove(encodedTx, amount);
   }
 
@@ -1309,7 +1302,7 @@ class Engine {
     };
     transferInfoNew.amount = transferInfoNew.amount || '0';
     // throw new Error('build encodedtx error test');
-    const vault = await this.vaultFactory.getVault({ networkId, accountId });
+    const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
     debugLogger.sendTx(
       'buildEncodedTxFromTransfer: ',
@@ -1344,10 +1337,23 @@ class Engine {
     return this.vaultFactory.getChainOnlyVault(networkId);
   }
 
-  async getVaultSettings(networkId: string) {
-    const vault = await this.getChainOnlyVault(networkId);
-    return vault.settings;
+  async getWalletOnlyVault(networkId: string, walletId: string) {
+    return this.vaultFactory.getWalletOnlyVault(networkId, walletId);
   }
+
+  getVaultSettings = memoizee(
+    async (networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.settings;
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: 1000 * 60 * 60,
+      normalizer: (args) => `${args[0]}`,
+    },
+  );
 
   @backgroundMethod()
   async addHistoryEntry({
@@ -1457,7 +1463,6 @@ class Engine {
   }
 
   async dbNetworkToNetwork(dbNetwork: DBNetwork) {
-    // TODO cache
     const settings = await this.getVaultSettings(dbNetwork.id);
     const network = fromDBNetworkToNetwork(dbNetwork, settings);
     return network;
@@ -1502,7 +1507,7 @@ class Engine {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
 
-    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    const vault = await this.getChainOnlyVault(networkId);
     return vault.getClientEndpointStatus(rpcURL);
   }
 
@@ -1733,7 +1738,7 @@ class Engine {
     networkId: string,
     request: IJsonRpcRequest,
   ): Promise<T> {
-    const vault = await this.vaultFactory.getChainOnlyVault(networkId);
+    const vault = await this.getChainOnlyVault(networkId);
     return vault.proxyJsonRPCCall(request);
   }
 

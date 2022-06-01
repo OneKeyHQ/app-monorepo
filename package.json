@@ -42,7 +42,8 @@
     "@onekeyfe/cross-inpage-provider-types": "^0.0.10",
     "@onekeyfe/extension-bridge-hosted": "^0.0.10",
     "@onekeyfe/onekey-cross-webview": "^0.0.10",
-    "axios": "^0.26.0"
+    "axios": "^0.26.0",
+    "memoizee": "^0.4.15"
   },
   "devDependencies": {
     "@babel/core": "^7.15.8",
@@ -56,11 +57,13 @@
     "@types/react": "^17.0.33",
     "@types/react-dom": "^17.0.10",
     "@types/semver": "^7.3.6",
+    "@types/memoizee": "^0.4.8",
     "@typescript-eslint/eslint-plugin": "^4.31.0",
     "@typescript-eslint/parser": "^4.31.0",
     "babel-eslint": "^10.1.0",
     "babel-jest": "^27.4.2",
     "babel-loader": "8.1.0",
+    "expo": "^45.0.4",
     "babel-plugin-inline-import": "^3.0.0",
     "babel-plugin-lodash": "^3.3.4",
     "babel-plugin-transform-inline-environment-variables": "^0.4.3",

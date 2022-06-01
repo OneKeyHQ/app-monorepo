@@ -3,6 +3,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SEPERATOR } from '../constants';
 import { getWalletIdFromAccountId } from '../managers/account';
+import { DBAccount } from '../types/account';
+import { Network } from '../types/network';
 
 import { IVaultFactoryOptions } from './types';
 
@@ -54,9 +56,13 @@ export class VaultContext extends VaultContextBase {
 
   engine: Engine;
 
+  _dbAccount!: DBAccount;
+
   async getDbAccount() {
-    // TODO cache available?
-    return this.engine.dbApi.getAccount(this.accountId);
+    if (!this._dbAccount || this._dbAccount.id !== this.accountId) {
+      this._dbAccount = await this.engine.dbApi.getAccount(this.accountId);
+    }
+    return this._dbAccount;
   }
 
   async getAccountPath() {
@@ -67,8 +73,12 @@ export class VaultContext extends VaultContextBase {
     return (await this.getDbAccount()).address;
   }
 
+  _network!: Network;
+
   async getNetwork() {
-    // TODO cache available?
-    return this.engine.getNetwork(this.networkId);
+    if (!this._network || this._network.id !== this.networkId) {
+      this._network = await this.engine.getNetwork(this.networkId);
+    }
+    return this._network;
   }
 }

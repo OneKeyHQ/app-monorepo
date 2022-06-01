@@ -1,5 +1,6 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const dateFns = require('date-fns');
 
 const results = [
   dotenv.config({
@@ -9,6 +10,11 @@ const results = [
     path: path.resolve(__dirname, '../.env.version'),
   }),
 ];
+
+if (process.env.NODE_ENV !== 'production') {
+  process.env.BUILD_NUMBER =
+    process.env.BUILD_NUMBER || `${dateFns.format(Date.now(), 'MMddHHmm')}-dev`;
+}
 
 console.log('----------------------------------------------');
 console.log('process.env.VERSION=', process.env.VERSION);
