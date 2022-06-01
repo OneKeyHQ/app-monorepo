@@ -44,17 +44,19 @@ export type TokenInfoProps = {
   network: INetwork | null | undefined;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { wallet, account } = useActiveWalletAccount();
+  const { wallet, account, network } = useActiveWalletAccount();
   const currencies = useFiatPay(network?.id ?? '');
-
-  let cryptoCurrency = currencies.find(
-    (item) => item.contract === token?.tokenIdOnNetwork,
-  );
+  let cryptoCurrency = currencies.find((item) => {
+    if (!token?.tokenIdOnNetwork) {
+      return item.contract === '';
+    }
+    return item.contract === token?.tokenIdOnNetwork;
+  });
 
   const { prices, balances } = useManageTokens();
   const tokenPrice = useDeepCompareMemo(
