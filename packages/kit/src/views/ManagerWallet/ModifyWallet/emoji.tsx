@@ -34,43 +34,47 @@ type ColorSelecterProps = {
   onPress: (color: string) => void;
 };
 
-const ColorSelecter: FC<ColorSelecterProps> = ({ color, onPress }) => (
-  <Box
-    flexDirection="row"
-    height="40px"
-    justifyContent="space-around"
-    px="24px"
-    marginY="24px"
-  >
-    {colors.map((item) => {
-      const selected = color === item;
-      return (
-        <Pressable
-          key={`color${item}`}
-          onPress={() => {
-            onPress(item);
-          }}
-        >
-          <Center
-            width="40px"
-            height="40px"
-            borderRadius="20px"
-            bgColor={selected ? item : undefined}
+const ColorSelecter = React.memo((props: ColorSelecterProps) => {
+  const { color, onPress } = props;
+  return (
+    <Box
+      flexDirection="row"
+      height="40px"
+      justifyContent="space-around"
+      px="24px"
+      marginY="24px"
+    >
+      {colors.map((item) => {
+        const selected = color === item;
+        return (
+          <Pressable
+            key={`color${item}`}
+            onPress={() => {
+              onPress(item);
+            }}
           >
-            <Box
-              bgColor={item}
-              width={selected ? '36px' : '28px'}
-              height={selected ? '36px' : '28px'}
-              borderRadius={selected ? '18px' : '14px'}
-              borderColor="surface-subdued"
-              borderWidth={selected ? '4px' : '0px'}
-            />
-          </Center>
-        </Pressable>
-      );
-    })}
-  </Box>
-);
+            <Center
+              width="40px"
+              height="40px"
+              borderRadius="20px"
+              bgColor={selected ? item : undefined}
+            >
+              <Box
+                bgColor={item}
+                width={selected ? '36px' : '28px'}
+                height={selected ? '36px' : '28px'}
+                borderRadius={selected ? '18px' : '14px'}
+                borderColor="surface-subdued"
+                borderWidth={selected ? '4px' : '0px'}
+              />
+            </Center>
+          </Pressable>
+        );
+      })}
+    </Box>
+  );
+});
+ColorSelecter.displayName = 'ColorSelecter';
 
 const ModifyWalletEmojiViewModal: FC = () => {
   const navigation = useNavigation();
@@ -85,15 +89,21 @@ const ModifyWalletEmojiViewModal: FC = () => {
   const col = 4;
   const emojis: EmojiTypes[][] = chunk(emojiList, col * 8);
 
-  const dataProvider = new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(
-    emojis,
+  const dataProvider = useMemo(
+    () => new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(emojis),
+    [emojis],
   );
-  const layoutProvider = new LayoutProvider(
-    () => 'emoji',
-    (type, dim) => {
-      dim.width = itemWidth * 8;
-      dim.height = itemHeight * col;
-    },
+
+  const layoutProvider = useMemo(
+    () =>
+      new LayoutProvider(
+        () => 'emoji',
+        (type, dim) => {
+          dim.width = itemWidth * 8;
+          dim.height = itemHeight * col;
+        },
+      ),
+    [itemWidth],
   );
 
   const renderItem = useCallback(
@@ -133,18 +143,6 @@ const ModifyWalletEmojiViewModal: FC = () => {
     [itemWidth],
   );
 
-  const colorSelecter = useMemo(
-    () => (
-      <ColorSelecter
-        color={color}
-        onPress={(selectColor) => {
-          updateColor(selectColor);
-        }}
-      />
-    ),
-    [color],
-  );
-
   return (
     <Modal
       height="562px"
@@ -172,7 +170,12 @@ const ModifyWalletEmojiViewModal: FC = () => {
             size="xl"
           />
         </Box>
-        {colorSelecter}
+        <ColorSelecter
+          color={color}
+          onPress={(selectColor) => {
+            updateColor(selectColor);
+          }}
+        />
         <Box
           flex={1}
           borderTopLeftRadius="24px"
