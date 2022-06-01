@@ -111,7 +111,7 @@ import {
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type BTCVault from './vaults/impl/btc/Vault';
-import type { ITransferInfo, IVaultFactoryOptions } from './vaults/types';
+import type { ITransferInfo } from './vaults/types';
 
 @backgroundClass()
 class Engine {
@@ -539,6 +539,7 @@ class Engine {
       '503': 'cfx--1029',
       '397': 'near--0',
       '0': 'btc--0',
+      '101010': 'stc--1',
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');

@@ -13,6 +13,7 @@ import type {
   IEncodedTxNear,
   INativeTxNear,
 } from './impl/near/types';
+import type { IEncodedTxSTC } from './impl/stc/types';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
@@ -53,7 +54,7 @@ export type IApproveInfo = {
 };
 
 // EncodedTx\RawTx\SignedTx ----------------------------------------------
-export type IEncodedTx = any | IEncodedTxNear | IEncodedTxBtc;
+export type IEncodedTx = any | IEncodedTxNear | IEncodedTxBtc | IEncodedTxSTC;
 export type INativeTx = any | INativeTxNear | INativeTxBtc;
 export type IRawTx = string;
 export type IUnsignedTx = UnsignedTx;

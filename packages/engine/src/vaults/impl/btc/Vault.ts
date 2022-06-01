@@ -355,7 +355,7 @@ export default class Vault extends VaultBase {
       prices,
       defaultPresetIndex: '0',
       symbol: 'sats',
-      decimals: network.feeDecimals, // TODO: UI calculation incorrect?
+      decimals: network.feeDecimals,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx

@@ -28,7 +28,9 @@ export function calculateTotalFeeNative({
   amount: string;
   info: IFeeInfo;
 }) {
-  return new BigNumber(amount).shiftedBy(-1 * (info.decimals ?? 0)).toFixed();
+  return new BigNumber(amount)
+    .shiftedBy((info.decimals ?? 0) - (info.nativeDecimals ?? 0))
+    .toFixed();
 }
 
 function nanToZeroString(value: string | number | unknown) {

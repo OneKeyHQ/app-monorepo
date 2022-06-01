@@ -6,6 +6,7 @@ import {
   IMPL_CFX,
   IMPL_EVM,
   IMPL_NEAR,
+  IMPL_STC,
   SEPERATOR,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
@@ -18,6 +19,8 @@ import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultNear from './impl/near/Vault';
 import VaultHelperNear from './impl/near/VaultHelper';
+import VaultStc from './impl/stc/Vault';
+import VaultHelperStc from './impl/stc/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { KeyringBase } from './keyring/KeyringBase';
@@ -44,6 +47,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_BTC) {
     return new VaultHelperBtc(options);
+  }
+  if (impl === IMPL_STC) {
+    return new VaultHelperStc(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -96,6 +102,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_BTC) {
     vault = new VaultBtc(options);
+  }
+  if (network.impl === IMPL_STC) {
+    vault = new VaultStc(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(
