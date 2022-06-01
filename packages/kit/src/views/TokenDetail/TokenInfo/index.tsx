@@ -138,7 +138,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
-            name="ArrowUpSolid"
+            name="ArrowUpOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
@@ -167,7 +167,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
-            name="ArrowDownSolid"
+            name="ArrowDownOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {

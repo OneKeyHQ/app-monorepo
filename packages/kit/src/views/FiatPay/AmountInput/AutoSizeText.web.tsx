@@ -11,15 +11,16 @@ export const AutoSizeText: FC<{
   const intl = useIntl();
   return (
     <Input
+      flex={1}
       height="112"
       size="xl"
       textAlign="center"
       borderWidth="0"
-      fontSize="42px"
+      fontSize="40px"
       placeholder={intl.formatMessage({ id: 'content__amount' })}
       placeholderTextColor="text-disabled"
-      lineHeight="72px"
-      fontWeight="700"
+      lineHeight="64px"
+      fontWeight="bold"
       bgColor="surface-subdued"
       multiline
       onChangeText={onChangeText}

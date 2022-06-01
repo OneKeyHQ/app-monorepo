@@ -26,6 +26,7 @@ import {
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useDebounce } from '../../../hooks';
 import {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
@@ -60,13 +61,16 @@ export const AmountInput: FC = () => {
   const { token, type } = route.params;
   const { selectedFiatMoneySymbol } = useSettings();
   const provider: Provider = 'moonpay';
-  const fiatCode = getFiatCode(provider, selectedFiatMoneySymbol);
+  const { fiatCode, symbol } = getFiatCode(provider, selectedFiatMoneySymbol);
   const cryptoCode = token.provider.moonpay;
 
   const displayCurrency = type === 'Buy' ? fiatCode : token.symbol;
   const [inputText, updateInputText] = useState('');
   const [descText, updateDescText] = useState<string>('');
+  const debounceValue = useDebounce(inputText, 1000);
+
   const [loading, setLoading] = useState(true);
+  const [forceLoading, updateForceLoading] = useState(true);
   const { account } = useActiveWalletAccount();
 
   const { height } = useWindowDimensions();
@@ -87,27 +91,35 @@ export const AmountInput: FC = () => {
     {
       onSuccess: (response) => {
         if (response) {
-          if (loading) {
-            setLoading(false);
+          if (forceLoading) {
+            updateForceLoading(false);
           }
           if (type === 'Buy') {
             setMinAmount(response.minAmount);
             setMaxAmount(response.maxAmount);
             setFees(response?.fees as number);
+            updateDescText(
+              `${symbol} ${intl.formatMessage(
+                {
+                  id: 'form__buy_int_min_purchase',
+                },
+                { 0: response.minAmount },
+              )}`,
+            );
           } else {
             const balance = Number(token.balance);
             setMinAmount(Math.min(balance, response.minAmount));
             setMaxAmount(Math.min(balance, response.maxAmount));
+            updateDescText(
+              intl.formatMessage(
+                {
+                  id: 'form__sell_min_transaction_amount',
+                },
+                { 0: Math.min(balance, response.minAmount), 1: token.symbol },
+              ),
+            );
           }
           setAskPrice(response.askPrice);
-          updateDescText(
-            intl.formatMessage(
-              {
-                id: 'form__buy_int_min_purchase',
-              },
-              { 0: response.minAmount },
-            ),
-          );
         }
       },
     },
@@ -120,19 +132,19 @@ export const AmountInput: FC = () => {
         if (amount < minAmount) {
           updateDescText(() => {
             if (type === 'Buy') {
-              return intl.formatMessage(
+              return `${symbol} ${intl.formatMessage(
                 {
                   id: 'form__buy_int_min_purchase',
                 },
                 { 0: minAmount },
-              );
+              )}`;
             }
             return `${intl.formatMessage(
               {
                 id: 'form__sell_min_transaction_amount',
               },
-              { 0: minAmount },
-            )} ${token.symbol}`;
+              { 0: minAmount, 1: token.symbol },
+            )}`;
           });
           setAmountVaild(false);
         } else if (amount > maxAmount) {
@@ -149,8 +161,8 @@ export const AmountInput: FC = () => {
               {
                 id: 'form__sell_max_transaction_amount',
               },
-              { 0: maxAmount },
-            )} ${token.symbol}`;
+              { 0: maxAmount, 1: token.symbol },
+            )}`;
           });
           setAmountVaild(false);
         } else {
@@ -166,6 +178,22 @@ export const AmountInput: FC = () => {
           setAmountVaild(true);
         }
       } else {
+        updateDescText(() => {
+          if (type === 'Buy') {
+            return `${symbol} ${intl.formatMessage(
+              {
+                id: 'form__buy_int_min_purchase',
+              },
+              { 0: minAmount },
+            )}`;
+          }
+          return `${intl.formatMessage(
+            {
+              id: 'form__sell_min_transaction_amount',
+            },
+            { 0: minAmount, 1: token.symbol },
+          )}`;
+        });
         setAmountVaild(false);
       }
     },
@@ -175,6 +203,7 @@ export const AmountInput: FC = () => {
       type,
       intl,
       token.symbol,
+      symbol,
       fees,
       askPrice,
       cryptoCurrency?.precision,
@@ -183,19 +212,24 @@ export const AmountInput: FC = () => {
     ],
   );
 
-  const onChangeText = useCallback(
-    (text: string) => {
-      updateInputText((prev) => {
-        let result = text;
-        if (!checkVaild(text)) {
-          result = prev;
-        }
-        checkAmountVaild(result);
-        return result;
-      });
-    },
-    [checkAmountVaild],
-  );
+  setTimeout(() => {
+    if (debounceValue === inputText) {
+      setLoading(false);
+      checkAmountVaild(inputText);
+    } else {
+      setLoading(true);
+    }
+  }, 100);
+
+  const onChangeText = useCallback((text: string) => {
+    updateInputText((prev) => {
+      let result = text;
+      if (!checkVaild(text)) {
+        result = prev;
+      }
+      return result;
+    });
+  }, []);
 
   return (
     <Modal
@@ -208,32 +242,34 @@ export const AmountInput: FC = () => {
       footer={null}
       staticChildrenProps={{
         flex: '1',
-        paddingX: '16px',
+        paddingX: '24px',
         paddingTop: '24px',
         paddingBottom: shortScreen ? '0px' : '24px',
       }}
     >
       <Box flex={1} justifyContent="space-between">
-        <Box flex={1} flexDirection="column" justifyContent="center">
-          <Text
-            height="24px"
-            textAlign="center"
-            typography={{ sm: 'DisplaySmall', md: 'Body1Strong' }}
-            color="text-subdued"
-          >
-            {displayCurrency.toUpperCase()}
-          </Text>
-          <Center flex={1}>
-            <AutoSizeText text={inputText} onChangeText={onChangeText} />
-          </Center>
-          <Box height="24px">
-            {loading ? (
-              <Spinner size="sm" />
-            ) : (
-              <Text typography="DisplaySmall" textAlign="center">
-                {descText}
-              </Text>
-            )}
+        <Box flex={1} justifyContent="center">
+          <Box height="140px" flexDirection="column" justifyContent="center">
+            <Text
+              height="24px"
+              textAlign="center"
+              typography={{ sm: 'DisplaySmall', md: 'Body1Strong' }}
+              color="text-subdued"
+            >
+              {displayCurrency.toUpperCase()}
+            </Text>
+            <Center flex={1}>
+              <AutoSizeText text={inputText} onChangeText={onChangeText} />
+            </Center>
+            <Box height="24px">
+              {loading || forceLoading ? (
+                <Spinner size="sm" />
+              ) : (
+                <Text typography="DisplaySmall" textAlign="center">
+                  {descText}
+                </Text>
+              )}
+            </Box>
           </Box>
         </Box>
 
@@ -260,7 +296,7 @@ export const AmountInput: FC = () => {
               <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
                 MoonPay
               </Text>
-              <Text typography="Body2" color="text-subdued">
+              <Text typography="Body1Strong" color="text-subdued">
                 {intl.formatMessage({ id: 'form__third_party_provider' })}
               </Text>
             </Box>
@@ -272,7 +308,6 @@ export const AmountInput: FC = () => {
               pattern={/^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/}
               onTextChange={(text) => {
                 updateInputText(text);
-                checkAmountVaild(text);
               }}
             />
           ) : null}
