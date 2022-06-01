@@ -11,6 +11,7 @@ import {
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
 import Address from './Address';
+import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
 
 const TxTokenApproveDetail: FC<{
@@ -66,11 +67,7 @@ const TxTokenApproveDetail: FC<{
         {intl.formatMessage({ id: 'content__more_details' })}
       </Typography.Subheading>
       <Container.Box mt={6}>
-        <Container.Item
-          title={intl.formatMessage({ id: 'form__contract_data' })}
-          describe={tx.data}
-          hasArrow
-        />
+        <ContractData tx={tx} />
       </Container.Box>
     </Box>
   );

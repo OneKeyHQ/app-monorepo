@@ -88,14 +88,14 @@ const TxHistoryDetail: FC<{
         {!!swapInfo && (
           <Container.Item
             title={intl.formatMessage({ id: 'action__send' })}
-            describe={`-${swapInfo.buyAmount} ${swapInfo.buyTokenSymbol}`}
+            describe={`-${swapInfo.sellAmount} ${swapInfo.sellTokenSymbol}`}
           />
         )}
 
         {!!swapInfo && (
           <Container.Item
             title={intl.formatMessage({ id: 'action__receive' })}
-            describe={`${swapInfo.sellAmount} ${swapInfo.sellTokenSymbol}`}
+            describe={`${swapInfo.buyAmount} ${swapInfo.buyTokenSymbol}`}
           />
         )}
 
