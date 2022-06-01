@@ -1,0 +1,13 @@
+diff --git a/node_modules/error-polyfill/lib/non-v8/index.js b/node_modules/error-polyfill/lib/non-v8/index.js
+index 015b966..1b6d7e5 100644
+--- a/node_modules/error-polyfill/lib/non-v8/index.js
++++ b/node_modules/error-polyfill/lib/non-v8/index.js
+@@ -5,7 +5,7 @@ var FrameStringSource = require("./FrameStringSource"),
+ 
+ module.exports = function () {
+ 
+-    Error.captureStackTrace = function captureStackTrace(throwable, terminator) {
++    Error.captureStackTrace = Error.captureStackTrace || function captureStackTrace(throwable, terminator) {
+         var warnings;
+         var frameShifts = [
+             captureStackTrace

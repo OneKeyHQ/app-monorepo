@@ -54,3 +54,8 @@ if (platformEnv.isNativeAndroid) {
   shimConsoleLog('warn');
   shimConsoleLog('error');
 }
+
+if (platformEnv.isNativeIOS) {
+  // typeforce causes iOS to crash.
+  Error.captureStackTrace = () => {};
+}
