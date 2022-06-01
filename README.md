@@ -88,11 +88,11 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
 ## 💬 Docs in your languages
 | Available Languages               |
 | :--------------------------- |
-| [Simplified Chinese / 简体中文](docs-i18n/README.zh-cn.md)|
-| [German / Deutsch](docs-i18n/README.de.md)|
-| [Japanese / 日本語](docs-i18n/README.jp.md)|
-| [French / Français](docs-i18n/README.fr.md)|
-| [Italian / Italiano](docs-i18n/README.it.md)|
+| [Simplified Chinese / 简体中文](docs/i18n/README.zh-cn.md)|
+| [German / Deutsch](docs/i18n/README.de.md)|
+| [Japanese / 日本語](docs/i18n/README.jp.md)|
+| [French / Français](docs/i18n/README.fr.md)|
+| [Italian / Italiano](docs/i18n/README.it.md)|
 
 ## 🔰 Security
 
