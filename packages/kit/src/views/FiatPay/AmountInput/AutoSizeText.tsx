@@ -1,6 +1,5 @@
 import React, { FC } from 'react';
 
-import { useIntl } from 'react-intl';
 import {
   AutoSizeText as ASText,
   ResizeTextMode,
@@ -14,16 +13,16 @@ export const AutoSizeText: FC<{
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }> = ({ text, onChangeText }) => {
   const { themeVariant } = useTheme();
-  const intl = useIntl();
-  const innerText =
-    text.length === 0 ? intl.formatMessage({ id: 'content__amount' }) : text;
+  const innerText = text.length === 0 ? '0' : text;
   if (text.length > 0) {
     return (
       <ASText
         style={{
           color: themeVariant === 'dark' ? '#E2E2E8' : '#1F1F38',
+          fontWeight: 'bold',
         }}
         fontSize={64}
+        minimumFontScale={0.375}
         numberOfLines={1}
         mode={ResizeTextMode.max_lines}
       >
@@ -32,7 +31,7 @@ export const AutoSizeText: FC<{
     );
   }
   return (
-    <Text fontSize={64} lineHeight={72} fontWeight="700" color="text-disabled">
+    <Text fontSize={64} lineHeight={64} fontWeight="bold" color="text-disabled">
       {innerText}
     </Text>
   );

@@ -151,7 +151,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowUpSolid"
+          name="ArrowUpOutline"
           type="basic"
           isDisabled={
             wallet?.type === 'watching' ||
@@ -186,7 +186,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowDownSolid"
+          name="ArrowDownOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {

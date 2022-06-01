@@ -13,6 +13,7 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
+import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -89,21 +90,40 @@ export default class Vault extends VaultBase {
     },
   });
 
+  _createNearCli = memoizee(
+    async (rpcUrl: string, networkId: string) => {
+      // TODO add timeout params
+      // TODO replace in ProviderController.getClient()
+      const nearCli = new NearCli(`${rpcUrl}`);
+      const chainInfo =
+        await this.engine.providerManager.getChainInfoByNetworkId(networkId);
+      // TODO move to base, setChainInfo like what ProviderController.getClient() do
+      nearCli.setChainInfo(chainInfo);
+      // nearCli.rpc.timeout = 60 * 1000;
+
+      return nearCli;
+    },
+    {
+      promise: true,
+      primitive: true,
+      normalizer(
+        args: Parameters<
+          (rpcUrl: string, networkId: string) => Promise<NearCli>
+        >,
+      ): string {
+        return `${args[0]}:${args[1]}`;
+      },
+      max: 1,
+      maxAge: 1000 * 60 * 15,
+    },
+  );
+
   // TODO rename to prop get client();
   async _getNearCli(): Promise<NearCli> {
     const nearCli2 = await (this.engineProvider as NearProvider).nearCli;
 
     const { rpcURL } = await this.getNetwork();
-    // TODO add timeout params
-    // TODO cache by rpcURL
-    // TODO replace in ProviderController.getClient()
-    const nearCli = new NearCli(`${rpcURL}`);
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
-    );
-    // TODO move to base, setChainInfo like what ProviderController.getClient() do
-    nearCli.setChainInfo(chainInfo);
-    // nearCli.rpc.timeout = 60 * 1000;
+    const nearCli = await this._createNearCli(rpcURL, this.networkId);
     return nearCli;
   }
 
@@ -511,20 +531,40 @@ export default class Vault extends VaultBase {
     );
   }
 
-  // TODO cache
-  async isStorageBalanceAvailable({
-    address,
-    tokenAddress,
-  }: {
-    tokenAddress: string;
-    address: string;
-  }) {
-    const storageBalance = await this.fetchAccountStorageBalance({
+  isStorageBalanceAvailable = memoizee(
+    async ({
       address,
       tokenAddress,
-    });
-    return storageBalance?.total !== undefined;
-  }
+    }: {
+      tokenAddress: string;
+      address: string;
+    }) => {
+      const storageBalance = await this.fetchAccountStorageBalance({
+        address,
+        tokenAddress,
+      });
+      return storageBalance?.total !== undefined;
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 30,
+      normalizer(
+        args: Parameters<
+          ({
+            address,
+            tokenAddress,
+          }: {
+            tokenAddress: string;
+            address: string;
+          }) => Promise<boolean>
+        >,
+      ): string {
+        return JSON.stringify(args);
+      },
+    },
+  );
 
   async fetchAccountStorageBalance({
     address,

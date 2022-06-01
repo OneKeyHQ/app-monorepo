@@ -13,7 +13,7 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "expo": "^45.0.0",
+    "expo": "^45.0.4",
     "react-native-web": "0.17.7"
   },
   "private": true
