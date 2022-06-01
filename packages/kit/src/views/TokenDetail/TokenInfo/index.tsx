@@ -133,12 +133,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
 
   const accountOption = useMemo(
     () => (
-      <Box
-        flexDirection="row"
-        justifyContent="space-around"
-        alignItems="center"
-      >
-        <Box paddingX={isVertical ? '21px' : '19px'}>
+      <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
+        <Box flex={1} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
@@ -157,11 +153,17 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               });
             }}
           />
-          <Typography.CaptionStrong textAlign="center" mt="8px">
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+            }
+          >
             {intl.formatMessage({ id: 'action__send' })}
           </Typography.CaptionStrong>
         </Box>
-        <Box paddingX={isVertical ? '21px' : '19px'}>
+        <Box flex={1} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
@@ -183,66 +185,83 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, network }) => {
               });
             }}
           />
-          <Typography.CaptionStrong textAlign="center" mt="8px">
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+            }
+          >
             {intl.formatMessage({ id: 'action__receive' })}
           </Typography.CaptionStrong>
         </Box>
 
-        <Box
-          paddingX={isVertical ? '21px' : '19px'}
-          display={cryptoCurrency ? 'flex' : 'none'}
-        >
-          <IconButton
-            circle
-            size={isVertical ? 'xl' : 'lg'}
-            name="TagOutline"
-            type="basic"
-            isDisabled={wallet?.type === 'watching'}
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.FiatPay,
-                params: {
-                  screen: FiatPayRoutes.AmoutInputModal,
+        {cryptoCurrency && (
+          <Box flex={1} mx={3} minW="56px" alignItems="center">
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="TagOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
                   params: {
-                    token: cryptoCurrency as CurrencyType,
-                    type: 'Buy',
+                    screen: FiatPayRoutes.AmoutInputModal,
+                    params: {
+                      token: cryptoCurrency as CurrencyType,
+                      type: 'Buy',
+                    },
                   },
-                },
-              });
-            }}
-          />
-          <Typography.CaptionStrong textAlign="center" mt="8px">
-            {intl.formatMessage({ id: 'action__buy' })}
-          </Typography.CaptionStrong>
-        </Box>
+                });
+              }}
+            />
+            <Typography.CaptionStrong
+              textAlign="center"
+              mt="8px"
+              color={
+                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+              }
+            >
+              {intl.formatMessage({ id: 'action__buy' })}
+            </Typography.CaptionStrong>
+          </Box>
+        )}
 
-        <Box
-          paddingX={isVertical ? '21px' : '19px'}
-          display={sellEnable ? 'flex' : 'none'}
-        >
-          <IconButton
-            circle
-            size={isVertical ? 'xl' : 'lg'}
-            name="CashOutline"
-            type="basic"
-            isDisabled={wallet?.type === 'watching'}
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.FiatPay,
-                params: {
-                  screen: FiatPayRoutes.AmoutInputModal,
+        {sellEnable && (
+          <Box flex={1} mx={3} minW="56px" alignItems="center">
+            <IconButton
+              circle
+              size={isVertical ? 'xl' : 'lg'}
+              name="CashOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching'}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.FiatPay,
                   params: {
-                    token: cryptoCurrency as CurrencyType,
-                    type: 'Sell',
+                    screen: FiatPayRoutes.AmoutInputModal,
+                    params: {
+                      token: cryptoCurrency as CurrencyType,
+                      type: 'Sell',
+                    },
                   },
-                },
-              });
-            }}
-          />
-          <Typography.CaptionStrong textAlign="center" mt="8px">
-            {intl.formatMessage({ id: 'action__sell' })}
-          </Typography.CaptionStrong>
-        </Box>
+                });
+              }}
+            />
+            <Typography.CaptionStrong
+              textAlign="center"
+              mt="8px"
+              color={
+                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+              }
+            >
+              {intl.formatMessage({ id: 'action__sell' })}
+            </Typography.CaptionStrong>
+          </Box>
+        )}
+
         {platformEnv.isExtensionUiPopup && platformEnv.isDev && (
           <IconButton
             onPress={() => {
