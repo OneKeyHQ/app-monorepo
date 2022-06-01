@@ -28,7 +28,7 @@ if (typeof Buffer === 'undefined') global.Buffer = require('buffer').Buffer;
 // Crypto polyfill
 if (typeof crypto === 'undefined') global.crypto = require('crypto');
 
-if (platformEnv.isAndroid) {
+if (platformEnv.isNativeAndroid) {
   const consoleLog = console.log;
   const shimConsoleLog = (method) => {
     const originMethod = console[method];
