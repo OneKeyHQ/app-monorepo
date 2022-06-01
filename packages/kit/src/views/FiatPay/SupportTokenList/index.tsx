@@ -130,6 +130,7 @@ export const SupportTokenList: FC = () => {
         justifyContent="space-between"
         alignItems="center"
         padding="16px"
+        shadow="depth.2"
         onPress={() => {
           navigation.navigate(FiatPayRoutes.AmoutInputModal, {
             token: item,

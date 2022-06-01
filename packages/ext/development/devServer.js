@@ -2,6 +2,7 @@
 process.env.BABEL_ENV = 'development';
 process.env.NODE_ENV = 'development';
 process.env.ASSET_PATH = '/';
+process.env.TRANSFORM_REGENERATOR_DISABLED = 'true';
 
 const WebpackDevServer = require('webpack-dev-server');
 const webpack = require('webpack');
