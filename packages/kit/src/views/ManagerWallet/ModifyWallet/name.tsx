@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import {
   Button,
   Center,
   Form,
+  Icon,
   KeyboardDismissView,
   Modal,
   Pressable,
@@ -16,15 +17,18 @@ import {
   useForm,
   useToast,
 } from '@onekeyhq/components';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
+
+import { Avatar, defaultAvatar } from '../../../utils/emojiUtils';
 
 type FieldValues = { name: string };
 
@@ -36,30 +40,25 @@ type RouteProps = RouteProp<
 const ModifyWalletNameViewModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
-
   const navigation = useNavigation();
-  const { engine, dispatch } = backgroundApiProxy;
-
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [wallet, setWallet] = useState<Wallet>();
-  const [isLoading, setIsLoading] = React.useState(false);
-
   const { walletId } = useRoute<RouteProps>().params;
-
-  useEffect(() => {
-    engine.getWallets().then(($wallets) => {
-      setWallets($wallets);
-      setWallet($wallets.find((w) => w.id === walletId));
-    });
-  }, [engine, walletId]);
-
+  const { engine, dispatch } = backgroundApiProxy;
+  const { wallets } = useRuntime();
+  const wallet = wallets.find((w) => w.id === walletId) ?? null;
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [editAvatar, updateAvatar] = useState<Avatar>(
+    wallet?.avatar ?? defaultAvatar,
+  );
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { name: '' },
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     setIsLoading(true);
+    const editName = values.name === '' ? wallet?.name : values.name;
     // 判断名字重复
-    const existsName = wallets.find((w) => w.name === values.name);
+    const existsName = wallets.find(
+      (w) => w.name === editName && w.name !== wallet?.name,
+    );
     if (existsName) {
       setError('name', {
         message: intl.formatMessage({
@@ -70,13 +69,12 @@ const ModifyWalletNameViewModal: FC = () => {
       return;
     }
     const changedWallet = await engine.setWalletNameAndAvatar(walletId, {
-      name: values.name,
+      name: editName,
+      avatar: editAvatar,
     });
     if (changedWallet) {
       dispatch(updateWallet(changedWallet));
-
       setTimeout(() => dispatch(setRefreshTS()));
-
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();
     } else {
@@ -90,7 +88,22 @@ const ModifyWalletNameViewModal: FC = () => {
   const ImageView = useMemo(
     () => (
       <Center>
-        <Pressable>
+        <Pressable
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManagerWallet,
+              params: {
+                screen: ManagerWalletModalRoutes.ManagerWalletModifyEmojiModal,
+                params: {
+                  avatar: editAvatar,
+                  onDone: (avatar) => {
+                    updateAvatar(() => avatar);
+                  },
+                },
+              },
+            });
+          }}
+        >
           <ZStack width="68px" height="68px">
             <Box
               width="full"
@@ -98,18 +111,9 @@ const ModifyWalletNameViewModal: FC = () => {
               justifyContent="center"
               alignItems="center"
             >
-              <WalletAvatar
-                avatar={wallet?.avatar}
-                walletImage="hd"
-                size="xl"
-              />
-              {/* <Image
-                src="https://i.pinimg.com/236x/4e/80/3b/4e803ba3e1dc26104ad9917f301a04c6.jpg"
-                width="56px"
-                height="56px"
-              /> */}
+              <WalletAvatar avatar={editAvatar} walletImage="hd" size="xl" />
             </Box>
-            {/* <Box
+            <Box
               width="full"
               height="full"
               justifyContent="flex-end"
@@ -124,12 +128,12 @@ const ModifyWalletNameViewModal: FC = () => {
               >
                 <Icon name="PencilSolid" size={16} />
               </Box>
-            </Box> */}
+            </Box>
           </ZStack>
         </Pressable>
       </Center>
     ),
-    [wallet],
+    [editAvatar, navigation],
   );
 
   return (
@@ -145,7 +149,6 @@ const ModifyWalletNameViewModal: FC = () => {
             defaultValue=""
             control={control}
             rules={{
-              required: intl.formatMessage({ id: 'form__field_is_required' }),
               maxLength: {
                 value: 24,
                 message: intl.formatMessage(
