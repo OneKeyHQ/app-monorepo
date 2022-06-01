@@ -619,7 +619,7 @@ class Engine {
       .map((index) => start + index)
       .filter((i) => i < 2 ** 31);
 
-    const vault = await this.getVault({ networkId, walletId, accountId: '' });
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
     const accounts = await vault.keyring.prepareAccounts({
       type: 'SEARCH_ACCOUNTS',
       password,
@@ -699,7 +699,7 @@ class Engine {
       );
     }
 
-    const vault = await this.getVault({ networkId, walletId, accountId: '' });
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
     const accounts = await vault.keyring.prepareAccounts({
       type: 'ADD_ACCOUNTS',
       password,
@@ -1329,7 +1329,7 @@ class Engine {
     return ret as Array<EIP1559Fee>;
   }
 
-  async getVault(options: IVaultFactoryOptions) {
+  async getVault(options: { networkId: string; accountId: string }) {
     return this.vaultFactory.getVault(options);
   }
 
