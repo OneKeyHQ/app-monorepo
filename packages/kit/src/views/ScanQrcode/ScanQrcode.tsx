@@ -75,6 +75,7 @@ const ScanQrcode: FC = () => {
   );
 
   const pickImage = useCallback(async () => {
+    setHaptics();
     const result = await ImagePicker.launchImageLibraryAsync({
       base64: isWeb,
       allowsMultipleSelection: false,
