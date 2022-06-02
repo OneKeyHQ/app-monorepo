@@ -24,6 +24,8 @@ import {
 import { openUrl, openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { RouteProp, useRoute } from '@react-navigation/core';
+
 import Home from '../Home';
 
 import Desktop from './Content/Desktop';
@@ -33,6 +35,7 @@ import MoreMenuView from './MoreMenu';
 import { useWebviewRef } from './useWebviewRef';
 
 import type { MatchDAppItemType } from './Search/useSearchHistories';
+import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 
 type WebSiteType = {
   url?: string;
@@ -69,9 +72,12 @@ let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 // 空白页面 URL
 const BrowserPage = 'about:blank';
 
+type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
+  const route = useRoute<DiscoverRouteProp>();
+  const { incomingUrl } = route.params || {};
   const { dispatch } = backgroundApiProxy;
   const discover = useAppSelector((s) => s.discover);
 
@@ -106,6 +112,12 @@ const Explorer: FC = () => {
   const [refreshKey, setRefreshKey] = useState<string>();
 
   const isSmallLayout = useIsSmallLayout();
+
+  useEffect(() => {
+    if (incomingUrl) {
+      gotoUrl(incomingUrl);
+    }
+  }, [incomingUrl]);
 
   useEffect(() => {
     if (platformEnv.isNative || platformEnv.isDesktop) {
