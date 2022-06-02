@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { useDeepCompareMemo } from 'use-deep-compare';
@@ -24,8 +25,7 @@ import {
 import { openUrl, openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
-
+import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 import Home from '../Home';
 
 import Desktop from './Content/Desktop';
@@ -35,7 +35,6 @@ import MoreMenuView from './MoreMenu';
 import { useWebviewRef } from './useWebviewRef';
 
 import type { MatchDAppItemType } from './Search/useSearchHistories';
-import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 
 type WebSiteType = {
   url?: string;
@@ -112,12 +111,6 @@ const Explorer: FC = () => {
   const [refreshKey, setRefreshKey] = useState<string>();
 
   const isSmallLayout = useIsSmallLayout();
-
-  useEffect(() => {
-    if (incomingUrl) {
-      gotoUrl(incomingUrl);
-    }
-  }, [incomingUrl]);
 
   useEffect(() => {
     if (platformEnv.isNative || platformEnv.isDesktop) {
@@ -248,6 +241,13 @@ const Explorer: FC = () => {
     }
     return false;
   };
+
+  useEffect(() => {
+    if (incomingUrl) {
+      gotoUrl(incomingUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingUrl]);
 
   useEffect(() => {
     let content: string;

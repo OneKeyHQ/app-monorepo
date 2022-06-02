@@ -23,12 +23,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
 import { setHaptics } from '../../hooks/setHaptics';
 import useNavigation from '../../hooks/useNavigation';
+import { handleScanResult } from '../../utils/gotoScanQrcode';
 
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
-import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
-import { handleScanResult } from '../../utils/gotoScanQrcode';
+import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
 
 const { isWeb, isNative: isApp } = platformEnv;
 
@@ -83,7 +83,7 @@ const ScanQrcode: FC = () => {
 
     if (!result.cancelled) {
       const data = await scanFromURLAsync(result.uri);
-      data && handleBarCodeScanned(data);
+      if (data) handleBarCodeScanned(data);
     }
   }, [handleBarCodeScanned]);
 

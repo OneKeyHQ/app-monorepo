@@ -111,7 +111,7 @@ import {
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type BTCVault from './vaults/impl/btc/Vault';
-import type { ITransferInfo, IVaultFactoryOptions } from './vaults/types';
+import type { ITransferInfo } from './vaults/types';
 
 @backgroundClass()
 class Engine {

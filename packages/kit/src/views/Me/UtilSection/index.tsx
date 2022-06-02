@@ -10,12 +10,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { useNavigation } from '../../../hooks';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 
 export const UtilSection = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
   const small = useIsVerticalLayout();
   return (
     <Box

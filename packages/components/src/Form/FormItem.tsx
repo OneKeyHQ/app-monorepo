@@ -6,6 +6,9 @@ import React, {
 } from 'react';
 
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
+
+import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
+
 import Box from '../Box';
 import FormControl from '../FormControl';
 import IconButton from '../IconButton';
@@ -15,7 +18,6 @@ import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';
 
 import { FormErrorMessage } from './FormErrorMessage';
-import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
 
 type InternalActionList = 'paste' | 'scan';
 
