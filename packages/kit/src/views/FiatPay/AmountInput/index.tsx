@@ -129,7 +129,7 @@ export const AmountInput: FC = () => {
     (text: string) => {
       if (text.length > 0) {
         const amount = Number(text);
-        if (amount < minAmount) {
+        if (amount < minAmount || amount === 0) {
           updateDescText(() => {
             if (type === 'Buy') {
               return `${symbol} ${intl.formatMessage(
@@ -331,6 +331,8 @@ export const AmountInput: FC = () => {
                     });
 
               const signedUrl = await signMoonpayUrl(url);
+              console.log('signedUrl = ', signedUrl);
+
               navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
                 url: signedUrl,
               });

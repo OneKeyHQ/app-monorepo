@@ -87,9 +87,11 @@ jobs:
         env:
           OPENSEA_KEY: ${{ secrets.OPENSEA_KEY }}
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+          MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
         run: |
           echo "OPENSEA_KEY=${{ env.OPENSEA_KEY }}" >> .env
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
+          echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
 
       - name: Setup Code Signing file
         run: |

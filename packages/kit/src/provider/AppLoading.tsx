@@ -7,7 +7,6 @@ import useSWR from 'swr';
 import { Box, Center, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import store from '@onekeyhq/kit/src/store';
 import { UICallback } from '@onekeyhq/kit/src/utils/device/deviceConnection';
 
@@ -15,7 +14,6 @@ import { fetchCurrencies } from '../views/FiatPay/Service';
 
 const AppLoading: FC = ({ children }) => {
   const [appIsReady, setAppIsReady] = useState(false);
-  const { enable: devModeEnable } = useSettings().devMode || {};
 
   const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
@@ -23,11 +21,7 @@ const AppLoading: FC = ({ children }) => {
     refreshInterval: 1 * 60 * 1000,
   });
 
-  useSWR('currencies', () => {
-    if (devModeEnable) {
-      fetchCurrencies();
-    }
-  });
+  useSWR('currencies', () => fetchCurrencies());
 
   const showSplashScreen = async () => {
     try {

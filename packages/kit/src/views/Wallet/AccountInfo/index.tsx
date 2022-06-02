@@ -216,14 +216,13 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      {(wallet?.type !== 'watching' || account || currencies.length !== 0) && (
+      {wallet?.type !== 'watching' && account && currencies.length !== 0 && (
         <Box flex={1} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle
             size={isSmallView ? 'xl' : 'lg'}
             name="TagOutline"
             type="basic"
-            isDisabled={wallet?.type === 'watching' || !account}
             onPress={() => {
               if (!account) return;
               navigation.navigate(RootRoutes.Modal, {
@@ -240,11 +239,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           <Typography.CaptionStrong
             textAlign="center"
             mt="8px"
-            color={
-              wallet?.type === 'watching' || !account
-                ? 'text-disabled'
-                : 'text-default'
-            }
+            color="text-default"
           >
             {intl.formatMessage({ id: 'action__buy' })}
           </Typography.CaptionStrong>
