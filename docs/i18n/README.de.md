@@ -4,6 +4,8 @@
 1. installieren Sie [node.js LTS Version (>= 16)](https://nodejs.org/en/)
 2. Installieren Sie das [yarn package management tool](https://yarnpkg.com/)
 3. installieren Sie [git lfs](https://git-lfs.github.com/) (erforderlich für das Ziehen und Aktualisieren einiger Binärdateien)
+4. Stellen Sie zum Starten des iOS-Projekts sicher, dass die lokale XCode-Version größer oder gleich 13.3 ist
+5. Um das Android-Projekt zu starten, stellen Sie sicher, dass die lokale JDK-Version größer oder gleich 11 ist
 
 Nachdem Sie den neuesten Code über das Git-Kommandozeilen-Tool geholt haben, installieren Sie die Projektabhängigkeiten im Hauptverzeichnis mit dem Befehl ``yarn``
 
@@ -25,6 +27,7 @@ Entwickeln Sie verschiedene Geschäftscodes, indem Sie die folgenden Befehle im 
 - yarn ios": Debugging-Entwicklung auf iphone-Geräten über USB-Verbindung
 - yarn android": Fehlersuche für Android
 - yarn desktop": Entwicklung im Desktop-Modus
+- `yarn ext`: Entwicklung von Browser-Plugins
 
 ### Android-Projektkonfiguration
 
@@ -44,9 +47,9 @@ Die Repositories sind nach dem Monorepo-Modell organisiert, um den Code auf vers
 - Pakete/Komponenten" für UI-Komponenten
 - packages/kit" enthält wiederverwendbare UI-Inhalte auf Seitenebene
 - packages/app` APP-Code
-- Pakete/Desktop" Desktop-Elektronencode
-- Pakete/Web" Webseitiger Code
-- Packages/Erweiterung" Plugin-seitiger Code
+- Pakete/desktop" Desktop-Elektronencode
+- Pakete/web" Webseitiger Code
+- Packages/ext" Plugin-seitiger Code
 
 ## 🧲 Abhängigkeiten installieren
 
@@ -58,6 +61,10 @@ Einige der Abhängigkeiten haben native Teile, daher müssen Sie in das Verzeich
 
 ## 😷 Häufig gestellte Fragen
 
-1. die App startet nicht
+1. Die App kann nicht gestartet werden und verschiedene Umgebungsstartprobleme
 
-Löschen Sie den Cache des Paketierungswerkzeugs mit dem Befehl `--reset-cache` in `yarn native` im Stammverzeichnis. Verwenden Sie auch den Befehl `-yarn clean` im Hauptverzeichnis, um alle Abhängigkeiten und erzeugten Dateien zu löschen und führen Sie dann `-yarn` erneut aus, um die Abhängigkeiten zu installieren.
+Bei allen Umgebungs-, Modul- und Abhängigkeitsproblemen in der Startphase wird empfohlen, zuerst den Befehl "yarn clean" im Stammverzeichnis zu verwenden. Der Befehl löscht alle untergeordneten Abhängigkeiten sowie den Modul-Cache von Garn, den Cache von Tools wie Metro / Babel und startet dann das Projekt neu, um es zu versuchen.
+
+2. Während der Installation von Abhängigkeiten oder beim Hinzufügen neuer Abhängigkeiten zeigt Garn **Fehler an. Ein unerwarteter Fehler ist aufgetreten: "expected workspace package to exist for**
+
+Siehe https://github.com/yarnpkg/yarn/issues/7807, setzen Sie die aktuelle Garnversion der Umgebung auf 1.18.0 durch den Befehl „yarn policies set-version 1.18.0“.
