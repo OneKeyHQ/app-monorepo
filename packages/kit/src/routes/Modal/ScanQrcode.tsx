@@ -1,9 +1,9 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import PreviewSend from '@onekeyhq/kit/src/views/ScanQrcode/PreviewSend';
 import ScanQrcode from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcode';
 import ScanQrcodeResult from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcodeResult';
-import SelectChainToSend from '@onekeyhq/kit/src/views/ScanQrcode/SelectChainToSend';
 import {
   ScanQrcodeRoutes,
   ScanQrcodeRoutesParams,
@@ -21,8 +21,8 @@ const modalRoutes = [
   { name: ScanQrcodeRoutes.ScanQrcodeResult, component: ScanQrcodeResult },
 
   {
-    name: ScanQrcodeRoutes.SelectChainToSend,
-    component: SelectChainToSend,
+    name: ScanQrcodeRoutes.PreviewSend,
+    component: PreviewSend,
   },
 ];
 

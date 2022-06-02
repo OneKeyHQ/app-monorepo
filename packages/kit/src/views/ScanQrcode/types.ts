@@ -12,7 +12,7 @@ export interface ScanResult {
 export enum ScanQrcodeRoutes {
   ScanQrcode = 'ScanQrcode',
   ScanQrcodeResult = 'ScanQrcodeResult',
-  SelectChainToSend = 'SelectChainToSend',
+  PreviewSend = 'PreviewSend',
 }
 export type ScanQrcodeRoutesParams = {
   [ScanQrcodeRoutes.ScanQrcode]:
@@ -21,7 +21,7 @@ export type ScanQrcodeRoutesParams = {
         onScanCompleted: (data: string) => void;
       };
   [ScanQrcodeRoutes.ScanQrcodeResult]: ScanResult;
-  [ScanQrcodeRoutes.SelectChainToSend]: {
+  [ScanQrcodeRoutes.PreviewSend]: {
     address: string;
     possibleNetworks?: string[];
   };

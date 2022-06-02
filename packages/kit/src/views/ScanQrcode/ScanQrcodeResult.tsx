@@ -64,9 +64,9 @@ type ScanQrcodeResultRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
   ScanQrcodeRoutes.ScanQrcodeResult
 >;
-type SelectChainToSendNavProp = NavigationProp<
+type PreviewSendNavProp = NavigationProp<
   ScanQrcodeRoutesParams,
-  ScanQrcodeRoutes.SelectChainToSend
+  ScanQrcodeRoutes.PreviewSend
 >;
 type RootModalNavProps = ModalScreenProps<CreateWalletRoutesParams>;
 const ScanQrcodeResult: FC = () => {
@@ -86,8 +86,8 @@ const ScanQrcodeResult: FC = () => {
           {...pressableProps}
           borderBottomRadius={0}
           onPress={() => {
-            (navigation as any as SelectChainToSendNavProp).navigate(
-              ScanQrcodeRoutes.SelectChainToSend,
+            (navigation as any as PreviewSendNavProp).navigate(
+              ScanQrcodeRoutes.PreviewSend,
               {
                 address: data,
                 possibleNetworks,
