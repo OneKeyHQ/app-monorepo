@@ -136,8 +136,8 @@ const ScanQrcode: FC = () => {
         >
           <SvgScanArea
             style={{ position: 'absolute' }}
-            width={144}
-            height={144}
+            width="256px"
+            height="256px"
           />
         </ScanCamera>
       </Modal>
