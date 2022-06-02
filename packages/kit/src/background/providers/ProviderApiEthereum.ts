@@ -331,13 +331,6 @@ class ProviderApiEthereum extends ProviderApiBase {
   personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     const message = messages[0] as string;
 
-    // TODO utf8 text display in UI
-    // TODO remove convert hex to utf8 test
-    // if (message.startsWith('0x')) {
-    //   const buffer = Buffer.from(message.substr(2), 'hex');
-    //   message = buffer.toString('utf8');
-    // }
-
     console.log('personal_sign', message, messages, req);
     return this.showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
