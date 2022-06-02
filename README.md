@@ -96,7 +96,7 @@ Clear the packaging tool cache with the `--reset-cache` command in `yarn native`
 
 ## 🔰 Security
 
-- Please read [Bug Bunty Rules](https://github.com/OneKeyHQ/app-monorepo/docs/BUG_RULES.md), we have detailed the exact plan in this article.
+- Please read [Bug Bunty Rules](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/docs/BUG_RULES.md), we have detailed the exact plan in this article.
 - Please report suspected security vulnerabilities in private to dev@onekey.so
 - Please do NOT create publicly viewable issues for suspected security vulnerabilities.
 - As an open source project, although we are not yet profitable, we try to give some rewards to white hat hackers who disclose vulnerabilities to us in a timely manner.

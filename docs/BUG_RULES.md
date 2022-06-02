@@ -28,7 +28,7 @@ All bugs reported must be done through the creation of an issue in the OneKey gi
 
 Unless there is a specific reason for a private disclosure, bugs should be submitted as issues on the OneKey GitHub repository, and tagged with the 'bug' label.
 
-It is requested that all submissions follow the format defined in the [issue template](https://github.com/OneKeyHQ/app-monorepo/docs/ISSUE_TEMPLATE.md) -- clarity of description and thoroughness of documentation will be a consideration for reward amount, in addition to impact and likelihood.
+It is requested that all submissions follow the format defined in the [issue template](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/docs/ISSUE_TEMPLATE.md) -- clarity of description and thoroughness of documentation will be a consideration for reward amount, in addition to impact and likelihood.
 
 In the case of private bug disclosure, all relevant materials should be sent in email to `dev@onekey.so` -- and should follow the same template as a public issue.
 
