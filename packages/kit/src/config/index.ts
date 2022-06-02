@@ -6,3 +6,4 @@ export const MAX_PAGE_CONTAINER_WIDTH = 768;
  */
 export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 export const OPENSEA_API_KEY = process.env.OPENSEA_KEY!;
+export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;

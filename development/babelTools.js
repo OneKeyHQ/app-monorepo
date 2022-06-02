@@ -73,6 +73,7 @@ function normalizeConfig({ platform, config }) {
           'ANDROID_CHANNEL',
           'OPENSEA_KEY',
           'COVALENT_KEY',
+          'MOONPAY_KEY',
         ],
       },
     ],

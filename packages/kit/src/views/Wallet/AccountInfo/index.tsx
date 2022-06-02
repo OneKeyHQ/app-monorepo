@@ -216,11 +216,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      {!(
-        wallet?.type === 'watching' ||
-        !account ||
-        currencies.length === 0
-      ) && (
+      {wallet?.type !== 'watching' && account && currencies.length !== 0 && (
         <Box flex={1} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle

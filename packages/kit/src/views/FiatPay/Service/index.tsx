@@ -10,13 +10,13 @@ import {
   MoonpayListType,
 } from '../types';
 
-const moonpayHost = 'https://api.moonpay.com';
-const isTestMode = false;
-const moonpayApiKey = isTestMode
-  ? 'pk_test_Zi6NCCoN2Bp1DaRUQ4P4pKi9b2VEkTp'
-  : 'pk_live_rCU1d5XwCy4RxKJfmW6mX2r6vkzKgUZs';
+import { MoonpayModeData } from './types';
 
-export const currenciesListUri = `${moonpayHost}/v3/currencies?apiKey=${moonpayApiKey}`;
+const moonpayHost = 'https://api.moonpay.com';
+
+export const currenciesListUri = `${moonpayHost}/v3/currencies?apiKey=${
+  MoonpayModeData().moonpayApiKey
+}`;
 
 type AskPricePayload = Record<string, Record<string, number>>;
 
@@ -25,6 +25,7 @@ export const askPrice = async (params: {
   fiatCurrencies: string;
 }) => {
   const urlParams = new URLSearchParams(params);
+  const { moonpayApiKey } = MoonpayModeData();
   const url = `${moonpayHost}/v3/currencies/ask_price?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
   return axios.get<AskPricePayload>(url);
 };
@@ -34,6 +35,7 @@ export const buyQuoteUri = (
   baseCurrencyCode: string,
   baseCurrencyAmount: number,
 ) => {
+  const { moonpayApiKey } = MoonpayModeData();
   const url = `${moonpayHost}/v3/currencies/${code}/buy_quote/?apiKey=${moonpayApiKey}&baseCurrencyCode=${baseCurrencyCode}&baseCurrencyAmount=${baseCurrencyAmount}`;
   return axios.get<MoonPayBuyQuotePayload>(url);
 };
@@ -45,9 +47,8 @@ export const buyWidgetUrl = (params: {
   baseCurrencyAmount: string; // 法币金额
 }) => {
   const urlParams = new URLSearchParams(params);
-  return `https://buy${
-    isTestMode ? '-sandbox' : ''
-  }.moonpay.com?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
+  const { moonpayApiKey, buyWidgetHostUrl } = MoonpayModeData();
+  return `${buyWidgetHostUrl}?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
 };
 
 export const sellWidgetUrl = (params: {
@@ -55,9 +56,8 @@ export const sellWidgetUrl = (params: {
   baseCurrencyAmount: string; // 要出售的数量
 }) => {
   const urlParams = new URLSearchParams(params);
-  return `https://sell${
-    isTestMode ? '-sandbox' : ''
-  }.moonpay.com?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
+  const { moonpayApiKey, sellWidgetHostUrl } = MoonpayModeData();
+  return `${sellWidgetHostUrl}?apiKey=${moonpayApiKey}&${urlParams.toString()}`;
 };
 
 export const fetchCurrencies = async () => {
@@ -136,7 +136,7 @@ export const getAmountInputInfo = async (
 export const signMoonpayUrl = async (url: string) =>
   axios(
     `https://fiat.onekey.so/moonpay/sign?url=${encodeURIComponent(url)}&mode=${
-      isTestMode ? 'test' : 'live'
+      MoonpayModeData().modeCode
     }`,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   ).then((ret) => ret.data.data);
