@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import React, { FC, useMemo } from 'react';
 
+import * as ethUtils from 'ethereumjs-util';
 import { useIntl } from 'react-intl';
 
 import {
@@ -100,8 +101,17 @@ const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
   const { message, type } = unsignedMessage;
 
   if (type === ETHMessageTypes.PERSONAL_SIGN) {
-    const hex = message.replace('0x', '');
-    const personalSignMsg = Buffer.from(hex, 'hex').toString('utf-8');
+    // if (message.startsWith('0x')) {
+    //   const buffer = Buffer.from(message.substr(2), 'hex');
+    //   message = buffer.toString('utf8');
+    // }
+    let personalSignMsg = message;
+    try {
+      const buffer = ethUtils.toBuffer(message);
+      personalSignMsg = buffer.toString('utf-8');
+    } catch (error) {
+      console.error(error);
+    }
     return renderCard(personalSignMsg);
   }
 
