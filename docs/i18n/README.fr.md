@@ -2,8 +2,10 @@
 ## 🌍 Configuration de l'environnement
 
 1. installer [node.js LTS version (>= 16)](https://nodejs.org/en/)
-2. installez l'[outil de gestion des paquets yarn](https://yarnpkg.com/)
+2. Installez [l'outil de gestion des packages de fils](https://yarnpkg.com/) version 1.18.0. (Après avoir installé la dernière version de yarn, exécutez `yarn Policies set-version 1.18.0` dans le répertoire racine)
 3. installer [git lfs](https://git-lfs.github.com/) (nécessaire pour tirer et mettre à jour certains binaires)
+4. Pour démarrer le projet iOS, assurez-vous que la version locale de XCode est supérieure ou égale à 13.3
+5. Pour démarrer le projet Android, assurez-vous que la version locale du JDK est supérieure ou égale à 11
 
 Après avoir récupéré le dernier code via l'outil en ligne de commande git, installez les dépendances du projet dans le répertoire racine avec la commande ``yarn``.
 
@@ -25,6 +27,7 @@ Développez un code commercial différent en exécutant les commandes suivantes 
 - `yarn ios` : déboguer le développement sur les appareils iphone via une connexion USB
 - `yarn android` : déboguer Android
 - `yarn desktop` : développement en mode desktop
+- `yarn ext` : développer des plugins de navigateur
 
 ### Configuration du projet Android
 
@@ -46,7 +49,7 @@ Les dépôts sont organisés selon le modèle monorepo afin de centraliser et de
 - `packages/app` Code APP
 - `packages/desktop` Code électronique du bureau
 - `packages/web` code côté web
-- `packages/extension` Code côté plugin
+- `packages/ext` Code côté plugin
 
 ## 🧲 Installer les dépendances
 
@@ -58,6 +61,10 @@ Certaines des dépendances ont des parties natives, vous devrez donc aller dans 
 
 ## 😷 Questions fréquemment posées
 
-1. l'application ne démarre pas
+1. L'application ne peut pas être démarrée et divers problèmes de démarrage de l'environnement
 
-Videz le cache de l'outil de packaging avec la commande `--reset-cache` dans `yarn native` dans le répertoire racine. Utilisez également la commande `-yarn clean` dans le répertoire racine pour effacer toutes les dépendances et les fichiers générés, puis relancez `-yarn` pour installer les dépendances.
+Pour tout problème d'environnement, de module et de dépendance dans la phase de démarrage, il est recommandé d'utiliser d'abord la commande `yarn clean` dans le répertoire racine. La commande effacera toutes les sous-dépendances, ainsi que le cache du module de yarn, le cache des outils tels que metro/babel, puis redémarrera le projet pour essayer.
+
+2. Lors de l'installation de dépendances ou lors de l'ajout de nouvelles dépendances, yarn affichera **error Une erreur inattendue s'est produite : "le package d'espace de travail attendu existe pour**
+
+Reportez-vous à https://github.com/yarnpkg/yarn/issues/7807, définissez la version actuelle du fil de l'environnement sur 1.18.0 via la commande `yarn Policies set-version 1.18.0`

@@ -36,8 +36,10 @@ We really need your support, star or watch this repo for latest updates.
 ## 🚀 Getting Onboard
 
 1. Install [node.js LTS version  (>= 16)](https://nodejs.org/en/)
-2. Install [yarn package management tool](https://yarnpkg.com/)
+2. Install [yarn package management tool](https://yarnpkg.com/)(After installing the latest version of yarn, execute `yarn policies set-version 1.18.0` in the root directory)
 3. Install [git lfs](https://git-lfs.github.com/) (some binaries are required for pulling and updating)
+4. To start the iOS project, make sure that the local XCode version is greater than or equal to 13.3
+5. To start the Android project, make sure that the local JDK version is greater than or equal to 11
 
 After pulling the latest code via the git command line tool, install the project dependencies in the root directory via the `yarn` command
 
@@ -59,6 +61,7 @@ Execute the following commands in the root directory to develop different busine
 - `yarn ios`: connect to iphone device via USB for development debugging
 - `yarn android`: develop android
 - `yarn desktop`: development in desktop mode
+- `yarn ext`: development in extension mode
 
 ## 🗂 Multi-repository directory structure
 
@@ -69,7 +72,7 @@ The repositories are organized using the monorepo model to keep the code on diff
 - `packages/app` APP code
 - `packages/desktop` Desktop electron code
 - `packages/web` web-side code
-- `packages/extension` Plugin-side code
+- `packages/ext` chrome extension & firefox addon code
 
 ## 🧲 Install dependencies
 
@@ -83,7 +86,11 @@ Some of the dependencies have native parts, so you need to go into the `packages
 
 1. The app does not start
 
-Clear the packaging tool cache with the `--reset-cache` command in `yarn native` in the root directory. Also run `yarn clean` in the root directory to clear all dependencies and generated files and then re-run `yarn` to install the dependencies.
+For any environment, module and dependency issues in the startup phase, it is recommended to use the command `yarn clean` in the root directory first. The command will clear all sub-dependencies, as well as the module cache of yarn, the cache of tools such as metro / babel, and then restart the project to try.
+
+2. During the installation of dependencies or when adding new dependencies, yarn will prompt **error An unexpected error occurred: "expected workspace package to exist for**
+
+Refer to https://github.com/yarnpkg/yarn/issues/7807, set the current environment yarn version to 1.18.0 through the command `yarn policies set-version 1.18.0`
 
 ## 💬 Docs in your languages
 | Available Languages               |
