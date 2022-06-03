@@ -41,44 +41,58 @@ import {
   RootRoutesParams,
 } from '../../routes/types';
 import { getDeviceTypeByDeviceId } from '../../utils/device/ble/OnekeyHardware';
+import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
+import { SendRoutes, SendRoutesParams } from '../Send/types';
 
-type NavigationProps = NavigationProp<RootRoutesParams, RootRoutes.Root>;
+type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.Send>;
 type PreviewSendProps = {
   address: string;
   possibleNetworks?: string[];
 };
-const PreviewSend: FC<PreviewSendProps> = ({
-  address,
-  possibleNetworks = [],
-}) => {
+type PreviewSendRouteProp = RouteProp<
+  ScanQrcodeRoutesParams,
+  ScanQrcodeRoutes.PreviewSend
+>;
+const PreviewSend: FC<PreviewSendProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const route = useRoute<PreviewSendRouteProp>();
+  const { address, possibleNetworks = [] } = route.params;
   const { bottom } = useSafeAreaInsets();
   const { control, handleSubmit, getValues, setValue, watch } = useForm<{
     network: string;
   }>({
-    defaultValues: { network: '' },
+    defaultValues: { network: possibleNetworks[0] },
   });
   const { account, wallet } = useActiveWalletAccount();
 
   const { enabledNetworks = [] } = useManageNetworks();
-  const { screenWidth } = useUserDevice();
+  // const { screenWidth } = useUserDevice();
 
-  const options = enabledNetworks
-    .filter((network) => possibleNetworks.includes(network.shortName))
-    .map((network) => ({
-      label: network.shortName,
-      value: network.id,
-      tokenProps: {
-        src: network.logoURI,
-        letter: network.shortName,
-      },
-      badge: network.impl === 'evm' ? 'EVM' : undefined,
-    }));
+  const options =
+    possibleNetworks.filter((network) =>
+      enabledNetworks.find((n) => n.shortName === network),
+    ) || [];
+  // .map((network) => ({
+  //   label: network.shortName,
+  //   value: network.id,
+  //   tokenProps: {
+  //     src: network.logoURI,
+  //     letter: network.shortName,
+  //   },
+  //   badge: network.impl === 'evm' ? 'EVM' : undefined,
+  // }));
 
   return (
     <Modal
-      hidePrimaryAction
+      // hidePrimaryAction
+      primaryActionProps={{
+        type: 'primary',
+        onPress: () => {
+          navigation.navigate(SendRoutes.Send, {});
+        },
+      }}
+      primaryActionTranslationId="action__import"
       hideSecondaryAction
       header={intl.formatMessage({ id: 'modal__preview' })}
       footer={null}
@@ -102,7 +116,12 @@ const PreviewSend: FC<PreviewSendProps> = ({
               </Typography.Body2>
             </Box>
             <Form>
-              <FormChainSelector control={control} name="network" />
+              <FormChainSelector
+                hideHelpText
+                selectableNetworks={possibleNetworks}
+                control={control}
+                name="network"
+              />
               <FormControl.Label mb={0}>
                 <Typography.Body2Strong>
                   {intl.formatMessage({ id: 'form__account' })}
@@ -119,11 +138,11 @@ const PreviewSend: FC<PreviewSendProps> = ({
                 alignItems="center"
               >
                 <WalletAvatar
-                  walletImage={wallet.type}
+                  walletImage={wallet?.type}
                   hwWalletType={getDeviceTypeByDeviceId(
-                    wallet.associatedDevice,
+                    wallet?.associatedDevice,
                   )}
-                  avatar={wallet.avatar}
+                  avatar={wallet?.avatar}
                   size="sm"
                   mr={3}
                 />
