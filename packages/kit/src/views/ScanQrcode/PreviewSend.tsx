@@ -1,50 +1,29 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { FC, useMemo } from 'react';
+import React, { FC } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useIsFocused,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Account,
   Box,
   Form,
-  FormControl,
   HStack,
-  Icon,
   Modal,
-  Select,
-  Token,
   Typography,
   useForm,
   useSafeAreaInsets,
-  useUserDevice,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import FormChainSelector from '../../components/Form/ChainSelector';
-import AccountSelector from '../../components/Header/AccountSelector';
-import ChainSelector from '../../components/Header/ChainSelector';
 import WalletAvatar from '../../components/Header/WalletAvatar';
-import { useManageNetworks } from '../../hooks';
-import {
-  ModalRoutes,
-  ModalRoutesParams,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../routes/types';
+import { ModalRoutes, ModalScreenProps, RootRoutes } from '../../routes/types';
 import { getDeviceTypeByDeviceId } from '../../utils/device/ble/OnekeyHardware';
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
 import { SendRoutes, SendRoutesParams } from '../Send/types';
 
-type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.Send>;
+type NavigationProps = ModalScreenProps<SendRoutesParams>;
 type PreviewSendProps = {
   address: string;
   possibleNetworks?: string[];
@@ -55,7 +34,7 @@ type PreviewSendRouteProp = RouteProp<
 >;
 const PreviewSend: FC<PreviewSendProps> = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<PreviewSendRouteProp>();
   const { address, possibleNetworks = [] } = route.params;
   const { bottom } = useSafeAreaInsets();
@@ -71,7 +50,15 @@ const PreviewSend: FC<PreviewSendProps> = () => {
       onPrimaryActionPress={() => {
         const { serviceNetwork } = backgroundApiProxy;
         serviceNetwork.changeActiveNetwork(getValues('network'));
-        navigation.navigate(SendRoutes.Send, { to: address });
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.Send,
+            params: {
+              to: address,
+            },
+          },
+        });
       }}
       primaryActionTranslationId="action__next"
       hideSecondaryAction
