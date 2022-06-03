@@ -1,6 +1,6 @@
 import React, { ComponentProps, FC } from 'react';
 
-import Address, { AddressProps } from '../Address';
+import Address from '../Address';
 import Avatar from '../Avatar';
 import Box from '../Box';
 import Typography from '../Typography';
