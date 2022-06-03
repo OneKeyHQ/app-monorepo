@@ -59,43 +59,23 @@ const PreviewSend: FC<PreviewSendProps> = () => {
   const route = useRoute<PreviewSendRouteProp>();
   const { address, possibleNetworks = [] } = route.params;
   const { bottom } = useSafeAreaInsets();
-  const { control, handleSubmit, getValues, setValue, watch } = useForm<{
+  const { control, getValues } = useForm<{
     network: string;
   }>({
     defaultValues: { network: possibleNetworks[0] },
   });
   const { account, wallet } = useActiveWalletAccount();
 
-  const { enabledNetworks = [] } = useManageNetworks();
-  // const { screenWidth } = useUserDevice();
-
-  const options =
-    possibleNetworks.filter((network) =>
-      enabledNetworks.find((n) => n.shortName === network),
-    ) || [];
-  // .map((network) => ({
-  //   label: network.shortName,
-  //   value: network.id,
-  //   tokenProps: {
-  //     src: network.logoURI,
-  //     letter: network.shortName,
-  //   },
-  //   badge: network.impl === 'evm' ? 'EVM' : undefined,
-  // }));
-
   return (
     <Modal
-      // hidePrimaryAction
-      primaryActionProps={{
-        type: 'primary',
-        onPress: () => {
-          navigation.navigate(SendRoutes.Send, {});
-        },
+      onPrimaryActionPress={() => {
+        const { serviceNetwork } = backgroundApiProxy;
+        serviceNetwork.changeActiveNetwork(getValues('network'));
+        navigation.navigate(SendRoutes.Send, { to: address });
       }}
-      primaryActionTranslationId="action__import"
+      primaryActionTranslationId="action__next"
       hideSecondaryAction
       header={intl.formatMessage({ id: 'modal__preview' })}
-      footer={null}
       scrollViewProps={{
         pb: bottom,
         children: (
@@ -122,38 +102,35 @@ const PreviewSend: FC<PreviewSendProps> = () => {
                 control={control}
                 name="network"
               />
-              <FormControl.Label mb={0}>
-                <Typography.Body2Strong>
+              <>
+                <Typography.Body2Strong mb={1}>
                   {intl.formatMessage({ id: 'form__account' })}
                 </Typography.Body2Strong>
-              </FormControl.Label>
-              <HStack
-                p="7px"
-                borderWidth={1}
-                borderColor="transparent"
-                borderStyle="dashed"
-                bg="transparent"
-                space={4}
-                borderRadius="xl"
-                alignItems="center"
-              >
-                <WalletAvatar
-                  walletImage={wallet?.type}
-                  hwWalletType={getDeviceTypeByDeviceId(
-                    wallet?.associatedDevice,
-                  )}
-                  avatar={wallet?.avatar}
-                  size="sm"
-                  mr={3}
-                />
-                <Box flex={1}>
+                <HStack
+                  p="15px"
+                  borderWidth={1}
+                  borderColor="border-disabled"
+                  borderRadius="12px"
+                  alignItems="center"
+                  bg="surface-disabled"
+                >
+                  <WalletAvatar
+                    walletImage={wallet?.type}
+                    hwWalletType={getDeviceTypeByDeviceId(
+                      wallet?.associatedDevice,
+                    )}
+                    avatar={wallet?.avatar}
+                    size="sm"
+                    mr="12px"
+                  />
                   <Account
+                    color="text-disabled"
                     hiddenAvatar
                     address={account?.address ?? ''}
                     name={account?.name}
                   />
-                </Box>
-              </HStack>
+                </HStack>
+              </>
             </Form>
           </>
         ),
