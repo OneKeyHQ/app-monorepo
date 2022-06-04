@@ -72,7 +72,7 @@
     "react-native-web": "0.17.7",
     "react-native-webview": "11.18.1",
     "readable-stream": "^3.6.0",
-    "realm": "10.20.0-beta.0",
+    "realm": "10.20.0-beta.2",
     "text-encoding": "^0.7.0",
     "vision-camera-code-scanner": "^0.2.0"
   },
