@@ -11,8 +11,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Center,
   Icon,
   Modal,
   Typography,
@@ -121,24 +123,18 @@ const ScanQrcode: FC = () => {
             </ChooseImageText>
           </Button>
         }
-        staticChildrenProps={
-          isApp ? { flex: 1 } : { width: '100%', height: 209 }
-        }
+        staticChildrenProps={{ flex: 1 }}
       >
         <ScanCamera
           style={{
             flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
           }}
           isActive={isFocused && !scanned}
           onQrcodeScanned={handleBarCodeScanned}
         >
-          <SvgScanArea
-            style={{ position: 'absolute' }}
-            width="256px"
-            height="256px"
-          />
+          <Center position="absolute" w="full" h="full">
+            <SvgScanArea width="256px" height="256px" />
+          </Center>
         </ScanCamera>
       </Modal>
     );
