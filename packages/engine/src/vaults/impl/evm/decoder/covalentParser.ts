@@ -1,11 +1,6 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
-import {
-  EVMTxFromType,
-  LogEvent,
-  Transaction,
-  Transfer,
-} from '../../../../types/covalent';
+import { LogEvent, Transaction, Transfer } from '../../../../types/covalent';
 import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
 
