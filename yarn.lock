@@ -19020,10 +19020,9 @@ react-native-randombytes@^3.6.1:
     buffer "^4.9.1"
     sjcl "^1.0.3"
 
-react-native-reanimated@^2.8.0:
-  version "2.8.0"
-  resolved "https://registry.yarnpkg.com/react-native-reanimated/-/react-native-reanimated-2.8.0.tgz#93c06ca84d91fb3865110b0857c49a24e316130e"
-  integrity sha512-kJvf/UWLBMaGCs9X66MKq5zdFMgwx8D0nHnolbHR7s8ZnbLdb7TlQ/yuzIXqn/9wABfnwtNRI3CyaP1aHWMmZg==
+"react-native-reanimated@https://github.com/Kudo/react-native-reanimated#support-v8":
+  version "3.0.0-rc.0"
+  resolved "https://github.com/Kudo/react-native-reanimated#de4e543f06286c220118a5b16e17726520b9e4b6"
   dependencies:
     "@babel/plugin-transform-object-assign" "^7.16.7"
     "@babel/preset-typescript" "^7.16.7"
@@ -19117,10 +19116,10 @@ react-native-uuid@^2.0.1:
   resolved "https://registry.yarnpkg.com/react-native-uuid/-/react-native-uuid-2.0.1.tgz#ed4e2dfb1683eddb66967eb5dca140dfe1abddb9"
   integrity sha512-cptnoIbL53GTCrWlb/+jrDC6tvb7ypIyzbXNJcpR3Vab0mkeaaVd5qnB3f0whXYzS+SMoSQLcUUB0gEWqkPC0g==
 
-react-native-vision-camera@^2.13.3:
-  version "2.13.3"
-  resolved "https://registry.yarnpkg.com/react-native-vision-camera/-/react-native-vision-camera-2.13.3.tgz#cacd20b7f3fd777691496f007a47a34c02be93be"
-  integrity sha512-aikp6kNmb9b8lsVFKEKCBgch5h93Cs8Qqw/bSZsn/dO+Qa4uktpe89WIO1VTs88d40vJiLeYFlbyWe589E/UuA==
+react-native-v8@^1.4.1:
+  version "1.4.1"
+  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.4.1.tgz#52129a0f6c52d3fa3d392474b5d7ac6b2e6500e4"
+  integrity sha512-5HTfa8H4kK2xv1VunT5zZOJxiuPh12VdBoZEBO4i4TTWBNCtuB6VKmHFkAidKXEc8otH6JLYtgVdLe97qnS0mQ==
 
 react-native-web@0.17.7:
   version "0.17.7"
@@ -22398,6 +22397,11 @@ uuid@^8.0.0, uuid@^8.3.0, uuid@^8.3.2:
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.3.2.tgz#80d5b5ced271bb9af6c445f21a1a04c606cefbe2"
   integrity sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==
 
+v8-android-jit@^10.100.0:
+  version "10.100.0"
+  resolved "https://registry.yarnpkg.com/v8-android-jit/-/v8-android-jit-10.100.0.tgz#7d939ce615b1e8457e5ff52056d01cb5a5bdcefa"
+  integrity sha512-jakoPAKXK6a/q7LFx2ZjrdcVfR0V4jXaoDAyrWOt3SiPQGL6uq+3tdyQxX6OdPqYrK8xz8HGjW4EhD9xY1fC1Q==
+
 v8-compile-cache@^2.0.3, v8-compile-cache@^2.1.1:
   version "2.3.0"
   resolved "https://registry.yarnpkg.com/v8-compile-cache/-/v8-compile-cache-2.3.0.tgz#2de19618c66dc247dcfb6f99338035d8245a2cee"
@@ -22471,11 +22475,6 @@ verror@^1.10.0:
     assert-plus "^1.0.0"
     core-util-is "1.0.2"
     extsprintf "^1.2.0"
-
-vision-camera-code-scanner@^0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/vision-camera-code-scanner/-/vision-camera-code-scanner-0.2.0.tgz#8adc0694319a17f6a95f6dfacc02ab7ac29b4742"
-  integrity sha512-H5hVkXfbIcGdg9YlhuS8Y/xDX5e32Vo6eK5FyDQsE9AGVjlqEHMmSLHZg7BX8UUm4ADmiAZc8wzc4n8TUqGr0g==
 
 vlq@^1.0.0:
   version "1.0.1"
