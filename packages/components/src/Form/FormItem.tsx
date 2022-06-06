@@ -7,9 +7,7 @@ import React, {
 
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 
-import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { ScanQrcodeRoutes } from '@onekeyhq/kit/src/views/ScanQrcode/types';
+import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
@@ -105,18 +103,9 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         circle
                         name={small ? 'ScanOutline' : 'ScanSolid'}
                         onPress={() => {
-                          const navigation = getAppNavigation();
-                          navigation.navigate(RootRoutes.Modal, {
-                            screen: ModalRoutes.ScanQrcode,
-                            params: {
-                              screen: ScanQrcodeRoutes.ScanQrcode,
-                              params: {
-                                onScanCompleted: (result: string) => {
-                                  onChange(result);
-                                  onLabelAddonPress?.();
-                                },
-                              },
-                            },
+                          gotoScanQrcode((result) => {
+                            onChange(result);
+                            onLabelAddonPress?.();
                           });
                         }}
                       />

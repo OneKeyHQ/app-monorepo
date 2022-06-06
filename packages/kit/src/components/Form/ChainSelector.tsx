@@ -11,10 +11,12 @@ import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
 
 type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;
+  hideHelpText?: boolean;
 };
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   selectableNetworks,
+  hideHelpText = false,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
@@ -73,18 +75,22 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   return (
     <Form.Item
       label={intl.formatMessage({ id: 'network__network' })}
-      helpText={(activeNetworkId = defaultNetworkId) => {
-        const activeNetworkPayload = findActiveNetwork(activeNetworkId);
-        return intl.formatMessage(
-          {
-            id: 'form__network_helperText',
-          },
-          {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            impl: activeNetworkPayload?.impl ?? '-',
-          },
-        );
-      }}
+      helpText={
+        hideHelpText
+          ? undefined
+          : (activeNetworkId = defaultNetworkId) => {
+              const activeNetworkPayload = findActiveNetwork(activeNetworkId);
+              return intl.formatMessage(
+                {
+                  id: 'form__network_helperText',
+                },
+                {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  impl: activeNetworkPayload?.impl ?? '-',
+                },
+              );
+            }
+      }
       defaultValue={defaultNetworkId as any}
       {...props}
     >

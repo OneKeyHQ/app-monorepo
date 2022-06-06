@@ -37,6 +37,7 @@ export type AccountProps = {
    */
   notShowAddress?: boolean;
   containerProps?: ComponentProps<typeof Box>;
+  color?: string;
 };
 
 const defaultProps = {
@@ -63,6 +64,7 @@ const Account: FC<AccountProps> = ({
   priorityAmount,
   notShowAddress,
   containerProps = {},
+  color,
 }) => {
   let avatarSizeNumber = getIconSize(avatarSize);
   let avatarMarginRight = 3;
@@ -117,9 +119,14 @@ const Account: FC<AccountProps> = ({
         <Box>
           {!!(primaryContent || hasPrimaryAddress) &&
             (hasPrimaryAddress ? (
-              <Address typography="Body2Strong" text={address} short />
+              <Address
+                typography="Body2Strong"
+                text={address}
+                short
+                color={color}
+              />
             ) : (
-              <Typography.Body2Strong isTruncated>
+              <Typography.Body2Strong color={color} isTruncated>
                 {primaryContent}
               </Typography.Body2Strong>
             ))}
@@ -127,13 +134,13 @@ const Account: FC<AccountProps> = ({
           {!!(secondContent || hasSecondAddress) &&
             (hasSecondAddress ? (
               <Address
-                color="text-subdued"
+                color={color || 'text-subdued'}
                 typography="Body2"
                 text={address}
                 short
               />
             ) : (
-              <Typography.Body2 color="text-subdued">
+              <Typography.Body2 color={color || 'text-subdued'}>
                 {secondContent}
               </Typography.Body2>
             ))}

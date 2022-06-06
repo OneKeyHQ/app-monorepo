@@ -64,7 +64,7 @@ export type TabRoutesParams = {
     | undefined
     | { inputTokenId?: string; outputTokenId?: string };
   [TabRoutes.Portfolio]: undefined;
-  [TabRoutes.Discover]: undefined;
+  [TabRoutes.Discover]: undefined | { incomingUrl: string };
   [TabRoutes.Me]: undefined;
 };
 /** Tab */

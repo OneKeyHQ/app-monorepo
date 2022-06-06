@@ -13,23 +13,23 @@ import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
+  Center,
   Icon,
   Modal,
   Typography,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
 import { setHaptics } from '../../hooks/setHaptics';
 import useNavigation from '../../hooks/useNavigation';
+import { handleScanResult } from '../../utils/gotoScanQrcode';
 
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
-import { ScanQrcodeRoutes, ScanQrcodeRoutesParams, ScanResult } from './types';
+import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
 
 const { isWeb, isNative: isApp } = platformEnv;
 
@@ -67,40 +67,24 @@ const ScanQrcode: FC = () => {
         navigation.goBack();
         return;
       }
-      const scanResult: ScanResult = { type: 'other', data };
-      if (data.startsWith('https://') || data.startsWith('http://')) {
-        scanResult.type = 'url';
-      } else if (/^wc:.+@.+\?.+/.test(data)) {
-        // wc:{topic...}@{version...}?bridge={url...}&key={key...}
-        // https://docs.walletconnect.com/tech-spec
-        await backgroundApiProxy.walletConnect.connect({
-          uri: data,
-        });
-        return;
-      } else {
-        const { category, possibleNetworks } =
-          await backgroundApiProxy.validator.validateCreateInput(data);
-        if (category === UserCreateInputCategory.ADDRESS) {
-          scanResult.type = 'address';
-          scanResult.possibleNetworks = possibleNetworks;
-        }
+      const scanResult = await handleScanResult(data);
+      if (scanResult) {
+        navigation.navigate(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
       }
-      navigation.navigate(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
     },
     [navigation, onScanCompleted],
   );
 
   const pickImage = useCallback(async () => {
+    setHaptics();
     const result = await ImagePicker.launchImageLibraryAsync({
       base64: isWeb,
       allowsMultipleSelection: false,
     });
 
     if (!result.cancelled) {
-      const scanResult = await scanFromURLAsync(result.uri);
-      if (scanResult) {
-        handleBarCodeScanned(scanResult);
-      }
+      const data = await scanFromURLAsync(result.uri);
+      if (data) handleBarCodeScanned(data);
     }
   }, [handleBarCodeScanned]);
 
@@ -138,24 +122,18 @@ const ScanQrcode: FC = () => {
             </ChooseImageText>
           </Button>
         }
-        staticChildrenProps={
-          isApp ? { flex: 1 } : { width: '100%', height: 209 }
-        }
+        staticChildrenProps={{ flex: 1 }}
       >
         <ScanCamera
           style={{
             flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
           }}
           isActive={isFocused && !scanned}
           onQrcodeScanned={handleBarCodeScanned}
         >
-          <SvgScanArea
-            style={{ position: 'absolute' }}
-            width={144}
-            height={144}
-          />
+          <Center position="absolute" w="full" h="full">
+            <SvgScanArea width="256px" height="256px" />
+          </Center>
         </ScanCamera>
       </Modal>
     );

@@ -9,14 +9,11 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import { useNavigation } from '../../../hooks';
-import { ScanQrcodeRoutes } from '../../ScanQrcode/types';
+import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 
 export const UtilSection = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
   const small = useIsVerticalLayout();
   return (
     <Box
@@ -34,10 +31,7 @@ export const UtilSection = () => {
         py={4}
         px={{ base: 4, md: 6 }}
         onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ScanQrcode,
-            params: { screen: ScanQrcodeRoutes.ScanQrcode },
-          });
+          gotoScanQrcode();
         }}
       >
         <Icon name={small ? 'ScanOutline' : 'ScanSolid'} />

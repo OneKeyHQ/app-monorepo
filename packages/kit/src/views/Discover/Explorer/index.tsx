@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useMemo, useState } from 'react';
 
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { useDeepCompareMemo } from 'use-deep-compare';
@@ -24,6 +25,7 @@ import {
 import { openUrl, openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { TabRoutes, TabRoutesParams } from '../../../routes/types';
 import Home from '../Home';
 
 import Desktop from './Content/Desktop';
@@ -69,9 +71,12 @@ let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
 // 空白页面 URL
 const BrowserPage = 'about:blank';
 
+type DiscoverRouteProp = RouteProp<TabRoutesParams, TabRoutes.Discover>;
 const Explorer: FC = () => {
   const intl = useIntl();
   const toast = useToast();
+  const route = useRoute<DiscoverRouteProp>();
+  const { incomingUrl } = route.params || {};
   const { dispatch } = backgroundApiProxy;
   const discover = useAppSelector((s) => s.discover);
 
@@ -236,6 +241,13 @@ const Explorer: FC = () => {
     }
     return false;
   };
+
+  useEffect(() => {
+    if (incomingUrl) {
+      gotoUrl(incomingUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingUrl]);
 
   useEffect(() => {
     let content: string;
