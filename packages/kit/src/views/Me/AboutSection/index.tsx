@@ -155,7 +155,7 @@ export const AboutSection = () => {
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Text>
         </Pressable>
-        {!platformEnv.isWeb && (
+        {!platformEnv.isWeb && !platformEnv.isExtension && (
           <Pressable
             display="flex"
             flexDirection="row"

@@ -19,6 +19,7 @@ import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppLock } from '../../components/AppLock';
+import appUpdates from '../../utils/updates/AppUpdates';
 import Welcome from '../../views/Welcome';
 import ModalStackNavigator from '../Modal';
 import {
@@ -117,22 +118,26 @@ const RootStackNavigator = () => {
   // settings.version -> process.env.VERSION
   useEffect(() => {
     if (hasVersionSet && versionChanged && process.env.VERSION) {
+      const newVersion = process.env.VERSION;
       if (!platformEnv.isWeb) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.UpdateFeature,
-          params: {
-            screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+        appUpdates.getChangeLog(version, newVersion).then((changeLog) => {
+          if (!changeLog) return; // no change log
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.UpdateFeature,
             params: {
-              oldVersion: version,
-              newVersion: process.env.VERSION,
+              screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+              params: {
+                changeLog,
+                newVersion,
+              },
             },
-          },
+          });
         });
       }
 
       dispatch(
         updateVersionAndBuildNumber({
-          version: process.env.VERSION,
+          version: newVersion,
           buildNumber: process.env.BUILD_NUMBER,
         }),
       );

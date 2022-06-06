@@ -11,7 +11,7 @@ export enum UpdateFeatureModalRoutes {
 
 export type UpdateFeatureRoutesParams = {
   [UpdateFeatureModalRoutes.UpdateFeatureModal]: {
-    oldVersion: string;
+    changeLog: string | undefined;
     newVersion: string;
   };
 };
