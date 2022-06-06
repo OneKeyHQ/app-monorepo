@@ -56,11 +56,30 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     'network',
     activeNetworkId ?? (networks ?? [])?.[0]?.id,
   );
+  const selectableNetworks = networks
+    .filter((network) => {
+      if (wallet?.type === 'hw') {
+        return network.settings.hardwareAccountEnabled;
+      }
+      if (wallet?.type === 'imported') {
+        return network.settings.importedAccountEnabled;
+      }
+      if (wallet?.type === 'watching') {
+        return network.settings.watchingAccountEnabled;
+      }
+      return true;
+    })
+    .map((network) => network.id);
   const isSmallScreen = useIsVerticalLayout();
 
   useEffect(() => {
-    const selectedNetwork =
-      networks?.find((n) => n.id === watchNetwork) ?? null;
+    const selectedNetwork = networks?.find(
+      (n) =>
+        n.id ===
+        (selectableNetworks.includes(watchNetwork)
+          ? watchNetwork
+          : selectableNetworks[0]),
+    );
     if (selectedNetwork) {
       const { prefix, category } = selectedNetwork.accountNameInfo.default;
       if (typeof prefix !== 'undefined') {
@@ -68,7 +87,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
         setValue('name', `${prefix} #${id + 1}`);
       }
     }
-  }, [wallet, networks, watchNetwork, setValue]);
+  }, [wallet, networks, watchNetwork, selectableNetworks, setValue]);
 
   const authenticationDone = useCallback(
     async (password: string) => {
@@ -116,7 +135,11 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       scrollViewProps={{
         children: (
           <Form w="full" zIndex={999} h="full">
-            <FormChainSelector control={control} name="network" />
+            <FormChainSelector
+              selectableNetworks={selectableNetworks}
+              control={control}
+              name="network"
+            />
             <Form.Item
               name="name"
               rules={{
