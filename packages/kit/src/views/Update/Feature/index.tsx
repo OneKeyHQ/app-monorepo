@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
+import React, { FC, useLayoutEffect } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,7 +15,6 @@ import {
   UpdateFeatureModalRoutes,
   UpdateFeatureRoutesParams,
 } from '../../../routes/Modal/UpdateFeature';
-import appUpdates from '../../../utils/updates/AppUpdates';
 
 type RouteProps = RouteProp<
   UpdateFeatureRoutesParams,
@@ -26,20 +25,13 @@ const UpdateFeature: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
 
-  const { oldVersion, newVersion } = useRoute<RouteProps>().params;
-  const [changeLog, setChangeLog] = useState<string>();
+  const { changeLog, newVersion } = useRoute<RouteProps>().params;
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: intl.formatMessage({ id: 'transaction__history' }),
     });
   }, [intl, navigation]);
-
-  useEffect(() => {
-    appUpdates.getChangeLog(oldVersion, newVersion).then((log) => {
-      setChangeLog(log);
-    });
-  }, [oldVersion, newVersion]);
 
   return (
     <Modal

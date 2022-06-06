@@ -248,9 +248,12 @@ const OnekeyLiteDetail: React.FC = () => {
           contentProps={{
             iconType: 'danger',
             title: intl.formatMessage({ id: 'action__reset_onekey_lite' }),
-            content: intl.formatMessage({
-              id: 'modal__reset_onekey_lite_desc',
-            }),
+            content: intl.formatMessage(
+              {
+                id: 'modal__reset_onekey_lite_desc',
+              },
+              { 0: 'RESET' },
+            ),
           }}
           footerButtonProps={{
             onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
