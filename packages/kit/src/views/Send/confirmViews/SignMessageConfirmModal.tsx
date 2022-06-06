@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 
 import { Modal } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import { IDappCallParams } from '../../../background/IBackgroundApi';
@@ -41,11 +42,14 @@ function SignMessageConfirmModal(props: ISignMessageConfirmViewProps) {
     [accountId],
   );
 
+  const isBlindSign = unsignedMessage.type === ETHMessageTypes.ETH_SIGN;
+
   return (
     <Modal
       height="598px"
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
+        type: isBlindSign ? 'destructive' : 'primary',
         isDisabled: isWatchingAccount || confirmDisabled,
       }}
       secondaryActionTranslationId="action__reject"
