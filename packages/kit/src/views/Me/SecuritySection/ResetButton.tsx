@@ -28,6 +28,7 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
   const intl = useIntl();
 
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
   return (
     <Dialog
@@ -38,9 +39,12 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
         primaryActionProps: {
           type: 'destructive',
           isDisabled: input.toUpperCase() !== 'RESET',
+          isLoading: loading,
         },
         onPrimaryActionPress: async () => {
-          await onConfirm?.();
+          setLoading(true);
+          await onConfirm();
+          setLoading(false);
           onClose?.();
         },
         onSecondaryActionPress: () => {
