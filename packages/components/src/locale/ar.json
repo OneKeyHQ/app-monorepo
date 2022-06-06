@@ -167,6 +167,7 @@
   "badge__coming_soon": "قريبا",
   "checkbox__manual_backup_warning": "أدرك أنني إذا فقدت عبارة الاسترداد الخاصة بي ، فسوف أفقد أموالي.",
   "conten__please_be_patient_as_net_work": "يرجى التحلي بالصبر لأن التذكرة الجديدة قد تستغرق بعض الوقت لتظهر على هذه الصفحة بسبب مشاكل في الشبكة.",
+  "content__Insufficient_str_balance": "Insufficient {0} balance",
   "content__a_few_seconds": "بضع ثوان",
   "content__about_int_str": "حول {0} {0}",
   "content__activated": "مفعل",
@@ -184,6 +185,7 @@
   "content__asset": "أصل",
   "content__attributes": "صفات",
   "content__authentication_with": "مصادقة مع {0}",
+  "content__available_balance": "Available Balance",
   "content__balance": "الرصيد",
   "content__balance_str": "التوازن: {0}",
   "content__base_fee": "الرسوم الأساسية",
@@ -398,6 +400,8 @@
   "form__enter_address": "أدخل العنوان",
   "form__enter_address_name": "أدخل اسم العنوان",
   "form__enter_or_paste_contract_address": "أدخل أو الصق عنوان العقد",
+  "form__enter_recipient_address": "Enter recipient address",
+  "form__enter_recipient_address_valid": "Valid Address",
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__estomated_gas": "الغاز المقدر",
   "form__explorer": "إكسبلورر",
@@ -589,14 +593,16 @@
   "modal__pin_change_failed": "فشل تغيير رقم التعريف الشخصي",
   "modal__pin_change_failed_desc": "ليست هناك حاجة لتغيير رقم التعريف الشخصي على بطاقة OneKey Lite الجديدة هذه",
   "modal__preview": "معاينة",
-  "modal__reset_app_desc": "سيؤدي هذا إلى حذف جميع البيانات التي قمت بإنشائها في OneKey ، أدخل \"إعادة تعيين\" لإعادة تعيين التطبيق",
+  "modal__reset_app_desc": "سيؤدي هذا إلى حذف جميع البيانات التي قمت بإنشائها في OneKey ، أدخل \"{0}\" لإعادة تعيين التطبيق",
   "modal__reset_failed": "فشل إعادة التعيين",
   "modal__reset_failed_desc": "هذه بطاقة OneKey Lite جديدة تمامًا ولا تحتاج إلى إعادة تعيين",
-  "modal__reset_onekey_lite_desc": "سيتم مسح عبارة الاسترداد التي قمت بتخزينها على هذا الجهاز ، ولن تكون متاحة بعد الآن لاستعادة الحساب ، أدخل \"RESET\" لإعادة تعيين OneKey Lite.",
+  "modal__reset_onekey_lite_desc": "سيتم مسح عبارة الاسترداد التي قمت بتخزينها على هذا الجهاز ، ولن تكون متاحة بعد الآن لاستعادة الحساب ، أدخل \"{0}\" لإعادة تعيين OneKey Lite.",
   "modal__restore_wallet": "استعادة المحفظة",
   "modal__restore_wallet_desc": "استخدام عبارة استرداد موجودة لاستعادة مفاتيحك الخاصة على جهاز جديد!",
   "modal__rug_warning": "تحذير البساط",
   "modal__rug_warning_desc": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال ، هل ما زلت تريد المتابعة؟",
+  "modal__send_to": "Send To",
+  "modal__sending_str": "Sending {0}",
   "modal__setup_complete": "الإعداد الكامل!",
   "modal__setup_complete_desc": "جهازك جاهز للاستخدام.",
   "modal__setup_new_device": "إعداد المحفظة الجديدة",
@@ -605,6 +611,7 @@
   "modal__this_device_contains_backup_desc": "إذا تابعت ، فسيتم استبدال النسخة الاحتياطية السابقة بالكامل وستفقد إلى الأبد.",
   "modal__this_device_has_no_backup_inbside": "هذا الجهاز ليس لديه نسخة احتياطية في الداخل",
   "modal__this_device_has_no_backup_inbside_desc": "استبدلها بآخر يحتوي على نسخة احتياطية ، وحاول مرة أخرى",
+  "modal__transaction_submitted": "Transaction Submitted",
   "modal__turn_on_nfc_and_let_onekey_connect_your_hardware_devices": "قم بتشغيل NFC ودع \"OneKey\" يقوم بتوصيل أجهزتك",
   "modal__unable_to_connect": "غير قادر على الاتصال",
   "modal__unable_to_connect_desc": "جهازك الحالي لا يدعم NFC ، استبدله بجهاز مزود بتقنية NFC وحاول مرة أخرى",
@@ -664,12 +671,15 @@
   "msg__removed": "إزالة!",
   "msg__renamed": "أعيدت تسميته",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
+  "msg__str_maximum_amount": "{0} Maximum Amount",
+  "msg__str_minimum_amount": "{0} Minimum Amount",
   "msg__str_not_exist": "{0} not exist",
   "msg__submitted_successfully": "تم الإرسال بنجاح",
   "msg__switch_to_str": "Switched to {0}",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
   "msg__this_site_is_identified_as_a_scam": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال",
+  "msg__this_transaction_is_not_supported": "This transaction is not supported",
   "msg__token_added": "تمت إضافة الرمز",
   "msg__token_already_existed": "الرمز موجود بالفعل!",
   "msg__transaction_submitted": "تم إرسال المعاملة",

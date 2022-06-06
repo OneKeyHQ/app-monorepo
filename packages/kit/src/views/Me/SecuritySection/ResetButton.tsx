@@ -53,11 +53,12 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
           id: 'form__reset_app',
           defaultMessage: 'Reset App',
         }),
-        content: intl.formatMessage({
-          id: 'modal__reset_app_desc',
-          defaultMessage:
-            'This will delete all the data you have created at OneKey, enter "RESET" to reset the App',
-        }),
+        content: intl.formatMessage(
+          {
+            id: 'modal__reset_app_desc',
+          },
+          { 0: 'RESET' },
+        ),
         input: (
           <Box w="full" mt="4">
             <Input
