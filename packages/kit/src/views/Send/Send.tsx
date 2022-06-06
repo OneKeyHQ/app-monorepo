@@ -79,7 +79,7 @@ const Transaction = () => {
   const navigation = useNavigation<NavigationProps>();
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
-  const routeParamsToken = route?.params?.token;
+  const { token: routeParamsToken, to: initialToAddress } = route.params || {};
 
   const {
     control,
@@ -94,7 +94,7 @@ const Transaction = () => {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     defaultValues: {
-      to: '',
+      to: initialToAddress,
       value: '', // TODO rename to amount
     },
   });

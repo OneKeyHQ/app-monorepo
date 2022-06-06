@@ -22,7 +22,7 @@ const UpdateAlert: FC = () => {
 
   const isSmallScreen = useIsVerticalLayout();
 
-  if (platformEnv.isWeb) return null;
+  if (platformEnv.isWeb || platformEnv.isExtension) return null;
 
   return enabled ? (
     <Box

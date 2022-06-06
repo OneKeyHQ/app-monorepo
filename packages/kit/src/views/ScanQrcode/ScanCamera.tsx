@@ -27,15 +27,16 @@ const ScanCamera: FC<ScanCameraProps> = ({
     runOnJS(onQrcodeScanned)(detectedBarcodes[0]?.rawValue);
   }, []);
   return device ? (
-    <Camera
-      style={style}
-      device={device}
-      isActive={isActive}
-      frameProcessor={frameProcessor}
-      frameProcessorFps={5}
-    >
+    <>
+      <Camera
+        style={style}
+        device={device}
+        isActive={isActive}
+        frameProcessor={frameProcessor}
+        frameProcessorFps={5}
+      />
       {children}
-    </Camera>
+    </>
   ) : null;
 };
 ScanCamera.displayName = 'ScanCamera';

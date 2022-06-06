@@ -1,23 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useMemo } from 'react';
+import React, { FC, useMemo, useState } from 'react';
 
 import * as ethUtils from 'ethereumjs-util';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
+  Center,
   HStack,
   Image,
   Text,
   Typography,
   VStack,
-  useThemeValue,
 } from '@onekeyhq/components';
-import {
-  MaterialTabBar,
-  Tabs,
-} from '@onekeyhq/components/src/CollapsibleTabView';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
-import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
@@ -27,7 +24,7 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 
 import ConfirmHeader from './ConfirmHeader';
 
-import type { TextStyle } from 'react-native';
+type TabType = 'message' | 'data';
 
 type TypedDataV1 = {
   type: string;
@@ -63,7 +60,7 @@ const renderCard = (text: string) => (
 
 // Render readable message recursively.
 const renderMessage = (json: any, padding = 0) => {
-  if (!json) {
+  if (isNil(json)) {
     return <Typography.Body2>{'null\n'}</Typography.Body2>;
   }
 
@@ -83,8 +80,8 @@ const renderMessage = (json: any, padding = 0) => {
   }
 
   const siblings = Object.keys(json).map((key) => (
-    <Typography.Body2 pl={padding} color="text-subdued">
-      {`${key}: `}
+    <Typography.Body2 color="text-subdued">
+      {`${''.padStart(padding)}${key}: `}
       {renderMessage(json[key], padding + 4)}
     </Typography.Body2>
   ));
@@ -160,19 +157,7 @@ const SignDetail: FC<{
   const intl = useIntl();
   const { accountId } = useActiveWalletAccount();
   const { type, message } = unsignedMessage;
-  const [
-    tabbarBgColor,
-    activeLabelColor,
-    labelColor,
-    indicatorColor,
-    borderDefault,
-  ] = useThemeValue([
-    'background-default',
-    'text-default',
-    'text-subdued',
-    'action-primary-default',
-    'border-subdued',
-  ]);
+  const [curTab, setCurTab] = useState<TabType>('message');
 
   const isWatchingAccount = useMemo(
     () => accountId && accountId.startsWith('watching-'),
@@ -201,7 +186,7 @@ const SignDetail: FC<{
       >
         <HStack justifyContent="space-between" space="16px" padding="16px">
           <Image size="20px" source={X} />
-          <Typography.Body2>
+          <Typography.Body2 maxW="95%">
             {intl.formatMessage({
               id: 'msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks',
             })}
@@ -212,72 +197,72 @@ const SignDetail: FC<{
     [intl],
   );
 
+  // CollapsibleTabView doesn't work on mobile
+  const renderTabBar = () => {
+    const isMessageTab = curTab === 'message';
+    return (
+      <HStack
+        borderBottomWidth={1}
+        borderBottomColor="border-subdued"
+        space={2}
+      >
+        <VStack mb="-1px">
+          <Button
+            type="plain"
+            size="base"
+            _text={{ color: isMessageTab ? 'text-default' : 'text-subdued' }}
+            onPress={() => setCurTab('message')}
+          >
+            {intl.formatMessage({
+              id: 'form__message_tab',
+            })}
+          </Button>
+          {isMessageTab && <Center bg="action-primary-default" height="2px" />}
+        </VStack>
+        <VStack mb="-1px">
+          <Button
+            type="plain"
+            size="base"
+            _text={{ color: !isMessageTab ? 'text-default' : 'text-subdued' }}
+            onPress={() => setCurTab('data')}
+          >
+            {intl.formatMessage({
+              id: 'form__data_tab',
+            })}
+          </Button>
+          {!isMessageTab && <Center bg="action-primary-default" height="2px" />}
+        </VStack>
+      </HStack>
+    );
+  };
+
   return type === ETHMessageTypes.ETH_SIGN ? (
-    <>
+    <VStack>
       {header}
       {warning}
       <Typography.Subheading mt="24px" color="text-subdued">
         {intl.formatMessage({ id: 'form__message_tab' })}
       </Typography.Subheading>
       {renderCard(message)}
-    </>
+    </VStack>
   ) : (
-    <Tabs.Container
-      renderHeader={() => header}
-      pagerProps={{ scrollEnabled: false }}
-      headerHeight={180}
-      containerStyle={{
-        width: '100%',
-        marginHorizontal: 'auto',
-        backgroundColor: 'transparent',
-      }}
-      headerContainerStyle={{
-        shadowOffset: { width: 0, height: 0 },
-        shadowColor: 'transparent',
-        elevation: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: borderDefault,
-      }}
-      renderTabBar={(props) => (
-        <MaterialTabBar
-          {...props}
-          activeColor={activeLabelColor}
-          inactiveColor={labelColor}
-          labelStyle={{
-            ...(Body2StrongProps as TextStyle),
-          }}
-          indicatorStyle={{ backgroundColor: indicatorColor }}
-          style={{
-            backgroundColor: tabbarBgColor,
-          }}
-          tabStyle={{ backgroundColor: tabbarBgColor }}
-        />
-      )}
-    >
-      <Tabs.Tab
-        name="Message"
-        label={intl.formatMessage({
-          id: 'form__message_tab',
-        })}
-      >
-        {renderMessageCard(unsignedMessage)}
-        {isWatchingAccount ? (
-          <FormErrorMessage
-            message={intl.formatMessage({
-              id: 'form__error_trade_with_watched_acocunt' as any,
-            })}
-          />
-        ) : null}
-      </Tabs.Tab>
-      <Tabs.Tab
-        name="Data"
-        label={intl.formatMessage({
-          id: 'form__data_tab',
-        })}
-      >
+    <VStack>
+      {header}
+      {renderTabBar()}
+      {curTab === 'message' ? (
+        <VStack>
+          {renderMessageCard(unsignedMessage)}
+          {isWatchingAccount ? (
+            <FormErrorMessage
+              message={intl.formatMessage({
+                id: 'form__error_trade_with_watched_acocunt' as any,
+              })}
+            />
+          ) : null}
+        </VStack>
+      ) : (
         <VStack flex="1">
           {renderDataCard(unsignedMessage)}
-
           <Typography.Subheading mt="24px" color="text-subdued">
             {intl.formatMessage({ id: 'form__method_type_uppercase' as any })}
           </Typography.Subheading>
@@ -285,8 +270,8 @@ const SignDetail: FC<{
             {getSignTypeString(type)}
           </Typography.Body2>
         </VStack>
-      </Tabs.Tab>
-    </Tabs.Container>
+      )}
+    </VStack>
   );
 };
 

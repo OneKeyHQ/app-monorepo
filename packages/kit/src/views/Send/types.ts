@@ -33,6 +33,7 @@ export type EditFeeParams = {
 
 export type SendParams = EditFeeParams & {
   token?: Token;
+  to?: string;
 };
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {

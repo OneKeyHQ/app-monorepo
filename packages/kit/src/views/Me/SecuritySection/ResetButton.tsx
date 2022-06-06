@@ -28,6 +28,7 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
   const intl = useIntl();
 
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
   return (
     <Dialog
@@ -38,9 +39,12 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
         primaryActionProps: {
           type: 'destructive',
           isDisabled: input.toUpperCase() !== 'RESET',
+          isLoading: loading,
         },
         onPrimaryActionPress: async () => {
-          await onConfirm?.();
+          setLoading(true);
+          await onConfirm();
+          setLoading(false);
           onClose?.();
         },
         onSecondaryActionPress: () => {
@@ -53,11 +57,12 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
           id: 'form__reset_app',
           defaultMessage: 'Reset App',
         }),
-        content: intl.formatMessage({
-          id: 'modal__reset_app_desc',
-          defaultMessage:
-            'This will delete all the data you have created at OneKey, enter "RESET" to reset the App',
-        }),
+        content: intl.formatMessage(
+          {
+            id: 'modal__reset_app_desc',
+          },
+          { 0: 'RESET' },
+        ),
         input: (
           <Box w="full" mt="4">
             <Input

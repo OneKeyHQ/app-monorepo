@@ -26,7 +26,7 @@ import {
 } from '@onekeyhq/kit/src/routes';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-import { ModalScreenProps } from '../../routes/types';
+import { ModalScreenProps, TabRoutes } from '../../routes/types';
 
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
 
@@ -64,14 +64,14 @@ type ScanQrcodeResultRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
   ScanQrcodeRoutes.ScanQrcodeResult
 >;
-type SelectChainToSendNavProp = NavigationProp<
+type PreviewSendNavProp = NavigationProp<
   ScanQrcodeRoutesParams,
-  ScanQrcodeRoutes.SelectChainToSend
+  ScanQrcodeRoutes.PreviewSend
 >;
 type RootModalNavProps = ModalScreenProps<CreateWalletRoutesParams>;
 const ScanQrcodeResult: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation<SelectChainToSendNavProp>();
+  const navigation = useNavigation();
   const { bottom } = useSafeAreaInsets();
   const route = useRoute<ScanQrcodeResultRouteProp>();
   const { type, data, possibleNetworks } = route.params;
@@ -86,10 +86,13 @@ const ScanQrcodeResult: FC = () => {
           {...pressableProps}
           borderBottomRadius={0}
           onPress={() => {
-            navigation.navigate(ScanQrcodeRoutes.SelectChainToSend, {
-              address: data,
-              possibleNetworks,
-            });
+            (navigation as any as PreviewSendNavProp).navigate(
+              ScanQrcodeRoutes.PreviewSend,
+              {
+                address: data,
+                possibleNetworks,
+              },
+            );
           }}
         >
           <HStack space="4">
@@ -103,7 +106,7 @@ const ScanQrcodeResult: FC = () => {
           <Icon name="ChevronRightSolid" size={20} />
         </Pressable>
         <Divider />
-        <Pressable {...pressableProps} borderRadius={0}>
+        {/* <Pressable {...pressableProps} borderRadius={0}>
           <HStack space="4">
             <Icon name="PlusSolid" />
             <Typography.Body1>
@@ -114,7 +117,7 @@ const ScanQrcodeResult: FC = () => {
           </HStack>
           <Icon name="ChevronRightSolid" size={20} />
         </Pressable>
-        <Divider />
+        <Divider /> */}
         <Pressable
           {...pressableProps}
           borderTopRadius={0}
@@ -152,7 +155,15 @@ const ScanQrcodeResult: FC = () => {
     header = intl.formatMessage({ id: 'title__url' });
     actions = (
       <>
-        <Pressable {...pressableProps} mb="16px">
+        <Pressable
+          {...pressableProps}
+          mb="16px"
+          onPress={() => {
+            navigation
+              .getParent()
+              ?.navigate(TabRoutes.Discover, { incomingUrl: data });
+          }}
+        >
           <HStack space="4">
             <Icon name="CompassOutline" />
             <Typography.Body1>
