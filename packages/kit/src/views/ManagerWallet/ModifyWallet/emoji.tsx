@@ -179,7 +179,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
         >
           <RecyclerListView
             style={{
-              width: modalWidth - 24,
+              width: modalWidth,
               padding: 24,
             }}
             dataProvider={dataProvider}
