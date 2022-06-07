@@ -471,7 +471,7 @@ export default class Vault extends VaultBase {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       symbol: network.feeSymbol,
-      decimals: network.feeDecimals, // TODO balance2FeeDecimals
+      decimals: network.feeDecimals,
 
       eip1559,
       limit,
