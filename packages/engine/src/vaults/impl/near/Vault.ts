@@ -438,9 +438,9 @@ export default class Vault extends VaultBase {
     const cli = await this._getNearCli();
     const txCostConfig = await cli.getTxCostConfig();
     const priceInfo = await cli.getFeePricePerUnit();
-    const price = priceInfo.normal.price.toFixed();
-    const { transfer_cost, action_receipt_creation_config } = txCostConfig;
     const network = await this.getNetwork();
+    const price = priceInfo.normal.price.shiftedBy(-network.decimals).toFixed();
+    const { transfer_cost, action_receipt_creation_config } = txCostConfig;
     let limit = '0';
 
     // hard to estimate gas of function call

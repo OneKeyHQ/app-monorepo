@@ -3202,6 +3202,11 @@
   resolved "https://registry.yarnpkg.com/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-12.1.0.tgz#d27e7e76c87a460a4da99c5bfdb1618dcd6cd064"
   integrity sha512-aBvcbMwuanDH4EMrL2TthNJy+4nP59Bimn8egqv6GHMVj0a44cU6Au4PjOhLNqEh9l+IpRGBqMTzec94UdC5xg==
 
+"@noble/ed25519@^1.6.0":
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/@noble/ed25519/-/ed25519-1.6.0.tgz#b55f7c9e532b478bf1d7c4f609e1f3a37850b583"
+  integrity sha512-UKju89WV37IUALIMfKhKW3psO8AqmrE/GvH6QbPKjzolQ98zM7WmGUeY+xdIgSf5tqPFf75ZCYMgym6E9Jsw3Q==
+
 "@node-rs/helper@1.2.1":
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/@node-rs/helper/-/helper-1.2.1.tgz#e079b05f21ff4329d82c4e1f71c0290e4ecdc70c"
@@ -3246,16 +3251,16 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@0.0.34":
-  version "0.0.34"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.34.tgz#eca620f50d4d63d3902fcf4c169befa649aa4a04"
-  integrity sha512-IHybP9CPtJNzFln6dMyttdj82g20XyqcAEFESaP4LkHW4hrIGnmMbIpoeAKSuDC7SCL/H9Pv1L0VQn2i/9r9Qw==
+"@onekeyfe/blockchain-libs@^0.0.35":
+  version "0.0.35"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.35.tgz#5fc199424e64e93c7c9feddfa4aa6be572838c44"
+  integrity sha512-1xRPH5nU0q7s5jVFNsVqXdMbgfQmW3FNLgrLkhFujtyXqlkcJTyEKgwgqWV3dD/sW++DaSlQgM3GAnegdbsTOw==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@metamask/eth-sig-util" "^4.0.0"
     "@solana/spl-token" "^0.1.8"
     "@solana/web3.js" "^1.29.2"
-    "@starcoin/starcoin" "^1.6.2"
+    "@starcoin/starcoin" "^2.1.5"
     algo-msgpack-with-bigint "^2.1.1"
     asmcrypto.js "^2.3.2"
     bchaddrjs "^0.5.2"
@@ -4689,10 +4694,10 @@
     superstruct "^0.14.2"
     tweetnacl "^1.0.0"
 
-"@starcoin/starcoin@^1.6.2":
-  version "1.8.0"
-  resolved "https://registry.yarnpkg.com/@starcoin/starcoin/-/starcoin-1.8.0.tgz#76292a86cdfa5f373c3476842289890092e90745"
-  integrity sha512-bMpCw50v8yDrBfeGQc2ZMXmxUL1t4XdwQ58ZpW9PaxNfBNcEsQZVr2dPpcBOad1l//NhX/OhOArOwJ3ezxjEBg==
+"@starcoin/starcoin@^2.1.5":
+  version "2.1.5"
+  resolved "https://registry.yarnpkg.com/@starcoin/starcoin/-/starcoin-2.1.5.tgz#93f6425c877edb3df791055d7c002a230075c47b"
+  integrity sha512-fm9A7Sx6URk90jbZPevD5SAMxftvb3r8stL9HPJVxAlNL3uD46Ir04auUL9xhYOR39truWtsBeq7C9+DXpo45g==
   dependencies:
     "@ethersproject/basex" "^5.0.4"
     "@ethersproject/bignumber" "^5.0"
@@ -4703,7 +4708,7 @@
     "@ethersproject/properties" "^5.0.4"
     "@ethersproject/sha2" "^5.0.4"
     "@ethersproject/web" "^5.0.9"
-    "@starcoin/stc-ed25519" "^0.1.0"
+    "@noble/ed25519" "^1.6.0"
     bech32 "^2.0.0"
     ethereumjs-util "5.1.0"
     fs "^0.0.1-security"
@@ -4716,13 +4721,7 @@
     js-sha3 "^0.8.0"
     jssha "^3.2.0"
     lodash "^4.17.21"
-    read-bigint "^0.1.6"
     ws "7.2.3"
-
-"@starcoin/stc-ed25519@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@starcoin/stc-ed25519/-/stc-ed25519-0.1.0.tgz#56e65b388889a5953e01806cc3deaa20ddaf8174"
-  integrity sha512-H3oz8fNQD604Ak0cSNTDcbfzLxsB9XAKw1aJO7iBPuZWcHF8bgn7xxOzsinx5V5LGaPeleWc/Qw4vCKnK6cxHQ==
 
 "@stroncium/procfs@^1.2.1":
   version "1.2.1"
@@ -18699,11 +18698,6 @@ react@17.0.2:
   dependencies:
     loose-envify "^1.1.0"
     object-assign "^4.1.1"
-
-read-bigint@^0.1.6:
-  version "0.1.7"
-  resolved "https://registry.yarnpkg.com/read-bigint/-/read-bigint-0.1.7.tgz#54a1b55fd6984ea0a84fbdc4af86d5e0b1058b23"
-  integrity sha512-AW7NH0PK6KwAh/OZEoUlaQXB1rv4HZYu0k8JyodNEBjlwHO+JaG18zi2Qpj9if5yvPwxICR24qOC/2cp5iIIeA==
 
 read-config-file@6.2.0:
   version "6.2.0"

@@ -539,6 +539,7 @@ class Engine {
       '503': 'cfx--1029',
       '397': 'near--0',
       '0': 'btc--0',
+      '101010': 'stc--1',
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
