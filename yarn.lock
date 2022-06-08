@@ -2027,10 +2027,10 @@
     mv "~2"
     safe-json-stringify "~1"
 
-"@expo/cli@0.1.4":
-  version "0.1.4"
-  resolved "https://registry.yarnpkg.com/@expo/cli/-/cli-0.1.4.tgz#1eebf652eabf0eca4b567d9f8bb6ab38d11a3051"
-  integrity sha512-A9yq0+3ntqc7eNot4QfhAtAqx8bT50uleeQfTwhCiBPlArQ+zL2sHJVR5Vy79o80PJLQ0KoP3sxsCs1nkZ6rWw==
+"@expo/cli@0.1.5":
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/@expo/cli/-/cli-0.1.5.tgz#2427e3c3b6be1936b2e6ffb595fc9c83e37e4be1"
+  integrity sha512-27LNT3b9MtBHEosmvJiC9Ug9aJpQAK9T3cC8ekaB9cHnVcJw+mJs2kdVBYpV1aBjKkH7T57aiWWimZp0O7m1wQ==
   dependencies:
     "@babel/runtime" "^7.14.0"
     "@expo/code-signing-certificates" "^0.0.2"
@@ -11176,13 +11176,13 @@ expo-yarn-workspaces@^2.0.0:
     minimist "^1.2.6"
     mkdirp "^0.5.1"
 
-expo@^45.0.4:
-  version "45.0.4"
-  resolved "https://registry.yarnpkg.com/expo/-/expo-45.0.4.tgz#a34d250605d5603e3cea4acf169aedd288df477b"
-  integrity sha512-S/6rwmgG+1cyHP1hCmylk9FLnavUWd/haWgVc8sUNiavaMBu/vCjeLUESFVJdYRKKN9i+avSzHdAVdKytNYo6A==
+expo@^45.0.5:
+  version "45.0.5"
+  resolved "https://registry.yarnpkg.com/expo/-/expo-45.0.5.tgz#ff99ad44a59ffabf473c43abbff35d17b10862fe"
+  integrity sha512-ND+Fo/iLZK1ubMvPFzraIQBvtGL7a4ZHGIP8N1PjcOtTGrCc6X7IWyLkfPMAck2yhd80ZTbos8vTU3SAUuBcJw==
   dependencies:
     "@babel/runtime" "^7.14.0"
-    "@expo/cli" "0.1.4"
+    "@expo/cli" "0.1.5"
     "@expo/vector-icons" "^13.0.0"
     babel-preset-expo "~9.1.0"
     cross-spawn "^6.0.5"
@@ -18319,10 +18319,10 @@ react-native-codegen@^0.0.17:
     jscodeshift "^0.13.1"
     nullthrows "^1.1.1"
 
-react-native-collapsible-tab-view@^4.4.0:
-  version "4.4.0"
-  resolved "https://registry.yarnpkg.com/react-native-collapsible-tab-view/-/react-native-collapsible-tab-view-4.4.0.tgz#5eebeb22e00458402a04c1ca1b29c34a1398eebc"
-  integrity sha512-mzb7HibauG0LpTREAKdDMBEDzEP/o8lRwYWpSY4NOoMUuAfpcrQK+/yPcmCD81W4gp0/InHgg+rc+D1qZzwf9g==
+react-native-collapsible-tab-view@^4.5.2:
+  version "4.5.2"
+  resolved "https://registry.yarnpkg.com/react-native-collapsible-tab-view/-/react-native-collapsible-tab-view-4.5.2.tgz#e5fd7b81d76f3ee98cc0a0ea54439674591e9055"
+  integrity sha512-QXj4bMqfD+erREZNS51mqyPxJ8Xid4Kef/vqu1PqExNCAo30WjSKOpeNVHmXt4vcs/6ln+qFzLby4cbJ5AkoBw==
   dependencies:
     use-deep-compare "^1.1.0"
 
@@ -18548,6 +18548,11 @@ react-native-v8@^1.4.1:
   version "1.4.1"
   resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.4.1.tgz#52129a0f6c52d3fa3d392474b5d7ac6b2e6500e4"
   integrity sha512-5HTfa8H4kK2xv1VunT5zZOJxiuPh12VdBoZEBO4i4TTWBNCtuB6VKmHFkAidKXEc8otH6JLYtgVdLe97qnS0mQ==
+
+react-native-vision-camera@^2.13.3:
+  version "2.13.3"
+  resolved "https://registry.yarnpkg.com/react-native-vision-camera/-/react-native-vision-camera-2.13.3.tgz#cacd20b7f3fd777691496f007a47a34c02be93be"
+  integrity sha512-aikp6kNmb9b8lsVFKEKCBgch5h93Cs8Qqw/bSZsn/dO+Qa4uktpe89WIO1VTs88d40vJiLeYFlbyWe589E/UuA==
 
 react-native-web@0.17.7:
   version "0.17.7"
@@ -21896,6 +21901,11 @@ verror@^1.10.0:
     assert-plus "^1.0.0"
     core-util-is "1.0.2"
     extsprintf "^1.2.0"
+
+vision-camera-code-scanner@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/vision-camera-code-scanner/-/vision-camera-code-scanner-0.2.0.tgz#8adc0694319a17f6a95f6dfacc02ab7ac29b4742"
+  integrity sha512-H5hVkXfbIcGdg9YlhuS8Y/xDX5e32Vo6eK5FyDQsE9AGVjlqEHMmSLHZg7BX8UUm4ADmiAZc8wzc4n8TUqGr0g==
 
 vlq@^1.0.0:
   version "1.0.1"
