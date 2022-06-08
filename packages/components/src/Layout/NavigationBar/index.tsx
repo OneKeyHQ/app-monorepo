@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { useIsVerticalLayout } from '../../Provider/hooks';
+import { useIsSmallLayout } from '../../Provider/hooks';
 
 import Desktop from './Desktop';
 import Mobile from './Mobile';
@@ -8,9 +8,9 @@ import Mobile from './Mobile';
 import type { BottomTabBarProps } from '../BottomTabs/types';
 
 export default function NavigationBar(props: BottomTabBarProps) {
-  const isVerticalLayout = useIsVerticalLayout();
+  const isSmallLayout = useIsSmallLayout();
 
-  if (isVerticalLayout) {
+  if (isSmallLayout) {
     return <Mobile {...props} />;
   }
   return <Desktop {...props} />;

@@ -8,8 +8,9 @@ import {
   Box,
   Button,
   Empty,
-  useIsVerticalLayout,
+  useIsSmallLayout,
   useThemeValue,
+  useUserDevice,
 } from '@onekeyhq/components';
 import {
   MaterialTabBar,
@@ -64,6 +65,7 @@ NetInfo.configure({
 
 const Home: FC = () => {
   const intl = useIntl();
+  const { screenWidth } = useUserDevice();
   const [
     tabbarBgColor,
     activeLabelColor,
@@ -77,7 +79,7 @@ const Home: FC = () => {
     'action-primary-default',
     'border-subdued',
   ]);
-  const isVerticalLayout = useIsVerticalLayout();
+  const isSmallLayout = useIsSmallLayout();
   const { wallet, account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [offline, setOffline] = useState(false);
@@ -209,16 +211,17 @@ const Home: FC = () => {
     <>
       <Tabs.Container
         renderHeader={AccountInfo}
+        width={isSmallLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
         pagerProps={{ scrollEnabled: false }}
         headerHeight={
-          isVerticalLayout
+          isSmallLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
             : FIXED_HORIZONTAL_HEDER_HEIGHT
         }
         containerStyle={{
-          maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
+          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
           width: '100%',
-          marginHorizontal: 'auto',
+          marginHorizontal: 'auto', // Center align vertically
           backgroundColor: tabbarBgColor,
         }}
         headerContainerStyle={{
@@ -240,7 +243,6 @@ const Home: FC = () => {
             style={{
               backgroundColor: tabbarBgColor,
             }}
-            contentContainerStyle={{ maxWidth: MAX_PAGE_CONTAINER_WIDTH }}
             tabStyle={{ backgroundColor: tabbarBgColor }}
           />
         )}

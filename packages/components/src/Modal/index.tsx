@@ -186,7 +186,11 @@ const Modal: FC<ModalProps> = ({
   ]);
 
   const modalContainer = useMemo(() => {
-    if (['SMALL', 'NORMAL'].includes(size)) {
+    /* 
+      Why `platformEnv.isNativeIOS` ?
+      We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
+    */
+    if (['SMALL', 'NORMAL'].includes(size) || platformEnv.isNativeIOS) {
       return (
         <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
           <Box

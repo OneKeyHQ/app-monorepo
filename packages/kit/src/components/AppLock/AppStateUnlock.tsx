@@ -13,7 +13,7 @@ import {
   KeyboardDismissView,
   Pressable,
   Typography,
-  useIsVerticalLayout,
+  useIsSmallLayout,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -84,7 +84,7 @@ const ForgetPasswordButton = () => {
 
 export const AppStateUnlock = () => {
   const intl = useIntl();
-  const isSmall = useIsVerticalLayout();
+  const isSmall = useIsSmallLayout();
   const justifyContent = isSmall ? 'space-between' : 'center';
   const py = isSmall ? '16' : undefined;
   const [password, setPassword] = useState('');

@@ -35,20 +35,20 @@ type AccountSelectorProps = {
 
 const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const [innerVisible, setVisible] = useState(false);
-  const isVerticalLayout = useIsVerticalLayout();
+  const isSmallLayout = useIsVerticalLayout();
   const navigation = useNavigation();
 
   const isDrawerOpen = useDrawerStatus() === 'open';
   const triggerRef = useRef<HTMLElement>(null);
-  const visible = isVerticalLayout ? isDrawerOpen : innerVisible;
+  const visible = isSmallLayout ? isDrawerOpen : innerVisible;
 
   const handleToggleVisible = useCallback(() => {
-    if (isVerticalLayout) {
+    if (isSmallLayout) {
       // @ts-expect-error
       navigation?.toggleDrawer?.();
     }
     setVisible((v) => !v);
-  }, [navigation, isVerticalLayout]);
+  }, [navigation, isSmallLayout]);
 
   const desktopRef = React.useRef<DesktopRef | null>(null);
   const setRef = React.useCallback((ref: DesktopRef | null) => {
@@ -64,7 +64,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   }, []);
 
   const child = useMemo(() => {
-    if (isVerticalLayout) {
+    if (isSmallLayout) {
       return null;
     }
     return (
@@ -74,7 +74,7 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
         toggleVisible={handleToggleVisible}
       />
     );
-  }, [isVerticalLayout, visible, handleToggleVisible, setRef]);
+  }, [isSmallLayout, visible, handleToggleVisible, setRef]);
 
   return (
     <Box

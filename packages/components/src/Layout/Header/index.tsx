@@ -2,6 +2,7 @@ import React, { FC, ReactNode } from 'react';
 
 import { StyleSheet } from 'react-native';
 
+import Box from '../../Box';
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import HStack from '../../HStack';
 import {
@@ -21,7 +22,7 @@ const DEFAULT_HEADER_HORIZONTAL = 65;
 const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
   const insets = useSafeAreaInsets();
   const { size } = useUserDevice();
-  const isHorizontal = ['LARGE', 'XLARGE'].includes(size);
+  const isHorizontal = ['NORMAL', 'LARGE', 'XLARGE'].includes(size);
 
   const headerHeight = isHorizontal
     ? DEFAULT_HEADER_HORIZONTAL
@@ -53,16 +54,16 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         }}
       >
         {headerLeftNode ? (
-          <HStack
+          <Box
             flex={isHorizontal ? undefined : 1}
-            alignItems="center"
+            justifyContent="center"
             h="full"
             pl={{ md: 2 }}
             pr={{ md: 4 }}
             flexShrink={0}
           >
             {headerLeftNode}
-          </HStack>
+          </Box>
         ) : null}
 
         {/* {isHorizontal && (

@@ -27,7 +27,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   return (
     <Box
       position="relative"
-      w={64}
+      w={{ base: 56, lg: 64 }}
       h="full"
       bg="surface-subdued"
       borderRightWidth={1}

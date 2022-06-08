@@ -11,7 +11,7 @@ import {
   IconButton,
   Pressable,
   Typography,
-  useIsVerticalLayout,
+  useIsSmallLayout,
   useToast,
 } from '@onekeyhq/components';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
@@ -147,7 +147,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
 
   return (
     <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
-      <Box flex={1} mx={3} minW="56px" alignItems="center">
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -182,7 +182,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__send' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box flex={1} mx={3} minW="56px" alignItems="center">
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -217,7 +217,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
       </Box>
 
       {wallet?.type !== 'watching' && account && currencies.length !== 0 && (
-        <Box flex={1} mx={3} minW="56px" alignItems="center">
+        <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle
             size={isSmallView ? 'xl' : 'lg'}
@@ -260,7 +260,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
 };
 
 const AccountInfo = () => {
-  const isSmallView = useIsVerticalLayout();
+  const isSmallView = useIsSmallLayout();
   if (isSmallView) {
     return (
       <Box
@@ -282,7 +282,7 @@ const AccountInfo = () => {
     <Box
       h={FIXED_HORIZONTAL_HEDER_HEIGHT}
       py={12}
-      px={4}
+      px={{ sm: 8, lg: 4 }}
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"

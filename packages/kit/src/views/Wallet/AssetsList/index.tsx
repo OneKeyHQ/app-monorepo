@@ -15,7 +15,8 @@ import {
   Text,
   Token,
   Typography,
-  useIsVerticalLayout,
+  useIsSmallLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
@@ -83,11 +84,17 @@ const ListHeaderComponent = ({ tokenEnabled }: { tokenEnabled: boolean }) => {
 };
 
 const AssetsList = () => {
-  const isSmallScreen = useIsVerticalLayout();
+  const isSmallScreen = useIsSmallLayout();
   const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
+
+  const { size } = useUserDevice();
+  const responsivePadding = () => {
+    if (['NORMAL', 'LARGE'].includes(size)) return 32;
+    return 16;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -184,7 +191,7 @@ const AssetsList = () => {
   return (
     <Tabs.FlatList
       contentContainerStyle={{
-        paddingHorizontal: 16,
+        paddingHorizontal: responsivePadding(),
         marginTop: 24,
       }}
       data={accountTokens}

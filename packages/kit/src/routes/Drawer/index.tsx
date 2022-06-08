@@ -16,7 +16,7 @@ const DrawerStackNavigator = () => (
       headerShown: false,
       drawerType: 'front',
       swipeEdgeWidth: 390,
-      drawerStyle: { width: '90%' },
+      drawerStyle: { width: '90%', maxWidth: 400 },
     }}
     drawerContent={(props) => <AccountSelectorMobile {...props} />}
   >

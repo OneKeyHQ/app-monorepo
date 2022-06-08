@@ -126,7 +126,10 @@ const Account: FC<AccountProps> = ({
                 color={color}
               />
             ) : (
-              <Typography.Body2Strong color={color} isTruncated>
+              <Typography.Body2Strong
+                color={color || 'text-default'}
+                isTruncated
+              >
                 {primaryContent}
               </Typography.Body2Strong>
             ))}
