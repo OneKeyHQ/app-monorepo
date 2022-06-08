@@ -108,6 +108,7 @@ export type IFeeInfo = {
   tx?: IFeeInfoUnit | null;
   eip1559?: boolean;
   customDisabled?: boolean;
+  baseFeeValue?: string; // A base fee: e.g. L1 fee for Layer 2 networks
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {

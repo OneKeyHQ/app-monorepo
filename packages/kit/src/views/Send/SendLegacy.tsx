@@ -201,13 +201,9 @@ const Transaction = () => {
     const formValues = getValues();
     let { to, value } = formValues;
     const from = (account as { address: string }).address;
-    if (isMax) {
+    if (isMax && selectedToken?.tokenIdOnNetwork) {
       // max token transfer
-      if (selectedToken?.tokenIdOnNetwork) {
-        value = getTokenBalance({ token: selectedToken, defaultValue: '' });
-      } else {
-        value = '0';
-      }
+      value = getTokenBalance({ token: selectedToken, defaultValue: '' });
     }
 
     const info = {
