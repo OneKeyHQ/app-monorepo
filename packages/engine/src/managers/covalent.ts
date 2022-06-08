@@ -13,14 +13,9 @@ import {
   Transaction,
   Transfer,
   TransferEvent,
-  TxDetail,
   TxStatus,
 } from '../types/covalent';
-import { HistoryEntryStatus, HistoryEntryTransaction } from '../types/history';
-import {
-  EVMDecodedItem,
-  EVMDecodedTxType,
-} from '../vaults/impl/evm/decoder/decoder';
+import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/decoder';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 
@@ -475,102 +470,4 @@ function getErc20TransferHistories(
     });
 }
 
-function getTxDetail(
-  chainId: string,
-  txHash: string,
-): Promise<Transaction | null> {
-  const request = `https://api.covalenthq.com/v1/${chainId}/transaction_v2/${txHash}/`;
-
-  return axios
-    .get<TxDetail>(request, {
-      params: {
-        'key': COVALENT_API_KEY,
-      },
-    })
-    .then((response) => {
-      if (response.data.error === false) {
-        const { data: rawData } = response.data;
-        if (rawData.items.length !== 1) {
-          return null;
-        }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const data = camelcase(rawData.items[0], { deep: true });
-        return txAdapter(chainId, data.fromAddress, data);
-      }
-
-      return null;
-    });
-}
-
-function updateLocalTransactions(
-  localHistory: Transaction[],
-  txList: Transaction[],
-) {
-  const localHistoryMap: Record<string, Transaction> = {};
-  for (const h of localHistory) {
-    localHistoryMap[h.txHash] = h;
-  }
-
-  const confirmeds = txList.filter(
-    (tx) => tx.successful === TxStatus.Confirmed,
-  );
-  for (const confirmed of confirmeds) {
-    const { txHash, gasSpent } = confirmed;
-    if (localHistoryMap[txHash]) {
-      localHistoryMap[txHash].gasSpent = gasSpent;
-    }
-  }
-}
-
-function decodedItemToTransaction(
-  item: EVMDecodedItem,
-  historyEntry: HistoryEntryTransaction,
-): Transaction {
-  const { createdAt, status, rawTx } = historyEntry;
-  const blockSignedAt = new Date(createdAt).toISOString();
-
-  let successful: TxStatus;
-  if (status === HistoryEntryStatus.SUCCESS) {
-    successful = TxStatus.Confirmed;
-  } else if (status === HistoryEntryStatus.PENDING) {
-    successful = TxStatus.Pending;
-  } else {
-    successful = TxStatus.Failed;
-  }
-
-  return {
-    blockHeight: 0,
-    blockSignedAt,
-    txHash: item.txHash,
-    successful,
-    fromAddress: item.fromAddress,
-    fromAddressLabel: '',
-    toAddress: item.toAddress,
-    toAddressLabel: '',
-    value: item.value,
-    valueQuote: 0,
-    gasOffered: item.gasInfo.gasLimit,
-    gasPrice: Number(item.gasInfo.gasPrice),
-    gasSpent: 0,
-    gasQuote: 0,
-    gasQuoteRate: 0,
-    fromType: EVMTxFromType.OUT,
-    txType: item.txType,
-    tokenEvent: [],
-    source: 'local',
-    info: item.info,
-    rawTx,
-    logEvents: [],
-    transfers: [],
-    chainId: item.chainId,
-  };
-}
-
-export {
-  getTxHistories,
-  getErc20TransferHistories,
-  getTxDetail,
-  getNftDetail,
-  decodedItemToTransaction,
-  updateLocalTransactions,
-};
+export { getTxHistories, getErc20TransferHistories, getNftDetail };

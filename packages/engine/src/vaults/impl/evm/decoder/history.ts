@@ -67,7 +67,7 @@ const getMergedTxs = async (
     { remote: [], both: {} },
   );
 
-  const remoteTxs = remote.map((tx) => parseCovalent(tx, network));
+  const remoteTxs = remote.map((tx) => parseCovalent(tx, network, address));
 
   const localTxs = historyEntries.map(async (h) =>
     EVMTxDecoder.getDecoder(engine).decodeHistoryEntry(h, both[getTxHash(h)]),
