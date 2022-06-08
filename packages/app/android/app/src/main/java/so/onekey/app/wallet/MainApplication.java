@@ -23,7 +23,7 @@ import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
-import expo.modules.devlauncher.DevLauncherController;
+//import expo.modules.devlauncher.DevLauncherController;
 import so.onekey.app.wallet.newarchitecture.MainApplicationReactNativeHost;
 import so.onekey.app.wallet.utils.Utils;
 
@@ -102,9 +102,9 @@ public class MainApplication extends Application implements ReactApplication , V
     Utils.init(this);
     SoLoader.init(this, /* native exopackage */ false);
 
-    if(BuildConfig.ENABLE_DEV_CLI){
-      DevLauncherController.initialize(this, getReactNativeHost());
-    }
+//    if(BuildConfig.ENABLE_DEV_CLI){
+//      DevLauncherController.initialize(this, getReactNativeHost());
+//    }
     if (BuildConfig.DEBUG) {
       WebView.setWebContentsDebuggingEnabled(true);
     }
