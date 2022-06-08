@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron';
+import keytar from 'keytar';
 
 export type PrefType = 'camera' | 'bluetooth';
 export type DesktopAPI = {
@@ -9,6 +10,10 @@ export type DesktopAPI = {
   openPrefs: (prefType: PrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
+  canPromptTouchID: () => boolean;
+  promptTouchID: (msg: string) => Promise<boolean>;
+  secureSetItemAsync: (key: string, value: string) => Promise<void>;
+  secureGetItemAsync: (key: string) => Promise<string | null>;
 };
 declare global {
   interface Window {
@@ -46,6 +51,25 @@ const desktopApi = {
   },
   openPrefs: () => ipcRenderer.send('app/openPrefs'),
   toggleMaximizeWindow: () => ipcRenderer.send('app/toggleMaximizeWindow'),
+  canPromptTouchID: () =>
+    ipcRenderer.sendSync('app/canPromptTouchID') as boolean,
+  promptTouchID: async (msg: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      ipcRenderer.once('app/promptTouchID/res', (_, arg) => {
+        if (arg) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      });
+      ipcRenderer.send('app/promptTouchID', msg);
+    }),
+  secureSetItemAsync(key: string, value: string) {
+    return keytar.setPassword('OneKey', key, value);
+  },
+  secureGetItemAsync(key: string) {
+    return keytar.getPassword('OneKey', key);
+  },
 };
 
 window.desktopApi = desktopApi;

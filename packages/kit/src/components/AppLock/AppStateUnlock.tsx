@@ -15,7 +15,6 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { release } from '../../store/reducers/data';
@@ -161,14 +160,12 @@ export const AppStateUnlock = () => {
                 })}
               </Button>
             </Box>
-            {platformEnv.isNative ? (
-              <Center mt="8">
-                <LocalAuthenticationButton
-                  onOk={onOk}
-                  field={ValidationFields.Unlock}
-                />
-              </Center>
-            ) : null}
+            <Center mt="8">
+              <LocalAuthenticationButton
+                onOk={onOk}
+                field={ValidationFields.Unlock}
+              />
+            </Center>
           </Box>
           <Center position={isSmall ? 'relative' : 'absolute'} bottom="0">
             <ForgetPasswordButton />

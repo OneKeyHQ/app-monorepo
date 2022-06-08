@@ -3,7 +3,15 @@ import os from 'os';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import { BrowserWindow, app, ipcMain, screen, session, shell } from 'electron';
+import {
+  BrowserWindow,
+  app,
+  ipcMain,
+  screen,
+  session,
+  shell,
+  systemPreferences,
+} from 'electron';
 import isDev from 'electron-is-dev';
 
 import { PrefType } from './preload';
@@ -113,6 +121,19 @@ function createMainWindow() {
     } else {
       // Maximized window
       browserWindow.maximize();
+    }
+  });
+
+  ipcMain.on('app/canPromptTouchID', (event) => {
+    event.returnValue = systemPreferences.canPromptTouchID();
+  });
+
+  ipcMain.on('app/promptTouchID', async (event, msg: string) => {
+    try {
+      await systemPreferences.promptTouchID(msg);
+      event.reply('app/promptTouchID/res', true);
+    } catch {
+      event.reply('app/promptTouchID/res', false);
     }
   });
 
