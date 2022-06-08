@@ -120,6 +120,7 @@
     "**/webpack-dev-server": "^4.3.1",
     "**/browserslist": "^4",
     "**/immer": "^9",
-    "**/node-fetch": "^2"
+    "**/node-fetch": "^2",
+    "**/react-native-redash": "^16.3.0"
   }
 }

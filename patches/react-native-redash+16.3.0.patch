@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native-redash/src/Paths.ts b/node_modules/react-native-redash/src/Paths.ts
+index 430aad5..918c3b5 100644
+--- a/node_modules/react-native-redash/src/Paths.ts
++++ b/node_modules/react-native-redash/src/Paths.ts
+@@ -1,4 +1,4 @@
+-import Animated, { interpolate } from "react-native-reanimated";
++import Animated, { interpolate, Extrapolation } from "react-native-reanimated";
+ import parseSVG from "parse-svg-path";
+ import absSVG from "abs-svg-path";
+ import normalizeSVG from "normalize-svg-path";
+@@ -7,6 +7,10 @@ import type { Vector } from "./Vectors";
+ import { cartesian2Polar } from "./Coordinates";
+ import { cubicBezierYForX } from "./Math";
+ 
++// https://github.com/software-mansion/react-native-reanimated/issues/3246#issuecomment-1137736282
++// @ts-ignore
++Animated.Extrapolate = Extrapolation;
++
+ type SVGCloseCommand = ["Z"];
+ type SVGMoveCommand = ["M", number, number];
+ type SVGCurveCommand = ["C", number, number, number, number, number, number];
