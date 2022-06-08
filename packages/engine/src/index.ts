@@ -28,7 +28,6 @@ import {
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
-  SEPERATOR,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -47,7 +46,6 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import { getErc20TransferHistories } from './managers/covalent';
 import { getDefaultPurpose } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -1697,41 +1695,6 @@ class Engine {
     );
 
     return txs;
-  }
-
-  @backgroundMethod()
-  async getErc20TxHistories(
-    networkId: string,
-    accountId: string,
-    contract: string,
-    pageNumber: number,
-    pageSize: number,
-  ) {
-    const [dbAccount, network] = await Promise.all([
-      this.dbApi.getAccount(accountId),
-      this.getNetwork(networkId),
-    ]);
-
-    if (network.impl !== IMPL_EVM) {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    if (typeof dbAccount === 'undefined') {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    if (dbAccount.type !== AccountType.SIMPLE) {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    const chainId = network.id.split(SEPERATOR)[1];
-    return getErc20TransferHistories(
-      chainId,
-      dbAccount.address,
-      contract,
-      pageNumber,
-      pageSize,
-    );
   }
 
   @backgroundMethod()
