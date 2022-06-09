@@ -61,8 +61,12 @@ const Preview = () => {
       activeAccount: account,
       activeNetwok: network,
     });
-    const encodedTx: IEncodedTxEvm = { ...res?.data, from: account.address };
+
     if (res?.data) {
+      const encodedTx: IEncodedTxEvm = {
+        ...res?.data,
+        from: account.address,
+      };
       const { orderId } = res;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
@@ -72,7 +76,6 @@ const Preview = () => {
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
             encodedTx,
-            payload: swapQuote,
             onSuccess: (tx) => {
               if (
                 inputAmount &&
