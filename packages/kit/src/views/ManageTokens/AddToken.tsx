@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,14 +26,7 @@ import useDappParams from '../../hooks/useDappParams';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
 type RouteProps = RouteProp<
-  ManageTokenRoutesParams,
-  ManageTokenRoutes.AddToken
->;
-
-type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
   ManageTokenRoutes.AddToken
 >;
@@ -49,7 +42,7 @@ const useRouteParams = () => {
     const query: WatchAssetParameters = JSON.parse(params.query);
     const { address, symbol, decimals, image } = query.options;
     return {
-      name: '',
+      name: symbol ?? '',
       address,
       symbol: symbol ?? '',
       decimal: decimals ?? 0,

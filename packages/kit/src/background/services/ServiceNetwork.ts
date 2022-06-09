@@ -48,6 +48,7 @@ class ServiceNetwork extends ServiceBase {
         });
       }
     }
+    return newNetwork;
   }
 
   @backgroundMethod()
