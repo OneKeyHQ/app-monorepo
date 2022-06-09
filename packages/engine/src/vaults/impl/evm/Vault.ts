@@ -81,7 +81,7 @@ export type IEncodedTxEvm = {
   from: string;
   to: string;
   value: string;
-  data: string;
+  data?: string;
   gas?: string; // alias for gasLimit
   gasLimit?: string;
   gasPrice?: string;
@@ -274,10 +274,10 @@ export default class Vault extends VaultBase {
   }
 
   async updateEncodedTx(
-    encodedTx: IEncodedTx,
+    encodedTx: IEncodedTxEvm,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTx> {
+  ): Promise<IEncodedTxEvm> {
     if (options.type === IEncodedTxUpdateType.tokenApprove) {
       const p = payload as IEncodedTxUpdatePayloadTokenApprove;
       return this.updateEncodedTxTokenApprove(encodedTx, p.amount);
@@ -291,7 +291,7 @@ export default class Vault extends VaultBase {
   async updateEncodedTxTransfer(
     encodedTx: IEncodedTxEvm,
     payload: IEncodedTxUpdatePayloadTransfer,
-  ): Promise<IEncodedTx> {
+  ): Promise<IEncodedTxEvm> {
     const decodedTx = await this.decodeTx(encodedTx);
     const { amount } = payload;
     const amountBN = new BigNumber(amount);
@@ -420,16 +420,29 @@ export default class Vault extends VaultBase {
     // avoid redundant network requests.
     // And extract gas & gasLimit to ensure always getting estimated gasLimit
     // from blockchain.
+
     const { gas, gasLimit, ...encodedTxWithFakePriceAndNonce } = {
       ...encodedTx,
       nonce: 1,
       gasPrice: '1',
     };
 
+    const network = await this.getNetwork();
+    const decodedTx = await this.decodeTx(encodedTx);
+    if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
+      const info = network.extraInfo as EvmExtraInfo;
+      // always use value=0 to calculate native transfer gas limit
+      encodedTxWithFakePriceAndNonce.value = '0x0';
+
+      // Optimism chain
+      if (info.chainId === '0xa') {
+        encodedTxWithFakePriceAndNonce.value = encodedTx.value;
+      }
+    }
+
     // NOTE: gasPrice deleted in removeFeeInfoInTx() if encodedTx build by DAPP
 
-    const [network, prices, unsignedTx] = await Promise.all([
-      this.getNetwork(),
+    const [prices, unsignedTx] = await Promise.all([
       this.engine.getGasPrice(this.networkId),
       // TODO add options params to control which fields should fetch in blockchain-libs
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),

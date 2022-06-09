@@ -154,9 +154,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Send,
                 params: {
-                  screen: SendRoutes.Send,
+                  screen: SendRoutes.PreSendAddress,
                   params: {
-                    token: token as TokenDO,
+                    from: '',
+                    to: '',
+                    amount: '',
+                    token: token?.tokenIdOnNetwork ?? '',
                   },
                 },
               });

@@ -12,6 +12,7 @@ import {
   VStack,
   useToast,
 } from '@onekeyhq/components';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import {
@@ -60,7 +61,12 @@ const Preview = () => {
       activeAccount: account,
       activeNetwok: network,
     });
+
     if (res?.data) {
+      const encodedTx: IEncodedTxEvm = {
+        ...res?.data,
+        from: account.address,
+      };
       const { orderId } = res;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
@@ -69,7 +75,7 @@ const Preview = () => {
           params: {
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
-            encodedTx: { ...res?.data, from: account.address },
+            encodedTx,
             onSuccess: (tx) => {
               if (
                 inputAmount &&

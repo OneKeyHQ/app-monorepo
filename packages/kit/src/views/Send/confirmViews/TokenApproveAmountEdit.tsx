@@ -14,7 +14,6 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
-  EVMDecodedItem,
   EVMDecodedItemERC20Approve,
   InfiniteAmountText,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
@@ -49,8 +48,8 @@ function TokenApproveAmountEdit({ ...rest }) {
   const { networkId, accountId, network } = useActiveWalletAccount();
   const { encodedTx, tokenApproveAmount, isMaxAmount } = route.params;
   const [isMax, setIsMax] = useState(isMaxAmount);
-  const decodedTx = route.params.decodedTx as EVMDecodedItem | null;
-  const info = decodedTx?.info as EVMDecodedItemERC20Approve | null;
+  const { decodedTx } = route.params;
+  const info = decodedTx?.info as EVMDecodedItemERC20Approve;
   const token = info?.token;
   const symbol = token?.symbol;
 
@@ -67,6 +66,9 @@ function TokenApproveAmountEdit({ ...rest }) {
   });
   const onSubmit = handleSubmit(async (data) => {
     if (!navigation.canGoBack()) {
+      return;
+    }
+    if (!encodedTx) {
       return;
     }
     const amount = isMax ? InfiniteAmountText : data.amount;

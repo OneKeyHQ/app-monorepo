@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useManageTokens } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import TxConfirmDetail from '../../TxDetail/TxConfirmDetail';
 import { FeeInfoInputForConfirm } from '../FeeInfoInput';
@@ -32,7 +33,27 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
   const { accountId, networkId } = useActiveWalletAccount();
   const transferPayload = payload as TransferSendParamsPayload | undefined;
   const isTransferNativeToken = !transferPayload?.token?.idOnNetwork;
+  const { getTokenBalance } = useManageTokens();
 
+  const isNativeMaxSend = useMemo(() => {
+    if (!transferPayload) {
+      return false;
+    }
+    if (isTransferNativeToken) {
+      const amountBN = new BigNumber(transferPayload.value ?? 0);
+      const balanceBN = new BigNumber(
+        getTokenBalance({
+          defaultValue: '0',
+          tokenIdOnNetwork: transferPayload.token.idOnNetwork,
+        }),
+      );
+      const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
+      if (amountBN.plus(feeBN).gte(balanceBN)) {
+        return true;
+      }
+    }
+    return false;
+  }, [feeInfoPayload, getTokenBalance, isTransferNativeToken, transferPayload]);
   const transferAmount = useMemo(() => {
     // invoked from Dapp
     if (!transferPayload || Object.keys(transferPayload).length === 0) {
@@ -49,16 +70,27 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
       return amount;
     }
 
-    if (transferPayload.isMax) {
-      if (isTransferNativeToken) {
-        return new BigNumber(transferPayload.token.balance ?? 0)
-          .minus(feeInfoPayload?.current?.totalNative ?? 0)
-          .toFixed();
-      }
-      return transferPayload.token.balance ?? '0';
+    if (isNativeMaxSend) {
+      const balanceBN = new BigNumber(
+        getTokenBalance({
+          defaultValue: '0',
+          tokenIdOnNetwork: transferPayload.token.idOnNetwork,
+        }),
+      );
+      const amountBN = new BigNumber(transferPayload.value ?? 0);
+      const transferAmountBn = BigNumber.min(balanceBN, amountBN);
+      const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
+      return transferAmountBn.minus(feeBN).toFixed();
     }
+
     return transferPayload.value ?? '0';
-  }, [decodedTx, feeInfoPayload, isTransferNativeToken, transferPayload]);
+  }, [
+    decodedTx,
+    feeInfoPayload,
+    getTokenBalance,
+    isNativeMaxSend,
+    transferPayload,
+  ]);
 
   const feeInput = (
     <FeeInfoInputForConfirm
@@ -74,7 +106,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
       {...props}
       confirmDisabled={new BigNumber(transferAmount).lt(0)}
       updateEncodedTxBeforeConfirm={async (tx) => {
-        if (!!transferPayload && transferPayload.isMax) {
+        if (!!transferPayload && isNativeMaxSend) {
           const updatePayload: IEncodedTxUpdatePayloadTransfer = {
             amount: transferAmount,
           };

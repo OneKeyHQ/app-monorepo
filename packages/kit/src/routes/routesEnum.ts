@@ -8,6 +8,8 @@ export enum ModalRoutes {
   ManagerWallet = 'ManagerWallet',
   ManagerAccount = 'ManagerAccount',
   WalletViewMnemonics = 'WalletViewMnemonics',
+  // Found screens with the same name nested inside one another. Check:
+  //    modal > Send, modal > Send > Send
   Send = 'Send',
   Receive = 'Receive',
   FiatPay = 'FiatPay',

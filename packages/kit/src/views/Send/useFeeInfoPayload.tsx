@@ -90,7 +90,7 @@ export function useFeeInfoPayload({
   pollingInterval = 0,
   fetchAnyway = false,
 }: {
-  encodedTx: IEncodedTx;
+  encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
   pollingInterval?: number;
   fetchAnyway?: boolean;

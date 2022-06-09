@@ -55,18 +55,13 @@ export default class Vault extends VaultBase {
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
     const { type, nativeTransfer } = decodedTx.actions[0];
-    const { price, limit } = decodedTx.feeInfo as IFeeInfoUnit;
     if (
       type !== IDecodedTxActionType.NATIVE_TRANSFER ||
-      typeof nativeTransfer === 'undefined' ||
-      typeof price !== 'string' ||
-      typeof limit !== 'string'
+      typeof nativeTransfer === 'undefined'
     ) {
       // shouldn't happen.
       throw new OneKeyInternalError('Incorrect decodedTx.');
     }
-
-    const totalFee = new BigNumber(price).times(limit);
 
     return Promise.resolve({
       txType: EVMDecodedTxType.NATIVE_TRANSFER,
@@ -77,7 +72,7 @@ export default class Vault extends VaultBase {
       fromAddress: nativeTransfer.from,
       toAddress: nativeTransfer.to,
       data: '',
-      total: new BigNumber(nativeTransfer.amount).plus(totalFee).toFixed(),
+      total: '0', // not available
     } as IDecodedTxLegacy);
   }
 

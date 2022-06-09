@@ -1,13 +1,22 @@
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { IFeeInfoSelected, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IFeeInfoSelected,
+  ISignedTx,
+  ITransferInfo,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import { IDappCallParams } from '../../background/IBackgroundApi';
 
 import type { SwapQuoteTx } from '../Swap/typings';
 
 export enum SendRoutes {
-  Send = 'Send',
+  SendLegacy = 'SendLegacy',
+  PreSendToken = 'PreSendToken',
+  PreSendAddress = 'PreSendAddress',
+  PreSendAmount = 'PreSendAmount',
   SendConfirm = 'SendConfirm',
   SendConfirmFromDapp = 'SendConfirmFromDapp',
   SendEditFee = 'SendEditFee',
@@ -21,17 +30,19 @@ export type TokenApproveAmountEditParams = {
   tokenApproveAmount: string;
   isMaxAmount: boolean;
   sourceInfo?: IDappCallParams | undefined;
-  encodedTx?: any;
-  decodedTx?: any;
+  encodedTx?: IEncodedTx;
+  decodedTx?: IDecodedTxLegacy;
 };
 
 export type EditFeeParams = {
-  encodedTx?: any;
+  encodedTx?: IEncodedTx;
   feeInfoSelected?: IFeeInfoSelected;
   autoConfirmAfterFeeSaved?: boolean;
 };
 
-export type SendParams = EditFeeParams & {
+export type PreSendParams = ITransferInfo;
+
+export type SendLegacyParams = EditFeeParams & {
   token?: Token;
   to?: string;
 };
@@ -88,7 +99,7 @@ export type SendAuthenticationParams = Omit<
   walletId: string;
   networkId: string;
   unsignedMessage?: IUnsignedMessageEvm;
-  encodedTx?: any;
+  encodedTx?: IEncodedTx;
 };
 
 export type SignMessageConfirmParams = {
@@ -97,7 +108,10 @@ export type SignMessageConfirmParams = {
 };
 
 export type SendRoutesParams = {
-  [SendRoutes.Send]: SendParams;
+  [SendRoutes.SendLegacy]: SendLegacyParams;
+  [SendRoutes.PreSendToken]: PreSendParams;
+  [SendRoutes.PreSendAddress]: PreSendParams;
+  [SendRoutes.PreSendAmount]: PreSendParams;
   [SendRoutes.SendEditFee]: EditFeeParams;
   [SendRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
   [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;

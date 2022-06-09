@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
+import { merge } from 'lodash';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -91,10 +92,26 @@ export const useManageTokens = ({
   }, [fetchTokensOnMount]);
 
   const getTokenBalance = useCallback(
-    (token: Token | undefined | null = null, defaultValue = ''): string => {
+    (
+      options: {
+        token?: Token | null;
+        defaultValue?: string;
+        tokenIdOnNetwork?: string;
+      } = {},
+    ): string => {
+      const { token, defaultValue, tokenIdOnNetwork } = merge(
+        {
+          token: null,
+          defaultValue: '',
+          tokenIdOnNetwork: '',
+        },
+        options ?? {},
+      );
+      const tokenInfo = token as Token | null;
       const balance =
-        balances[token?.tokenIdOnNetwork || 'main'] ?? defaultValue;
-      return balance as string;
+        balances[tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main'] ??
+        defaultValue;
+      return balance;
     },
     [balances],
   );
