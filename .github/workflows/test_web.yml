@@ -22,11 +22,18 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
           node-version: '16.x'
+
+      - name: Setup keys secret
+        run: |
+          rm -rf packages/shared/src/analytics/firebase.web.json
+          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
+
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           yarn && yarn global add expo-cli
+
       - name: Inject Environment Variables
         env:
           OPENSEA_KEY: ${{ secrets.OPENSEA_KEY }}
@@ -36,6 +43,7 @@ jobs:
           echo "OPENSEA_KEY=${{ env.OPENSEA_KEY }}" >> .env
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
+
       - name: Build Target
         run: |
           cd packages/web && yarn build && cd ../..
