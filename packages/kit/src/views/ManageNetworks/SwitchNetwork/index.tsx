@@ -133,7 +133,7 @@ function SwitchNetworkModal() {
         const { serviceNetwork } = backgroundApiProxy;
         const newNetwork = await serviceNetwork.changeActiveNetwork(networkId);
         // TODO: change to i18n
-        toast.show({ title: 'Switched' });
+        // toast.show({ title: 'Switched' });
         await dappApprove.resolve({
           close,
           result: newNetwork,
@@ -141,10 +141,10 @@ function SwitchNetworkModal() {
       } catch (error) {
         console.error(error);
         // TODO: change to i18n
-        toast.show({ title: 'Failed to switch network' });
+        // toast.show({ title: 'Failed to switch network' });
       }
     },
-    [dappApprove, networkId, toast],
+    [dappApprove, networkId],
   );
 
   return (
