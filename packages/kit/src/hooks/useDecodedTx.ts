@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTx,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -11,25 +14,31 @@ function useDecodedTx({
   encodedTx,
   payload,
 }: {
-  encodedTx: IEncodedTx;
+  encodedTx: IEncodedTx | null;
   payload?: any;
 }) {
-  const [decodedTx, setDecodedTx] = useState<EVMDecodedItem | null>(null);
+  const [decodedTxLegacy, setDecodedTxLegacy] =
+    useState<IDecodedTxLegacy | null>(null);
+  const [decodedTx, setDecodedTx] = useState<IDecodedTx | null>(null);
   const { networkId, accountId } = useActiveWalletAccount();
   const { engine } = backgroundApiProxy;
   useEffect(() => {
+    if (!encodedTx) {
+      return;
+    }
     (async () => {
       // TODO move to SendConfirm
-      const tx = await engine.decodeTx({
+      const result = await engine.decodeTx({
         networkId,
         accountId,
         encodedTx,
         payload,
       });
-      setDecodedTx(tx);
+      setDecodedTx(result.decodedTx);
+      setDecodedTxLegacy(result.decodedTxLegacy);
     })();
   }, [accountId, encodedTx, engine, networkId, payload]);
-  return { decodedTx };
+  return { decodedTx, decodedTxLegacy };
 }
 
 export { useDecodedTx };

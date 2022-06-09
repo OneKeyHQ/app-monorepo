@@ -139,7 +139,6 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 type AccountOptionProps = { isSmallView: boolean };
 
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
-  const { getTokenBalance } = useManageTokens();
   const { network: activeNetwork } = useActiveWalletAccount();
   const ipAddressInfo = useAppSelector((s) => s.data.ipAddressInfo);
 
@@ -161,17 +160,17 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="ArrowUpOutline"
           type="basic"
-          isDisabled={
-            wallet?.type === 'watching' ||
-            !account ||
-            parseFloat(getTokenBalance()) <= 0
-          }
+          isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Send,
               params: {
-                screen: SendRoutes.Send,
-                params: {},
+                screen: SendRoutes.PreSendToken,
+                params: {
+                  from: '',
+                  to: '',
+                  amount: '',
+                },
               },
             });
           }}
@@ -180,9 +179,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           textAlign="center"
           mt="8px"
           color={
-            wallet?.type === 'watching' ||
-            !account ||
-            parseFloat(getTokenBalance()) <= 0
+            wallet?.type === 'watching' || !account
               ? 'text-disabled'
               : 'text-default'
           }

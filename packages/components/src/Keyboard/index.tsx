@@ -83,6 +83,12 @@ const Keyboard: FC<KeyboardProps> = ({
         if (pattern && !pattern.test(prev + item)) {
           changeText = prev;
         }
+        if (!prev && item === '.') {
+          changeText = '0.';
+        }
+        if (prev === '0' && item !== '.') {
+          changeText = (prev + item).substr(1);
+        }
       }
       if (onTextChange) {
         setHaptics();

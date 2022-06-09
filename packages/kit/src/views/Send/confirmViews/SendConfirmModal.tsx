@@ -42,7 +42,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
   payload?: SendConfirmPayload;
-  children?: React.ReactElement;
+  children?: React.ReactElement | JSX.Element;
   autoConfirm?: boolean;
 };
 
@@ -68,10 +68,12 @@ function SendConfirmModal(props: ITxConfirmViewProps) {
   // TODO move to validator
   const balanceInsufficient = useMemo(() => {
     const fee = feeInfoPayload?.current?.totalNative ?? '0';
-    return new BigNumber(getTokenBalance(nativeToken, '0')).lt(
-      new BigNumber(fee).plus(decodedTx?.amount ?? '0'),
-    );
-  }, [decodedTx?.amount, feeInfoPayload, getTokenBalance, nativeToken]);
+    const nativeBalance = getTokenBalance({
+      token: nativeToken,
+      defaultValue: '0',
+    });
+    return new BigNumber(nativeBalance).lt(new BigNumber(fee));
+  }, [feeInfoPayload, getTokenBalance, nativeToken]);
   const isWatchingAccount = useMemo(
     () => accountId && accountId.startsWith('watching-'),
     [accountId],
