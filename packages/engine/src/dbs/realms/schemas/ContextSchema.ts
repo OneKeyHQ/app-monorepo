@@ -11,6 +11,8 @@ class ContextSchema extends Realm.Object {
 
   public networkOrderChanged?: boolean;
 
+  public pendingWallets?: Realm.Set<string>;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Context',
     primaryKey: 'id',
@@ -19,6 +21,7 @@ class ContextSchema extends Realm.Object {
       nextHD: 'int',
       verifyString: 'string',
       networkOrderChanged: { type: 'bool', default: false },
+      pendingWallets: { type: 'string<>', default: [] },
     },
   };
 
@@ -28,6 +31,7 @@ class ContextSchema extends Realm.Object {
       nextHD: this.nextHD,
       verifyString: this.verifyString,
       networkOrderChanged: this.networkOrderChanged || false,
+      pendingWallets: (this.pendingWallets || []).map((walletId) => walletId),
     };
   }
 }
