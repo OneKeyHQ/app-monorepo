@@ -12,7 +12,6 @@ import {
   Modal,
   Spinner,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -107,7 +106,6 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
 }
 
 function SwitchNetworkModal() {
-  const toast = useToast();
   const routeProps = useRoute<RouteProps>();
   const [network, setNetwork] = useState<Network>();
   const switchParameter: SwitchEthereumChainParameter = JSON.parse(
