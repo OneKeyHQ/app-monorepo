@@ -9,6 +9,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import DAppIcon from '../../DAppIcon';
 import { DAppItemType } from '../../type';
@@ -60,7 +61,7 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
         contentContainerStyle={{
           paddingRight: 16,
         }}
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator={!platformEnv.isNative}
         horizontal
         data={filterData}
         renderItem={renderItem}

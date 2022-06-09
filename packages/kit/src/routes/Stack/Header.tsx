@@ -71,7 +71,6 @@ const renderCustomSubStackHeader = ({
       headerTitleAlign={headerTitleAlign}
       headerTitleStyle={headerTitleStyle}
       headerStyle={[
-        { marginTop: 1000 },
         headerTransparent
           ? {
               position: 'absolute',

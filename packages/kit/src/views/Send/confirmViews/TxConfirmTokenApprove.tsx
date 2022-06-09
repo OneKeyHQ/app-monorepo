@@ -55,6 +55,9 @@ function TxConfirmTokenApprove(props: ITxConfirmViewProps) {
       }
       hasArrow
       onPress={() => {
+        if (!decodedTx) {
+          return;
+        }
         navigation.navigate(SendRoutes.TokenApproveAmountEdit, {
           tokenApproveAmount: approveAmount,
           isMaxAmount,

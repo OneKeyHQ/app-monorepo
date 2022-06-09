@@ -3,6 +3,7 @@ import React, { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -53,14 +54,14 @@ const SwapButton = () => {
       inputAmount &&
       swapQuote.allowanceTarget
     ) {
-      const encodedTx: { data: string } =
-        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+      const encodedTx =
+        (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           spender: swapQuote?.allowanceTarget,
           networkId: network.id,
           accountId: account.id,
           token: inputAmount.token.tokenIdOnNetwork,
           amount: 'unlimited',
-        });
+        })) as IEncodedTxEvm;
       const { allowanceTarget } = swapQuote;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,

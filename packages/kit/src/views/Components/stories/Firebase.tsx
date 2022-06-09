@@ -12,18 +12,15 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
+import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { navigationGoBack } from '../../../hooks/useAppNavigation';
 
-let analytics: any | undefined;
 let crashlytics: any | undefined;
 
 if (platformEnv.isNative) {
   (async () => {
-    const Analytics = await import('@react-native-firebase/analytics');
-    analytics = Analytics.default();
-
     const Crashlytics = await import('@react-native-firebase/crashlytics');
     crashlytics = Crashlytics.default();
   })();
@@ -31,7 +28,6 @@ if (platformEnv.isNative) {
 
 const FirebaseGallery = () => {
   const toast = useToast();
-
   return (
     <ScrollView bg="background-hovered" p={4}>
       <Button onPress={navigationGoBack}>Back to HOME</Button>
@@ -42,34 +38,28 @@ const FirebaseGallery = () => {
       </Box>
       <Container.Box>
         <Container.Item
-          title="Get AppInstanceId"
-          titleColor="text-default"
-          onPress={async () => {
-            const appInstanceId = await analytics?.getAppInstanceId();
-            toast.show({ title: `AppId:${appInstanceId ?? 'null'}` });
-          }}
-        />
-        <Container.Item
           title="Custom Event"
           titleColor="text-default"
-          onPress={() =>
-            analytics?.logEvent('basket', {
-              id: 3745092,
-              item: 'mens grey t-shirt',
-              description: ['round neck', 'long sleeved'],
-              size: 'L',
-            })
-          }
-        />
-        <Container.Item
-          title="Preset Event"
-          titleColor="text-default"
-          onPress={() =>
-            analytics?.logSelectContent({
-              content_type: 'clothing',
-              item_id: 'abcd',
-            })
-          }
+          onPress={() => {
+            analyticLogEvent('pv', {
+              type: 'analytics',
+              ONEKEY_PLATFORM: process.env.ONEKEY_PLATFORM ?? 'undefined',
+              EXT_CHANNEL: process.env.EXT_CHANNEL ?? 'undefined',
+              ANDROID_CHANNEL: process.env.ANDROID_CHANNEL ?? 'undefined',
+              DESKTOP_PLATFORM: window?.desktopApi?.platform,
+              DESKTOP_ARCH: window?.desktopApi?.arch,
+            });
+            toast.show({
+              title: JSON.stringify({
+                type: 'analytics',
+                ONEKEY_PLATFORM: process.env.ONEKEY_PLATFORM ?? 'undefined',
+                EXT_CHANNEL: process.env.EXT_CHANNEL ?? 'undefined',
+                ANDROID_CHANNEL: process.env.ANDROID_CHANNEL ?? 'undefined',
+                DESKTOP_PLATFORM: window?.desktopApi?.platform,
+                DESKTOP_ARCH: window?.desktopApi?.arch,
+              }),
+            });
+          }}
         />
       </Container.Box>
 

@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+
 import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
@@ -100,6 +101,7 @@ import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
+  IDecodedTx,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
@@ -849,6 +851,10 @@ class Engine {
   ): Promise<Token | undefined> {
     let noThisToken: undefined;
 
+    if (!tokenIdOnNetwork) {
+      return this.getNativeTokenInfo(networkId);
+    }
+
     const tokenId = `${networkId}--${tokenIdOnNetwork}`;
     const token = await this.dbApi.getToken(tokenId);
     if (typeof token !== 'undefined') {
@@ -1224,7 +1230,7 @@ class Engine {
     const vault = await this.getVault({ networkId, accountId });
     const txWithFee: IEncodedTx = await vault.attachFeeInfoToEncodedTx(params);
     debugLogger.sendTx('attachFeeInfoToEncodedTx', txWithFee);
-    return txWithFee as unknown;
+    return txWithFee;
   }
 
   @backgroundMethod()
@@ -1233,23 +1239,25 @@ class Engine {
     accountId,
     encodedTx,
     payload,
-    legacy,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: IEncodedTx;
     payload?: any;
-    legacy?: boolean;
-  }): Promise<IDecodedTxLegacy> {
-    const isLegacy = legacy ?? true;
+  }): Promise<{
+    decodedTxLegacy: IDecodedTxLegacy;
+    decodedTx: IDecodedTx;
+  }> {
     const vault = await this.getVault({ networkId, accountId });
     const decodedTx = await vault.decodeTx(encodedTx, payload);
-    if (!isLegacy) {
-      // @ts-ignore
-      return decodedTx;
+    const decodedTxLegacy = await vault.decodedTxToLegacy(decodedTx);
+    if ((await vault.getNetworkImpl()) === IMPL_EVM) {
+      // do something in EVM
     }
-    // convert to legacy decodedTx
-    return vault.decodedTxToLegacy(decodedTx);
+    return {
+      decodedTx,
+      decodedTxLegacy,
+    };
   }
 
   @backgroundMethod()

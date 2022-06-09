@@ -8,6 +8,8 @@ import type {
   INativeTxBtc,
 } from './impl/btc/types';
 import type { EVMDecodedItem } from './impl/evm/decoder/decoder';
+import type { INativeTxEvm } from './impl/evm/types';
+import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -43,7 +45,7 @@ export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
-  token?: string;
+  token?: string; // tokenIdOnNetwork
   max?: boolean; // TODO rename to isMax
 };
 export type IApproveInfo = {
@@ -54,8 +56,12 @@ export type IApproveInfo = {
 };
 
 // EncodedTx\RawTx\SignedTx ----------------------------------------------
-export type IEncodedTx = any | IEncodedTxNear | IEncodedTxBtc | IEncodedTxSTC;
-export type INativeTx = any | INativeTxNear | INativeTxBtc;
+export type IEncodedTx =
+  | IEncodedTxEvm
+  | IEncodedTxNear
+  | IEncodedTxBtc
+  | IEncodedTxSTC;
+export type INativeTx = INativeTxEvm | INativeTxNear | INativeTxBtc;
 export type IRawTx = string;
 export type IUnsignedTx = UnsignedTx;
 export type ISignedTx = {
@@ -117,6 +123,7 @@ export type IFeeInfoPayload = {
     totalNative: string; // total fee in ETH
     value: IFeeInfoUnit;
   };
+  extraInfo?: any | null; // extra:
 };
 
 // PrepareAccounts ----------------------------------------------
@@ -199,6 +206,7 @@ export enum IDecodedTxActionType {
 export type IDecodedTxActionBase = {
   nativeAmount?: string;
   nativeAmountValue?: string;
+  // TODO rename to extraInfo
   extra: any | null; // extra should be different in each network (eg. serialized from nativeTx actions)
 };
 

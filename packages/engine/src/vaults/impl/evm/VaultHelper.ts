@@ -37,7 +37,7 @@ function toBigNumberField(
 export default class VaultHelper extends VaultHelperBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseToNativeTx(
-    encodedTx: IEncodedTxEvm | string,
+    encodedTx: IEncodedTxEvm,
   ): Promise<ethers.Transaction | null> {
     // TODO try catch
     let ethersTx: ethers.Transaction | null = null;
@@ -68,17 +68,13 @@ export default class VaultHelper extends VaultHelperBase {
   }
 
   override async parseToEncodedTx(
-    rawTxOrEncodedTx: IEncodedTxEvm | string,
+    rawTxOrEncodedTx: IEncodedTxEvm,
   ): Promise<IEncodedTxEvm | null> {
     if (!rawTxOrEncodedTx) {
-      console.log('rawTxOrEncodedTx is null');
       return null;
     }
-
     const nativeTx = await this.parseToNativeTx(rawTxOrEncodedTx);
-
     if (!nativeTx) {
-      console.log('nativeTx is null');
       return null;
     }
 

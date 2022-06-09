@@ -206,7 +206,7 @@ const TxRecordCell: FC<{
         accountId,
       });
       const encodedTx = (await vaultHelper.parseToEncodedTx(
-        tx.raw,
+        tx.raw ?? '',
       )) as IEncodedTxEvm;
 
       let { to, value, data, from } = encodedTx;
