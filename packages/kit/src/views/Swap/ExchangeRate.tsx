@@ -23,10 +23,9 @@ const ExchangeRate: FC<ExchangeRateProps> = ({
   if (!tokenA || !tokenB || !quote) {
     return <Typography.Body2 color="text-default">---</Typography.Body2>;
   }
-
   const symbolA = tokenA.symbol;
   const symbolB = tokenB.symbol;
-  const { price: basePrice } = quote;
+  const { instantRate: basePrice } = quote;
   const price =
     independentField === 'INPUT' ? basePrice : 1 / Number(basePrice);
   if (!isSwitched) {

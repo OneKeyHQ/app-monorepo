@@ -1,5 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { Network } from '@onekeyhq/engine/src/types/network';
+
 import { SwapError, SwapQuote } from '../../views/Swap/typings';
 import { Token } from '../typings';
 
@@ -24,10 +26,13 @@ export interface TransactionDetails {
   addedTime: number;
   confirmedTime?: number;
   from: string;
+  orderId?: string;
 }
 
 type SwapState = {
+  inputTokenNetwork?: Network | null;
   inputToken?: Token;
+  outputTokenNetwork?: Network | null;
   outputToken?: Token;
   typedValue: string;
   independentField: 'INPUT' | 'OUTPUT';
@@ -41,6 +46,7 @@ type SwapState = {
   quoteTime?: number;
   loading: boolean;
   error?: SwapError;
+  activeNetwork?: Network | null;
 };
 
 const initialState: SwapState = {
@@ -67,11 +73,19 @@ export const swapSlice = createSlice({
       state.typedValue = action.payload.typedValue;
       state.independentField = action.payload.independentField;
     },
-    setInputToken(state, action: PayloadAction<Token>) {
-      state.inputToken = action.payload;
+    setInputToken(
+      state,
+      action: PayloadAction<{ token: Token; network?: Network | null }>,
+    ) {
+      state.inputToken = action.payload.token;
+      state.inputTokenNetwork = action.payload.network;
     },
-    setOutputToken(state, action: PayloadAction<Token>) {
-      state.outputToken = action.payload;
+    setOutputToken(
+      state,
+      action: PayloadAction<{ token: Token; network?: Network | null }>,
+    ) {
+      state.outputToken = action.payload.token;
+      state.outputTokenNetwork = action.payload.network;
     },
     switchTokens(state) {
       const token = state.inputToken;
@@ -82,7 +96,10 @@ export const swapSlice = createSlice({
     },
     reset(state) {
       state.inputToken = undefined;
+      state.inputTokenNetwork = undefined;
       state.outputToken = undefined;
+      state.outputTokenNetwork = undefined;
+
       state.independentField = 'INPUT';
       state.typedValue = '';
 
@@ -186,6 +203,9 @@ export const swapSlice = createSlice({
     setError(state, action: PayloadAction<SwapError | undefined>) {
       state.error = action.payload;
     },
+    setActiveNetwork(state, action: PayloadAction<Network>) {
+      state.activeNetwork = action.payload;
+    },
   },
 });
 
@@ -204,6 +224,7 @@ export const {
   setQuote,
   setLoading,
   setError,
+  setActiveNetwork,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

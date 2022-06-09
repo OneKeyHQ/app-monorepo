@@ -15,6 +15,7 @@ import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { SendRoutes } from '../Send/types';
 
 import {
+  useDepositLimit,
   useSwap,
   useSwapEnabled,
   useSwapQuoteCallback,
@@ -38,19 +39,20 @@ const SwapButton = () => {
   const navigation = useNavigation();
   const isSwapEnabled = useSwapEnabled();
   const { inputToken } = useSwapState();
+  const { limited } = useDepositLimit();
   const { account, network, wallet } = useActiveWalletAccount();
   const addTransaction = useTransactionAdder();
-  const {
-    swapQuote,
-    isSwapLoading,
-    error,
-    approveState,
-    inputAmount,
-    outputAmount,
-  } = useSwap();
+  const { swapQuote, isSwapLoading, error, approveState, inputAmount } =
+    useSwap();
 
   const onApprove = useCallback(async () => {
-    if (account && network && swapQuote && inputAmount) {
+    if (
+      account &&
+      network &&
+      swapQuote &&
+      inputAmount &&
+      swapQuote.allowanceTarget
+    ) {
       const encodedTx: { data: string } =
         await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           spender: swapQuote?.allowanceTarget,
@@ -59,6 +61,7 @@ const SwapButton = () => {
           token: inputAmount.token.tokenIdOnNetwork,
           amount: 'unlimited',
         });
+      const { allowanceTarget } = swapQuote;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -72,7 +75,7 @@ const SwapButton = () => {
                 hash: tx.txid,
                 approval: {
                   tokenAddress: inputAmount.token.tokenIdOnNetwork,
-                  spender: swapQuote.allowanceTarget,
+                  spender: allowanceTarget,
                 },
                 summary: `${intl.formatMessage({
                   id: 'title__approve',
@@ -94,7 +97,7 @@ const SwapButton = () => {
   ]);
 
   const onSubmit = useCallback(() => {
-    if (swapQuote && account && inputAmount && outputAmount) {
+    if (swapQuote && account) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -102,7 +105,7 @@ const SwapButton = () => {
         },
       });
     }
-  }, [swapQuote, navigation, account, inputAmount, outputAmount]);
+  }, [swapQuote, navigation, account]);
 
   const onCreateWallet = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -192,7 +195,21 @@ const SwapButton = () => {
         </Button>
       );
     }
-    return <RetryQuoteButton />;
+    if (error === SwapError.QuoteFailed) {
+      return <RetryQuoteButton />;
+    }
+    return (
+      <Button size="xl" type="primary" isDisabled key="base_error">
+        {intl.formatMessage({ id: 'title__swap' })}
+      </Button>
+    );
+  }
+  if (limited) {
+    return (
+      <Button size="xl" type="primary" isDisabled key="depositLimit">
+        {intl.formatMessage({ id: 'title__swap' })}
+      </Button>
+    );
   }
   if (
     approveState === ApprovalState.NOT_APPROVED ||

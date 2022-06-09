@@ -1,6 +1,6 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
@@ -15,9 +15,11 @@ import {
   Pressable,
   Searchbar,
   Spinner,
+  Token as TokenImage,
   Typography,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import IconSearch from '@onekeyhq/kit/assets/3d_search.png';
 import {
   ModalRoutes,
@@ -25,10 +27,17 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatBalance, FormatCurrency } from '../../../../components/Format';
-import { useDebounce, useManageTokens } from '../../../../hooks';
-import { useGeneral } from '../../../../hooks/redux';
+import {
+  useAccountTokens,
+  useAccountTokensBalance,
+  useActiveWalletAccount,
+  useAppSelector,
+  useDebounce,
+  useNetworkTokens,
+  useNetworkTokensPrice,
+} from '../../../../hooks';
+import { TokenBalanceValue } from '../../../../store/reducers/tokens';
 import { SwapRoutes } from '../../typings';
 
 import { useSearchTokens } from './hooks';
@@ -43,19 +52,71 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
+type NetworkItemProps = {
+  active: boolean;
+  network: Network;
+  onPress?: (network: Network) => void;
+};
+const NetworkItem: FC<NetworkItemProps> = ({ network, onPress, active }) => (
+  <Pressable
+    mr="2"
+    py="1"
+    pl="1"
+    pr="2"
+    bg={active ? 'surface-neutral-hovered' : 'surface-neutral-subdued'}
+    borderRadius="full"
+    display="flex"
+    flexDirection="row"
+    mb="2"
+    onPress={() => onPress?.(network)}
+  >
+    <TokenImage size="5" src={network.logoURI} />
+    <Typography.Body2Strong ml="1">{network.shortName}</Typography.Body2Strong>
+  </Pressable>
+);
+
+type NetworkSelectorProps = {
+  activeNetwork?: Network;
+  onSelectNetwork?: (network: Network) => void;
+};
+
+const NetworkSelector: FC<NetworkSelectorProps> = ({
+  activeNetwork,
+  onSelectNetwork,
+}) => {
+  const networks = useAppSelector((s) => s.runtime.networks);
+  const evmNetworks = networks.filter(
+    (network) => network.impl === 'evm' && network.enabled,
+  );
+  return (
+    <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
+      {evmNetworks.map((item) => (
+        <NetworkItem
+          network={item}
+          active={activeNetwork?.id === item.id}
+          onPress={onSelectNetwork}
+        />
+      ))}
+    </Box>
+  );
+};
+
 type HeaderTokensProps = {
   tokens: TokenType[];
   showTop50Label?: boolean;
   onPress?: (token: TokenType) => void;
+  prices: Record<string, string>;
+  balances: Record<string, TokenBalanceValue>;
 };
 
 const HeaderTokens: FC<HeaderTokensProps> = ({
   tokens,
   showTop50Label,
   onPress,
+  prices,
+  balances,
 }) => {
   const intl = useIntl();
-  const { balances, prices } = useManageTokens();
   return (
     <Box>
       {tokens.length ? (
@@ -69,7 +130,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
           <Box mt="2" mb="6">
             {tokens.map((item, index) => (
               <Pressable
-                key={item.tokenIdOnNetwork}
+                key={item.tokenIdOnNetwork || item.symbol}
                 borderTopRadius={index === 0 ? '12' : undefined}
                 borderBottomRadius={
                   index === tokens.length - 1 ? '12' : undefined
@@ -172,8 +233,13 @@ type HeaderProps = {
   keyword: string;
   terms?: string;
   showTop50Label?: boolean;
+  prices: Record<string, string>;
+  balances: Record<string, TokenBalanceValue>;
+  activeNetwork?: Network;
+  showNetworkSelector?: boolean;
   onChange: (keyword: string) => void;
   onPress?: (token: TokenType) => void;
+  onSelectNetwork?: (network: Network) => void;
 };
 
 const Header: FC<HeaderProps> = ({
@@ -181,12 +247,23 @@ const Header: FC<HeaderProps> = ({
   showTop50Label,
   keyword,
   terms,
+  activeNetwork,
+  balances,
+  prices,
+  showNetworkSelector,
+  onSelectNetwork,
   onChange,
   onPress,
 }) => {
   const intl = useIntl();
   return (
     <Box>
+      {showNetworkSelector ? (
+        <NetworkSelector
+          activeNetwork={activeNetwork}
+          onSelectNetwork={onSelectNetwork}
+        />
+      ) : null}
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
@@ -202,6 +279,8 @@ const Header: FC<HeaderProps> = ({
         <HeaderTokens
           tokens={tokens}
           showTop50Label={showTop50Label}
+          balances={balances}
+          prices={prices}
           onPress={onPress}
         />
       )}
@@ -263,6 +342,8 @@ type ListingTokenProps = {
   item: TokenType;
   borderTopRadius?: string;
   borderBottomRadius?: string;
+  prices: Record<string, string>;
+  balances: Record<string, TokenBalanceValue>;
   isOwned?: boolean;
   onPress?: (item: TokenType) => void;
 };
@@ -273,106 +354,113 @@ const ListingToken: FC<ListingTokenProps> = ({
   borderBottomRadius,
   isOwned,
   onPress,
-}) => {
-  const { balances, prices } = useManageTokens();
-  return (
-    <Pressable
-      borderTopRadius={borderTopRadius}
-      borderBottomRadius={borderBottomRadius}
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      p={4}
-      alignItems="center"
-      bg="surface-default"
-      overflow="hidden"
-      key={item.tokenIdOnNetwork}
-      onPress={() => onPress?.(item)}
-    >
-      <Box display="flex" alignItems="center" flexDirection="row">
-        <Image
-          source={{ uri: item.logoURI }}
-          alt="logoURI"
-          size="8"
-          borderRadius="full"
-          fallbackElement={
-            <Center
-              w={8}
-              h={8}
-              rounded="full"
-              bgColor="surface-neutral-default"
-            >
-              <Icon size={20} name="QuestionMarkOutline" />
-            </Center>
-          }
-        />
-        <Box ml="3">
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            maxW="56"
-            numberOfLines={2}
-            color={isOwned ? 'text-disabled' : 'text-default'}
-          >
-            {item.symbol}
-          </Text>
-          <Typography.Body2
-            numberOfLines={1}
-            color={isOwned ? 'text-disabled' : 'text-subdued'}
-          >
-            {item.name}
-          </Typography.Body2>
-        </Box>
-      </Box>
-      <Box display="flex" flexDirection="column" alignItems="flex-end">
-        <Typography.Body1 numberOfLines={1} color="text-default">
-          <FormatBalance
-            balance={balances[item.tokenIdOnNetwork] ?? '0'}
-            formatOptions={{ fixed: 6 }}
-          />
-        </Typography.Body1>
-        <Typography.Body2 color="text-subdued">
-          <FormatCurrency
-            numbers={[
-              prices?.[item.tokenIdOnNetwork || 'main'],
-              balances?.[item.tokenIdOnNetwork || 'main'],
-            ]}
-            render={(ele) => (
-              <Typography.Body2Strong ml={3} color="text-subdued">
-                {prices?.[item.tokenIdOnNetwork || 'main'] ? ele : '-'}
-              </Typography.Body2Strong>
-            )}
-          />
+  balances,
+  prices,
+}) => (
+  <Pressable
+    borderTopRadius={borderTopRadius}
+    borderBottomRadius={borderBottomRadius}
+    display="flex"
+    flexDirection="row"
+    justifyContent="space-between"
+    p={4}
+    alignItems="center"
+    bg="surface-default"
+    overflow="hidden"
+    key={item.tokenIdOnNetwork}
+    onPress={() => onPress?.(item)}
+  >
+    <Box display="flex" alignItems="center" flexDirection="row">
+      <Image
+        source={{ uri: item.logoURI }}
+        alt="logoURI"
+        size="8"
+        borderRadius="full"
+        fallbackElement={
+          <Center w={8} h={8} rounded="full" bgColor="surface-neutral-default">
+            <Icon size={20} name="QuestionMarkOutline" />
+          </Center>
+        }
+      />
+      <Box ml="3">
+        <Text
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          maxW="56"
+          numberOfLines={2}
+          color={isOwned ? 'text-disabled' : 'text-default'}
+        >
+          {item.symbol}
+        </Text>
+        <Typography.Body2
+          numberOfLines={1}
+          color={isOwned ? 'text-disabled' : 'text-subdued'}
+        >
+          {item.name}
         </Typography.Body2>
       </Box>
-    </Pressable>
-  );
-};
+    </Box>
+    <Box display="flex" flexDirection="column" alignItems="flex-end">
+      <Typography.Body1 numberOfLines={1} color="text-default">
+        <FormatBalance
+          balance={balances[item.tokenIdOnNetwork] ?? '0'}
+          formatOptions={{ fixed: 6 }}
+        />
+      </Typography.Body1>
+      <Typography.Body2 color="text-subdued">
+        <FormatCurrency
+          numbers={[
+            prices?.[item.tokenIdOnNetwork || 'main'],
+            balances?.[item.tokenIdOnNetwork || 'main'],
+          ]}
+          render={(ele) => (
+            <Typography.Body2Strong ml={3} color="text-subdued">
+              {prices?.[item.tokenIdOnNetwork || 'main'] ? ele : '-'}
+            </Typography.Body2Strong>
+          )}
+        />
+      </Typography.Body2>
+    </Box>
+  </Pressable>
+);
 
-type ListingProps = {
-  onPress?: (token: TokenType) => void;
+type TokenSelectorProps = {
+  activeNetwork?: Network;
   excluded?: TokenType;
+  showNetworkSelector?: boolean;
+  onSelectToken?: (token: TokenType) => void;
+  onSelectNetwork?: (network: Network) => void;
 };
 
-export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
+const TokenSelector: FC<TokenSelectorProps> = ({
+  excluded,
+  activeNetwork,
+  showNetworkSelector,
+  onSelectNetwork,
+  onSelectToken: onPress,
+}) => {
   const intl = useIntl();
-  const { accountTokens, allTokens, accountTokensMap } = useManageTokens();
+  const activeNetworkId = activeNetwork?.id ?? '';
+
+  const { accountId: activeAccountId } = useActiveWalletAccount();
+  const prices = useNetworkTokensPrice(activeNetworkId);
+  const balances = useAccountTokensBalance(activeNetworkId, activeAccountId);
+  const allTokens = useNetworkTokens(activeNetworkId);
+  const accountTokens = useAccountTokens(activeNetworkId, activeAccountId);
+
+  const accountTokensMap = useMemo(
+    () => new Set(accountTokens.map((s) => s.tokenIdOnNetwork)),
+    [accountTokens],
+  );
+
   const [keyword, setKeyword] = useState<string>('');
 
   const searchTerm = useDebounce(keyword, 1000);
 
-  const { activeAccountId, activeNetworkId } = useGeneral();
   const { loading, searchedTokens } = useSearchTokens(
     searchTerm,
     keyword,
     activeNetworkId,
     activeAccountId,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchTokens();
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
-    }, []),
   );
 
   const headerTokens = useMemo(
@@ -399,9 +487,12 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
         borderBottomRadius={
           index === flatListData.length - 1 ? '12' : undefined
         }
+        prices={prices}
+        balances={balances}
         isOwned={accountTokensMap.has(item.tokenIdOnNetwork)}
       />
     ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [flatListData.length, onPress, accountTokensMap],
   );
 
@@ -428,8 +519,13 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
               tokens={headerTokens}
               keyword={keyword}
               terms={searchTerm}
+              prices={prices}
+              balances={balances}
+              showNetworkSelector={showNetworkSelector}
+              activeNetwork={activeNetwork}
               onChange={(text) => setKeyword(text)}
               onPress={onPress}
+              onSelectNetwork={onSelectNetwork}
             />
           ),
         }}
@@ -438,4 +534,4 @@ export const Listing: FC<ListingProps> = ({ onPress, excluded }) => {
   );
 };
 
-export default Listing;
+export default TokenSelector;
