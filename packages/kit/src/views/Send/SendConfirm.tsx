@@ -20,7 +20,7 @@ import { useDecodedTx } from '../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../hooks/useDisableNavigationAnimation';
 import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
 import { wait } from '../../utils/helper';
-import { SwapQuote } from '../Swap/typings';
+import { SwapQuoteTx } from '../Swap/typings';
 
 import {
   ITxConfirmViewProps,
@@ -182,7 +182,7 @@ const TransactionConfirm = () => {
           },
         });
       } else if (isInternalSwapTx) {
-        const payloadSwap = payload as SwapQuote;
+        const payloadSwap = payload as SwapQuoteTx;
         const { to, value } = payloadSwap;
         backgroundApiProxy.engine.addHistoryEntry({
           ...historyBase,
@@ -317,7 +317,7 @@ const TransactionConfirm = () => {
   }
 
   if (isInternalSwapTx) {
-    const payloadInternalSwap = payload as SwapQuote;
+    const payloadInternalSwap = payload as SwapQuoteTx;
     return <TxConfirmSwap {...sharedProps} payload={payloadInternalSwap} />;
   }
 
