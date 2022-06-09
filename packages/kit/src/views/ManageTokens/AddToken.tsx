@@ -21,6 +21,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
 import { useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
+import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -223,37 +224,43 @@ function AddTokenModal() {
   const toast = useToast();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
-  const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const { address } = useRouteParams();
+  const queryInfo = useDappParams();
 
-  const onPrimaryActionPress = useCallback(async () => {
-    if (activeAccount && activeNetwork) {
-      await backgroundApiProxy.engine.quickAddToken(
-        activeAccount.id,
-        activeNetwork.id,
-        address,
-      );
-      toast.show({
-        title: intl.formatMessage({
-          id: 'msg__token_added',
-          defaultMessage: 'Token Added',
-        }),
-      });
-      if (navigation.canGoBack()) {
-        navigation.goBack();
+  const dappApprove = useDappApproveAction({
+    id: queryInfo.sourceInfo?.id ?? '',
+  });
+
+  const onPrimaryActionPress = useCallback(
+    async ({ close } = {}) => {
+      if (activeAccount && activeNetwork) {
+        const addedToken = await backgroundApiProxy.engine.quickAddToken(
+          activeAccount.id,
+          activeNetwork.id,
+          address,
+        );
+        toast.show({
+          title: intl.formatMessage({
+            id: 'msg__token_added',
+            defaultMessage: 'Token Added',
+          }),
+        });
+        await dappApprove.resolve({ close, result: addedToken });
       }
-    }
-  }, [intl, activeAccount, navigation, activeNetwork, toast, address]);
+    },
+    [activeAccount, activeNetwork, address, toast, intl, dappApprove],
+  );
 
   return (
     <ViewTokenModal
       footer
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"
-      primaryActionProps={{
-        onPromise: onPrimaryActionPress,
+      onModalClose={() => {
+        dappApprove.reject();
       }}
+      onPrimaryActionPress={onPrimaryActionPress}
     />
   );
 }
