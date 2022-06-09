@@ -26,7 +26,7 @@ PODS:
   - EXMediaLibrary (14.1.0):
     - ExpoModulesCore
     - React-Core
-  - Expo (45.0.4):
+  - Expo (45.0.5):
     - ExpoModulesCore
   - ExpoClipboard (3.0.1):
     - ExpoModulesCore
@@ -401,7 +401,7 @@ PODS:
     - React-Core
   - react-native-netinfo (8.2.0):
     - React-Core
-  - react-native-pager-view (5.4.15):
+  - react-native-pager-view (5.4.24):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -825,7 +825,7 @@ SPEC CHECKSUMS:
   EXLocalAuthentication: 7f37b242eae73f9acf111d39bdee3f1379e68902
   EXLocation: f9811c5a78e07894429e7e0620b30f2395564fc0
   EXMediaLibrary: 84cddf988a089e28070790438caf58d8b265b37a
-  Expo: 64d52669fa3b9342919b5b44b2b4f15f19b0cf76
+  Expo: b9fff0a1eac0f424fc68ea49b4347fb308e52e17
   ExpoClipboard: e2dda22be0524595a5eeead51665f60729829123
   ExpoHaptics: ad58ec96a25e57579c14a47c7d71f0de0de8656a
   ExpoImagePicker: d9d6b4f29db437fc7796f13cee5f133f5b4b5f7c
@@ -879,7 +879,7 @@ SPEC CHECKSUMS:
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
-  react-native-pager-view: b1914469643f40042e65d78cbf3d3dfebd6fb0d9
+  react-native-pager-view: 95d0418c3c74279840abec6926653d32447bafb6
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 45c8dca02491980f2958595333cbccd6877cb57e
   react-native-safe-area-context: f98b0b16d1546d208fc293b4661e3f81a895afd9
