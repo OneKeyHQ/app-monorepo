@@ -119,6 +119,7 @@
   "resolutions": {
     "**/webpack-dev-server": "^4.3.1",
     "**/browserslist": "^4",
-    "**/immer": "^9"
+    "**/immer": "^9",
+    "**/node-fetch": "^2"
   }
 }
