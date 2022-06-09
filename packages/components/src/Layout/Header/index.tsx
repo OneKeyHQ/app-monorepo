@@ -1,7 +1,5 @@
 import React, { FC, ReactNode } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import HStack from '../../HStack';
 import {
@@ -27,11 +25,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     ? DEFAULT_HEADER_HORIZONTAL
     : DEFAULT_HEADER_VERTICAL;
 
-  const [bgColor, borderColor] = useThemeValue([
-    'surface-subdued',
-    'border-subdued',
-  ]);
-
   const headerLeftNode = headerLeft?.();
 
   return (
@@ -42,10 +35,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         alignItems="center"
         justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
         px={2}
-        bg={bgColor}
-        borderColor={borderColor}
-        borderWidth="0"
-        borderBottomWidth={StyleSheet.hairlineWidth}
         style={{
           // @ts-expect-error
           '-webkit-app-region': 'drag',
