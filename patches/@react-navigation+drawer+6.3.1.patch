@@ -1,0 +1,15 @@
+diff --git a/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx b/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx
+index 20d3f7b..ed907ec 100644
+--- a/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx
++++ b/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx
+@@ -162,8 +162,8 @@ export default function Drawer({
+           damping: 500,
+           mass: 3,
+           overshootClamping: true,
+-          restDisplacementThreshold: 0.01,
+-          restSpeedThreshold: 0.01,
++          restDisplacementThreshold: 10,
++          restSpeedThreshold: 4,
+         },
+         () => {
+           if (translationX.value === getDrawerTranslationX(true)) {

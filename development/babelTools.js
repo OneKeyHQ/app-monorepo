@@ -105,16 +105,6 @@ function normalizeConfig({ platform, config }) {
 
   console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
-  config.ignore = [
-    ...(config.ignore || []),
-    // Don't convert '**' into Math.pow for BigInt on ios.
-    // https://github.com/babel/babel/issues/13109
-    ...(new RegExp('ios', 'g').test(process.env.npm_lifecycle_event) || // For local yarn
-    process.env.PLATFORM === 'ios' // For eas build
-      ? [fullPath('../node_modules/@noble/ed25519/lib/index.js')]
-      : []),
-  ];
-
   return config;
 }
 

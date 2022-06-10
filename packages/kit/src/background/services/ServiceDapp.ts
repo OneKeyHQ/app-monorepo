@@ -140,7 +140,7 @@ class ServiceDapp extends ServiceBase {
       const routeParams = {
         // stringify required, nested object not working with Ext route linking
         query: JSON.stringify({
-          sourceInfo,
+          sourceInfo, // TODO rename $sourceInfo
           ...params,
         }),
       };

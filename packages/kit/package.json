@@ -9,7 +9,7 @@
     "@types/redux-logger": "^3.0.9",
     "@walletconnect/client": "^1.7.5",
     "date-fns": "^2.27.0",
-    "expo": "^45.0.4",
+    "expo": "^45.0.5",
     "expo-application": "^4.1.0",
     "expo-barcode-scanner": "^11.3.0",
     "expo-camera": "^12.2.0",

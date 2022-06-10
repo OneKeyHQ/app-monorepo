@@ -45,6 +45,7 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
     }
   }, [tx, networkId, accountId, finalizeTransaction]);
   useEffect(() => {
+    onQuery();
     const timer = setInterval(onQuery, 1000 * 5);
     return () => {
       clearInterval(timer);
@@ -75,6 +76,7 @@ const PendingCrossTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
     }
   }, [tx, networkId, accountId, finalizeTransaction]);
   useEffect(() => {
+    onQuery();
     const timer = setInterval(onQuery, 1000 * 20);
     return () => {
       clearInterval(timer);
@@ -112,7 +114,11 @@ const PendingTransactions = () => {
         onAction={onAction}
       />
       {pendings.map((tx) =>
-        tx.orderId ? <PendingCrossTx tx={tx} /> : <PendingTx tx={tx} />,
+        tx.orderId ? (
+          <PendingCrossTx key={tx.orderId} tx={tx} />
+        ) : (
+          <PendingTx key={tx.hash} tx={tx} />
+        ),
       )}
     </Box>
   ) : null;
