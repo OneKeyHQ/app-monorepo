@@ -72,6 +72,7 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
 const PENDING_QUEUE_MAX_LENGTH = 10;
+const OPTIMISM_NETWORKS = ['evm--10', 'evm--69'];
 
 export type IUnsignedMessageEvm = ETHMessage & {
   payload?: any;
@@ -204,7 +205,11 @@ export default class Vault extends VaultBase {
     if (amountBN.isNaN()) {
       amountBN = new BigNumber('0');
     }
-    if (isMax && isTransferNativeToken) {
+    if (
+      isMax &&
+      isTransferNativeToken &&
+      !OPTIMISM_NETWORKS.includes(this.networkId)
+    ) {
       amountBN = new BigNumber('0');
     }
 
@@ -448,6 +453,37 @@ export default class Vault extends VaultBase {
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 
+    // For L2 networks with L1 fee.
+    let baseFeeValue = '0';
+    if (OPTIMISM_NETWORKS.includes(this.networkId)) {
+      // Optimism & Optimism Kovan
+      // call gasL1Fee(bytes) of GasPriceOracle at 0x420000000000000000000000000000000000000F
+      const txData = ethers.utils.serializeTransaction({
+        value: encodedTx.value,
+        data: encodedTx.data,
+        gasLimit: `0x${(unsignedTx.feeLimit ?? new BigNumber('0')).toString(
+          16,
+        )}`,
+        to: encodedTx.to,
+        chainId: 10, // any number other than 0 will lead to fixed length of data
+        gasPrice: '0xf4240', // 0.001 Gwei
+        nonce: 1,
+      });
+
+      // keccak256(Buffer.from('getL1Fee(bytes)')) => '0x49948e0e...'
+      const data = `0x49948e0e${defaultAbiCoder
+        .encode(['bytes'], [txData])
+        .slice(2)}`;
+      const client = await this.getJsonRPCClient();
+      const l1FeeHex = await client.rpc.call('eth_call', [
+        { to: '0x420000000000000000000000000000000000000F', data },
+        'latest',
+      ]);
+      baseFeeValue = new BigNumber(l1FeeHex as string)
+        .shiftedBy(-network.feeDecimals)
+        .toFixed();
+    }
+
     const eip1559 = Boolean(
       prices?.length && prices?.every((price) => typeof price === 'object'),
     );
@@ -497,6 +533,7 @@ export default class Vault extends VaultBase {
         limit: encodedTx.gas ?? encodedTx.gasLimit,
         price: priceInfo,
       },
+      baseFeeValue,
     };
   }
 

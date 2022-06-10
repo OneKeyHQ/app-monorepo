@@ -29,6 +29,7 @@ export function calculateTotalFeeNative({
   info: IFeeInfo;
 }) {
   return new BigNumber(amount)
+    .plus(info.baseFeeValue ?? 0)
     .shiftedBy((info.decimals ?? 0) - (info.nativeDecimals ?? 0))
     .toFixed();
 }
