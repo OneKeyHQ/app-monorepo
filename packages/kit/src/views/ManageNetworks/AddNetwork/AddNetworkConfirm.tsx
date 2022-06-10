@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,16 +18,11 @@ import { Text } from '@onekeyhq/components/src/Typography';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddEthereumChainParameter } from '../../../background/providers/ProviderApiEthereum';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
+import useDappParams from '../../../hooks/useDappParams';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
 type RouteProps = RouteProp<
-  ManageNetworkRoutesParams,
-  ManageNetworkRoutes.AddNetworkConfirm
->;
-
-type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
   ManageNetworkRoutes.AddNetworkConfirm
 >;
@@ -190,70 +185,74 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
 
 function AddNetworkConfirmModal() {
   const toast = useToast();
-  const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
   const { rpcURL, name, symbol, exploreUrl } = useRouteParams();
+  const queryInfo = useDappParams();
+  const dappApprove = useDappApproveAction({
+    id: queryInfo.sourceInfo?.id ?? '',
+  });
   const { serviceNetwork } = backgroundApiProxy;
 
-  const onPrimaryActionPress = useCallback(async () => {
-    if (!rpcURL) {
-      return;
-    }
-
-    try {
-      const { existingNetwork } = await serviceNetwork.preAddNetwork(rpcURL);
-      if (existingNetwork) {
-        toast.show({
-          title: intl.formatMessage(
-            {
-              id: 'form__rpc_url_invalid_exist',
-            },
-            { name: existingNetwork.name },
-          ),
-        });
+  const onPrimaryActionPress = useCallback(
+    async ({ close }) => {
+      if (!rpcURL) {
         return;
       }
 
-      await serviceNetwork.addNetwork('evm', {
-        name: name ?? '-',
-        rpcURL,
-        symbol,
-        explorerURL: exploreUrl,
-      });
+      try {
+        const { existingNetwork } = await serviceNetwork.preAddNetwork(rpcURL);
+        if (existingNetwork) {
+          toast.show({
+            title: intl.formatMessage(
+              {
+                id: 'form__rpc_url_invalid_exist',
+              },
+              { name: existingNetwork.name },
+            ),
+          });
+          return;
+        }
 
-      toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
-    } catch (error) {
-      console.error(error);
-      toast.show({
-        title: intl.formatMessage({
-          id: 'form__rpc_fetched_failed',
-        }),
-      });
-      return;
-    }
+        const addedNetwork = await serviceNetwork.addNetwork('evm', {
+          name: name ?? '-',
+          rpcURL,
+          symbol,
+          explorerURL: exploreUrl,
+        });
 
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  }, [
-    rpcURL,
-    toast,
-    intl,
-    navigation,
-    serviceNetwork,
-    name,
-    symbol,
-    exploreUrl,
-  ]);
+        toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
+        await dappApprove.resolve({
+          close,
+          result: addedNetwork,
+        });
+      } catch (error) {
+        console.error(error);
+        toast.show({
+          title: intl.formatMessage({
+            id: 'form__rpc_fetched_failed',
+          }),
+        });
+      }
+    },
+    [
+      rpcURL,
+      serviceNetwork,
+      name,
+      symbol,
+      exploreUrl,
+      toast,
+      intl,
+      dappApprove,
+    ],
+  );
 
   return (
     <ViewNetworkModal
       footer
       hideSecondaryAction
+      onModalClose={dappApprove.reject}
       primaryActionTranslationId="action__confirm"
-      primaryActionProps={{
-        onPromise: onPrimaryActionPress,
-      }}
+      onPrimaryActionPress={onPrimaryActionPress}
     />
   );
 }

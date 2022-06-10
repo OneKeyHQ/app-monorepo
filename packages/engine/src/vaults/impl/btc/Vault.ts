@@ -220,7 +220,13 @@ export default class Vault extends VaultBase {
     // const feeRate = '2';
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
-    const feeRate = specifiedFeeRate || (await this.getFeeRate())[0];
+    // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
+    const feeRate =
+      typeof specifiedFeeRate !== 'undefined'
+        ? new BigNumber(specifiedFeeRate)
+            .shiftedBy(network.feeDecimals)
+            .toFixed()
+        : (await this.getFeeRate())[0];
 
     const {
       inputs,
@@ -334,13 +340,16 @@ export default class Vault extends VaultBase {
         feePricePerUnit: new BigNumber(1),
       },
     );
-    const prices = await this.getFeeRate();
+    // Prices are in sats/byte, convert it to BTC/byte for UI.
+    const prices = (await this.getFeeRate()).map((price) =>
+      new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
+    );
     return {
       customDisabled: true,
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
       defaultPresetIndex: '0',
-      symbol: 'sats',
+      symbol: 'BTC',
       decimals: network.feeDecimals,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
