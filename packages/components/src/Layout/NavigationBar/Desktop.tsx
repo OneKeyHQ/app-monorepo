@@ -25,14 +25,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   ]);
 
   return (
-    <Box
-      position="relative"
-      w={64}
-      h="full"
-      bg="surface-subdued"
-      borderRightWidth={1}
-      borderRightColor="border-subdued"
-    >
+    <Box position="relative" w={64} h="full" bg="surface-subdued">
       <VStack flex={1}>
         {!!platformEnv.isDesktopMac && (
           <DesktopDragZoneBox w="100%" height={7} />

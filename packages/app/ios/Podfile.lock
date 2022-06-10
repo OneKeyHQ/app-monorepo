@@ -8,6 +8,8 @@ PODS:
     - ExpoModulesCore
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
+  - EXBlur (11.1.0):
+    - ExpoModulesCore
   - EXCamera (12.2.0):
     - ExpoModulesCore
   - EXConstants (13.1.1):
@@ -562,6 +564,7 @@ DEPENDENCIES:
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
+  - EXBlur (from `../../../node_modules/expo-blur/ios`)
   - EXCamera (from `../../../node_modules/expo-camera/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
@@ -635,7 +638,7 @@ DEPENDENCIES:
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
-  trunk:
+  https://github.com/CocoaPods/Specs:
     - Firebase
     - FirebaseAnalytics
     - FirebaseCore
@@ -673,6 +676,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-application/ios"
   EXBarCodeScanner:
     :path: "../../../node_modules/expo-barcode-scanner/ios"
+  EXBlur:
+    :path: "../../../node_modules/expo-blur/ios"
   EXCamera:
     :path: "../../../node_modules/expo-camera/ios"
   EXConstants:
@@ -817,6 +822,7 @@ SPEC CHECKSUMS:
   DoubleConversion: 831926d9b8bf8166fd87886c4abab286c2422662
   EXApplication: d6562af1204162e0ac46d341a7d4e5dc720b33de
   EXBarCodeScanner: b9e1b69371c233a80fc857edcf95843f14ae9e7b
+  EXBlur: f594bc6b57fc241e906a29e00fb8e54b20c374a8
   EXCamera: 2cbc8206cb520562c1527fe565aa9f00df8e5e8f
   EXConstants: fdbe52259365b6a6faaa5e99a3b82cfa6bc2eb61
   EXFileSystem: 2aa2d9289f84bca9532b9ccbd81504fa31eb1ded
@@ -914,6 +920,6 @@ SPEC CHECKSUMS:
   Yoga: 99652481fcd320aefa4a7ef90095b95acd181952
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: a2bc322b38fb3c0adfe91ed01a15181b25e605a5
+PODFILE CHECKSUM: a27cd1d0dca9ce95aa5433dd4151fc79e6474ee1
 
 COCOAPODS: 1.11.3

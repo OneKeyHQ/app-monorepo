@@ -76,7 +76,7 @@ const Provider: FC<UIProviderProps> = ({ children, themeVariant, locale }) => {
               shadowColor: '#000',
               shadowOffset: {
                 width: 0,
-                height: 1,
+                height: 0,
               },
               shadowOpacity: 0.15,
               shadowRadius: 2.0,

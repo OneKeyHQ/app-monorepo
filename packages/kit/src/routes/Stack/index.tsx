@@ -66,7 +66,7 @@ export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
 const Dashboard = () => {
   const [bgColor, textColor, borderBottomColor] = useThemeValue([
-    'surface-subdued',
+    'background-default',
     'text-default',
     'border-subdued',
   ]);
@@ -87,7 +87,7 @@ const Dashboard = () => {
           headerStyle: {
             backgroundColor: bgColor,
             // @ts-expect-error
-            borderBottomColor,
+            borderBottomWidth: 0,
             shadowColor: borderBottomColor,
           },
           header:

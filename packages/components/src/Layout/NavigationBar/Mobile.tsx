@@ -56,8 +56,8 @@ export default function BottomTabBar({
       left="0"
       right="0"
       bottom="0"
-      bg="surface-subdued"
-      borderTopColor="border-subdued"
+      bg="background-default"
+      borderTopColor="divider"
       paddingBottom={`${paddingBottom}px`}
       height={tabBarHeight}
       py={Math.max(insets.left ?? 0, insets.right ?? 0)}
@@ -88,7 +88,6 @@ export default function BottomTabBar({
                 alignItems="center"
                 px={0.5}
                 py={1.5}
-                bg="surface-subdued"
                 onPress={() => {
                   setHaptics();
                   onPress();
