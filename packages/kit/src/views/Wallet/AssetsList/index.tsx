@@ -9,6 +9,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Divider,
+  FlatList,
   Icon,
   IconButton,
   Pressable,
@@ -92,8 +93,10 @@ export type IAssetsListProps = Omit<
   'data' | 'renderItem'
 > & {
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
+  singleton?: boolean;
 };
 function AssetsList({
+  singleton,
   ListHeaderComponent,
   contentContainerStyle,
   onTokenPress,
@@ -200,8 +203,10 @@ function AssetsList({
     );
   };
 
+  const Container = singleton ? FlatList : Tabs.FlatList;
+
   return (
-    <Tabs.FlatList
+    <Container
       contentContainerStyle={merge(
         {
           paddingHorizontal: 16,

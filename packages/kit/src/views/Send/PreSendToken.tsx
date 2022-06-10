@@ -35,6 +35,7 @@ function PreSendToken() {
         children: (
           <>
             <AssetsList
+              singleton
               ListHeaderComponent={<Box />}
               contentContainerStyle={{
                 paddingHorizontal: 0,
