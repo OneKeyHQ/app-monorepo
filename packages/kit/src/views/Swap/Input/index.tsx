@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/core';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
+import { useAppSelector, useNavigation } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
@@ -14,6 +14,7 @@ const Input = () => {
   const navigation = useNavigation();
   const { outputToken } = useSwapState();
   const { onSelectToken } = useSwapActionHandlers();
+  const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
   const { network, accountId, networkId } = useActiveWalletAccount();
   const onPress = useCallback(
     (token: Token) => {
@@ -35,7 +36,7 @@ const Input = () => {
   );
   return (
     <TokenSelector
-      excluded={outputToken}
+      excluded={networkId === activeNetwork?.id ? outputToken : undefined}
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       activeNetwork={network!}
       onSelectToken={onPress}

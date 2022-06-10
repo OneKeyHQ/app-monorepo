@@ -18,7 +18,7 @@ import type { Token } from '../../../store/typings';
 
 const Output = () => {
   const navigation = useNavigation();
-  const { accountId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
   const { onSelectToken, onSelectNetwork } = useSwapActionHandlers();
   const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
@@ -52,7 +52,7 @@ const Output = () => {
   return (
     <TokenSelector
       showNetworkSelector
-      excluded={inputToken}
+      excluded={networkId === activeNetwork?.id ? inputToken : undefined}
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       activeNetwork={activeNetwork!}
       onSelectToken={onPress}

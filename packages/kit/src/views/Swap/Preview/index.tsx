@@ -250,7 +250,7 @@ const Preview = () => {
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__handling_fee' })}
             </Typography.Body2>
-            <Typography.Body2>1%</Typography.Body2>
+            <Typography.Body2>0.875%</Typography.Body2>
           </Box>
         </VStack>
       </Box>

@@ -9,6 +9,7 @@ export type DataInitialState = {
   isPasswordSet: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
+  accountIsBeingCreated?: boolean;
 };
 
 const initialState: DataInitialState = {
@@ -16,6 +17,7 @@ const initialState: DataInitialState = {
   isPasswordSet: false,
   onekeySupportList: [],
   currencyList: [],
+  accountIsBeingCreated: false,
 };
 
 export const dataSlice = createSlice({
@@ -38,9 +40,13 @@ export const dataSlice = createSlice({
       state.onekeySupportList = action.payload.onekeySupportList;
       state.currencyList = action.payload.currencyList;
     },
+    setAccountIsBeingCreated(state, action: PayloadAction<boolean>) {
+      state.accountIsBeingCreated = action.payload;
+    },
   },
 });
 
-export const { release, passwordSet, currenciesSet } = dataSlice.actions;
+export const { release, passwordSet, currenciesSet, setAccountIsBeingCreated } =
+  dataSlice.actions;
 
 export default dataSlice.reducer;
