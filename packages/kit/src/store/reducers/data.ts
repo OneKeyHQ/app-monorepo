@@ -2,18 +2,13 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  CurrencyType,
-  MoonpayIpAddressPayload,
-  MoonpayListType,
-} from '../../views/FiatPay/types';
+import { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
 
 export type DataInitialState = {
   isUnlock: boolean;
   isPasswordSet: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
-  ipAddressInfo: MoonpayIpAddressPayload | null;
 };
 
 const initialState: DataInitialState = {
@@ -21,7 +16,6 @@ const initialState: DataInitialState = {
   isPasswordSet: false,
   onekeySupportList: [],
   currencyList: [],
-  ipAddressInfo: null,
 };
 
 export const dataSlice = createSlice({
@@ -39,12 +33,10 @@ export const dataSlice = createSlice({
       action: PayloadAction<{
         onekeySupportList: CurrencyType[];
         currencyList: MoonpayListType[];
-        ipAddressInfo: MoonpayIpAddressPayload;
       }>,
     ) {
       state.onekeySupportList = action.payload.onekeySupportList;
       state.currencyList = action.payload.currencyList;
-      state.ipAddressInfo = action.payload.ipAddressInfo;
     },
   },
 });

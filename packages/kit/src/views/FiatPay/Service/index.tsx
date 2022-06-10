@@ -7,7 +7,6 @@ import {
   CurrenciesPayload,
   MoonPayBuyQuotePayload,
   MoonpayCurrencyListPayload,
-  MoonpayIpAddressPayload,
   MoonpayListType,
 } from '../types';
 
@@ -16,10 +15,6 @@ import { MoonpayModeData } from './types';
 const moonpayHost = 'https://api.moonpay.com';
 
 export const currenciesListUri = `${moonpayHost}/v3/currencies?apiKey=${
-  MoonpayModeData().moonpayApiKey
-}`;
-
-export const ipAddressUri = `${moonpayHost}/v4/ip_address?apiKey=${
   MoonpayModeData().moonpayApiKey
 }`;
 
@@ -66,22 +61,17 @@ export const sellWidgetUrl = (params: {
 };
 
 export const fetchCurrencies = async () => {
-  const ipAddressRequest = await axios
-    .get<MoonpayIpAddressPayload>(ipAddressUri)
-    .then((ret) => ret.data);
   const request1 = await axios
     .get<CurrenciesPayload>('https://fiat.onekey.so/public/currencies.json')
     .then((ret) => ret.data);
   const request2 = await axios
     .get<MoonpayCurrencyListPayload>(currenciesListUri)
     .then((ret) => ret.data);
-
   const { dispatch } = backgroundApiProxy;
   dispatch(
     currenciesSet({
       onekeySupportList: request1,
       currencyList: request2,
-      ipAddressInfo: ipAddressRequest,
     }),
   );
 };
