@@ -131,6 +131,7 @@ function AssetsList({
     return (
       <Pressable.Item
         p={4}
+        shadow={undefined}
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
         onPress={() => {
