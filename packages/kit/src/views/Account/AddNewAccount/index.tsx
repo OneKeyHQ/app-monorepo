@@ -11,13 +11,14 @@ import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import { setAccountIsBeingCreated } from '../../../store/reducers/data';
 
 type PrivateKeyFormValues = {
   network: string;
@@ -37,7 +38,6 @@ type RouteProps = RouteProp<
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
   const toast = useToast();
-  const { closeDrawer } = useNavigationActions();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
     useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });
@@ -90,31 +90,28 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   }, [wallet, networks, watchNetwork, selectableNetworks, setValue]);
 
   const authenticationDone = useCallback(
-    async (password: string) => {
+    (password: string) => {
       const network = getValues('network');
       const name = getValues('name');
-      try {
-        await serviceAccount.addHDAccounts(
-          password,
-          selectedWalletId,
-          network,
-          undefined,
-          [name],
-        );
-      } catch (e) {
-        console.error(e);
-        const errorKey = (e as { key: LocaleIds }).key;
-        toast.show({
-          title: intl.formatMessage({ id: errorKey }),
-        });
-      }
-      closeDrawer();
-      if (navigation.canGoBack()) {
-        navigation.getParent()?.goBack?.();
-      }
+      backgroundApiProxy.dispatch(setAccountIsBeingCreated(true));
+      setTimeout(() => {
+        serviceAccount
+          .addHDAccounts(password, selectedWalletId, network, undefined, [name])
+          .catch((e) => {
+            console.error(e);
+            const errorKey = (e as { key: LocaleIds }).key;
+            toast.show({
+              title: intl.formatMessage({ id: errorKey }),
+            });
+          })
+          .finally(() => {
+            backgroundApiProxy.dispatch(setAccountIsBeingCreated(false));
+          });
+      }, 10);
+      navigation.getParent()?.goBack?.();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [toast, getValues, selectedWalletId, dispatch, intl, networks, closeDrawer],
+    [toast, getValues, selectedWalletId, dispatch, intl, networks],
   );
 
   const onSubmit = handleSubmit(() => {
