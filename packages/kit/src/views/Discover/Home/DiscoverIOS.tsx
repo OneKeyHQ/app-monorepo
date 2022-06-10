@@ -85,13 +85,14 @@ const DiscoverIOS: FC<DiscoverProps> = ({
           navigation.navigate(HomeRoutes.ExploreScreen, { onItemSelect });
         }}
       >
-        <Box width="100%" height="268px">
+        <Box width="100%" height="268px" shadow="depth.2">
           <Box
             justifyContent="center"
             width="100%"
             height="220px"
             bgColor="surface-default"
             borderRadius="12px"
+            overflow="hidden"
           >
             <Image
               width="100%"

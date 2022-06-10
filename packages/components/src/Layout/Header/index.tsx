@@ -1,12 +1,17 @@
 import React, { FC, ReactNode } from 'react';
 
+import { Platform, StyleSheet } from 'react-native';
+
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import HStack from '../../HStack';
 import {
   useSafeAreaInsets,
   useThemeValue,
+  useTheme,
   useUserDevice,
 } from '../../Provider/hooks';
+
+import { BlurView } from 'expo-blur';
 
 type HeaderProps = {
   headerLeft: () => ReactNode;
@@ -26,48 +31,70 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     : DEFAULT_HEADER_VERTICAL;
 
   const headerLeftNode = headerLeft?.();
+  const { themeVariant } = useTheme();
 
-  return (
-    <DesktopDragZoneBox>
-      <HStack
-        height={`${headerHeight + insets.top}px`}
-        pt={`${insets.top}px`}
-        alignItems="center"
-        justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-        px={2}
-        style={{
-          // @ts-expect-error
-          '-webkit-app-region': 'drag',
-          '-webkit-user-select': 'none',
-        }}
-      >
-        {headerLeftNode ? (
-          <HStack
-            flex={isHorizontal ? undefined : 1}
-            alignItems="center"
-            h="full"
-            pl={{ md: 2 }}
-            pr={{ md: 4 }}
-            flexShrink={0}
-          >
-            {headerLeftNode}
-          </HStack>
-        ) : null}
-
-        {/* {isHorizontal && (
-          <HStack alignItems="center" flex={1} pl={8}>
-            <Typography.Heading>Home</Typography.Heading>
-          </HStack>
-        )} */}
+  const PrimaryComponent = (
+    <HStack
+      height={`${headerHeight + insets.top}px`}
+      pt={`${insets.top}px`}
+      alignItems="center"
+      justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
+      borderBottomColor="divider" // TODO: change the color from transparent to divider while scrolling up
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      px={2}
+      style={{
+        // @ts-expect-error
+        '-webkit-app-region': 'drag',
+        '-webkit-user-select': 'none',
+      }}
+    >
+      {headerLeftNode ? (
         <HStack
           flex={isHorizontal ? undefined : 1}
           alignItems="center"
-          justifyContent="flex-end"
-          pr={{ md: 6 }}
+          h="full"
+          pl={{ md: 2 }}
+          pr={{ md: 4 }}
+          flexShrink={0}
         >
-          {headerRight()}
+          {headerLeftNode}
         </HStack>
+      ) : null}
+
+      {/* {isHorizontal && (
+      <HStack alignItems="center" flex={1} pl={8}>
+        <Typography.Heading>Home</Typography.Heading>
       </HStack>
+    )} */}
+      <HStack
+        flex={isHorizontal ? undefined : 1}
+        alignItems="center"
+        justifyContent="flex-end"
+        pr={{ md: 6 }}
+      >
+        {headerRight()}
+      </HStack>
+    </HStack>
+  );
+
+  return (
+    <DesktopDragZoneBox>
+      {Platform.OS === 'web' ? (
+        PrimaryComponent
+      ) : (
+        <BlurView
+          intensity={80} // TODO: change the intensity from 0 to 80 while scrolling up
+          tint={
+            themeVariant === 'light'
+              ? 'light'
+              : themeVariant === 'dark'
+              ? 'dark'
+              : 'default'
+          }
+        >
+          {PrimaryComponent}
+        </BlurView>
+      )}
     </DesktopDragZoneBox>
   );
 };

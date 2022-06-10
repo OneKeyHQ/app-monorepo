@@ -65,9 +65,10 @@ export const stackScreenList = [
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
 const Dashboard = () => {
-  const [bgColor, textColor] = useThemeValue([
+  const [bgColor, textColor, borderBottomColor] = useThemeValue([
     'background-default',
     'text-default',
+    'border-subdued',
   ]);
 
   return (
@@ -87,6 +88,7 @@ const Dashboard = () => {
             backgroundColor: bgColor,
             // @ts-expect-error
             borderBottomWidth: 0,
+            shadowColor: borderBottomColor,
           },
           header:
             Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
