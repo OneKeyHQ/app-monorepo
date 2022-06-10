@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback } from 'react';
+import React, { ComponentProps, useCallback } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -49,7 +50,11 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-const ListHeaderComponent = ({ tokenEnabled }: { tokenEnabled: boolean }) => {
+const AssetsListHeaderComponent = ({
+  tokenEnabled,
+}: {
+  tokenEnabled: boolean;
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   return (
@@ -82,7 +87,17 @@ const ListHeaderComponent = ({ tokenEnabled }: { tokenEnabled: boolean }) => {
   );
 };
 
-const AssetsList = () => {
+export type IAssetsListProps = Omit<
+  ComponentProps<typeof Tabs.FlatList>,
+  'data' | 'renderItem'
+> & {
+  onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
+};
+function AssetsList({
+  ListHeaderComponent,
+  contentContainerStyle,
+  onTokenPress,
+}: IAssetsListProps) {
   const isSmallScreen = useIsVerticalLayout();
   const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
@@ -95,7 +110,7 @@ const AssetsList = () => {
     }, []),
   );
 
-  const renderItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
+  const renderListItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
     item,
     index,
   }) => {
@@ -116,6 +131,10 @@ const AssetsList = () => {
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
         onPress={() => {
+          if (onTokenPress) {
+            onTokenPress({ token: item });
+            return;
+          }
           navigation.navigate(HomeRoutes.ScreenTokenDetail, {
             accountId: account?.id ?? '',
             networkId: item.networkId ?? '',
@@ -183,13 +202,20 @@ const AssetsList = () => {
 
   return (
     <Tabs.FlatList
-      contentContainerStyle={{
-        paddingHorizontal: 16,
-        marginTop: 24,
-      }}
+      contentContainerStyle={merge(
+        {
+          paddingHorizontal: 16,
+          marginTop: 24,
+        },
+        contentContainerStyle,
+      )}
       data={accountTokens}
-      renderItem={renderItem}
-      ListHeaderComponent={<ListHeaderComponent tokenEnabled={tokenEnabled} />}
+      renderItem={renderListItem}
+      ListHeaderComponent={
+        ListHeaderComponent ?? (
+          <AssetsListHeaderComponent tokenEnabled={tokenEnabled} />
+        )
+      }
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h={8} />}
       keyExtractor={(_item: TokenType) => _item.id}
@@ -197,6 +223,6 @@ const AssetsList = () => {
       showsVerticalScrollIndicator={false}
     />
   );
-};
+}
 
 export default AssetsList;

@@ -8,7 +8,7 @@
 /* eslint-disable no-plusplus */
 /* eslint-disable no-bitwise */
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
-import { BleManager, ScanMode, Device, BleError } from 'react-native-ble-plx';
+import { BleManager, ScanMode, Device, BleError, State } from 'react-native-ble-plx';
 import RNBleManager from 'react-native-ble-manager';
 
 import { Buffer } from 'buffer';
@@ -55,7 +55,7 @@ class BleUtils {
     return new Promise((resolve) => {
       const subscription = manager.onStateChange((managerState) => {
         // will catch error at connect process
-        if (managerState === 'PoweredOn' || managerState === 'PoweredOff') {
+        if (managerState !== State.Unknown) {
           this.manager = manager;
           subscription.remove();
           resolve(manager);

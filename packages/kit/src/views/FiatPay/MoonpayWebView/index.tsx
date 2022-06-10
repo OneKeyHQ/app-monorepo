@@ -36,7 +36,7 @@ export const MoonpayWebView: FC = () => {
       footer={null}
       staticChildrenProps={{ flex: 1 }}
     >
-      <Box flex="1">
+      <Box flex="1" overflow="hidden" borderBottomRadius="12px">
         <WebView
           containerProps={{ borderBottomRadius: '24px' }}
           src={url}

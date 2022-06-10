@@ -11,15 +11,20 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 
-import { useManageTokens } from '../../../../hooks/useManageTokens';
+import {
+  useAccountTokensBalance,
+  useActiveWalletAccount,
+} from '../../../../hooks';
 import { Token as TokenType } from '../../../../store/typings';
 import { useSwapActionHandlers } from '../../hooks/useSwap';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
   token?: TokenType;
+  tokenNetwork?: Network | null;
   label?: string;
   inputValue?: string;
   onPress?: () => void;
@@ -34,6 +39,7 @@ const TokenInput: FC<TokenInputProps> = ({
   inputValue,
   onPress,
   token,
+  tokenNetwork,
   onChange,
   containerProps,
   type,
@@ -41,7 +47,8 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
-  const { balances } = useManageTokens();
+  const { accountId } = useActiveWalletAccount();
+  const balances = useAccountTokensBalance(tokenNetwork?.id ?? '', accountId);
   const { onUserInput } = useSwapActionHandlers();
   const value = token ? balances[token?.tokenIdOnNetwork || 'main'] : '0';
   const onMax = useCallback(() => {
@@ -87,7 +94,7 @@ const TokenInput: FC<TokenInputProps> = ({
               borderRadius={0}
               onChangeText={onChange}
               pt="9"
-              pb="2"
+              pb="1"
               pl={2}
               isDisabled={isDisabled}
             />
@@ -108,8 +115,24 @@ const TokenInput: FC<TokenInputProps> = ({
             p={2}
           >
             {token && (
-              <Box mr={3}>
+              <Box mr={3} position="relative">
                 <Token size="6" src={token.logoURI} />
+                {tokenNetwork ? (
+                  <Box
+                    position="absolute"
+                    right="-4"
+                    top="-4"
+                    w="18px"
+                    h="18px"
+                    bg="surface-subdued"
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    borderRadius="full"
+                  >
+                    <Token size="4" src={tokenNetwork?.logoURI} />
+                  </Box>
+                ) : null}
               </Box>
             )}
             <Typography.Body1>

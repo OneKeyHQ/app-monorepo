@@ -43,9 +43,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
-  SendRoutes.Send
+  SendRoutes.SendLegacy
 >;
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.Send>;
+type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendLegacy>;
 
 type TransactionValues = {
   value: string;
@@ -80,6 +80,12 @@ const Transaction = () => {
   const [isMax, setIsMax] = useState(false);
   const route = useRoute<RouteProps>();
   const { token: routeParamsToken, to: initialToAddress } = route.params || {};
+  const {
+    account,
+    accountId,
+    networkId,
+    network: activeNetwork,
+  } = useActiveWalletAccount();
 
   const {
     control,
@@ -94,18 +100,15 @@ const Transaction = () => {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     defaultValues: {
-      to: initialToAddress,
-      value: '', // TODO rename to amount
+      // to: initialToAddress,
+      // value: '', // TODO rename to amount
+      to: account?.address ?? '',
+      value: '0.000164', // TODO rename to amount
     },
   });
   // formState.isValid is NOT working, needs errors length check
   const isValid = formState.isValid && !Object.keys(formState.errors).length;
-  const {
-    account,
-    accountId,
-    networkId,
-    network: activeNetwork,
-  } = useActiveWalletAccount();
+
   const { feeInfoPayload, feeInfoLoading, feeInfoError } = useFeeInfoPayload({
     encodedTx,
     pollingInterval: FEE_INFO_POLLING_INTERVAL,
@@ -133,7 +136,7 @@ const Transaction = () => {
               {`${intl.formatMessage({ id: 'content__balance' })}`}
               &nbsp;&nbsp;
               <FormatBalance
-                balance={getTokenBalance(token, '0')}
+                balance={getTokenBalance({ token, defaultValue: '0' })}
                 formatOptions={{
                   fixed: decimal ?? 4,
                 }}
@@ -201,7 +204,7 @@ const Transaction = () => {
     if (isMax) {
       // max token transfer
       if (selectedToken?.tokenIdOnNetwork) {
-        value = getTokenBalance(selectedToken, '');
+        value = getTokenBalance({ token: selectedToken, defaultValue: '' });
       } else {
         value = '0';
       }
@@ -297,13 +300,13 @@ const Transaction = () => {
         logoURI: tokenConfig.logoURI,
         name: tokenConfig.name,
         symbol: tokenConfig.symbol,
-        balance: getTokenBalance(tokenConfig, '0'),
+        balance: getTokenBalance({ token: tokenConfig, defaultValue: '0' }),
       },
     };
     const params: SendConfirmParams = {
       payloadType: 'transfer', // transfer, transferNft, swap
       payload,
-      backRouteName: SendRoutes.Send,
+      backRouteName: SendRoutes.SendLegacy,
       encodedTx: encodedTxWithFee,
       feeInfoSelected: feeInfoPayload?.selected,
       feeInfoEditable: false,
@@ -425,7 +428,10 @@ const Transaction = () => {
                     token={selectedToken}
                     value={
                       isMax
-                        ? getTokenBalance(selectedToken, '0')
+                        ? getTokenBalance({
+                            token: selectedToken,
+                            defaultValue: '0',
+                          })
                         : getValues('value')
                     }
                     render={(ele) => (
@@ -444,7 +450,7 @@ const Transaction = () => {
                     if (!value) return undefined;
                     const inputBN = new BigNumber(value);
                     const balanceBN = new BigNumber(
-                      getTokenBalance(token, '0'),
+                      getTokenBalance({ token, defaultValue: '0' }),
                     );
                     if (inputBN.isNaN() || balanceBN.isNaN()) {
                       return intl.formatMessage(
@@ -474,7 +480,10 @@ const Transaction = () => {
                   tokenSymbol={selectedToken?.symbol ?? '-'}
                   enableMaxButton
                   isMax={isMax}
-                  maxText={getTokenBalance(selectedToken, '')}
+                  maxText={getTokenBalance({
+                    token: selectedToken,
+                    defaultValue: '',
+                  })}
                   maxTextIsNumber
                   maxModeCanEdit
                   onMaxChange={(v) => {

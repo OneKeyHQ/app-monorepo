@@ -202,6 +202,49 @@ export const Debug = () => {
             >
               <Typography.Body1>Dapp Token Approve</Typography.Body1>
             </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                // @ts-ignore
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.Send,
+                  params: {
+                    screen: SendRoutes.SendConfirmFromDapp,
+                    params: {
+                      query: `{
+  "sourceInfo": {
+    "id": 0,
+    "origin": "https://swap.onekey.so",
+    "scope": "ethereum",
+    "data": {
+      "method": "eth_sendTransaction",
+      "params": [
+        {
+          "gas": "0xbf01",
+          "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
+          "to": "0xc748673057861a797275cd8a068abb95a902e8de",
+          "data": "0x",
+          "value": "0"
+        }
+      ],
+      "jsonrpc": "2.0"
+    }
+  },
+  "encodedTx": {
+    "gas": "0xbf01",
+    "from": "0x76f3f64cb3cd19debee51436df630a342b736c24",
+    "to": "0xc748673057861a797275cd8a068abb95a902e8de",
+    "data": "0x",
+    "value": "0"
+  }
+}`,
+                    },
+                  },
+                });
+              }}
+            >
+              <Typography.Body1>NativeTransfer</Typography.Body1>
+            </Pressable>
           </VStack>
         </Box>
       </Box>

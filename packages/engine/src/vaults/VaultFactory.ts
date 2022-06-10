@@ -36,7 +36,7 @@ export class VaultFactory {
     async ({
       networkId,
       accountId,
-    }: IVaultFactoryOptions): Promise<VaultBase> =>
+    }: Omit<IVaultFactoryOptions, 'walletId'>): Promise<VaultBase> =>
       this._getVaultWithoutCache({ networkId, accountId }),
     {
       promise: true,

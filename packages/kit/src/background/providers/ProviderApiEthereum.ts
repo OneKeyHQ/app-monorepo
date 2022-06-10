@@ -10,6 +10,7 @@ import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -328,8 +329,24 @@ class ProviderApiEthereum extends ProviderApiBase {
     });
   }
 
-  personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
-    const message = messages[0] as string;
+  async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
+    let message = messages[0] as string;
+
+    const accounts = await this.eth_accounts(req);
+    // FIX:  dydx use second param as message
+    if (accounts && accounts.length) {
+      const a = fixAddressCase({
+        impl: IMPL_EVM,
+        address: messages[0] || '',
+      });
+      const b = fixAddressCase({
+        impl: IMPL_EVM,
+        address: accounts[0] || '',
+      });
+      if (a && a === b && messages[1]) {
+        message = messages[1] as string;
+      }
+    }
 
     console.log('personal_sign', message, messages, req);
     return this.showSignMessageModal(req, {

@@ -17,6 +17,7 @@ const now = () => new Date().getTime();
 export function useTransactionAdder(): (response: {
   hash: string;
   summary?: string;
+  orderId?: string;
   approval?: { tokenAddress: string; spender: string };
 }) => void {
   const { networkId, account } = useActiveWalletAccount();
@@ -24,11 +25,12 @@ export function useTransactionAdder(): (response: {
     (response: {
       hash: string;
       summary?: string;
+      orderId?: string;
       approval?: { tokenAddress: string; spender: string };
     }) => {
       if (!account) return;
       if (!networkId) return;
-      const { hash, summary, approval } = response;
+      const { hash, summary, approval, orderId } = response;
       if (!hash) {
         throw Error('No transaction hash found.');
       }
@@ -40,6 +42,7 @@ export function useTransactionAdder(): (response: {
             from: account.address,
             approval,
             summary,
+            orderId,
             addedTime: now(),
           },
         }),

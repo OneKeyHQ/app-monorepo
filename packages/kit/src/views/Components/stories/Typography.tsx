@@ -9,13 +9,13 @@ const TypographyGallery = () => (
       DisplayLarge
     </Typography.DisplayLarge>
     <Typography.DisplayMedium color="text-subdued">
-      DisplayMedium
+      DisplayMedium (color=text-subdued)
     </Typography.DisplayMedium>
     <Typography.DisplaySmall color="text-critical">
-      DisplaySmall
+      DisplaySmall (color=text-critical)
     </Typography.DisplaySmall>
     <Typography.DisplaySmall color="text-warning">
-      DisplaySmall
+      DisplaySmall (color=text-warning)
     </Typography.DisplaySmall>
     <Typography.PageHeading>PageHeading</Typography.PageHeading>
     <Typography.Heading>Heading</Typography.Heading>

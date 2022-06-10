@@ -1,7 +1,7 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
-import { SwapQuote } from '@onekeyhq/kit/src/views/Swap/typings';
+import { SwapQuoteTx } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import { Network } from '../../../../types/network';
 
@@ -26,7 +26,7 @@ const WethAddressSet = new Set([
 const isSendConfirmPayload = (payload: any): payload is SendConfirmPayload =>
   'payloadType' in payload;
 
-const isSwapQuote = (payload: SendConfirmPayload): payload is SwapQuote =>
+const isSwapQuote = (payload: SendConfirmPayload): payload is SwapQuoteTx =>
   payload.payloadType === 'InternalSwap';
 
 const parsePayload = async (

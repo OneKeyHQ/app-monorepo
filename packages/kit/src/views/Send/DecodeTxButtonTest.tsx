@@ -36,16 +36,11 @@ function DecodeTxButtonTest({ encodedTx }: { encodedTx: any }) {
 
     // ----------------------------------------------
     // call vaultHelper from background
-    const decodedTxLegacy = await engine.decodeTx({
+
+    const { decodedTx, decodedTxLegacy } = await engine.decodeTx({
       accountId,
       networkId,
       encodedTx,
-    });
-    const decodedTx = await engine.decodeTx({
-      accountId,
-      networkId,
-      encodedTx,
-      legacy: false,
     });
     console.log('decodeTxTest >>>> ', {
       encodedTx,

@@ -1,11 +1,6 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
-import {
-  EVMTxFromType,
-  LogEvent,
-  Transaction,
-  Transfer,
-} from '../../../../types/covalent';
+import { LogEvent, Transaction, Transfer } from '../../../../types/covalent';
 import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
 
@@ -171,7 +166,14 @@ const parseCovalentType = (covalentTx: Transaction) => {
   return { type: covalentTx.txType, info: null };
 };
 
-const parseCovalent = (covalentTx: Transaction, network: Network) => {
+const isAddressEq = (a: string, b: string) =>
+  a.toLocaleLowerCase === b.toLocaleLowerCase;
+
+const parseCovalent = (
+  covalentTx: Transaction,
+  network: Network,
+  address: string,
+) => {
   const itemBuilder = {} as EVMDecodedItem;
   const { type, info } = parseCovalentType(covalentTx);
   itemBuilder.txType = type;
@@ -188,8 +190,9 @@ const parseCovalent = (covalentTx: Transaction, network: Network) => {
   itemBuilder.toAddress = covalentTx.toAddress;
   itemBuilder.txHash = covalentTx.txHash;
   itemBuilder.chainId = covalentTx.chainId;
-  itemBuilder.fromType =
-    covalentTx.fromType === EVMTxFromType.IN ? 'IN' : 'OUT';
+  itemBuilder.fromType = isAddressEq(address, covalentTx.fromAddress)
+    ? 'OUT'
+    : 'IN';
   itemBuilder.gasInfo = parseGasInfo(null, covalentTx);
   itemBuilder.blockSignedAt = new Date(covalentTx.blockSignedAt).getTime();
   itemBuilder.total = ethers.utils.formatEther(
