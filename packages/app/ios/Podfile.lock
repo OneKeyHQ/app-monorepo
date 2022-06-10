@@ -19,90 +19,15 @@ PODS:
   - EXImageLoader (3.2.0):
     - ExpoModulesCore
     - React-Core
-  - EXJSONUtils (0.3.0)
   - EXLocalAuthentication (12.2.0):
     - ExpoModulesCore
   - EXLocation (14.2.2):
     - ExpoModulesCore
-  - EXManifests (0.3.0):
-    - EXJSONUtils
   - EXMediaLibrary (14.1.0):
     - ExpoModulesCore
     - React-Core
-  - Expo (45.0.4):
+  - Expo (45.0.5):
     - ExpoModulesCore
-  - expo-dev-client (0.9.6):
-    - EXManifests
-    - expo-dev-launcher
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - EXUpdatesInterface
-  - expo-dev-launcher (0.11.6):
-    - EXManifests
-    - expo-dev-launcher/Main (= 0.11.6)
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - ExpoModulesCore
-    - EXUpdatesInterface
-    - React-Core
-  - expo-dev-launcher/Main (0.11.6):
-    - EXManifests
-    - expo-dev-launcher/Unsafe
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - ExpoModulesCore
-    - EXUpdatesInterface
-    - React-Core
-  - expo-dev-launcher/Unsafe (0.11.6):
-    - EXManifests
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - ExpoModulesCore
-    - EXUpdatesInterface
-    - React-Core
-  - expo-dev-menu (0.10.7):
-    - expo-dev-menu/Main (= 0.10.7)
-  - expo-dev-menu-interface (0.6.0)
-  - expo-dev-menu/GestureHandler (0.10.7)
-  - expo-dev-menu/Main (0.10.7):
-    - EXManifests
-    - expo-dev-menu-interface
-    - expo-dev-menu/Vendored
-    - ExpoModulesCore
-    - React-Core
-  - expo-dev-menu/Reanimated (0.10.7):
-    - DoubleConversion
-    - FBLazyVector
-    - FBReactNativeSpec
-    - glog
-    - RCT-Folly
-    - RCTRequired
-    - RCTTypeSafety
-    - React-callinvoker
-    - React-Core
-    - React-Core/DevSupport
-    - React-Core/RCTWebSocket
-    - React-CoreModules
-    - React-cxxreact
-    - React-jsi
-    - React-jsiexecutor
-    - React-jsinspector
-    - React-RCTActionSheet
-    - React-RCTAnimation
-    - React-RCTBlob
-    - React-RCTImage
-    - React-RCTLinking
-    - React-RCTNetwork
-    - React-RCTSettings
-    - React-RCTText
-    - React-RCTVibration
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - expo-dev-menu/SafeAreaView (0.10.7)
-  - expo-dev-menu/Vendored (0.10.7):
-    - expo-dev-menu/GestureHandler
-    - expo-dev-menu/Reanimated
-    - expo-dev-menu/SafeAreaView
   - ExpoClipboard (3.0.1):
     - ExpoModulesCore
   - ExpoHaptics (11.2.0):
@@ -119,7 +44,6 @@ PODS:
   - EXSplashScreen (0.15.1):
     - ExpoModulesCore
     - React-Core
-  - EXUpdatesInterface (0.6.0)
   - FBLazyVector (0.68.2)
   - FBReactNativeSpec (0.68.2):
     - RCT-Folly (= 2021.06.28.00-v2)
@@ -174,9 +98,9 @@ PODS:
     - GoogleUtilities/Network (~> 7.7)
     - "GoogleUtilities/NSData+zlib (~> 7.7)"
     - nanopb (~> 2.30908.0)
-  - GoogleDataTransport (9.1.2):
-    - GoogleUtilities/Environment (~> 7.2)
-    - nanopb (~> 2.30908.0)
+  - GoogleDataTransport (9.1.4):
+    - GoogleUtilities/Environment (~> 7.7)
+    - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesObjC (< 3.0, >= 1.2)
   - GoogleMLKit/BarcodeScanning (3.0.0):
     - GoogleMLKit/MLKitCore
@@ -258,7 +182,7 @@ PODS:
   - nanopb/decode (2.30908.0)
   - nanopb/encode (2.30908.0)
   - PromisesObjC (2.1.0)
-  - Protobuf (3.20.1)
+  - Protobuf (3.21.1)
   - RCT-Folly (2021.06.28.00-v2):
     - boost
     - DoubleConversion
@@ -477,7 +401,7 @@ PODS:
     - React-Core
   - react-native-netinfo (8.2.0):
     - React-Core
-  - react-native-pager-view (5.4.15):
+  - react-native-pager-view (5.4.24):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -581,7 +505,7 @@ PODS:
     - RNFBApp
   - RNGestureHandler (2.4.2):
     - React-Core
-  - RNReanimated (2.8.0):
+  - RNReanimated (3.0.0-rc.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -643,16 +567,10 @@ DEPENDENCIES:
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
-  - EXJSONUtils (from `../../../node_modules/expo-json-utils/ios`)
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - EXLocation (from `../../../node_modules/expo-location/ios`)
-  - EXManifests (from `../../../node_modules/expo-manifests/ios`)
   - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
-  - expo-dev-client (from `../../../node_modules/expo-dev-client/ios`)
-  - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
-  - expo-dev-menu (from `../../../node_modules/expo-dev-menu`)
-  - expo-dev-menu-interface (from `../../../node_modules/expo-dev-menu-interface/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
   - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
@@ -660,7 +578,6 @@ DEPENDENCIES:
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core/ios`)
   - EXSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
-  - EXUpdatesInterface (from `../../../node_modules/expo-updates-interface/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
@@ -766,26 +683,14 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-font/ios"
   EXImageLoader:
     :path: "../../../node_modules/expo-image-loader/ios"
-  EXJSONUtils:
-    :path: "../../../node_modules/expo-json-utils/ios"
   EXLocalAuthentication:
     :path: "../../../node_modules/expo-local-authentication/ios"
   EXLocation:
     :path: "../../../node_modules/expo-location/ios"
-  EXManifests:
-    :path: "../../../node_modules/expo-manifests/ios"
   EXMediaLibrary:
     :path: "../../../node_modules/expo-media-library/ios"
   Expo:
     :path: "../../../node_modules/expo/ios"
-  expo-dev-client:
-    :path: "../../../node_modules/expo-dev-client/ios"
-  expo-dev-launcher:
-    :path: "../../../node_modules/expo-dev-launcher"
-  expo-dev-menu:
-    :path: "../../../node_modules/expo-dev-menu"
-  expo-dev-menu-interface:
-    :path: "../../../node_modules/expo-dev-menu-interface/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoHaptics:
@@ -800,8 +705,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-secure-store/ios"
   EXSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
-  EXUpdatesInterface:
-    :path: "../../../node_modules/expo-updates-interface/ios"
   FBLazyVector:
     :path: "../../../node_modules/react-native/Libraries/FBLazyVector"
   FBReactNativeSpec:
@@ -919,16 +822,10 @@ SPEC CHECKSUMS:
   EXFileSystem: 2aa2d9289f84bca9532b9ccbd81504fa31eb1ded
   EXFont: 04235cc22e6fef86028feb67db452978dc6f240f
   EXImageLoader: b88e053d760f85a82405b1db2de4abf11978fc9f
-  EXJSONUtils: 2a74b8f40f1523cc3f92af99c91aa78201737a77
   EXLocalAuthentication: 7f37b242eae73f9acf111d39bdee3f1379e68902
   EXLocation: f9811c5a78e07894429e7e0620b30f2395564fc0
-  EXManifests: 0c6134b7b6f3236a93a778c3f44ba1cfb3f9fa3d
   EXMediaLibrary: 84cddf988a089e28070790438caf58d8b265b37a
-  Expo: 64d52669fa3b9342919b5b44b2b4f15f19b0cf76
-  expo-dev-client: 33910ee52b7e93516faaa519f941ef2fac48df83
-  expo-dev-launcher: 7f6b17d961e4beb7052bf9e7f7220a5c46823b90
-  expo-dev-menu: 4597310b970a5c819ecad4349d2b945a94766b5a
-  expo-dev-menu-interface: b0e5958c56dc420517e8d8769f009536fbbb5935
+  Expo: b9fff0a1eac0f424fc68ea49b4347fb308e52e17
   ExpoClipboard: e2dda22be0524595a5eeead51665f60729829123
   ExpoHaptics: ad58ec96a25e57579c14a47c7d71f0de0de8656a
   ExpoImagePicker: d9d6b4f29db437fc7796f13cee5f133f5b4b5f7c
@@ -936,7 +833,6 @@ SPEC CHECKSUMS:
   ExpoModulesCore: e4278a668e8c13c0269ed8b8a4200989deea2973
   EXSecureStore: aaae919d83aec2faf031e99398807edac0313285
   EXSplashScreen: 34f460788db8d682883871708dddbfac72095bb7
-  EXUpdatesInterface: 0b101ace1dbfa0f64260a5df31c71d03c66cca54
   FBLazyVector: a7a655862f6b09625d11c772296b01cd5164b648
   FBReactNativeSpec: 2282ebf1e7bf1772e44f9bca57d47630fe4228f1
   Firebase: 5f8193dff4b5b7c5d5ef72ae54bb76c08e2b841d
@@ -948,7 +844,7 @@ SPEC CHECKSUMS:
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
   glog: 476ee3e89abb49e07f822b48323c51c57124b572
   GoogleAppMeasurement: 4c19f031220c72464d460c9daa1fb5d1acce958e
-  GoogleDataTransport: 629c20a4d363167143f30ea78320d5a7eb8bd940
+  GoogleDataTransport: 5fffe35792f8b96ec8d6775f5eccd83c998d5a3b
   GoogleMLKit: 69ae034947ca5220c842a3096d574765c9b6b8b8
   GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
   GoogleUtilities: e0913149f6b0625b553d70dae12b49fc62914fd1
@@ -965,7 +861,7 @@ SPEC CHECKSUMS:
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
   PromisesObjC: 99b6f43f9e1044bd87a95a60beff28c2c44ddb72
-  Protobuf: b60ec2f51ad74765f44d0c09d2e0579d7de21745
+  Protobuf: 9e88c1e667d75aa2491d211f26ccddde4e8ad4cf
   RCT-Folly: 4d8508a426467c48885f1151029bc15fa5d7b3b8
   RCTRequired: 3e917ea5377751094f38145fdece525aa90545a0
   RCTTypeSafety: c43c072a4bd60feb49a9570b0517892b4305c45e
@@ -983,7 +879,7 @@ SPEC CHECKSUMS:
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
-  react-native-pager-view: b1914469643f40042e65d78cbf3d3dfebd6fb0d9
+  react-native-pager-view: 95d0418c3c74279840abec6926653d32447bafb6
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 45c8dca02491980f2958595333cbccd6877cb57e
   react-native-safe-area-context: f98b0b16d1546d208fc293b4661e3f81a895afd9
@@ -1008,7 +904,7 @@ SPEC CHECKSUMS:
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
   RNGestureHandler: 61628a2c859172551aa2100d3e73d1e57878392f
-  RNReanimated: 64573e25e078ae6bec03b891586d50b9ec284393
+  RNReanimated: 536c4a11a340b5e0e94629b24101decc2df3126e
   RNScreens: 4d83613b50b74ed277026375dc0810893b0c347f
   RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
@@ -1018,6 +914,6 @@ SPEC CHECKSUMS:
   Yoga: 99652481fcd320aefa4a7ef90095b95acd181952
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: 0c3a9f08485f3d4b4227b6641c389aec17cf9440
+PODFILE CHECKSUM: a2bc322b38fb3c0adfe91ed01a15181b25e605a5
 
 COCOAPODS: 1.11.3
