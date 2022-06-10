@@ -7,7 +7,7 @@ import './shim';
 
 import React, { FC } from 'react';
 
-import 'expo-dev-client';
+// import 'expo-dev-client';
 import { LogBox } from 'react-native';
 
 import { Provider } from '@onekeyhq/kit';

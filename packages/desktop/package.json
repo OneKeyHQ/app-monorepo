@@ -30,7 +30,7 @@
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "electron-is-dev": "^2.0.0",
-    "expo": "^45.0.4",
+    "expo": "^45.0.5",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
     "react-native-web": "0.17.7"
