@@ -1,17 +1,16 @@
 import React, { FC, ReactNode } from 'react';
 
+import { BlurView } from 'expo-blur';
 import { Platform, StyleSheet } from 'react-native';
 
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import HStack from '../../HStack';
 import {
   useSafeAreaInsets,
-  useThemeValue,
   useTheme,
   useUserDevice,
 } from '../../Provider/hooks';
 
-import { BlurView } from 'expo-blur';
 
 type HeaderProps = {
   headerLeft: () => ReactNode;
@@ -85,6 +84,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         <BlurView
           intensity={80} // TODO: change the intensity from 0 to 80 while scrolling up
           tint={
+            // eslint-disable-next-line no-nested-ternary
             themeVariant === 'light'
               ? 'light'
               : themeVariant === 'dark'
