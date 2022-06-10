@@ -14,6 +14,7 @@ export type DataInitialState = {
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
   ipAddressInfo: MoonpayIpAddressPayload | null;
+  accountIsBeingCreated?: boolean;
 };
 
 const initialState: DataInitialState = {
@@ -22,6 +23,7 @@ const initialState: DataInitialState = {
   onekeySupportList: [],
   currencyList: [],
   ipAddressInfo: null,
+  accountIsBeingCreated: false,
 };
 
 export const dataSlice = createSlice({
@@ -46,9 +48,13 @@ export const dataSlice = createSlice({
       state.currencyList = action.payload.currencyList;
       state.ipAddressInfo = action.payload.ipAddressInfo;
     },
+    setAccountIsBeingCreated(state, action: PayloadAction<boolean>) {
+      state.accountIsBeingCreated = action.payload;
+    },
   },
 });
 
-export const { release, passwordSet, currenciesSet } = dataSlice.actions;
+export const { release, passwordSet, currenciesSet, setAccountIsBeingCreated } =
+  dataSlice.actions;
 
 export default dataSlice.reducer;

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   Form,
   KeyboardDismissView,
   Modal,
@@ -19,12 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import { useLocalAuthentication } from '../../hooks';
-import {
-  useAppDispatch,
-  useData,
-  useSettings,
-  useStatus,
-} from '../../hooks/redux';
+import { useAppDispatch, useAppSelector, useData } from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import { savePassword } from '../../utils/localAuthentication';
 
@@ -129,13 +125,17 @@ type PasswordsFieldValues = {
 
 const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const intl = useIntl();
-  const toast = useToast();
-  const { authenticationType } = useStatus();
-  const { enableLocalAuthentication } = useSettings();
-  const { isOk } = useLocalAuthentication();
-  const dispatch = useAppDispatch();
-  const { serviceApp } = backgroundApiProxy;
+  const [attention, showAttention] = useState(false);
   const navigation = useNavigation<NavigationProps>();
+  const dispatch = useAppDispatch();
+  const toast = useToast();
+  const ref = useRef({ unmount: false });
+  const authenticationType = useAppSelector((s) => s.status.authenticationType);
+  const enableLocalAuthentication = useAppSelector(
+    (s) => s.settings.enableLocalAuthentication,
+  );
+  const { isOk } = useLocalAuthentication();
+
   const {
     control,
     handleSubmit,
@@ -150,10 +150,22 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
     },
     mode: 'onChange',
   });
+
+  const addAttention = useCallback(() => {
+    setTimeout(() => {
+      if (ref.current.unmount) return;
+      showAttention(true);
+    }, 2 * 1000);
+  }, []);
+
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
       try {
-        await serviceApp.updatePassword(oldPassword, values.password);
+        addAttention();
+        await backgroundApiProxy.serviceApp.updatePassword(
+          oldPassword,
+          values.password,
+        );
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
         toast.show({ title: intl.formatMessage({ id: errorKey }) });
@@ -188,9 +200,9 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       toast,
       intl,
       oldPassword,
-      serviceApp,
       dispatch,
       enableLocalAuthentication,
+      addAttention,
     ],
   );
 
@@ -210,6 +222,13 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       setValue('confirmPassword', confirmPassword);
     }
   }, [watchedPassword, setValue]);
+
+  useEffect(
+    () => () => {
+      ref.current.unmount = true;
+    },
+    [],
+  );
 
   const text =
     authenticationType === 'FACIAL'
@@ -331,6 +350,13 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
             defaultMessage: 'Continue',
           })}
         </Button>
+        {attention ? (
+          <Center>
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'content__change_password_attention' })}
+            </Typography.Body2>
+          </Center>
+        ) : null}
       </Form>
     </KeyboardDismissView>
   );
