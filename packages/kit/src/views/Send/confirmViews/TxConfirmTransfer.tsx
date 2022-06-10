@@ -44,7 +44,7 @@ function TxConfirmTransfer(props: ITxConfirmViewProps) {
       const balanceBN = new BigNumber(
         getTokenBalance({
           defaultValue: '0',
-          tokenIdOnNetwork: transferPayload.token.idOnNetwork,
+          tokenIdOnNetwork: transferPayload?.token?.idOnNetwork,
         }),
       );
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);

@@ -23,18 +23,15 @@ import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
-import expo.modules.devlauncher.DevLauncherController;
+//import expo.modules.devlauncher.DevLauncherController;
 import so.onekey.app.wallet.newarchitecture.MainApplicationReactNativeHost;
 import so.onekey.app.wallet.utils.Utils;
-
-import com.facebook.react.bridge.JSIModulePackage;
-import com.swmansion.reanimated.ReanimatedJSIModulePackage;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import android.webkit.WebView;
 
-//import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
+import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
 
 public class MainApplication extends Application implements ReactApplication , ViewModelStoreOwner {
   private final ViewModelStore mViewModelStore = new ViewModelStore();
@@ -64,14 +61,14 @@ public class MainApplication extends Application implements ReactApplication , V
       return "__generated__/AppEntry.js";
     }
 
-//    @Override
-//    protected JavaScriptExecutorFactory getJavaScriptExecutorFactory() {
-//      return new V8ExecutorFactory(
-//          getApplicationContext(),
-//          getPackageName(),
-//          AndroidInfoHelpers.getFriendlyDeviceName(),
-//          getUseDeveloperSupport());
-//    }
+    @Override
+    protected JavaScriptExecutorFactory getJavaScriptExecutorFactory() {
+      return new V8ExecutorFactory(
+          getApplicationContext(),
+          getPackageName(),
+          AndroidInfoHelpers.getFriendlyDeviceName(),
+          getUseDeveloperSupport());
+    }
 
   });
 
@@ -105,9 +102,9 @@ public class MainApplication extends Application implements ReactApplication , V
     Utils.init(this);
     SoLoader.init(this, /* native exopackage */ false);
 
-    if(BuildConfig.ENABLE_DEV_CLI){
-      DevLauncherController.initialize(this, getReactNativeHost());
-    }
+//    if(BuildConfig.ENABLE_DEV_CLI){
+//      DevLauncherController.initialize(this, getReactNativeHost());
+//    }
     if (BuildConfig.DEBUG) {
       WebView.setWebContentsDebuggingEnabled(true);
     }

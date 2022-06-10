@@ -123,10 +123,13 @@ const Account: FC<AccountProps> = ({
                 typography="Body2Strong"
                 text={address}
                 short
-                color={color}
+                color={color || 'text-default'}
               />
             ) : (
-              <Typography.Body2Strong color={color} isTruncated>
+              <Typography.Body2Strong
+                color={color || 'text-default'}
+                isTruncated
+              >
                 {primaryContent}
               </Typography.Body2Strong>
             ))}
