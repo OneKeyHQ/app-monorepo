@@ -40,11 +40,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       borderBottomColor="divider" // TODO: change the color from transparent to divider while scrolling up
       borderBottomWidth={StyleSheet.hairlineWidth}
       px={2}
-      style={{
-        // @ts-expect-error
-        '-webkit-app-region': 'drag',
-        '-webkit-user-select': 'none',
-      }}
     >
       {headerLeftNode ? (
         <HStack
