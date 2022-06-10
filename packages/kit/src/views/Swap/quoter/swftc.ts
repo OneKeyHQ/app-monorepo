@@ -18,6 +18,7 @@ import {
   getChainIdFromNetwork,
   multiply,
   nativeTokenAddress,
+  plus,
 } from '../utils';
 
 function getSwftcNetworkName(chainId?: string) {
@@ -110,7 +111,7 @@ export class SwftcQuoter implements Quoter {
   private lastUpdate = 0;
 
   constructor() {
-    this.client = axios.create();
+    this.client = axios.create({ timeout: 10 * 1000 });
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
@@ -184,7 +185,7 @@ export class SwftcQuoter implements Quoter {
           tokenOut,
           calcBuyAmount(
             typedValue,
-            data.rate.depositCoinFeeRate,
+            plus(data.rate.depositCoinFeeRate, '0.00875'),
             data.rate.instantRate,
             data.rate.chainFee,
           ),
@@ -195,7 +196,7 @@ export class SwftcQuoter implements Quoter {
           tokenIn,
           calcSellAmount(
             typedValue,
-            data.rate.depositCoinFeeRate,
+            plus(data.rate.depositCoinFeeRate, '0.00875'),
             data.rate.instantRate,
             data.rate.chainFee,
           ),

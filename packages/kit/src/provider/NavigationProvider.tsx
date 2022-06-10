@@ -7,12 +7,7 @@ import {
 } from '@react-navigation/native';
 import { createURL } from 'expo-linking';
 
-import {
-  Box,
-  DialogManager,
-  useIsVerticalLayout,
-  useThemeValue,
-} from '@onekeyhq/components';
+import { Box, DialogManager, useThemeValue } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
 import { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';

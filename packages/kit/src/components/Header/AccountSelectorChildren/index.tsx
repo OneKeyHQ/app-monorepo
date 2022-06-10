@@ -12,6 +12,7 @@ import {
   Icon,
   Pressable,
   Select,
+  Skeleton,
   Text,
   Token,
   Typography,
@@ -43,7 +44,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
-import { useManageNetworks } from '../../../hooks';
+import { useAppSelector, useManageNetworks } from '../../../hooks';
 import { NetworkIcon } from '../../../views/ManageNetworks/Listing/NetworkIcon';
 
 import LeftSide from './LeftSide';
@@ -83,6 +84,18 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 
 type AccountGroup = { title: Network; data: AccountEngineType[] };
 
+const CreateAccountSkeleton = () => {
+  const accountIsBeingCreated = useAppSelector(
+    (s) => s.data.accountIsBeingCreated,
+  );
+  return accountIsBeingCreated ? (
+    <Box mx="2" borderRadius={12} p="2">
+      <Skeleton shape="Body2" />
+      <Skeleton shape="Body2" />
+    </Box>
+  ) : null;
+};
+
 const AllNetwork = 'all';
 
 const AccountSelectorChildren: FC<{
@@ -91,6 +104,9 @@ const AccountSelectorChildren: FC<{
 }> = ({ isOpen }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const accountIsBeingCreated = useAppSelector(
+    (s) => s.data.accountIsBeingCreated,
+  );
 
   const navigation = useAppNavigation();
   const toast = useToast();
@@ -437,7 +453,6 @@ const AccountSelectorChildren: FC<{
             )}
           />
         </Box>
-
         <SectionList
           stickySectionHeadersEnabled
           sections={activeAccounts}
@@ -445,6 +460,7 @@ const AccountSelectorChildren: FC<{
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             <Box h={section?.leadingItem ? 2 : 0} />
           )}
+          ListFooterComponent={CreateAccountSkeleton}
           ItemSeparatorComponent={() => <Box h={2} />}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={({ item, section }) => (
@@ -510,11 +526,10 @@ const AccountSelectorChildren: FC<{
             ) : null
           }
         />
-
         <Box p={2}>
           <Pressable
             onPress={() => {
-              if (!activeWallet) return;
+              if (!activeWallet || accountIsBeingCreated) return;
               const networkSettings = activeNetwork?.settings;
               const showNotSupportToast = () => {
                 toast.show({

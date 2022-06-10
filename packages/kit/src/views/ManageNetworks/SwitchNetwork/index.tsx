@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,23 +12,17 @@ import {
   Modal,
   Spinner,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SwitchEthereumChainParameter } from '../../../background/providers/ProviderApiEthereum';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
+import useDappParams from '../../../hooks/useDappParams';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
 type RouteProps = RouteProp<
-  ManageNetworkRoutesParams,
-  ManageNetworkRoutes.SwitchNetwork
->;
-
-type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
   ManageNetworkRoutes.SwitchNetwork
 >;
@@ -112,8 +106,6 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
 }
 
 function SwitchNetworkModal() {
-  const toast = useToast();
-  const navigation = useNavigation<NavigationProps>();
   const routeProps = useRoute<RouteProps>();
   const [network, setNetwork] = useState<Network>();
   const switchParameter: SwitchEthereumChainParameter = JSON.parse(
@@ -121,6 +113,10 @@ function SwitchNetworkModal() {
   );
   const { chainId } = switchParameter;
   const networkId = `evm--${parseInt(chainId)}`;
+  const queryInfo = useDappParams();
+  const dappApprove = useDappApproveAction({
+    id: queryInfo.sourceInfo?.id ?? '',
+  });
 
   useEffect(() => {
     (async () => {
@@ -129,23 +125,25 @@ function SwitchNetworkModal() {
     })();
   }, [networkId]);
 
-  const onPrimaryActionPress = useCallback(async () => {
-    try {
-      const { serviceNetwork } = backgroundApiProxy;
-      await serviceNetwork.changeActiveNetwork(networkId);
-      // TODO: change to i18n
-      toast.show({ title: 'Switched' });
-    } catch (error) {
-      console.error(error);
-      // TODO: change to i18n
-      toast.show({ title: 'Failed to switch network' });
-      return;
-    }
-
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  }, [navigation, networkId, toast]);
+  const onPrimaryActionPress = useCallback(
+    async ({ close }) => {
+      try {
+        const { serviceNetwork } = backgroundApiProxy;
+        const newNetwork = await serviceNetwork.changeActiveNetwork(networkId);
+        // TODO: change to i18n
+        // toast.show({ title: 'Switched' });
+        await dappApprove.resolve({
+          close,
+          result: newNetwork,
+        });
+      } catch (error) {
+        console.error(error);
+        // TODO: change to i18n
+        // toast.show({ title: 'Failed to switch network' });
+      }
+    },
+    [dappApprove, networkId],
+  );
 
   return (
     <ViewNetworkModal
@@ -153,10 +151,9 @@ function SwitchNetworkModal() {
       network={network}
       hidePrimaryAction={!network}
       hideSecondaryAction
+      onModalClose={dappApprove.reject}
       primaryActionTranslationId="action__confirm"
-      primaryActionProps={{
-        onPromise: onPrimaryActionPress,
-      }}
+      onPrimaryActionPress={onPrimaryActionPress}
     />
   );
 }
