@@ -32,6 +32,7 @@ import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import PageActionsGallery from '@onekeyhq/kit/src/views/Components/stories/PageActions';
 import PinCodeGallery from '@onekeyhq/kit/src/views/Components/stories/PinCode';
+import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import QRCodeGallery from '@onekeyhq/kit/src/views/Components/stories/QRCode';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import RadioBoxGallery from '@onekeyhq/kit/src/views/Components/stories/RadioBox';
@@ -105,6 +106,7 @@ export enum StackRoutes {
   ComponentAppUpdate = 'component/AppUpdate',
   ComponentSkeleton = 'component/Skeleton',
   ComponentDeviceConnection = 'component/device-connection',
+  ComponentPopover = 'component/Popover',
 }
 
 export type StackBasicRoutesParams = {
@@ -158,6 +160,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentSkeleton]: undefined;
   [StackRoutes.ComponentDeviceConnection]: undefined;
   [StackRoutes.ComponentKeyboard]: undefined;
+  [StackRoutes.ComponentPopover]: undefined;
 };
 
 export const stackScreenList = [
@@ -231,6 +234,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentKeyboard,
     component: KeyboardGallery,
+  },
+  {
+    name: StackRoutes.ComponentPopover,
+    component: PopoverGallery,
   },
 ];
 
