@@ -19,10 +19,14 @@ import { navigationGoBack } from '../../../hooks/useAppNavigation';
 
 let crashlytics: any | undefined;
 
-if (platformEnv.isNative) {
+if (
+  platformEnv.isNative &&
+  platformEnv.isProduction &&
+  process.env.BUILD_NUMBER !== '1'
+) {
   (async () => {
     const Crashlytics = await import('@react-native-firebase/crashlytics');
-    crashlytics = Crashlytics.default();
+    crashlytics = Crashlytics.default?.();
   })();
 }
 
