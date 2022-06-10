@@ -11,7 +11,6 @@ import {
   useUserDevice,
 } from '../../Provider/hooks';
 
-
 type HeaderProps = {
   headerLeft: () => ReactNode;
   headerRight: () => ReactNode;
