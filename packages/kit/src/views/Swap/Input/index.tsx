@@ -1,9 +1,12 @@
 import React, { useCallback } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
 import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
-import { refs } from '../refs';
 
 import type { Token } from '../../../store/typings';
 
@@ -11,15 +14,34 @@ const Input = () => {
   const navigation = useNavigation();
   const { outputToken } = useSwapState();
   const { onSelectToken } = useSwapActionHandlers();
+  const { network, accountId, networkId } = useActiveWalletAccount();
   const onPress = useCallback(
     (token: Token) => {
-      onSelectToken(token, 'INPUT');
-      refs.inputIsDirty = true;
+      if (network) {
+        onSelectToken(token, 'INPUT', network);
+      }
       navigation.goBack();
     },
-    [navigation, onSelectToken],
+    [navigation, onSelectToken, network],
   );
-  return <TokenSelector onPress={onPress} excluded={outputToken} />;
+  useFocusEffect(
+    useCallback(() => {
+      backgroundApiProxy.serviceToken.fetchAccountTokensWithId(
+        accountId,
+        networkId,
+      );
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
+  return (
+    <TokenSelector
+      excluded={outputToken}
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      activeNetwork={network!}
+      onSelectToken={onPress}
+      showNetworkSelector={false}
+    />
+  );
 };
 
 export default Input;

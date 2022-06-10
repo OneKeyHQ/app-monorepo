@@ -54,9 +54,11 @@ const PreviewSend: FC<PreviewSendProps> = () => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.Send,
+            screen: SendRoutes.PreSendToken,
             params: {
+              from: '',
               to: address,
+              amount: '',
             },
           },
         });

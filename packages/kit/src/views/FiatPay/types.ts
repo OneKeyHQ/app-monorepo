@@ -42,3 +42,16 @@ export type MoonpayListType = {
   maxSellAmount: number;
   isSellSupported: boolean;
 };
+
+export type MoonpayIpAddressPayload = {
+  alpha2: string;
+  alpha3: string;
+  country: string;
+  ipAddress: string;
+  isAllowed: boolean;
+  isBuyAllowed: boolean;
+  isNftAllowed: boolean;
+  isSellAllowed: boolean;
+  isLowLimitEnabled: boolean;
+  state: string;
+};

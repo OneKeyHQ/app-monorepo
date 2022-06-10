@@ -3,9 +3,13 @@ import React, { FC, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
-import { Text } from 'react-native';
 
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { Text } from '@onekeyhq/components';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useSettings,
+} from '@onekeyhq/kit/src/hooks/redux';
 
 import { useManageTokens } from '../../hooks';
 import { Token } from '../../store/typings';
@@ -260,3 +264,36 @@ export const FormatBalance: FC<{
 
   return <Component>{child}</Component>;
 };
+
+export function FormatBalanceToken({
+  token,
+  render,
+}: {
+  render?: (c: JSX.Element) => JSX.Element;
+  token?: Token | null;
+}) {
+  const { balances } = useManageTokens();
+  const isNativeToken = !token?.tokenIdOnNetwork;
+  const { network } = useActiveWalletAccount();
+  const decimal = isNativeToken
+    ? network?.nativeDisplayDecimals
+    : network?.tokenDisplayDecimals;
+
+  return (
+    <FormatBalance
+      balance={balances[token?.tokenIdOnNetwork || 'main']}
+      suffix={token?.symbol}
+      formatOptions={{
+        fixed: decimal ?? 4,
+      }}
+      render={
+        render ??
+        ((ele) => (
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+            {ele}
+          </Text>
+        ))
+      }
+    />
+  );
+}

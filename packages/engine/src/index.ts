@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+
 import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
@@ -28,7 +29,6 @@ import {
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
-  SEPERATOR,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -47,7 +47,6 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from './managers/account';
-import { getErc20TransferHistories } from './managers/covalent';
 import { getDefaultPurpose } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -102,6 +101,7 @@ import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
+  IDecodedTx,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
@@ -851,6 +851,10 @@ class Engine {
   ): Promise<Token | undefined> {
     let noThisToken: undefined;
 
+    if (!tokenIdOnNetwork) {
+      return this.getNativeTokenInfo(networkId);
+    }
+
     const tokenId = `${networkId}--${tokenIdOnNetwork}`;
     const token = await this.dbApi.getToken(tokenId);
     if (typeof token !== 'undefined') {
@@ -1226,7 +1230,7 @@ class Engine {
     const vault = await this.getVault({ networkId, accountId });
     const txWithFee: IEncodedTx = await vault.attachFeeInfoToEncodedTx(params);
     debugLogger.sendTx('attachFeeInfoToEncodedTx', txWithFee);
-    return txWithFee as unknown;
+    return txWithFee;
   }
 
   @backgroundMethod()
@@ -1235,23 +1239,25 @@ class Engine {
     accountId,
     encodedTx,
     payload,
-    legacy,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: IEncodedTx;
     payload?: any;
-    legacy?: boolean;
-  }): Promise<IDecodedTxLegacy> {
-    const isLegacy = legacy ?? true;
+  }): Promise<{
+    decodedTxLegacy: IDecodedTxLegacy;
+    decodedTx: IDecodedTx;
+  }> {
     const vault = await this.getVault({ networkId, accountId });
     const decodedTx = await vault.decodeTx(encodedTx, payload);
-    if (!isLegacy) {
-      // @ts-ignore
-      return decodedTx;
+    const decodedTxLegacy = await vault.decodedTxToLegacy(decodedTx);
+    if ((await vault.getNetworkImpl()) === IMPL_EVM) {
+      // do something in EVM
     }
-    // convert to legacy decodedTx
-    return vault.decodedTxToLegacy(decodedTx);
+    return {
+      decodedTx,
+      decodedTxLegacy,
+    };
   }
 
   @backgroundMethod()
@@ -1697,41 +1703,6 @@ class Engine {
     );
 
     return txs;
-  }
-
-  @backgroundMethod()
-  async getErc20TxHistories(
-    networkId: string,
-    accountId: string,
-    contract: string,
-    pageNumber: number,
-    pageSize: number,
-  ) {
-    const [dbAccount, network] = await Promise.all([
-      this.dbApi.getAccount(accountId),
-      this.getNetwork(networkId),
-    ]);
-
-    if (network.impl !== IMPL_EVM) {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    if (typeof dbAccount === 'undefined') {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    if (dbAccount.type !== AccountType.SIMPLE) {
-      return { data: null, error: false, errorMessage: null, errorCode: null };
-    }
-
-    const chainId = network.id.split(SEPERATOR)[1];
-    return getErc20TransferHistories(
-      chainId,
-      dbAccount.address,
-      contract,
-      pageNumber,
-      pageSize,
-    );
   }
 
   @backgroundMethod()

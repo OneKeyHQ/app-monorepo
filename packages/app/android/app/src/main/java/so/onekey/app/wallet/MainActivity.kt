@@ -1,16 +1,13 @@
 package so.onekey.app.wallet
-import expo.modules.ReactActivityDelegateWrapper
 
-import android.content.Intent
 import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.ReactRootView
-import expo.modules.devlauncher.DevLauncherController
-import expo.modules.devmenu.react.DevMenuAwareReactActivity
+import expo.modules.ReactActivityDelegateWrapper
 
 
-class MainActivity : DevMenuAwareReactActivity() {
+class MainActivity : ReactActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Set the theme to AppTheme BEFORE onCreate to support
@@ -28,6 +25,7 @@ class MainActivity : DevMenuAwareReactActivity() {
         return "main"
     }
 
+
     /**
      * Returns the instance of the [ReactActivityDelegate]. There the RootView is created and
      * you can specify the rendered you wish to use (Fabric or the older renderer).
@@ -44,16 +42,5 @@ class MainActivity : DevMenuAwareReactActivity() {
             reactRootView.setIsFabric(BuildConfig.IS_NEW_ARCHITECTURE_ENABLED)
             return reactRootView
         }
-    }
-
-    @Override
-    override fun onNewIntent(intent: Intent) {
-        if (BuildConfig.ENABLE_DEV_CLI) {
-            if (DevLauncherController.tryToHandleIntent(this, intent)) {
-                return;
-            }
-        }
-
-        super.onNewIntent(intent);
     }
 }

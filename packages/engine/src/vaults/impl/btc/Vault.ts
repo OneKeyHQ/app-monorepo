@@ -45,26 +45,12 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { getAccountDefaultByPurpose } from './utils';
 
-type UTXO = {
-  txid: string;
-  vout: number;
-  value: string;
-  address: string;
-  path: string;
-};
-
-type IEncodedTxBTC = {
-  inputs: Array<UTXO>;
-  outputs: Array<{ address: string; value: string }>;
-  totalFee: string;
-  totalFeeInNative: string;
-  transferInfo: ITransferInfo;
-};
+import type { IBtcUTXO, IEncodedTxBtc } from './types';
 
 export default class Vault extends VaultBase {
   lastFeeRate?: { updatedAt: number; rates: Array<string> };
 
-  cachedUTXOs?: { updatedAt: number; utxos: Array<UTXO> };
+  cachedUTXOs?: { updatedAt: number; utxos: Array<IBtcUTXO> };
 
   private async getFeeRate(): Promise<Array<string>> {
     const now = Date.now();
@@ -94,7 +80,7 @@ export default class Vault extends VaultBase {
     return newRates;
   }
 
-  async collectUTXOs(): Promise<Array<UTXO>> {
+  async collectUTXOs(): Promise<Array<IBtcUTXO>> {
     const now = Date.now();
     const { updatedAt, utxos } = this.cachedUTXOs ?? {
       updatedAt: 0,
@@ -107,7 +93,7 @@ export default class Vault extends VaultBase {
 
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const client = await (this.engineProvider as Provider).blockbook;
-    let newUTXOs: Array<UTXO> = [];
+    let newUTXOs: Array<IBtcUTXO> = [];
     try {
       // TODO: use updated blockchain-libs API
       newUTXOs = await client.restful
@@ -131,9 +117,9 @@ export default class Vault extends VaultBase {
   };
 
   attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTxBTC;
+    encodedTx: IEncodedTxBtc;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTxBTC> {
+  }): Promise<IEncodedTxBtc> {
     const feeRate = params.feeInfoValue.price;
     if (typeof feeRate === 'string') {
       return this.buildEncodedTxFromTransfer(
@@ -174,7 +160,7 @@ export default class Vault extends VaultBase {
     } as IDecodedTxLegacy);
   }
 
-  async decodeTx(encodedTx: IEncodedTxBTC, payload?: any): Promise<IDecodedTx> {
+  async decodeTx(encodedTx: IEncodedTxBtc, payload?: any): Promise<IDecodedTx> {
     const { inputs, outputs } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -226,7 +212,7 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
     specifiedFeeRate?: string,
-  ): Promise<IEncodedTxBTC> {
+  ): Promise<IEncodedTxBtc> {
     const { to, amount, max } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -314,7 +300,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxBTC): Promise<UnsignedTx> {
+  buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxBtc): Promise<UnsignedTx> {
     const { inputs, outputs } = encodedTx;
 
     const inputsInUnsignedTx: Array<TxInput> = [];
@@ -339,7 +325,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(ret);
   }
 
-  async fetchFeeInfo(encodedTx: IEncodedTxBTC): Promise<IFeeInfo> {
+  async fetchFeeInfo(encodedTx: IEncodedTxBtc): Promise<IFeeInfo> {
     const network = await this.engine.getNetwork(this.networkId);
     const { feeLimit } = await this.engine.providerManager.buildUnsignedTx(
       this.networkId,

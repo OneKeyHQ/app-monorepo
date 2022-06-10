@@ -37,6 +37,7 @@ import {
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAppSelector } from '../../../hooks';
 import { setHaptics } from '../../../hooks/setHaptics';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
@@ -138,12 +139,18 @@ const AccountAmountInfo: FC<AccountAmountInfoProps> = ({ isCenter }) => {
 type AccountOptionProps = { isSmallView: boolean };
 
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
-  const { getTokenBalance } = useManageTokens();
   const { network: activeNetwork } = useActiveWalletAccount();
+  const ipAddressInfo = useAppSelector((s) => s.data.ipAddressInfo);
+
   const currencies = useFiatPay(activeNetwork?.id ?? '');
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
+  const buyEnable =
+    ipAddressInfo?.isBuyAllowed &&
+    wallet?.type !== 'watching' &&
+    account &&
+    currencies.length !== 0;
 
   return (
     <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
@@ -153,17 +160,17 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           size={isSmallView ? 'xl' : 'lg'}
           name="ArrowUpOutline"
           type="basic"
-          isDisabled={
-            wallet?.type === 'watching' ||
-            !account ||
-            parseFloat(getTokenBalance()) <= 0
-          }
+          isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Send,
               params: {
-                screen: SendRoutes.Send,
-                params: {},
+                screen: SendRoutes.PreSendToken,
+                params: {
+                  from: '',
+                  to: '',
+                  amount: '',
+                },
               },
             });
           }}
@@ -172,9 +179,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           textAlign="center"
           mt="8px"
           color={
-            wallet?.type === 'watching' ||
-            !account ||
-            parseFloat(getTokenBalance()) <= 0
+            wallet?.type === 'watching' || !account
               ? 'text-disabled'
               : 'text-default'
           }
@@ -216,7 +221,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      {wallet?.type !== 'watching' && account && currencies.length !== 0 && (
+      {buyEnable && (
         <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle

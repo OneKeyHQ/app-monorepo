@@ -15,13 +15,11 @@ try {
   LottieViewNative = require('lottie-react-native');
 } catch (e) {
   // Ignore
-  console.debug('Error on require `lottie-react-native` module', e);
 }
 try {
   LottieViewWeb = require('lottie-react').default;
 } catch (e) {
   // Ignore
-  console.debug('Error on require `lottie-react` module', e);
 }
 
 // Stick props the same as LottieNative by now
