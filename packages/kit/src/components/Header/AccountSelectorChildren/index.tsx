@@ -349,6 +349,17 @@ const AccountSelectorChildren: FC<{
   }
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    const intentNetworkId = activeNetwork?.id ?? AllNetwork;
+
+    setTimeout(() => {
+      setSelectedNetworkId(intentNetworkId);
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen && defaultSelectedWallet) {
       setSelectedWallet(defaultSelectedWallet);
     }
