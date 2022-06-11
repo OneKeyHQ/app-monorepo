@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable } from '@onekeyhq/components';
+import { Box, Icon, Pressable, useTheme } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -18,10 +18,16 @@ type NavigationProps = NativeStackNavigationProp<
 export const DefaultSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const { themeVariant } = useTheme();
 
   return (
     <Box w="full" mb="6">
-      <Box borderRadius="12" bg="surface-default" shadow="depth.2">
+      <Box
+        borderRadius="12"
+        bg="surface-default"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
+      >
         {platformEnv.isNative && (
           <Pressable
             display="flex"

@@ -2,7 +2,14 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Icon, Pressable, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Icon,
+  Pressable,
+  Text,
+  useTheme,
+} from '@onekeyhq/components';
 
 import { useNavigation } from '../../hooks';
 import { setHaptics } from '../../hooks/setHaptics';
@@ -11,6 +18,7 @@ import { HomeRoutes, RootRoutes } from '../../routes/types';
 const SwapItems = () => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const { themeVariant } = useTheme();
   const onPress = useCallback(() => {
     setHaptics();
     navigation.navigate(RootRoutes.Root, {
@@ -22,11 +30,12 @@ const SwapItems = () => {
     <Center px={4} pb="4">
       <Box
         bg="surface-default"
-        shadow="depth.2"
         mt="6"
         maxW="420"
         w="full"
         borderRadius={12}
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
       >
         <Pressable
           h="56px"

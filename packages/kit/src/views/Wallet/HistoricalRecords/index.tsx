@@ -16,6 +16,7 @@ import {
   SectionList,
   Spinner,
   Typography,
+  useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -92,6 +93,8 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     return 16;
   };
 
+  const { themeVariant } = useTheme();
+
   useEffect(() => {
     async function loadAccount() {
       if (!accountId) return;
@@ -133,6 +136,10 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       key={`${item.txHash}-${index}`}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
+      borderWidth={1}
+      borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
+      borderTopWidth={index === 0 ? 1 : 0}
+      borderBottomWidth={index === section.data.length - 1 ? 1 : 0}
       mb={index === section.data.length - 1 ? 6 : undefined}
       onPress={() => {
         navigation.navigate(RootRoutes.Modal, {
