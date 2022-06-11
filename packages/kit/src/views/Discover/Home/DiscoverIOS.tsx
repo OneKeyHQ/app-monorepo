@@ -7,7 +7,6 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Center,
-  Divider,
   Empty,
   FlatList,
   Icon,
@@ -85,7 +84,7 @@ const DiscoverIOS: FC<DiscoverProps> = ({
           navigation.navigate(HomeRoutes.ExploreScreen, { onItemSelect });
         }}
       >
-        <Box width="100%" height="268px" shadow="depth.2">
+        <Box width="100%" height="268px" shadow="depth.3">
           <Box
             justifyContent="center"
             width="100%"
@@ -93,6 +92,8 @@ const DiscoverIOS: FC<DiscoverProps> = ({
             bgColor="surface-default"
             borderRadius="12px"
             overflow="hidden"
+            borderWidth={1}
+            borderColor="border-subdued"
           >
             <Image
               width="100%"
@@ -155,6 +156,9 @@ const DiscoverIOS: FC<DiscoverProps> = ({
             bgColor="surface-default"
             borderTopRadius={index === 0 ? '12px' : '0px'}
             borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
+            borderWidth={1}
+            borderColor="border-subdued"
+            borderTopWidth={index === 0 ? 1 : 0}
           >
             <Box flexDirection="row" flex={1} alignItems="center">
               {(!!dappFavicon || item.dapp) && (
@@ -263,7 +267,6 @@ const DiscoverIOS: FC<DiscoverProps> = ({
           px="16px"
           data={dappHistory}
           renderItem={renderItem}
-          ItemSeparatorComponent={() => <Divider />}
           keyExtractor={(item, index) => `Dapp history${item.id}${index}`}
           ListHeaderComponent={banner}
           ListEmptyComponent={

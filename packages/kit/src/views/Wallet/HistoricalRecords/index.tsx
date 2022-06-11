@@ -16,6 +16,7 @@ import {
   SectionList,
   Spinner,
   Typography,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account } from '@onekeyhq/engine/src/types/account';
@@ -84,6 +85,12 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     () => hiddenHeader,
     [hiddenHeader],
   );
+
+  const { size } = useUserDevice();
+  const responsivePadding = () => {
+    if (['NORMAL', 'LARGE'].includes(size)) return 32;
+    return 16;
+  };
 
   useEffect(() => {
     async function loadAccount() {
@@ -251,7 +258,10 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   }
 
   return React.cloneElement(listElementType, {
-    contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
+    contentContainerStyle: {
+      paddingHorizontal: responsivePadding(),
+      marginTop: 24,
+    },
     sections: transactionRecords,
     extraData: { isLoading },
     renderItem,

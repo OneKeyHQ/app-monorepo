@@ -77,11 +77,10 @@ const Banner: FC<SectionDataType> = ({ data, onItemSelect }) => {
             bgColor="surface-default"
             borderRadius="12px"
             padding="12px"
+            borderWidth={1}
+            borderColor="border-subdued"
             _hover={{
               bg: 'surface-hovered',
-              width: isSmallScreen ? '294px' : `${cardWidth * 1.03}px`,
-              height: 291,
-              shadow: 'depth.3',
             }}
           >
             <NetImage

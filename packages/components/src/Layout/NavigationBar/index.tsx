@@ -8,9 +8,9 @@ import Mobile from './Mobile';
 import type { BottomTabBarProps } from '../BottomTabs/types';
 
 export default function NavigationBar(props: BottomTabBarProps) {
-  const isVerticalLayout = useIsVerticalLayout();
+  const isSmallLayout = useIsVerticalLayout();
 
-  if (isVerticalLayout) {
+  if (isSmallLayout) {
     return <Mobile {...props} />;
   }
   return <Desktop {...props} />;

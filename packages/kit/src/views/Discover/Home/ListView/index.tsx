@@ -32,8 +32,6 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
           padding="16px"
           height="76px"
           width="100%"
-          bgColor="surface-default"
-          borderTopRadius={index === 0 ? '12px' : '0px'}
           borderRadius={index === filterData?.length - 1 ? '12px' : '0px'}
         >
           <Box flexDirection="row" flex={1} alignItems="center">
@@ -59,7 +57,10 @@ const ListViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
       <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
       <FlatList
         data={filterData}
-        px="16px"
+        mx="16px"
+        borderWidth={1}
+        borderRadius={12}
+        borderColor="border-subdued"
         ItemSeparatorComponent={() => <Divider />}
         renderItem={renderItem}
         keyExtractor={(item, index) => `ListView${index}`}
@@ -118,6 +119,8 @@ const ListViewDesktop: FC<SectionDataType> = ({
         mx="32px"
         bgColor="surface-default"
         borderRadius="12px"
+        borderWidth={1}
+        borderColor="border-subdued"
         paddingX="8px"
         paddingY="10px"
         data={filterData}

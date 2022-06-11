@@ -108,7 +108,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
                 <Typography.DisplayXLarge
                   width="100%"
                   flex={1}
-                  textAlign={isVertical ? 'center' : 'start'}
+                  textAlign={isVertical ? 'center' : 'left'}
                 >
                   {ele}
                 </Typography.DisplayXLarge>

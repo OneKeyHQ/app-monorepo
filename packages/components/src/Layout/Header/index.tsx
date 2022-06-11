@@ -3,9 +3,10 @@ import React, { FC, ReactNode } from 'react';
 import { BlurView } from 'expo-blur';
 import { Platform, StyleSheet } from 'react-native';
 
-import DesktopDragZoneBox from '../../DesktopDragZoneBox';
+import Box from '../../Box';
 import HStack from '../../HStack';
 import {
+  useIsVerticalLayout,
   useSafeAreaInsets,
   useTheme,
   useUserDevice,
@@ -22,7 +23,7 @@ const DEFAULT_HEADER_HORIZONTAL = 65;
 const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
   const insets = useSafeAreaInsets();
   const { size } = useUserDevice();
-  const isHorizontal = ['LARGE', 'XLARGE'].includes(size);
+  const isHorizontal = ['NORMAL', 'LARGE', 'XLARGE'].includes(size);
 
   const headerHeight = isHorizontal
     ? DEFAULT_HEADER_HORIZONTAL
@@ -30,6 +31,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
 
   const headerLeftNode = headerLeft?.();
   const { themeVariant } = useTheme();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const PrimaryComponent = (
     <HStack
@@ -42,16 +44,16 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       px={2}
     >
       {headerLeftNode ? (
-        <HStack
+        <Box
           flex={isHorizontal ? undefined : 1}
-          alignItems="center"
+          justifyContent="center"
           h="full"
           pl={{ md: 2 }}
           pr={{ md: 4 }}
           flexShrink={0}
         >
           {headerLeftNode}
-        </HStack>
+        </Box>
       ) : null}
 
       {/* {isHorizontal && (
@@ -70,27 +72,30 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     </HStack>
   );
 
-  return (
-    <DesktopDragZoneBox>
-      {Platform.OS === 'web' ? (
-        PrimaryComponent
-      ) : (
-        <BlurView
-          intensity={80} // TODO: change the intensity from 0 to 80 while scrolling up
-          tint={
-            // eslint-disable-next-line no-nested-ternary
-            themeVariant === 'light'
-              ? 'light'
-              : themeVariant === 'dark'
-              ? 'dark'
-              : 'default'
-          }
-        >
-          {PrimaryComponent}
-        </BlurView>
-      )}
-    </DesktopDragZoneBox>
-  );
+  if (isVerticalLayout)
+    return (
+      <>
+        {Platform.OS === 'web' ? (
+          PrimaryComponent
+        ) : (
+          <BlurView
+            intensity={0} // TODO: change the intensity from 0 to 80 while scrolling up
+            style={{ backgroundColor: '#ffffff' }} // TODO remove this line after add ScrollUp event
+            tint={
+              // eslint-disable-next-line no-nested-ternary
+              themeVariant === 'light'
+                ? 'light'
+                : themeVariant === 'dark'
+                ? 'dark'
+                : 'default'
+            }
+          >
+            {PrimaryComponent}
+          </BlurView>
+        )}
+      </>
+    );
+  return null;
 };
 
 export default Header;

@@ -18,6 +18,7 @@ import {
   Token,
   Typography,
   useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import Skeleton from '@onekeyhq/components/src/Skeleton';
@@ -101,11 +102,17 @@ function AssetsList({
   contentContainerStyle,
   onTokenPress,
 }: IAssetsListProps) {
-  const isSmallScreen = useIsVerticalLayout();
+  const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
+
+  const { size } = useUserDevice();
+  const responsivePadding = () => {
+    if (['NORMAL', 'LARGE'].includes(size)) return 32;
+    return 16;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -164,7 +171,7 @@ function AssetsList({
                 )}
               />
             ) : (
-              <Skeleton shape={isSmallScreen ? 'Body1' : 'Body2'} />
+              <Skeleton shape={isVerticalLayout ? 'Body1' : 'Body2'} />
             )}
             {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey] ? (
               <FormatCurrency
@@ -182,7 +189,7 @@ function AssetsList({
               <Skeleton shape="Body2" />
             )}
           </Box>
-          {!isSmallScreen && (
+          {!isVerticalLayout && (
             <Box mx={3} flexDirection="row" flex={1}>
               {/* <Icon size={20} name="ActivityOutline" /> */}
 
@@ -210,7 +217,7 @@ function AssetsList({
     <Container
       contentContainerStyle={merge(
         {
-          paddingHorizontal: 16,
+          paddingHorizontal: responsivePadding(),
           marginTop: 24,
         },
         contentContainerStyle,
@@ -225,7 +232,7 @@ function AssetsList({
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h={8} />}
       keyExtractor={(_item: TokenType) => _item.id}
-      extraData={isSmallScreen}
+      extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}
     />
   );

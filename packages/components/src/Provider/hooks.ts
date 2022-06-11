@@ -52,7 +52,7 @@ export const useUserDevice = () => {
 
 export const useIsVerticalLayout = () => {
   const { size } = useUserDevice();
-  return useMemo(() => ['SMALL', 'NORMAL'].includes(size), [size]);
+  return useMemo(() => ['SMALL'].includes(size), [size]);
 };
 
 export const useIsSmallLayout = () => {
