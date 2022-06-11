@@ -12,7 +12,7 @@ import {
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
-import { useIsSmallLayout, useThemeValue } from '../../../Provider/hooks';
+import { useIsVerticalLayout, useThemeValue } from '../../../Provider/hooks';
 import NavigationBar from '../../NavigationBar';
 import { getTabBarHeight } from '../../NavigationBar/Mobile';
 import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';
@@ -38,7 +38,7 @@ type Props = BottomTabNavigationConfig & {
 };
 
 export default function BottomTabView(props: Props) {
-  const isSmallLayout = useIsSmallLayout();
+  const isVerticalLayout = useIsVerticalLayout();
   const bgColor = useThemeValue('background-default');
   const {
     state,
@@ -88,7 +88,7 @@ export default function BottomTabView(props: Props) {
 
   return (
     <SafeAreaProviderCompat
-      style={{ flexDirection: isSmallLayout ? 'column' : 'row-reverse' }}
+      style={{ flexDirection: isVerticalLayout ? 'column' : 'row-reverse' }}
     >
       <MaybeScreenContainer
         enabled={detachInactiveScreens}

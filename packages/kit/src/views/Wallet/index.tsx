@@ -8,7 +8,7 @@ import {
   Box,
   Button,
   Empty,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -79,7 +79,7 @@ const Home: FC = () => {
     'action-primary-default',
     'border-subdued',
   ]);
-  const isSmallLayout = useIsSmallLayout();
+  const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [offline, setOffline] = useState(false);
@@ -211,10 +211,10 @@ const Home: FC = () => {
     <>
       <Tabs.Container
         renderHeader={AccountInfo}
-        width={isSmallLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
+        width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
         pagerProps={{ scrollEnabled: false }}
         headerHeight={
-          isSmallLayout
+          isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
             : FIXED_HORIZONTAL_HEDER_HEIGHT
         }

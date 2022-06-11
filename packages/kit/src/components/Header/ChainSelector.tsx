@@ -11,7 +11,7 @@ import {
   Select,
   Token,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -39,7 +39,7 @@ const ChainSelector: FC = () => {
 
   const { enabledNetworks } = useManageNetworks();
   const { network: activeNetwork } = useActiveWalletAccount();
-  const isSmallLayout = useIsSmallLayout();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const { screenWidth } = useUserDevice();
   const handleActiveChainChange = useCallback(
@@ -103,7 +103,7 @@ const ChainSelector: FC = () => {
             }
             borderRadius="xl"
             alignItems="center"
-            justifyContent={isSmallLayout ? 'flex-end' : 'space-between'}
+            justifyContent={isVerticalLayout ? 'flex-end' : 'space-between'}
           >
             <HStack space={3} alignItems="center">
               <Token size={6} {...activeOption.tokenProps} />

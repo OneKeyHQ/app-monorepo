@@ -17,7 +17,7 @@ import {
   Text,
   Token,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -102,7 +102,7 @@ function AssetsList({
   contentContainerStyle,
   onTokenPress,
 }: IAssetsListProps) {
-  const isSmallScreen = useIsSmallLayout();
+  const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, prices, balances } = useManageTokens();
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
@@ -171,7 +171,7 @@ function AssetsList({
                 )}
               />
             ) : (
-              <Skeleton shape={isSmallScreen ? 'Body1' : 'Body2'} />
+              <Skeleton shape={isVerticalLayout ? 'Body1' : 'Body2'} />
             )}
             {balances[item.tokenIdOnNetwork || 'main'] && prices?.[mapKey] ? (
               <FormatCurrency
@@ -189,7 +189,7 @@ function AssetsList({
               <Skeleton shape="Body2" />
             )}
           </Box>
-          {!isSmallScreen && (
+          {!isVerticalLayout && (
             <Box mx={3} flexDirection="row" flex={1}>
               {/* <Icon size={20} name="ActivityOutline" /> */}
 
@@ -232,7 +232,7 @@ function AssetsList({
       ItemSeparatorComponent={Divider}
       ListFooterComponent={() => <Box h={8} />}
       keyExtractor={(_item: TokenType) => _item.id}
-      extraData={isSmallScreen}
+      extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}
     />
   );

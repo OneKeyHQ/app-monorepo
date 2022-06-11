@@ -9,7 +9,7 @@ import { useDeepCompareMemo } from 'use-deep-compare';
 import {
   Box,
   DialogManager,
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -110,7 +110,7 @@ const Explorer: FC = () => {
 
   const [refreshKey, setRefreshKey] = useState<string>();
 
-  const isSmallLayout = useIsSmallLayout();
+  const isVerticalLayout = useIsVerticalLayout();
 
   useEffect(() => {
     if (platformEnv.isNative || platformEnv.isDesktop) {
@@ -423,7 +423,7 @@ const Explorer: FC = () => {
 
   return (
     <Box flex={1} bg="background-default">
-      {isSmallLayout ? (
+      {isVerticalLayout ? (
         <Mobile
           key={refreshKey}
           searchContent={searchContent}

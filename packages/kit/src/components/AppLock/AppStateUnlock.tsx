@@ -13,7 +13,7 @@ import {
   KeyboardDismissView,
   Pressable,
   Typography,
-  useIsSmallLayout,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -83,7 +83,7 @@ const ForgetPasswordButton = () => {
 
 export const AppStateUnlock = () => {
   const intl = useIntl();
-  const isSmall = useIsSmallLayout();
+  const isSmall = useIsVerticalLayout();
   const justifyContent = isSmall ? 'space-between' : 'center';
   const py = isSmall ? '16' : undefined;
   const [password, setPassword] = useState('');

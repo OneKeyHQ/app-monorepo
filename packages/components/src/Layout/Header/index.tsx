@@ -6,7 +6,7 @@ import { Platform, StyleSheet } from 'react-native';
 import Box from '../../Box';
 import HStack from '../../HStack';
 import {
-  useIsSmallLayout,
+  useIsVerticalLayout,
   useSafeAreaInsets,
   useTheme,
   useUserDevice,
@@ -31,7 +31,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
 
   const headerLeftNode = headerLeft?.();
   const { themeVariant } = useTheme();
-  const isSmallLayout = useIsSmallLayout();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const PrimaryComponent = (
     <HStack
@@ -72,7 +72,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     </HStack>
   );
 
-  if (isSmallLayout)
+  if (isVerticalLayout)
     return (
       <>
         {Platform.OS === 'web' ? (
