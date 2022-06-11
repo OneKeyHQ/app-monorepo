@@ -52,9 +52,9 @@ export enum TabRoutes {
   // Overview = 'overview',
   Home = 'home',
   Swap = 'swap',
-  Portfolio = 'portfolio',
   Discover = 'discover',
   Me = 'me',
+  Developer = 'developer',
 }
 
 export type TabRoutesParams = {
@@ -63,7 +63,7 @@ export type TabRoutesParams = {
   [TabRoutes.Swap]:
     | undefined
     | { inputTokenId?: string; outputTokenId?: string };
-  [TabRoutes.Portfolio]: undefined;
+  [TabRoutes.Developer]: undefined;
   [TabRoutes.Discover]: undefined | { incomingUrl: string };
   [TabRoutes.Me]: undefined;
 };

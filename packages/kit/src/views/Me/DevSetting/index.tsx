@@ -9,6 +9,7 @@ import {
   setDevMode,
   setPreReleaseUpdate,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const DevSettingSection = () => {
   const { enable: devModeEnable, preReleaseUpdate } =
@@ -57,11 +58,9 @@ export const DevSettingSection = () => {
             title={intl.formatMessage({ id: 'form__dev_platform_channel' })}
             titleColor="text-default"
             subDescribe={[
-              `ONEKEY_PLATFORM: ${process.env.ONEKEY_PLATFORM ?? 'undefined'}`,
-              `EXT_CHANNEL: ${process.env.EXT_CHANNEL ?? 'undefined'}`,
-              `ANDROID_CHANNEL: ${process.env.ANDROID_CHANNEL ?? 'undefined'}`,
-              `DESKTOP_PLATFORM: ${window?.desktopApi?.platform}`,
-              `DESKTOP_ARCH: ${window?.desktopApi?.arch}`,
+              `${platformEnv.symbol ?? ''} / ${
+                platformEnv.distributionChannel ?? ''
+              }`,
             ]}
           />
         </Container.Box>
