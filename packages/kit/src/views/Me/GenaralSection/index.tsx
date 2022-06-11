@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Select, Typography } from '@onekeyhq/components';
+import { Box, Select, Typography, useTheme } from '@onekeyhq/components';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -19,6 +19,7 @@ export const GenaralSection = () => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
   const { theme, locale, selectedFiatMoneySymbol } = useSettings();
+  const { themeVariant } = useTheme();
 
   const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
 
@@ -32,7 +33,12 @@ export const GenaralSection = () => {
           })}
         </Typography.Subheading>
       </Box>
-      <Box borderRadius="12" bg="surface-default" shadow="depth.2">
+      <Box
+        borderRadius="12"
+        bg="surface-default"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
+      >
         <Box>
           <Box w="full">
             <Select<ThemeVariant | 'system'>

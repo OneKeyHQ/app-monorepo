@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
@@ -11,7 +11,6 @@ const PressableItem: FC<PressableItemProps> = ({
   onPress,
   ...props
 }) => {
-  const [isFocused, setFocused] = useState(false);
   const onPressOverride = React.useCallback(
     (e) => {
       autoHideSelectFunc(e);
@@ -25,12 +24,8 @@ const PressableItem: FC<PressableItemProps> = ({
     <NBPressable
       px={{ base: '4', lg: '6' }}
       py={4}
-      shadow="depth.2"
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
       _hover={{
         bg: 'surface-hovered',
-        borderColor: isFocused ? '' : '',
       }}
       _focus={{
         bg: 'surface-hovered',
