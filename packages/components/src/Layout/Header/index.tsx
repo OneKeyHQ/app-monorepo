@@ -1,13 +1,14 @@
 import React, { FC, ReactNode } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { Platform, StyleSheet } from 'react-native';
 
 import Box from '../../Box';
-import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import HStack from '../../HStack';
 import {
+  useIsSmallLayout,
   useSafeAreaInsets,
-  useThemeValue,
+  useTheme,
   useUserDevice,
 } from '../../Provider/hooks';
 
@@ -28,60 +29,78 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
     ? DEFAULT_HEADER_HORIZONTAL
     : DEFAULT_HEADER_VERTICAL;
 
-  const [bgColor, borderColor] = useThemeValue([
-    'surface-subdued',
-    'border-subdued',
-  ]);
-
   const headerLeftNode = headerLeft?.();
+  const { themeVariant } = useTheme();
+  const isSmallLayout = useIsSmallLayout();
 
-  return (
-    <DesktopDragZoneBox>
-      <HStack
-        height={`${headerHeight + insets.top}px`}
-        pt={`${insets.top}px`}
-        alignItems="center"
-        justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-        px={2}
-        bg={bgColor}
-        borderColor={borderColor}
-        borderWidth="0"
-        borderBottomWidth={StyleSheet.hairlineWidth}
-        style={{
-          // @ts-expect-error
-          '-webkit-app-region': 'drag',
-          '-webkit-user-select': 'none',
-        }}
-      >
-        {headerLeftNode ? (
-          <Box
-            flex={isHorizontal ? undefined : 1}
-            justifyContent="center"
-            h="full"
-            pl={{ md: 2 }}
-            pr={{ md: 4 }}
-            flexShrink={0}
-          >
-            {headerLeftNode}
-          </Box>
-        ) : null}
-
-        {/* {isHorizontal && (
-          <HStack alignItems="center" flex={1} pl={8}>
-            <Typography.Heading>Home</Typography.Heading>
-          </HStack>
-        )} */}
-        <HStack
+  const PrimaryComponent = (
+    <HStack
+      height={`${headerHeight + insets.top}px`}
+      pt={`${insets.top}px`}
+      alignItems="center"
+      justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
+      borderBottomColor="divider" // TODO: change the color from transparent to divider while scrolling up
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      px={2}
+      style={{
+        // @ts-expect-error
+        '-webkit-app-region': 'drag',
+        '-webkit-user-select': 'none',
+      }}
+    >
+      {headerLeftNode ? (
+        <Box
           flex={isHorizontal ? undefined : 1}
-          alignItems="center"
-          justifyContent="flex-end"
-          pr={{ md: 6 }}
+          justifyContent="center"
+          h="full"
+          pl={{ md: 2 }}
+          pr={{ md: 4 }}
+          flexShrink={0}
         >
-          {headerRight()}
-        </HStack>
+          {headerLeftNode}
+        </Box>
+      ) : null}
+
+      {/* {isHorizontal && (
+      <HStack alignItems="center" flex={1} pl={8}>
+        <Typography.Heading>Home</Typography.Heading>
       </HStack>
-    </DesktopDragZoneBox>
+    )} */}
+      <HStack
+        flex={isHorizontal ? undefined : 1}
+        alignItems="center"
+        justifyContent="flex-end"
+        pr={{ md: 6 }}
+      >
+        {headerRight()}
+      </HStack>
+    </HStack>
   );
+
+  if (isSmallLayout)
+    return (
+      <>
+        {Platform.OS === 'web' ? (
+          PrimaryComponent
+        ) : (
+          <BlurView
+            intensity={0} // TODO: change the intensity from 0 to 80 while scrolling up
+            style={{ backgroundColor: '#ffffff' }} // TODO remove this line after add ScrollUp event
+            tint={
+              // eslint-disable-next-line no-nested-ternary
+              themeVariant === 'light'
+                ? 'light'
+                : themeVariant === 'dark'
+                ? 'dark'
+                : 'default'
+            }
+          >
+            {PrimaryComponent}
+          </BlurView>
+        )}
+      </>
+    );
+  return null;
 };
 
 export default Header;

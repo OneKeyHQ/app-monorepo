@@ -77,6 +77,7 @@ const FaceID = () => {
         px={{ base: 4, md: 6 }}
         bg="surface-default"
         borderRadius={12}
+        shadow="depth.2"
       >
         <Text
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
@@ -166,6 +167,7 @@ const FaceID = () => {
                   id: 'form__create_delete_accounts',
                 })}
                 isChecked={validationState.Account ?? true}
+                divider
                 onToggle={() =>
                   setValue(
                     ValidationFields.Account,

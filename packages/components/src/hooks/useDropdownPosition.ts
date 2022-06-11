@@ -97,6 +97,12 @@ function useDropdownPosition({
             right: triggerPosition.right,
             top: triggerPosition.top + translateY - dropdownHeight,
           });
+        } else if (dropdownPosition === 'top-left') {
+          setPosition({
+            left: triggerPosition.left,
+            right: undefined,
+            top: triggerPosition.top + translateY - dropdownHeight,
+          });
         } else if (dropdownPosition === 'right') {
           setPosition({
             left: undefined,

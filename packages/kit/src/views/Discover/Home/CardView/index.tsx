@@ -36,6 +36,8 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
           borderRadius="12px"
           padding="16px"
           alignItems="center"
+          borderWidth={1}
+          borderColor="border-subdued"
         >
           <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
           <Typography.Body2Strong numberOfLines={1} mt="12px">
@@ -101,13 +103,9 @@ const CardViewDesktop: FC<SectionDataType> = ({
           padding="16px"
           width={cardWidth - 16}
           height={164}
-          shadow="depth.2"
-          _hover={{
-            bg: 'surface-hovered',
-            width: (cardWidth - 16) * 1.03,
-            height: 176 * 1.03,
-            shadow: 'depth.3',
-          }}
+          borderWidth={1}
+          _hover={{ bgColor: 'surface-hovered' }}
+          borderColor="border-subdued"
           onPress={() => {
             if (onItemSelect) {
               onItemSelect(item);

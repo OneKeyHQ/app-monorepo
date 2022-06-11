@@ -211,10 +211,6 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   );
 
   const { size } = useUserDevice();
-  const responsivePadding = () => {
-    if (['NORMAL', 'LARGE'].includes(size)) return 32;
-    return 16;
-  };
 
   const renderGridItem = React.useCallback<
     NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
@@ -270,7 +266,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   >(
     () => ({
       contentContainerStyle: {
-        paddingHorizontal: responsivePadding(),
+        paddingHorizontal: ['NORMAL', 'LARGE'].includes(size) ? 32 : 16,
         paddingBottom: collectibles.length ? 16 : 0,
         marginTop: 24,
       },
@@ -295,10 +291,11 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       showsVerticalScrollIndicator: false,
     }),
     [
+      size,
+      collectibles,
       renderEmpty,
       view,
       isSmallScreen,
-      collectibles,
       onReachEnd,
       isSupported,
       isLoading,

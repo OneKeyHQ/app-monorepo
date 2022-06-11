@@ -63,7 +63,7 @@ export class SimpleQuoter implements Quoter {
   private client: Axios;
 
   constructor() {
-    this.client = axios.create();
+    this.client = axios.create({ timeout: 10 * 1000 });
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {

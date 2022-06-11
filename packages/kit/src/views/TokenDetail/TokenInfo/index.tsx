@@ -33,7 +33,6 @@ import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useAppSelector } from '../../../hooks';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { CurrencyType } from '../../FiatPay/types';
 import { SendRoutes } from '../../Send/types';
@@ -49,7 +48,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const ipAddressInfo = useAppSelector((s) => s.data.ipAddressInfo);
 
   const { wallet, account, network } = useActiveWalletAccount();
   const currencies = useFiatPay(network?.id ?? '');
@@ -77,12 +75,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
     cryptoCurrency?.provider.moonpay,
   );
 
-  const buyEnable = ipAddressInfo?.isBuyAllowed && cryptoCurrency;
-
-  const sellEnable =
-    ipAddressInfo?.isSellAllowed &&
-    cryptoCurrency &&
-    moonpayCurrency?.isSellSupported;
+  const sellEnable = cryptoCurrency && moonpayCurrency?.isSellSupported;
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box
@@ -208,7 +201,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           </Typography.CaptionStrong>
         </Box>
 
-        {buyEnable && (
+        {cryptoCurrency && (
           <Box flex={1} mx={3} minW="56px" alignItems="center">
             <IconButton
               circle
@@ -289,12 +282,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       isVertical,
       wallet?.type,
       intl,
-      buyEnable,
+      cryptoCurrency,
       sellEnable,
       navigation,
       token,
       account,
-      cryptoCurrency,
     ],
   );
 

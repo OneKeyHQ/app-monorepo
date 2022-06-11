@@ -160,6 +160,12 @@ function PreSendAmount() {
         if (transferInfo) {
           transferInfo.amount = amount;
           transferInfo.from = account.address;
+          transferInfo.max = new BigNumber(
+            getTokenBalance({
+              token: tokenInfo,
+              defaultValue: '0',
+            }),
+          ).lte(amount);
         }
 
         const encodedTx = await engine.buildEncodedTxFromTransfer({

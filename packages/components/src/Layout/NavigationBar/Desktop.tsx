@@ -2,6 +2,8 @@ import React, { FC } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
+import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
+import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
@@ -30,22 +32,22 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
       w={{ base: 56, lg: 64 }}
       h="full"
       bg="surface-subdued"
-      borderRightWidth={1}
-      borderRightColor="border-subdued"
+      px={4}
+      pt={3}
+      pb={5}
     >
-      <VStack flex={1}>
-        {!!platformEnv.isDesktopMac && (
-          <DesktopDragZoneBox w="100%" height={7} />
-        )}
-        {/* Scrollable area */}
+      {!!platformEnv.isDesktopMac && <DesktopDragZoneBox w="100%" height={7} />}
+      {/* Scrollable area */}
+      <Box zIndex={1}>
+        <AccountSelector />
+      </Box>
+      <VStack flex={1} mt={4} mb={2}>
         <ScrollView
           _contentContainerStyle={{
             flex: 1,
-            py: 5,
-            px: 4,
           }}
         >
-          <VStack space={1}>
+          <VStack space={1} flex={1}>
             {routes.map((route, index) => {
               const isActive = index === state.index;
               const { options } = descriptors[route.key];
@@ -74,6 +76,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
                   _hover={!isActive ? { bg: 'surface-hovered' } : undefined}
                   bg={isActive ? 'surface-selected' : undefined}
                   borderRadius="xl"
+                  mt={index === routes.length - 1 ? 'auto' : undefined}
                   p="2"
                 >
                   <Box
@@ -109,6 +112,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
           </VStack> */}
         </ScrollView>
       </VStack>
+      <ChainSelector />
     </Box>
   );
 };
