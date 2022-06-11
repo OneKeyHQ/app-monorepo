@@ -57,19 +57,19 @@ export const tabRoutes: TabRouteConfig[] = [
     tabBarIcon: () => 'NavMenuSolid',
     translationId: 'title__menu',
   },
-  // ...(() => {
-  //   if (process.env.NODE_ENV !== 'production') {
-  //     return [
-  //       {
-  //         name: TabRoutes.Portfolio,
-  //         component: PortfolioScreen,
-  //         tabBarIcon: () => 'TrendingUpOutline',
-  //         translationId: 'title__portfolio',
-  //       },
-  //     ] as TabRouteConfig[];
-  //   }
-  //   return [];
-  // })(),
+  ...(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      return [
+        {
+          name: TabRoutes.Portfolio,
+          component: PortfolioScreen,
+          tabBarIcon: () => 'TrendingUpOutline',
+          translationId: 'title__portfolio',
+        },
+      ] as TabRouteConfig[];
+    }
+    return [];
+  })(),
 ];
 
 const TabNavigator = () => {
