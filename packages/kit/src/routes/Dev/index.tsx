@@ -18,7 +18,6 @@ import DeviceConnection from '@onekeyhq/kit/src/views/Components/stories/DeviceC
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
-import FirebaseGallery from '@onekeyhq/kit/src/views/Components/stories/Firebase';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
 import HeaderTabViewContainerGallery from '@onekeyhq/kit/src/views/Components/stories/HeaderTabViewContainer';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -210,10 +209,6 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentLogger,
     component: LoggerGallery,
-  },
-  {
-    name: StackRoutes.ComponentFirebase,
-    component: FirebaseGallery,
   },
   {
     name: StackRoutes.ComponentWebview,

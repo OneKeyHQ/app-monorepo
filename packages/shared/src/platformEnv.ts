@@ -3,6 +3,19 @@ import { Platform } from 'react-native';
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
  */
+export type IPlatform = 'native' | 'desktop' | 'ext' | 'web';
+export type IDistributionChannel =
+  | 'ext-chrome'
+  | 'ext-firefox'
+  | 'desktop-mac'
+  | 'desktop-mac-arm64'
+  | 'desktop-win'
+  | 'desktop-linux'
+  | 'native-ios'
+  | 'native-ios-store'
+  | 'native-ios'
+  | 'native-android'
+  | 'native-android-google';
 
 export type IPlatformEnv = {
   isDev?: boolean;
@@ -25,6 +38,9 @@ export type IPlatformEnv = {
   isNativeIOSStore?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
+
+  symbol: IPlatform | undefined;
+  distributionChannel: IDistributionChannel | undefined;
 
   isManifestV3?: boolean;
   isExtensionBackground?: boolean;
@@ -66,6 +82,28 @@ const isNativeIOSStore = isNativeIOS && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const isNativeAndroidGooglePlay =
   isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
+
+const getPlatformSymbol = (): IPlatform | undefined => {
+  if (isWeb) return 'web';
+  if (isDesktop) return 'desktop';
+  if (isExtension) return 'ext';
+  if (isNative) return 'native';
+};
+
+const getDistributionChannel = (): IDistributionChannel | undefined => {
+  if (isExtChrome) return 'ext-chrome';
+  if (isExtFirefox) return 'ext-firefox';
+
+  if (isDesktopMacArm64) return 'desktop-mac-arm64';
+  if (isDesktopMac) return 'desktop-mac';
+  if (isDesktopWin) return 'desktop-win';
+  if (isDesktopLinux) return 'desktop-linux';
+
+  if (isNativeIOSStore) return 'native-ios-store';
+  if (isNativeIOS) return 'native-ios';
+  if (isNativeAndroidGooglePlay) return 'native-android-google';
+  if (isNativeAndroid) return 'native-android';
+};
 
 const isRuntimeBrowser = (): boolean =>
   typeof window !== 'undefined' && !isNative;
@@ -174,6 +212,9 @@ const platformEnv: IPlatformEnv = {
   isNativeAndroid,
   isNativeAndroidGooglePlay,
 
+  symbol: getPlatformSymbol(),
+  distributionChannel: getDistributionChannel(),
+
   isManifestV3: isManifestV3(),
   isExtensionBackground: isExtensionBackground(),
   isExtensionBackgroundHtml: isExtensionBackgroundHtml(),
@@ -195,11 +236,8 @@ const platformEnv: IPlatformEnv = {
 if (isDev) {
   global.$$platformEnv = platformEnv;
 
-  console.log('ONEKEY_PLATFORM', process.env.ONEKEY_PLATFORM);
-  console.log('EXT_CHANNEL', process.env.EXT_CHANNEL);
-  console.log('ANDROID_CHANNEL', process.env.ANDROID_CHANNEL);
-  console.log('DESKTOP_PLATFORM', window?.desktopApi?.platform);
-  console.log('DESKTOP_PLATFORM_ARCH', window?.desktopApi?.arch);
+  console.log('OneKey-Platform', platformEnv.symbol);
+  console.log('OneKey-Distribution-Channel', platformEnv.distributionChannel);
 }
 
 /*
