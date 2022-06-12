@@ -76,7 +76,8 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
 const Desktop: FC<SectionDataType> = ({ ...rest }) => {
   const { data, onItemSelect } = rest;
   const { width } = useWindowDimensions();
-  const screenWidth = width - 48;
+  // with sidebar
+  const screenWidth = width - 48 - 256;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
