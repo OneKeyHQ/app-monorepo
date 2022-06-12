@@ -14,7 +14,7 @@ const DrawerStackNavigator = () => {
   const isWeb = !platformEnv.isNative;
   return (
     <DrawerStack.Navigator
-      useLegacyImplementation={false}
+      useLegacyImplementation
       screenOptions={{
         headerShown: false,
         /**

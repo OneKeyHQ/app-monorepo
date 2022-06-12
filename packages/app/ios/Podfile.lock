@@ -403,7 +403,7 @@ PODS:
     - React-Core
   - react-native-netinfo (8.2.0):
     - React-Core
-  - react-native-pager-view (5.4.24):
+  - react-native-pager-view (5.4.15):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -885,7 +885,7 @@ SPEC CHECKSUMS:
   react-native-ble-plx: f10240444452dfb2d2a13a0e4f58d7783e92d76e
   react-native-config: 6502b1879f97ed5ac570a029961fc35ea606cd14
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
-  react-native-pager-view: 95d0418c3c74279840abec6926653d32447bafb6
+  react-native-pager-view: b1914469643f40042e65d78cbf3d3dfebd6fb0d9
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 45c8dca02491980f2958595333cbccd6877cb57e
   react-native-safe-area-context: f98b0b16d1546d208fc293b4661e3f81a895afd9
