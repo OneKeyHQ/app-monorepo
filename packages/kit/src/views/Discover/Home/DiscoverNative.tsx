@@ -46,7 +46,7 @@ type DiscoverProps = {
   onItemSelect: (item: DAppItemType) => Promise<boolean>;
   onItemSelectHistory: (item: MatchDAppItemType) => void;
 };
-const DiscoverIOS: FC<DiscoverProps> = ({
+const DiscoverNative: FC<DiscoverProps> = ({
   onItemSelect,
   onItemSelectHistory,
 }) => {
@@ -84,16 +84,13 @@ const DiscoverIOS: FC<DiscoverProps> = ({
           navigation.navigate(HomeRoutes.ExploreScreen, { onItemSelect });
         }}
       >
-        <Box width="100%" height="268px" shadow="depth.3">
+        <Box width="100%" height="268px">
           <Box
             justifyContent="center"
             width="100%"
             height="220px"
             bgColor="surface-default"
             borderRadius="12px"
-            overflow="hidden"
-            borderWidth={1}
-            borderColor="border-subdued"
           >
             <Image
               width="100%"
@@ -156,9 +153,6 @@ const DiscoverIOS: FC<DiscoverProps> = ({
             bgColor="surface-default"
             borderTopRadius={index === 0 ? '12px' : '0px'}
             borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
-            borderWidth={1}
-            borderColor="border-subdued"
-            borderTopWidth={index === 0 ? 1 : 0}
           >
             <Box flexDirection="row" flex={1} alignItems="center">
               {(!!dappFavicon || item.dapp) && (
@@ -286,4 +280,4 @@ const DiscoverIOS: FC<DiscoverProps> = ({
   );
 };
 
-export default DiscoverIOS;
+export default DiscoverNative;

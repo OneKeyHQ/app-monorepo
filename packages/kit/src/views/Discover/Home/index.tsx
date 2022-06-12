@@ -38,7 +38,7 @@ import { imageUrl, requestRankings, requestSync } from '../Service';
 import { DAppItemType, RankingsPayload, SyncRequestPayload } from '../type';
 
 import CardView from './CardView';
-import DiscoverIOS from './DiscoverIOS';
+import DiscoverNative from './DiscoverNative';
 import ListView from './ListView';
 
 import type { SectionDataType } from './type';
@@ -138,7 +138,7 @@ export const Discover: FC<DiscoverProps> = ({
 }) => {
   let onItemSelect: ((item: DAppItemType) => Promise<boolean>) | undefined;
   const route = useRoute<RouteProps>();
-  if (platformEnv.isNativeIOS) {
+  if (platformEnv.isNative) {
     const { onItemSelect: routeOnItemSelect } = route.params;
     onItemSelect = routeOnItemSelect;
   } else {
@@ -156,7 +156,7 @@ export const Discover: FC<DiscoverProps> = ({
   );
 
   useLayoutEffect(() => {
-    if (platformEnv.isNativeIOS) {
+    if (platformEnv.isNative) {
       navigation.setOptions({
         title: intl.formatMessage({
           id: 'title__explore',
@@ -168,7 +168,7 @@ export const Discover: FC<DiscoverProps> = ({
   const callback = useCallback(
     (item: DAppItemType) => {
       // iOS 弹窗无法展示在 modal 上面并且页面层级多一层，提前返回一层。
-      if (platformEnv.isNativeIOS) {
+      if (platformEnv.isNative) {
         navigation.goBack();
       }
       return onItemSelect?.(item) ?? Promise.resolve(false);
@@ -238,7 +238,7 @@ export const Discover: FC<DiscoverProps> = ({
     } else {
       setPageStatus('loading');
     }
-    if (platformEnv.isNativeIOS) {
+    if (platformEnv.isNative) {
       requestRankings()
         .then((response2) => {
           setPageStatus('data');
@@ -323,6 +323,6 @@ export const Discover: FC<DiscoverProps> = ({
 };
 
 const Home: FC<DiscoverProps> = ({ ...rest }) =>
-  platformEnv.isNativeIOS ? <DiscoverIOS {...rest} /> : <Discover {...rest} />;
+  platformEnv.isNative ? <DiscoverNative {...rest} /> : <Discover {...rest} />;
 
 export default Home;
