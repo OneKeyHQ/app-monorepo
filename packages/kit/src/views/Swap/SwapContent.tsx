@@ -8,6 +8,7 @@ import {
   Divider,
   IconButton,
   Typography,
+  useTheme,
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
@@ -43,6 +44,7 @@ const SwapContent = () => {
   const onSwapQuoteCallback = useSwapQuoteCallback({ silent: false });
   const { onUserInput, onSwitchTokens } = useSwapActionHandlers();
   const { account, wallet } = useActiveWalletAccount();
+  const { themeVariant } = useTheme();
 
   const isDisabled = !isSwapEnabled || !wallet || !account;
 
@@ -95,11 +97,12 @@ const SwapContent = () => {
     <Center px="4">
       <Box
         bg="surface-default"
-        shadow="depth.2"
         maxW="420"
         w="full"
         borderRadius="3xl"
         p={4}
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
       >
         <Box
           borderWidth={{ base: '0.5', md: '1' }}

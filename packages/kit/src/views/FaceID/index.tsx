@@ -2,7 +2,7 @@ import React, { FC, useCallback, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Switch, Text, Typography } from '@onekeyhq/components';
+import { Box, Switch, Text, Typography, useTheme } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../components/Protected';
@@ -49,6 +49,7 @@ const FaceID = () => {
   const navigation = useNavigation();
   const { authenticationType } = useStatus();
   const { enableLocalAuthentication, validationState = {} } = useSettings();
+  const { themeVariant } = useTheme();
 
   useLayoutEffect(() => {
     const title =
@@ -77,7 +78,8 @@ const FaceID = () => {
         px={{ base: 4, md: 6 }}
         bg="surface-default"
         borderRadius={12}
-        shadow="depth.2"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
       >
         <Text
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
@@ -122,7 +124,13 @@ const FaceID = () => {
                 })}
               </Typography.Subheading>
             </Box>
-            <Box mt="2" borderRadius="12" bg="surface-default" shadow="depth.2">
+            <Box
+              mt="2"
+              borderRadius="12"
+              bg="surface-default"
+              borderWidth={themeVariant === 'light' ? 1 : undefined}
+              borderColor="border-subdued"
+            >
               <Options
                 title={intl.formatMessage({
                   id: 'form__app_unlock',

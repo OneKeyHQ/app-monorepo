@@ -9,6 +9,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
   useTheme,
+  useThemeValue,
   useUserDevice,
 } from '../../Provider/hooks';
 
@@ -31,6 +32,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
 
   const headerLeftNode = headerLeft?.();
   const { themeVariant } = useTheme();
+  const temporaryBg = useThemeValue('background-default');
   const isVerticalLayout = useIsVerticalLayout();
 
   const PrimaryComponent = (
@@ -80,7 +82,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         ) : (
           <BlurView
             intensity={0} // TODO: change the intensity from 0 to 80 while scrolling up
-            style={{ backgroundColor: '#ffffff' }} // TODO remove this line after add ScrollUp event
+            style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
             tint={
               // eslint-disable-next-line no-nested-ternary
               themeVariant === 'light'

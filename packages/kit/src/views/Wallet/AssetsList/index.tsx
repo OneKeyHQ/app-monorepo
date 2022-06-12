@@ -18,6 +18,7 @@ import {
   Token,
   Typography,
   useIsVerticalLayout,
+  useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -107,6 +108,7 @@ function AssetsList({
   const { account, network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
   const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
+  const { themeVariant } = useTheme();
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -141,6 +143,12 @@ function AssetsList({
         shadow={undefined}
         borderTopRadius={index === 0 ? '12px' : '0px'}
         borderRadius={index === accountTokens?.length - 1 ? '12px' : '0px'}
+        borderWidth={1}
+        borderColor={
+          themeVariant === 'light' ? 'border-subdued' : 'transparent'
+        }
+        borderTopWidth={index === 0 ? 1 : 0}
+        borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
         onPress={() => {
           if (onTokenPress) {
             onTokenPress({ token: item });

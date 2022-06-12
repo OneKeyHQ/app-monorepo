@@ -11,6 +11,7 @@ import {
   Spinner,
   Text,
   Typography,
+  useTheme,
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -35,6 +36,7 @@ export const AboutSection = () => {
   const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
+  const { themeVariant } = useTheme();
 
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
@@ -119,7 +121,12 @@ export const AboutSection = () => {
           })}
         </Typography.Subheading>
       </Box>
-      <Box borderRadius="12" bg="surface-default" shadow="depth.2">
+      <Box
+        borderRadius="12"
+        bg="surface-default"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
+      >
         <Pressable
           display="flex"
           flexDirection="row"
