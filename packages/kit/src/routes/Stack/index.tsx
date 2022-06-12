@@ -11,7 +11,6 @@ import {
   enable,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
-import Debug from '@onekeyhq/kit/src/views/Debug';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
@@ -31,10 +30,6 @@ export const stackScreenList = [
   {
     name: HomeRoutes.ScreenTokenDetail,
     component: TokenDetail,
-  },
-  {
-    name: HomeRoutes.DebugScreen,
-    component: Debug,
   },
   {
     name: HomeRoutes.SettingsWebviewScreen,

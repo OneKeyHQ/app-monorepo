@@ -8,9 +8,9 @@ import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
+import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
-import PortfolioScreen from '@onekeyhq/kit/src/views/Portfolio';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import OverviewScreen from '@onekeyhq/kit/src/views/Wallet/Overview';
@@ -61,12 +61,12 @@ export const tabRoutes: TabRouteConfig[] = [
     if (process.env.NODE_ENV !== 'production') {
       return [
         {
-          name: TabRoutes.Portfolio,
-          component: PortfolioScreen,
-          tabBarIcon: () => 'TrendingUpOutline',
-          translationId: 'title__portfolio',
+          name: TabRoutes.Developer,
+          component: DevelopScreen,
+          tabBarIcon: () => 'ChipOutline',
+          translationId: 'form__dev_mode',
         },
-      ] as TabRouteConfig[];
+      ] as unknown as TabRouteConfig[];
     }
     return [];
   })(),
