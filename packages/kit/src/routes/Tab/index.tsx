@@ -11,7 +11,7 @@ import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
 
 import { TabRoutesParams } from '../types';
 
-import { tabRoutes, getStackTabScreen } from './routes';
+import { getStackTabScreen, tabRoutes } from './routes';
 
 const Tab = createBottomTabNavigator<TabRoutesParams>();
 
@@ -29,8 +29,8 @@ const TabNavigator = () => {
     [],
   );
 
-  return useMemo(() => {
-    return (
+  return useMemo(
+    () => (
       <Tab.Navigator
         screenOptions={{
           lazy: true,
@@ -51,8 +51,9 @@ const TabNavigator = () => {
           />
         ))}
       </Tab.Navigator>
-    );
-  }, [renderHeader, intl, isVerticalLayout]);
+    ),
+    [renderHeader, intl, isVerticalLayout],
+  );
 };
 
 export default memo(TabNavigator);

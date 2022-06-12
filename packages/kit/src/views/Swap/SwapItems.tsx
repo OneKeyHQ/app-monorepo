@@ -15,6 +15,8 @@ import { useNavigation } from '../../hooks';
 import { setHaptics } from '../../hooks/setHaptics';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const SwapItems = () => {

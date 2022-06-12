@@ -1,19 +1,18 @@
-import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
-import SwapScreen from '@onekeyhq/kit/src/views/Swap';
-import MeScreen from '@onekeyhq/kit/src/views/Me';
-import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
-
+import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
+import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
+import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
+import FaceID from '@onekeyhq/kit/src/views/FaceID';
+import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import MeScreen from '@onekeyhq/kit/src/views/Me';
+import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
+import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
-import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
-import FaceID from '@onekeyhq/kit/src/views/FaceID';
-import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
-import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 
 import { HomeRoutes, TabRoutes } from '../types';
 
@@ -117,20 +116,16 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
     },
     ...(tab.children || []),
   ];
-  return () => {
-    return (
-      <Stack.Navigator>
-        {screens.map((s, index) => {
-          return (
-            <Stack.Group
-              key={s.name}
-              screenOptions={{ headerShown: index > 0 }}
-            >
-              <Stack.Screen name={s.name} component={s.component} />
-            </Stack.Group>
-          );
-        })}
-      </Stack.Navigator>
-    );
-  };
+
+  const StackNavigatorComponent = () => (
+    <Stack.Navigator>
+      {screens.map((s, index) => (
+        <Stack.Group key={s.name} screenOptions={{ headerShown: index > 0 }}>
+          <Stack.Screen name={s.name} component={s.component} />
+        </Stack.Group>
+      ))}
+    </Stack.Navigator>
+  );
+
+  return StackNavigatorComponent;
 };

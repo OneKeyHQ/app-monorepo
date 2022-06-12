@@ -3,7 +3,7 @@ import React, { useEffect, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
-import { Box, useThemeValue, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -79,7 +79,7 @@ const Dashboard = () => {
         component={stack.component}
       />
     ));
-  }, [bgColor, textColor, borderBottomColor, isVerticalLayout]);
+  }, [isVerticalLayout]);
 
   return (
     <StackNavigator.Navigator>
