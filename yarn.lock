@@ -14728,11 +14728,6 @@ jsc-android@^250230.2.1:
   resolved "https://registry.yarnpkg.com/jsc-android/-/jsc-android-250230.2.1.tgz#3790313a970586a03ab0ad47defbc84df54f1b83"
   integrity sha512-KmxeBlRjwoqCnBBKGsihFtvsBHyUFlBxJPK4FzeYcIuBfdjv6jFys44JITAgSTbQD+vIdwMEfyZklsuQX0yI1Q==
 
-"jsc-android@npm:@sunnylqm/jsc-android":
-  version "264977.0.1"
-  resolved "https://registry.yarnpkg.com/@sunnylqm/jsc-android/-/jsc-android-264977.0.1.tgz#e7ded1bf47953140fe60cf8bfa8e478cfbf562e1"
-  integrity sha512-GtJOT3QxKCo14YFS+4uqm/B2Bq5ISbUYLiXAkRRkMZotenjJEGLfK6OEiv0PoLLsj9iGDF3KpV7mP/HlxI2o1A==
-
 jscodeshift@^0.13.1:
   version "0.13.1"
   resolved "https://registry.yarnpkg.com/jscodeshift/-/jscodeshift-0.13.1.tgz#69bfe51e54c831296380585c6d9e733512aecdef"
@@ -18751,10 +18746,10 @@ react-native-randombytes@^3.6.1:
     buffer "^4.9.1"
     sjcl "^1.0.3"
 
-react-native-reanimated@^2.8.0:
-  version "2.8.0"
-  resolved "https://registry.yarnpkg.com/react-native-reanimated/-/react-native-reanimated-2.8.0.tgz#93c06ca84d91fb3865110b0857c49a24e316130e"
-  integrity sha512-kJvf/UWLBMaGCs9X66MKq5zdFMgwx8D0nHnolbHR7s8ZnbLdb7TlQ/yuzIXqn/9wABfnwtNRI3CyaP1aHWMmZg==
+"react-native-reanimated@npm:@sunnylqm/react-native-reanimated":
+  version "3.0.0-rc.0-withv1"
+  resolved "https://registry.yarnpkg.com/@sunnylqm/react-native-reanimated/-/react-native-reanimated-3.0.0-rc.0-withv1.tgz#0b7238f0a543f0bbb0a9a7da84f47caf2e300fc1"
+  integrity sha512-IdIKvTLNGM5RK1D43s8DU9Ohoa2FpJ64+EcVGsz6dCiX8mdUhSZu6/xcjKuIp9m1g7bNYQGssCu0hequremB+w==
   dependencies:
     "@babel/plugin-transform-object-assign" "^7.16.7"
     "@babel/preset-typescript" "^7.16.7"
@@ -18847,6 +18842,11 @@ react-native-uuid@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/react-native-uuid/-/react-native-uuid-2.0.1.tgz#ed4e2dfb1683eddb66967eb5dca140dfe1abddb9"
   integrity sha512-cptnoIbL53GTCrWlb/+jrDC6tvb7ypIyzbXNJcpR3Vab0mkeaaVd5qnB3f0whXYzS+SMoSQLcUUB0gEWqkPC0g==
+
+react-native-v8@^1.4.1:
+  version "1.4.1"
+  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.4.1.tgz#52129a0f6c52d3fa3d392474b5d7ac6b2e6500e4"
+  integrity sha512-5HTfa8H4kK2xv1VunT5zZOJxiuPh12VdBoZEBO4i4TTWBNCtuB6VKmHFkAidKXEc8otH6JLYtgVdLe97qnS0mQ==
 
 react-native-vision-camera@^2.13.3:
   version "2.13.3"
@@ -22090,6 +22090,11 @@ uuid@^8.0.0, uuid@^8.3.0, uuid@^8.3.2:
   version "8.3.2"
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.3.2.tgz#80d5b5ced271bb9af6c445f21a1a04c606cefbe2"
   integrity sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==
+
+v8-android-jit@^10.100.0:
+  version "10.100.0"
+  resolved "https://registry.yarnpkg.com/v8-android-jit/-/v8-android-jit-10.100.0.tgz#7d939ce615b1e8457e5ff52056d01cb5a5bdcefa"
+  integrity sha512-jakoPAKXK6a/q7LFx2ZjrdcVfR0V4jXaoDAyrWOt3SiPQGL6uq+3tdyQxX6OdPqYrK8xz8HGjW4EhD9xY1fC1Q==
 
 v8-compile-cache@^2.0.3:
   version "2.3.0"
