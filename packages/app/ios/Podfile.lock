@@ -507,7 +507,7 @@ PODS:
     - RNFBApp
   - RNGestureHandler (2.4.2):
     - React-Core
-  - RNReanimated (3.0.0-rc.0):
+  - RNReanimated (2.8.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -638,7 +638,7 @@ DEPENDENCIES:
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
-  https://github.com/CocoaPods/Specs:
+  trunk:
     - Firebase
     - FirebaseAnalytics
     - FirebaseCore
@@ -910,7 +910,7 @@ SPEC CHECKSUMS:
   RNFBApp: ca5f49bbe21f663142320337eb39956b04de4d12
   RNFBCrashlytics: 97bf2b05e4a5523c57adc8f9e5bf6e1b17804482
   RNGestureHandler: 61628a2c859172551aa2100d3e73d1e57878392f
-  RNReanimated: 536c4a11a340b5e0e94629b24101decc2df3126e
+  RNReanimated: 64573e25e078ae6bec03b891586d50b9ec284393
   RNScreens: 4d83613b50b74ed277026375dc0810893b0c347f
   RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
@@ -920,6 +920,6 @@ SPEC CHECKSUMS:
   Yoga: 99652481fcd320aefa4a7ef90095b95acd181952
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: 4e024024e4b3699962757be7008844e1d073618b
+PODFILE CHECKSUM: a2bc322b38fb3c0adfe91ed01a15181b25e605a5
 
 COCOAPODS: 1.11.3

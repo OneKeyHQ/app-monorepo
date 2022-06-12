@@ -1,5 +1,3 @@
-source 'https://github.com/CocoaPods/Specs.git'
-
 def required_ruby_minimum_version(version)
   if (Gem::Version.new(RUBY_VERSION) < Gem::Version.new(version))
     raise "the ruby minimum version should be higher than #{version}"
