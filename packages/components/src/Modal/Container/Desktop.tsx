@@ -85,7 +85,7 @@ const DesktopModal: FC<ModalProps> = ({
           left="0"
           right="0"
           bottom="0"
-          onPress={close}
+          onPress={closeAction || close}
         />
       )}
       <Box
