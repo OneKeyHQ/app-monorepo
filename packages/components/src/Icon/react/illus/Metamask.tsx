@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgMetamask(props: SvgProps) {
   return (
-    <Svg
-      viewBox="0 0 35 33"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <Svg viewBox="0 0 35 33" fill="none" {...props}>
       <Path
         d="M32.648.95L19.514 10.67l2.442-5.727L32.648.95z"
         fill="#E17726"

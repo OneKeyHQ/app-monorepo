@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgCreditCard(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      {...props}
-    >
+    <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
       <Path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
       <Path
         fillRule="evenodd"

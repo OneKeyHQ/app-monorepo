@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgArrowsExpand(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 19 20"
-      fill="currentColor"
-      {...props}
-    >
+    <Svg viewBox="0 0 19 20" fill="currentColor" {...props}>
       <Path
         stroke="#374151"
         strokeLinecap="round"

@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgSearchCircle(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      {...props}
-    >
+    <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
       <Path d="M9 9a2 2 0 114 0 2 2 0 01-4 0z" />
       <Path
         fillRule="evenodd"

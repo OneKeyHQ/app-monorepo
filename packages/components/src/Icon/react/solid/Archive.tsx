@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgArchive(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      {...props}
-    >
+    <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
       <Path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
       <Path
         fillRule="evenodd"
