@@ -70,7 +70,10 @@ const ChainSelector: FC = () => {
         setPositionOnlyMounted
         positionTranslateY={-4}
         dropdownPosition="top-left"
-        dropdownProps={{ minW: '240px', height: '320px' }}
+        dropdownProps={{
+          minW: '240px',
+          height: isVerticalLayout ? '70%' : '320px',
+        }}
         value={activeNetwork ? activeNetwork?.id : undefined}
         onChange={handleActiveChainChange}
         title={intl.formatMessage({ id: 'network__networks' })}

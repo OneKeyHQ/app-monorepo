@@ -50,7 +50,10 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
   (props, ref) => {
     const modalizeRef = useRef(null);
     const combinedRef = useCombinedRefs(ref, modalizeRef);
-    const [inactiveFontColor] = useThemeValue(['text-default']);
+    const [inactiveFontColor, defaultBgColor] = useThemeValue([
+      'text-default',
+      'background-default',
+    ]);
     return (
       <Modalize
         adjustToContentHeight
@@ -67,8 +70,11 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
             duration: 150,
           },
         }}
+        modalStyle={{
+          backgroundColor: defaultBgColor,
+        }}
       >
-        <Box mb={props.tabBarHeight} p="16px" bgColor="background-default">
+        <Box mb={props.tabBarHeight} p="16px">
           {props.foldableList.map((foldable, index) => (
             <Pressable
               key={index}
