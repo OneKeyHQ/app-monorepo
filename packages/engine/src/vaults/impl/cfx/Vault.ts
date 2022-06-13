@@ -143,7 +143,9 @@ export default class Vault extends VaultBase {
   }
 
   override async getOutputAccount(): Promise<Account> {
-    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const dbAccount = (await this.getDbAccount({
+      noCache: true,
+    })) as DBVariantAccount;
     const ret = {
       id: dbAccount.id,
       name: dbAccount.name,
