@@ -1,5 +1,6 @@
 import * as React from 'react';
-import Svg, { SvgProps, Path } from 'react-native-svg';
+
+import Svg, { Path, SvgProps } from 'react-native-svg';
 
 const SvgViewGridAdd = (props: SvgProps) => (
   <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>

@@ -8,6 +8,7 @@ import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
+import Overview from '@onekeyhq/kit/src/views/Overview';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
@@ -30,10 +31,17 @@ export interface TabRouteConfig {
 
 export const tabRoutes: TabRouteConfig[] = [
   {
+    name: TabRoutes.Overview,
+    component: Overview,
+    tabBarIcon: () => 'NavHomeSolid',
+    translationId: 'title__overview',
+    children: [],
+  },
+  {
     name: TabRoutes.Home,
     component: HomeScreen,
-    tabBarIcon: () => 'NavHomeSolid',
-    translationId: 'title__home',
+    tabBarIcon: () => 'NavBankCardSolid',
+    translationId: 'form__account',
     children: [
       {
         name: HomeRoutes.ScreenTokenDetail,

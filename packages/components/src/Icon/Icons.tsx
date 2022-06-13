@@ -495,6 +495,7 @@ import ViewBoardsSolid from "./react/solid/ViewBoards";
 import ViewGridSolid from "./react/solid/ViewGrid";
 import ViewGridAddSolid from "./react/solid/ViewGridAdd";
 import ViewListSolid from "./react/solid/ViewList";
+import WalletSolid from "./react/solid/Wallet";
 import VolumeOffSolid from "./react/solid/VolumeOff";
 import VolumeUpSolid from "./react/solid/VolumeUp";
 import WifiSolid from "./react/solid/Wifi";
@@ -999,6 +1000,7 @@ export type ICON_NAMES =
   | "ViewListSolid"
   | "VolumeOffSolid"
   | "VolumeUpSolid"
+  | "WalletSolid"
   | "WifiSolid"
   | "ZoomInSolid"
   | "ZoomOutSolid";
@@ -1499,6 +1501,7 @@ export default {
   ViewGridSolid: ViewGridSolid,
   ViewGridAddSolid: ViewGridAddSolid,
   ViewListSolid: ViewListSolid,
+  WalletSolid:WalletSolid,
   VolumeOffSolid: VolumeOffSolid,
   VolumeUpSolid: VolumeUpSolid,
   WifiSolid: WifiSolid,

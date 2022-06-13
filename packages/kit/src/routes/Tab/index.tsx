@@ -9,7 +9,7 @@ import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
 
-import { TabRoutesParams } from '../types';
+import { TabRoutes, TabRoutesParams } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';
 
@@ -32,10 +32,11 @@ const TabNavigator = () => {
   return useMemo(
     () => (
       <Tab.Navigator
-        screenOptions={{
+        screenOptions={({ route }) => ({
           lazy: true,
           header: renderHeader,
-        }}
+          headerShown: route.name !== TabRoutes.Overview,
+        })}
       >
         {tabRoutes.map((tab) => (
           <Tab.Screen
