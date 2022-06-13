@@ -31,7 +31,7 @@ export const AutoSizeText: FC<{
     );
   }
   return (
-    <Text fontSize={64} lineHeight={64} fontWeight="bold" color="text-subdued">
+    <Text fontSize={64} lineHeight={64} fontWeight="bold" color="text-disabled">
       {innerText}
     </Text>
   );

@@ -64,7 +64,7 @@ function PreSendAmountPreview({
           </Text>
         )}
 
-        <Center flex={1}>
+        <Center flex={1} maxH="64px" mt={2} mb={3}>
           <AutoSizeText text={text} onChangeText={onChangeText} />
         </Center>
 
@@ -72,7 +72,7 @@ function PreSendAmountPreview({
           <Spinner size="sm" />
         ) : (
           !!desc && (
-            <Text typography="Body1Strong" textAlign="center">
+            <Text typography="Body1Strong" textAlign="center" isTruncated>
               {desc}
             </Text>
           )
@@ -262,7 +262,7 @@ function PreSendAmount() {
           </Button>
         </Box>
         <Box flex={1} />
-        {platformEnv.isNative && (
+        {(platformEnv.isNative || platformEnv.isDev) && (
           <Box>
             <Keyboard
               itemHeight={shortScreen ? '44px' : undefined}
