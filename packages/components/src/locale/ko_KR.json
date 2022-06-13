@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "하드웨어 지갑",
   "wallet__imported_accounts": "가져온 계정",
   "wallet__wallet": "지갑",
-  "wallet__watched_accounts": "시청 계정"
+  "wallet__watched_accounts": "시청 계정",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

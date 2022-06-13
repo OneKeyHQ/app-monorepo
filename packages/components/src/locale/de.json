@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "Hardware-Geldbörse",
   "wallet__imported_accounts": "Importierte Konten",
   "wallet__wallet": "Brieftasche",
-  "wallet__watched_accounts": "Beobachtete Konten"
+  "wallet__watched_accounts": "Beobachtete Konten",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

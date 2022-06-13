@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "Carteira de Hardware",
   "wallet__imported_accounts": "Contas importadas",
   "wallet__wallet": "Carteira",
-  "wallet__watched_accounts": "Contas monitoradas"
+  "wallet__watched_accounts": "Contas monitoradas",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

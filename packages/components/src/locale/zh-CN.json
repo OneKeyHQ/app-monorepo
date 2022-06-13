@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "硬件钱包",
   "wallet__imported_accounts": "导入账户",
   "wallet__wallet": "钱包",
-  "wallet__watched_accounts": "观察账户"
+  "wallet__watched_accounts": "观察账户",
+  "content__deposit_tokens_to_your_wallet": "存储代币到您的钱包",
+  "content__transfer_tokens_to_another_wallet": "转移代币到其他钱包",
+  "content__purchase_crypto_with_cash": "用现金购买加密货币",
+  "content__exchange_any_tokens": "兑换任何代币"
 }

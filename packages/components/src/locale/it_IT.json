@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "Portafoglio hardware",
   "wallet__imported_accounts": "Conti importati",
   "wallet__wallet": "Portafoglio",
-  "wallet__watched_accounts": "Conti guardati"
+  "wallet__watched_accounts": "Conti guardati",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

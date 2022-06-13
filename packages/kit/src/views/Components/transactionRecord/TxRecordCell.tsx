@@ -74,10 +74,10 @@ const getTransactionTypeStr = (intl: IntlShape, tx: EVMDecodedItem): string => {
 
 const getTransactionTypeIcon = (tx: EVMDecodedItem): ICON_NAMES => {
   const { txType, fromType } = tx;
-  let icon: ICON_NAMES = 'ArrowUpSolid';
+  let icon: ICON_NAMES = 'NavSendSolid';
 
   if (fromType === 'IN') {
-    icon = 'ArrowDownSolid';
+    icon = 'NavReceiveSolid';
   } else if (
     txType === EVMDecodedTxType.INTERNAL_SWAP ||
     txType === EVMDecodedTxType.SWAP
