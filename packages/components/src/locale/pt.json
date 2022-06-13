@@ -200,6 +200,7 @@
   "content__created": "Criado",
   "content__creating_an_str_account_will_create_other_accounts": "A criação de uma conta {impl} criará outras contas da rede compatível com {impl} de forma síncrona.",
   "content__custom": "Personalizado",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Descrição",
   "content__details": "Detalhes",
   "content__downloading": "Baixando",
@@ -211,6 +212,7 @@
   "content__estimated": "Estimado",
   "content__ether_price": "Preço do éter",
   "content__every_time_we_find_the_best_prices": "Sempre encontramos a melhor liquidez e preços dos fornecedores. Cada cotação inclui uma taxa de 1% para ajudar a OneKey a fornecer um serviço melhor para você.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "ID de rosto",
   "content__face_id_touch_id_can_be_used_instead_of": "O Face ID / Touch ID pode ser usado em vez de inserir uma senha, tornando-o mais rápido e conveniente.",
   "content__fast": "Rápido",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "URLs de RPC predefinidos",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Atualizações de preços após {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Rápido",
   "content__rocket_fast": "🚀 Rápido",
   "content__search": "Procurar...",
@@ -293,6 +296,7 @@
   "content__to": "Para",
   "content__total": "Total",
   "content__touch_id": "ID de toque",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Tipo",
   "content__up_to_100_accounts": "Até 100 contas",
   "content__update_ready_to_install": "Atualização pronta para instalar",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Carteira de Hardware",
   "wallet__imported_accounts": "Contas importadas",
   "wallet__wallet": "Carteira",
-  "wallet__watched_accounts": "Contas monitoradas",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Contas monitoradas"
 }

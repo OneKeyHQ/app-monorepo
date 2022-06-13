@@ -200,6 +200,7 @@
   "content__created": "Үүсгэсэн",
   "content__creating_an_str_account_will_create_other_accounts": "{impl} бүртгэл үүсгэснээр {impl} нийцтэй сүлжээний бусад бүртгэлийг синхроноор үүсгэнэ.",
   "content__custom": "Захиалгат",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Тодорхойлолт",
   "content__details": "Дэлгэрэнгүй мэдээлэл",
   "content__downloading": "Татаж байна",
@@ -211,6 +212,7 @@
   "content__estimated": "Тооцоолсон",
   "content__ether_price": "Эфирийн үнэ",
   "content__every_time_we_find_the_best_prices": "Тэр болгонд бид хөрвөх чадварын ханган нийлүүлэгчдээс хамгийн сайн үнийг олдог. OneKey-ийн ирээдүйн өсөлт, сайжруулалтыг санхүүжүүлэхэд туслах үнийн санал бүрээс автоматаар 1%-ийн хураамж авдаг.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Нүүрний ID",
   "content__face_id_touch_id_can_be_used_instead_of": "Нууц үг оруулахын оронд Face ID / Touch ID-г ашиглах боломжтой бөгөөд ингэснээр илүү хурдан бөгөөд хялбар болгоно.",
   "content__fast": "Ердийн",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "Урьдчилан тохируулсан RPC URL-ууд",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Үнэ {0} дараа шинэчлэгдэнэ",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Хурдан",
   "content__rocket_fast": "🚀 Хурдан",
   "content__search": "Хайх...",
@@ -293,6 +296,7 @@
   "content__to": "руу",
   "content__total": "Нийт",
   "content__touch_id": "Touch ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Төрөл",
   "content__up_to_100_accounts": "100 хүртэл данс",
   "content__update_ready_to_install": "Шинэчлэлтийг суулгахад бэлэн байна",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Техник хангамжийн түрийвч",
   "wallet__imported_accounts": "Импортын дансууд",
   "wallet__wallet": "Түрийвч",
-  "wallet__watched_accounts": "Үзсэн бүртгэлүүд",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Үзсэн бүртгэлүүд"
 }

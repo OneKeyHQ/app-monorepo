@@ -200,6 +200,7 @@
   "content__created": "作成",
   "content__creating_an_str_account_will_create_other_accounts": "impl}アカウントを作成すると、同期して{impl}互換ネットワークの他のアカウントも作成されます。",
   "content__custom": "カスタム",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "商品説明",
   "content__details": "詳細",
   "content__downloading": "ダウンロード",
@@ -211,6 +212,7 @@
   "content__estimated": "推定",
   "content__ether_price": "イーサ価格",
   "content__every_time_we_find_the_best_prices": "毎回、主要な流動性サプライヤーから最高の価格を見つけます。 OneKeyの将来の成長と改善に資金を提供するために、各見積もりには自動的に1％の料金が請求されます。",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "FaceID",
   "content__face_id_touch_id_can_be_used_instead_of": "パスワードを入力する代わりにFaceID/ Touch IDを使用できるため、より高速で便利です。",
   "content__fast": "通常",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "プリセットRPC URL",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "{0}後に価格が更新されます",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "高速",
   "content__rocket_fast": "🚀速い",
   "content__search": "検索...",
@@ -293,6 +296,7 @@
   "content__to": "への",
   "content__total": "合計",
   "content__touch_id": "タッチID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "タイプ",
   "content__up_to_100_accounts": "最大100のアカウント",
   "content__update_ready_to_install": "アップデートをインストールする準備ができました",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "ハードウェアウォレット",
   "wallet__imported_accounts": "インポートされたアカウント",
   "wallet__wallet": "財布",
-  "wallet__watched_accounts": "監視されたアカウント",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "監視されたアカウント"
 }

@@ -200,6 +200,7 @@
   "content__created": "Creato",
   "content__creating_an_str_account_will_create_other_accounts": "La creazione di un account {impl} creerà altri account della rete {impl} compatibile in modo sincrono.",
   "content__custom": "Personalizzato",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Descrizione",
   "content__details": "Dettagli",
   "content__downloading": "Download",
@@ -211,6 +212,7 @@
   "content__estimated": "Stimato",
   "content__ether_price": "Prezzo dell'etere",
   "content__every_time_we_find_the_best_prices": "Ogni volta, troviamo i migliori prezzi dai principali fornitori di liquidità. A ogni preventivo viene addebitata automaticamente una commissione dell'1% per contribuire a finanziare la crescita e il miglioramento futuri di OneKey.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "ID viso",
   "content__face_id_touch_id_can_be_used_instead_of": "Face ID / Touch ID può essere utilizzato invece di inserire una password, rendendolo più veloce e conveniente.",
   "content__fast": "Normale",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "URL RPC preimpostati",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Prezzo aggiornato dopo il {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Veloce",
   "content__rocket_fast": "🚀 Veloce",
   "content__search": "Cerca...",
@@ -293,6 +296,7 @@
   "content__to": "A",
   "content__total": "Totale",
   "content__touch_id": "Tocca ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Tipo",
   "content__up_to_100_accounts": "Fino a 100 account",
   "content__update_ready_to_install": "Aggiornamento pronto per l'installazione",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Portafoglio hardware",
   "wallet__imported_accounts": "Conti importati",
   "wallet__wallet": "Portafoglio",
-  "wallet__watched_accounts": "Conti guardati",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Conti guardati"
 }

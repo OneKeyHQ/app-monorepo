@@ -200,6 +200,7 @@
   "content__created": "Tạo",
   "content__creating_an_str_account_will_create_other_accounts": "Tạo tài khoản {impl} sẽ tạo đồng bộ các tài khoản khác của mạng tương thích {impl} .",
   "content__custom": "Tập quán",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Sự miêu tả",
   "content__details": "Thông tin chi tiết",
   "content__downloading": "Đang tải xuống",
@@ -211,6 +212,7 @@
   "content__estimated": "Ước lượng",
   "content__ether_price": "Giá Ether",
   "content__every_time_we_find_the_best_prices": "Chúng tôi luôn tìm thấy tính thanh khoản và giá tốt nhất từ các nhà cung cấp. Mỗi báo giá bao gồm 1% phí để giúp OneKey's cung cấp dịch vụ tốt hơn cho bạn.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Face ID",
   "content__face_id_touch_id_can_be_used_instead_of": "Face ID / Touch ID có thể được sử dụng thay vì nhập mật khẩu, nhanh chóng và tiện lợi hơn.",
   "content__fast": "Nhanh",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "Đặt trước URL RPC",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Cập nhật giá sau {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Nhanh",
   "content__rocket_fast": "🚀 Nhanh chóng",
   "content__search": "Tìm kiếm...",
@@ -293,6 +296,7 @@
   "content__to": "Đến",
   "content__total": "Toàn bộ",
   "content__touch_id": "ID cảm ứng",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Gõ phím",
   "content__up_to_100_accounts": "Lên đến 100 tài khoản",
   "content__update_ready_to_install": "Cập nhật đã sẵn sàng để cài đặt",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Ví phần cứng",
   "wallet__imported_accounts": "Tài khoản đã nhập",
   "wallet__wallet": "Cái ví",
-  "wallet__watched_accounts": "Tài khoản đã theo dõi",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Tài khoản đã theo dõi"
 }

@@ -200,6 +200,7 @@
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "content__custom": "مخصص",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "وصف",
   "content__details": "تفاصيل",
   "content__downloading": "جارى التحميل",
@@ -211,6 +212,7 @@
   "content__estimated": "مُقدَّر",
   "content__ether_price": "سعر الأثير",
   "content__every_time_we_find_the_best_prices": "نجد دائمًا أفضل السيولة والأسعار من الموردين. يتضمن كل عرض أسعار 1٪ رسوم لمساعدة OneKey على تقديم خدمة أفضل لك.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "معرف الوجه",
   "content__face_id_touch_id_can_be_used_instead_of": "يمكن استخدام Face ID / Touch ID بدلاً من إدخال كلمة مرور ، مما يجعلها أسرع وأكثر ملاءمة.",
   "content__fast": "سريع",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "عناوين URL محددة مسبقًا لـ RPC",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "تحديثات الأسعار بعد {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "سريعون",
   "content__rocket_fast": "🚀 سريع",
   "content__search": "بحث...",
@@ -293,6 +296,7 @@
   "content__to": "ل",
   "content__total": "المجموع",
   "content__touch_id": "معرف اتصال",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "يكتب",
   "content__up_to_100_accounts": "ما يصل إلى 100 حساب",
   "content__update_ready_to_install": "التحديث جاهز للتثبيت",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "محفظة الأجهزة",
   "wallet__imported_accounts": "الحسابات المستوردة",
   "wallet__wallet": "محفظة",
-  "wallet__watched_accounts": "حسابات مراقب",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "حسابات مراقب"
 }
