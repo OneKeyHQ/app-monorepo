@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   NavigationProp,
@@ -47,7 +47,7 @@ const ScanQrcode: FC = () => {
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
     PermissionStatus.UNDETERMINED,
   );
-  const [scanned, setScanned] = useState(false);
+  const scanned = useRef(false);
   const isFocused = useIsFocused();
 
   const navigation = useNavigation<ScanQrcodeNavProp>();
@@ -56,10 +56,10 @@ const ScanQrcode: FC = () => {
 
   const handleBarCodeScanned = useCallback(
     async (data?: string | null) => {
-      if (!data) {
+      if (scanned.current || !data) {
         return;
       }
-      setScanned(true);
+      scanned.current = true;
       setHaptics();
       if (onScanCompleted) {
         onScanCompleted(data);
@@ -98,7 +98,7 @@ const ScanQrcode: FC = () => {
   useEffect(() => {
     if (isFocused) {
       // reactivate scanning when return to this page
-      setScanned(false);
+      scanned.current = false;
     }
   }, [isFocused]);
 
@@ -128,7 +128,7 @@ const ScanQrcode: FC = () => {
           style={{
             flex: 1,
           }}
-          isActive={isFocused && !scanned}
+          isActive={isFocused}
           onQrcodeScanned={handleBarCodeScanned}
         >
           <Center position="absolute" w="full" h="full">
