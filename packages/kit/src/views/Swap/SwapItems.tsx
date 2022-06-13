@@ -13,18 +13,19 @@ import {
 
 import { useNavigation } from '../../hooks';
 import { setHaptics } from '../../hooks/setHaptics';
-import { HomeRoutes, RootRoutes } from '../../routes/types';
+import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const SwapItems = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const onPress = useCallback(() => {
     setHaptics();
-    navigation.navigate(RootRoutes.Root, {
-      screen: HomeRoutes.TransactionHistoryScreen,
-      params: {},
-    });
+    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
   }, [navigation]);
   return (
     <Center px={4} pb="4">

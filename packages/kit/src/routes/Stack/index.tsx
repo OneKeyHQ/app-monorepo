@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
-import { Box, useThemeValue } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -60,11 +60,26 @@ export const stackScreenList = [
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
 const Dashboard = () => {
+  const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, borderBottomColor] = useThemeValue([
     'background-default',
     'text-default',
     'border-subdued',
   ]);
+
+  const stackScreens = useMemo(() => {
+    if (!isVerticalLayout) {
+      return null;
+    }
+
+    return stackScreenList.map((stack) => (
+      <StackNavigator.Screen
+        key={stack.name}
+        name={stack.name}
+        component={stack.component}
+      />
+    ));
+  }, [isVerticalLayout]);
 
   return (
     <StackNavigator.Navigator>
@@ -90,13 +105,7 @@ const Dashboard = () => {
           headerTintColor: textColor,
         }}
       >
-        {stackScreenList.map((stack) => (
-          <StackNavigator.Screen
-            key={stack.name}
-            name={stack.name}
-            component={stack.component}
-          />
-        ))}
+        {stackScreens}
       </StackNavigator.Group>
     </StackNavigator.Navigator>
   );
