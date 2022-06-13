@@ -1,15 +1,16 @@
-import React, { FC } from 'react';
+import React, { ComponentPropsWithoutRef, FC } from 'react';
 
-import { IBoxProps } from 'native-base';
+import { View } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import Pressable from '../Pressable';
 
 let lastTime: Date | undefined;
 let num = 0;
 
-const DesktopDragZoneBox: FC<IBoxProps> = ({ ...props }) => {
+const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof View>> = ({
+  children,
+  ...rest
+}) => {
   const toggleMaxWindow = () => {
     const nowTime = new Date();
     if (
@@ -28,19 +29,21 @@ const DesktopDragZoneBox: FC<IBoxProps> = ({ ...props }) => {
     }
   };
 
+  const { style = {} } = rest;
   return (
-    <Pressable
-      {...props}
+    <View
+      {...rest}
       onPress={toggleMaxWindow}
       style={{
         // @ts-expect-error
         WebkitAppRegion: 'drag',
         WebkitUserSelect: 'none',
         cursor: 'default',
+        ...(typeof style === 'object' ? style : {}),
       }}
     >
-      {props.children}
-    </Pressable>
+      {children}
+    </View>
   );
 };
 

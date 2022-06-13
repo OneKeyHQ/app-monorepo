@@ -47,7 +47,9 @@ function PreSendToken() {
         children: account ? (
           <AssetsList
             singleton
-            ListHeaderComponent={<Box />}
+            hidePriceInfo
+            ListHeaderComponent={<Box h={8} />}
+            ListFooterComponent={<Box h={8} />}
             contentContainerStyle={{
               paddingHorizontal: 0,
               marginTop: 0,

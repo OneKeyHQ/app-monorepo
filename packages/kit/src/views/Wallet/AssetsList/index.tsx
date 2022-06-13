@@ -96,10 +96,13 @@ export type IAssetsListProps = Omit<
 > & {
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
   singleton?: boolean;
+  hidePriceInfo?: boolean;
 };
 function AssetsList({
   singleton,
+  hidePriceInfo,
   ListHeaderComponent,
+  ListFooterComponent,
   contentContainerStyle,
   onTokenPress,
 }: IAssetsListProps) {
@@ -197,7 +200,7 @@ function AssetsList({
               <Skeleton shape="Body2" />
             )}
           </Box>
-          {!isVerticalLayout && (
+          {!isVerticalLayout && !hidePriceInfo && (
             <Box mx={3} flexDirection="row" flex={1}>
               {/* <Icon size={20} name="ActivityOutline" /> */}
 
@@ -238,7 +241,7 @@ function AssetsList({
         )
       }
       ItemSeparatorComponent={Divider}
-      ListFooterComponent={() => <Box h={8} />}
+      ListFooterComponent={ListFooterComponent ?? (() => <Box h={8} />)}
       keyExtractor={(_item: TokenType) => _item.id}
       extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}

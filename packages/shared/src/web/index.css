@@ -56,7 +56,6 @@ body {
   }
 }*/
 
-
 /*
   hide Scrollbar
   in JS: extendTheme()
@@ -75,7 +74,7 @@ body {
 /* Handle */
 ::-webkit-scrollbar-thumb {
   /* gray color palette comes from design file "illustration" */
-  background: #74748B;
+  background: #74748b;
   border-radius: 3px;
 }
 
@@ -90,6 +89,13 @@ textarea {
 }
 
 /* data-testid="Segment_Button" */
-[data-testid=Segment_Button] {
+[data-testid='Segment_Button'] {
   width: 100%;
+}
+
+#AutoSizeTextContainer > textarea {
+  white-space: nowrap;
+  overflow: hidden;
+  /* not working for textarea */
+  text-overflow: ellipsis;
 }

@@ -213,7 +213,7 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
     specifiedFeeRate?: string,
   ): Promise<IEncodedTxBtc> {
-    const { to, amount, max } = transferInfo;
+    const { to, amount } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const utxos = await this.collectUTXOs();
@@ -227,6 +227,10 @@ export default class Vault extends VaultBase {
             .shiftedBy(network.feeDecimals)
             .toFixed()
         : (await this.getFeeRate())[0];
+    const max = utxos
+      .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
+      .shiftedBy(-network.decimals)
+      .lte(amount);
 
     const {
       inputs,
