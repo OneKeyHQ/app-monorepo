@@ -68,13 +68,15 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
           },
         }}
       >
-        <Box mb={props.tabBarHeight} p="16px">
-          {props.foldableList.map((foldable) => (
+        <Box mb={props.tabBarHeight} p="16px" bgColor="background-default">
+          {props.foldableList.map((foldable, index) => (
             <Pressable
-              key={foldable.name}
+              key={index}
               onPress={foldable.onPress}
               _hover={{ bg: 'surface-hovered' }}
+              _pressed={{ bg: 'surface-pressed' }}
               borderRadius="xl"
+              mt={index === 0 ? undefined : 2}
               p="2"
             >
               <Box display="flex" flexDirection="column">
@@ -85,9 +87,12 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
                     size={24}
                   />
 
-                  <Typography.Body2Strong ml="3" color={inactiveFontColor}>
+                  <Typography.Body1Strong ml="3" color={inactiveFontColor}>
                     {foldable.tabBarLabel}
-                  </Typography.Body2Strong>
+                  </Typography.Body1Strong>
+                  <Typography.Body2 color="text-subdued">
+                    {foldable.description}
+                  </Typography.Body2>
                 </Box>
               </Box>
             </Pressable>

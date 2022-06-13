@@ -54,6 +54,7 @@ const TabNavigator = () => {
         },
         tabBarLabel: intl.formatMessage({ id: 'action__send' }),
         tabBarIcon: () => 'ArrowUpSolid',
+        description: intl.formatMessage({ id: 'action__send' }),
       },
       {
         name: TabRoutes.Receive,
@@ -70,6 +71,7 @@ const TabNavigator = () => {
         },
         tabBarLabel: intl.formatMessage({ id: 'action__receive' }),
         tabBarIcon: () => 'ArrowDownSolid',
+        description: intl.formatMessage({ id: 'action__send' }),
       },
     ],
     [intl],
