@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "Portefeuille matériel",
   "wallet__imported_accounts": "Comptes importés",
   "wallet__wallet": "Portefeuille",
-  "wallet__watched_accounts": "Comptes surveillés"
+  "wallet__watched_accounts": "Comptes surveillés",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

@@ -53,8 +53,10 @@ const TabNavigator = () => {
           });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__send' }),
-        tabBarIcon: () => 'ArrowUpSolid',
-        description: intl.formatMessage({ id: 'action__send' }),
+        tabBarIcon: () => 'NavSendSolid',
+        description: intl.formatMessage({
+          id: 'content__transfer_tokens_to_another_wallet',
+        }),
       },
       {
         name: TabRoutes.Receive,
@@ -70,8 +72,10 @@ const TabNavigator = () => {
           });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__receive' }),
-        tabBarIcon: () => 'ArrowDownSolid',
-        description: intl.formatMessage({ id: 'action__send' }),
+        tabBarIcon: () => 'NavReceiveSolid',
+        description: intl.formatMessage({
+          id: 'content__deposit_tokens_to_your_wallet',
+        }),
       },
     ],
     [intl],

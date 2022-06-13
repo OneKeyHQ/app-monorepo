@@ -50,7 +50,7 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
   (props, ref) => {
     const modalizeRef = useRef(null);
     const combinedRef = useCombinedRefs(ref, modalizeRef);
-    const [inactiveFontColor] = useThemeValue(['text-subdued']);
+    const [inactiveFontColor] = useThemeValue(['text-default']);
     return (
       <Modalize
         adjustToContentHeight
@@ -80,19 +80,21 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
               p="2"
             >
               <Box display="flex" flexDirection="column">
-                <Box display="flex" flexDirection="row" alignItems="center">
+                <Box display="flex" flexDirection="row" alignItems="flex-start">
                   <Icon
                     name={foldable?.tabBarIcon?.() as ICON_NAMES}
                     color="icon-default"
                     size={24}
                   />
 
-                  <Typography.Body1Strong ml="3" color={inactiveFontColor}>
-                    {foldable.tabBarLabel}
-                  </Typography.Body1Strong>
-                  <Typography.Body2 color="text-subdued">
-                    {foldable.description}
-                  </Typography.Body2>
+                  <Box ml={4}>
+                    <Typography.Body1Strong color={inactiveFontColor}>
+                      {foldable.tabBarLabel}
+                    </Typography.Body1Strong>
+                    <Typography.Body2 color="text-subdued">
+                      {foldable.description}
+                    </Typography.Body2>
+                  </Box>
                 </Box>
               </Box>
             </Pressable>

@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "Апаратний гаманець",
   "wallet__imported_accounts": "Імпортовані облікові записи",
   "wallet__wallet": "гаманець",
-  "wallet__watched_accounts": "Переглянуті акаунти"
+  "wallet__watched_accounts": "Переглянуті акаунти",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

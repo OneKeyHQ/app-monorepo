@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "হার্ডওয়্যার ওয়ালেট",
   "wallet__imported_accounts": "আমদানি করা অ্যাকাউন্ট",
   "wallet__wallet": "ওয়ালেট",
-  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা"
+  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা",
+  "content__deposit_tokens_to_your_wallet": "",
+  "content__transfer_tokens_to_another_wallet": "",
+  "content__purchase_crypto_with_cash": "",
+  "content__exchange_any_tokens": ""
 }

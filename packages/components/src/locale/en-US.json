@@ -840,5 +840,9 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Imported Accounts",
   "wallet__wallet": "Wallet",
-  "wallet__watched_accounts": "Watched Accounts"
+  "wallet__watched_accounts": "Watched Accounts",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
+  "content__exchange_any_tokens": "Exchange any tokens"
 }

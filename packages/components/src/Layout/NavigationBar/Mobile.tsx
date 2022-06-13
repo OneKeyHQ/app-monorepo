@@ -137,24 +137,28 @@ export default function BottomTabBar({
       ...tabs.slice(0, middleIndex),
       <Box
         flex={1}
-        p={1}
         key={`@@middle-float-button-${isFABOpen ? 'open' : 'close'}`}
+        justifyContent="center"
+        alignItems="center"
+        mb={8}
       >
         <Pressable
           alignItems="center"
-          px={0.5}
-          py={1.5}
+          w={12}
+          h={12}
           onPress={() => {
             setHaptics();
             onPress();
           }}
           _hover={{ bg: 'surface-hovered' }}
-          rounded="xl"
+          rounded="full"
           justifyContent="center"
+          bgColor="interactive-default"
         >
           <Icon
-            name={isFABOpen ? 'CloseCircleSolid' : 'SwitchHorizontalSolid'}
-            size={28}
+            name={isFABOpen ? 'CloseOutline' : 'SwitchHorizontalOutline'}
+            size={24}
+            color="icon-on-primary"
           />
         </Pressable>
       </Box>,
