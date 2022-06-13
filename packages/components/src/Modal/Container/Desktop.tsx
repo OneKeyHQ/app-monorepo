@@ -36,6 +36,7 @@ const DesktopModal: FC<ModalProps> = ({
   maxHeight,
   headerDescription,
   closeAction,
+  closeOnOverlayClick,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -73,18 +74,20 @@ const DesktopModal: FC<ModalProps> = ({
       alignItems="center"
       bg="rgba(0, 0, 0, 0.6)"
     >
-      <Pressable
-        _web={{
-          // @ts-ignore
-          cursor: 'default',
-        }}
-        position="absolute"
-        top="0"
-        left="0"
-        right="0"
-        bottom="0"
-        onPress={close}
-      />
+      {closeOnOverlayClick && (
+        <Pressable
+          _web={{
+            // @ts-ignore
+            cursor: 'default',
+          }}
+          position="absolute"
+          top="0"
+          left="0"
+          right="0"
+          bottom="0"
+          onPress={close}
+        />
+      )}
       <Box
         width={modalSizing(size)}
         height={height}
