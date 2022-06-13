@@ -26,7 +26,9 @@ import {
   useActiveWalletAccount,
   useFiatPay,
 } from '@onekeyhq/kit/src/hooks/redux';
+import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -35,11 +37,11 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
+import {
+  SendRoutes,
+  SendRoutesParams,
+} from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { setHaptics } from '../../../hooks/setHaptics';
-import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
-import { SendRoutes, SendRoutesParams } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -187,15 +189,11 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
-            if (!account) return;
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Receive,
               params: {
                 screen: ReceiveTokenRoutes.ReceiveToken,
-                params: {
-                  address: account.address,
-                  name: account.name,
-                },
+                params: {},
               },
             });
           }}

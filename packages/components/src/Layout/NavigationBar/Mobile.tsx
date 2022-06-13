@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
@@ -10,9 +10,10 @@ import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import { DeviceState } from '../../Provider/device';
 import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
+import BottomBarModal from '../BottomBarModal';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
-import type { BottomTabBarProps } from '../BottomTabs/types';
+import type { BottomTabBarProps, TBottomBarRefAttr } from '../BottomTabs/types';
 
 const DEFAULT_TABBAR_HEIGHT = 49;
 
@@ -36,7 +37,10 @@ export default function BottomTabBar({
   navigation,
   state,
   descriptors,
+  foldableList,
 }: BottomTabBarProps) {
+  const [isFABOpen, setFABOpenStatus] = useState(false);
+  const bottomBarRef = useRef<TBottomBarRefAttr>();
   const { size } = useUserDevice();
   const insets = useSafeAreaInsets();
   const { routes } = state;
@@ -50,73 +54,139 @@ export default function BottomTabBar({
     deviceSize: size,
   });
 
-  return (
-    <Box
-      borderTopWidth={StyleSheet.hairlineWidth}
-      left="0"
-      right="0"
-      bottom="0"
-      bg="background-default"
-      borderTopColor="divider"
-      paddingBottom={`${paddingBottom}px`}
-      height={tabBarHeight}
-      py={Math.max(insets.left ?? 0, insets.right ?? 0)}
-    >
-      <Box accessibilityRole="tablist" flex="1" flexDirection="row">
-        {routes.map((route, index) => {
-          const isActive = index === state.index;
-          const { options } = descriptors[route.key];
+  const tabs = useMemo(
+    () =>
+      routes.map((route, index) => {
+        const isActive = index === state.index;
+        const { options } = descriptors[route.key];
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isActive && !event.defaultPrevented) {
+            navigation.dispatch({
+              ...CommonActions.navigate({ name: route.name, merge: true }),
+              target: state.key,
             });
+          }
+        };
 
-            if (!isActive && !event.defaultPrevented) {
-              navigation.dispatch({
-                ...CommonActions.navigate({ name: route.name, merge: true }),
-                target: state.key,
-              });
-            }
-          };
+        return (
+          <Box flex={1} p={1} key={route.name}>
+            <Pressable
+              alignItems="center"
+              px={0.5}
+              py={1.5}
+              onPress={
+                isFABOpen
+                  ? undefined
+                  : () => {
+                      setHaptics();
+                      onPress();
+                    }
+              }
+              _hover={{ bg: 'surface-hovered' }}
+              rounded="xl"
+              justifyContent="center"
+              key={route.name}
+              style={
+                horizontal
+                  ? {
+                      flexDirection: 'row',
+                    }
+                  : {
+                      flexDirection: 'column',
+                    }
+              }
+            >
+              <Icon
+                // @ts-expect-error
+                name={options?.tabBarIcon?.() as ICON_NAMES}
+                color={isActive && !isFABOpen ? 'icon-pressed' : 'icon-subdued'}
+                size={28}
+              />
+            </Pressable>
+          </Box>
+        );
+      }),
+    [
+      descriptors,
+      horizontal,
+      navigation,
+      routes,
+      state.index,
+      state.key,
+      isFABOpen,
+    ],
+  );
 
-          return (
-            <Box flex={1} p={1} key={route.name}>
-              <Pressable
-                alignItems="center"
-                px={0.5}
-                py={1.5}
-                onPress={() => {
-                  setHaptics();
-                  onPress();
-                }}
-                _hover={{ bg: 'surface-hovered' }}
-                rounded="xl"
-                justifyContent="center"
-                key={route.name}
-                style={
-                  horizontal
-                    ? {
-                        flexDirection: 'row',
-                      }
-                    : {
-                        flexDirection: 'column',
-                      }
-                }
-              >
-                <Icon
-                  // @ts-expect-error
-                  name={options?.tabBarIcon?.() as ICON_NAMES}
-                  color={isActive ? 'icon-pressed' : 'icon-subdued'}
-                  size={28}
-                />
-              </Pressable>
-            </Box>
-          );
-        })}
+  const tabsWithFloatButton = useMemo(() => {
+    const middleIndex = Math.floor(tabs.length / 2);
+    const onPress = () => {
+      if (isFABOpen) {
+        bottomBarRef?.current?.close?.();
+      } else {
+        bottomBarRef?.current?.open?.();
+      }
+    };
+    return [
+      ...tabs.slice(0, middleIndex),
+      <Box
+        flex={1}
+        p={1}
+        key={`@@middle-float-button-${isFABOpen ? 'open' : 'close'}`}
+      >
+        <Pressable
+          alignItems="center"
+          px={0.5}
+          py={1.5}
+          onPress={() => {
+            setHaptics();
+            onPress();
+          }}
+          _hover={{ bg: 'surface-hovered' }}
+          rounded="xl"
+          justifyContent="center"
+        >
+          <Icon
+            name={isFABOpen ? 'CloseCircleSolid' : 'SwitchHorizontalSolid'}
+            size={28}
+          />
+        </Pressable>
+      </Box>,
+      ...tabs.slice(middleIndex),
+    ];
+  }, [tabs, isFABOpen]);
+
+  return (
+    <>
+      <Box
+        borderTopWidth={StyleSheet.hairlineWidth}
+        left="0"
+        right="0"
+        bottom="0"
+        bg="background-default"
+        zIndex={99999}
+        borderTopColor="divider"
+        paddingBottom={`${paddingBottom}px`}
+        height={tabBarHeight}
+        py={Math.max(insets.left ?? 0, insets.right ?? 0)}
+      >
+        <Box accessibilityRole="tablist" flex="1" flexDirection="row">
+          {tabsWithFloatButton}
+        </Box>
       </Box>
-    </Box>
+      <BottomBarModal
+        tabBarHeight={tabBarHeight}
+        foldableList={foldableList}
+        ref={(el) => (bottomBarRef.current = el || undefined)}
+        onOpen={() => setFABOpenStatus(true)}
+        onClose={() => setFABOpenStatus(false)}
+      />
+    </>
   );
 }
