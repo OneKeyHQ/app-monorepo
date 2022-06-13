@@ -8,9 +8,14 @@ import { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
 
+export type TextAreaAction = {
+  icon?: ICON_NAMES;
+  text?: string;
+  onPress?: () => void;
+};
 type TextAreaProps = {
   isInvalid?: boolean;
-  actions?: Array<{ icon?: ICON_NAMES; text?: string; onPress?: () => void }>;
+  actions?: Array<TextAreaAction>;
 };
 
 const TextArea = React.forwardRef<

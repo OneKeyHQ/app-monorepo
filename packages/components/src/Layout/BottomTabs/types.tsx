@@ -20,6 +20,28 @@ import type {
 } from 'react-native';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 
+export type TBottomBarFoldableItem<T = any> = {
+  name: T;
+  foldable: boolean;
+  component: () => null;
+  onPress: () => void;
+  tabBarLabel: string;
+  description: string;
+  tabBarIcon: () => string;
+};
+
+export type TBottomBarRefAttr = {
+  open: () => void;
+  close: () => void;
+};
+
+export type TBottomBarModalProps = {
+  onOpen: () => void;
+  onClose: () => void;
+  foldableList: TBottomBarFoldableItem[];
+  tabBarHeight: number;
+};
+
 export type Layout = { width: number; height: number };
 
 export type BottomTabNavigationEventMap = {
@@ -303,6 +325,7 @@ export type BottomTabBarProps = {
   descriptors: BottomTabDescriptorMap;
   navigation: NavigationHelpers<ParamListBase, BottomTabNavigationEventMap>;
   insets: EdgeInsets;
+  foldableList: TBottomBarFoldableItem[];
 };
 
 export type BottomTabBarButtonProps = Omit<

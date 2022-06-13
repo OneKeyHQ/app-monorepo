@@ -77,8 +77,9 @@ function PreSendAddress() {
                 </Typography.Body1Strong>
               </Box>
               <Form.Item
-                label={intl.formatMessage({ id: 'content__to' })}
+                label=""
                 labelAddon={platformEnv.isExtension ? [] : ['paste', 'scan']}
+                isLabelAddonActions
                 onLabelAddonPress={() => trigger('to')} // call validation after paste
                 control={control}
                 name="to"

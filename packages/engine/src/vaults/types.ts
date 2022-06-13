@@ -46,7 +46,6 @@ export type ITransferInfo = {
   to: string;
   amount: string;
   token?: string; // tokenIdOnNetwork
-  max?: boolean; // TODO rename to isMax
 };
 export type IApproveInfo = {
   from: string; // token owner

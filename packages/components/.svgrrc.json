@@ -4,13 +4,14 @@
   "svgoConfig": {
     "plugins": [
       { "name": "removeDimensions" },
-      { "name": "removeXMLNS" },
+      { "removeXMLNS": true },
       {
         "name": "preset-default",
         "params": {
           "overrides": {
             "cleanupIDs": false,
-            "removeUselessDefs": false
+            "removeUselessDefs": false,
+            "removeXMLNS": true
           }
         }
       }

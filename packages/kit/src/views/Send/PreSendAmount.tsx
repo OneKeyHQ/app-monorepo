@@ -13,6 +13,7 @@ import {
   Spinner,
   Text,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,7 +39,7 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendAmount>;
 
-function PreSendAmountPreview({
+export function PreSendAmountPreview({
   title,
   text,
   onChangeText,
@@ -64,7 +65,13 @@ function PreSendAmountPreview({
           </Text>
         )}
 
-        <Center flex={1} maxH="64px" mt={2} mb={3}>
+        <Center
+          nativeID="AutoSizeTextContainer"
+          flex={1}
+          maxH="64px"
+          mt={2}
+          mb={3}
+        >
           <AutoSizeText text={text} onChangeText={onChangeText} />
         </Center>
 
@@ -85,6 +92,7 @@ function PreSendAmountPreview({
 function PreSendAmount() {
   const intl = useIntl();
   const { height } = useWindowDimensions();
+  const isSmallScreen = useIsVerticalLayout();
   const shortScreen = height < 768;
   // const space = shortScreen ? '16px' : '24px';
   const navigation = useNavigation<NavigationProps>();
@@ -103,7 +111,7 @@ function PreSendAmount() {
   const amountInputDecimals =
     (tokenIdOnNetwork
       ? network?.tokenDisplayDecimals
-      : network?.nativeDisplayDecimals) ?? '2';
+      : network?.nativeDisplayDecimals) ?? 2;
 
   const validAmountRegex = useMemo(() => {
     const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
@@ -156,12 +164,6 @@ function PreSendAmount() {
         if (transferInfo) {
           transferInfo.amount = amount;
           transferInfo.from = account.address;
-          transferInfo.max = new BigNumber(
-            getTokenBalance({
-              token: tokenInfo,
-              defaultValue: '0',
-            }),
-          ).lte(amount);
         }
 
         const encodedTx = await engine.buildEncodedTxFromTransfer({
@@ -211,13 +213,22 @@ function PreSendAmount() {
             title={tokenInfo?.symbol ?? ''}
             text={amount}
             onChangeText={(text) => {
-              if (validAmountRegex.test(text)) {
-                console.log('PreSendAmountPreview onChangeText >>>>> ', text);
-                setAmount(text);
-              }
               // delete action
               if (text.length < amount.length) {
                 setAmount(text);
+                return;
+              }
+              if (validAmountRegex.test(text)) {
+                setAmount(text);
+              } else {
+                const textBN = new BigNumber(text);
+                if (!textBN.isNaN()) {
+                  const textFixed = textBN.toFixed(
+                    amountInputDecimals,
+                    BigNumber.ROUND_FLOOR,
+                  );
+                  setAmount(textFixed);
+                }
               }
             }}
             desc={
@@ -262,7 +273,7 @@ function PreSendAmount() {
           </Button>
         </Box>
         <Box flex={1} />
-        {(platformEnv.isNative || platformEnv.isDev) && (
+        {(platformEnv.isNative || (platformEnv.isDev && isSmallScreen)) && (
           <Box>
             <Keyboard
               itemHeight={shortScreen ? '44px' : undefined}
