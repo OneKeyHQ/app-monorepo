@@ -1253,7 +1253,7 @@
     "@babel/helper-plugin-utils" "^7.10.4"
     "@babel/plugin-transform-typescript" "^7.12.1"
 
-"@babel/preset-typescript@^7.13.0", "@babel/preset-typescript@^7.16.7", "@babel/preset-typescript@^7.17.12":
+"@babel/preset-typescript@^7.13.0", "@babel/preset-typescript@^7.16.7":
   version "7.17.12"
   resolved "https://registry.yarnpkg.com/@babel/preset-typescript/-/preset-typescript-7.17.12.tgz#40269e0a0084d56fc5731b6c40febe1c9a4a3e8c"
   integrity sha512-S1ViF8W2QwAKUGJXxP9NAfNaqGDdEBJKpYkxHf5Yy2C4NPPzXGeR3Lhk7G8xJaaLcFTRfNjVbtbVtm8Gb0mqvg==
@@ -18623,10 +18623,10 @@ react-native-codegen@^0.0.17:
     jscodeshift "^0.13.1"
     nullthrows "^1.1.1"
 
-react-native-collapsible-tab-view@^4.5.2:
-  version "4.5.2"
-  resolved "https://registry.yarnpkg.com/react-native-collapsible-tab-view/-/react-native-collapsible-tab-view-4.5.2.tgz#e5fd7b81d76f3ee98cc0a0ea54439674591e9055"
-  integrity sha512-QXj4bMqfD+erREZNS51mqyPxJ8Xid4Kef/vqu1PqExNCAo30WjSKOpeNVHmXt4vcs/6ln+qFzLby4cbJ5AkoBw==
+react-native-collapsible-tab-view@4.4.0:
+  version "4.4.0"
+  resolved "https://registry.yarnpkg.com/react-native-collapsible-tab-view/-/react-native-collapsible-tab-view-4.4.0.tgz#5eebeb22e00458402a04c1ca1b29c34a1398eebc"
+  integrity sha512-mzb7HibauG0LpTREAKdDMBEDzEP/o8lRwYWpSY4NOoMUuAfpcrQK+/yPcmCD81W4gp0/InHgg+rc+D1qZzwf9g==
   dependencies:
     use-deep-compare "^1.1.0"
 
@@ -18656,12 +18656,10 @@ react-native-crypto@^2.2.0:
     public-encrypt "^4.0.0"
     randomfill "^1.0.3"
 
-react-native-draggable-flatlist@^4.0.0-beta.3:
-  version "4.0.0-beta.3"
-  resolved "https://registry.yarnpkg.com/react-native-draggable-flatlist/-/react-native-draggable-flatlist-4.0.0-beta.3.tgz#62318b83ff67c20d4dad18f0e91ffb24bb20becc"
-  integrity sha512-7c3SGBOyGK7abJ33TSIUX9UPhZpG87HJNkVZw6mHs72uB7gDi3hFTY/6IX8C8196F+ABrI5F1SZuue1ZvgpMgg==
-  dependencies:
-    "@babel/preset-typescript" "^7.17.12"
+react-native-draggable-flatlist@3.0.3:
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/react-native-draggable-flatlist/-/react-native-draggable-flatlist-3.0.3.tgz#e85503585253be01ad251f78d5b341ac22f9d952"
+  integrity sha512-bDro6aqQMvvTm/CuHre9dAjSBKosAfZRLDx3nmrjOz799kxcn0bq+uCB6yF6m+g1Xd/gVPl7E3Ss4uX+oPUlHg==
 
 react-native-fast-image@^8.5.11:
   version "8.5.11"
@@ -18740,10 +18738,10 @@ react-native-modal@^13.0.0:
     prop-types "^15.6.2"
     react-native-animatable "1.3.3"
 
-react-native-pager-view@5.4.24:
-  version "5.4.24"
-  resolved "https://registry.yarnpkg.com/react-native-pager-view/-/react-native-pager-view-5.4.24.tgz#8626e757ddc55e41eca66d2f8a8a75aec54591ee"
-  integrity sha512-dRMB7i3B+mu4NCeIN6gqbR/kC/rr2wzqO0gisXDdJwJr78G24sWoTNpLEDFo3G8TFHY9nTMutVl5CUvkN2dp6g==
+react-native-pager-view@5.4.15:
+  version "5.4.15"
+  resolved "https://registry.yarnpkg.com/react-native-pager-view/-/react-native-pager-view-5.4.15.tgz#075fef5ae4ba6ecc37e49b6c4a24770131a2a3cc"
+  integrity sha512-5NssD840wFCuOL4B1ZRiRADvt+Vx2Dgify4SmAUqHXCx03yiGPnRWmFjYXyQeK6gq/8VY+gPGE4bTy9ahzBbDw==
 
 react-native-randombytes@^3.6.1:
   version "3.6.1"
@@ -18766,14 +18764,15 @@ react-native-reanimated@^2.8.0:
     setimmediate "^1.0.5"
     string-hash-64 "^1.0.3"
 
-react-native-redash@^16.3.0, react-native-redash@^9.3.2:
-  version "16.3.0"
-  resolved "https://registry.yarnpkg.com/react-native-redash/-/react-native-redash-16.3.0.tgz#a9112ff1b0e0b506a2e2ae50967597e73b69d343"
-  integrity sha512-dhmeYbQ/usGzxZSGZmzmRuIFF2LrtJUKqgseKgf9Jdj0JQ7VM20m/LqTg60+wjxeiyAh2D/vKsQ2U7rMkuoplQ==
+react-native-redash@^9.3.2:
+  version "9.6.0"
+  resolved "https://registry.yarnpkg.com/react-native-redash/-/react-native-redash-9.6.0.tgz#4fde2075c52b2dd0646436d50a326fd9989f4393"
+  integrity sha512-0Q0YppSQQ7LJlYcSzb2GGYtKvZFVOfzYeJc/cE1smXNisXyanFmFLrWZ1L4OuZyCas+cl3nELYeQi55ys3h6bg==
   dependencies:
     abs-svg-path "^0.1.1"
     normalize-svg-path "^1.0.1"
     parse-svg-path "^0.1.2"
+    use-memo-one "^1.1.1"
 
 react-native-resegmented-control@^2.4.0:
   version "2.4.0"
@@ -21966,6 +21965,11 @@ use-deep-compare@^1.1.0:
   integrity sha512-6yY3zmKNCJ1jjIivfZMZMReZjr8e6iC6Uqtp701jvWJ6ejC/usXD+JjmslZDPJQgX8P4B1Oi5XSLHkOLeYSJsA==
   dependencies:
     dequal "1.0.0"
+
+use-memo-one@^1.1.1:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/use-memo-one/-/use-memo-one-1.1.2.tgz#0c8203a329f76e040047a35a1197defe342fab20"
+  integrity sha512-u2qFKtxLsia/r8qG0ZKkbytbztzRb317XCkT7yP8wxL0tZ/CzK2G+WWie5vWvpyeP7+YoPIwbJoIHJ4Ba4k0oQ==
 
 use-subscription@1.5.1, "use-subscription@>=1.0.0 <1.6.0":
   version "1.5.1"

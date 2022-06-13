@@ -22,7 +22,6 @@ export const AutoSizeText: FC<{
       lineHeight="64px"
       fontWeight="bold"
       bgColor="surface-subdued"
-      multiline
       onChangeText={onChangeText}
       value={text}
     />
