@@ -89,20 +89,16 @@ export const tabRoutes: TabRouteConfig[] = [
       },
     ],
   },
-  ...(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      return [
-        {
-          name: TabRoutes.Developer,
-          component: DevelopScreen,
-          tabBarIcon: () => 'ChipOutline',
-          translationId: 'form__dev_mode',
-        },
-      ] as unknown as TabRouteConfig[];
-    }
-    return [];
-  })(),
 ];
+
+if (process.env.NODE_ENV !== 'production') {
+  tabRoutes.push({
+    name: TabRoutes.Developer,
+    component: DevelopScreen,
+    tabBarIcon: () => 'ChipOutline',
+    translationId: 'form__dev_mode',
+  });
+}
 
 const Stack = createNativeStackNavigator();
 
