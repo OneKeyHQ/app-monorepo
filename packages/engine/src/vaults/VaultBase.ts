@@ -214,7 +214,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getOutputAccount(): Promise<Account> {
     // The simplest case as default implementation.
-    const dbAccount = await this.getDbAccount();
+    const dbAccount = await this.getDbAccount({ noCache: true });
     return {
       id: dbAccount.id,
       name: dbAccount.name,

@@ -58,8 +58,9 @@ export class VaultContext extends VaultContextBase {
 
   _dbAccount!: DBAccount;
 
-  async getDbAccount() {
-    if (!this._dbAccount || this._dbAccount.id !== this.accountId) {
+  async getDbAccount(params?: { noCache?: boolean }) {
+    const { noCache } = { noCache: false, ...params };
+    if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
       this._dbAccount = await this.engine.dbApi.getAccount(this.accountId);
     }
     return this._dbAccount;
