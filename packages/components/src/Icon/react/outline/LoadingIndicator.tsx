@@ -3,12 +3,7 @@ import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
 
 function SvgLoadingIndicator(props: SvgProps) {
   return (
-    <Svg
-      viewBox="0 0 25 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <Svg viewBox="0 0 25 24" fill="none" {...props}>
       <G clipPath="url(#loading-indicator_svg__clip0)">
         <Path
           d="M12.5 22c5.523 0 10-4.477 10-10s-4.477-10-10-10-10 4.477-10 10 4.477 10 10 10z"

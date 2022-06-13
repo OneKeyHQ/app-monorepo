@@ -200,6 +200,7 @@
   "content__created": "Créé",
   "content__creating_an_str_account_will_create_other_accounts": "La création d'un compte {impl} entraîne la création synchrone d'autres comptes du réseau compatible {impl}.",
   "content__custom": "Personnalisé",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Description",
   "content__details": "Détails",
   "content__downloading": "Téléchargement",
@@ -211,6 +212,7 @@
   "content__estimated": "Estimation de",
   "content__ether_price": "Prix de l'éther",
   "content__every_time_we_find_the_best_prices": "A chaque fois, nous trouvons les meilleurs prix auprès des principaux fournisseurs de liquidités. Chaque devis est automatiquement facturé 1 % de frais pour aider à financer la croissance et l'amélioration futures de OneKey.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Identification faciale",
   "content__face_id_touch_id_can_be_used_instead_of": "Face ID / Touch ID peut être utilisé au lieu de saisir un mot de passe, ce qui le rend plus rapide et plus pratique.",
   "content__fast": "Normal",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "URLs RPC prédéfinis",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Le prix est actualisé après {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Rapidement",
   "content__rocket_fast": "🚀 Rapide",
   "content__search": "Recherche...",
@@ -293,6 +296,7 @@
   "content__to": "A",
   "content__total": "Total",
   "content__touch_id": "ID tactile",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Type",
   "content__up_to_100_accounts": "Jusqu'à 100 comptes",
   "content__update_ready_to_install": "Mise à jour prête à installer",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Portefeuille matériel",
   "wallet__imported_accounts": "Comptes importés",
   "wallet__wallet": "Portefeuille",
-  "wallet__watched_accounts": "Comptes surveillés",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Comptes surveillés"
 }

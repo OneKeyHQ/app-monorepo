@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgNftPeg(props: SvgProps) {
   return (
-    <Svg
-      viewBox="0 0 53 60"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <Svg viewBox="0 0 53 60" fill="none" {...props}>
       <Path
         fillRule="evenodd"
         clipRule="evenodd"

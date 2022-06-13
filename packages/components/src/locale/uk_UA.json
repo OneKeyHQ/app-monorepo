@@ -200,6 +200,7 @@
   "content__created": "Створено",
   "content__creating_an_str_account_will_create_other_accounts": "Створення облікового запису {impl} призведе до створення інших облікових записів у {impl} -сумісній мережі синхронно.",
   "content__custom": "На замовлення",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Опис",
   "content__details": "Деталі",
   "content__downloading": "Завантаження",
@@ -211,6 +212,7 @@
   "content__estimated": "Приблизно",
   "content__ether_price": "Ціна ефіру",
   "content__every_time_we_find_the_best_prices": "Щоразу ми знаходимо найкращі ціни від провідних постачальників ліквідності. За кожну пропозицію автоматично стягується комісія в розмірі 1%, щоб допомогти фінансувати майбутнє зростання та вдосконалення OneKey.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Face ID",
   "content__face_id_touch_id_can_be_used_instead_of": "Face ID / Touch ID можна використовувати замість введення пароля, що робить його швидшим і зручнішим.",
   "content__fast": "Нормальний",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "Попередньо встановлені URL-адреси RPC",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Ціна оновлюється після {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Швидко",
   "content__rocket_fast": "🚀 Швидко",
   "content__search": "Шукати...",
@@ -293,6 +296,7 @@
   "content__to": "До",
   "content__total": "Всього",
   "content__touch_id": "Touch ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Тип",
   "content__up_to_100_accounts": "До 100 облікових записів",
   "content__update_ready_to_install": "Оновлення готове до встановлення",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Апаратний гаманець",
   "wallet__imported_accounts": "Імпортовані облікові записи",
   "wallet__wallet": "гаманець",
-  "wallet__watched_accounts": "Переглянуті акаунти",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Переглянуті акаунти"
 }

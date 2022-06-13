@@ -3,13 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgTruck(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      {...props}
-    >
+    <Svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
       <Path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0z" />
       <Path
         strokeLinecap="round"

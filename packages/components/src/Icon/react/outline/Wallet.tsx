@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgWallet(props: SvgProps) {
   return (
-    <Svg
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <Svg viewBox="0 0 48 48" fill="none" {...props}>
       <Path
         d="M23.5 26a1 1 0 110 2 1 1 0 010-2"
         stroke="#8C8CA1"

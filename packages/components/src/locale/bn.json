@@ -200,6 +200,7 @@
   "content__created": "তৈরি হয়েছে",
   "content__creating_an_str_account_will_create_other_accounts": "একটি {impl} অ্যাকাউন্ট তৈরি করা সিঙ্ক্রোনাসভাবে {impl} সামঞ্জস্যপূর্ণ নেটওয়ার্কের অন্যান্য অ্যাকাউন্ট তৈরি করবে।",
   "content__custom": "কাস্টম",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "বর্ণনা",
   "content__details": "বিস্তারিত",
   "content__downloading": "ডাউনলোড হচ্ছে",
@@ -211,6 +212,7 @@
   "content__estimated": "আনুমানিক",
   "content__ether_price": "ইথার মূল্য",
   "content__every_time_we_find_the_best_prices": "আমরা সবসময় সরবরাহকারীদের কাছ থেকে সেরা তারল্য এবং দাম খুঁজে পাই। আপনার জন্য আরও ভাল পরিষেবা প্রদানের জন্য OneKey-এর সাহায্য করার জন্য প্রতিটি উদ্ধৃতিতে 1% ফি অন্তর্ভুক্ত রয়েছে।",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "ফেস আইডি",
   "content__face_id_touch_id_can_be_used_instead_of": "পাসওয়ার্ড দেওয়ার পরিবর্তে ফেস আইডি/টাচ আইডি ব্যবহার করা যেতে পারে, এটি দ্রুত এবং আরও সুবিধাজনক করে তোলে।",
   "content__fast": "দ্রুত",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "RPC ইউআরএল প্রিসেট করুন",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "{0} পরে মূল্য আপডেট",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "দ্রুত",
   "content__rocket_fast": "🚀 দ্রুত",
   "content__search": "অনুসন্ধান করুন...",
@@ -293,6 +296,7 @@
   "content__to": "প্রতি",
   "content__total": "মোট",
   "content__touch_id": "টাচ আইডি",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "টাইপ",
   "content__up_to_100_accounts": "100টি পর্যন্ত অ্যাকাউন্ট",
   "content__update_ready_to_install": "আপডেট ইনস্টল করার জন্য প্রস্তুত",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "হার্ডওয়্যার ওয়ালেট",
   "wallet__imported_accounts": "আমদানি করা অ্যাকাউন্ট",
   "wallet__wallet": "ওয়ালেট",
-  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা"
 }

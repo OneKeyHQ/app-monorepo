@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgFingerPrint(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      {...props}
-    >
+    <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
       <Path
         fillRule="evenodd"
         d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z"

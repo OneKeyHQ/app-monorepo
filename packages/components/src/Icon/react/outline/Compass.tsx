@@ -3,13 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgCompass(props: SvgProps) {
   return (
-    <Svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
+    <Svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
       <Path
         d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
         strokeWidth={2}

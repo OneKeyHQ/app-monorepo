@@ -200,6 +200,7 @@
   "content__created": "बनाया था",
   "content__creating_an_str_account_will_create_other_accounts": "एक {impl} खाता बनाने से {impl} संगत नेटवर्क के अन्य खाते समकालिक रूप से बन जाएंगे।",
   "content__custom": "रीति",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "विवरण",
   "content__details": "विवरण",
   "content__downloading": "डाउनलोड",
@@ -211,6 +212,7 @@
   "content__estimated": "अनुमानित",
   "content__ether_price": "ईथर मूल्य",
   "content__every_time_we_find_the_best_prices": "हर बार, हम अग्रणी चलनिधि आपूर्तिकर्ताओं से सर्वोत्तम मूल्य पाते हैं। OneKey के भविष्य के विकास और सुधार को निधि देने में मदद करने के लिए प्रत्येक उद्धरण से स्वचालित रूप से 1% शुल्क लिया जाता है।",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "फेस आईडी",
   "content__face_id_touch_id_can_be_used_instead_of": "पासवर्ड दर्ज करने के बजाय फेस आईडी / टच आईडी का उपयोग किया जा सकता है, जिससे यह तेज और अधिक सुविधाजनक हो जाता है।",
   "content__fast": "साधारण",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "प्रीसेट आरपीसी यूआरएल",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "{0} के बाद मूल्य ताज़ा होता है",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "तेज़",
   "content__rocket_fast": "फास्ट",
   "content__search": "खोज...",
@@ -293,6 +296,7 @@
   "content__to": "प्रति",
   "content__total": "संपूर्ण",
   "content__touch_id": "टच आईडी",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "प्रकार",
   "content__up_to_100_accounts": "100 खातों तक",
   "content__update_ready_to_install": "अद्यतन स्थापित करने के लिए तैयार",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "हार्डवेयर वॉलेट",
   "wallet__imported_accounts": "आयातित खाते",
   "wallet__wallet": "बटुआ",
-  "wallet__watched_accounts": "देखे गए खाते",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "देखे गए खाते"
 }

@@ -200,6 +200,7 @@
   "content__created": "Nilikha",
   "content__creating_an_str_account_will_create_other_accounts": "Ang paggawa ng {impl} account ay lilikha ng iba pang mga account ng {impl} na katugmang network nang sabay-sabay.",
   "content__custom": "Custom",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Paglalarawan",
   "content__details": "Mga Detalye",
   "content__downloading": "Nagda-download",
@@ -211,6 +212,7 @@
   "content__estimated": "Tinatantya",
   "content__ether_price": "Presyo ng Ether",
   "content__every_time_we_find_the_best_prices": "Palagi kaming nakakahanap ng pinakamahusay na pagkatubig at mga presyo mula sa mga supplier. Ang bawat quote ay may kasamang 1% na bayad sa pagtulong sa OneKey na magbigay ng mas mahusay na serbisyo para sa iyo.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Face ID",
   "content__face_id_touch_id_can_be_used_instead_of": "Maaaring gamitin ang Face ID / Touch ID sa halip na maglagay ng password, na ginagawa itong mas mabilis at mas maginhawa.",
   "content__fast": "Mabilis",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "Mga Preset na URL ng RPC",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Mga update sa presyo pagkatapos ng {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Mabilis",
   "content__rocket_fast": "🚀 Mabilis",
   "content__search": "Hanapin...",
@@ -293,6 +296,7 @@
   "content__to": "Upang",
   "content__total": "Kabuuan",
   "content__touch_id": "Pindutin ang ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Uri",
   "content__up_to_100_accounts": "Hanggang 100 account",
   "content__update_ready_to_install": "Handa nang i-install ang update",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Mga na-import na Account",
   "wallet__wallet": "wallet",
-  "wallet__watched_accounts": "Mga Napanood na Account",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Mga Napanood na Account"
 }

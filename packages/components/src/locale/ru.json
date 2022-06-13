@@ -200,6 +200,7 @@
   "content__created": "Создано",
   "content__creating_an_str_account_will_create_other_accounts": "Создание учетной записи {impl} приведет к синхронному созданию других учетных записей совместимой сети {impl}.",
   "content__custom": "Пользовательский",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Описание",
   "content__details": "Подробности",
   "content__downloading": "Загрузка",
@@ -211,6 +212,7 @@
   "content__estimated": "Оценка",
   "content__ether_price": "Цена эфира",
   "content__every_time_we_find_the_best_prices": "Каждый раз мы находим лучшие цены от ведущих поставщиков ликвидности. С каждого предложения автоматически взимается комиссия в размере 1%, которая помогает финансировать будущий рост и совершенствование OneKey.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Идентификатор лица",
   "content__face_id_touch_id_can_be_used_instead_of": "Вместо ввода пароля можно использовать Face ID/Touch ID, что делает его более быстрым и удобным.",
   "content__fast": "Нормальный",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "Предустановленные URL-адреса RPC",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Цена обновляется после {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Быстрый",
   "content__rocket_fast": "🚀 Быстро",
   "content__search": "Поиск...",
@@ -293,6 +296,7 @@
   "content__to": "На",
   "content__total": "Всего",
   "content__touch_id": "Сенсорный идентификатор",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Тип",
   "content__up_to_100_accounts": "До 100 аккаунтов",
   "content__update_ready_to_install": "Обновление готово к установке",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Аппаратный кошелек",
   "wallet__imported_accounts": "Импортированные аккаунты",
   "wallet__wallet": "Бумажник",
-  "wallet__watched_accounts": "Просмотренные аккаунты",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "Просмотренные аккаунты"
 }

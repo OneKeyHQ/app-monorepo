@@ -3,12 +3,7 @@ import Svg, { SvgProps, Path } from 'react-native-svg';
 
 function SvgClipboardCheck(props: SvgProps) {
   return (
-    <Svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      {...props}
-    >
+    <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
       <Path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
       <Path
         fillRule="evenodd"

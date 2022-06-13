@@ -200,6 +200,7 @@
   "content__created": "Created",
   "content__creating_an_str_account_will_create_other_accounts": "Creating an {impl} account will create other accounts of the {impl} compatible network synchronously.",
   "content__custom": "Custom",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Description",
   "content__details": "Details",
   "content__downloading": "Downloading",
@@ -211,6 +212,7 @@
   "content__estimated": "Estimated",
   "content__ether_price": "Ether Price",
   "content__every_time_we_find_the_best_prices": "We always find the best liquidity and prices from suppliers. Each quote includes 1% fee to helping OneKey’s to provide better service for you.",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "Face ID",
   "content__face_id_touch_id_can_be_used_instead_of": "Face ID / Touch ID can be used instead of entering a password, making it faster and more convenient.",
   "content__fast": "Fast",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "Preset RPC URLs",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "Price updates after {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "Rapid",
   "content__rocket_fast": " 🚀  Fast",
   "content__search": "Search...",
@@ -293,6 +296,7 @@
   "content__to": "To",
   "content__total": "Total",
   "content__touch_id": "Touch ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "Type",
   "content__up_to_100_accounts": "Up to 100 accounts",
   "content__update_ready_to_install": "Update ready to install",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Imported Accounts",
   "wallet__wallet": "Wallet",
-  "wallet__watched_accounts": "Watched Accounts",
-  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
-  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
-  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
-  "content__exchange_any_tokens": "Exchange any tokens"
+  "wallet__watched_accounts": "Watched Accounts"
 }

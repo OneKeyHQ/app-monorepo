@@ -200,6 +200,7 @@
   "content__created": "已創建",
   "content__creating_an_str_account_will_create_other_accounts": "創建{impl}賬戶，會同步創建{impl}兼容網絡的其他賬戶",
   "content__custom": "風俗",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "描述",
   "content__details": "詳情",
   "content__downloading": "正在下載",
@@ -211,6 +212,7 @@
   "content__estimated": "預估值",
   "content__ether_price": "以太幣價格",
   "content__every_time_we_find_the_best_prices": "我們總是為您從提供商中挑選最佳深度和價格。報價已包含1%費用，用於幫助OneKey 為您提供長期優質服務。",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "人臉識別",
   "content__face_id_touch_id_can_be_used_instead_of": "使用Face ID / Touch ID 代替輸入密碼，更為快速和便捷",
   "content__fast": "快",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "預設 RPC 網址",
   "content__previous_str_account_is_empty": "無法創建賬戶，前一個 {0} 賬戶是空的。",
   "content__price_updates_after_str": "{0}後價格刷新",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "極快",
   "content__rocket_fast": "🚀 快",
   "content__search": "搜索...",
@@ -293,6 +296,7 @@
   "content__to": "至",
   "content__total": "總額",
   "content__touch_id": "觸控 ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "類型",
   "content__up_to_100_accounts": "最多 100 個賬戶",
   "content__update_ready_to_install": "更新準備安裝",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "硬體錢包",
   "wallet__imported_accounts": "導入賬戶",
   "wallet__wallet": "錢包",
-  "wallet__watched_accounts": "觀察賬戶",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "觀察賬戶"
 }

@@ -26,6 +26,7 @@ export type TBottomBarFoldableItem<T = any> = {
   component: () => null;
   onPress: () => void;
   tabBarLabel: string;
+  description: string;
   tabBarIcon: () => string;
 };
 

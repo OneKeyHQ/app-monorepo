@@ -200,6 +200,7 @@
   "content__created": "已创建",
   "content__creating_an_str_account_will_create_other_accounts": "创建 {impl} 账户，会同步创建 {impl} 兼容网络的其他账户",
   "content__custom": "自定义",
+  "content__deposit_tokens_to_your_wallet": "存储代币到您的钱包",
   "content__description": "描述",
   "content__details": "详情",
   "content__downloading": "正在下载",
@@ -211,6 +212,7 @@
   "content__estimated": "预估值",
   "content__ether_price": "Ether 价格",
   "content__every_time_we_find_the_best_prices": "我们总是为您从提供商中挑选最佳深度和价格。报价已包含1%费用，用于帮助 OneKey 为您提供长期优质服务。",
+  "content__exchange_any_tokens": "兑换任何代币",
   "content__face_id": "面容识别",
   "content__face_id_touch_id_can_be_used_instead_of": "使用Face ID / Touch ID 代替输入密码，更为快速和便捷",
   "content__fast": "快",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "预置 RPC 网址",
   "content__previous_str_account_is_empty": "无法创建账户，前一个 {0} 账户是空的。",
   "content__price_updates_after_str": "价格将在 {0} 后更新",
+  "content__purchase_crypto_with_cash": "用现金购买加密货币",
   "content__rapid": "极快",
   "content__rocket_fast": "🚀 快",
   "content__search": "搜索...",
@@ -293,6 +296,7 @@
   "content__to": "至",
   "content__total": "总额",
   "content__touch_id": "指纹识别",
+  "content__transfer_tokens_to_another_wallet": "转移代币到其他钱包",
   "content__type": "类型",
   "content__up_to_100_accounts": "最多 100 个账户",
   "content__update_ready_to_install": "安装更新已就绪",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "硬件钱包",
   "wallet__imported_accounts": "导入账户",
   "wallet__wallet": "钱包",
-  "wallet__watched_accounts": "观察账户",
-  "content__deposit_tokens_to_your_wallet": "存储代币到您的钱包",
-  "content__transfer_tokens_to_another_wallet": "转移代币到其他钱包",
-  "content__purchase_crypto_with_cash": "用现金购买加密货币",
-  "content__exchange_any_tokens": "兑换任何代币"
+  "wallet__watched_accounts": "观察账户"
 }

@@ -200,6 +200,7 @@
   "content__created": "สร้าง",
   "content__creating_an_str_account_will_create_other_accounts": "การสร้างบัญชี {impl} จะสร้างบัญชีอื่นๆ ของเครือข่ายที่เข้ากันได้กับ {impl} แบบซิงโครนัส",
   "content__custom": "กำหนดเอง",
+  "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "คำอธิบาย",
   "content__details": "รายละเอียด",
   "content__downloading": "กำลังดาวน์โหลด",
@@ -211,6 +212,7 @@
   "content__estimated": "โดยประมาณ",
   "content__ether_price": "ราคาอีเธอร์",
   "content__every_time_we_find_the_best_prices": "ทุกครั้งที่เราพบราคาที่ดีที่สุดจากซัพพลายเออร์ด้านสภาพคล่องชั้นนำ แต่ละใบเสนอราคาจะถูกเรียกเก็บค่าธรรมเนียม 1% โดยอัตโนมัติเพื่อช่วยสนับสนุนการเติบโตและการปรับปรุงในอนาคตของ OneKey",
+  "content__exchange_any_tokens": "Exchange any tokens",
   "content__face_id": "รหัสประจำตัว",
   "content__face_id_touch_id_can_be_used_instead_of": "สามารถใช้ Face ID / Touch ID แทนการป้อนรหัสผ่านได้ ทำให้สะดวกรวดเร็วยิ่งขึ้น",
   "content__fast": "ปกติ",
@@ -262,6 +264,7 @@
   "content__preset_rpc": "ตั้งค่า RPC URLs",
   "content__previous_str_account_is_empty": "Unable to create account, previous Segwit {0} account is empty.",
   "content__price_updates_after_str": "ราคาจะรีเฟรชหลังจาก {0}",
+  "content__purchase_crypto_with_cash": "Purchase crypto with cash",
   "content__rapid": "เร็ว",
   "content__rocket_fast": "🚀เร็ว",
   "content__search": "ค้นหา...",
@@ -293,6 +296,7 @@
   "content__to": "ถึง",
   "content__total": "รวม",
   "content__touch_id": "สัมผัส ID",
+  "content__transfer_tokens_to_another_wallet": "Transfer tokens to another wallet",
   "content__type": "พิมพ์",
   "content__up_to_100_accounts": "มากถึง 100 บัญชี",
   "content__update_ready_to_install": "อัพเดทพร้อมติดตั้ง",
@@ -840,9 +844,5 @@
   "wallet__hardware_wallet": "กระเป๋าเงินฮาร์ดแวร์",
   "wallet__imported_accounts": "บัญชีนำเข้า",
   "wallet__wallet": "กระเป๋าสตางค์",
-  "wallet__watched_accounts": "ดูบัญชี",
-  "content__deposit_tokens_to_your_wallet": "",
-  "content__transfer_tokens_to_another_wallet": "",
-  "content__purchase_crypto_with_cash": "",
-  "content__exchange_any_tokens": ""
+  "wallet__watched_accounts": "ดูบัญชี"
 }
