@@ -21,7 +21,6 @@ export interface TabRouteConfig {
   translationId: LocaleIds;
   component: React.FC;
   tabBarIcon: () => string;
-
   children?: {
     name: HomeRoutes;
     component: React.FC<any>;

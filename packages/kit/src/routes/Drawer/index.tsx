@@ -22,7 +22,7 @@ const DrawerStackNavigator = () => {
          */
         drawerType: isWeb ? 'back' : 'front',
         swipeEdgeWidth: 390,
-        drawerStyle: { width: '85%', maxWidth: 400 },
+        drawerStyle: { width: '85%', maxWidth: 400, opacity: 1 },
       }}
       drawerContent={(props) => <AccountSelectorMobile {...props} />}
     >

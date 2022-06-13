@@ -118,6 +118,8 @@ function BottomTabNavigator({
     <NavigationContent>
       <BottomTabView
         {...rest}
+        // @ts-expect-error
+        foldableList={screenOptions?.foldableList ?? []}
         state={state}
         navigation={navigation}
         descriptors={descriptors}

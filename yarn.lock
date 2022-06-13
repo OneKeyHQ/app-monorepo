@@ -14728,11 +14728,6 @@ jsc-android@^250230.2.1:
   resolved "https://registry.yarnpkg.com/jsc-android/-/jsc-android-250230.2.1.tgz#3790313a970586a03ab0ad47defbc84df54f1b83"
   integrity sha512-KmxeBlRjwoqCnBBKGsihFtvsBHyUFlBxJPK4FzeYcIuBfdjv6jFys44JITAgSTbQD+vIdwMEfyZklsuQX0yI1Q==
 
-"jsc-android@npm:@sunnylqm/jsc-android":
-  version "264977.0.1"
-  resolved "https://registry.yarnpkg.com/@sunnylqm/jsc-android/-/jsc-android-264977.0.1.tgz#e7ded1bf47953140fe60cf8bfa8e478cfbf562e1"
-  integrity sha512-GtJOT3QxKCo14YFS+4uqm/B2Bq5ISbUYLiXAkRRkMZotenjJEGLfK6OEiv0PoLLsj9iGDF3KpV7mP/HlxI2o1A==
-
 jscodeshift@^0.13.1:
   version "0.13.1"
   resolved "https://registry.yarnpkg.com/jscodeshift/-/jscodeshift-0.13.1.tgz#69bfe51e54c831296380585c6d9e733512aecdef"
@@ -18737,6 +18732,11 @@ react-native-modal@^13.0.0:
   dependencies:
     prop-types "^15.6.2"
     react-native-animatable "1.3.3"
+
+react-native-modalize@^2.0.13:
+  version "2.0.13"
+  resolved "https://registry.yarnpkg.com/react-native-modalize/-/react-native-modalize-2.0.13.tgz#51517cddd726ddbc19c080d15e7721ade4ee7a66"
+  integrity sha512-BMJlpTnpeDVp5LbbE6kdO+3+yLzowRvPgcIu1QCCM+//uY7oON4VcL8ISilSgAfOYeNQc6vhaD5chVtmpTl/dw==
 
 react-native-pager-view@5.4.15:
   version "5.4.15"

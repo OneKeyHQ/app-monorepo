@@ -49,7 +49,7 @@ class BleUtils {
   async getManager(): Promise<BleManager> {
     if (this.manager) return Promise.resolve(this.manager);
 
-    RNBleManager.start({ showAlert: true });
+    RNBleManager.start({ showAlert: false });
 
     const manager = new BleManager();
     return new Promise((resolve) => {
