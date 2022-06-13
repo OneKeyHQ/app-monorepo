@@ -6,7 +6,6 @@ import { ListRenderItem, useWindowDimensions } from 'react-native';
 
 import {
   Box,
-  Divider,
   FlatList,
   Pressable,
   Typography,
@@ -39,6 +38,9 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
           bgColor="surface-default"
           borderTopRadius={index === 0 ? '12px' : '0px'}
           borderRadius={index === data?.length - 1 ? '12px' : '0px'}
+          borderWidth={1}
+          borderColor="border-subdued"
+          borderTopWidth={index === 0 ? 1 : 0}
         >
           <Box flexDirection="row" flex={1} alignItems="center">
             <DAppIcon size={48} favicon={item.favicon} chain={item.chain} />
@@ -64,7 +66,6 @@ const Mobile: FC<SectionDataType> = ({ ...rest }) => {
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 24 }}
         data={data}
         px="16px"
-        ItemSeparatorComponent={() => <Divider />}
         renderItem={renderItem}
         keyExtractor={(item, index) => `ListView${index}`}
       />
@@ -96,14 +97,12 @@ const Desktop: FC<SectionDataType> = ({ ...rest }) => {
           flexDirection="column"
           borderRadius="12px"
           padding="16px"
-          shadow="depth.2"
+          borderWidth={1}
+          borderColor="border-subdued"
           width={cardWidth - 16}
           height={164}
           _hover={{
             bg: 'surface-hovered',
-            width: (cardWidth - 16) * 1.03,
-            height: 176 * 1.03,
-            shadow: 'depth.3',
           }}
           onPress={() => {
             if (onItemSelect) {

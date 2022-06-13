@@ -8,6 +8,7 @@ import {
   Pressable,
   Text,
   useIsVerticalLayout,
+  useTheme,
 } from '@onekeyhq/components';
 
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
@@ -15,13 +16,15 @@ import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 export const UtilSection = () => {
   const intl = useIntl();
   const small = useIsVerticalLayout();
+  const { themeVariant } = useTheme();
   return (
     <Box
       w="full"
       mb="6"
       borderRadius="12"
       bg="surface-default"
-      shadow="depth.2"
+      borderWidth={themeVariant === 'light' ? 1 : undefined}
+      borderColor="border-subdued"
     >
       <Pressable
         display="flex"

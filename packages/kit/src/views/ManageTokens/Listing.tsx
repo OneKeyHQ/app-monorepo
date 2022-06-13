@@ -94,7 +94,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
               defaultMessage: 'MY TOKENS',
             })}
           </Typography.Subheading>
-          <Box mt="2" mb="6" shadow="depth.2">
+          <Box mt="2" mb="6">
             {tokens.map((item, index) => (
               <Pressable
                 onPress={() => onDetail(item)}
@@ -323,7 +323,6 @@ const ListingToken: FC<ListingTokenProps> = ({
       bg="surface-default"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
-      shadow="depth.2"
     >
       <Box display="flex" alignItems="center" flexDirection="row">
         <TokenImage size={8} src={item.logoURI} />

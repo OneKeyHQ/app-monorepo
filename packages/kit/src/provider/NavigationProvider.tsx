@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo } from 'react';
 
 import {
   DefaultTheme,
@@ -9,8 +9,11 @@ import { createURL } from 'expo-linking';
 
 import { Box, DialogManager, useThemeValue } from '@onekeyhq/components';
 import Toast from '@onekeyhq/components/src/Toast/Custom';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import RootStack from '@onekeyhq/kit/src/routes/Root';
 import { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
+import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const prefix = createURL('/');
@@ -26,17 +29,17 @@ declare global {
 // update navigationRef.current at <NavigationContainer />
 global.$navigationRef = navigationRef;
 
-const NavigationApp = () => {
-  const linking = {
-    prefixes: [prefix],
-  };
-  let enableLinkingRoute =
-    platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
-  // firefox popup window resize issue
-  if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
-    enableLinkingRoute = false;
-  }
+const linking = {
+  prefixes: [prefix],
+};
+let enableLinkingRoute =
+  platformEnv.isDev || platformEnv.isNative || platformEnv.isExtension;
+// firefox popup window resize issue
+if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
+  enableLinkingRoute = false;
+}
 
+const NavigationApp = () => {
   const [bgColor, textColor] = useThemeValue([
     'surface-subdued',
     'text-default',
@@ -55,6 +58,21 @@ const NavigationApp = () => {
     }),
     [bgColor, textColor],
   );
+
+  const { instanceId } = useSettings();
+
+  useEffect(() => {
+    analyticLogEvent('initialized', {
+      instanceId,
+      platform: platformEnv.symbol,
+      distribution: platformEnv.distributionChannel,
+    });
+    setAttributes({
+      instanceId,
+      platform: platformEnv.symbol ?? '',
+      distribution: platformEnv.distributionChannel ?? '',
+    });
+  }, [instanceId]);
 
   return (
     <>

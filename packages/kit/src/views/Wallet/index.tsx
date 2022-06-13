@@ -10,6 +10,7 @@ import {
   Empty,
   useIsVerticalLayout,
   useThemeValue,
+  useUserDevice,
 } from '@onekeyhq/components';
 import {
   MaterialTabBar,
@@ -64,6 +65,7 @@ NetInfo.configure({
 
 const Home: FC = () => {
   const intl = useIntl();
+  const { screenWidth } = useUserDevice();
   const [
     tabbarBgColor,
     activeLabelColor,
@@ -209,6 +211,7 @@ const Home: FC = () => {
     <>
       <Tabs.Container
         renderHeader={AccountInfo}
+        width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
         pagerProps={{ scrollEnabled: false }}
         headerHeight={
           isVerticalLayout
@@ -216,9 +219,9 @@ const Home: FC = () => {
             : FIXED_HORIZONTAL_HEDER_HEIGHT
         }
         containerStyle={{
-          maxWidth: MAX_PAGE_CONTAINER_WIDTH + 32,
+          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
           width: '100%',
-          marginHorizontal: 'auto',
+          marginHorizontal: 'auto', // Center align vertically
           backgroundColor: tabbarBgColor,
         }}
         headerContainerStyle={{
@@ -240,7 +243,6 @@ const Home: FC = () => {
             style={{
               backgroundColor: tabbarBgColor,
             }}
-            contentContainerStyle={{ maxWidth: MAX_PAGE_CONTAINER_WIDTH }}
             tabStyle={{ backgroundColor: tabbarBgColor }}
           />
         )}

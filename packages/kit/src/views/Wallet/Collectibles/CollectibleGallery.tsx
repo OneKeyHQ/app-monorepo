@@ -20,6 +20,7 @@ import {
   Typography,
   VStack,
   useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
@@ -209,6 +210,8 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
     </HStack>
   );
 
+  const { size } = useUserDevice();
+
   const renderGridItem = React.useCallback<
     NonNullable<ScrollableFlatListProps<Collectible>['renderItem']>
   >(
@@ -263,7 +266,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
   >(
     () => ({
       contentContainerStyle: {
-        paddingHorizontal: 16,
+        paddingHorizontal: ['NORMAL', 'LARGE'].includes(size) ? 32 : 16,
         paddingBottom: collectibles.length ? 16 : 0,
         marginTop: 24,
       },
@@ -288,10 +291,11 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       showsVerticalScrollIndicator: false,
     }),
     [
+      size,
+      collectibles,
       renderEmpty,
       view,
       isSmallScreen,
-      collectibles,
       onReachEnd,
       isSupported,
       isLoading,

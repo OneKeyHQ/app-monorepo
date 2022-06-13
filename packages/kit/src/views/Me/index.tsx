@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/kit/src/routes/Dev';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
-import { DebugSection } from '../Debug';
 import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
@@ -34,9 +33,8 @@ export const Me = () => {
   return (
     <Box bg="background-default" flex="1">
       <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
-        <Box w="full" maxW={576} mx="auto" pb={inset.bottom}>
+        <Box w="full" maxW={768} mx="auto" pb={inset.bottom}>
           <UtilSection />
-          <DebugSection />
           <DefaultSection />
           <GenaralSection />
           <SecuritySection />

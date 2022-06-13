@@ -16,6 +16,8 @@ import {
   SectionList,
   Spinner,
   Typography,
+  useTheme,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Account } from '@onekeyhq/engine/src/types/account';
@@ -85,6 +87,14 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     [hiddenHeader],
   );
 
+  const { size } = useUserDevice();
+  const responsivePadding = () => {
+    if (['NORMAL', 'LARGE'].includes(size)) return 32;
+    return 16;
+  };
+
+  const { themeVariant } = useTheme();
+
   useEffect(() => {
     async function loadAccount() {
       if (!accountId) return;
@@ -126,6 +136,10 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       key={`${item.txHash}-${index}`}
       borderTopRadius={index === 0 ? '12px' : '0px'}
       borderRadius={index === section.data.length - 1 ? '12px' : '0px'}
+      borderWidth={1}
+      borderColor={themeVariant === 'light' ? 'border-subdued' : 'transparent'}
+      borderTopWidth={index === 0 ? 1 : 0}
+      borderBottomWidth={index === section.data.length - 1 ? 1 : 0}
       mb={index === section.data.length - 1 ? 6 : undefined}
       onPress={() => {
         navigation.navigate(RootRoutes.Modal, {
@@ -251,7 +265,10 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   }
 
   return React.cloneElement(listElementType, {
-    contentContainerStyle: { paddingHorizontal: 16, marginTop: 24 },
+    contentContainerStyle: {
+      paddingHorizontal: responsivePadding(),
+      marginTop: 24,
+    },
     sections: transactionRecords,
     extraData: { isLoading },
     renderItem,

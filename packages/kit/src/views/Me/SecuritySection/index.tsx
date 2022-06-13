@@ -10,6 +10,7 @@ import {
   Select,
   Switch,
   Typography,
+  useTheme,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { useData, useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
@@ -48,6 +49,7 @@ export const SecuritySection = () => {
   const { authenticationType } = useStatus();
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();
+  const { themeVariant } = useTheme();
   const lockTimerOptions = useMemo(
     () => [
       {
@@ -105,7 +107,12 @@ export const SecuritySection = () => {
             })}
           </Typography.Subheading>
         </Box>
-        <Box borderRadius="12" bg="surface-default" shadow="depth.2">
+        <Box
+          borderRadius="12"
+          bg="surface-default"
+          borderWidth={themeVariant === 'light' ? 1 : undefined}
+          borderColor="border-subdued"
+        >
           <Pressable
             display="flex"
             flexDirection="row"
