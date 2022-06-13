@@ -122,7 +122,7 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxSTC> {
-    const { from, to, amount, token, max } = transferInfo;
+    const { from, to, amount, token } = transferInfo;
     if (typeof token !== 'undefined' && token.length > 0) {
       // TODO: token not supported yet.
       throw new NotImplemented();
@@ -132,9 +132,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve({
       from,
       to,
-      value: max
-        ? '0'
-        : new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+      value: new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
     });
   }
 
