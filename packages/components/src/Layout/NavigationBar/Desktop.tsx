@@ -8,7 +8,6 @@ import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
-import DesktopDragZoneBox from '../../DesktopDragZoneBox';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import { useThemeValue } from '../../Provider/hooks';
@@ -139,10 +138,9 @@ const Sidebar: FC<BottomTabBarProps> = ({
       h="full"
       bg="surface-subdued"
       px={4}
-      pt={3}
+      pt={3 + (platformEnv.isDesktopMac ? 5 : 0)}
       pb={5}
     >
-      {!!platformEnv.isDesktopMac && <DesktopDragZoneBox w="100%" height={7} />}
       {/* Scrollable area */}
       <Box zIndex={1}>
         <AccountSelector />
