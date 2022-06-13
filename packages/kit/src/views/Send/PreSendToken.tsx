@@ -27,10 +27,11 @@ function PreSendToken() {
 
   return (
     <BaseSendModal
-      height="auto"
       hidePrimaryAction
+      maxHeight={560}
       hideSecondaryAction={false}
       header={intl.formatMessage({ id: 'action__select_token' })}
+      footer={null}
       scrollViewProps={{
         children: (
           <>

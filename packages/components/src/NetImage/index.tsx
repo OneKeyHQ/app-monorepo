@@ -20,8 +20,8 @@ try {
 
 type ImageProps = {
   alt?: string;
-  width?: number | undefined;
-  height?: number | undefined;
+  width?: number | string | undefined;
+  height?: number | string | undefined;
   size?: number | undefined;
   borderRadius?: number;
   bgColor?: ThemeToken;
@@ -50,8 +50,8 @@ export const Image: FC<ImageProps> = ({ ...rest }) => {
   }
   return (
     <OKImage
-      width={`${width ?? 0}px`}
-      height={`${height ?? 0}px`}
+      width={width}
+      height={height}
       src={uri}
       resizeMode={resizeMode}
       preview={preview}

@@ -18,7 +18,7 @@ export const AutoSizeText: FC<{
       borderWidth="0"
       fontSize="40px"
       placeholder={intl.formatMessage({ id: 'content__amount' })}
-      placeholderTextColor="text-disabled"
+      placeholderTextColor="text-subdued"
       lineHeight="64px"
       fontWeight="bold"
       bgColor="surface-subdued"

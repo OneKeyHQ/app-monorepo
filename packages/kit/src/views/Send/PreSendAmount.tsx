@@ -56,9 +56,8 @@ function PreSendAmountPreview({
       <Box height="140px" flexDirection="column" justifyContent="center">
         {!!title && (
           <Text
-            height="24px"
             textAlign="center"
-            typography={{ sm: 'DisplaySmall', md: 'Body1Strong' }}
+            typography="DisplayLarge"
             color="text-subdued"
           >
             {title}
@@ -69,17 +68,15 @@ function PreSendAmountPreview({
           <AutoSizeText text={text} onChangeText={onChangeText} />
         </Center>
 
-        <Box height="24px">
-          {loading ? (
-            <Spinner size="sm" />
-          ) : (
-            !!desc && (
-              <Text typography="DisplaySmall" textAlign="center">
-                {desc}
-              </Text>
-            )
-          )}
-        </Box>
+        {loading ? (
+          <Spinner size="sm" />
+        ) : (
+          !!desc && (
+            <Text typography="Body1Strong" textAlign="center">
+              {desc}
+            </Text>
+          )
+        )}
       </Box>
     </Box>
   );
@@ -146,7 +143,6 @@ function PreSendAmount() {
 
   return (
     <BaseSendModal
-      height="auto"
       header={intl.formatMessage({ id: 'content__amount' })}
       primaryActionTranslationId="action__next"
       hideSecondaryAction
@@ -202,15 +198,15 @@ function PreSendAmount() {
           userSelect: 'none',
         }}
       >
-        <Box flexDirection="row" alignItems="center">
-          <Typography.Body2Strong mr={3}>
-            {intl.formatMessage({ id: 'content__to' })}
+        <Box flexDirection="row" alignItems="baseline">
+          <Typography.Body2Strong mr={2} color="text-subdued">
+            {intl.formatMessage({ id: 'content__to' })}:
           </Typography.Body2Strong>
           <Typography.Body1>
             {shortenAddress(transferInfo?.to ?? '')}
           </Typography.Body1>
         </Box>
-        <Box my={58}>
+        <Box py={{ base: 4, sm: 0 }} my={6}>
           <PreSendAmountPreview
             title={tokenInfo?.symbol ?? ''}
             text={amount}
@@ -235,19 +231,20 @@ function PreSendAmount() {
         </Box>
         <Box flexDirection="row" alignItems="center">
           <Box flex={1}>
-            <Typography.Caption>
+            <Typography.Caption color="text-subdued">
               {intl.formatMessage({ id: 'content__available_balance' })}
             </Typography.Caption>
             <Box>
               <FormatBalanceToken
                 token={tokenInfo}
                 render={(ele) => (
-                  <Text
-                    color={errorMsg && amount ? 'text-critical' : undefined}
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                  <Typography.Body1Strong
+                    color={
+                      errorMsg && amount ? 'text-critical' : 'text-default'
+                    }
                   >
                     {ele}
-                  </Text>
+                  </Typography.Body1Strong>
                 )}
               />
             </Box>
@@ -265,7 +262,7 @@ function PreSendAmount() {
           </Button>
         </Box>
         <Box flex={1} />
-        {(platformEnv.isNative || platformEnv.isDev) && (
+        {platformEnv.isNative && (
           <Box>
             <Keyboard
               itemHeight={shortScreen ? '44px' : undefined}
