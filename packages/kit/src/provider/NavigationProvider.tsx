@@ -40,10 +40,10 @@ if (platformEnv.isExtensionUiPopup && platformEnv.isRuntimeFirefox) {
 }
 
 const NavigationApp = () => {
-  const [bgColor, textColor] = useThemeValue([
+  const [bgColor, textColor, dividerColor] = useThemeValue([
     'surface-subdued',
     'text-default',
-    'background-default',
+    'divider',
   ]);
 
   const navigationTheme = useMemo(
@@ -54,9 +54,10 @@ const NavigationApp = () => {
         background: platformEnv.isNativeAndroid ? bgColor : 'transparent',
         card: bgColor,
         text: textColor,
+        border: dividerColor,
       },
     }),
-    [bgColor, textColor],
+    [bgColor, textColor, dividerColor],
   );
 
   const { instanceId } = useSettings();
