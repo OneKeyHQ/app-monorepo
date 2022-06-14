@@ -4,6 +4,9 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@onekeyfe/hd-ble-sdk": "^0.0.1",
+    "@onekeyfe/hd-core": "^0.0.1",
+    "@onekeyfe/hd-web-sdk": "^0.0.1",
     "@onekeyhq/components": "*",
     "@reduxjs/toolkit": "^1.6.2",
     "@types/redux-logger": "^3.0.9",
