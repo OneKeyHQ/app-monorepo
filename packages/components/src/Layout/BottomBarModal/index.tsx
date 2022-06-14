@@ -50,9 +50,10 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
   (props, ref) => {
     const modalizeRef = useRef(null);
     const combinedRef = useCombinedRefs(ref, modalizeRef);
-    const [inactiveFontColor, defaultBgColor] = useThemeValue([
+    const [inactiveFontColor, defaultBgColor, handleBgColor] = useThemeValue([
       'text-default',
       'background-default',
+      'icon-subdued',
     ]);
     return (
       <Modalize
@@ -72,9 +73,24 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
         }}
         modalStyle={{
           backgroundColor: defaultBgColor,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+        }}
+        handlePosition="inside"
+        handleStyle={{
+          // default styles start
+          alignSelf: 'center',
+          top: 8,
+          width: 45,
+          height: 5,
+          borderRadius: 5,
+          // default styles end
+
+          // custom styles
+          backgroundColor: handleBgColor,
         }}
       >
-        <Box mb={props.tabBarHeight} p="16px">
+        <Box mb={props.tabBarHeight} px={4} py={8}>
           {props.foldableList.map((foldable, index) => (
             <Pressable
               key={index}

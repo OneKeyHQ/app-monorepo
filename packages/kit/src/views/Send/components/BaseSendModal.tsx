@@ -10,7 +10,6 @@ function BaseSendModal(props: IBaseSendModal) {
 
   return (
     <Modal
-      height="598px"
       headerDescription={network?.name || network?.shortName || undefined}
       onSecondaryActionPress={({ close }) => close()}
       {...props}
