@@ -115,6 +115,7 @@
   "action__retry": "ลองอีกครั้ง",
   "action__reveal_recovery_phrase": "เปิดเผยการกู้คืนวลี",
   "action__save": "บันทึก",
+  "action__scan": "Scan",
   "action__see_all": "ดูทั้งหมด",
   "action__select_token": "เลือกโทเค็น",
   "action__sell": "ขาย",
