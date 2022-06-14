@@ -8,6 +8,7 @@ import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
 import IconButton from '../../IconButton';
+import Pressable from '../../Pressable';
 import Typography from '../../Typography';
 
 import useModalClose from './useModalClose';
@@ -35,6 +36,7 @@ const DesktopModal: FC<ModalProps> = ({
   maxHeight,
   headerDescription,
   closeAction,
+  closeOnOverlayClick,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -72,6 +74,20 @@ const DesktopModal: FC<ModalProps> = ({
       alignItems="center"
       bg="rgba(0, 0, 0, 0.6)"
     >
+      {closeOnOverlayClick && (
+        <Pressable
+          _web={{
+            // @ts-ignore
+            cursor: 'default',
+          }}
+          position="absolute"
+          top="0"
+          left="0"
+          right="0"
+          bottom="0"
+          onPress={closeAction || close}
+        />
+      )}
       <Box
         width={modalSizing(size)}
         height={height}
@@ -79,6 +95,7 @@ const DesktopModal: FC<ModalProps> = ({
         alignSelf="center"
         borderRadius="24px"
         bg="surface-subdued"
+        zIndex={1}
       >
         {!!headerShown && (
           <Box
