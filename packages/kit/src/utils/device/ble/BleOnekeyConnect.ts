@@ -17,7 +17,7 @@ class BleOnekeyConnect {
         await OneKeyConnect.init({
           env: 'react-native',
           ble: BLEHandler,
-          debug: false,
+          debug: true,
         });
         this.initialized = true;
         console.log('OneKeyConnect 初始化成功');
