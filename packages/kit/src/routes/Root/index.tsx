@@ -44,7 +44,9 @@ const RootNavigatorContainer: FC = ({ children }) => {
         initialRouteName={initialRouteName}
         screenOptions={{
           headerShown: false,
-          presentation: 'modal',
+          presentation: platformEnv.isNativeAndroid
+            ? 'transparentModal'
+            : 'modal',
         }}
       >
         {children}
