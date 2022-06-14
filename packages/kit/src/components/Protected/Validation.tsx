@@ -11,6 +11,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
@@ -57,14 +58,22 @@ const Validation: FC<ValidationProps> = ({ onOk, field }) => {
     if (!enableLocalAuthentication) {
       // https://stackoverflow.com/questions/42456069/how-to-open-keyboard-automatically-in-react-native
       // use setTimeout hack android platform
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      setTimeout(() => ref.current?.focus(), 100);
+      if (platformEnv.isNativeAndroid) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        setTimeout(() => ref.current?.focus(), 100);
+      } else {
+        ref.current?.focus();
+      }
       return;
     }
     hasHardwareSupported().then((isOk) => {
       if (!isOk || !field || validationState[field] === false) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        setTimeout(() => ref.current?.focus(), 100);
+        if (platformEnv.isNativeAndroid) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          setTimeout(() => ref.current?.focus(), 100);
+        } else {
+          ref.current?.focus();
+        }
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
