@@ -409,9 +409,12 @@ import MoonSolid from "./react/solid/Moon";
 import MusicNoteSolid from "./react/solid/MusicNote";
 import NavActivitySolid from "./react/solid/NavActivity";
 import NavBankCardSolid from "./react/solid/NavBankCard";
+import NavBuySolid from "./react/solid/NavBuy";
 import NavDiscoverySolid from "./react/solid/NavDiscovery";
 import NavHomeSolid from "./react/solid/NavHome";
 import NavMenuSolid from "./react/solid/NavMenu";
+import NavReceiveSolid from "./react/solid/NavReceive";
+import NavSendSolid from "./react/solid/NavSend";
 import NavSettingsSolid from "./react/solid/NavSettings";
 import NavSwapSolid from "./react/solid/NavSwap";
 import NewspaperSolid from "./react/solid/Newspaper";
@@ -912,9 +915,12 @@ export type ICON_NAMES =
   | "MusicNoteSolid"
   | "NavActivitySolid"
   | "NavBankCardSolid"
+  | "NavBuySolid"
   | "NavDiscoverySolid"
   | "NavHomeSolid"
   | "NavMenuSolid"
+  | "NavReceiveSolid"
+  | "NavSendSolid"
   | "NavSettingsSolid"
   | "NavSwapSolid"
   | "NewspaperSolid"
@@ -1415,9 +1421,12 @@ export default {
   MusicNoteSolid: MusicNoteSolid,
   NavActivitySolid: NavActivitySolid,
   NavBankCardSolid: NavBankCardSolid,
+  NavBuySolid: NavBuySolid,
   NavDiscoverySolid: NavDiscoverySolid,
   NavHomeSolid: NavHomeSolid,
   NavMenuSolid: NavMenuSolid,
+  NavReceiveSolid: NavReceiveSolid,
+  NavSendSolid: NavSendSolid,
   NavSettingsSolid: NavSettingsSolid,
   NavSwapSolid: NavSwapSolid,
   NewspaperSolid: NewspaperSolid,

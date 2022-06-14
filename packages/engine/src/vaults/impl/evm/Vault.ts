@@ -197,19 +197,11 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
-    const isMax = transferInfo.max;
     const isTransferToken = Boolean(transferInfo.token);
     const isTransferNativeToken = !isTransferToken;
     const { amount } = transferInfo;
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
-      amountBN = new BigNumber('0');
-    }
-    if (
-      isMax &&
-      isTransferNativeToken &&
-      !OPTIMISM_NETWORKS.includes(this.networkId)
-    ) {
       amountBN = new BigNumber('0');
     }
 
@@ -435,14 +427,8 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const decodedTx = await this.decodeTx(encodedTx);
     if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
-      const info = network.extraInfo as EvmExtraInfo;
       // always use value=0 to calculate native transfer gas limit
       encodedTxWithFakePriceAndNonce.value = '0x0';
-
-      // Optimism chain
-      if (info.chainId === '0xa') {
-        encodedTxWithFakePriceAndNonce.value = encodedTx.value;
-      }
     }
 
     // NOTE: gasPrice deleted in removeFeeInfoInTx() if encodedTx build by DAPP

@@ -3,5 +3,5 @@ export enum ReceiveTokenRoutes {
 }
 
 export type ReceiveTokenRoutesParams = {
-  [ReceiveTokenRoutes.ReceiveToken]: { address: string; name: string };
+  [ReceiveTokenRoutes.ReceiveToken]: { address?: string; name?: string };
 };

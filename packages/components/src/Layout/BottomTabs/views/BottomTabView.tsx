@@ -25,6 +25,7 @@ import type {
   BottomTabHeaderProps,
   BottomTabNavigationConfig,
   BottomTabNavigationHelpers,
+  TBottomBarFoldableItem,
 } from '../types';
 import type {
   ParamListBase,
@@ -35,6 +36,7 @@ type Props = BottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
   navigation: BottomTabNavigationHelpers;
   descriptors: BottomTabDescriptorMap;
+  foldableList: TBottomBarFoldableItem[];
 };
 
 export default function BottomTabView(props: Props) {
@@ -77,11 +79,12 @@ export default function BottomTabView(props: Props) {
             navigation={navigation}
             state={state}
             descriptors={descriptors}
+            foldableList={props.foldableList}
           />
         )}
       </SafeAreaInsetsContext.Consumer>
     ),
-    [descriptors, navigation, state],
+    [descriptors, navigation, state, props.foldableList],
   );
 
   const { routes } = state;

@@ -8,6 +8,10 @@ import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/Bottom
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
+import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
+import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import { TabRoutes, TabRoutesParams } from '../types';
 
@@ -29,14 +33,63 @@ const TabNavigator = () => {
     [],
   );
 
+  const foldableList = useMemo(
+    () => [
+      {
+        name: TabRoutes.Send,
+        foldable: true,
+        component: () => null,
+        onPress: () => {
+          navigationRef.current?.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendRoutes.PreSendToken,
+              params: {
+                from: '',
+                to: '',
+                amount: '',
+              },
+            },
+          });
+        },
+        tabBarLabel: intl.formatMessage({ id: 'action__send' }),
+        tabBarIcon: () => 'NavSendSolid',
+        description: intl.formatMessage({
+          id: 'content__transfer_tokens_to_another_wallet',
+        }),
+      },
+      {
+        name: TabRoutes.Receive,
+        foldable: true,
+        component: () => null,
+        onPress: () => {
+          navigationRef.current?.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Receive,
+            params: {
+              screen: ReceiveTokenRoutes.ReceiveToken,
+              params: {},
+            },
+          });
+        },
+        tabBarLabel: intl.formatMessage({ id: 'action__receive' }),
+        tabBarIcon: () => 'NavReceiveSolid',
+        description: intl.formatMessage({
+          id: 'content__deposit_tokens_to_your_wallet',
+        }),
+      },
+    ],
+    [intl],
+  );
+
   return useMemo(
     () => (
       <Tab.Navigator
-        screenOptions={({ route }) => ({
+        screenOptions={{
           lazy: true,
           header: renderHeader,
-          headerShown: route.name !== TabRoutes.Overview,
-        })}
+          // @ts-expect-error
+          foldableList,
+        }}
       >
         {tabRoutes.map((tab) => (
           <Tab.Screen
@@ -48,12 +101,13 @@ const TabNavigator = () => {
             options={{
               tabBarIcon: tab.tabBarIcon,
               tabBarLabel: intl.formatMessage({ id: tab.translationId }),
+              headerShown: tab.name !== TabRoutes.Overview,
             }}
           />
         ))}
       </Tab.Navigator>
     ),
-    [renderHeader, intl, isVerticalLayout],
+    [renderHeader, intl, isVerticalLayout, foldableList],
   );
 };
 

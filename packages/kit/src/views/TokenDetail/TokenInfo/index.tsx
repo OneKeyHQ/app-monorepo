@@ -22,6 +22,7 @@ import {
   useMoonpayPayCurrency,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import {
@@ -31,11 +32,9 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { INetwork } from '@onekeyhq/kit/src/store/reducers/runtime';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
+import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
+import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
-import { CurrencyType } from '../../FiatPay/types';
-import { SendRoutes } from '../../Send/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
@@ -49,7 +48,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { wallet, account, network } = useActiveWalletAccount();
+  const { wallet, network } = useActiveWalletAccount();
   const currencies = useFiatPay(network?.id ?? '');
   let cryptoCurrency = currencies.find((item) => {
     if (!token?.tokenIdOnNetwork) {
@@ -180,12 +179,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
                 screen: ModalRoutes.Receive,
                 params: {
                   screen: ReceiveTokenRoutes.ReceiveToken,
-                  params: {
-                    // Todo: account conversion
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    address: (account as any)?.address,
-                    name: '',
-                  },
+                  params: {},
                 },
               });
             }}
@@ -286,7 +280,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
       sellEnable,
       navigation,
       token,
-      account,
     ],
   );
 

@@ -55,6 +55,8 @@ export enum TabRoutes {
   Discover = 'discover',
   Me = 'me',
   Developer = 'developer',
+  Send = 'send',
+  Receive = 'receive',
 }
 
 export type TabRoutesParams = {
@@ -66,6 +68,8 @@ export type TabRoutesParams = {
   [TabRoutes.Developer]: undefined;
   [TabRoutes.Discover]: undefined | { incomingUrl: string };
   [TabRoutes.Me]: undefined;
+  [TabRoutes.Send]: undefined;
+  [TabRoutes.Receive]: undefined;
 };
 /** Tab */
 
