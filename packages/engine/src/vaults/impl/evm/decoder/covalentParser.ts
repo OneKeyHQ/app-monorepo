@@ -172,7 +172,7 @@ const isAddressEq = (a: string, b: string) =>
 const parseCovalent = (
   covalentTx: Transaction,
   network: Network,
-  address: string,
+  address: string, // current account address
 ) => {
   const itemBuilder = {} as EVMDecodedItem;
   const { type, info } = parseCovalentType(covalentTx);
@@ -190,9 +190,10 @@ const parseCovalent = (
   itemBuilder.toAddress = covalentTx.toAddress;
   itemBuilder.txHash = covalentTx.txHash;
   itemBuilder.chainId = covalentTx.chainId;
-  itemBuilder.fromType = isAddressEq(address, covalentTx.fromAddress)
-    ? 'OUT'
-    : 'IN';
+  // IN OUT SELF
+  itemBuilder.fromType = isAddressEq(address, covalentTx.toAddress)
+    ? 'IN'
+    : 'OUT';
   itemBuilder.gasInfo = parseGasInfo(null, covalentTx);
   itemBuilder.blockSignedAt = new Date(covalentTx.blockSignedAt).getTime();
   itemBuilder.total = ethers.utils.formatEther(
