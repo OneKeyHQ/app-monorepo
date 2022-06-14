@@ -115,6 +115,7 @@
   "action__retry": "Wiederholen",
   "action__reveal_recovery_phrase": "Recovery-Phrase aufdecken",
   "action__save": "Speichern",
+  "action__scan": "Scan",
   "action__see_all": "Alle sehen",
   "action__select_token": "Token auswählen",
   "action__sell": "Verkaufen",

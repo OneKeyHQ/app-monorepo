@@ -115,6 +115,7 @@
   "action__retry": "重試",
   "action__reveal_recovery_phrase": "顯示助記詞",
   "action__save": "保存",
+  "action__scan": "Scan",
   "action__see_all": "查看全部",
   "action__select_token": "選擇代幣",
   "action__sell": "賣",
