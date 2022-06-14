@@ -100,7 +100,7 @@ interface EVMDecodedItem extends Omit<EVMBaseDecodedItem, 'tx' | 'txDesc'> {
   data: string;
   chainId: number;
   interactWith?: string; // Dapp name or url
-  fromType: 'IN' | 'OUT';
+  fromType: 'IN' | 'OUT' | 'SELF';
   txStatus: TxStatus;
 
   totalFeeInNative?: string;

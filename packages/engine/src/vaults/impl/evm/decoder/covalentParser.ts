@@ -4,7 +4,11 @@ import { LogEvent, Transaction, Transfer } from '../../../../types/covalent';
 import { Network } from '../../../../types/network';
 import { Token } from '../../../../types/token';
 
-import { EVMTxDecoder, InfiniteAmountText } from './decoder';
+import {
+  EVMDecodedItemERC20Transfer,
+  EVMTxDecoder,
+  InfiniteAmountText,
+} from './decoder';
 import { parseGasInfo } from './gasParser';
 import { EVMDecodedInfoType, EVMDecodedItem, EVMDecodedTxType } from './types';
 
@@ -167,7 +171,7 @@ const parseCovalentType = (covalentTx: Transaction) => {
 };
 
 const isAddressEq = (a: string, b: string) =>
-  a.toLocaleLowerCase === b.toLocaleLowerCase;
+  a.toLowerCase() === b.toLowerCase();
 
 const parseCovalent = (
   covalentTx: Transaction,
@@ -190,10 +194,19 @@ const parseCovalent = (
   itemBuilder.toAddress = covalentTx.toAddress;
   itemBuilder.txHash = covalentTx.txHash;
   itemBuilder.chainId = covalentTx.chainId;
+
   // IN OUT SELF
-  itemBuilder.fromType = isAddressEq(address, covalentTx.toAddress)
-    ? 'IN'
-    : 'OUT';
+  itemBuilder.fromType = (covalentTx.fromType || '').toUpperCase() as any;
+  // itemBuilder.fromType = isAddressEq(address, covalentTx.toAddress)
+  //   ? 'IN'
+  //   : 'OUT';
+  if (info) {
+    const infoErc20 = info as EVMDecodedItemERC20Transfer;
+    if (infoErc20.recipient && isAddressEq(infoErc20.recipient, address)) {
+      itemBuilder.fromType = 'IN';
+    }
+  }
+
   itemBuilder.gasInfo = parseGasInfo(null, covalentTx);
   itemBuilder.blockSignedAt = new Date(covalentTx.blockSignedAt).getTime();
   itemBuilder.total = ethers.utils.formatEther(
