@@ -1,6 +1,4 @@
-import React, { FC } from 'react';
-
-import { useNavigation } from '@react-navigation/core';
+import React, { FC, useCallback } from 'react';
 
 import {
   Box,
@@ -11,9 +9,9 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { useOverview } from '@onekeyhq/kit/src/hooks';
 
-import { ScanQrcodeRoutes } from '../../ScanQrcode/types';
+import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 
 const DEFAULT_HEADER_VERTICAL = 54;
 
@@ -39,8 +37,9 @@ const GreetText = () => {
 const GreetSection: FC = () => {
   const insets = useSafeAreaInsets();
   const headerHeight = DEFAULT_HEADER_VERTICAL;
-  const navigation = useNavigation();
   const small = useIsVerticalLayout();
+  const { loading } = useOverview();
+  const greetText = useCallback(() => GreetText(), []);
   return (
     <DesktopDragZoneBox>
       <Box
@@ -56,10 +55,11 @@ const GreetSection: FC = () => {
           justifyContent="space-between"
         >
           <Typography.Heading color="text-subdued">
-            {GreetText()}
-          </Typography.Heading>{' '}
+            {greetText()}
+          </Typography.Heading>
           <Box flexDirection="row">
-            <Spinner size="sm" />
+            {loading && <Spinner size="sm" />}
+
             <IconButton
               ml="16px"
               type="plain"
@@ -67,10 +67,7 @@ const GreetSection: FC = () => {
               circle
               name={small ? 'ScanOutline' : 'ScanSolid'}
               onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ScanQrcode,
-                  params: { screen: ScanQrcodeRoutes.ScanQrcode },
-                });
+                gotoScanQrcode();
               }}
             />
           </Box>

@@ -1,6 +1,7 @@
 import React, { FC, useCallback } from 'react';
 
 import {
+  Badge,
   Box,
   FlatList,
   Icon,
@@ -30,14 +31,8 @@ const WalletContent: FC = () => (
         Wallet #2
       </Text>
     </Box>
-    <Box flexDirection="row">
-      <Text
-        color="text-subdued"
-        mr="12px"
-        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-      >
-        847.42 USD
-      </Text>
+    <Box flexDirection="row" justifyContent="flex-end">
+      <Badge title="50" size="sm" type="default" />
       <Icon name="ChevronRightSolid" />
     </Box>
   </Box>

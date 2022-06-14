@@ -1,17 +1,19 @@
 import React, { FC, useCallback } from 'react';
 
 import {
+  Badge,
   Box,
   Divider,
   FlatList,
+  Icon,
+  Image,
   Pressable,
   Text,
-  TokenGroup,
 } from '@onekeyhq/components';
 
 import { ListProps } from '../../type';
 
-const CryptosList: FC<ListProps> = ({ datas }) => {
+const NFTList: FC<ListProps> = ({ datas }) => {
   const renderItem = useCallback(
     () => (
       <Pressable
@@ -22,22 +24,21 @@ const CryptosList: FC<ListProps> = ({ datas }) => {
         alignItems="center"
         justifyContent="space-between"
       >
-        <TokenGroup
-          size="lg"
-          tokens={[{ chain: 'eth' }]}
-          cornerToken={{ chain: 'eth' }}
-        />
-        <Text ml="12px" typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-          ETH
-        </Text>
+        <Box flex={1} mr="12px" flexDirection="row" alignItems="center">
+          <Image size="32px" bgColor="red.400" borderRadius="16px" />
+          <Text
+            ml="12px"
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            numberOfLines={2}
+            flex={1}
+          >
+            ENS: Ethereum Name Service
+          </Text>
+        </Box>
 
-        <Box flexDirection="column" alignItems="flex-end" flex={1}>
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            562.61 USDT
-          </Text>
-          <Text typography="Body2" color="text-subdued">
-            $6562.61
-          </Text>
+        <Box flexDirection="row" justifyContent="flex-end">
+          <Badge title="50" size="sm" type="default" />
+          <Icon name="ChevronRightSolid" />
         </Box>
       </Pressable>
     ),
@@ -56,4 +57,4 @@ const CryptosList: FC<ListProps> = ({ datas }) => {
   );
 };
 
-export default CryptosList;
+export default NFTList;

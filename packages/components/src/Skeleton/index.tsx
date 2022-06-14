@@ -3,6 +3,7 @@ import React, { PropsWithChildren } from 'react';
 import ContentLoader, {
   IContentLoaderProps,
 } from 'react-content-loader/native';
+import { Rect } from 'react-native-svg';
 
 import { useThemeValue } from '../Provider/hooks';
 
@@ -124,6 +125,19 @@ const Skeleton = ({
     {shape ? renderShape(shape, width, size) : children}
   </ContentLoader>
 );
+
+export const BaseSkeleton = () => {
+  console.log();
+  return (
+    <ContentLoader
+      speed={1}
+      backgroundColor={useThemeValue('surface-neutral-default')}
+      foregroundColor={useThemeValue('surface-default')}
+    >
+      <Rect x="0" y="0" width="100%" height="100%" />
+    </ContentLoader>
+  );
+};
 
 Skeleton.Avatar = Avatar;
 Skeleton.DisplayXLarge = DisplayXLarge;

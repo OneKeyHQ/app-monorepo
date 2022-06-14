@@ -5,6 +5,7 @@ import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import BalanceSection from './BalanceSection';
 import CryptoSection from './CryptoSection';
 import GreetSection from './GreetSection';
+import NFTSection from './NFTSection';
 
 const Overview: FC = () => {
   const inset = useSafeAreaInsets();
@@ -15,6 +16,7 @@ const Overview: FC = () => {
           <GreetSection />
           <BalanceSection />
           <CryptoSection />
+          <NFTSection />
         </Box>
       </ScrollView>
     </Box>
