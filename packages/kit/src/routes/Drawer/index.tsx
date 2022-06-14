@@ -8,10 +8,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Tab from '../Tab';
 import { RootRoutes } from '../types';
 
+import type { StyleProp, ViewStyle } from 'react-native';
+
 const DrawerStack = createDrawerNavigator();
 
 const DrawerStackNavigator = () => {
   const isWeb = !platformEnv.isNative;
+  const drawerStyle: Partial<StyleProp<ViewStyle>> = {
+    width: '85%',
+    maxWidth: 400,
+  };
+  if (isWeb) {
+    drawerStyle.opacity = 1;
+  }
   return (
     <DrawerStack.Navigator
       useLegacyImplementation
@@ -22,7 +31,7 @@ const DrawerStackNavigator = () => {
          */
         drawerType: isWeb ? 'back' : 'front',
         swipeEdgeWidth: 390,
-        drawerStyle: { width: '85%', maxWidth: 400, opacity: 1 },
+        drawerStyle,
       }}
       drawerContent={(props) => <AccountSelectorMobile {...props} />}
     >
