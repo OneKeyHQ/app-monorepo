@@ -30,13 +30,9 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import isOnekeyDevice, {
-  getDeviceType,
-} from '@onekeyhq/kit/src/utils/device/ble/OnekeyHardware';
-import { BleDevice } from '@onekeyhq/kit/src/utils/device/ble/utils';
 import deviceUtils, {
-  ScannedDevice,
 } from '@onekeyhq/kit/src/utils/device/deviceUtils';
+import { deviceUtils as newDeviceUtils, SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   IOneKeyDeviceFeatures,
@@ -49,7 +45,8 @@ type NavigationProps = ModalScreenProps<RootRoutesParams> &
 export type Device = {
   type: IOneKeyDeviceType;
   name: string;
-  device: ScannedDevice;
+  // device: ScannedDevice;
+  connectId: string;
 };
 
 const getDeviceIcon = (
@@ -70,7 +67,7 @@ const ConnectHardwareModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [devices, setDevices] = useState<SearchDevice[]>([]);
   const [errorDialog, setErrorDialog] = useState(false);
 
   const isConnectedDeviceActivated = false;
@@ -120,34 +117,15 @@ const ConnectHardwareModal: FC = () => {
 
     const scanDevice: Device[] = [];
 
-    deviceUtils.startDeviceScan((_device) => {
-      // @ts-expect-error
-      const isError = !!_device?.errorCode;
-      if (isError) {
+    newDeviceUtils.startDeviceScan().then(response => {
+      if (!response.success) {
         setErrorDialog(true);
         setIsSearching(false);
         return;
       }
-      const scannedBleDevice = _device as BleDevice;
-      if (
-        _device &&
-        isOnekeyDevice(scannedBleDevice.name, scannedBleDevice.id)
-      ) {
-        if (
-          !scanDevice.find((device) => device.device.id === scannedBleDevice.id)
-        ) {
-          scanDevice.push({
-            type: getDeviceType(
-              scannedBleDevice as unknown as IOneKeyDeviceFeatures,
-            ),
-            name: scannedBleDevice.name ?? '',
-            device: scannedBleDevice,
-          });
 
-          setDevices([...scanDevice]);
-        }
-      }
-    });
+      setDevices(response.payload)
+    })
 
     // Then start searching devices
     // Show device options when available
@@ -168,7 +146,7 @@ const ConnectHardwareModal: FC = () => {
       // bleUtils.stopScan();
       // setIsSearching(false);
 
-      setIsConnectingDeviceId(device.device.id);
+      setIsConnectingDeviceId(device.connectId);
       deviceUtils.connect(device.device.id, device.type).then(() => {
         setIsConnectingDeviceId('');
         navigation.navigate(RootRoutes.Modal, {
@@ -195,7 +173,7 @@ const ConnectHardwareModal: FC = () => {
         {devices.map((device) => (
           <PressableItem
             p="4"
-            key={device?.device.id}
+            key={device?.connectId}
             bg="surface-default"
             borderRadius="12px"
             flexDirection="row"
@@ -208,7 +186,7 @@ const ConnectHardwareModal: FC = () => {
             <HStack space={3} alignItems="center">
               {/* TODO: Different type of icon */}
               <Image
-                source={getDeviceIcon(device.type)}
+                source={getDeviceIcon(device.deviceType as IOneKeyDeviceType)}
                 width={6}
                 height={36}
               />
@@ -216,7 +194,7 @@ const ConnectHardwareModal: FC = () => {
             </HStack>
 
             <HStack space={3} alignItems="center">
-              {isConnectingDeviceId === device.device.id && (
+              {isConnectingDeviceId === device.connectId && (
                 <Spinner size="sm" />
               )}
               <Icon name="ChevronRightOutline" />
