@@ -30,9 +30,11 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import deviceUtils, {
-} from '@onekeyhq/kit/src/utils/device/deviceUtils';
-import { deviceUtils as newDeviceUtils, SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
+import deviceUtils from '@onekeyhq/kit/src/utils/device/deviceUtils';
+import {
+  SearchDevice,
+  deviceUtils as newDeviceUtils,
+} from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   IOneKeyDeviceFeatures,
@@ -117,15 +119,15 @@ const ConnectHardwareModal: FC = () => {
 
     const scanDevice: Device[] = [];
 
-    newDeviceUtils.startDeviceScan().then(response => {
+    newDeviceUtils.startDeviceScan().then((response) => {
       if (!response.success) {
         setErrorDialog(true);
         setIsSearching(false);
         return;
       }
 
-      setDevices(response.payload)
-    })
+      setDevices(response.payload);
+    });
 
     // Then start searching devices
     // Show device options when available
