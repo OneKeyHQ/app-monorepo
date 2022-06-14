@@ -9,6 +9,7 @@ import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
@@ -86,7 +87,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             return (
               <Stack direction="row" space="2">
                 {labelAddon.map((item, i) => {
-                  if (item === 'paste') {
+                  if (item === 'paste' && platformEnv.canGetClipboard) {
                     return (
                       <IconButton
                         key={i}
@@ -121,7 +122,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
         if (isLabelAddonActions && Array.isArray(labelAddon)) {
           actions = labelAddon
             .map((item) => {
-              if (item === 'paste') {
+              if (item === 'paste' && platformEnv.canGetClipboard) {
                 return {
                   icon: 'ClipboardSolid' as ICON_NAMES,
                   text: intl.formatMessage({ id: 'action__paste' }),
@@ -131,7 +132,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
               if (item === 'scan') {
                 return {
                   icon: 'ScanSolid' as ICON_NAMES,
-                  text: intl.formatMessage({ id: 'title__scan_qr_code' }),
+                  text: intl.formatMessage({ id: 'action__scan' }),
                   onPress: onScanClick,
                 };
               }

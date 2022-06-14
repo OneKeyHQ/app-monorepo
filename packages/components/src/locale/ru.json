@@ -115,6 +115,7 @@
   "action__retry": "Повторная попытка",
   "action__reveal_recovery_phrase": "Показать фразу восстановления",
   "action__save": "Сохранить",
+  "action__scan": "Scan",
   "action__see_all": "Смотреть все",
   "action__select_token": "Выберите маркер",
   "action__sell": "Продать",
