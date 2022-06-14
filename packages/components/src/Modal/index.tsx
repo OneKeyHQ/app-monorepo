@@ -35,6 +35,7 @@ export type ModalProps = {
   visible?: boolean;
   closeable?: boolean;
   closeAction?: () => void;
+  closeOnOverlayClick?: boolean;
   primaryActionTranslationId?: LocaleIds;
   secondaryActionTranslationId?: LocaleIds;
   onBackActionPress?: () => void;
@@ -76,6 +77,7 @@ const defaultProps = {
   maxHeight: '90%',
   modalHeight: 'full',
   headerShown: true,
+  closeOnOverlayClick: true,
 } as const;
 
 const Modal: FC<ModalProps> = ({
