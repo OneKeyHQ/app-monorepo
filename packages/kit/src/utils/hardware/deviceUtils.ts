@@ -1,25 +1,23 @@
-import { SearchDevice } from '@onekeyfe/hd-core'
-import { getHardwareSDKInstance } from './hardwareInstance'
-import { getDeviceType } from '../device/ble/OnekeyHardware'
+import { SearchDevice } from '@onekeyfe/hd-core';
+
+import { getHardwareSDKInstance } from './hardwareInstance';
 
 class DeviceUtils {
-	async getSDKInstance() {
-		return await getHardwareSDKInstance()
-	}
+  async getSDKInstance() {
+    return getHardwareSDKInstance();
+  }
 
-	async startDeviceScan() {
-		const HardwareSDK = await this.getSDKInstance()
-		const searchResponse = await HardwareSDK?.searchDevices()
-		// TODO: searchDevices 不是长连接，是不是需要轮询
-
-		return searchResponse 
-	}
+  async startDeviceScan() {
+    const HardwareSDK = await this.getSDKInstance();
+    const searchResponse = await HardwareSDK?.searchDevices();
+    // TODO: searchDevices 不是长连接，是不是需要轮询
+    console.log(searchResponse);
+    return searchResponse;
+  }
 }
 
-const deviceUtils = new DeviceUtils()
+const deviceUtils = new DeviceUtils();
 
-export type {
-	SearchDevice
-}
+export type { SearchDevice };
 
-export default deviceUtils
+export default deviceUtils;

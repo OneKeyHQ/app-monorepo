@@ -1,41 +1,43 @@
+import { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { CoreApi, ConnectSettings } from '@onekeyfe/hd-core'
 
-let HardwareSDK: CoreApi
+// eslint-disable-next-line import/no-mutable-exports
+let HardwareSDK: CoreApi;
 
-export const getHardwareSDKInstance = (): Promise<CoreApi> => {
-	return new Promise(async (resolve, reject) => {
-		if (HardwareSDK) {
-			resolve(HardwareSDK)
-			return
-		} 
-	
-		let settings: Partial<ConnectSettings> = {
-			debug: true
-		}
-	
-		if (platformEnv.isNative) {
-			console.log('will return ble-sdk')
-		} else {
-			HardwareSDK = (await import('@onekeyfe/hd-web-sdk')).default as unknown as CoreApi
-			settings.connectSrc = 'https://localhost:8088/'
-		}
-	
-		try {
-			await HardwareSDK.init(settings)
-		} catch {
-			return null
-		}
+export const getHardwareSDKInstance = (): Promise<CoreApi> =>
+  // eslint-disable-next-line no-async-promise-executor
+  new Promise(async (resolve) => {
+    if (HardwareSDK) {
+      resolve(HardwareSDK);
+      return;
+    }
 
-		/**
-		 *  TODO: mock the handshake process
-		 * 	important: init must be returned after the handshake
-		 * 
-		 */
-		setTimeout(() => resolve(HardwareSDK), 3000)
-	})
-};
+    const settings: Partial<ConnectSettings> = {
+      debug: true,
+    };
 
-export {
-	HardwareSDK
-}
+    if (platformEnv.isNative) {
+      HardwareSDK = (await import('@onekeyfe/hd-ble-sdk'))
+        .default as unknown as CoreApi;
+    } else {
+      HardwareSDK = (await import('@onekeyfe/hd-web-sdk'))
+        .default as unknown as CoreApi;
+      settings.connectSrc = 'https://localhost:8088/';
+    }
+
+    try {
+      await HardwareSDK.init(settings);
+    } catch {
+      return null;
+    }
+
+    /**
+     *  TODO: mock the handshake process
+     * 	important: init must be returned after the handshake
+     *
+     */
+    setTimeout(() => resolve(HardwareSDK), 3000);
+  });
+
+export { HardwareSDK };

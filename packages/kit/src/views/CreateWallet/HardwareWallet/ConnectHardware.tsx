@@ -143,9 +143,6 @@ const ConnectHardwareModal: FC = () => {
     (device: Device) => {
       if (!deviceUtils || !device) return;
 
-      // bleUtils.stopScan();
-      // setIsSearching(false);
-
       setIsConnectingDeviceId(device.connectId);
       deviceUtils.connect(device.device.id, device.type).then(() => {
         setIsConnectingDeviceId('');
