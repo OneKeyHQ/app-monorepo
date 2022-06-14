@@ -33,7 +33,6 @@ function PreSendToken() {
       hidePrimaryAction
       maxHeight={560}
       hideSecondaryAction={false}
-      footer={account ? undefined : null}
       header={intl.formatMessage({ id: 'action__select_token' })}
       footer={null}
       scrollViewProps={{
