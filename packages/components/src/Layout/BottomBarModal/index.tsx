@@ -78,11 +78,15 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
         }}
         handlePosition="inside"
         handleStyle={{
+          // default styles start
           alignSelf: 'center',
           top: 8,
           width: 45,
           height: 5,
           borderRadius: 5,
+          // default styles end
+
+          // custom styles
           backgroundColor: handleBgColor,
         }}
       >
