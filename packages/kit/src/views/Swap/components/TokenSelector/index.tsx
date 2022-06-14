@@ -291,11 +291,13 @@ const Header: FC<HeaderProps> = ({
 type ListEmptyComponentProps = {
   isLoading: boolean;
   terms: string;
+  networkId?: string;
 };
 
 const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   isLoading,
   terms,
+  networkId,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
@@ -322,10 +324,11 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
         defaultMessage: 'Add Custom Token',
       })}
       handleAction={() => {
-        const params: { address?: string } = {};
+        const params: { address?: string; networkId?: string } = { networkId };
         if (isValidateAddr(terms)) {
           params.address = terms;
         }
+        console.log('params', params);
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Swap,
           params: {
@@ -511,7 +514,11 @@ const TokenSelector: FC<TokenSelectorProps> = ({
           keyExtractor: (item) => (item as TokenType).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
-            <ListEmptyComponent isLoading={loading} terms={searchTerm} />
+            <ListEmptyComponent
+              isLoading={loading}
+              terms={searchTerm}
+              networkId={activeNetworkId}
+            />
           ),
           ListHeaderComponent: (
             <Header

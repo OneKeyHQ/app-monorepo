@@ -1,5 +1,6 @@
 import type * as React from 'react';
 
+import type BottomSheet from '@gorhom/bottom-sheet';
 import type { HeaderOptions } from '@react-navigation/elements';
 import type {
   Descriptor,
@@ -30,14 +31,13 @@ export type TBottomBarFoldableItem<T = any> = {
   tabBarIcon: () => string;
 };
 
-export type TBottomBarRefAttr = {
-  open: () => void;
-  close: () => void;
-};
+export type TBottomBarRefAttr = BottomSheet;
 
 export type TBottomBarModalProps = {
   onOpen: () => void;
   onClose: () => void;
+  handleClose: () => void;
+  handleOpen: () => void;
   foldableList: TBottomBarFoldableItem[];
   tabBarHeight: number;
 };
