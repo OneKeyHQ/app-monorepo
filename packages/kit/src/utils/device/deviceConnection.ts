@@ -113,7 +113,7 @@ const getConnectInstance = async (): Promise<typeof OneKeyConnect> => {
     // const CONNECT_SRC = platformEnv.isDesktop ? '/static/js-sdk/' : CONNECT_URL;
     await OneKeyConnect.init({
       transportReconnect: true,
-      debug: false,
+      debug: true,
       popup: false,
       webusb: false,
       env: platformEnv.isNative ? 'react-native' : 'web',
