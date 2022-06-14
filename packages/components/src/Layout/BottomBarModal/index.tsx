@@ -1,13 +1,7 @@
 /* eslint-disable react/prop-types */
-import {
-  ForwardedRef,
-  MutableRefObject,
-  forwardRef,
-  useEffect,
-  useRef,
-} from 'react';
+import { forwardRef, useCallback } from 'react';
 
-import { Modalize } from 'react-native-modalize';
+import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
 import Box from '../../Box';
 import Icon from '../../Icon';
@@ -16,85 +10,62 @@ import { useThemeValue } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
-import type {
-  TBottomBarModalProps,
-  TBottomBarRefAttr,
-} from '../BottomTabs/types';
+import type { TBottomBarModalProps } from '../BottomTabs/types';
 
-export const useCombinedRefs = (
-  ...refs: (
-    | ForwardedRef<any>
-    | ((c: MutableRefObject<any>['current']) => void)
-  )[]
-) => {
-  const targetRef = useRef();
-
-  useEffect(() => {
-    refs.forEach((ref) => {
-      if (!ref) {
-        return;
-      }
-
-      if (typeof ref === 'function') {
-        ref(targetRef.current);
-      } else {
-        ref.current = targetRef.current;
-      }
-    });
-  }, [refs]);
-
-  return targetRef;
-};
-
-const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
-  (props, ref) => {
-    const modalizeRef = useRef(null);
-    const combinedRef = useCombinedRefs(ref, modalizeRef);
-    const [inactiveFontColor, defaultBgColor, handleBgColor] = useThemeValue([
+const BottomBarModal = forwardRef<BottomSheet, TBottomBarModalProps>(
+  ({ onOpen, onClose, ...props }, ref) => {
+    const [inactiveFontColor, sheetBgColor] = useThemeValue([
       'text-default',
       'background-default',
-      'icon-subdued',
     ]);
-    return (
-      <Modalize
-        adjustToContentHeight
-        ref={combinedRef}
-        onClose={props.onClose}
-        onOpen={props.onOpen}
-        openAnimationConfig={{
-          timing: {
-            duration: 150,
-          },
-        }}
-        closeAnimationConfig={{
-          timing: {
-            duration: 150,
-          },
-        }}
-        modalStyle={{
-          backgroundColor: defaultBgColor,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-        }}
-        handlePosition="inside"
-        handleStyle={{
-          // default styles start
-          alignSelf: 'center',
-          top: 8,
-          width: 45,
-          height: 5,
-          borderRadius: 5,
-          // default styles end
 
-          // custom styles
-          backgroundColor: handleBgColor,
-        }}
+    const handleSheetChanges = useCallback(
+      (from: number) => {
+        setTimeout(() => {
+          if (from < 0) {
+            onOpen();
+          } else {
+            onClose();
+          }
+        });
+      },
+      [onClose, onOpen],
+    );
+
+    const renderBackdrop = useCallback(
+      (backdropComponentProps) => (
+        <BottomSheetBackdrop
+          {...backdropComponentProps}
+          disappearsOnIndex={-1}
+          appearsOnIndex={0}
+        />
+      ),
+      [],
+    );
+
+    const ITEM_COUNT = 2;
+    const innerHeight = 60 * ITEM_COUNT + 32 * 2;
+    return (
+      <BottomSheet
+        ref={ref}
+        index={-1}
+        snapPoints={['2%', innerHeight]}
+        onAnimate={handleSheetChanges}
+        onChange={(index) => handleSheetChanges(-index)}
+        bottomInset={props.tabBarHeight}
+        enablePanDownToClose
+        handleComponent={null}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: sheetBgColor }}
       >
-        <Box mb={props.tabBarHeight} px={4} py={8}>
+        <Box px={4} py={8}>
           {props.foldableList.map((foldable, index) => (
             <Pressable
               key={index}
-              onPress={foldable.onPress}
+              onPress={() => {
+                foldable.onPress();
+                props.handleClose();
+              }}
               _hover={{ bg: 'surface-hovered' }}
               _pressed={{ bg: 'surface-pressed' }}
               borderRadius="xl"
@@ -122,7 +93,7 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
             </Pressable>
           ))}
         </Box>
-      </Modalize>
+      </BottomSheet>
     );
   },
 );

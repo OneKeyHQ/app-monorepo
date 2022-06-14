@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
@@ -124,15 +125,27 @@ export default function BottomTabBar({
     ],
   );
 
+  const handleClose = useCallback(() => {
+    setFABOpenStatus(false);
+    bottomBarRef?.current?.close();
+  }, []);
+  const handleOpen = useCallback(() => {
+    setFABOpenStatus(true);
+    bottomBarRef?.current?.expand?.();
+    // @ts-expect-error
+    bottomBarRef?.current?.open?.();
+  }, []);
+
   const tabsWithFloatButton = useMemo(() => {
     const middleIndex = Math.floor(tabs.length / 2);
     const onPress = () => {
       if (isFABOpen) {
-        bottomBarRef?.current?.close?.();
+        handleClose();
       } else {
-        bottomBarRef?.current?.open?.();
+        handleOpen();
       }
     };
+
     return [
       ...tabs.slice(0, middleIndex),
       <Box
@@ -164,7 +177,7 @@ export default function BottomTabBar({
       </Box>,
       ...tabs.slice(middleIndex),
     ];
-  }, [tabs, isFABOpen]);
+  }, [tabs, isFABOpen, handleClose, handleOpen]);
 
   return (
     <>
@@ -187,9 +200,11 @@ export default function BottomTabBar({
       <BottomBarModal
         tabBarHeight={tabBarHeight}
         foldableList={foldableList}
-        ref={(el) => (bottomBarRef.current = el || undefined)}
         onOpen={() => setFABOpenStatus(true)}
         onClose={() => setFABOpenStatus(false)}
+        handleClose={handleClose}
+        handleOpen={handleOpen}
+        ref={(el) => (bottomBarRef.current = el || undefined)}
       />
     </>
   );
