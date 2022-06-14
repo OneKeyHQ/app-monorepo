@@ -23,5 +23,7 @@ export type ManageTokenRoutesParams = {
     decimal: number;
     logoURI: string;
   };
-  [ManageTokenRoutes.CustomToken]: { address?: string } | undefined;
+  [ManageTokenRoutes.CustomToken]:
+    | { address?: string; networkId?: string }
+    | undefined;
 };
