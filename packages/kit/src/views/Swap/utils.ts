@@ -95,3 +95,11 @@ export function lte(a: BigNumber.Value, b: BigNumber.Value): boolean {
 export function tokenBN(value: BigNumber.Value, decimals: BigNumber.Value) {
   return new BigNumber(10).exponentiatedBy(decimals).multipliedBy(value);
 }
+
+export function greaterThanZeroOrUndefined(value?: string) {
+  if (!value || Number.isNaN(value)) {
+    return undefined;
+  }
+  const num = Number(value);
+  return num > 0 ? value : undefined;
+}

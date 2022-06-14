@@ -115,6 +115,7 @@
   "action__retry": "Réessayer",
   "action__reveal_recovery_phrase": "Révéler la phrase de récupération",
   "action__save": "Sauvez",
+  "action__scan": "Scan",
   "action__see_all": "Voir tous",
   "action__select_token": "Sélectionner le Token",
   "action__sell": "Vendez",
