@@ -84,6 +84,13 @@ function PreSendAddress() {
                 control={control}
                 name="to"
                 formControlProps={{ width: 'full' }}
+                successMessage={
+                  !submitDisabled
+                    ? intl.formatMessage({
+                        id: 'form__enter_recipient_address_valid',
+                      })
+                    : undefined
+                }
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),

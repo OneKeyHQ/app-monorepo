@@ -115,6 +115,7 @@
   "action__retry": "Reintentar",
   "action__reveal_recovery_phrase": "Revelar frase de recuperación",
   "action__save": "Guardar",
+  "action__scan": "Scan",
   "action__see_all": "Ver todo",
   "action__select_token": "Seleccionar ficha",
   "action__sell": "Vender",

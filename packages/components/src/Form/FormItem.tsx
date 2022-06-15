@@ -20,8 +20,7 @@ import { TextAreaAction } from '../Textarea';
 import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';
 
-import { FormErrorMessage } from './FormErrorMessage';
-import { FormSuccessMessage } from './FormSuccessMessage';
+import { FormControlMessage } from './FormControlMessage';
 
 type InternalActionList = 'paste' | 'scan';
 
@@ -173,10 +172,10 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
               </FormControl.HelperText>
             ) : null}
             {error && error?.message ? (
-              <FormErrorMessage message={error?.message} />
+              <FormControlMessage type="error" message={error?.message} />
             ) : null}
             {successMessage ? (
-              <FormSuccessMessage message={successMessage} />
+              <FormControlMessage type="success" message={successMessage} />
             ) : null}
           </FormControl>
         );

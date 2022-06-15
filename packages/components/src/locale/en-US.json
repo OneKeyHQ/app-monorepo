@@ -115,6 +115,7 @@
   "action__retry": "Retry",
   "action__reveal_recovery_phrase": "Reveal Recovery Phrase",
   "action__save": "Save",
+  "action__scan": "Scan",
   "action__see_all": "See All",
   "action__select_token": "Select Token",
   "action__sell": "Sell",

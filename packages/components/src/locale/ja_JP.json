@@ -115,6 +115,7 @@
   "action__retry": "リトライ",
   "action__reveal_recovery_phrase": "回復フレーズを明らかにする",
   "action__save": "セーブ",
+  "action__scan": "Scan",
   "action__see_all": "すべて見る",
   "action__select_token": "トークンの選択",
   "action__sell": "販売する",
