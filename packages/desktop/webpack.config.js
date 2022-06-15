@@ -8,7 +8,13 @@ const platform = webpackTools.developmentConsts.platforms.desktop;
 module.exports = async function (env, argv) {
   // eslint-disable-next-line no-param-reassign
   env = await webpackTools.modifyExpoEnv({ env, platform });
-  let config = await createWebpackConfigAsync(env, argv);
+  let config = await createWebpackConfigAsync(
+    {
+      ...env,
+      babel: { dangerouslyAddModulePathsToTranspile: ['@gorhom'] },
+    },
+    argv,
+  );
   config = webpackTools.normalizeConfig({
     platform,
     config,

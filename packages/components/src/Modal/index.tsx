@@ -188,7 +188,7 @@ const Modal: FC<ModalProps> = ({
   ]);
 
   const modalContainer = useMemo(() => {
-    /* 
+    /*
       Why `platformEnv.isNativeIOS` ?
       We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
     */
@@ -201,7 +201,10 @@ const Modal: FC<ModalProps> = ({
             maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
             w="100%"
             borderTopRadius={
-              platformEnv.isExtensionUiStandaloneWindow ? 0 : '24px'
+              platformEnv.isExtensionUiStandaloneWindow ||
+              platformEnv.isNativeAndroid
+                ? 0
+                : '24px'
             }
             overflow="hidden"
           >

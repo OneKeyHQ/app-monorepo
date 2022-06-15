@@ -27,6 +27,7 @@ import {
 import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
 import { ApprovalState, QuoteParams, SwapError } from '../typings';
+import { greaterThanZeroOrUndefined } from '../utils';
 
 import { useHasPendingApproval } from './useTransactions';
 
@@ -331,8 +332,14 @@ export function useSwap() {
     outputTokenNetwork?.id,
     accountId,
   );
-  const inputAmount = useTokenAmount(inputToken, swapQuote?.sellAmount);
-  const outputAmount = useTokenAmount(outputToken, swapQuote?.buyAmount);
+  const inputAmount = useTokenAmount(
+    inputToken,
+    greaterThanZeroOrUndefined(swapQuote?.sellAmount),
+  );
+  const outputAmount = useTokenAmount(
+    outputToken,
+    greaterThanZeroOrUndefined(swapQuote?.buyAmount),
+  );
   const approveState = useApproveState(
     inputToken,
     swapQuote?.allowanceTarget,
