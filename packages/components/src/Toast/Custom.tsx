@@ -28,7 +28,7 @@ const CustomToast: FC<Props> = (outerProps) => {
   const intl = useIntl();
   return (
     <Toast
-      bottomOffset={50}
+      position="top"
       config={{
         default: (props) => (
           <BaseToast
