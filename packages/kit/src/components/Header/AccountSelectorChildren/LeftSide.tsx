@@ -147,7 +147,7 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
       <Box p={2}>
         <IconButton
           type="primary"
-          name="PlusOutline"
+          name="WalletAddOutline"
           circle
           size="xl"
           onPress={() =>

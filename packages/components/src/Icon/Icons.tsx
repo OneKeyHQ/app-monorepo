@@ -251,6 +251,7 @@ import ViewListOutline from "./react/outline/ViewList";
 import VolumeOffOutline from "./react/outline/VolumeOff";
 import VolumeUpOutline from "./react/outline/VolumeUp";
 import WalletOutline from "./react/outline/Wallet";
+import WalletAddOutline from "./react/outline/WalletAdd";
 import WifiOutline from "./react/outline/Wifi";
 import ZoomInOutline from "./react/outline/ZoomIn";
 import ZoomOutOutline from "./react/outline/ZoomOut";
@@ -414,6 +415,7 @@ import NavDiscoverySolid from "./react/solid/NavDiscovery";
 import NavHomeSolid from "./react/solid/NavHome";
 import NavMenuSolid from "./react/solid/NavMenu";
 import NavReceiveSolid from "./react/solid/NavReceive";
+import NavSellSolid from "./react/solid/NavSell";
 import NavSendSolid from "./react/solid/NavSend";
 import NavSettingsSolid from "./react/solid/NavSettings";
 import NavSwapSolid from "./react/solid/NavSwap";
@@ -756,6 +758,7 @@ export type ICON_NAMES =
   | "VolumeOffOutline"
   | "VolumeUpOutline"
   | "WalletOutline"
+  | "WalletAddOutline"
   | "WifiOutline"
   | "ZoomInOutline"
   | "ZoomOutOutline"
@@ -919,6 +922,7 @@ export type ICON_NAMES =
   | "NavHomeSolid"
   | "NavMenuSolid"
   | "NavReceiveSolid"
+  | "NavSellSolid"
   | "NavSendSolid"
   | "NavSettingsSolid"
   | "NavSwapSolid"
@@ -1261,6 +1265,7 @@ export default {
   VolumeOffOutline: VolumeOffOutline,
   VolumeUpOutline: VolumeUpOutline,
   WalletOutline: WalletOutline,
+  WalletAddOutline: WalletAddOutline,
   WifiOutline: WifiOutline,
   ZoomInOutline: ZoomInOutline,
   ZoomOutOutline: ZoomOutOutline,
@@ -1424,6 +1429,7 @@ export default {
   NavHomeSolid: NavHomeSolid,
   NavMenuSolid: NavMenuSolid,
   NavReceiveSolid: NavReceiveSolid,
+  NavSellSolid: NavSellSolid,
   NavSendSolid: NavSendSolid,
   NavSettingsSolid: NavSettingsSolid,
   NavSwapSolid: NavSwapSolid,
