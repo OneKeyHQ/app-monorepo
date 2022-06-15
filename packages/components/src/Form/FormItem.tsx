@@ -21,6 +21,7 @@ import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';
 
 import { FormErrorMessage } from './FormErrorMessage';
+import { FormSuccessMessage } from './FormSuccessMessage';
 
 type InternalActionList = 'paste' | 'scan';
 
@@ -29,6 +30,7 @@ type FormItemProps = {
   labelAddon?: ReactElement | InternalActionList[];
   isLabelAddonActions?: boolean;
   helpText?: string | ((v: any) => string) | ReactElement;
+  success?: boolean;
   onLabelAddonPress?: () => void;
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
@@ -37,6 +39,7 @@ type FormItemProps = {
 export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   label,
   helpText,
+  success,
   children,
   name,
   rules,
@@ -171,6 +174,9 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             ) : null}
             {error && error?.message ? (
               <FormErrorMessage message={error?.message} />
+            ) : null}
+            {success && success?.message ? (
+              <FormSuccessMessage message={success?.message} />
             ) : null}
           </FormControl>
         );
