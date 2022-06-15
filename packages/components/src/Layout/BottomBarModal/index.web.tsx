@@ -59,6 +59,7 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
       <Modalize
         adjustToContentHeight
         ref={combinedRef}
+        withHandle={false}
         onClose={props.onClose}
         onOpen={props.onOpen}
         openAnimationConfig={{
