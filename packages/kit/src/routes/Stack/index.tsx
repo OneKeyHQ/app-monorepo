@@ -74,25 +74,12 @@ const Dashboard = () => {
 
     return stackScreenList.map((stack) => (
       <StackNavigator.Screen
-        options={{
-          headerBackTitle: '',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: bgColor,
-            // @ts-expect-error
-            borderBottomWidth: 0,
-            shadowColor: borderBottomColor,
-          },
-          header:
-            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
-          headerTintColor: textColor,
-        }}
         key={stack.name}
         name={stack.name}
         component={stack.component}
       />
     ));
-  }, [isVerticalLayout, bgColor, borderBottomColor, textColor]);
+  }, [isVerticalLayout]);
 
   return (
     <StackNavigator.Navigator>

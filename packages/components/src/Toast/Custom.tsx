@@ -2,7 +2,7 @@
 import React, { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TextStyle } from 'react-native';
+import { StyleSheet, TextStyle } from 'react-native';
 import Toast, { BaseToast } from 'react-native-toast-message';
 
 import ConfirmOnClassic from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-classic.json';
@@ -18,17 +18,26 @@ import { Body1Props, Text } from '../Typography';
 type Props = ComponentProps<typeof Toast>;
 
 const CustomToast: FC<Props> = (outerProps) => {
-  const [backgroundColor, fontColor, borderColor, borderLeftColor] =
-    useThemeValue([
-      'surface-neutral-default',
-      'text-default',
-      'border-default',
-      'border-default',
-    ]);
+  const [
+    backgroundColor,
+    fontColor,
+    borderColor,
+    borderLeftColor,
+    shadowColor,
+  ] = useThemeValue([
+    // 'surface-neutral-default',
+    // 'text-default',
+    // 'border-default',
+    // 'border-default',
+    'interactive-default',
+    'text-on-primary',
+    'interactive-default',
+    'interactive-default',
+    'interactive-default',
+  ]);
   const intl = useIntl();
   return (
     <Toast
-      bottomOffset={50}
       config={{
         default: (props) => (
           <BaseToast
@@ -39,13 +48,13 @@ const CustomToast: FC<Props> = (outerProps) => {
               height: 'auto',
               marginLeft: 0,
               backgroundColor,
-              borderRadius: 12,
-              borderWidth: 0.5,
-              borderLeftWidth: 0.5,
+              borderRadius: 9999,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderLeftWidth: StyleSheet.hairlineWidth,
               borderColor,
               borderLeftColor,
               // replace the code below with shadow token 'depth.4' in the future, i don't know how – franco
-              shadowColor: '#000',
+              shadowColor,
               shadowOffset: {
                 width: 0,
                 height: 4,
@@ -57,7 +66,7 @@ const CustomToast: FC<Props> = (outerProps) => {
             contentContainerProps={{
               style: {
                 paddingVertical: 8,
-                paddingHorizontal: 12,
+                paddingHorizontal: 16,
                 marginLeft: 0,
                 alignSelf: 'center',
                 maxWidth: 340,
@@ -78,7 +87,7 @@ const CustomToast: FC<Props> = (outerProps) => {
               pb={6}
               rounded="xl"
               bgColor="surface-default"
-              borderWidth={0.5}
+              borderWidth={StyleSheet.hairlineWidth}
               borderColor="border-subdued"
               shadow="depth.4"
               {...props}
@@ -112,7 +121,7 @@ const CustomToast: FC<Props> = (outerProps) => {
               pb={6}
               rounded="xl"
               bgColor="surface-default"
-              borderWidth={0.5}
+              borderWidth={StyleSheet.hairlineWidth}
               borderColor="border-subdued"
               shadow="depth.4"
               {...props}
