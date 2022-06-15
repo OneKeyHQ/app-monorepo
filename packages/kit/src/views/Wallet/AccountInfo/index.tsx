@@ -216,7 +216,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           <IconButton
             circle
             size={isSmallView ? 'xl' : 'lg'}
-            name="TagOutline"
+            name="NavBuySolid"
             type="basic"
             onPress={() => {
               if (!account) return;
