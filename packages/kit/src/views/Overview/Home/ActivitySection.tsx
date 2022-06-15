@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC } from 'react';
 
 import ContentLoader from 'react-content-loader/native';
 import { useIntl } from 'react-intl';
@@ -6,14 +6,13 @@ import { Rect } from 'react-native-svg';
 
 import {
   Box,
-  IconButton,
+  Icon,
+  Pressable,
   Text,
   useIsVerticalLayout,
   useThemeValue,
 } from '@onekeyhq/components';
 import { useOverview } from '@onekeyhq/kit/src/hooks';
-
-import NFTList from './NFTList';
 
 const LoadingView = () => {
   const isSmallScreen = useIsVerticalLayout();
@@ -33,37 +32,26 @@ const LoadingView = () => {
   );
 };
 
-const NFTSection: FC = () => {
+const ActivitySection: FC = () => {
   const intl = useIntl();
-  const [expand, setExpand] = useState(false);
   const { loading } = useOverview();
 
   return (
     <Box mb="24px">
-      <Box mb="12px" flexDirection="row" justifyContent="space-between">
+      <Pressable mb="12px" flexDirection="row" justifyContent="space-between">
         <Text typography="Heading">
-          {intl.formatMessage({ id: 'asset__collectibles' })}
+          {intl.formatMessage({ id: 'title__activity' })}
         </Text>
-        {!loading && (
-          <IconButton
-            onPress={() => {
-              setExpand((prev) => !prev);
-            }}
-            name={expand ? 'ShrinkOutline' : 'ExpandOutline'}
-            type="plain"
-            size="sm"
-          />
-        )}
-      </Box>
-      {loading ? (
-        <LoadingView />
-      ) : (
-        <Box>
-          <NFTList expand={expand} />
+        <Box flexDirection="row">
+          <Text typography="Button2" mr="8px" color="text-subdued">
+            See All
+          </Text>
+          <Icon name="ChevronRightSolid" />
         </Box>
-      )}
+      </Pressable>
+      {loading ? <LoadingView /> : <Box height="160px" bgColor="pink.500" />}
     </Box>
   );
 };
 
-export default NFTSection;
+export default ActivitySection;

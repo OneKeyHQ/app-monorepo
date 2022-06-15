@@ -6,7 +6,7 @@ export const useOverview = (): { loading: boolean } => {
   useEffect(() => {
     setTimeout(() => {
       setLoading(false);
-    }, 3000);
+    }, 1000);
   }, []);
 
   return { loading };

@@ -3,7 +3,6 @@ import React, { PropsWithChildren } from 'react';
 import ContentLoader, {
   IContentLoaderProps,
 } from 'react-content-loader/native';
-import { Rect } from 'react-native-svg';
 
 import { useThemeValue } from '../Provider/hooks';
 
@@ -123,24 +122,6 @@ const Skeleton = ({
     {...rest}
   >
     {shape ? renderShape(shape, width, size) : children}
-  </ContentLoader>
-);
-
-export const BaseSkeleton = ({
-  width,
-  height,
-  ...rest
-}: PropsWithChildren<SkeletonProps>) => (
-  <ContentLoader
-    speed={1}
-    width={width}
-    height={height}
-    viewBox={`0 0 ${String(width)} ${String(height)}`}
-    backgroundColor={useThemeValue('surface-neutral-default')}
-    foregroundColor={useThemeValue('surface-default')}
-    {...rest}
-  >
-    <Rect x="0" y="0" width="100%" height="100%" />
   </ContentLoader>
 );
 
