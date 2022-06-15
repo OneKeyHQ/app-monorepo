@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
-import OneKeyConnect from '@onekeyfe/js-sdk';
+
+import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
 import {
@@ -8,7 +9,6 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
-import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -45,7 +45,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
     )) as Provider;
-
     return provider.hardwareSignTransaction(unsignedTx, signers);
   }
 
@@ -71,7 +70,8 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let response;
     try {
-      response = await OneKeyConnect.getPublicKey({
+      const connectId = await this.getHardwareConnectId();
+      response = await HardwareSDK.btcGetPublicKey(connectId, {
         bundle: usedIndexes.map((index) => ({
           path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
         })),
@@ -95,12 +95,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const ret = [];
     let index = 0;
-    for (const {
-      serializedPath: path,
-      xpub: legacyXPub,
-      xpubSegwit,
-    } of response.payload) {
-      const xpub = xpubSegwit || legacyXPub;
+    for (const { path, xpub } of response.payload) {
       const firstAddressRelPath = '0/0';
       const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
         xpub,

@@ -1,7 +1,8 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
-import OneKeyConnect from '@onekeyfe/js-sdk';
+
+import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
@@ -48,12 +49,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
     const showOnDevice = false;
+    const connectId = await this.getHardwareConnectId();
 
     let pubkeys: Array<string> = [];
     if (!isSearching) {
       let response;
       try {
-        response = await OneKeyConnect.starcoinGetPublicKey({
+        response = await HardwareSDK.starcoinGetPublicKey(connectId, {
           bundle: paths.map((path) => ({ path, showOnDevice })),
         });
       } catch (error: any) {
@@ -68,12 +70,15 @@ export class KeyringHardware extends KeyringHardwareBase {
           message: response.payload.error,
         });
       }
-      pubkeys = response.payload.map(({ publicKey }) => publicKey);
+
+      pubkeys = response.payload
+        .map((result) => result.public_key)
+        .filter((item: string | undefined): item is string => !!item);
     }
 
     let addressesResponse;
     try {
-      addressesResponse = await OneKeyConnect.starcoinGetAddress({
+      addressesResponse = await HardwareSDK.starcoinGetAddress(connectId, {
         bundle: paths.map((path) => ({ path, showOnDevice })),
       });
     } catch (error: any) {
@@ -91,18 +96,20 @@ export class KeyringHardware extends KeyringHardwareBase {
     const ret = [];
     let index = 0;
     for (const addressInfo of addressesResponse.payload) {
-      const { address, serializedPath: path } = addressInfo;
-      const name = (names || [])[index] || `STC #${indexes[index] + 1}`;
-      ret.push({
-        id: `${this.walletId}--${path}`,
-        name,
-        type: AccountType.SIMPLE,
-        path,
-        coinType: COIN_TYPE,
-        pub: pubkeys[index] || '',
-        address,
-      });
-      index += 1;
+      const { address, path } = addressInfo;
+      if (address) {
+        const name = (names || [])[index] || `STC #${indexes[index] + 1}`;
+        ret.push({
+          id: `${this.walletId}--${path}`,
+          name,
+          type: AccountType.SIMPLE,
+          path,
+          coinType: COIN_TYPE,
+          pub: pubkeys[index] || '',
+          address,
+        });
+        index += 1;
+      }
     }
     return ret;
   }
