@@ -25,6 +25,13 @@ import { FormSuccessMessage } from './FormSuccessMessage';
 
 type InternalActionList = 'paste' | 'scan';
 
+// export declare type FieldError = {
+//   type: LiteralUnion<keyof RegisterOptions, string>;
+//   ref?: Ref;
+//   types?: MultipleFieldErrors;
+//   message?: Message;
+// };
+
 type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement | InternalActionList[];
