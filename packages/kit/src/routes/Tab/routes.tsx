@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { useThemeValue } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
@@ -13,7 +14,9 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
 
 export interface TabRouteConfig {
@@ -112,15 +115,37 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
     ...(tab.children || []),
   ];
 
-  const StackNavigatorComponent = () => (
-    <Stack.Navigator>
-      {screens.map((s, index) => (
-        <Stack.Group key={s.name} screenOptions={{ headerShown: index > 0 }}>
-          <Stack.Screen name={s.name} component={s.component} />
-        </Stack.Group>
-      ))}
-    </Stack.Navigator>
-  );
+  const StackNavigatorComponent = () => {
+    const [bgColor, textColor, borderBottomColor] = useThemeValue([
+      'background-default',
+      'text-default',
+      'border-subdued',
+    ]);
+    return (
+      <Stack.Navigator
+        screenOptions={{
+          headerBackTitle: '',
+          headerTitleAlign: 'center',
+          headerStyle: {
+            backgroundColor: bgColor,
+            // @ts-expect-error
+            borderBottomWidth: 0,
+            shadowColor: borderBottomColor,
+          },
+          header: platformEnv.isNativeIOS
+            ? renderCustomSubStackHeader
+            : undefined,
+          headerTintColor: textColor,
+        }}
+      >
+        {screens.map((s, index) => (
+          <Stack.Group key={s.name} screenOptions={{ headerShown: index > 0 }}>
+            <Stack.Screen name={s.name} component={s.component} />
+          </Stack.Group>
+        ))}
+      </Stack.Navigator>
+    );
+  };
 
   return StackNavigatorComponent;
 };
