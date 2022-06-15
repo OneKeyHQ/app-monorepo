@@ -68,6 +68,7 @@ export type TxParams = {
   independentField: 'INPUT' | 'OUTPUT';
   activeNetwok: Network;
   activeAccount: Account;
+  receivingAddress?: string;
 };
 
 export type TxData = {

@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, isValidElement } from 'react';
+import React, { ComponentProps, FC, ReactNode, isValidElement } from 'react';
 
 import Box from '../Box';
 import Button from '../Button';
@@ -18,6 +18,7 @@ type EmptyProps = {
   icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
   imageUrl?: number;
+  actionProps?: ComponentProps<typeof Button>;
   handleAction?: () => void;
 };
 
@@ -42,6 +43,7 @@ const Empty: FC<EmptyProps> = ({
   actionTitle,
   imageUrl,
   handleAction,
+  actionProps,
 }) => {
   const isSmallScreen = useIsVerticalLayout();
 
@@ -59,13 +61,17 @@ const Empty: FC<EmptyProps> = ({
             <Image size="100px" source={imageUrl} />
           </Box>
         )}
-        <Text typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}>
+        <Text
+          typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
+          textAlign="center"
+        >
           {title}
         </Text>
         <Text
           typography={{ sm: 'Body1', md: 'Body2' }}
           color="text-subdued"
           mt={2}
+          textAlign="center"
         >
           {subTitle}
         </Text>
@@ -75,6 +81,7 @@ const Empty: FC<EmptyProps> = ({
             type="primary"
             onPress={handleAction}
             size={isSmallScreen ? 'lg' : 'base'}
+            {...actionProps}
           >
             {actionTitle}
           </Button>

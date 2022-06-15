@@ -12,10 +12,12 @@ import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
 type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;
   hideHelpText?: boolean;
+  networkId?: string | null;
 };
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   selectableNetworks,
+  networkId,
   hideHelpText = false,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
@@ -24,7 +26,8 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   const { activeNetworkId: currentNetworkId } = useGeneral();
   const isSmallScreen = useIsVerticalLayout();
 
-  let defaultNetworkId = currentNetworkId;
+  let defaultNetworkId = networkId ?? currentNetworkId;
+
   // If selectableNetworks is specified and currenct selected network not in
   // it, set the first selectable network as the default.
   if (
