@@ -11,7 +11,7 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
       type: 'default',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       text1: props.title,
-      position: 'bottom',
+      position: 'top',
       props,
       ...toastShowParams,
     });
