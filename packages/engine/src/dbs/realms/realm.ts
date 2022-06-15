@@ -66,7 +66,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -166,7 +166,7 @@ class RealmDB implements DBAPI {
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
-      if (!checkPassword(context, oldPassword)) {
+      if (!checkPassword(context.internalObj, oldPassword)) {
         return Promise.reject(new WrongPassword());
       }
 
@@ -623,8 +623,35 @@ class RealmDB implements DBAPI {
    */
   getWallets(): Promise<Wallet[]> {
     try {
+      const ret = [];
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context === 'undefined') {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+
       const wallets = this.realm!.objects<WalletSchema>('Wallet');
-      return Promise.resolve(wallets.map((wallet) => wallet.internalObj));
+      for (const wallet of wallets) {
+        if (context.pendingWallets?.has(wallet.id)) {
+          const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
+            'Credential',
+            wallet.id,
+          );
+          this.realm!.write(() => {
+            context.pendingWallets!.delete(wallet.id);
+            this.realm!.delete(Array.from(wallet.accounts!));
+            this.realm!.delete(wallet);
+            if (typeof credential !== 'undefined') {
+              this.realm!.delete(credential);
+            }
+          });
+        } else {
+          ret.push(wallet.internalObj);
+        }
+      }
+      return Promise.resolve(ret);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -746,7 +773,9 @@ class RealmDB implements DBAPI {
                 ),
               );
             }
-            if (!checkPassword(context, importedCredential.password)) {
+            if (
+              !checkPassword(context.internalObj, importedCredential.password)
+            ) {
               return Promise.reject(new WrongPassword());
             }
             this.realm!.create('Credential', {
@@ -862,7 +891,7 @@ class RealmDB implements DBAPI {
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
-      if (!checkPassword(context, password)) {
+      if (!checkPassword(context.internalObj, password)) {
         return Promise.reject(new WrongPassword());
       }
       const walletId = `hd-${context.nextHD}`;
@@ -890,6 +919,7 @@ class RealmDB implements DBAPI {
           ).toString('hex');
         }
         context!.nextHD += 1;
+        context!.pendingWallets!.add(walletId);
       });
       // in order to disable lint error, here wallet is undefined is impossible ??
       if (typeof wallet === 'undefined') {
@@ -983,7 +1013,7 @@ class RealmDB implements DBAPI {
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
-      if (!checkPassword(context, password)) {
+      if (!checkPassword(context.internalObj, password)) {
         return Promise.reject(new WrongPassword());
       }
       const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
@@ -1068,7 +1098,7 @@ class RealmDB implements DBAPI {
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
-      if (!checkPassword(context, password)) {
+      if (!checkPassword(context.internalObj, password)) {
         return Promise.reject(new WrongPassword());
       }
       const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
@@ -1140,6 +1170,40 @@ class RealmDB implements DBAPI {
   }
 
   /**
+   *  change the wallet pending status if necessary
+   * @param walletId
+   * @returns {Promise<Wallet>}
+   * @throws {OneKeyInternalError}
+   */
+  confirmWalletCreated(walletId: string): Promise<Wallet> {
+    try {
+      const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+        'Wallet',
+        walletId,
+      );
+      if (typeof wallet === 'undefined') {
+        return Promise.reject(new OneKeyInternalError('Wallet not found.'));
+      }
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (typeof context === 'undefined') {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      this.realm!.write(() => {
+        if (context.pendingWallets?.has(walletId)) {
+          context.pendingWallets.delete(walletId);
+        }
+      });
+      return Promise.resolve(wallet.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  /**
    * remove a certain account from a certain wallet
    * @param walletId
    * @param accountId
@@ -1187,7 +1251,7 @@ class RealmDB implements DBAPI {
         if (typeof context === 'undefined') {
           return Promise.reject(new OneKeyInternalError('Context not found.'));
         }
-        if (!checkPassword(context, password)) {
+        if (!checkPassword(context.internalObj, password)) {
           return Promise.reject(new WrongPassword());
         }
       }
