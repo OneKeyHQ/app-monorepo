@@ -64,40 +64,6 @@ const ConnectHardwareModal: FC = () => {
   const [devices, setDevices] = useState<SearchDevice[]>([]);
   const [errorDialog, setErrorDialog] = useState(false);
 
-  const isConnectedDeviceActivated = false;
-  // Do connect device on desktop
-  const isDevicePlugIn = true;
-  const navigateNext = useCallback(() => {
-    // Lookup for device USB connection
-    // If connected, check if is activated
-    if (isConnectedDeviceActivated) {
-      // navigate to setup complete
-      // navigation.navigate(RootRoutes.Modal, {
-      //   screen: ModalRoutes.CreateWallet,
-      //   params: {
-      //     screen: CreateWalletModalRoutes.SetupSuccessModal,
-      //   },
-      // });
-    }
-    // Navigate to setup device
-    // navigation.navigate(RootRoutes.Modal, {
-    //   screen: ModalRoutes.CreateWallet,
-    //   params: {
-    //     screen: CreateWalletModalRoutes.SetupHardwareModal,
-    //   },
-    // });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnectedDeviceActivated, navigation]);
-  useEffect(() => {
-    if (isDevicePlugIn) {
-      setTimeout(() => {
-        if (!platformEnv.isNative) {
-          navigateNext();
-        }
-      }, 3 * 1000);
-    }
-  }, [isDevicePlugIn, navigateNext]);
-
   const handleStopDevice = useCallback(() => {
     if (!deviceUtils) return;
 
@@ -118,9 +84,6 @@ const ConnectHardwareModal: FC = () => {
 
       setDevices(response.payload);
     });
-
-    // Then start searching devices
-    // Show device options when available
   }, []);
 
   useEffect(() => {

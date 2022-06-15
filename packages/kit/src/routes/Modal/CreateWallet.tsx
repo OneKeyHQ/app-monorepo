@@ -17,10 +17,7 @@ import NewWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/NewWallet'
 import RestoreFromMnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreFromMnemonic';
 import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreWallet';
 import Guide from '@onekeyhq/kit/src/views/CreateWallet/Guide';
-import ConnectHardware, {
-  Device,
-  SearchDevice,
-} from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
+import ConnectHardware, { SearchDevice } from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
 import DeviceStatusCheck from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/DeviceStatusCheck';
 import RestoreHardwareWallet from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWallet';
 import RestoreHardwareWalletDescription from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWalletDescription';
@@ -92,11 +89,11 @@ export type CreateWalletRoutesParams = {
     | undefined;
   [CreateWalletModalRoutes.RestoreWalletModal]: undefined;
   [CreateWalletModalRoutes.RestoreFromMnemonicModal]: undefined;
-  [CreateWalletModalRoutes.SetupSuccessModal]: { device: Device };
-  [CreateWalletModalRoutes.SetupHardwareModal]: { device: Device };
-  [CreateWalletModalRoutes.SetupNewDeviceModal]: { device: Device };
+  [CreateWalletModalRoutes.SetupSuccessModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.SetupHardwareModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.SetupNewDeviceModal]: { device: SearchDevice };
   [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: SearchDevice };
-  [CreateWalletModalRoutes.RestoreHardwareWalletModal]: { device: Device };
+  [CreateWalletModalRoutes.RestoreHardwareWalletModal]: { device: SearchDevice };
   [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: {
     device: Device;
   };
