@@ -1,6 +1,8 @@
 import { getHardwareSDKInstance } from './hardwareInstance';
+import { IDeviceType, getDeviceType } from '@onekeyfe/hd-core'
 
 class DeviceUtils {
+  connectedDeviceType: IDeviceType = 'classic';
   async getSDKInstance() {
     return getHardwareSDKInstance();
   }
@@ -17,6 +19,9 @@ class DeviceUtils {
 
   async connect(connectId: string) {
     const result = await this.getFeatures(connectId);
+    if (result) {
+      this.connectedDeviceType = getDeviceType(result);
+    }
     return result !== null;
   }
 
