@@ -1,8 +1,25 @@
+import { Features, IDeviceType } from '@onekeyfe/hd-core';
+
 import { getHardwareSDKInstance } from './hardwareInstance';
-import { IDeviceType, getDeviceType } from '@onekeyfe/hd-core'
+
+/**
+ * will delete packages/kit/src/utils/device
+ * so declare it here
+ */
+export const getDeviceType = (features?: Features): IDeviceType => {
+  if (!features || typeof features !== 'object' || !features.serial_no) {
+    return 'classic';
+  }
+
+  const serialNo = features.serial_no;
+  const miniFlag = serialNo.slice(0, 2);
+  if (miniFlag.toLowerCase() === 'mi') return 'mini';
+  return 'classic';
+};
 
 class DeviceUtils {
   connectedDeviceType: IDeviceType = 'classic';
+
   async getSDKInstance() {
     return getHardwareSDKInstance();
   }
@@ -13,7 +30,6 @@ class DeviceUtils {
     /**
      * searchDevices is not a long connection, is it necessary to poll
      */
-    console.log(searchResponse);
     return searchResponse;
   }
 
