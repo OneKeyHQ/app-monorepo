@@ -1,22 +1,15 @@
 import React, { FC } from 'react';
 
-import { Box, IconButton, SegmentedControl, Text } from '@onekeyhq/components';
+import { Box, IconButton, Text } from '@onekeyhq/components';
 
 export type ViewTypes = 'L' | 'R';
 
 type HeaderProps = {
   title: string;
-  type?: ViewTypes;
-  onViewChange: (type: ViewTypes) => void;
   filter?: () => void;
 };
 
-const SectionHeader: FC<HeaderProps> = ({
-  title,
-  type = 'L',
-  onViewChange,
-  filter,
-}) => (
+const SectionHeader: FC<HeaderProps> = ({ title, filter }) => (
   <Box
     width="full"
     height="48px"
@@ -29,25 +22,6 @@ const SectionHeader: FC<HeaderProps> = ({
       {filter && (
         <IconButton name="FilterSolid" size="sm" type="plain" mr="16px" />
       )}
-
-      <SegmentedControl
-        containerProps={{
-          width: 70,
-          height: 35,
-        }}
-        options={[
-          {
-            iconName: 'WalletSolid',
-            value: 'L',
-          },
-          {
-            iconName: 'ViewListSolid',
-            value: 'R',
-          },
-        ]}
-        onChange={(value) => onViewChange(value as ViewTypes)}
-        defaultValue={type}
-      />
     </Box>
   </Box>
 );

@@ -8,13 +8,14 @@ import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
-import Overview from '@onekeyhq/kit/src/views/Overview';
+import Overview from '@onekeyhq/kit/src/views/Overview/Home';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import OverviewCryproDetail from '../../views/Overview/CryproDetail';
 import { HomeRoutes, TabRoutes } from '../types';
 
 export interface TabRouteConfig {
@@ -34,7 +35,12 @@ export const tabRoutes: TabRouteConfig[] = [
     component: Overview,
     tabBarIcon: () => 'NavHomeSolid',
     translationId: 'title__overview',
-    children: [],
+    children: [
+      {
+        name: HomeRoutes.OverviewCryptoDetail,
+        component: OverviewCryproDetail,
+      },
+    ],
   },
   {
     name: TabRoutes.Home,

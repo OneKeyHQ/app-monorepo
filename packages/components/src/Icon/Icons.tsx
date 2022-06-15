@@ -113,6 +113,7 @@ import EmojiHappyOutline from "./react/outline/EmojiHappy";
 import EmojiSadOutline from "./react/outline/EmojiSad";
 import ExclamationOutline from "./react/outline/Exclamation";
 import ExclamationCircleOutline from "./react/outline/ExclamationCircle";
+import ExpandOutline from "./react/outline/Expand";
 import ExternalLinkOutline from "./react/outline/ExternalLink";
 import EyeOutline from "./react/outline/Eye";
 import EyeOffOutline from "./react/outline/EyeOff";
@@ -210,6 +211,7 @@ import ShieldCheckOutline from "./react/outline/ShieldCheck";
 import ShieldExclamationOutline from "./react/outline/ShieldExclamation";
 import ShoppingBagOutline from "./react/outline/ShoppingBag";
 import ShoppingCartOutline from "./react/outline/ShoppingCart";
+import ShrinkOutline from "./react/outline/Shrink";
 import SortAscendingOutline from "./react/outline/SortAscending";
 import SortDescendingOutline from "./react/outline/SortDescending";
 import SparklesOutline from "./react/outline/Sparkles";
@@ -498,7 +500,6 @@ import ViewBoardsSolid from "./react/solid/ViewBoards";
 import ViewGridSolid from "./react/solid/ViewGrid";
 import ViewGridAddSolid from "./react/solid/ViewGridAdd";
 import ViewListSolid from "./react/solid/ViewList";
-import WalletSolid from "./react/solid/Wallet";
 import VolumeOffSolid from "./react/solid/VolumeOff";
 import VolumeUpSolid from "./react/solid/VolumeUp";
 import WifiSolid from "./react/solid/Wifi";
@@ -619,6 +620,7 @@ export type ICON_NAMES =
   | "EmojiSadOutline"
   | "ExclamationOutline"
   | "ExclamationCircleOutline"
+  | "ExpandOutline"
   | "ExternalLinkOutline"
   | "EyeOutline"
   | "EyeOffOutline"
@@ -716,6 +718,7 @@ export type ICON_NAMES =
   | "ShieldExclamationOutline"
   | "ShoppingBagOutline"
   | "ShoppingCartOutline"
+  | "ShrinkOutline"
   | "SortAscendingOutline"
   | "SortDescendingOutline"
   | "SparklesOutline"
@@ -1006,7 +1009,6 @@ export type ICON_NAMES =
   | "ViewListSolid"
   | "VolumeOffSolid"
   | "VolumeUpSolid"
-  | "WalletSolid"
   | "WifiSolid"
   | "ZoomInSolid"
   | "ZoomOutSolid";
@@ -1125,6 +1127,7 @@ export default {
   EmojiSadOutline: EmojiSadOutline,
   ExclamationOutline: ExclamationOutline,
   ExclamationCircleOutline: ExclamationCircleOutline,
+  ExpandOutline: ExpandOutline,
   ExternalLinkOutline: ExternalLinkOutline,
   EyeOutline: EyeOutline,
   EyeOffOutline: EyeOffOutline,
@@ -1222,6 +1225,7 @@ export default {
   ShieldExclamationOutline: ShieldExclamationOutline,
   ShoppingBagOutline: ShoppingBagOutline,
   ShoppingCartOutline: ShoppingCartOutline,
+  ShrinkOutline: ShrinkOutline,
   SortAscendingOutline: SortAscendingOutline,
   SortDescendingOutline: SortDescendingOutline,
   SparklesOutline: SparklesOutline,
@@ -1510,7 +1514,6 @@ export default {
   ViewGridSolid: ViewGridSolid,
   ViewGridAddSolid: ViewGridAddSolid,
   ViewListSolid: ViewListSolid,
-  WalletSolid:WalletSolid,
   VolumeOffSolid: VolumeOffSolid,
   VolumeUpSolid: VolumeUpSolid,
   WifiSolid: WifiSolid,

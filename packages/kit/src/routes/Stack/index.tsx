@@ -15,6 +15,7 @@ import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import OverviewCryproDetail from '@onekeyhq/kit/src/views/Overview/CryproDetail';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
@@ -54,6 +55,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.FaceId,
     component: FaceID,
+  },
+  {
+    name: HomeRoutes.OverviewCryptoDetail,
+    component: OverviewCryproDetail,
   },
 ];
 

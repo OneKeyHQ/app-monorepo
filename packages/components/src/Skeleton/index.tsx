@@ -126,18 +126,23 @@ const Skeleton = ({
   </ContentLoader>
 );
 
-export const BaseSkeleton = () => {
-  console.log();
-  return (
-    <ContentLoader
-      speed={1}
-      backgroundColor={useThemeValue('surface-neutral-default')}
-      foregroundColor={useThemeValue('surface-default')}
-    >
-      <Rect x="0" y="0" width="100%" height="100%" />
-    </ContentLoader>
-  );
-};
+export const BaseSkeleton = ({
+  width,
+  height,
+  ...rest
+}: PropsWithChildren<SkeletonProps>) => (
+  <ContentLoader
+    speed={1}
+    width={width}
+    height={height}
+    viewBox={`0 0 ${String(width)} ${String(height)}`}
+    backgroundColor={useThemeValue('surface-neutral-default')}
+    foregroundColor={useThemeValue('surface-default')}
+    {...rest}
+  >
+    <Rect x="0" y="0" width="100%" height="100%" />
+  </ContentLoader>
+);
 
 Skeleton.Avatar = Avatar;
 Skeleton.DisplayXLarge = DisplayXLarge;

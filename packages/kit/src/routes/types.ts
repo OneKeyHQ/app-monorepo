@@ -86,6 +86,7 @@ export enum HomeRoutes {
   DAppListScreen = 'DAppListScreen',
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   FaceId = 'FaceId',
+  OverviewCryptoDetail = 'OverviewCryptoDetail',
 }
 
 export type HomeRoutesParams = {
@@ -113,6 +114,7 @@ export type HomeRoutesParams = {
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FaceId]: undefined;
+  [HomeRoutes.OverviewCryptoDetail]: undefined;
 };
 /** HomeStack */
 
