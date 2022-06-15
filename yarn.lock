@@ -14518,10 +14518,10 @@ jsbn@~0.1.0:
   resolved "https://registry.nlark.com/jsbn/download/jsbn-0.1.1.tgz#a5e654c2e5a2deb5f201d96cefbca80c0ef2f513"
   integrity sha1-peZUwuWi3rXyAdls77yoDA7y9RM=
 
-jsc-android@^250230.2.1, "jsc-android@npm:@sunnylqm/jsc-android":
-  version "250230.2.2"
-  resolved "https://registry.yarnpkg.com/@sunnylqm/jsc-android/-/jsc-android-250230.2.2.tgz#5a6bd2729345574fc792d869e2e9a0eee056055f"
-  integrity sha512-dZZGfcdONhkOJNWBiFGFvzdDX+ZgsCx1vHpzzwDMQDjGU51xTqrNaUtGgz9uw3VMSbammJ6024h2OXe1em8dCQ==
+jsc-android@^250230.2.1, "jsc-android@npm:@onekeyfe/jsc-android":
+  version "250230.2.1"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/jsc-android/-/jsc-android-250230.2.1.tgz#26917ac7e409642c00df70d4afb390ff708a91f1"
+  integrity sha512-qZgN2vF/5O8PxC+5ivQL8H4nAPymXfCNtdMDV3nMqtqznWYtL0TwTdk6Ct2WdiOpIwE82klmbBzIlyUCQPYh2Q==
 
 jscodeshift@^0.13.1:
   version "0.13.1"
