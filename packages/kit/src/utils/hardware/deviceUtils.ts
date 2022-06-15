@@ -1,5 +1,3 @@
-import { SearchDevice } from '@onekeyfe/hd-core';
-
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 class DeviceUtils {
@@ -10,14 +8,28 @@ class DeviceUtils {
   async startDeviceScan() {
     const HardwareSDK = await this.getSDKInstance();
     const searchResponse = await HardwareSDK?.searchDevices();
-    // TODO: searchDevices 不是长连接，是不是需要轮询
+    /**
+     * searchDevices is not a long connection, is it necessary to poll
+     */
     console.log(searchResponse);
     return searchResponse;
+  }
+
+  async connect(connectId: string) {
+    const result = await this.getFeatures(connectId);
+    return result !== null;
+  }
+
+  async getFeatures(connectId: string) {
+    const HardwareSDK = await this.getSDKInstance();
+    const response = await HardwareSDK?.getFeatures(connectId);
+    if (response.success) {
+      return response.payload;
+    }
+    return null;
   }
 }
 
 const deviceUtils = new DeviceUtils();
-
-export type { SearchDevice };
 
 export default deviceUtils;

@@ -19,6 +19,7 @@ import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/Restor
 import Guide from '@onekeyhq/kit/src/views/CreateWallet/Guide';
 import ConnectHardware, {
   Device,
+  SearchDevice,
 } from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
 import DeviceStatusCheck from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/DeviceStatusCheck';
 import RestoreHardwareWallet from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWallet';
@@ -94,7 +95,7 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.SetupSuccessModal]: { device: Device };
   [CreateWalletModalRoutes.SetupHardwareModal]: { device: Device };
   [CreateWalletModalRoutes.SetupNewDeviceModal]: { device: Device };
-  [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: Device };
+  [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: SearchDevice };
   [CreateWalletModalRoutes.RestoreHardwareWalletModal]: { device: Device };
   [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: {
     device: Device;

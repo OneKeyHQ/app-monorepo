@@ -36,20 +36,12 @@ import {
   deviceUtils as newDeviceUtils,
 } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  IOneKeyDeviceFeatures,
-  IOneKeyDeviceType,
-} from '@onekeyhq/shared/types';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+
+export type { SearchDevice };
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
-
-export type Device = {
-  type: IOneKeyDeviceType;
-  name: string;
-  // device: ScannedDevice;
-  connectId: string;
-};
 
 const getDeviceIcon = (
   type: IOneKeyDeviceType,
@@ -117,8 +109,6 @@ const ConnectHardwareModal: FC = () => {
     if (!deviceUtils) return;
     setIsSearching(true);
 
-    const scanDevice: Device[] = [];
-
     newDeviceUtils.startDeviceScan().then((response) => {
       if (!response.success) {
         setErrorDialog(true);
@@ -142,12 +132,16 @@ const ConnectHardwareModal: FC = () => {
   }, []);
 
   const handleConnectDeviceWithDevice = useCallback(
-    (device: Device) => {
+    (device: SearchDevice) => {
       if (!deviceUtils || !device) return;
+      if (!device.connectId) return;
 
       setIsConnectingDeviceId(device.connectId);
-      deviceUtils.connect(device.device.id, device.type).then(() => {
+      newDeviceUtils.connect(device.connectId).then((result) => {
         setIsConnectingDeviceId('');
+        if (!result) {
+          return;
+        }
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
           params: {
