@@ -90,7 +90,7 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
           backgroundColor: handleBgColor,
         }}
       >
-        <Box mb={props.tabBarHeight} px={4} py={8}>
+        <Box mb={props.tabBarHeight} px={4} pt={8} pb={16}>
           {props.foldableList.map((foldable, index) => (
             <Pressable
               key={index}
@@ -102,20 +102,23 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
               _pressed={{ bg: 'surface-pressed' }}
               borderRadius="xl"
               mt={index === 0 ? undefined : 2}
-              p="2"
+              px="2"
+              py="3"
             >
               <Box display="flex" flexDirection="column">
-                <Box display="flex" flexDirection="row" alignItems="flex-start">
-                  <Icon
-                    name={foldable?.tabBarIcon?.() as ICON_NAMES}
-                    color="icon-default"
-                    size={24}
-                  />
+                <Box display="flex" flexDirection="row" alignItems="center">
+                  <Box p={3} rounded="full" bgColor="interactive-default">
+                    <Icon
+                      name={foldable?.tabBarIcon?.() as ICON_NAMES}
+                      color="icon-on-primary"
+                      size={20}
+                    />
+                  </Box>
 
                   <Box ml={4}>
-                    <Typography.Body1Strong color={inactiveFontColor}>
+                    <Typography.Heading color={inactiveFontColor}>
                       {foldable.tabBarLabel}
-                    </Typography.Body1Strong>
+                    </Typography.Heading>
                     <Typography.Body2 color="text-subdued">
                       {foldable.description}
                     </Typography.Body2>

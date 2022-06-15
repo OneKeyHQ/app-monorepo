@@ -58,7 +58,7 @@ const BottomBarModal = forwardRef<BottomSheet, TBottomBarModalProps>(
         backdropComponent={renderBackdrop}
         backgroundStyle={{ backgroundColor: sheetBgColor }}
       >
-        <Box px={4} pt={8} pb={12}>
+        <Box px={4} pt={8} pb={16}>
           {props.foldableList.map((foldable, index) => (
             <Pressable
               key={index}

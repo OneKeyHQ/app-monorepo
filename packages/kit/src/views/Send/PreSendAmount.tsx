@@ -53,38 +53,32 @@ export function PreSendAmountPreview({
   loading?: boolean;
 }) {
   return (
-    <Box flex={1} justifyContent="center">
-      <Box height="140px" flexDirection="column" justifyContent="center">
-        {!!title && (
-          <Text
-            textAlign="center"
-            typography="DisplayLarge"
-            color="text-subdued"
-          >
-            {title}
+    <Box height="140px">
+      {!!title && (
+        <Text textAlign="center" typography="DisplayLarge" color="text-subdued">
+          {title}
+        </Text>
+      )}
+
+      <Center
+        nativeID="AutoSizeTextContainer"
+        flex={1}
+        maxH="64px"
+        mt={2}
+        mb={3}
+      >
+        <AutoSizeText text={text} onChangeText={onChangeText} />
+      </Center>
+
+      {loading ? (
+        <Spinner size="sm" />
+      ) : (
+        !!desc && (
+          <Text typography="Body1Strong" textAlign="center" isTruncated>
+            {desc}
           </Text>
-        )}
-
-        <Center
-          nativeID="AutoSizeTextContainer"
-          flex={1}
-          maxH="64px"
-          mt={2}
-          mb={3}
-        >
-          <AutoSizeText text={text} onChangeText={onChangeText} />
-        </Center>
-
-        {loading ? (
-          <Spinner size="sm" />
-        ) : (
-          !!desc && (
-            <Text typography="Body1Strong" textAlign="center" isTruncated>
-              {desc}
-            </Text>
-          )
-        )}
-      </Box>
+        )
+      )}
     </Box>
   );
 }
@@ -208,7 +202,12 @@ function PreSendAmount() {
             {shortenAddress(transferInfo?.to ?? '')}
           </Typography.Body1>
         </Box>
-        <Box py={{ base: 4, sm: 0 }} my={6}>
+        <Box
+          py={isSmallScreen ? 4 : undefined}
+          my={6}
+          flex={1}
+          justifyContent="center"
+        >
           <PreSendAmountPreview
             title={tokenInfo?.symbol ?? ''}
             text={amount}
@@ -240,53 +239,54 @@ function PreSendAmount() {
             }
           />
         </Box>
-        <Box flexDirection="row" alignItems="center">
-          <Box flex={1}>
-            <Typography.Caption color="text-subdued">
-              {intl.formatMessage({ id: 'content__available_balance' })}
-            </Typography.Caption>
-            <Box>
-              <FormatBalanceToken
-                token={tokenInfo}
-                render={(ele) => (
-                  <Typography.Body1Strong
-                    color={
-                      errorMsg && amount ? 'text-critical' : 'text-default'
-                    }
-                  >
-                    {ele}
-                  </Typography.Body1Strong>
-                )}
+        <Box mt="auto">
+          <Box flexDirection="row" alignItems="center">
+            <Box flex={1}>
+              <Typography.Caption color="text-subdued">
+                {intl.formatMessage({ id: 'content__available_balance' })}
+              </Typography.Caption>
+              <Box>
+                <FormatBalanceToken
+                  token={tokenInfo}
+                  render={(ele) => (
+                    <Typography.Body1Strong
+                      color={
+                        errorMsg && amount ? 'text-critical' : 'text-default'
+                      }
+                    >
+                      {ele}
+                    </Typography.Body1Strong>
+                  )}
+                />
+              </Box>
+            </Box>
+            <Button
+              onPress={() => {
+                const balance = getTokenBalance({
+                  token: tokenInfo,
+                  defaultValue: '0',
+                });
+                setAmount(balance ?? '0');
+              }}
+            >
+              {intl.formatMessage({ id: 'action__max' })}
+            </Button>
+          </Box>
+          {(platformEnv.isNative || (platformEnv.isDev && isSmallScreen)) && (
+            <Box mt={6}>
+              <Keyboard
+                itemHeight={shortScreen ? '44px' : undefined}
+                // pattern={/^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/}
+                pattern={validAmountRegex}
+                onTextChange={(text) => {
+                  // updateInputText(text);
+                  console.log(text);
+                  setAmount(text);
+                }}
               />
             </Box>
-          </Box>
-          <Button
-            onPress={() => {
-              const balance = getTokenBalance({
-                token: tokenInfo,
-                defaultValue: '0',
-              });
-              setAmount(balance ?? '0');
-            }}
-          >
-            {intl.formatMessage({ id: 'action__max' })}
-          </Button>
+          )}
         </Box>
-        <Box flex={1} />
-        {(platformEnv.isNative || (platformEnv.isDev && isSmallScreen)) && (
-          <Box>
-            <Keyboard
-              itemHeight={shortScreen ? '44px' : undefined}
-              // pattern={/^(0|([1-9][0-9]*))?\.?([0-9]{1,2})?$/}
-              pattern={validAmountRegex}
-              onTextChange={(text) => {
-                // updateInputText(text);
-                console.log(text);
-                setAmount(text);
-              }}
-            />
-          </Box>
-        )}
       </Box>
     </BaseSendModal>
   );
