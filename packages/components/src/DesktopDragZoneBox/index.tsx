@@ -1,13 +1,13 @@
 import React, { ComponentPropsWithoutRef, FC } from 'react';
 
-import { View } from 'react-native';
+import { Pressable } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let lastTime: Date | undefined;
 let num = 0;
 
-const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof View>> = ({
+const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
   children,
   ...rest
 }) => {
@@ -25,13 +25,15 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof View>> = ({
     }
     if (num === 1) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      if (platformEnv.isDesktop) window?.desktopApi?.toggleMaximizeWindow();
+      if (platformEnv.isDesktop) {
+        window?.desktopApi?.toggleMaximizeWindow();
+      }
     }
   };
 
   const { style = {} } = rest;
   return (
-    <View
+    <Pressable
       {...rest}
       onPress={toggleMaxWindow}
       style={{
@@ -43,7 +45,7 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof View>> = ({
       }}
     >
       {children}
-    </View>
+    </Pressable>
   );
 };
 

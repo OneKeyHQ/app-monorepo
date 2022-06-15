@@ -15,7 +15,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount, useGetNetwork } from '../../hooks/redux';
 import { useManageTokens } from '../../hooks/useManageTokens';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -35,19 +35,20 @@ type AddCustomTokenValues = {
 
 export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const address = route.params?.address;
+  const networkId = route.params?.networkId;
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const { account: activeAccount, network: activeNetwork } =
+  const { account: activeAccount, network: defaultNetwork } =
     useActiveWalletAccount();
+  const activeNetwork = useGetNetwork(networkId ?? null) ?? defaultNetwork;
   const { accountTokensMap } = useManageTokens();
   const isSmallScreen = useIsVerticalLayout();
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',
-    defaultMessage: 'Searching Token...',
   });
 
   const {
