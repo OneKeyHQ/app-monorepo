@@ -44,6 +44,7 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
       borderBottomColor="divider" // TODO: change the color from transparent to divider while scrolling up
       borderBottomWidth={StyleSheet.hairlineWidth}
       px={2}
+      style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
     >
       {headerLeftNode ? (
         <Box
@@ -82,7 +83,6 @@ const Header: FC<HeaderProps> = ({ headerLeft, headerRight }) => {
         ) : (
           <BlurView
             intensity={0} // TODO: change the intensity from 0 to 80 while scrolling up
-            style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
             tint={
               // eslint-disable-next-line no-nested-ternary
               themeVariant === 'light'
