@@ -25,19 +25,12 @@ import { FormSuccessMessage } from './FormSuccessMessage';
 
 type InternalActionList = 'paste' | 'scan';
 
-// export declare type FieldError = {
-//   type: LiteralUnion<keyof RegisterOptions, string>;
-//   ref?: Ref;
-//   types?: MultipleFieldErrors;
-//   message?: Message;
-// };
-
 type FormItemProps = {
   label?: string;
   labelAddon?: ReactElement | InternalActionList[];
   isLabelAddonActions?: boolean;
   helpText?: string | ((v: any) => string) | ReactElement;
-  success?: boolean;
+  successMessage?: string | undefined;
   onLabelAddonPress?: () => void;
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
@@ -46,7 +39,7 @@ type FormItemProps = {
 export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   label,
   helpText,
-  success,
+  successMessage,
   children,
   name,
   rules,
@@ -182,8 +175,8 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             {error && error?.message ? (
               <FormErrorMessage message={error?.message} />
             ) : null}
-            {success && success?.message ? (
-              <FormSuccessMessage message={success?.message} />
+            {successMessage ? (
+              <FormSuccessMessage message={successMessage} />
             ) : null}
           </FormControl>
         );
