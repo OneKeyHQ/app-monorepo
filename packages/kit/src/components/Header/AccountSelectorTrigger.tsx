@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  HStack,
   Icon,
   Pressable,
   Typography,
@@ -75,11 +74,14 @@ const AccountSelectorTrigger: FC<Props> = ({
   return (
     <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
       {({ isHovered }) => (
-        <HStack
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          w="full"
           p={1}
           pr={2}
-          alignItems="center"
           borderRadius="12px"
+          maxW={`${maxItemWidth}px`}
           bg={
             // eslint-disable-next-line no-nested-ternary
             visible && !isVerticalLayout
@@ -89,24 +91,20 @@ const AccountSelectorTrigger: FC<Props> = ({
               : 'transparent'
           }
         >
-          <Box
-            flexDirection="row"
-            alignItems="center"
-            maxW={`${maxItemWidth}px`}
-          >
-            <WalletAvatar
-              walletImage={wallet.type}
-              hwWalletType={getDeviceTypeByDeviceId(wallet.associatedDevice)}
-              avatar={wallet.avatar}
-              size="sm"
-              mr={3}
-            />
-            <Typography.Body2Strong isTruncated numberOfLines={1} mr={1}>
-              {name}
-            </Typography.Body2Strong>
+          <WalletAvatar
+            walletImage={wallet.type}
+            hwWalletType={getDeviceTypeByDeviceId(wallet.associatedDevice)}
+            avatar={wallet.avatar}
+            size="sm"
+            mr={3}
+          />
+          <Typography.Body2Strong isTruncated numberOfLines={1} mr={1}>
+            {name}
+          </Typography.Body2Strong>
+          <Box ml={!isVerticalLayout ? 'auto' : undefined}>
             <Icon size={20} name="ChevronDownSolid" />
           </Box>
-        </HStack>
+        </Box>
       )}
     </Pressable>
   );
