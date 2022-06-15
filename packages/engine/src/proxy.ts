@@ -84,11 +84,16 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
 
   let providerOptions: Record<string, any> = {};
   let { rpcURL } = dbNetwork;
+  let algoIndexerURL = '';
 
   const presetNetwork = getPresetNetworks()[dbNetwork.id];
   if (typeof presetNetwork !== 'undefined') {
     ({ providerOptions } = presetNetwork.extensions || { providerOptions: {} });
     rpcURL = rpcURL || presetNetwork.presetRpcURLs[0];
+    if (presetNetwork.impl === IMPL_ALGO) {
+      const urlGroup = (presetNetwork.rpcURLs || [])[0];
+      algoIndexerURL = (urlGroup || {}).indexer;
+    }
   }
 
   let implOptions = providerOptions || {};
@@ -112,7 +117,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
         name: defaultClient,
         args:
           dbNetwork.impl === IMPL_ALGO
-            ? [rpcURL, { url: `${rpcURL}/idx2` }]
+            ? [rpcURL, { url: algoIndexerURL }]
             : [rpcURL],
       },
     ],

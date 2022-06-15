@@ -9,6 +9,7 @@ import { IEncodedTxAptos } from './impl/apt/types';
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { Token } from '../types/token';
+import type { IEncodedTxAlgo } from './impl/algo/types';
 import type {
   IDecodedTxExtraBtc,
   IEncodedTxBtc,
@@ -129,7 +130,8 @@ export type IEncodedTx =
   | IEncodedTxSol
   | IEncodedTxTron
   | IEncodedTxAptos
-  | IEncodedTxCfx;
+  | IEncodedTxCfx
+  | IEncodedTxAlgo;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear
