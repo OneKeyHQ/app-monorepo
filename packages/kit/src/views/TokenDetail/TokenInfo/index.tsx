@@ -200,7 +200,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
             <IconButton
               circle
               size={isVertical ? 'xl' : 'lg'}
-              name="TagOutline"
+              name="NavBuySolid"
               type="basic"
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {
@@ -233,7 +233,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
             <IconButton
               circle
               size={isVertical ? 'xl' : 'lg'}
-              name="CashOutline"
+              name="NavSellSolid"
               type="basic"
               isDisabled={wallet?.type === 'watching'}
               onPress={() => {
