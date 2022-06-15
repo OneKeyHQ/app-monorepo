@@ -26,6 +26,7 @@ type OneKeyContext = {
   nextHD: number;
   verifyString: string;
   networkOrderChanged?: boolean;
+  pendingWallets?: Array<string>;
 };
 
 type StoredSeedCredential = {
@@ -127,6 +128,7 @@ interface DBAPI {
     password: string,
   ): Promise<ExportedCredential>;
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
+  confirmWalletCreated(walletId: string): Promise<Wallet>;
 
   addAccountToWallet(
     walletId: string,
