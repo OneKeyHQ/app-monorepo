@@ -8,7 +8,9 @@ import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/Bottom
 import LayoutHeader from '@onekeyhq/components/src/Layout/Header';
 import AccountSelector from '@onekeyhq/kit/src/components/Header/AccountSelector';
 import ChainSelector from '@onekeyhq/kit/src/components/Header/ChainSelector';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
+import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
@@ -22,6 +24,7 @@ const Tab = createBottomTabNavigator<TabRoutesParams>();
 const TabNavigator = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const { account, network: activeNetwork } = useActiveWalletAccount();
 
   const renderHeader = useCallback(
     () => (
@@ -77,8 +80,28 @@ const TabNavigator = () => {
           id: 'content__deposit_tokens_to_your_wallet',
         }),
       },
+      {
+        foldable: true,
+        component: () => null,
+        onPress: () => {
+          navigationRef.current?.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.FiatPay,
+            params: {
+              screen: FiatPayRoutes.SupportTokenListModal,
+              params: {
+                networkId: activeNetwork?.id ?? '',
+              },
+            },
+          });
+        },
+        tabBarLabel: intl.formatMessage({ id: 'action__buy' }),
+        tabBarIcon: () => 'NavBuySolid',
+        description: intl.formatMessage({
+          id: 'content__purchase_crypto_with_cash',
+        }),
+      },
     ],
-    [intl],
+    [activeNetwork?.id, intl],
   );
 
   return useMemo(
