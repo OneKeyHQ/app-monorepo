@@ -130,9 +130,15 @@ const DesktopModal: FC<ModalProps> = ({
             <Box flex="1" ml={index ? 4 : undefined}>
               <Typography.Heading>{header}</Typography.Heading>
               {!!headerDescription && (
-                <Typography.Caption color="text-subdued">
-                  {headerDescription}
-                </Typography.Caption>
+                <Box>
+                  {typeof headerDescription === 'string' ? (
+                    <Typography.Caption textAlign="center" color="text-subdued">
+                      {headerDescription}
+                    </Typography.Caption>
+                  ) : (
+                    headerDescription
+                  )}
+                </Box>
               )}
             </Box>
             {!!closeable && (
