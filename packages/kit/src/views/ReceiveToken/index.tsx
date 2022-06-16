@@ -83,7 +83,7 @@ const ReceiveToken = () => {
               mx="auto"
             >
               <Text typography="Body2" color="text-subdued" textAlign="center">
-                Assets can only be sent within the same network.
+                {intl.formatMessage({ id: 'content__receive_description' })}
               </Text>
             </Box>
             <Box flex={1} justifyContent="center" flexDirection="column">
