@@ -60,19 +60,23 @@ class DeviceUtils {
     };
 
     const poll: IPollFn = async (time = POLL_INTERVAL) => {
-      await searchDevices();
-      if (!this.scanning || this.tryCount > MAX_SEARCH_TRY_COUNT) {
+      if (!this.scanning) {
+        return;
+      }
+      if (this.tryCount > MAX_SEARCH_TRY_COUNT) {
         this.stopScan();
         return;
       }
+
+      await searchDevices();
 
       return new Promise((resolve: (p: void) => void) =>
         setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
       );
     };
 
-    poll();
     this.scanning = true;
+    poll();
   }
 
   stopScan() {
