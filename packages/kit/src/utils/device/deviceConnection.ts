@@ -68,6 +68,7 @@ export const UICallback = (event: any) => {
         },
         {
           autoHide: false,
+          position: 'bottom',
           type: 'enterPinOnDevice',
         },
       );
@@ -89,6 +90,7 @@ export const UICallback = (event: any) => {
         },
         {
           autoHide: false,
+          position: 'bottom',
           type: 'confirmOnDevice',
         },
       );
