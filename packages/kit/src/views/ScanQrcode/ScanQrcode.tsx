@@ -17,6 +17,7 @@ import {
   Icon,
   Modal,
   Typography,
+  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -49,6 +50,7 @@ const ScanQrcode: FC = () => {
   );
   const scanned = useRef(false);
   const isFocused = useIsFocused();
+  const isVerticalLayout = useIsVerticalLayout();
 
   const navigation = useNavigation<ScanQrcodeNavProp>();
   const route = useRoute<ScanQrcodeRouteProp>();
@@ -122,7 +124,9 @@ const ScanQrcode: FC = () => {
             </ChooseImageText>
           </Button>
         }
-        staticChildrenProps={{ flex: 1 }}
+        staticChildrenProps={
+          isVerticalLayout ? { flex: 1 } : { width: '100%', height: 418 }
+        }
       >
         <ScanCamera
           style={{
