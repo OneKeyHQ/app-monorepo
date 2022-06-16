@@ -203,7 +203,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         </HStack>
       </Pressable.Item>
     ),
-    [collectibles.length, onSelectCollectible],
+    [collectibles.length, onSelectCollectible, themeVariant],
   );
 
   const renderGridSectionHeader = (
@@ -267,7 +267,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         </VStack>
       );
     },
-    [isSmallScreen, onSelectAsset],
+    [isSmallScreen, onSelectAsset, themeVariant],
   );
 
   const sharedProps = React.useMemo<
