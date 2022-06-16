@@ -4,7 +4,6 @@ import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Box,
   Button,
   Empty,
