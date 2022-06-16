@@ -16,7 +16,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { getDeviceTypeByDeviceId } from '../../../utils/device/ble/OnekeyHardware';
+import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
 import WalletAvatar from '../WalletAvatar';
 
 import type { AccountType } from './index';

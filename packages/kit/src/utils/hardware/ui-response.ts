@@ -1,10 +1,18 @@
-import { UI_REQUEST, UI_RESPONSE } from '@onekeyfe/hd-core';
+import { UI_RESPONSE } from '@onekeyfe/hd-core';
 
 import { ToastManager } from '@onekeyhq/components';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 
 import deviceUtils from './deviceUtils';
 import { getHardwareSDKInstance } from './hardwareInstance';
+
+export const UI_REQUEST = {
+  REQUEST_PIN: 'ui-request_pin',
+  INVALID_PIN: 'ui-invalid_pin',
+  REQUEST_BUTTON: 'ui-button',
+
+  CLOSE_UI_WINDOW: 'ui-close_window',
+} as const;
 
 export const UIResponse = async (event: any) => {
   const HardwareSDK = await getHardwareSDKInstance();

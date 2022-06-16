@@ -14,12 +14,13 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import FormChainSelector from '../../components/Form/ChainSelector';
 import WalletAvatar from '../../components/Header/WalletAvatar';
 import { ModalRoutes, ModalScreenProps, RootRoutes } from '../../routes/types';
-import { getDeviceTypeByDeviceId } from '../../utils/device/ble/OnekeyHardware';
+import { getDeviceTypeByDeviceId } from '../../utils/hardware';
 import { SendRoutes, SendRoutesParams } from '../Send/types';
 
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
@@ -106,9 +107,11 @@ const PreviewSend: FC<PreviewSendProps> = () => {
                 >
                   <WalletAvatar
                     walletImage={wallet?.type}
-                    hwWalletType={getDeviceTypeByDeviceId(
-                      wallet?.associatedDevice,
-                    )}
+                    hwWalletType={
+                      getDeviceTypeByDeviceId(
+                        wallet?.associatedDevice,
+                      ) as IOneKeyDeviceType
+                    }
                     avatar={wallet?.avatar}
                     size="sm"
                     mr="12px"

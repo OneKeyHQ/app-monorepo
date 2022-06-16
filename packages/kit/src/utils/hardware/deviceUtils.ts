@@ -1,5 +1,4 @@
 import {
-  Features,
   IDeviceType,
   SearchDevice,
   Success,
@@ -7,29 +6,12 @@ import {
 } from '@onekeyfe/hd-core';
 
 import { getHardwareSDKInstance } from './hardwareInstance';
+import { getDeviceType } from './OneKeyHardware';
 
 /**
  * will delete packages/kit/src/utils/device
  * so declare it here
  */
-export const getDeviceType = (features?: Features): IDeviceType => {
-  if (!features || typeof features !== 'object' || !features.serial_no) {
-    return 'classic';
-  }
-
-  const serialNo = features.serial_no;
-  const miniFlag = serialNo.slice(0, 2);
-  if (miniFlag.toLowerCase() === 'mi') return 'mini';
-  return 'classic';
-};
-
-export const getDeviceUUID = (features: Features) => {
-  const deviceType = getDeviceType(features);
-  if (deviceType === 'classic') {
-    return features.onekey_serial;
-  }
-  return features.serial_no;
-};
 
 type IPollFn = (time?: number) => void;
 
@@ -99,6 +81,20 @@ class DeviceUtils {
       return response.payload;
     }
     return null;
+  }
+
+  ensureConnected(connectId: string) {
+    const poll: IPollFn = async (time = POLL_INTERVAL) => {
+      const feature = await this.getFeatures(connectId);
+      if (feature) {
+        return Promise.resolve(feature);
+      }
+      return new Promise((resolve: (p: void) => void) =>
+        setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
+      );
+    };
+
+    return poll();
   }
 }
 

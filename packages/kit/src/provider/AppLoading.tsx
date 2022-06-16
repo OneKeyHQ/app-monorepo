@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
 // import OneKeyConnect from '@onekeyfe/js-sdk';
-import { getHardwareSDKInstance, UIResponse } from '@onekeyhq/kit/src/utils/hardware'
+import { CoreApi } from '@onekeyfe/hd-core';
 import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
@@ -9,6 +9,10 @@ import { Box, Center, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
+import {
+  UIResponse,
+  getHardwareSDKInstance,
+} from '@onekeyhq/kit/src/utils/hardware';
 
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
@@ -67,12 +71,11 @@ const AppLoading: FC = ({ children }) => {
   }, [initService]);
 
   useEffect(() => {
-    let HardwareSDK: any
-    getHardwareSDKInstance().then(instance => {
-      HardwareSDK = instance
+    let HardwareSDK: CoreApi;
+    getHardwareSDKInstance().then((instance) => {
+      HardwareSDK = instance;
       HardwareSDK.on('UI_EVENT', UIResponse);
-      
-    })
+    });
     return () => {
       HardwareSDK.off('UI_EVENT', UIResponse);
     };
