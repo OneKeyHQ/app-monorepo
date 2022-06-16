@@ -1,12 +1,8 @@
-import * as ImagePicker from 'expo-image-picker';
-
 import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
-import { scanFromURLAsync } from '../views/ScanQrcode/scanFromURLAsync';
 import { ScanQrcodeRoutes, ScanResult } from '../views/ScanQrcode/types';
 
 export const handleScanResult = async (data: string) => {
