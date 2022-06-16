@@ -1,4 +1,4 @@
-import jsQR from 'jsqr';
+import { scanImageData } from 'zbar.wasm';
 
 async function getImageData(dataUrl: string): Promise<ImageData> {
   return new Promise((resolve) => {
@@ -38,9 +38,7 @@ async function getImageData(dataUrl: string): Promise<ImageData> {
 }
 
 export async function scanFromURLAsync(base64Url: string) {
-  const { data, width, height } = await getImageData(base64Url);
-  const decoded = jsQR(data, width, height, {
-    inversionAttempts: 'dontInvert',
-  });
-  return decoded?.data;
+  const imgData = await getImageData(base64Url);
+  const res = await scanImageData(imgData);
+  return res[0].decode();
 }
