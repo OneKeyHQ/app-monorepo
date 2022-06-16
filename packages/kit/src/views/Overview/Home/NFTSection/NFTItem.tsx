@@ -40,10 +40,11 @@ export const NFTGroupItem: FC<GroupProps> = ({ width, groupItem, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const padding = isSmallScreen ? 8 : 12;
   const contentWidth = width - padding * 2;
+  const subItemWidth = (contentWidth - 9) / 2;
+
   if (groupItem.items.length > 1) {
     const numCol = 2;
     const colDatas = chunk(groupItem.items.slice(0, 4), numCol);
-    const subItemWidth = (contentWidth - 9) / 2;
     return (
       <Box
         bg="surface-default"

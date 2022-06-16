@@ -16,6 +16,7 @@ import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import OverviewCryproDetail from '../../views/Overview/CryproDetail';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';

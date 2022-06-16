@@ -16,6 +16,7 @@ export const NFTDatas: NFTsGroup[] = [
       { title: '23123', source: '12332' },
       { title: '23123', source: '12332' },
       { title: '23123', source: '12332' },
+      { title: '23123', source: '12332' },
     ],
   },
   {

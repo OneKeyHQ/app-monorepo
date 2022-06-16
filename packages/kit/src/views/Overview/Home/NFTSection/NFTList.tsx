@@ -82,52 +82,44 @@ const ExpandList = () => {
 
   return (
     <Column width="100%" bgColor="background-default" space={`${24}px`}>
-      {NFTDatas.map((groupItem, groupIndex) => {
-        const colDatas = chunk(groupItem.items, numColumns);
-        return (
-          <Box key={`groupItem${groupIndex}`}>
-            <Box
-              flexDirection="row"
-              alignItems="center"
-              paddingRight="8px"
-              mb="8px"
+      {NFTDatas.map((groupItem, groupIndex) => (
+        <Box key={`groupItem${groupIndex}`}>
+          <Box
+            flexDirection="row"
+            alignItems="center"
+            paddingRight="8px"
+            mb="8px"
+          >
+            <Box size="20px" bgColor="blue.300" borderRadius="full" mr="8px" />
+            <Text
+              typography="Subheading"
+              mr="12px"
+              numberOfLines={1}
+              maxWidth={contentWidth - 68}
             >
-              <Box
-                size="20px"
-                bgColor="blue.300"
-                borderRadius="full"
-                mr="8px"
-              />
-              <Text
-                typography="Subheading"
-                mr="12px"
-                numberOfLines={1}
-                maxWidth={contentWidth - 68}
-              >
-                {groupItem.title}
-              </Text>
-              <Badge
-                title={`${groupItem.items.length}`}
-                type="default"
-                size="sm"
-              />
-            </Box>
-            <GridList
-              datas={colDatas}
-              space={space}
-              numColumns={numColumns}
-              renderItem={(item, index) => (
-                <NFTItem
-                  key={`rowIndex${index}`}
-                  item={item}
-                  width={itemWidth}
-                  height={itemHeight}
-                />
-              )}
+              {groupItem.title}
+            </Text>
+            <Badge
+              title={`${groupItem.items.length}`}
+              type="default"
+              size="sm"
             />
           </Box>
-        );
-      })}
+          <GridList
+            datas={groupItem.items}
+            space={space}
+            numColumns={numColumns}
+            renderItem={(item, index) => (
+              <NFTItem
+                key={`rowIndex${index}`}
+                item={item}
+                width={itemWidth}
+                height={itemHeight}
+              />
+            )}
+          />
+        </Box>
+      ))}
     </Column>
   );
 };
