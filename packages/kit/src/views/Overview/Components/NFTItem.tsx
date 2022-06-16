@@ -3,9 +3,14 @@ import React, { ComponentProps, FC } from 'react';
 import { chunk } from 'lodash';
 import { Column, Row } from 'native-base';
 
-import { Box, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  Box,
+  Pressable,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
-import { NFTObject, NFTsGroup } from '../../type';
+import { NFTObject, NFTsGroup } from '../type';
 
 type ItemProps = { item: NFTObject; width: number } & ComponentProps<
   typeof Box
@@ -34,7 +39,7 @@ export const NFTItem: FC<ItemProps> = ({ width, item, ...rest }) => {
 };
 
 type GroupProps = { groupItem: NFTsGroup; width: number } & ComponentProps<
-  typeof Box
+  typeof Pressable
 >;
 export const NFTGroupItem: FC<GroupProps> = ({ width, groupItem, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
@@ -46,8 +51,8 @@ export const NFTGroupItem: FC<GroupProps> = ({ width, groupItem, ...rest }) => {
     const numCol = 2;
     const colDatas = chunk(groupItem.items.slice(0, 4), numCol);
     return (
-      <Box
-        bg="surface-default"
+      <Pressable
+        bgColor="surface-default"
         borderRadius="12px"
         padding={`${padding}px`}
         {...rest}
@@ -78,11 +83,11 @@ export const NFTGroupItem: FC<GroupProps> = ({ width, groupItem, ...rest }) => {
         >
           {groupItem.title}
         </Text>
-      </Box>
+      </Pressable>
     );
   }
   return (
-    <Box
+    <Pressable
       bg="surface-default"
       borderRadius="12px"
       padding={`${padding}px`}
@@ -92,6 +97,6 @@ export const NFTGroupItem: FC<GroupProps> = ({ width, groupItem, ...rest }) => {
       <Text typography="Body2" mt="8px" width={contentWidth} numberOfLines={1}>
         {groupItem.title}
       </Text>
-    </Box>
+    </Pressable>
   );
 };

@@ -26,6 +26,8 @@ import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
 import ManageTokenModal from './ManageToken';
+import OverviewAllCryptoModal from './OverviewAllCrypto';
+import OverviewNFTDetailModal from './OverviewNFTDetail';
 import PasswordModal from './Password';
 import ReceiveToken from './ReceiveToken';
 import ScanQrcode from './ScanQrcode';
@@ -145,6 +147,14 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.FiatPay,
     component: BuyModal,
+  },
+  {
+    name: ModalRoutes.OverviewAllCrypto,
+    component: OverviewAllCryptoModal,
+  },
+  {
+    name: ModalRoutes.OverviewNFTDetail,
+    component: OverviewNFTDetailModal,
   },
 ];
 

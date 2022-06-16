@@ -12,7 +12,17 @@ import {
   Text,
   TokenGroup,
 } from '@onekeyhq/components';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import {
+  OverviewAllCryptoRoutes,
+  OverviewAllCryptoRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/OverviewAllCrypto';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import BalanceText from '../../Components/BalanceText';
 import { ListProps } from '../../type';
@@ -22,13 +32,24 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
   HomeRoutes.OverviewCryptoDetail
->;
+> &
+  ModalScreenProps<OverviewAllCryptoRoutesParams>;
 
 const CryptosList: FC<ListProps> = ({ datas }) => {
   const navigation = useNavigation<NavigationProps>();
+  const navigationModal = useNavigation<NavigationProps['navigation']>();
+
+  const gotoCryptoDetail = useCallback(
+    (token: any) => {
+      navigation.navigate(HomeRoutes.OverviewCryptoDetail, {
+        token,
+      });
+    },
+    [navigation],
+  );
 
   const renderItem = useCallback(
-    () => (
+    ({ item }) => (
       <Pressable
         width="full"
         height="76px"
@@ -37,7 +58,7 @@ const CryptosList: FC<ListProps> = ({ datas }) => {
         alignItems="center"
         justifyContent="space-between"
         onPress={() => {
-          navigation.navigate(HomeRoutes.OverviewCryptoDetail);
+          gotoCryptoDetail(item);
         }}
       >
         <TokenGroup
@@ -53,13 +74,15 @@ const CryptosList: FC<ListProps> = ({ datas }) => {
           <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
             562.61 USDT
           </Text>
-          <Text typography="Body2" color="text-subdued">
-            $6562.61
-          </Text>
+          <BalanceText
+            text="$6562.61"
+            typography="Body2"
+            startColor="text-subdued"
+          />
         </Box>
       </Pressable>
     ),
-    [navigation],
+    [gotoCryptoDetail],
   );
 
   return (
@@ -67,7 +90,23 @@ const CryptosList: FC<ListProps> = ({ datas }) => {
       <FlatList
         data={datas}
         ListHeaderComponent={() => (
-          <Pressable height="64px">
+          <Pressable
+            height="64px"
+            onPress={() => {
+              navigationModal.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OverviewAllCrypto,
+                params: {
+                  screen: OverviewAllCryptoRoutes.OverviewAllCryptoScreen,
+                  params: {
+                    tokens: [1, 2, 3, 4, 5],
+                    onPress: (token) => {
+                      gotoCryptoDetail(token);
+                    },
+                  },
+                },
+              });
+            }}
+          >
             <Box
               flex={1}
               flexDirection="row"

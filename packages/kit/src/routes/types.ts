@@ -44,6 +44,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
   [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
   [ModalRoutes.FiatPay]: NavigatorScreenParams<SubModalRoutesParams.FiatPayModalRoutesParams>;
+  [ModalRoutes.OverviewAllCrypto]: NavigatorScreenParams<SubModalRoutesParams.OverviewAllCryptoRoutesParams>;
+  [ModalRoutes.OverviewNFTDetail]: NavigatorScreenParams<SubModalRoutesParams.OverviewNFTDetailRoutesParams>;
 };
 /** Modal */
 
@@ -114,7 +116,7 @@ export type HomeRoutesParams = {
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FaceId]: undefined;
-  [HomeRoutes.OverviewCryptoDetail]: undefined;
+  [HomeRoutes.OverviewCryptoDetail]: { token: any } | undefined;
 };
 /** HomeStack */
 

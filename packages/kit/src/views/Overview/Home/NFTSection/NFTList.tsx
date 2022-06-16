@@ -1,15 +1,30 @@
 import React, { FC } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { chunk } from 'lodash';
 import { Column, Row } from 'native-base';
 import { useWindowDimensions } from 'react-native';
 
 import { Badge, Box, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  OverviewNFTDetailRoutes,
+  OverviewNFTDetailRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/OverviewNFTDetail';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import {
+  NFTGroupItem,
+  NFTItem,
+} from '@onekeyhq/kit/src/views/Overview/Components/NFTItem';
 
 import { NFTDatas } from './MockData';
-import { NFTGroupItem, NFTItem } from './NFTItem';
 
 const OVERVIEW_MAX_WIDTH = 768;
+
+type NavigationProps = ModalScreenProps<OverviewNFTDetailRoutesParams>;
 
 type GridListProps = {
   datas: any[];
@@ -18,7 +33,7 @@ type GridListProps = {
   renderItem: (item: any, index: number) => JSX.Element;
 };
 
-const GridList: FC<GridListProps> = ({
+export const GridList: FC<GridListProps> = ({
   datas,
   numColumns,
   space,
@@ -26,7 +41,7 @@ const GridList: FC<GridListProps> = ({
 }) => {
   const colDatas = chunk(datas, numColumns);
   return (
-    <Column width="100%" bgColor="background-default" space={`${space}px`}>
+    <Column width="100%" space={`${space}px`}>
       {colDatas.map((rowItems, colIndex) => (
         <Row key={`colIndex${colIndex}`} space={`${space}px`}>
           {rowItems.map((item, index) => renderItem(item, index))}
@@ -44,10 +59,10 @@ const ShrinkList = () => {
     : Math.min(width - 224, OVERVIEW_MAX_WIDTH);
   const space = isSmallScreen ? 16 : 20;
   const itemWidth = isSmallScreen ? (width - space * 3) / 2 : 177;
-  const itemHeight = isSmallScreen
-    ? itemWidth + 20 + (isSmallScreen ? 8 : 12)
-    : 210;
+  const itemHeight = isSmallScreen ? itemWidth + 28 : 210;
   const numColumns = isSmallScreen ? 2 : Math.floor(screenWidth / itemWidth);
+  const navigation = useNavigation<NavigationProps['navigation']>();
+
   return (
     <GridList
       datas={NFTDatas}
@@ -59,6 +74,15 @@ const ShrinkList = () => {
           groupItem={item}
           width={itemWidth}
           height={itemHeight}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.OverviewNFTDetail,
+              params: {
+                screen: OverviewNFTDetailRoutes.OverviewNFTDetailScreen,
+                params: { group: item },
+              },
+            });
+          }}
         />
       )}
     />

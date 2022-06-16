@@ -44,7 +44,7 @@ const ActivitySection: FC = () => {
         </Text>
         <Box flexDirection="row">
           <Text typography="Button2" mr="8px" color="text-subdued">
-            See All
+            {intl.formatMessage({ id: 'action__see_all' })}
           </Text>
           <Icon name="ChevronRightSolid" />
         </Box>

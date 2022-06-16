@@ -10,7 +10,7 @@ type Props = ComponentProps<typeof Text> & {
 const BalanceText: FC<Props> = ({
   text,
   startColor = 'text-default',
-  endColor = 'text-subdued',
+  endColor = 'text-disabled',
   ...rest
 }) => {
   if (text.includes('.')) {
