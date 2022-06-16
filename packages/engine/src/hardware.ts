@@ -27,7 +27,10 @@ import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 
-const connectId = '';
+/**
+ * No actual value, need to replace gradually
+ */
+const tempConnectId = '';
 
 /**
  * Get hardware wallet info
@@ -64,7 +67,7 @@ export async function changePin(remove = false): Promise<void> {
   let response;
   try {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.deviceChangePin(connectId, { remove });
+    response = await OneKeyConnect.deviceChangePin(tempConnectId, { remove });
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
@@ -86,7 +89,7 @@ export async function applySettings(settings: any): Promise<void> {
   let response;
   try {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.deviceSettings(connectId, settings);
+    response = await OneKeyConnect.deviceSettings(tempConnectId, settings);
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
@@ -113,7 +116,7 @@ export async function ethereumGetAddress(
 ): Promise<string> {
   let response;
   try {
-    response = await OneKeyConnect.evmGetAddress(connectId, {
+    response = await OneKeyConnect.evmGetAddress(tempConnectId, {
       path,
       showOnOneKey: display,
     });
@@ -208,7 +211,7 @@ export async function ethereumSignMessage({
   }
   if (message.type === ETHMessageTypes.PERSONAL_SIGN) {
     // TODO non hex sign (utf8)
-    const res = await OneKeyConnect.evmSignMessage(connectId, {
+    const res = await OneKeyConnect.evmSignMessage(tempConnectId, {
       path,
       messageHex: message.message,
     });
@@ -220,7 +223,7 @@ export async function ethereumSignMessage({
     // TODO try catch
     const data = JSON.parse(message.message);
     // TODO use OneKeyConnect.ethereumSignTypedData()
-    const res = await OneKeyConnect.evmSignMessageEIP712(connectId, {
+    const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
       path,
       data,
       version: 'V3',
@@ -234,7 +237,7 @@ export async function ethereumSignMessage({
     const data = JSON.parse(message.message);
     console.log('ethereumSignTypedData V4 data', data);
     // TODO use OneKeyConnect.ethereumSignTypedData()
-    const res = await OneKeyConnect.evmSignMessageEIP712(connectId, {
+    const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
       path,
       data,
       version: 'V4',
@@ -304,7 +307,7 @@ export async function ethereumSignTransaction(
   };
 
   try {
-    response = await OneKeyConnect.evmSignTransaction(connectId, {
+    response = await OneKeyConnect.evmSignTransaction(tempConnectId, {
       path,
       transaction: txToSign,
     });
@@ -345,6 +348,7 @@ export async function getXpubs(
   paths: Array<string>,
   outputFormat: 'xpub' | 'pub' | 'address',
   type: IPrepareHardwareAccountsParams['type'],
+  connectId: string,
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);

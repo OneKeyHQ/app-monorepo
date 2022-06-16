@@ -397,6 +397,17 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getHWDeviceByWalletId(walletId: string) {
+    const wallet = await this.dbApi.getWallet(walletId);
+    if (wallet?.associatedDevice) {
+      const device = await this.dbApi.getDevice(wallet.associatedDevice);
+      return device;
+    }
+
+    return null;
+  }
+
+  @backgroundMethod()
   removeWallet(walletId: string, password: string): Promise<void> {
     // Remove a wallet, raise an error if trying to remove the imported or watching wallet.
     if (!walletCanBeRemoved(walletId)) {

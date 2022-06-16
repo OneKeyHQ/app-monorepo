@@ -44,11 +44,13 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<Array<DBSimpleAccount>> {
     const { indexes, names } = params;
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
+    const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
     const addressInfos = await OneKeyHardware.getXpubs(
       IMPL_EVM,
       paths,
       'address',
       params.type,
+      device?.mac ?? '',
     );
 
     const ret = [];
