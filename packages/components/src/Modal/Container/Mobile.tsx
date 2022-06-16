@@ -90,9 +90,15 @@ const MobileModal: FC<ModalProps> = ({
           <Box flex="1">
             <Typography.Heading textAlign="center">{header}</Typography.Heading>
             {!!headerDescription && (
-              <Typography.Caption textAlign="center" color="text-subdued">
-                {headerDescription}
-              </Typography.Caption>
+              <Box alignItems="center">
+                {typeof headerDescription === 'string' ? (
+                  <Typography.Caption textAlign="center" color="text-subdued">
+                    {headerDescription}
+                  </Typography.Caption>
+                ) : (
+                  headerDescription
+                )}
+              </Box>
             )}
           </Box>
           <IconButton
