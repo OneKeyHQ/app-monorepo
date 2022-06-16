@@ -31,48 +31,17 @@ export const handleScanResult = async (data: string) => {
   return scanResult;
 };
 
-export const gotoScanQrcode = async (
-  onScanCompleted?: (data: string) => void,
-) => {
+export const gotoScanQrcode = (onScanCompleted?: (data: string) => void) => {
   const navigation = getAppNavigation();
-  if (platformEnv.isNative) {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.ScanQrcode,
-      params: {
-        screen: ScanQrcodeRoutes.ScanQrcode,
-        params: onScanCompleted
-          ? {
-              onScanCompleted,
-            }
-          : undefined,
-      },
-    });
-  } else {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      base64: true,
-      allowsMultipleSelection: false,
-    });
-
-    if (!result.cancelled) {
-      const data = await scanFromURLAsync(result.uri);
-      if (data) {
-        if (onScanCompleted) {
-          onScanCompleted(data);
-          return;
-        }
-        const scanResult = await handleScanResult(data);
-        if (scanResult) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ScanQrcode,
-            params: {
-              screen: ScanQrcodeRoutes.ScanQrcodeResult,
-              params: scanResult,
-            },
-          });
-        }
-      } else {
-        // TODO invalid qrcode
-      }
-    }
-  }
+  navigation.navigate(RootRoutes.Modal, {
+    screen: ModalRoutes.ScanQrcode,
+    params: {
+      screen: ScanQrcodeRoutes.ScanQrcode,
+      params: onScanCompleted
+        ? {
+            onScanCompleted,
+          }
+        : undefined,
+    },
+  });
 };

@@ -14722,11 +14722,6 @@ jsprim@^1.2.2:
     json-schema "0.4.0"
     verror "1.10.0"
 
-jsqr@^1.4.0:
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/jsqr/-/jsqr-1.4.0.tgz#8efb8d0a7cc6863cb6d95116b9069123ce9eb2d1"
-  integrity sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==
-
 jssha@^3.2.0:
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/jssha/-/jssha-3.2.0.tgz#88ec50b866dd1411deaddbe6b3e3692e4c710f16"
@@ -22949,3 +22944,8 @@ yocto-queue@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/yocto-queue/-/yocto-queue-0.1.0.tgz#0294eb3dee05028d31ee1a5fa2c556a6aaf10a1b"
   integrity sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==
+
+zbar.wasm@^2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/zbar.wasm/-/zbar.wasm-2.1.1.tgz#f39d201d263ce4d6e559fe8c024af294acd4cf4e"
+  integrity sha512-iXX2tMFRRt2R4+mbKBhNa3TrN0fd5CbzLceasGTBOofA7eF1VvwZeAHW3UkEMDU8w3rSvwx9N3cyosX55UJ+Xw==
