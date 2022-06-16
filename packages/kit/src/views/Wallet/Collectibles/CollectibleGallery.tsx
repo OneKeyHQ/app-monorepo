@@ -20,6 +20,7 @@ import {
   Typography,
   VStack,
   useIsVerticalLayout,
+  useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -134,6 +135,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
       return setView(CollectibleView.Grid);
     }
   }, [isSmallScreen]);
+  const { themeVariant } = useTheme();
 
   const renderEmpty = React.useCallback(() => {
     if (!isSupported) {
@@ -175,6 +177,12 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
         p={4}
         borderTopRadius={itemIndex === 0 ? '12px' : '0px'}
         borderRadius={itemIndex === collectibles.length - 1 ? '12px' : '0px'}
+        borderWidth={1}
+        borderColor={
+          themeVariant === 'light' ? 'border-subdued' : 'transparent'
+        }
+        borderTopWidth={itemIndex === 0 ? 1 : 0}
+        borderBottomWidth={itemIndex === collectibles?.length - 1 ? 1 : 0}
         onPress={() => onSelectCollectible(item)}
       >
         <HStack space={3} w="100%" flexDirection="row" alignItems="center">
@@ -243,7 +251,8 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
                   title={asset.name}
                   mr={marginRight}
                   mb={4}
-                  borderColor="background-default"
+                  borderWidth={themeVariant === 'light' ? 1 : 0}
+                  borderColor="border-subdued"
                   onPress={() =>
                     onSelectAsset({
                       ...asset,
