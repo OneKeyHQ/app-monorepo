@@ -30,7 +30,7 @@ export type ModalProps = {
     we might change headerShown to Header in future
   */
   headerShown?: boolean;
-  headerDescription?: string;
+  headerDescription?: string | ReactNode;
   trigger?: ReactElement<any>;
   visible?: boolean;
   closeable?: boolean;

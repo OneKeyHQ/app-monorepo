@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Empty,
+  Image,
   Modal,
   QRCode,
   Text,
@@ -34,7 +35,7 @@ const ReceiveToken = () => {
   const { address, name } = route.params ?? {};
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
 
   const shownAddress = address ?? account?.address ?? '';
   const shownName = name ?? account?.name ?? '';
@@ -48,6 +49,20 @@ const ReceiveToken = () => {
     <Modal
       footer={null}
       header={intl.formatMessage({ id: 'action__receive' })}
+      headerDescription={
+        <Box flexDirection="row" alignItems="center" mt={0.5}>
+          <Image
+            alt="logoURI"
+            source={{ uri: network?.logoURI }}
+            size={4}
+            borderRadius="full"
+            mr={2}
+          />
+          <Text textAlign="center" typography="Caption" color="text-subdued">
+            {network?.name}
+          </Text>
+        </Box>
+      }
       height="auto"
       scrollViewProps={{
         contentContainerStyle: {
@@ -57,63 +72,77 @@ const ReceiveToken = () => {
           paddingBottom: 24,
         },
         children: shownAddress ? (
-          <Box flex={1} justifyContent="center" flexDirection="column">
-            <Box alignItems="center" flexDirection="column">
+          <>
+            <Box
+              p={3}
+              mb={4}
+              rounded="xl"
+              bgColor="surface-default"
+              w={{ base: 296, md: 'auto' }}
+              mx="auto"
+            >
+              <Text typography="Body2" color="text-subdued" textAlign="center">
+                {intl.formatMessage({ id: 'content__receive_description' })}
+              </Text>
+            </Box>
+            <Box flex={1} justifyContent="center" flexDirection="column">
+              <Box alignItems="center" flexDirection="column">
+                <Box
+                  borderRadius="24px"
+                  bgColor="#FFFFFF"
+                  p={isVerticalLayout ? '16px' : '11px'}
+                  shadow="depth.4"
+                >
+                  <QRCode
+                    value={shownAddress}
+                    logo={qrcodeLogo}
+                    size={isVerticalLayout ? 264 : 186}
+                    logoSize={isVerticalLayout ? 57 : 40}
+                    logoMargin={isVerticalLayout ? 4 : 2}
+                    logoBackgroundColor="white"
+                  />
+                </Box>
+              </Box>
               <Box
-                borderRadius="24px"
-                bgColor="#FFFFFF"
-                p={isVerticalLayout ? '16px' : '11px'}
-                shadow="depth.4"
+                alignItems="center"
+                mt={isVerticalLayout ? '32px' : '24px'}
+                px={isVerticalLayout ? '67px' : '72px'}
               >
-                <QRCode
-                  value={shownAddress}
-                  logo={qrcodeLogo}
-                  size={isVerticalLayout ? 264 : 186}
-                  logoSize={isVerticalLayout ? 57 : 40}
-                  logoMargin={isVerticalLayout ? 4 : 2}
-                  logoBackgroundColor="white"
-                />
+                <Text
+                  textAlign="center"
+                  typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
+                  noOfLines={1}
+                >
+                  {shownName}
+                </Text>
+                <Text
+                  mt="8px"
+                  color="text-subdued"
+                  textAlign="center"
+                  typography={{ sm: 'Body1', md: 'Body2' }}
+                  noOfLines={3}
+                >
+                  {shownAddress}
+                </Text>
+                <Button
+                  width={isVerticalLayout ? '188px' : '154px'}
+                  height={isVerticalLayout ? '48px' : '36px'}
+                  mt={isVerticalLayout ? '32px' : '24px'}
+                  type="plain"
+                  size={isVerticalLayout ? 'xl' : 'base'}
+                  leftIconName="DuplicateSolid"
+                  onPress={() => {
+                    setHaptics();
+                    copyAddressToClipboard();
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: 'action__copy_address',
+                  })}
+                </Button>
               </Box>
             </Box>
-            <Box
-              alignItems="center"
-              mt={isVerticalLayout ? '32px' : '24px'}
-              px={isVerticalLayout ? '67px' : '72px'}
-            >
-              <Text
-                textAlign="center"
-                typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
-                noOfLines={1}
-              >
-                {shownName}
-              </Text>
-              <Text
-                mt="8px"
-                color="text-subdued"
-                textAlign="center"
-                typography={{ sm: 'Body1', md: 'Body2' }}
-                noOfLines={3}
-              >
-                {shownAddress}
-              </Text>
-              <Button
-                width={isVerticalLayout ? '188px' : '154px'}
-                height={isVerticalLayout ? '48px' : '36px'}
-                mt={isVerticalLayout ? '32px' : '24px'}
-                type="plain"
-                size="xl"
-                leftIconName="DuplicateSolid"
-                onPress={() => {
-                  setHaptics();
-                  copyAddressToClipboard();
-                }}
-              >
-                {intl.formatMessage({
-                  id: 'action__copy_address',
-                })}
-              </Button>
-            </Box>
-          </Box>
+          </>
         ) : (
           <Empty
             imageUrl={IconAccount}

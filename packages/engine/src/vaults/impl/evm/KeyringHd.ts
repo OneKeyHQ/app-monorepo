@@ -65,7 +65,7 @@ export class KeyringHd extends KeyringHdBase {
         this.networkId,
         pub,
       );
-      const name = (names || [])[index] || `ETH #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `EVM #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,

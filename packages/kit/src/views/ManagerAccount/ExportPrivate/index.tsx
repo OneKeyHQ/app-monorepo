@@ -108,7 +108,7 @@ const ExportPrivateViewModal = () => {
                 height={isSmallScreen ? '48px' : '36px'}
                 mt={isSmallScreen ? '32px' : '24px'}
                 type="plain"
-                size="xl"
+                size={isSmallScreen ? 'xl' : 'base'}
                 leftIconName="DuplicateSolid"
                 onPress={copyDataToClipboard}
               >
