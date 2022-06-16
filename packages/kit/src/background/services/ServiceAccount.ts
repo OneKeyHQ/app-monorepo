@@ -314,11 +314,11 @@ class ServiceAccount extends ServiceBase {
   async createHWWallet({
     features,
     avatar,
-    bleUUID,
+    connectId,
   }: {
     features: IOneKeyDeviceFeatures;
     avatar?: Avatar;
-    bleUUID: string;
+    connectId: string;
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
@@ -327,7 +327,7 @@ class ServiceAccount extends ServiceBase {
     let wallet = null;
     let account = null;
 
-    await engine.upsertDevice(features, bleUUID);
+    await engine.upsertDevice(features, connectId);
     const deviceId = features.onekey_serial ?? features.serial_no ?? '';
 
     // ignore duplicate wallet toast when current hardware does not have accounts.

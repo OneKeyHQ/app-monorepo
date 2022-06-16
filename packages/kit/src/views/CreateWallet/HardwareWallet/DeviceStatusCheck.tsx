@@ -21,8 +21,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { deviceUtils, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
-import type { Features } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -92,7 +91,7 @@ const DeviceStatusCheckModal: FC = () => {
       try {
         await serviceAccount.createHWWallet({
           features,
-          bleUUID: getDeviceUUID(features as unknown as Features),
+          connectId: device.connectId ?? '',
         });
       } catch (e: any) {
         safeGoBack();
