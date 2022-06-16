@@ -1,4 +1,10 @@
-import { Features, IDeviceType } from '@onekeyfe/hd-core';
+import {
+  Features,
+  IDeviceType,
+  SearchDevice,
+  Success,
+  Unsuccessful,
+} from '@onekeyfe/hd-core';
 
 import { getHardwareSDKInstance } from './hardwareInstance';
 
@@ -17,20 +23,61 @@ export const getDeviceType = (features?: Features): IDeviceType => {
   return 'classic';
 };
 
+export const getDeviceUUID = (features: Features) => {
+  const deviceType = getDeviceType(features);
+  if (deviceType === 'classic') {
+    return features.onekey_serial;
+  }
+  return features.serial_no;
+};
+
+type IPollFn = (time?: number) => void;
+
+const MAX_SEARCH_TRY_COUNT = 15;
+const POLL_INTERVAL = 1000;
+const POLL_INTERVAL_RATE = 1.5;
+
 class DeviceUtils {
   connectedDeviceType: IDeviceType = 'classic';
+
+  scanning = false;
+
+  tryCount = 0;
 
   async getSDKInstance() {
     return getHardwareSDKInstance();
   }
 
-  async startDeviceScan() {
-    const HardwareSDK = await this.getSDKInstance();
-    const searchResponse = await HardwareSDK?.searchDevices();
-    /**
-     * searchDevices is not a long connection, is it necessary to poll
-     */
-    return searchResponse;
+  startDeviceScan(
+    callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
+  ) {
+    const searchDevices = async () => {
+      const HardwareSDK = await this.getSDKInstance();
+      const searchResponse = await HardwareSDK?.searchDevices();
+      callback(searchResponse);
+
+      this.tryCount += 1;
+    };
+
+    const poll: IPollFn = async (time = POLL_INTERVAL) => {
+      await searchDevices();
+      if (!this.scanning || this.tryCount > MAX_SEARCH_TRY_COUNT) {
+        this.stopScan();
+        return;
+      }
+
+      return new Promise((resolve: (p: void) => void) =>
+        setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
+      );
+    };
+
+    poll();
+    this.scanning = true;
+  }
+
+  stopScan() {
+    this.scanning = false;
+    this.tryCount = 0;
   }
 
   async connect(connectId: string) {

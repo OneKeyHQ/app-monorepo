@@ -75,7 +75,7 @@ const ConnectHardwareModal: FC = () => {
     if (!deviceUtils) return;
     setIsSearching(true);
 
-    newDeviceUtils.startDeviceScan().then((response) => {
+    newDeviceUtils.startDeviceScan((response) => {
       if (!response.success) {
         setErrorDialog(true);
         setIsSearching(false);
@@ -105,6 +105,8 @@ const ConnectHardwareModal: FC = () => {
         if (!result) {
           return;
         }
+
+        newDeviceUtils.stopScan();
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
           params: {
