@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Empty,
+  Image,
   Modal,
   QRCode,
   Text,
@@ -34,7 +35,7 @@ const ReceiveToken = () => {
   const { address, name } = route.params ?? {};
 
   const isVerticalLayout = useIsVerticalLayout();
-  const { account } = useActiveWalletAccount();
+  const { account, network } = useActiveWalletAccount();
 
   const shownAddress = address ?? account?.address ?? '';
   const shownName = name ?? account?.name ?? '';
@@ -80,13 +81,22 @@ const ReceiveToken = () => {
               mt={isVerticalLayout ? '32px' : '24px'}
               px={isVerticalLayout ? '67px' : '72px'}
             >
-              <Text
-                textAlign="center"
-                typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
-                noOfLines={1}
-              >
-                {shownName}
-              </Text>
+              <Box flexDirection="row" alignItems="center">
+                <Image
+                  alt="logoURI"
+                  size={6}
+                  source={{ uri: network?.logoURI }}
+                  borderRadius="full"
+                  mr={3}
+                />
+                <Text
+                  textAlign="center"
+                  typography={{ sm: 'DisplayMedium', md: 'Body1Strong' }}
+                  noOfLines={1}
+                >
+                  {shownName}
+                </Text>
+              </Box>
               <Text
                 mt="8px"
                 color="text-subdued"
@@ -101,7 +111,7 @@ const ReceiveToken = () => {
                 height={isVerticalLayout ? '48px' : '36px'}
                 mt={isVerticalLayout ? '32px' : '24px'}
                 type="plain"
-                size="xl"
+                size={isVerticalLayout ? 'xl' : 'base'}
                 leftIconName="DuplicateSolid"
                 onPress={() => {
                   setHaptics();

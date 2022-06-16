@@ -77,7 +77,7 @@ const defaultAccountNameInfo: Record<
   string,
   Record<string, AccountNameInfo>
 > = {
-  [IMPL_EVM]: { default: { prefix: 'ETH', category: `44'/${COINTYPE_ETH}'` } },
+  [IMPL_EVM]: { default: { prefix: 'EVM', category: `44'/${COINTYPE_ETH}'` } },
   [IMPL_SOL]: { default: { prefix: 'SOL', category: `44'/${COINTYPE_SOL}'` } },
   [IMPL_ALGO]: {
     default: { prefix: 'ALGO', category: `44'/${COINTYPE_ALGO}'` },
