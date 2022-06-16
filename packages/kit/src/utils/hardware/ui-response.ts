@@ -1,19 +1,18 @@
+import { UI_REQUEST, UI_RESPONSE } from '@onekeyfe/hd-core';
+
 import { ToastManager } from '@onekeyhq/components';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
-import { getHardwareSDKInstance } from './hardwareInstance'
-import deviceUtils from './deviceUtils'
+
+import deviceUtils from './deviceUtils';
+import { getHardwareSDKInstance } from './hardwareInstance';
 
 export const UIResponse = async (event: any) => {
-	const HardwareSDK = await getHardwareSDKInstance();
+  const HardwareSDK = await getHardwareSDKInstance();
 
   const { type } = event;
 
   switch (type) {
-    case 'ui-cancel-popup-request':
-      break;
-    case 'ui-device_firmware_outdated':
-      break;
-    case 'ui-request_pin':
+    case UI_REQUEST.REQUEST_PIN:
       ToastManager.show(
         {
           deviceType: deviceUtils?.connectedDeviceType,
@@ -25,16 +24,18 @@ export const UIResponse = async (event: any) => {
       );
 
       HardwareSDK.uiResponse({
-        type: 'ui-receive_pin',
+        type: UI_RESPONSE.RECEIVE_PIN,
         payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
       });
       break;
-    case 'ui-invalid_pin': {
+
+    case UI_REQUEST.INVALID_PIN: {
       ToastManager.hide();
       navigationRef.current?.goBack?.();
       break;
     }
-    case 'ui-button':
+
+    case UI_REQUEST.REQUEST_BUTTON:
       ToastManager.show(
         {
           deviceType: deviceUtils?.connectedDeviceType,
@@ -45,13 +46,12 @@ export const UIResponse = async (event: any) => {
         },
       );
       break;
-    case 'ui-close_window': {
+
+    case UI_REQUEST.CLOSE_UI_WINDOW: {
       ToastManager.hide();
       break;
     }
-    case 'ui-request_confirmation': {
-      break;
-    }
+
     default:
       break;
   }

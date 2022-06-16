@@ -30,11 +30,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import deviceUtils from '@onekeyhq/kit/src/utils/device/deviceUtils';
-import {
-  SearchDevice,
-  deviceUtils as newDeviceUtils,
-} from '@onekeyhq/kit/src/utils/hardware';
+import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
@@ -66,7 +62,6 @@ const ConnectHardwareModal: FC = () => {
 
   const handleStopDevice = useCallback(() => {
     if (!deviceUtils) return;
-
     deviceUtils.stopScan();
   }, []);
 
@@ -75,7 +70,7 @@ const ConnectHardwareModal: FC = () => {
     if (!deviceUtils) return;
     setIsSearching(true);
 
-    newDeviceUtils.startDeviceScan((response) => {
+    deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
         setErrorDialog(true);
         setIsSearching(false);
@@ -100,13 +95,13 @@ const ConnectHardwareModal: FC = () => {
       if (!device.connectId) return;
 
       setIsConnectingDeviceId(device.connectId);
-      newDeviceUtils.connect(device.connectId).then((result) => {
+      deviceUtils.connect(device.connectId).then((result) => {
         setIsConnectingDeviceId('');
         if (!result) {
           return;
         }
 
-        newDeviceUtils.stopScan();
+        deviceUtils.stopScan();
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
           params: {
