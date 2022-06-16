@@ -357,7 +357,7 @@ class Engine {
         ),
       );
 
-      return this.dbApi.getWallet(wallet.id) as Promise<Wallet>;
+      return this.dbApi.confirmWalletCreated(wallet.id);
     }
 
     throw new OneKeyInternalError('Invalid mnemonic.');
