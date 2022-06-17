@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -45,7 +44,6 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
-  const [errorDialog, setErrorDialog] = useState(false);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -162,12 +160,6 @@ const Protected: FC<ProtectedProps> = ({
 
     return (
       <>
-        {errorDialog ? (
-          <PermissionDialog
-            type="bluetooth"
-            onClose={() => navigation.goBack()}
-          />
-        ) : null}
         <Box h="100%" justifyContent="center" alignItems="center">
           <Spinner size="lg" />
           <Typography.DisplayMedium mt={6}>

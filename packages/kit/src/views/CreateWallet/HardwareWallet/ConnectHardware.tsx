@@ -19,7 +19,6 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
-import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -136,7 +135,7 @@ const ConnectHardwareModal: FC = () => {
             <HStack space={3} alignItems="center">
               {/* TODO: Different type of icon */}
               <Image
-                source={getDeviceIcon(device.deviceType as IOneKeyDeviceType)}
+                source={getDeviceIcon(device.deviceType)}
                 width={6}
                 height={36}
               />

@@ -70,14 +70,14 @@ export const UIResponse = async (event: any) => {
 
     case UI_REQUEST.BLUETOOTH_PERMISSION: {
       if (!showPermissionDialog) {
-        showPermissionDialog = true
+        showPermissionDialog = true;
         DialogManager.show({
           render: (
             <PermissionDialog
-              type='bluetooth'
+              type="bluetooth"
               onClose={() => {
-                navigationRef.current?.goBack?.()
-                showPermissionDialog = false
+                navigationRef.current?.goBack?.();
+                showPermissionDialog = false;
               }}
             />
           ),
@@ -86,10 +86,10 @@ export const UIResponse = async (event: any) => {
       break;
     }
 
-     case UI_REQUEST.LOCATION_PERMISSION:  {
+    case UI_REQUEST.LOCATION_PERMISSION: {
       // TOCO: request location permission
-      break
-     }
+      break;
+    }
 
     default:
       break;
