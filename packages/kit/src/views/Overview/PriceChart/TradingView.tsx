@@ -1,19 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 
-import { ColorType, createChart } from 'lightweight-charts';
+import { createChart } from 'lightweight-charts';
 
 import { useThemeValue } from '@onekeyhq/components';
 
-type PriceChartProps = {
+type TradingViewProps = {
   data?: any[];
-  // backgroundColor?: string;
-  // lineColor?: string;
-  // textColor?: string;
-  // areaTopColor?: string;
-  // areaBottomColor?: string;
 };
 
-const PriceChart: React.FC<PriceChartProps> = ({ data }) => {
+const TradingView: React.FC<TradingViewProps> = ({ data = [] }) => {
   const lineColor = useThemeValue('interactive-default');
   const areaTopColor = useThemeValue('action-primary-focus');
   const areaBottomColor = '#00FF1900';
@@ -24,7 +19,6 @@ const PriceChart: React.FC<PriceChartProps> = ({ data }) => {
       return;
     }
     const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
       height: 300,
       grid: {
         vertLines: { visible: false },
@@ -68,5 +62,5 @@ const PriceChart: React.FC<PriceChartProps> = ({ data }) => {
 
   return <div ref={chartContainerRef} />;
 };
-PriceChart.displayName = 'PriceChart';
-export default PriceChart;
+TradingView.displayName = 'TradingView';
+export default TradingView;

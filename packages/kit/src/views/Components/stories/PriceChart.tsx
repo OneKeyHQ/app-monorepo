@@ -1,6 +1,6 @@
 import React from 'react';
 
-import PriceChart from '../../Overview/PriceChart/PriceChart.web';
+import PriceChart from '../../Overview/PriceChart/PriceChart';
 
 const data = [
   { time: '2018-12-22', value: 32.51 },
