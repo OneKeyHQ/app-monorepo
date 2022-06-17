@@ -67,7 +67,7 @@ export function PreSendAmountPreview({
         mt={2}
         mb={3}
       >
-        <AutoSizeText text={text} onChangeText={onChangeText} />
+        <AutoSizeText text={text} onChangeText={onChangeText} placeholder="0" />
       </Center>
 
       {loading ? (

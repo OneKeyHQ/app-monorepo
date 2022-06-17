@@ -9,10 +9,11 @@ import { Text, useThemeValue } from '@onekeyhq/components';
 
 export const AutoSizeText: FC<{
   text: string;
+  placeholder?: string;
   onChangeText?: (text: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-}> = ({ text, onChangeText }) => {
-  const innerText = text.length === 0 ? '0' : text;
+}> = ({ text, onChangeText, placeholder }) => {
+  const innerText = text.length === 0 ? placeholder : text;
   const textColor = useThemeValue('text-default');
   if (text.length > 0) {
     return (
