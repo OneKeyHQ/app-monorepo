@@ -3,6 +3,8 @@ import React, { useCallback } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { useToast } from '@onekeyhq/components';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../../hooks/redux';
 import { update } from '../../../store/reducers/contacts';
@@ -20,6 +22,7 @@ type RouteProps = RouteProp<
 
 const EditAddress = () => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networks } = useRuntime();
@@ -39,10 +42,13 @@ const EditAddress = () => {
             },
           }),
         );
+        toast.show({
+          title: intl.formatMessage({ id: 'msg__address_changed' }),
+        });
         navigation.goBack();
       }
     },
-    [networks, navigation, uuid],
+    [networks, navigation, uuid, toast, intl],
   );
   return (
     <AddressBookModalView

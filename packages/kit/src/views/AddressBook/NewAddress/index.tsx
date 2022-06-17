@@ -2,6 +2,8 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { useToast } from '@onekeyhq/components';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
@@ -11,11 +13,25 @@ import { ContactValues } from '../routes';
 
 const NewAddress = () => {
   const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
   const { networks } = useRuntime();
   const onSubmit = useCallback(
-    (values: ContactValues) => {
+    async (values: ContactValues) => {
       const net = networks.find((network) => network.id === values.networkId);
+      if (values.networkId) {
+        try {
+          await backgroundApiProxy.validator.validateAddress(
+            values.networkId,
+            values.address,
+          );
+        } catch {
+          toast.show({
+            title: intl.formatMessage({ id: 'form__address_invalid' }),
+          });
+          return;
+        }
+      }
       if (net) {
         backgroundApiProxy.dispatch(
           create({
@@ -28,7 +44,7 @@ const NewAddress = () => {
         navigation.goBack();
       }
     },
-    [networks, navigation],
+    [networks, navigation, intl, toast],
   );
   return (
     <AddressBookModalView
