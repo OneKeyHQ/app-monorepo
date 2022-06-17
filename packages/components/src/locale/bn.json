@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "ভ্রমণ এবং স্থান",
   "empty__no_account_desc": "নির্বাচিত নেটওয়ার্কের জন্য কোন অ্যাকাউন্ট নেই।",
   "empty__no_account_title": "কোনো হিসাব নেই",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "কোনো পুনরুদ্ধারযোগ্য অ্যাকাউন্ট পাওয়া যায়নি.",
   "empty__no_wallet_desc": "একটি নতুন ওয়ালেট তৈরি করে শুরু করুন।",
   "empty__no_wallet_title": "মানিব্যাগ নেই",

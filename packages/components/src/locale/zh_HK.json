@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "旅行和地方",
   "empty__no_account_desc": "所選網絡沒有帳戶。",
   "empty__no_account_title": "沒有賬戶",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "沒有找到可恢復的賬戶。",
   "empty__no_wallet_desc": "創建一個錢包以使用OneKey。",
   "empty__no_wallet_title": "暫無錢包",

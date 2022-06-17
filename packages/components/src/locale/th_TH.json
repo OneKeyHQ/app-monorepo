@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "การเดินทางและสถานที่",
   "empty__no_account_desc": "ไม่มีบัญชีสำหรับเครือข่ายที่เลือก",
   "empty__no_account_title": "ไม่มีบัญชี",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "ไม่พบบัญชีที่กู้คืนได้",
   "empty__no_wallet_desc": "เริ่มต้นด้วยการสร้างกระเป๋าเงินใหม่",
   "empty__no_wallet_title": "ไม่มีกระเป๋าสตางค์",

@@ -282,6 +282,7 @@ const ListingToken: FC<ListingTokenProps> = ({
         console.error(e);
         toast.show({
           title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
+          type: 'error',
         });
         return;
       }

@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "Reisen & Orte",
   "empty__no_account_desc": "Für das ausgewählte Netz gibt es kein Konto.",
   "empty__no_account_title": "Kein Konto",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "Keine wiederherstellbaren Konten gefunden.",
   "empty__no_wallet_desc": "Beginnen Sie mit der Erstellung einer neuen Brieftasche.",
   "empty__no_wallet_title": "Keine Brieftasche",
