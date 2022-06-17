@@ -101,11 +101,6 @@ const Protected: FC<ProtectedProps> = ({
         const result = await Promise.race([p1, p2]);
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
-        // @ts-expect-error
-        if (e?.errorCode === 102) {
-          setErrorDialog(true);
-          return;
-        }
         safeGoBack();
         ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),

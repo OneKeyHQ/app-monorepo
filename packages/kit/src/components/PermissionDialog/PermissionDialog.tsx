@@ -45,7 +45,7 @@ const linkMap: PrefLink = {
     iOS: 'App-Prefs:Bluetooth',
     android: IntentLauncher.ActivityAction.BLUETOOTH_SETTINGS,
     desktop: null,
-  }
+  },
 };
 
 const getCurrentPlatformJumpLink = (
