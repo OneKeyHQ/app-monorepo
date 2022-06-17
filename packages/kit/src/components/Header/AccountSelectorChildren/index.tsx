@@ -147,7 +147,7 @@ const AccountSelectorChildren: FC<{
 
     let accountsGroup: AccountGroup[] = [];
 
-    if (selectedNetworkId === 'all') {
+    if (selectedNetworkId === AllNetwork) {
       accountsGroup = (
         await engine.getWalletAccountsGroupedByNetwork(activeWallet.id)
       )
@@ -546,6 +546,11 @@ const AccountSelectorChildren: FC<{
             onPress={() => {
               if (!activeWallet || isLoading) return;
               const networkSettings = activeNetwork?.settings;
+              const networkId =
+                selectedNetworkId === AllNetwork
+                  ? undefined
+                  : selectedNetworkId;
+
               const showNotSupportToast = () => {
                 toast.show({
                   title: intl.formatMessage({ id: 'badge__coming_soon' }),
@@ -585,6 +590,7 @@ const AccountSelectorChildren: FC<{
                   params: {
                     walletId: activeWallet.id,
                     onLoadingAccount,
+                    selectedNetworkId: networkId,
                   },
                 },
               });
