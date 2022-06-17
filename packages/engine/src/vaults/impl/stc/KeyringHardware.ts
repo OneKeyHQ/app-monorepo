@@ -1,6 +1,9 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
+import {
+  buildSignedTx,
+  buildUnsignedRawTx,
+} from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
 
 import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
 
@@ -26,13 +29,37 @@ export class KeyringHardware extends KeyringHardwareBase {
     _options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
+    const connectId = await this.getHardwareConnectId();
+    const chainId = await this.getNetworkChainId();
 
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    return provider.hardwareSignTransaction(unsignedTx, {
-      [dbAccount.address]: dbAccount.path,
+    const [rawTxn, rawUserTransactionBytes] = buildUnsignedRawTx(
+      unsignedTx,
+      chainId,
+    );
+
+    const {
+      inputs: [{ publicKey: senderPublicKey }],
+    } = unsignedTx;
+
+    if (!senderPublicKey) {
+      throw new OneKeyHardwareError(Error('senderPublicKey is required'));
+    }
+
+    const response = await HardwareSDK.starcoinSignTransaction(connectId, {
+      path: dbAccount.path,
+      rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
     });
+
+    if (response.success) {
+      const { signature } = response.payload;
+      return buildSignedTx(
+        senderPublicKey,
+        Buffer.from(signature as string, 'hex'),
+        rawTxn,
+      );
+    }
+
+    throw new OneKeyHardwareError(Error('signature is required'));
   }
 
   signMessage(
