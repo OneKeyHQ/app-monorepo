@@ -44,7 +44,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import AccountModifyNameDialog from '@onekeyhq/kit/src/views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/RemoveAccount';
 
-import { useAppSelector, useManageNetworks } from '../../../hooks';
+import { useManageNetworks } from '../../../hooks';
 import { NetworkIcon } from '../../../views/ManageNetworks/Listing/NetworkIcon';
 
 import LeftSide from './LeftSide';
@@ -84,17 +84,14 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
 
 type AccountGroup = { title: Network; data: AccountEngineType[] };
 
-const CreateAccountSkeleton = () => {
-  const accountIsBeingCreated = useAppSelector(
-    (s) => s.data.accountIsBeingCreated,
-  );
-  return accountIsBeingCreated ? (
+type LoadingSkeletonProps = { isLoading: boolean };
+const LoadingSkeleton: FC<LoadingSkeletonProps> = ({ isLoading }) =>
+  isLoading ? (
     <Box mx="2" borderRadius={12} p="2">
       <Skeleton shape="Body2" />
       <Skeleton shape="Body2" />
     </Box>
   ) : null;
-};
 
 const AllNetwork = 'all';
 
@@ -103,10 +100,8 @@ const AccountSelectorChildren: FC<{
   toggleOpen?: (...args: any) => any;
 }> = ({ isOpen }) => {
   const intl = useIntl();
+  const [isLoading, setLoading] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
-  const accountIsBeingCreated = useAppSelector(
-    (s) => s.data.accountIsBeingCreated,
-  );
 
   const navigation = useAppNavigation();
   const toast = useToast();
@@ -369,6 +364,15 @@ const AccountSelectorChildren: FC<{
     refreshAccounts();
   }, [refreshAccounts]);
 
+  const onLoadingAccount = useCallback((networkId?: string) => {
+    if (networkId) {
+      setSelectedNetworkId(networkId);
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
   return (
     <>
       <LeftSide
@@ -471,7 +475,7 @@ const AccountSelectorChildren: FC<{
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             <Box h={section?.leadingItem ? 2 : 0} />
           )}
-          ListFooterComponent={CreateAccountSkeleton}
+          ListFooterComponent={() => <LoadingSkeleton isLoading={isLoading} />}
           ItemSeparatorComponent={() => <Box h={2} />}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={({ item, section }) => (
@@ -540,7 +544,7 @@ const AccountSelectorChildren: FC<{
         <Box p={2}>
           <Pressable
             onPress={() => {
-              if (!activeWallet || accountIsBeingCreated) return;
+              if (!activeWallet || isLoading) return;
               const networkSettings = activeNetwork?.settings;
               const showNotSupportToast = () => {
                 toast.show({
@@ -580,6 +584,7 @@ const AccountSelectorChildren: FC<{
                   screen: CreateAccountModalRoutes.CreateAccountForm,
                   params: {
                     walletId: activeWallet.id,
+                    onLoadingAccount,
                   },
                 },
               });
