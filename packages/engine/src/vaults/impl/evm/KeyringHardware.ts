@@ -55,7 +55,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     let index = 0;
     for (const info of addressInfos) {
       const { path, info: address } = info;
-      const name = (names || [])[index] || `ETH #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `EVM #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
