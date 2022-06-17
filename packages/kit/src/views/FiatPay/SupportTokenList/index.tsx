@@ -8,6 +8,7 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Divider,
+  Empty,
   Modal,
   NetImage,
   Pressable,
@@ -173,7 +174,11 @@ export const SupportTokenList: FC = () => {
         ItemSeparatorComponent: () => <Divider />,
         showsVerticalScrollIndicator: false,
         keyExtractor: (item) => (item as CurrencyType).tokenName,
-
+        ListEmptyComponent: () => (
+          <Box py="120px">
+            <Empty title="" subTitle="" />
+          </Box>
+        ),
         ListHeaderComponent: (
           <Header
             onChange={(text) => {
