@@ -4,9 +4,9 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import AddressInput from '../../components/AddressInput';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
@@ -41,7 +41,7 @@ function PreSendAddress() {
   useFormOnChangeDebounced<FormValues>({
     useFormReturn,
   });
-  const { control, watch, trigger, getValues, formState } = useFormReturn;
+  const { control, watch, getValues, formState } = useFormReturn;
   const navigation = useNavigation<NavigationProps>();
   const tokenInfo = useTokenInfo({
     networkId,
@@ -77,10 +77,6 @@ function PreSendAddress() {
                 </Typography.Body1Strong>
               </Box>
               <Form.Item
-                label=""
-                labelAddon={platformEnv.isExtension ? [] : ['paste', 'scan']}
-                isLabelAddonActions
-                onLabelAddonPress={() => trigger('to')} // call validation after paste
                 control={control}
                 name="to"
                 formControlProps={{ width: 'full' }}
@@ -106,13 +102,14 @@ function PreSendAddress() {
                 }}
                 defaultValue=""
               >
-                <Form.Textarea
+                <AddressInput
                   // TODO different max length in network
                   maxLength={80}
+                  networkId={networkId}
                   placeholder={intl.formatMessage({ id: 'form__address' })}
-                  borderRadius="12px"
                   // numberOfLines={10}
                   h={{ base: 120, md: 120 }}
+                  plugins={['contact', 'paste', 'scan']}
                 />
               </Form.Item>
             </Form>

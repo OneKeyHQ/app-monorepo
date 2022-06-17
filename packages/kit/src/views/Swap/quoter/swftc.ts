@@ -213,6 +213,7 @@ export class SwftcQuoter implements Quoter {
       activeNetwok,
       activeAccount,
       tokenIn,
+      receivingAddress,
     } = params;
     const data = await this.getInternalQuote(params);
     if (data && activeNetwok && activeAccount) {
@@ -226,12 +227,15 @@ export class SwftcQuoter implements Quoter {
         receiveCoinAmt = typedValue;
         depositCoinAmt = div(typedValue, rate.instantRate);
       }
+      const equipmentNo = activeAccount.address;
+      const destinationAddr = receivingAddress ?? activeAccount.address;
       const orderData = await this.createOrder(
         depositCoinCode,
         receiveCoinCode,
         new BigNumber(depositCoinAmt).toFixed(8, BigNumber.ROUND_DOWN),
         new BigNumber(receiveCoinAmt).toFixed(8, BigNumber.ROUND_DOWN),
-        activeAccount.address,
+        equipmentNo,
+        destinationAddr,
         activeAccount.address,
       );
       if (orderData && orderData.data) {
@@ -275,11 +279,12 @@ export class SwftcQuoter implements Quoter {
     receiveCoinAmt: string,
     equipmentNo: string,
     destinationAddr: string,
+    refundAddr: string,
   ) {
     const data = {
       equipmentNo,
       destinationAddr,
-      refundAddr: destinationAddr,
+      refundAddr,
       depositCoinAmt,
       receiveCoinAmt,
       depositCoinCode,

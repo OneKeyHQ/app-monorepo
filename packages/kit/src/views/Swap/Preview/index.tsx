@@ -41,6 +41,7 @@ const Preview = () => {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
+  const receivingAddress = useAppSelector((s) => s.swap.receivingAddress);
   const addTransaction = useTransactionAdder();
   const { account, network } = useActiveWalletAccount();
   const {
@@ -60,6 +61,7 @@ const Preview = () => {
       ...params,
       activeAccount: account,
       activeNetwok: network,
+      receivingAddress,
     });
 
     if (res?.data) {

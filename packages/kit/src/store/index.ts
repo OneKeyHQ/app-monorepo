@@ -28,6 +28,7 @@ import { IBackgroundApi } from '../background/IBackgroundApi';
 
 import middlewares from './middlewares';
 import autoUpdateReducer from './reducers/autoUpdater';
+import contactsReducer from './reducers/contacts';
 import dappReducer from './reducers/dapp';
 import dataReducer from './reducers/data';
 import discoverReducer from './reducers/discover';
@@ -51,6 +52,7 @@ const allReducers = combineReducers({
   discover: discoverReducer,
   swap: swapReducer,
   tokens: tokensReducer,
+  contacts: contactsReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
@@ -77,7 +79,15 @@ const persistConfig = {
   version: 1,
   // AsyncStorage not working in ext background (localStorage not available)
   storage: platformEnv.isExtensionUi ? mockStorage : appStorage,
-  whitelist: ['settings', 'status', 'dapp', 'general', 'discover', 'tokens'],
+  whitelist: [
+    'settings',
+    'status',
+    'dapp',
+    'general',
+    'discover',
+    'tokens',
+    'contacts',
+  ],
   throttle: platformEnv.isExtension ? 1000 : 0, // default=0
 };
 

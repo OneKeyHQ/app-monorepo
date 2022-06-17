@@ -29,6 +29,7 @@ export enum ModalRoutes {
   Swap = 'Swap',
   ScanQrcode = 'ScanQrcode',
   UpdateFeature = 'UpdateFeature',
+  AddressBook = 'AddressBook',
 }
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',
