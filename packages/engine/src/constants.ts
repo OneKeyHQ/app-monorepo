@@ -1,5 +1,3 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 const SEPERATOR = '--';
 
 const IMPL_EVM = 'evm';
@@ -30,15 +28,10 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_BTC,
   // IMPL_SOL,  // TODO: bigint issue
   // IMPL_ALGO,  // TODO: bigint issue
-  ...(platformEnv.isNativeAndroid ? [] : [IMPL_STC]),
+  IMPL_STC,
 ]);
 
-const PRODUCTION_IMPLS = new Set([
-  IMPL_EVM,
-  IMPL_NEAR,
-  IMPL_BTC,
-  ...(platformEnv.isNativeAndroid ? [] : [IMPL_STC]),
-]);
+const PRODUCTION_IMPLS = new Set([IMPL_EVM, IMPL_NEAR, IMPL_BTC, IMPL_STC]);
 
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
