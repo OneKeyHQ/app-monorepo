@@ -110,8 +110,8 @@ const AddressBook = () => {
     [items, onPress],
   );
 
-  if (items.length === 0) {
-    return (
+  const listEmptyComponent = useMemo(
+    () => (
       <Center w="full" h="full">
         <Empty
           title={intl.formatMessage({ id: 'title__no_cantact' })}
@@ -119,11 +119,13 @@ const AddressBook = () => {
           imageUrl={imageUrl}
         />
       </Center>
-    );
-  }
+    ),
+    [intl],
+  );
 
   return (
     <FlatList
+      ListEmptyComponent={listEmptyComponent}
       data={items}
       ItemSeparatorComponent={() => <Divider />}
       renderItem={renderItem}
