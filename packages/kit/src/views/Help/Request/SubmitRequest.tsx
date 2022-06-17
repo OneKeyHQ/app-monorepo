@@ -217,6 +217,7 @@ export const SubmitRequest: FC = () => {
             });
             toast.show({
               title: intl.formatMessage({ id: 'msg__upload_failed' }),
+              type: 'error',
             });
           }
         },

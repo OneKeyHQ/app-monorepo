@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
@@ -88,6 +89,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.FaceId,
         component: FaceID,
+      },
+      {
+        name: HomeRoutes.AddressBook,
+        component: AddressBook,
       },
     ],
   },

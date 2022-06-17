@@ -22,10 +22,7 @@ import {
   FormatBalance,
   FormatCurrency,
 } from '@onekeyhq/kit/src/components/Format';
-import {
-  useActiveWalletAccount,
-  useFiatPay,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
@@ -141,7 +138,6 @@ type AccountOptionProps = { isSmallView: boolean };
 
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { network: activeNetwork } = useActiveWalletAccount();
-  const currencies = useFiatPay(activeNetwork?.id ?? '');
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
@@ -211,7 +207,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      {wallet?.type !== 'watching' && account && currencies.length !== 0 && (
+      {wallet?.type !== 'watching' && account && (
         <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle

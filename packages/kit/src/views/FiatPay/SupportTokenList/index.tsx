@@ -8,6 +8,7 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Divider,
+  Empty,
   Modal,
   NetImage,
   Pressable,
@@ -159,7 +160,7 @@ export const SupportTokenList: FC = () => {
 
   return (
     <Modal
-      height="560px"
+      maxHeight="560px"
       header={intl.formatMessage({ id: 'action__buy' })}
       hideSecondaryAction
       primaryActionProps={{
@@ -173,7 +174,17 @@ export const SupportTokenList: FC = () => {
         ItemSeparatorComponent: () => <Divider />,
         showsVerticalScrollIndicator: false,
         keyExtractor: (item) => (item as CurrencyType).tokenName,
-
+        ListEmptyComponent: () => (
+          <Box>
+            <Empty
+              title={intl.formatMessage({ id: 'empty__no_purchasable_tokens' })}
+              subTitle={intl.formatMessage({
+                id: 'empty__no_purchasable_tokens_desc',
+              })}
+              icon="DatabaseSolid"
+            />
+          </Box>
+        ),
         ListHeaderComponent: (
           <Header
             onChange={(text) => {
