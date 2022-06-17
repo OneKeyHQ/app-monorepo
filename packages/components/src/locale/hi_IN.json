@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "यात्रा और स्थान",
   "empty__no_account_desc": "चयनित नेटवर्क के लिए कोई खाता नहीं है।",
   "empty__no_account_title": "खाता नहीं",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "कोई वसूली योग्य खाता नहीं मिला।",
   "empty__no_wallet_desc": "नया वॉलेट बनाकर शुरुआत करें।",
   "empty__no_wallet_title": "कोई बटुआ नहीं",

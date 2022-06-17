@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "Travel & Places",
   "empty__no_account_desc": "There is no account for the selected network.",
   "empty__no_account_title": "No account",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "No recoverable accounts found.",
   "empty__no_wallet_desc": "Get started by creating a new wallet.",
   "empty__no_wallet_title": "No Wallet",

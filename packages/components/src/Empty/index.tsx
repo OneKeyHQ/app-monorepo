@@ -9,6 +9,7 @@ import Image from '../Image';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text } from '../Typography';
 
+type BoxProps = ComponentProps<typeof Box>;
 type NonString<T> = T extends string ? never : T;
 type EmptyProps = {
   title: string;
@@ -20,7 +21,7 @@ type EmptyProps = {
   imageUrl?: number;
   actionProps?: ComponentProps<typeof Button>;
   handleAction?: () => void;
-};
+} & BoxProps;
 
 function renderIcon(icon: EmptyProps['icon']) {
   if (icon === null) {
@@ -30,8 +31,12 @@ function renderIcon(icon: EmptyProps['icon']) {
     return icon;
   }
   return (
-    <Box mb={3}>
-      <Icon name={(icon as ICON_NAMES) ?? 'InboxOutline'} size={48} />
+    <Box p={4} mb={4} bgColor="surface-neutral-default" rounded="full">
+      <Icon
+        name={(icon as ICON_NAMES) ?? 'InboxOutline'}
+        size={32}
+        color="icon-subdued"
+      />
     </Box>
   );
 }
@@ -44,6 +49,7 @@ const Empty: FC<EmptyProps> = ({
   imageUrl,
   handleAction,
   actionProps,
+  ...rest
 }) => {
   const isSmallScreen = useIsVerticalLayout();
 
@@ -53,6 +59,7 @@ const Empty: FC<EmptyProps> = ({
       display="flex"
       flexDirection="row"
       justifyContent="center"
+      {...rest}
     >
       <Center width="320px" py="4">
         {!!icon && renderIcon(icon)}
@@ -68,10 +75,10 @@ const Empty: FC<EmptyProps> = ({
           {title}
         </Text>
         <Text
+          textAlign="center"
           typography={{ sm: 'Body1', md: 'Body2' }}
           color="text-subdued"
           mt={2}
-          textAlign="center"
         >
           {subTitle}
         </Text>

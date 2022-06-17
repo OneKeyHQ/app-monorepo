@@ -20,7 +20,10 @@ export enum CreateAccountModalRoutes {
 }
 
 export type CreateAccountRoutesParams = {
-  [CreateAccountModalRoutes.CreateAccountForm]: { walletId: string };
+  [CreateAccountModalRoutes.CreateAccountForm]: {
+    walletId: string;
+    onLoadingAccount?: (networkId?: string) => void;
+  };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
     onDone: (password: string) => void;
     walletId: string;

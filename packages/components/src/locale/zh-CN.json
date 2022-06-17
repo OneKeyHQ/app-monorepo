@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "旅行和地点",
   "empty__no_account_desc": "当前网络没有账户。",
   "empty__no_account_title": "暂无账户",
+  "empty__no_purchasable_tokens": "没有可购买的代币",
+  "empty__no_purchasable_tokens_desc": "请切换网络再尝试。",
   "empty__no_recoverable_account_desc": "没有找到可恢复的账户。",
   "empty__no_wallet_desc": "创建一个钱包以使用 OneKey。",
   "empty__no_wallet_title": "暂无钱包",

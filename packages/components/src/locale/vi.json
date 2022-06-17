@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "Du lịch & Địa điểm",
   "empty__no_account_desc": "Không có tài khoản cho mạng đã chọn.",
   "empty__no_account_title": "Không tài khoản",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "Không tìm thấy tài khoản có thể phục hồi.",
   "empty__no_wallet_desc": "Bắt đầu bằng cách tạo một ví mới.",
   "empty__no_wallet_title": "Không có ví",

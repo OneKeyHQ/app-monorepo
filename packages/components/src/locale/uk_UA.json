@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "Подорожі та місця",
   "empty__no_account_desc": "Для вибраної мережі немає облікового запису.",
   "empty__no_account_title": "Немає облікового запису",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "Не знайдено жодних облікових записів, які можна відновити.",
   "empty__no_wallet_desc": "Почніть зі створення нового гаманця.",
   "empty__no_wallet_title": "Немає гаманця",

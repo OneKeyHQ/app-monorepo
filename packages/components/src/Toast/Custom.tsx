@@ -2,8 +2,8 @@
 import React, { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet, TextStyle } from 'react-native';
-import Toast, { BaseToast } from 'react-native-toast-message';
+import { StyleSheet } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 import ConfirmOnClassic from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-classic.json';
 import ConfirmOnMini from '@onekeyhq/kit/assets/wallet/confirm-on-onekey-mini.json';
@@ -12,70 +12,39 @@ import EnterPinCodeOnMini from '@onekeyhq/kit/assets/wallet/enter-pin-code-on-on
 
 import Box from '../Box';
 import LottieView from '../LottieView';
-import { useThemeValue } from '../Provider/hooks';
-import { Body1Props, Text } from '../Typography';
+import { Text } from '../Typography';
+
+import BaseToast from './BaseToast';
 
 type Props = ComponentProps<typeof Toast>;
 
 const CustomToast: FC<Props> = (outerProps) => {
-  const [
-    backgroundColor,
-    fontColor,
-    borderColor,
-    borderLeftColor,
-    shadowColor,
-  ] = useThemeValue([
-    // 'surface-neutral-default',
-    // 'text-default',
-    // 'border-default',
-    // 'border-default',
-    'interactive-default',
-    'text-on-primary',
-    'interactive-default',
-    'interactive-default',
-    'interactive-default',
-  ]);
   const intl = useIntl();
+
   return (
     <Toast
       config={{
         default: (props) => (
           <BaseToast
             {...props}
-            style={{
-              alignSelf: 'center',
-              width: 'auto',
-              height: 'auto',
-              marginLeft: 0,
-              backgroundColor,
-              borderRadius: 9999,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderLeftWidth: StyleSheet.hairlineWidth,
-              borderColor,
-              borderLeftColor,
-              // replace the code below with shadow token 'depth.4' in the future, i don't know how – franco
-              shadowColor,
-              shadowOffset: {
-                width: 0,
-                height: 4,
-              },
-              shadowOpacity: 0.15,
-              shadowRadius: 20.0,
-              elevation: 8,
-            }}
-            contentContainerProps={{
-              style: {
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                marginLeft: 0,
-                alignSelf: 'center',
-                maxWidth: 340,
-              },
-            }}
-            text1NumberOfLines={3}
-            text1Style={
-              { ...Body1Props, color: fontColor, marginBottom: 0 } as TextStyle
-            }
+            bgColorToken="surface-neutral-default"
+            borderColorToken="border-default"
+            shadowColorToken="text-default"
+            textColorToken="text-default"
+          />
+        ),
+        success: (props) => (
+          <BaseToast
+            {...props}
+            bgColorToken="interactive-default"
+            textColorToken="text-on-primary"
+          />
+        ),
+        error: (props) => (
+          <BaseToast
+            {...props}
+            bgColorToken="action-critical-default"
+            textColorToken="text-on-critical"
           />
         ),
         enterPinOnDevice: ({ props }) => (
