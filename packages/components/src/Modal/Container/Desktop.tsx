@@ -132,7 +132,7 @@ const DesktopModal: FC<ModalProps> = ({
               {!!headerDescription && (
                 <Box>
                   {typeof headerDescription === 'string' ? (
-                    <Typography.Caption textAlign="center" color="text-subdued">
+                    <Typography.Caption color="text-subdued">
                       {headerDescription}
                     </Typography.Caption>
                   ) : (
