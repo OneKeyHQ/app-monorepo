@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "旅行・観光",
   "empty__no_account_desc": "選択したネットワークに対応するアカウントがありません。",
   "empty__no_account_title": "アカウントなし",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "回復可能なアカウントが見つかりません。",
   "empty__no_wallet_desc": "まず、新しいウォレットを作成します。",
   "empty__no_wallet_title": "ウォレットなし",

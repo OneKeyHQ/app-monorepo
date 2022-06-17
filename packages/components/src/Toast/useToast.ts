@@ -1,5 +1,7 @@
 import ToastBase, { ToastShowParams } from 'react-native-toast-message';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.
@@ -8,10 +10,11 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
    */
   setTimeout(() => {
     ToastBase.show({
-      type: 'default',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       text1: props.title,
+      type: 'success',
       position: 'top',
+      topOffset: platformEnv.isNativeIOS ? 64 : 40,
       props,
       ...toastShowParams,
     });

@@ -61,6 +61,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
       }
       toast.show({
         title: intl.formatMessage({ id: 'msg__verification_failure' }),
+        type: 'error',
       });
       onNg?.();
     } finally {

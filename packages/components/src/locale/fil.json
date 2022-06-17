@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "Paglalakbay at Lugar",
   "empty__no_account_desc": "Walang account para sa napiling network.",
   "empty__no_account_title": "Walang account",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "Walang nahanap na mga nare-recover na account.",
   "empty__no_wallet_desc": "Magsimula sa pamamagitan ng paggawa ng bagong wallet.",
   "empty__no_wallet_title": "Walang Wallet",

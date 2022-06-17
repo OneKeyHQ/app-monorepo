@@ -155,6 +155,7 @@ export const ReplyTicket: FC = () => {
             });
             toast.show({
               title: intl.formatMessage({ id: 'msg__upload_failed' }),
+              type: 'error',
             });
           }
         },

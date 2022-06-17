@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "Аялал ба газрууд",
   "empty__no_account_desc": "Сонгосон сүлжээнд бүртгэл байхгүй байна.",
   "empty__no_account_title": "Бүртгэлгүй",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "Сэргээх боломжтой данс олдсонгүй.",
   "empty__no_wallet_desc": "Шинэ түрийвч үүсгэж эхэл.",
   "empty__no_wallet_title": "Түрийвч байхгүй",

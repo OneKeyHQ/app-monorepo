@@ -338,6 +338,8 @@
   "emoji_type_travel_places": "여행 및 장소",
   "empty__no_account_desc": "선택한 네트워크에 대한 계정이 없습니다.",
   "empty__no_account_title": "계정 없음",
+  "empty__no_purchasable_tokens": "No Purchasable Tokens",
+  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
   "empty__no_recoverable_account_desc": "복구 가능한 계정을 찾을 수 없습니다.",
   "empty__no_wallet_desc": "새 지갑을 만들어 시작하세요.",
   "empty__no_wallet_title": "지갑 없음",
