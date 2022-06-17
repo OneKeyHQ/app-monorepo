@@ -47,6 +47,8 @@ type SwapState = {
   loading: boolean;
   error?: SwapError;
   activeNetwork?: Network | null;
+  receivingAddress?: string;
+  receivingName?: string;
 };
 
 const initialState: SwapState = {
@@ -210,6 +212,13 @@ export const swapSlice = createSlice({
     setActiveNetwork(state, action: PayloadAction<Network>) {
       state.activeNetwork = action.payload;
     },
+    setReceiving(
+      state,
+      action: PayloadAction<{ address: string; name?: string } | undefined>,
+    ) {
+      state.receivingAddress = action.payload?.address;
+      state.receivingName = action.payload?.name;
+    },
   },
 });
 
@@ -229,6 +238,7 @@ export const {
   setLoading,
   setError,
   setActiveNetwork,
+  setReceiving,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

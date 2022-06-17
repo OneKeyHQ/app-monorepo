@@ -18,8 +18,6 @@ import {
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { setAccountIsBeingCreated } from '../../../store/reducers/data';
-
 type PrivateKeyFormValues = {
   network: string;
   name: string;
@@ -48,6 +46,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const { wallets, networks } = useRuntime();
 
   const selectedWalletId = route.params.walletId;
+  const { onLoadingAccount } = route.params;
   const wallet = useMemo(
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
     [selectedWalletId, wallets],
@@ -93,7 +92,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     (password: string) => {
       const network = getValues('network');
       const name = getValues('name');
-      backgroundApiProxy.dispatch(setAccountIsBeingCreated(true));
+      onLoadingAccount?.(network);
       setTimeout(() => {
         serviceAccount
           .addHDAccounts(password, selectedWalletId, network, undefined, [name])
@@ -105,7 +104,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             });
           })
           .finally(() => {
-            backgroundApiProxy.dispatch(setAccountIsBeingCreated(false));
+            onLoadingAccount?.();
           });
       }, 10);
       navigation.getParent()?.goBack?.();

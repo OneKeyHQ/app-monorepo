@@ -44,6 +44,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
   [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
   [ModalRoutes.FiatPay]: NavigatorScreenParams<SubModalRoutesParams.FiatPayModalRoutesParams>;
+  [ModalRoutes.AddressBook]: NavigatorScreenParams<SubModalRoutesParams.AddressBookRoutesParams>;
 };
 /** Modal */
 
@@ -86,6 +87,7 @@ export enum HomeRoutes {
   DAppListScreen = 'DAppListScreen',
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   FaceId = 'FaceId',
+  AddressBook = 'AddressBook',
 }
 
 export type HomeRoutesParams = {
@@ -113,6 +115,7 @@ export type HomeRoutesParams = {
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FaceId]: undefined;
+  [HomeRoutes.AddressBook]: undefined;
 };
 /** HomeStack */
 

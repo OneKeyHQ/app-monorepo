@@ -19,6 +19,7 @@ type EmptyProps = {
   icon?: ICON_NAMES | NonString<ReactNode>;
   actionTitle?: string;
   imageUrl?: number;
+  actionProps?: ComponentProps<typeof Button>;
   handleAction?: () => void;
 } & BoxProps;
 
@@ -47,6 +48,7 @@ const Empty: FC<EmptyProps> = ({
   actionTitle,
   imageUrl,
   handleAction,
+  actionProps,
   ...rest
 }) => {
   const isSmallScreen = useIsVerticalLayout();
@@ -67,8 +69,8 @@ const Empty: FC<EmptyProps> = ({
           </Box>
         )}
         <Text
-          textAlign="center"
           typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
+          textAlign="center"
         >
           {title}
         </Text>
@@ -86,6 +88,7 @@ const Empty: FC<EmptyProps> = ({
             type="primary"
             onPress={handleAction}
             size={isSmallScreen ? 'lg' : 'base'}
+            {...actionProps}
           >
             {actionTitle}
           </Button>
