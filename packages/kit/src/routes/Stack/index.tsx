@@ -11,6 +11,7 @@ import {
   enable,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
+import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
@@ -54,6 +55,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.FaceId,
     component: FaceID,
+  },
+  {
+    name: HomeRoutes.AddressBook,
+    component: AddressBook,
   },
 ];
 

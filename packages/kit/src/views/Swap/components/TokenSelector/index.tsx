@@ -448,12 +448,13 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   const prices = useNetworkTokensPrice(activeNetworkId);
   const balances = useAccountTokensBalance(activeNetworkId, activeAccountId);
   const allTokens = useNetworkTokens(activeNetworkId);
+
   const accountTokens = useAccountTokens(activeNetworkId, activeAccountId);
 
-  const accountTokensMap = useMemo(
-    () => new Set(accountTokens.map((s) => s.tokenIdOnNetwork)),
-    [accountTokens],
-  );
+  const topTokens = useMemo(() => {
+    const set = new Set(accountTokens.map((s) => s.tokenIdOnNetwork));
+    return allTokens.filter((token) => !set.has(token.tokenIdOnNetwork));
+  }, [allTokens, accountTokens]);
 
   const [keyword, setKeyword] = useState<string>('');
 
@@ -475,11 +476,11 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   );
 
   const flatListData = useMemo(() => {
-    const tokens = searchTerm ? searchedTokens : allTokens;
+    const tokens = searchTerm ? searchedTokens : topTokens;
     return tokens.filter(
       (i) => i.tokenIdOnNetwork !== excluded?.tokenIdOnNetwork,
     );
-  }, [searchTerm, searchedTokens, allTokens, excluded]);
+  }, [searchTerm, searchedTokens, topTokens, excluded]);
 
   const renderItem: ListRenderItem<TokenType> = useCallback(
     ({ item, index }) => (
@@ -492,11 +493,10 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         }
         prices={prices}
         balances={balances}
-        isOwned={accountTokensMap.has(item.tokenIdOnNetwork)}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flatListData.length, onPress, accountTokensMap],
+    [flatListData.length, onPress],
   );
 
   return (
