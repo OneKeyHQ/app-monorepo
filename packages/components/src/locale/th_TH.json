@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "{0} จะปรากฏที่นี่",
   "dialog__backup_wallet_desc": "สำรองวลีกู้คืนของคุณก่อนที่จะลบ",
   "dialog__backup_wallet_title": "กระเป๋าสตางค์สำรอง",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "การดำเนินการนี้จะลบข้อมูลของคุณอย่างถาวร ตรวจสอบให้แน่ใจว่าคุณมีข้อมูลสำรองก่อนที่จะลบ",
   "dialog__discard_changes_desc": "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
   "dialog__discard_changes_title": "ยกเลิกการเปลี่ยนแปลง",

@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "귀하의 {0} 이(가) 여기에 표시됩니다.",
   "dialog__backup_wallet_desc": "삭제하기 전에 복구 문구를 백업하십시오.",
   "dialog__backup_wallet_title": "백업 지갑",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "데이터가 영구적으로 삭제됩니다. 삭제하기 전에 백업이 있는지 확인하십시오.",
   "dialog__discard_changes_desc": "저장하지 않은 변경 사항을 삭제하시겠습니까?",
   "dialog__discard_changes_title": "변경 사항을 취소",

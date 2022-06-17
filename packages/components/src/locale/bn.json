@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "আপনার {0} এখানে উপস্থিত হবে",
   "dialog__backup_wallet_desc": "মুছে ফেলার আগে আপনার পুনরুদ্ধার শব্দগুচ্ছ ব্যাকআপ.",
   "dialog__backup_wallet_title": "ব্যাকআপ ওয়ালেট",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "এটি স্থায়ীভাবে আপনার ডেটা মুছে ফেলবে। মুছে ফেলার আগে আপনার ব্যাকআপ আছে তা নিশ্চিত করুন।",
   "dialog__discard_changes_desc": "আপনি কি অসংরক্ষিত পরিবর্তনগুলি বাতিল করার বিষয়ে নিশ্চিত?",
   "dialog__discard_changes_title": "পরিবর্তন বাতিল",

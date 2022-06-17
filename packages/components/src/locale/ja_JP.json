@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "あなたの{0}はここに表示されます",
   "dialog__backup_wallet_desc": "リカバリーフレーズを削除する前に、バックアップをとってください。",
   "dialog__backup_wallet_title": "バックアップ用ウォレット",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "これにより、データは永久に削除されます。削除する前に、必ずバックアップをとってください。",
   "dialog__discard_changes_desc": "保存していない変更を本当に破棄するのですか？",
   "dialog__discard_changes_title": "ディスクの変更",

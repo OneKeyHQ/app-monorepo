@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "您的 {0} 將出現在這裡",
   "dialog__backup_wallet_desc": "刪除錢包之前請先備份。",
   "dialog__backup_wallet_title": "備份錢包",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "這將永久刪除您的數據。刪除前請確保您有備份。",
   "dialog__discard_changes_desc": "您是否確認放棄未保存的更改？",
   "dialog__discard_changes_title": "放棄更改",

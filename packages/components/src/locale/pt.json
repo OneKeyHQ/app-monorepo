@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "Seu {0} aparecerá aqui",
   "dialog__backup_wallet_desc": "Faça backup de sua frase de recuperação antes de excluir.",
   "dialog__backup_wallet_title": "Carteira de backup",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "Isso excluirá permanentemente seus dados. Certifique-se de ter o backup antes de excluir.",
   "dialog__discard_changes_desc": "Tem certeza de descartar as alterações não salvas?",
   "dialog__discard_changes_title": "Descartar mudanças",

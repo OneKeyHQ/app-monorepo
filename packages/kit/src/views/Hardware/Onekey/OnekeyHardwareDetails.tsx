@@ -1,49 +1,112 @@
-import React, { FC, useEffect } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Icon, Modal } from '@onekeyhq/components';
+import { Box, Container, Modal } from '@onekeyhq/components';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import Protected from '../../../components/Protected';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '../../../routes/Modal/HardwareOnekey';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../../routes/types';
+import { deviceUtils } from '../../../utils/hardware';
 
-type NavigationProps = ModalScreenProps<RootRoutesParams>;
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
   OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal
 >;
 
+type OnekeyHardwareDetailsModalProps = {
+  walletId: string;
+};
+
+const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
+  walletId,
+}) => {
+  const { engine } = backgroundApiProxy;
+  const [deviceFeatures, setDeviceFeatures] =
+    useState<IOneKeyDeviceFeatures | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const device = await engine.getHWDeviceByWalletId(walletId);
+      const features = await deviceUtils.getFeatures(device?.mac ?? '');
+      setDeviceFeatures(features);
+    })();
+  }, [engine, walletId]);
+
+  return (
+    <Box
+      flexDirection="column"
+      p={0.5}
+      alignItems="center"
+      mb={{ base: 4, md: 0 }}
+    >
+      {/* <Container.Box mt={6}>
+              <Container.Item
+                onPress={() => {}}
+                titleColor="text-default"
+                title="Update Available"
+                subDescribeCustom={
+                  <Icon name="InformationCircleSolid" color="icon-success" />
+                }
+              />
+            </Container.Box> */}
+
+      <Container.Box>
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title="Serial Number"
+          describe={deviceFeatures?.onekey_serial ?? '-'}
+        />
+
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title="Bluetooth Name"
+          describe={deviceFeatures?.ble_name ?? '-'}
+        />
+
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title="Firmware Version"
+          describe={deviceFeatures?.onekey_version ?? '-'}
+        />
+        <Container.Item
+          titleColor="text-default"
+          describeColor="text-subdued"
+          title="Bluetooth Firmware Version"
+          describe={deviceFeatures?.ble_ver ?? '-'}
+        />
+      </Container.Box>
+
+      {/* <Container.Box mt={6}>
+              <Container.Item
+                onPress={() => {}}
+                hasArrow
+                titleColor="text-default"
+                describeColor="text-subdued"
+                describe="Not Passed"
+                title="Verification"
+              />
+            </Container.Box> */}
+    </Box>
+  );
+};
+
 /**
  * 硬件详情
  */
-const OnekeyHardwareDetails: FC = () => {
+const OnekeyHardwareDetailsModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const { walletId } = route?.params;
-
-  useEffect(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.OnekeyHardware,
-      params: {
-        screen: OnekeyHardwareModalRoutes.OnekeyHardwareConnectModal,
-        params: {
-          walletId,
-        },
-      },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <Modal
@@ -53,65 +116,13 @@ const OnekeyHardwareDetails: FC = () => {
       scrollViewProps={{
         pt: 4,
         children: (
-          <Box
-            flexDirection="column"
-            p={0.5}
-            alignItems="center"
-            mb={{ base: 4, md: 0 }}
-          >
-            <Container.Box mt={6}>
-              <Container.Item
-                onPress={() => {}}
-                titleColor="text-default"
-                title="Update Available"
-                subDescribeCustom={
-                  <Icon name="InformationCircleSolid" color="icon-success" />
-                }
-              />
-            </Container.Box>
-
-            <Container.Box mt={6}>
-              <Container.Item
-                titleColor="text-default"
-                describeColor="text-subdued"
-                title="Serial Number"
-                describe="Bixin21042001987"
-              />
-              <Container.Item
-                titleColor="text-default"
-                describeColor="text-subdued"
-                title="Bluetooth Name"
-                describe="K8101"
-              />
-              <Container.Item
-                titleColor="text-default"
-                describeColor="text-subdued"
-                title="Firmware Version"
-                describe="2.1.7"
-              />
-              <Container.Item
-                titleColor="text-default"
-                describeColor="text-subdued"
-                title="Bluetooth Firmware Version"
-                describe="1.2.1"
-              />
-            </Container.Box>
-
-            <Container.Box mt={6}>
-              <Container.Item
-                onPress={() => {}}
-                hasArrow
-                titleColor="text-default"
-                describeColor="text-subdued"
-                describe="Not Passed"
-                title="Verification"
-              />
-            </Container.Box>
-          </Box>
+          <Protected walletId={walletId}>
+            {() => <OnekeyHardwareDetails walletId={walletId} />}
+          </Protected>
         ),
       }}
     />
   );
 };
 
-export default OnekeyHardwareDetails;
+export default OnekeyHardwareDetailsModal;

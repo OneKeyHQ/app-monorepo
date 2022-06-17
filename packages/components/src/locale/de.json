@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "Ihr {0} wird hier erscheinen",
   "dialog__backup_wallet_desc": "Sichern Sie Ihre Wiederherstellungsphrase vor dem Löschen.",
   "dialog__backup_wallet_title": "Backup-Geldbörse",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "Dadurch werden Ihre Daten endgültig gelöscht. Stellen Sie sicher, dass Sie vor dem Löschen eine Sicherungskopie haben.",
   "dialog__discard_changes_desc": "Sind Sie sicher, dass Sie die nicht gespeicherten Änderungen verwerfen wollen?",
   "dialog__discard_changes_title": "Änderungen verwerfen",

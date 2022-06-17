@@ -316,6 +316,7 @@
   "content__your_str_will_appear_here": "Ваш {0} з’явиться тут",
   "dialog__backup_wallet_desc": "Створіть резервну копію фрази відновлення перед видаленням.",
   "dialog__backup_wallet_title": "Резервний гаманець",
+  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
   "dialog__delete_wallet_desc": "Це призведе до остаточного видалення ваших даних. Перед видаленням переконайтеся, що у вас є резервна копія.",
   "dialog__discard_changes_desc": "Ви впевнені, що відхилили незбережені зміни?",
   "dialog__discard_changes_title": "Скасувати зміни",
