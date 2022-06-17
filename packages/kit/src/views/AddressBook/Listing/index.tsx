@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,7 +10,6 @@ import {
   Empty,
   FlatList,
   IconButton,
-  Pressable,
   Select,
   Typography,
   useIsSmallLayout,
@@ -20,7 +19,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../../hooks';
+import { setHaptics, useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { Contact, remove } from '../../../store/reducers/contacts';
 import { AddressBookRoutes } from '../routes';
@@ -60,106 +59,108 @@ const ListingItem: FC<ListingItemValues> = ({
   }, [navigation, name, address, networkId, id]);
   const onCopy = useCallback(() => {
     copyToClipboard(address);
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+    toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
   }, [toast, intl, address]);
   const onDel = useCallback(() => {
     backgroundApiProxy.dispatch(remove({ uuid: id }));
-  }, [id]);
+    toast.show({ title: intl.formatMessage({ id: 'msg__address_deleted' }) });
+  }, [id, toast, intl]);
+
+  const onLongPress = useCallback(() => {
+    onCopy();
+    setHaptics();
+  }, [onCopy]);
 
   return (
-    <Pressable
-      p="4"
-      flexDirection="row"
-      alignItems="center"
-      onLongPress={onCopy}
-    >
-      <Box
-        w="8"
-        h="8"
-        borderRadius="full"
-        bg="decorative-surface-one"
-        justifyContent="center"
-        alignItems="center"
-      >
-        <Typography.DisplaySmall color="text-default">
-          {name.toUpperCase()[0]}
-        </Typography.DisplaySmall>
-      </Box>
-      <Box flex="1" mx="4">
-        <Box flexDirection="row">
-          <Typography.Body2Strong mr="2" numberOfLines={1}>
-            {name}
-          </Typography.Body2Strong>
-          <Badge size="sm" title={badge} />
-        </Box>
-        <Box>
-          <Typography.Body2 color="text-subdued" numberOfLines={2}>
-            {address}
-          </Typography.Body2>
-        </Box>
-      </Box>
-      <Select
-        onChange={(value) => {
-          switch (value) {
-            case 'Edit': {
-              onEdit();
-              break;
-            }
-            case 'Duplicate': {
-              onCopy();
-              break;
-            }
-            case 'Delete': {
-              onDel();
-              break;
-            }
-            default: {
-              //
-            }
+    <Select
+      onChange={(value) => {
+        switch (value) {
+          case 'Edit': {
+            onEdit();
+            break;
           }
-        }}
-        activatable={false}
-        dropdownPosition="right"
-        footer={null}
-        title={name}
-        headerShown={false}
-        containerProps={{ width: 'auto' }}
-        dropdownProps={{
-          width: 248,
-        }}
-        options={[
-          {
-            label: intl.formatMessage({ id: 'action__edit' }),
-            value: 'Edit',
-            iconProps: {
-              name: isSmall ? 'PencilOutline' : 'PencilSolid',
-            },
+          case 'Duplicate': {
+            onCopy();
+            break;
+          }
+          case 'Delete': {
+            onDel();
+            break;
+          }
+          default: {
+            //
+          }
+        }
+      }}
+      activatable={false}
+      dropdownPosition="right"
+      footer={null}
+      title={name}
+      headerShown={false}
+      containerProps={{ width: 'auto' }}
+      dropdownProps={{
+        width: 248,
+      }}
+      options={[
+        {
+          label: intl.formatMessage({ id: 'action__edit' }),
+          value: 'Edit',
+          iconProps: {
+            name: isSmall ? 'PencilOutline' : 'PencilSolid',
           },
-          {
-            label: intl.formatMessage({ id: 'action__copy_address' }),
-            value: 'Duplicate',
-            iconProps: {
-              name: isSmall ? 'DuplicateOutline' : 'DuplicateSolid',
-            },
+        },
+        {
+          label: intl.formatMessage({ id: 'action__copy_address' }),
+          value: 'Duplicate',
+          iconProps: {
+            name: isSmall ? 'DuplicateOutline' : 'DuplicateSolid',
           },
-          {
-            label: intl.formatMessage({ id: 'action__delete' }),
-            value: 'Delete',
-            iconProps: {
-              name: isSmall ? 'TrashOutline' : 'TrashSolid',
-            },
-            destructive: true,
+        },
+        {
+          label: intl.formatMessage({ id: 'action__delete' }),
+          value: 'Delete',
+          iconProps: {
+            name: isSmall ? 'TrashOutline' : 'TrashSolid',
           },
-        ]}
-        renderTrigger={() => (
+          destructive: true,
+        },
+      ]}
+      triggerProps={{ onLongPress }}
+      renderTrigger={() => (
+        <Box p="4" flexDirection="row" alignItems="center">
+          <Box
+            w="8"
+            h="8"
+            borderRadius="full"
+            bg="decorative-surface-one"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Typography.DisplaySmall color="text-default">
+              {name.toUpperCase()[0]}
+            </Typography.DisplaySmall>
+          </Box>
+          <Box flex="1" mx="4">
+            <Box flexDirection="row">
+              <Typography.Body2Strong mr="2" numberOfLines={1}>
+                {name}
+              </Typography.Body2Strong>
+              <Badge size="sm" title={badge} />
+            </Box>
+            <Box>
+              <Typography.Body2 color="text-subdued" numberOfLines={2}>
+                {address}
+              </Typography.Body2>
+            </Box>
+          </Box>
           <IconButton
             pointerEvents="none"
             name="DotsHorizontalSolid"
             type="plain"
           />
-        )}
-      />
-    </Pressable>
+        </Box>
+      )}
+    />
   );
 };
 
@@ -180,6 +181,13 @@ const Listing = () => {
       },
     });
   }, [navigation]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: intl.formatMessage({ id: 'title__address_book' }),
+    });
+  }, [navigation, intl]);
+
   return data.length === 0 ? (
     <Center w="full" h="full" bg="background-default">
       <Empty

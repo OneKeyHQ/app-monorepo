@@ -6,7 +6,7 @@ import { Box, Divider, Icon, Pressable, Textarea } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useNavigation } from '../../hooks';
+import { setHaptics, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 import { AddressBookRoutes } from '../../views/AddressBook/routes';
@@ -32,14 +32,25 @@ const AddressInput: FC<AddressInputProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const [isFocus, setFocus] = useState(false);
+  const onChangeValue = useCallback(
+    (text: string) => {
+      if (text !== value) {
+        onChange?.(text);
+      }
+    },
+    [value, onChange],
+  );
   const onPaste = useCallback(async () => {
+    setHaptics();
     const text = await getClipboard();
-    onChange?.(text);
-  }, [onChange]);
+    onChangeValue?.(text);
+  }, [onChangeValue]);
   const onScan = useCallback(() => {
-    gotoScanQrcode(onChange);
-  }, [onChange]);
+    setHaptics();
+    gotoScanQrcode(onChangeValue);
+  }, [onChangeValue]);
   const onContacts = useCallback(() => {
+    setHaptics();
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.AddressBook,
       params: {
@@ -47,7 +58,7 @@ const AddressInput: FC<AddressInputProps> = ({
         params: {
           networkId,
           onSelected: ({ address, name }) => {
-            onChange?.(address);
+            onChangeValue?.(address);
             if (name) {
               onChangeAddressName?.(name);
             }
@@ -55,7 +66,7 @@ const AddressInput: FC<AddressInputProps> = ({
         },
       },
     });
-  }, [navigation, onChange, networkId, onChangeAddressName]);
+  }, [navigation, onChangeValue, networkId, onChangeAddressName]);
   return (
     <Box
       w="full"
