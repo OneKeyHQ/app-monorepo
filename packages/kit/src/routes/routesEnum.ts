@@ -31,6 +31,7 @@ export enum ModalRoutes {
   UpdateFeature = 'UpdateFeature',
   OverviewAllCrypto = 'OverviewAllCrypto',
   OverviewNFTDetail = 'OverviewNFTDetail',
+  AddressBook = 'AddressBook',
 }
 export enum DappModalRoutes {
   ConnectionModal = 'ConnectionModal',

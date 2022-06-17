@@ -26,3 +26,4 @@ export type { UpdateFeatureRoutesParams } from './UpdateFeature';
 export type { FiatPayModalRoutesParams } from './FiatPay';
 export type { OverviewAllCryptoRoutesParams } from './OverviewAllCrypto';
 export type { OverviewNFTDetailRoutesParams } from './OverviewNFTDetail';
+export type { AddressBookRoutesParams } from '../../views/AddressBook/routes';

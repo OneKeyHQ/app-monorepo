@@ -28,6 +28,7 @@ import {
 } from './hooks/useSwap';
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
+import SwapReceiving from './SwapReceiving';
 import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
@@ -161,6 +162,23 @@ const SwapContent = () => {
           />
           {isDisabled ? <Box w="full" h="full" position="absolute" /> : null}
         </Box>
+        {outputTokenNetwork &&
+        outputTokenNetwork?.id !== inputTokenNetwork?.id ? (
+          <Box
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mt="2"
+          >
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'form__receiving_address' })}
+            </Typography.Body2>
+            <Box flex="1" flexDirection="row" justifyContent="flex-end">
+              <SwapReceiving />
+            </Box>
+          </Box>
+        ) : null}
         <Box
           display="flex"
           flexDirection="row"

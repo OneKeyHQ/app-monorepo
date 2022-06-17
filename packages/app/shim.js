@@ -14,13 +14,6 @@ if (typeof process === 'undefined') {
   }
 }
 
-// BigInt polyfill
-// TODO: this is still needed for Android + Hermes engine compiling, though we
-// don't actually use it. Remove after v8 engine is used on Android.
-if (typeof BigInt === 'undefined') {
-  global.BigInt = require('big-integer');
-}
-
 // TextEncoder and TextDecoder polyfill for starcoin
 if (typeof TextDecoder === 'undefined') {
   global.TextDecoder = require('text-encoding').TextDecoder;

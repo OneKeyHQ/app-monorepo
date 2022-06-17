@@ -46,6 +46,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.FiatPay]: NavigatorScreenParams<SubModalRoutesParams.FiatPayModalRoutesParams>;
   [ModalRoutes.OverviewAllCrypto]: NavigatorScreenParams<SubModalRoutesParams.OverviewAllCryptoRoutesParams>;
   [ModalRoutes.OverviewNFTDetail]: NavigatorScreenParams<SubModalRoutesParams.OverviewNFTDetailRoutesParams>;
+  [ModalRoutes.AddressBook]: NavigatorScreenParams<SubModalRoutesParams.AddressBookRoutesParams>;
 };
 /** Modal */
 
@@ -89,6 +90,7 @@ export enum HomeRoutes {
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   FaceId = 'FaceId',
   OverviewCryptoDetail = 'OverviewCryptoDetail',
+  AddressBook = 'AddressBook',
 }
 
 export type HomeRoutesParams = {
@@ -117,6 +119,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.FaceId]: undefined;
   [HomeRoutes.OverviewCryptoDetail]: { token: any } | undefined;
+  [HomeRoutes.AddressBook]: undefined;
 };
 /** HomeStack */
 

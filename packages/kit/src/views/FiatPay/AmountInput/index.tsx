@@ -69,7 +69,7 @@ export const AmountInput: FC = () => {
   const [descText, updateDescText] = useState<string>('');
   const debounceValue = useDebounce(inputText, 1000);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [forceLoading, updateForceLoading] = useState(true);
   const { account } = useActiveWalletAccount();
 
@@ -98,26 +98,10 @@ export const AmountInput: FC = () => {
             setMinAmount(response.minAmount);
             setMaxAmount(response.maxAmount);
             setFees(response?.fees as number);
-            updateDescText(
-              `${symbol} ${intl.formatMessage(
-                {
-                  id: 'form__buy_int_min_purchase',
-                },
-                { 0: response.minAmount },
-              )}`,
-            );
           } else {
             const balance = Number(token.balance);
             setMinAmount(Math.min(balance, response.minAmount));
             setMaxAmount(Math.min(balance, response.maxAmount));
-            updateDescText(
-              intl.formatMessage(
-                {
-                  id: 'form__sell_min_transaction_amount',
-                },
-                { 0: Math.min(balance, response.minAmount), 1: token.symbol },
-              ),
-            );
           }
           setAskPrice(response.askPrice);
         }
@@ -178,22 +162,8 @@ export const AmountInput: FC = () => {
           setAmountVaild(true);
         }
       } else {
-        updateDescText(() => {
-          if (type === 'Buy') {
-            return `${symbol} ${intl.formatMessage(
-              {
-                id: 'form__buy_int_min_purchase',
-              },
-              { 0: minAmount },
-            )}`;
-          }
-          return `${intl.formatMessage(
-            {
-              id: 'form__sell_min_transaction_amount',
-            },
-            { 0: minAmount, 1: token.symbol },
-          )}`;
-        });
+        // value is null
+        updateDescText('');
         setAmountVaild(false);
       }
     },
@@ -259,7 +229,11 @@ export const AmountInput: FC = () => {
               {displayCurrency.toUpperCase()}
             </Text>
             <Center flex={1}>
-              <AutoSizeText text={inputText} onChangeText={onChangeText} />
+              <AutoSizeText
+                text={inputText}
+                onChangeText={onChangeText}
+                placeholder="0"
+              />
             </Center>
             <Box height="24px">
               {loading || forceLoading ? (

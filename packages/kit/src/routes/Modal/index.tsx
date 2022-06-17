@@ -9,6 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
+import AddressBookModal from './AddressBook';
 import BackupWalletModal from './BackupWallet';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
@@ -155,6 +156,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.OverviewNFTDetail,
     component: OverviewNFTDetailModal,
+  },
+  {
+    name: ModalRoutes.AddressBook,
+    component: AddressBookModal,
   },
 ];
 
