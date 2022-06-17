@@ -1,6 +1,9 @@
+import React from 'react';
+
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
 
-import { ToastManager } from '@onekeyhq/components';
+import { DialogManager, ToastManager } from '@onekeyhq/components';
+import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 
 import deviceUtils from './deviceUtils';
@@ -12,7 +15,12 @@ export const UI_REQUEST = {
   REQUEST_BUTTON: 'ui-button',
 
   CLOSE_UI_WINDOW: 'ui-close_window',
+
+  BLUETOOTH_PERMISSION: 'ui-bluetooth_permission',
+  LOCATION_PERMISSION: 'ui-location_permission',
 } as const;
+
+let showPermissionDialog = false;
 
 export const UIResponse = async (event: any) => {
   const HardwareSDK = await getHardwareSDKInstance();
@@ -59,6 +67,29 @@ export const UIResponse = async (event: any) => {
       ToastManager.hide();
       break;
     }
+
+    case UI_REQUEST.BLUETOOTH_PERMISSION: {
+      if (!showPermissionDialog) {
+        showPermissionDialog = true
+        DialogManager.show({
+          render: (
+            <PermissionDialog
+              type='bluetooth'
+              onClose={() => {
+                navigationRef.current?.goBack?.()
+                showPermissionDialog = false
+              }}
+            />
+          ),
+        });
+      }
+      break;
+    }
+
+     case UI_REQUEST.LOCATION_PERMISSION:  {
+      // TOCO: request location permission
+      break
+     }
 
     default:
       break;

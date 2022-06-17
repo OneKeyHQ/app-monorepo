@@ -58,7 +58,6 @@ const ConnectHardwareModal: FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
   const [devices, setDevices] = useState<SearchDevice[]>([]);
-  const [errorDialog, setErrorDialog] = useState(false);
 
   const handleStopDevice = useCallback(() => {
     if (!deviceUtils) return;
@@ -66,13 +65,11 @@ const ConnectHardwareModal: FC = () => {
   }, []);
 
   const handleScanDevice = useCallback(() => {
-    // TODO: await to ask bluetooth permission
     if (!deviceUtils) return;
     setIsSearching(true);
 
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
-        setErrorDialog(true);
         setIsSearching(false);
         return;
       }
@@ -205,12 +202,6 @@ const ConnectHardwareModal: FC = () => {
 
   const content = platformEnv.isNative ? (
     <>
-      {errorDialog ? (
-        <PermissionDialog
-          type="bluetooth"
-          onClose={() => navigation.goBack()}
-        />
-      ) : null}
       <Center>{renderConnectScreen()}</Center>
     </>
   ) : (
