@@ -24,17 +24,24 @@ const PriceChart: React.FC<PriceChartProps> = ({ data }) => {
       return;
     }
     const chart = createChart(chartContainerRef.current, {
-      layout: {
-        // background: { type: ColorType.Solid, color: backgroundColor },
-        // textColor,
-      },
       width: chartContainerRef.current.clientWidth,
       height: 300,
       grid: {
-        vertLines: {
-          visible: false,
-        },
+        vertLines: { visible: false },
         horzLines: { visible: false },
+      },
+      timeScale: {
+        visible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+        lockVisibleTimeRangeOnResize: true,
+      },
+      rightPriceScale: {
+        visible: false,
+      },
+      handleScale: {
+        pinch: false,
+        mouseWheel: false,
       },
     });
     const handleResize = () => {
