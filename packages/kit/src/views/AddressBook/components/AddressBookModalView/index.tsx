@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useEffect, useMemo } from 'react';
+import React, { ComponentProps, FC, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,6 +26,7 @@ const ModalView: FC<ModalViewProps> = ({
   ...rest
 }) => {
   const intl = useIntl();
+  const validateAddressError = useRef<boolean>();
   const contacts = useAppSelector((s) => s.contacts.contacts);
   const contactsMaps = useMemo(
     () =>
@@ -37,7 +38,6 @@ const ModalView: FC<ModalViewProps> = ({
     control,
     handleSubmit,
     setValue,
-    setError,
     watch,
     trigger,
     formState: { isValid },
@@ -59,16 +59,16 @@ const ModalView: FC<ModalViewProps> = ({
             networkId,
             watchedAddress.trim(),
           );
+          validateAddressError.current = false;
           trigger('address');
         } catch {
-          setError('address', {
-            message: intl.formatMessage({ id: 'form__address_invalid' }),
-          });
+          validateAddressError.current = true;
+          trigger('address');
         }
       }
     }
     validateAddress();
-  }, [watchedAddress, networkId, trigger, setError, intl]);
+  }, [watchedAddress, networkId, trigger, intl]);
 
   useEffect(() => {
     if (name.length > 24) {
@@ -134,6 +134,11 @@ const ModalView: FC<ModalViewProps> = ({
                     if (contactsMaps.get(text)) {
                       return intl.formatMessage({
                         id: 'msg__this_address_already_exists',
+                      });
+                    }
+                    if (validateAddressError.current) {
+                      return intl.formatMessage({
+                        id: 'form__address_invalid',
                       });
                     }
                   },
