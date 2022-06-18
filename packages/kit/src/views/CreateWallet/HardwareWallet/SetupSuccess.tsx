@@ -52,7 +52,7 @@ const SetupSuccessModal: FC = () => {
 
   return (
     <Modal
-      header={device.device.name ?? ''}
+      header={device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__activated' })}
       secondaryActionTranslationId="action__close"
       onSecondaryActionPress={resetToRoot}

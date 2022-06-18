@@ -22,7 +22,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/device/ble/OnekeyHardware';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WalletAvatar from './WalletAvatar';

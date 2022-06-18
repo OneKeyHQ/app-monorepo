@@ -6,10 +6,8 @@ import { useIntl } from 'react-intl';
 
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/device/ble/BleOnekeyConnect';
-import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/device/ble/OnekeyHardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Setup from './Setup';
@@ -46,7 +44,6 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
-  const [errorDialog, setErrorDialog] = useState(false);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -74,37 +71,36 @@ const Protected: FC<ProtectedProps> = ({
   useEffect(() => {
     if (!isHardware) return;
 
+    function throwDeviceCheckError() {
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'action__connection_timeout' }),
+      });
+      safeGoBack();
+    }
+
     async function loadDevices() {
-      const devices = await engine.getHWDevices();
-      const currentWalletDevice =
-        devices.find(
-          (device) => device.id === walletDetail?.associatedDevice,
-        ) ?? null;
+      if (!walletDetail?.id) {
+        throwDeviceCheckError();
+        return;
+      }
+
+      const currentWalletDevice = await engine.getHWDeviceByWalletId(
+        walletDetail.id,
+      );
 
       if (!currentWalletDevice) {
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'action__connection_timeout' }),
-        });
-        safeGoBack();
+        throwDeviceCheckError();
         return;
       }
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        const p1 = onekeyBleConnect.getFeatures({
-          id: currentWalletDevice.mac,
-          deviceType: getDeviceTypeByDeviceId(currentWalletDevice.id),
-        } as any);
+        const p1 = deviceUtils.ensureConnected(currentWalletDevice.mac);
         const p2 = new Promise((_r, reject) => setTimeout(reject, 30 * 1000));
 
         const result = await Promise.race([p1, p2]);
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
-        // @ts-expect-error
-        if (e?.errorCode === 102) {
-          setErrorDialog(true);
-          return;
-        }
         safeGoBack();
         ToastManager.show({
           title: intl.formatMessage({ id: 'action__connection_timeout' }),
@@ -132,7 +128,7 @@ const Protected: FC<ProtectedProps> = ({
       setDeviceCheckSuccess(true);
     }
     loadDevices();
-  }, [isHardware, engine, walletDetail?.associatedDevice, intl, safeGoBack]);
+  }, [isHardware, engine, walletDetail?.id, intl, safeGoBack]);
 
   if (password) {
     return (
@@ -159,12 +155,6 @@ const Protected: FC<ProtectedProps> = ({
 
     return (
       <>
-        {errorDialog ? (
-          <PermissionDialog
-            type="bluetooth"
-            onClose={() => navigation.goBack()}
-          />
-        ) : null}
         <Box h="100%" justifyContent="center" alignItems="center">
           <Spinner size="lg" />
           <Typography.DisplayMedium mt={6}>

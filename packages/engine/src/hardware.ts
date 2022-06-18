@@ -11,16 +11,10 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import OneKeyConnect, {
-  ApplySettings,
-  EthereumAddress,
-  EthereumTransaction,
-  Features,
-  Success,
-  Unsuccessful,
-} from '@onekeyfe/js-sdk';
+import { Features, Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
+import { HardwareSDK as OneKeyConnect } from '@onekeyhq/kit/src/utils/hardware';
 
 import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';
@@ -32,6 +26,11 @@ import {
 import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
+
+/**
+ * No actual value, need to replace gradually
+ */
+const tempConnectId = '';
 
 /**
  * Get hardware wallet info
@@ -68,7 +67,7 @@ export async function changePin(remove = false): Promise<void> {
   let response;
   try {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.changePin({ remove });
+    response = await OneKeyConnect.deviceChangePin(tempConnectId, { remove });
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
@@ -86,11 +85,11 @@ export async function changePin(remove = false): Promise<void> {
 /**
  * apply settings to the hardware wallet
  */
-export async function applySettings(settings: ApplySettings): Promise<void> {
+export async function applySettings(settings: any): Promise<void> {
   let response;
   try {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.applySettings(settings);
+    response = await OneKeyConnect.deviceSettings(tempConnectId, settings);
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
@@ -117,9 +116,9 @@ export async function ethereumGetAddress(
 ): Promise<string> {
   let response;
   try {
-    response = await OneKeyConnect.ethereumGetAddress({
+    response = await OneKeyConnect.evmGetAddress(tempConnectId, {
       path,
-      showOnTrezor: display,
+      showOnOneKey: display,
     });
   } catch (error: any) {
     console.error(error);
@@ -211,20 +210,22 @@ export async function ethereumSignMessage({
     );
   }
   if (message.type === ETHMessageTypes.PERSONAL_SIGN) {
-    const res = await OneKeyConnect.ethereumSignMessage({
+    // TODO non hex sign (utf8)
+    const res = await OneKeyConnect.evmSignMessage(tempConnectId, {
       path,
-      message: message.message,
-      hex: true, // TODO non hex sign (utf8)
+      messageHex: message.message,
     });
     const result = getResultFromResponse(res);
     return `0x${result?.signature || ''}`;
   }
+
   if (message.type === ETHMessageTypes.TYPED_DATA_V3) {
     // TODO try catch
     const data = JSON.parse(message.message);
     // TODO use OneKeyConnect.ethereumSignTypedData()
-    const res = await OneKeyConnect.ethereumSignMessageEIP712({
+    const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
       path,
+      // @ts-expect-error
       data,
       version: 'V3',
       // metamask_v4_compat: false,
@@ -237,8 +238,9 @@ export async function ethereumSignMessage({
     const data = JSON.parse(message.message);
     console.log('ethereumSignTypedData V4 data', data);
     // TODO use OneKeyConnect.ethereumSignTypedData()
-    const res = await OneKeyConnect.ethereumSignMessageEIP712({
+    const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
       path,
+      // @ts-expect-error
       data,
       version: 'V4',
       // metamask_v4_compat: true,
@@ -283,7 +285,7 @@ export async function ethereumSignTransaction(
   }
 
   // TODO: seperate EIP1559/legacy once connect supports EIP1559.
-  const txToSign: EthereumTransaction = {
+  const txToSign = {
     to,
     value,
     gasPrice: toBigIntHex(
@@ -307,7 +309,7 @@ export async function ethereumSignTransaction(
   };
 
   try {
-    response = await OneKeyConnect.ethereumSignTransaction({
+    response = await OneKeyConnect.evmSignTransaction(tempConnectId, {
       path,
       transaction: txToSign,
     });
@@ -348,15 +350,18 @@ export async function getXpubs(
   paths: Array<string>,
   outputFormat: 'xpub' | 'pub' | 'address',
   type: IPrepareHardwareAccountsParams['type'],
+  connectId: string,
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);
   }
 
+  const isBundle = paths.length > 1;
+
   let response;
   try {
-    if (paths.length > 1) {
-      response = await OneKeyConnect.ethereumGetAddress({
+    if (isBundle) {
+      response = await OneKeyConnect.evmGetAddress(connectId, {
         bundle: paths.map((path) => ({
           path,
           /**
@@ -366,26 +371,27 @@ export async function getXpubs(
         })),
       });
     } else {
-      response = await OneKeyConnect.ethereumGetAddress({ path: paths[0] });
+      response = await OneKeyConnect.evmGetAddress(connectId, {
+        path: paths[0],
+      });
     }
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
   }
+
   if (response.success) {
-    if (paths.length > 1) {
-      return (response.payload as EthereumAddress[]).map(
-        ({ serializedPath, address }) => ({
-          path: serializedPath,
-          info: engineUtils.fixAddressCase({ address, impl }),
-        }),
-      );
+    if (response.payload instanceof Array) {
+      return response.payload.map(({ path, address }) => ({
+        path,
+        info: engineUtils.fixAddressCase({ address, impl }),
+      }));
     }
     return [
       {
-        path: (response.payload as EthereumAddress).serializedPath,
+        path: response.payload.path,
         info: engineUtils.fixAddressCase({
-          address: (response.payload as EthereumAddress).address,
+          address: response.payload.address,
           impl,
         }),
       },

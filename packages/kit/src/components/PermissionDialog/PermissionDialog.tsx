@@ -10,9 +10,8 @@ import { useIntl } from 'react-intl';
 import { Dialog, Icon } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { PrefType } from '@onekeyhq/desktop/src-electron/preload';
+import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useNavigation } from '../../hooks';
 
 const { isDesktop, isNative, isNativeIOS, isNativeAndroid } = platformEnv;
 
@@ -94,7 +93,6 @@ const PermissionDialog: FC<{
   onClose?: () => void;
 }> = ({ type, onClose }) => {
   const intl = useIntl();
-  const navigation = useNavigation();
 
   const jumpMethod = getCurrentPlatformJumpLink(linkMap, type);
   const hasJumpedMethodSupport = canInvokeSystemSettings && !!jumpMethod;
@@ -106,7 +104,7 @@ const PermissionDialog: FC<{
         if (onClose) {
           return onClose();
         }
-        return navigation.getParent()?.goBack();
+        return navigationRef.current?.getParent()?.goBack?.();
       }}
       contentProps={{
         icon: <Icon name="ExclamationOutline" size={48} />,

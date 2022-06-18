@@ -116,7 +116,7 @@ const SetupHardwareModal: FC = () => {
 
   return (
     <Modal
-      header={device.device.name ?? ''}
+      header={device.name ?? ''}
       headerDescription={intl.formatMessage({ id: 'content__not_actived' })}
       footer={null}
       scrollViewProps={{
