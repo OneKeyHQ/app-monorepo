@@ -1,4 +1,4 @@
-import { IDeviceType, getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
+import { IDeviceType } from '@onekeyfe/hd-core';
 
 export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType => {
   if (!deviceId) {
@@ -7,7 +7,6 @@ export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType => {
 
   const miniFlag = deviceId.slice(0, 2);
   if (miniFlag.toLowerCase() === 'mi') return 'mini';
+  if (miniFlag.toLowerCase() === 'tc') return 'touch';
   return 'classic';
 };
-
-export { getDeviceType, getDeviceUUID };

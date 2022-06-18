@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import {
@@ -44,6 +45,8 @@ const getDeviceIcon = (
       return ClassicDeviceIcon as number;
     case 'mini':
       return MiniDeviceIcon as number;
+    case 'touch':
+      return TouchDeviceIcon as number;
     default:
       return undefined;
   }
@@ -88,14 +91,14 @@ const ConnectHardwareModal: FC = () => {
       if (!deviceUtils || !device) return;
       if (!device.connectId) return;
 
+      deviceUtils.stopScan();
       setIsConnectingDeviceId(device.connectId);
+
       deviceUtils.connect(device.connectId).then((result) => {
         setIsConnectingDeviceId('');
         if (!result) {
           return;
         }
-
-        deviceUtils.stopScan();
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.CreateWallet,
           params: {
