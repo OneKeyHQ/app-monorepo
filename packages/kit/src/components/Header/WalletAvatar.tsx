@@ -4,6 +4,7 @@ import React, { ComponentProps, FC } from 'react';
 import { Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
@@ -31,7 +32,9 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
 }) => {
   if (
     walletImage === 'hw' &&
-    (hwWalletType === 'classic' || hwWalletType === 'mini')
+    (hwWalletType === 'classic' ||
+      hwWalletType === 'mini' ||
+      hwWalletType === 'touch')
   )
     return (
       <Image
@@ -53,7 +56,13 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
             ? '21px'
             : undefined
         }
-        source={hwWalletType === 'classic' ? ClassicIcon : MiniIcon}
+        source={
+          hwWalletType === 'touch'
+            ? TouchIcon
+            : hwWalletType === 'classic'
+            ? ClassicIcon
+            : MiniIcon
+        }
       />
     );
   if (walletImage === 'imported' || walletImage === 'watching')

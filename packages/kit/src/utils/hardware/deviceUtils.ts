@@ -3,10 +3,10 @@ import {
   SearchDevice,
   Success,
   Unsuccessful,
+  getDeviceType,
 } from '@onekeyfe/hd-core';
 
 import { getHardwareSDKInstance } from './hardwareInstance';
-import { getDeviceType } from './OneKeyHardware';
 
 /**
  * will delete packages/kit/src/utils/device
@@ -78,6 +78,7 @@ class DeviceUtils {
     const HardwareSDK = await this.getSDKInstance();
     const response = await HardwareSDK?.getFeatures(connectId);
     if (response.success) {
+      this.connectedDeviceType = getDeviceType(response.payload);
       return response.payload;
     }
     return null;
