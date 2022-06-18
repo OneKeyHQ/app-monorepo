@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
   "modal__keep_device_close": "أبقِ الجهاز قريبًا",
+  "modal__location_access_not_granted": "الوصول إلى البلوتوث غير مسموح به",
+  "modal__location_access_not_granted_use_bluetooth_desc": "يتم منح إذن الموقع لاستخدام البلوتوث ، يرجى الانتقال إلى الإعدادات لفتحها.",
   "modal__looking_for_devices": "أبحث عن الأجهزة",
   "modal__looking_for_devices_desc": "يرجى التأكد من تمكين البلوتوث الخاص بك.",
   "modal__looking_for_devices_result": "وجدنا هذه الأجهزة",

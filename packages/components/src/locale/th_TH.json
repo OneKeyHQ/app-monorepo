@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "ติดตั้ง OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge เป็นเครื่องมือสื่อสารที่ช่วยอำนวยความสะดวกในการเชื่อมต่อระหว่าง OneKey กับอินเทอร์เน็ตเบราว์เซอร์ของคุณ",
   "modal__keep_device_close": "เก็บอุปกรณ์ไว้ใกล้ตัว",
+  "modal__location_access_not_granted": "Location access is not granted",
+  "modal__location_access_not_granted_use_bluetooth_desc": "Grant location permission to use Bluetooth, please go to Settings.",
   "modal__looking_for_devices": "กำลังมองหาอุปกรณ์",
   "modal__looking_for_devices_desc": "โปรดตรวจสอบให้แน่ใจว่าบลูทูธของคุณเปิดใช้งานอยู่",
   "modal__looking_for_devices_result": "เราพบอุปกรณ์เหล่านี้",

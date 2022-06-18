@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "Установить мост OneKey",
   "modal__install_onekey_bridge_desc": "OneKey Bridge — это средство связи, упрощающее соединение между вашим OneKey и вашим интернет-браузером.",
   "modal__keep_device_close": "Держите устройство близко",
+  "modal__location_access_not_granted": "Location access is not granted",
+  "modal__location_access_not_granted_use_bluetooth_desc": "Grant location permission to use Bluetooth, please go to Settings.",
   "modal__looking_for_devices": "Поиск устройств",
   "modal__looking_for_devices_desc": "Убедитесь, что Bluetooth включен.",
   "modal__looking_for_devices_result": "Мы обнаружили эти устройства",

@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "安装 OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge 是一个能够将设备和浏览器连接的工具。",
   "modal__keep_device_close": "将设备置于手机附近",
+  "modal__location_access_not_granted": "未授予定位访问权",
+  "modal__location_access_not_granted_use_bluetooth_desc": "授予位置权限才能使用蓝牙，请前往“设置”打开。",
   "modal__looking_for_devices": "寻找设备中",
   "modal__looking_for_devices_desc": "请确保蓝牙已开启",
   "modal__looking_for_devices_result": "我们找到了这些设备",

@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "OneKeyBridgeをインストールする",
   "modal__install_onekey_bridge_desc": "OneKey Bridgeは、OneKeyとインターネットブラウザ間の接続を容易にするためのコミュニケーションツールです。",
   "modal__keep_device_close": "デバイスを身近に置く",
+  "modal__location_access_not_granted": "カメラアクセスが許可されていません",
+  "modal__location_access_not_granted_use_bluetooth_desc": "Bluetoothを使用するには、位置情報のアクセス許可が付与されています。[設定]に移動して開きます。",
   "modal__looking_for_devices": "デバイスを探す",
   "modal__looking_for_devices_desc": "Bluetoothが有効になっていることを確認してください。",
   "modal__looking_for_devices_result": "これらのデバイスを発見しました。",

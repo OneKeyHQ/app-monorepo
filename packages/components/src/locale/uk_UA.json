@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "Встановіть OneKey Bridge",
   "modal__install_onekey_bridge_desc": "OneKey Bridge — це комунікаційний інструмент для полегшення з’єднання між вашим OneKey та вашим інтернет-браузером.",
   "modal__keep_device_close": "Тримайте пристрій закритим",
+  "modal__location_access_not_granted": "Location access is not granted",
+  "modal__location_access_not_granted_use_bluetooth_desc": "Grant location permission to use Bluetooth, please go to Settings.",
   "modal__looking_for_devices": "Шукаємо пристрої",
   "modal__looking_for_devices_desc": "Будь ласка, переконайтеся, що ваш Bluetooth увімкнено.",
   "modal__looking_for_devices_result": "Ми знайшли ці пристрої",

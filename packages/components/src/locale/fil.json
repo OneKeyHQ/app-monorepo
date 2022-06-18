@@ -593,6 +593,8 @@
   "modal__install_onekey_bridge": "I-install ang OneKey Bridge",
   "modal__install_onekey_bridge_desc": "Ang OneKey Bridge ay isang tool sa komunikasyon upang mapadali ang koneksyon sa pagitan ng iyong OneKey at ng iyong internet browser.",
   "modal__keep_device_close": "Panatilihing Isara ang Device",
+  "modal__location_access_not_granted": "Location access is not granted",
+  "modal__location_access_not_granted_use_bluetooth_desc": "Grant location permission to use Bluetooth, please go to Settings.",
   "modal__looking_for_devices": "Naghahanap ng Mga Device",
   "modal__looking_for_devices_desc": "Pakitiyak na naka-enable ang iyong Bluetooth.",
   "modal__looking_for_devices_result": "Natagpuan namin ang mga device na ito",
