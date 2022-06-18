@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -29,17 +29,16 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import {
   useAccountTokens,
+  useAccountTokensBalance,
+  useActiveWalletAccount,
   useDebounce,
-  useManageTokens,
   useNetworkTokens,
 } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
 import { timeout } from '../../utils/helper';
 
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
-import type { Token as TokenType } from '../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -50,35 +49,29 @@ type NavigationProps = NativeStackNavigationProp<
 const isValidateAddr = (addr: string) => addr.length === 42;
 
 type HeaderTokensProps = {
-  tokens: TokenType[];
+  tokens: Token[];
   showTopsLabel?: boolean;
-  onDelToken?: (token: Token) => void;
+  onDelete?: (token: Token) => void;
 };
 
 const HeaderTokens: FC<HeaderTokensProps> = ({
   tokens,
   showTopsLabel,
-  onDelToken,
+  onDelete,
 }) => {
   const intl = useIntl();
-  const { balances } = useManageTokens();
+  const { networkId, accountId } = useActiveWalletAccount();
+  const balances = useAccountTokensBalance(networkId, accountId);
   const navigation = useNavigation<NavigationProps>();
 
   const onDetail = useCallback(
-    (token) => {
-      const {
-        name,
-        symbol,
-        tokenIdOnNetwork: address,
-        decimals: decimal,
-        logoURI,
-      } = token;
+    (token: Token) => {
       navigation.navigate(ManageTokenRoutes.ViewToken, {
-        name,
-        symbol,
-        address,
-        decimal,
-        logoURI,
+        name: token.name,
+        symbol: token.symbol,
+        address: token.tokenIdOnNetwork,
+        decimal: token.decimals,
+        logoURI: token.logoURI,
       });
     },
     [navigation],
@@ -140,7 +133,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   name="TrashSolid"
                   type="plain"
                   circle
-                  onPress={() => onDelToken?.(item)}
+                  onPress={() => onDelete?.(item)}
                 />
               </Pressable>
             ))}
@@ -161,11 +154,11 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 
 type HeaderProps = {
   showTopsLabel: boolean;
-  tokens: TokenType[];
+  tokens: Token[];
   keyword: string;
   terms?: string;
   onChange: (keyword: string) => void;
-  onDelToken?: (token: Token) => void;
+  onDelete?: (token: Token) => void;
 };
 
 const Header: FC<HeaderProps> = ({
@@ -174,7 +167,7 @@ const Header: FC<HeaderProps> = ({
   keyword,
   terms,
   onChange,
-  onDelToken,
+  onDelete,
 }) => {
   const intl = useIntl();
   return (
@@ -193,7 +186,7 @@ const Header: FC<HeaderProps> = ({
       {terms ? null : (
         <HeaderTokens
           tokens={tokens}
-          onDelToken={onDelToken}
+          onDelete={onDelete}
           showTopsLabel={showTopsLabel}
         />
       )}
@@ -245,22 +238,23 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   ) : null;
 };
 
-type ListingTokenProps = {
-  item: TokenType;
+type ListRenderTokenProps = {
+  item: Token;
   borderTopRadius?: string;
   borderBottomRadius?: string;
 };
 
-const ListingToken: FC<ListingTokenProps> = ({
+const ListRenderToken: FC<ListRenderTokenProps> = ({
   item,
   borderTopRadius,
   borderBottomRadius,
 }) => {
+  const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation<NavigationProps>();
   const { accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
-  const intl = useIntl();
-  const toast = useToast();
+
   const accountTokensMap = useMemo(
     () => new Set(accountTokens.map((token) => token.tokenIdOnNetwork)),
     [accountTokens],
@@ -279,7 +273,6 @@ const ListingToken: FC<ListingTokenProps> = ({
           5000,
         );
       } catch (e) {
-        console.error(e);
         toast.show({
           title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
           type: 'error',
@@ -291,23 +284,17 @@ const ListingToken: FC<ListingTokenProps> = ({
       backgroundApiProxy.serviceToken.fetchTokens(accountId, networkId);
     }
   }, [intl, accountId, networkId, toast, item.tokenIdOnNetwork]);
+
   const onDetail = useCallback(() => {
-    const {
-      name,
-      symbol,
-      tokenIdOnNetwork: address,
-      decimals: decimal,
-      logoURI,
-    } = item;
     const routeName = isOwned
       ? ManageTokenRoutes.ViewToken
       : ManageTokenRoutes.AddToken;
     navigation.navigate(routeName, {
-      name,
-      symbol,
-      address,
-      decimal,
-      logoURI,
+      name: item.name,
+      symbol: item.symbol,
+      address: item.tokenIdOnNetwork,
+      decimal: item.decimals,
+      logoURI: item.logoURI,
     });
   }, [navigation, item, isOwned]);
   return (
@@ -363,7 +350,13 @@ const ListingToken: FC<ListingTokenProps> = ({
   );
 };
 
-export const Listing: FC = () => {
+type ListingModalProps = {
+  onRemoveAccountToken: (token: Token) => void;
+};
+
+export const ListingModal: FC<ListingModalProps> = ({
+  onRemoveAccountToken,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const {
@@ -372,45 +365,20 @@ export const Listing: FC = () => {
     networkId,
   } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
-  const allTokens = useNetworkTokens(networkId);
-
+  const networkTokens = useNetworkTokens(networkId);
+  const headerTokens = useMemo(
+    () => accountTokens.filter((i) => i.tokenIdOnNetwork),
+    [accountTokens],
+  );
   const [keyword, setKeyword] = useState<string>('');
-  const [mylist, setMylist] = useState<Token[]>([]);
-  const searchTerm = useDebounce(keyword, 1000);
+  const terms = useDebounce(keyword, 1000);
 
   const { loading, searchedTokens } = useSearchTokens(
-    searchTerm,
+    terms,
     keyword,
     networkId,
     accountId,
   );
-
-  const [visible, setVisible] = useState(false);
-  const [toDeletedToken, setToDeletedToken] = useState<Token>();
-
-  useEffect(() => {
-    setMylist(accountTokens.filter((i) => i.tokenIdOnNetwork));
-  }, [accountTokens]);
-
-  const onToggleDeleteDialog = useCallback((token?: Token) => {
-    if (token) {
-      setToDeletedToken(token);
-      setVisible(true);
-    } else {
-      setVisible(false);
-    }
-  }, []);
-
-  const onDelete = useCallback(async () => {
-    if (accountId && toDeletedToken) {
-      await backgroundApiProxy.engine.removeTokenFromAccount(
-        accountId,
-        toDeletedToken?.id,
-      );
-    }
-    onToggleDeleteDialog(undefined);
-    backgroundApiProxy.serviceToken.fetchAccountTokens();
-  }, [accountId, toDeletedToken, onToggleDeleteDialog]);
 
   useFocusEffect(
     useCallback(() => {
@@ -420,22 +388,20 @@ export const Listing: FC = () => {
     }, []),
   );
 
-  const flatListData = useMemo(
-    () => (searchTerm ? searchedTokens : allTokens),
-    [searchTerm, searchedTokens, allTokens],
+  const listItems = useMemo(
+    () => (terms ? searchedTokens : networkTokens),
+    [terms, searchedTokens, networkTokens],
   );
 
-  const renderItem: ListRenderItem<TokenType> = useCallback(
+  const renderItem: ListRenderItem<Token> = useCallback(
     ({ item, index }) => (
-      <ListingToken
+      <ListRenderToken
         item={item}
         borderTopRadius={index === 0 ? '12' : undefined}
-        borderBottomRadius={
-          index === flatListData.length - 1 ? '12' : undefined
-        }
+        borderBottomRadius={index === listItems.length - 1 ? '12' : undefined}
       />
     ),
-    [flatListData.length],
+    [listItems.length],
   );
 
   return (
@@ -454,27 +420,69 @@ export const Listing: FC = () => {
         secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
         secondaryActionTranslationId="action__add_custom_tokens"
         flatListProps={{
-          data: flatListData,
+          data: listItems,
           // @ts-ignore
           renderItem,
-          ItemSeparatorComponent: () => <Divider />,
+          ItemSeparatorComponent: Divider,
           keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
-            <ListEmptyComponent isLoading={loading} terms={searchTerm} />
+            <ListEmptyComponent isLoading={loading} terms={terms} />
           ),
           ListHeaderComponent: (
             <Header
-              showTopsLabel={allTokens.length > 0}
-              tokens={mylist}
+              showTopsLabel={networkTokens.length > 0}
+              tokens={headerTokens}
               keyword={keyword}
-              terms={searchTerm}
-              onChange={(text) => setKeyword(text)}
-              onDelToken={(token) => onToggleDeleteDialog(token)}
+              terms={terms}
+              onChange={setKeyword}
+              onDelete={onRemoveAccountToken}
             />
           ),
         }}
       />
+    </>
+  );
+};
+
+export const Listing: FC = () => {
+  const intl = useIntl();
+  const { accountId, networkId } = useActiveWalletAccount();
+  const [visible, setVisible] = useState(false);
+  const tokenDeleted = useRef<Token>();
+
+  const onToggleDeleteDialog = useCallback((token?: Token) => {
+    if (token) {
+      tokenDeleted.current = token;
+      setVisible(true);
+    } else {
+      tokenDeleted.current = undefined;
+      setVisible(false);
+    }
+  }, []);
+
+  const onDelete = useCallback(async () => {
+    if (accountId && tokenDeleted.current) {
+      await backgroundApiProxy.engine.removeTokenFromAccount(
+        accountId,
+        tokenDeleted.current.id,
+      );
+    }
+    onToggleDeleteDialog(undefined);
+    backgroundApiProxy.serviceToken.fetchAccountTokens();
+  }, [accountId, tokenDeleted, onToggleDeleteDialog]);
+
+  useFocusEffect(
+    useCallback(() => {
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+      backgroundApiProxy.serviceToken.fetchTokens(accountId, networkId);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
+
+  return (
+    <>
+      <ListingModal onRemoveAccountToken={onToggleDeleteDialog} />
       <Dialog
         visible={visible}
         onClose={() => onToggleDeleteDialog(undefined)}
@@ -493,7 +501,7 @@ export const Listing: FC = () => {
               id: 'modal__delete_this_token_desc',
               defaultMessage: '{token} will be removed from my tokens',
             },
-            { token: toDeletedToken?.name },
+            { token: tokenDeleted.current?.name },
           ),
         }}
       />
