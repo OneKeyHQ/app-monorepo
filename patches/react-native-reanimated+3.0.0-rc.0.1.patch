@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native-reanimated/android/build.gradle b/node_modules/react-native-reanimated/android/build.gradle
+index 88db6f3..3633b95 100644
+--- a/node_modules/react-native-reanimated/android/build.gradle
++++ b/node_modules/react-native-reanimated/android/build.gradle
+@@ -245,7 +245,6 @@ android {
+     externalNativeBuild {
+         cmake {
+             path "CMakeLists.txt"
+-            version "3.18.1"
+         }
+     }
+     lintOptions {
