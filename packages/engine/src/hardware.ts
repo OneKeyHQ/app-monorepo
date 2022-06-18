@@ -225,6 +225,7 @@ export async function ethereumSignMessage({
     // TODO use OneKeyConnect.ethereumSignTypedData()
     const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
       path,
+      // @ts-expect-error
       data,
       version: 'V3',
       // metamask_v4_compat: false,
@@ -239,6 +240,7 @@ export async function ethereumSignMessage({
     // TODO use OneKeyConnect.ethereumSignTypedData()
     const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
       path,
+      // @ts-expect-error
       data,
       version: 'V4',
       // metamask_v4_compat: true,

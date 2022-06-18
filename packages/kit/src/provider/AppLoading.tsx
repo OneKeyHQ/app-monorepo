@@ -1,6 +1,5 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
-// import OneKeyConnect from '@onekeyfe/js-sdk';
 import { CoreApi } from '@onekeyfe/hd-core';
 import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';

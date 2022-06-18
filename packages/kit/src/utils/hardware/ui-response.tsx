@@ -87,7 +87,7 @@ export const UIResponse = async (event: any) => {
     }
 
     case UI_REQUEST.LOCATION_PERMISSION: {
-      // TOCO: request location permission
+      // TODO: request location permission
       break;
     }
 
