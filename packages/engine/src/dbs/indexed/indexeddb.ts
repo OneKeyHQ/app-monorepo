@@ -897,7 +897,7 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
 
-          // TODO: pass transaction to insert function
+          const deviceObjectStore = transaction.objectStore(DEVICE_STORE_NAME);
           await this.insertDevice(
             id,
             name,
@@ -906,40 +906,64 @@ class IndexedDBApi implements DBAPI {
             deviceId ?? '',
             deviceType,
             features,
+            deviceObjectStore,
           );
 
-          const getDeviceRequest = transaction
-            .objectStore(DEVICE_STORE_NAME)
-            .get(id);
-          getDeviceRequest.onsuccess = (_devent) => {
-            const device = getDeviceRequest.result as Device;
-            if (typeof device === 'undefined') {
+          const getDevicesRequest = deviceObjectStore.getAll();
+          getDevicesRequest.onsuccess = (_devent) => {
+            const devices = getDevicesRequest.result as Device[];
+            if (
+              typeof devices === 'undefined' ||
+              devices.every((d) => d.id !== id)
+            ) {
               throw new OneKeyInternalError(`Device ${id} not found.`);
             }
             const walletId = `hw-${id}`;
             const walletStore = transaction.objectStore(WALLET_STORE_NAME);
-            const getWalletRequest = walletStore.get(walletId);
-            getWalletRequest.onsuccess = (_wevent) => {
-              // TODO: Device already exists validate
-              if (typeof getWalletRequest.result !== 'undefined') {
-                reject(
-                  new OneKeyInternalError(
-                    `Hardware wallet ${walletId} already exists.`,
-                  ),
-                );
-              }
-              ret = {
-                id: walletId,
-                name,
-                avatar,
-                type: WALLET_TYPE_HW,
-                backuped: true,
-                accounts: [],
-                nextAccountIds: {},
-                associatedDevice: id,
-                deviceType,
+            const getAllWalletsRequest = walletStore.getAll();
+            getAllWalletsRequest.onsuccess = () => {
+              const wallets = getAllWalletsRequest.result as Wallet[];
+              const getWalletRequest = walletStore.get(walletId);
+              getWalletRequest.onsuccess = (_wevent) => {
+                if (typeof getWalletRequest.result !== 'undefined') {
+                  reject(
+                    new OneKeyInternalError(
+                      `Hardware wallet ${walletId} already exists.`,
+                    ),
+                  );
+                }
+
+                const hasExistWallet = wallets.some((w) => {
+                  if (w.associatedDevice) {
+                    const index = devices.findIndex(
+                      (d) => d.deviceId === deviceId && d.uuid === deviceUUID,
+                    );
+                    return index > -1;
+                  }
+                  return false;
+                });
+
+                if (hasExistWallet) {
+                  reject(
+                    new OneKeyInternalError(
+                      `Hardware wallet ${walletId} already exists.`,
+                    ),
+                  );
+                }
+
+                ret = {
+                  id: walletId,
+                  name,
+                  avatar,
+                  type: WALLET_TYPE_HW,
+                  backuped: true,
+                  accounts: [],
+                  nextAccountIds: {},
+                  associatedDevice: id,
+                  deviceType,
+                };
+                walletStore.add(ret);
               };
-              walletStore.add(ret);
             };
           };
         }),
@@ -1775,42 +1799,36 @@ class IndexedDBApi implements DBAPI {
     deviceId: string,
     deviceType: IDeviceType,
     features: string,
+    deviceStore: IDBObjectStore,
   ): Promise<void> {
-    return this.ready.then(
-      (db) =>
-        new Promise((resolve, reject) => {
-          const transaction = db.transaction([DEVICE_STORE_NAME], 'readwrite');
-          transaction.onerror = (_tevent) => {
-            reject(new OneKeyInternalError('Failed to upsert device.'));
-          };
-          transaction.oncomplete = (_tevent) => {
-            resolve();
-          };
-
-          const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
-          const request = deviceStore.get(id);
-          request.onsuccess = (_event) => {
-            const device = request.result as Device;
-            const now = Date.now();
-            /**
-             * insert only for device
-             */
-            if (typeof device === 'undefined') {
-              deviceStore.add({
-                id,
-                name,
-                mac,
-                uuid,
-                deviceId,
-                deviceType,
-                features,
-                createdAt: now,
-                updatedAt: now,
-              });
-            }
-          };
-        }),
-    );
+    return new Promise((resolve, reject) => {
+      const request = deviceStore.get(id);
+      request.onsuccess = (_event) => {
+        const device = request.result as Device;
+        const now = Date.now();
+        /**
+         * insert only for device
+         */
+        if (typeof device === 'undefined') {
+          const addDeviceRequest = deviceStore.add({
+            id,
+            name,
+            mac,
+            uuid,
+            deviceId,
+            deviceType,
+            features,
+            createdAt: now,
+            updatedAt: now,
+          });
+          addDeviceRequest.onsuccess = () => resolve();
+          addDeviceRequest.onerror = () =>
+            reject(new OneKeyInternalError(`Failed to create device.`));
+        } else {
+          reject(new OneKeyInternalError(`Device ${name} has alerday exists.`));
+        }
+      };
+    });
   }
 
   getDevices(): Promise<Array<Device>> {

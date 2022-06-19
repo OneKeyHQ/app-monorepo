@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Setup from './Setup';
@@ -115,10 +115,18 @@ const Protected: FC<ProtectedProps> = ({
         safeGoBack();
         return;
       }
-      const currentConnectionWalletId =
-        features.onekey_serial ?? features.serial_no ?? '';
+      const currentConnectDeviceUUID = getDeviceUUID(features);
+      const currentConnectDeviceID = features.device_id;
 
-      if (currentConnectionWalletId !== currentWalletDevice.id) {
+      /**
+       * if current device is not same with current wallet device,
+       */
+      if (
+        (currentConnectDeviceID !== currentWalletDevice.deviceId &&
+          currentConnectDeviceUUID !== currentWalletDevice.uuid) ||
+        (!currentWalletDevice.deviceId &&
+          currentConnectDeviceUUID !== currentWalletDevice.id)
+      ) {
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__hardware_not_same' }),
         });

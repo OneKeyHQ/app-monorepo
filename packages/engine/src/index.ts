@@ -13,7 +13,7 @@ import { baseDecode } from 'borsh';
 import bs58check from 'bs58check';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
-import uuid from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
   backgroundClass,
@@ -386,7 +386,7 @@ class Engine {
         message: 'Hardware wallet not initialized.',
       });
     }
-    const id = uuid.v4();
+    const id = uuidv4();
     const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     if (id.length === 0) {
       throw new OneKeyInternalError('Bad device identity.');
