@@ -165,9 +165,11 @@ export function useTokenBalance(
       accountId &&
       balances[token.tokenIdOnNetwork || 'main'] === undefined
     ) {
-      backgroundApiProxy.serviceToken.fetchTokenBalance(networkId, accountId, [
-        token.tokenIdOnNetwork,
-      ]);
+      backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        tokenIds: [token.tokenIdOnNetwork],
+      });
     }
   }, [token, balances, networkId, accountId]);
   const balance = balances[token?.tokenIdOnNetwork || 'main'];

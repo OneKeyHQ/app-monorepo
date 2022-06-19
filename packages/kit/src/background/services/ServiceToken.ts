@@ -1,4 +1,3 @@
-import { GeneralInitialState } from '../../store/reducers/general';
 import {
   TokenInitialState,
   setAccountTokens,
@@ -13,99 +12,105 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceToken extends ServiceBase {
   @backgroundMethod()
-  async fetchTokens(activeAccountId: string, activeNetworkId: string) {
+  async fetchTokens({
+    activeAccountId,
+    activeNetworkId,
+    withBalance,
+    withPrice,
+  }: {
+    activeAccountId: string;
+    activeNetworkId: string;
+    withBalance?: boolean;
+    withPrice?: boolean;
+  }) {
     const { engine, dispatch } = this.backgroundApi;
-    const topTokens = await engine.getTopTokensOnNetwork(activeNetworkId, 50);
-    dispatch(setTokens({ activeNetworkId, tokens: topTokens }));
-    const tokensBalance = await engine.getAccountBalance(
-      activeAccountId,
+    const networkTokens = await engine.getTopTokensOnNetwork(
       activeNetworkId,
-      topTokens.map((i) => i.tokenIdOnNetwork),
-      true,
+      50,
     );
-    dispatch(
-      setAccountTokensBalances({
+    dispatch(setTokens({ activeNetworkId, tokens: networkTokens }));
+    const tokenIds = networkTokens.map((token) => token.tokenIdOnNetwork);
+    if (withBalance) {
+      this.fetchTokenBalance({
         activeAccountId,
         activeNetworkId,
-        tokensBalance,
-      }),
-    );
-    const prices = await engine.getPrices(
-      activeNetworkId,
-      topTokens.map((i) => i.tokenIdOnNetwork),
-      true,
-    );
-    dispatch(setPrices({ activeNetworkId, prices }));
-    return topTokens;
+        tokenIds,
+      });
+    }
+    if (withPrice) {
+      this.fetchPrices({
+        activeNetworkId,
+        activeAccountId,
+        tokenIds,
+      });
+    }
+    return networkTokens;
   }
 
   @backgroundMethod()
-  async fetchAccountTokens(balance = true) {
-    const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { activeAccountId, activeNetworkId } = appSelector(
-      (s) => s.general,
-    ) as GeneralInitialState;
-    if (!activeAccountId || !activeNetworkId) {
-      return;
-    }
+  async fetchAccountTokens({
+    activeAccountId,
+    activeNetworkId,
+    withBalance,
+    withPrice,
+  }: {
+    activeAccountId: string;
+    activeNetworkId: string;
+    withBalance?: boolean;
+    withPrice?: boolean;
+  }) {
+    const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
     dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
-    if (balance) {
-      const tokensAddresses = tokens
-        .filter((i) => i.tokenIdOnNetwork)
-        .map((token) => token.tokenIdOnNetwork);
-
-      const balances = await engine.getAccountBalance(
+    if (withBalance) {
+      this.fetchTokenBalance({
         activeAccountId,
         activeNetworkId,
-        tokensAddresses,
-        true,
-      );
-      dispatch(
-        setAccountTokensBalances({
-          activeAccountId,
-          activeNetworkId,
-          tokensBalance: balances,
-        }),
-      );
+        tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+      });
     }
-    const prices = await engine.getPrices(
-      activeNetworkId,
-      tokens.map((i) => i.tokenIdOnNetwork),
-      true,
-    );
-    dispatch(setPrices({ activeNetworkId, prices }));
+    if (withPrice) {
+      this.fetchPrices({
+        activeNetworkId,
+        activeAccountId,
+        tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+      });
+    }
     return tokens;
   }
 
   @backgroundMethod()
-  async fetchTokenBalance(
-    networkId: string,
-    accountId: string,
-    tokenIds: string[] = [],
-  ) {
+  async fetchTokenBalance({
+    activeNetworkId,
+    activeAccountId,
+    tokenIds,
+  }: {
+    activeNetworkId: string;
+    activeAccountId: string;
+    tokenIds?: string[];
+  }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
     const { tokens, accountTokens } = appSelector(
       (s) => s.tokens,
     ) as TokenInitialState;
     let tokenIdsOnNetwork: string[] = [];
-    if (tokenIds.length > 0) {
+    if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
     } else {
-      const ids1 = tokens[networkId] || [];
-      const ids2 = accountTokens[networkId]?.[accountId] || [];
+      const ids1 = tokens[activeNetworkId] || [];
+      const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
     }
     const tokensBalance = await engine.getAccountBalance(
-      accountId,
-      networkId,
-      tokenIdsOnNetwork,
+      activeAccountId,
+      activeNetworkId,
+      Array.from(new Set(tokenIdsOnNetwork)),
       true,
     );
     dispatch(
       setAccountTokensBalances({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
+        activeAccountId,
+        activeNetworkId,
         tokensBalance,
       }),
     );
@@ -113,19 +118,21 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchPrices(tokenIds: string[] = []) {
+  async fetchPrices({
+    activeNetworkId,
+    activeAccountId,
+    tokenIds,
+  }: {
+    activeNetworkId: string;
+    activeAccountId: string;
+    tokenIds?: string[];
+  }) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { activeAccountId, activeNetworkId } = appSelector(
-      (s) => s.general,
-    ) as GeneralInitialState;
-    if (!activeAccountId || !activeNetworkId) {
-      return;
-    }
     const { tokens, accountTokens } = appSelector(
       (s) => s.tokens,
     ) as TokenInitialState;
     let tokenIdsOnNetwork: string[] = [];
-    if (tokenIds.length > 0) {
+    if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
     } else {
       const ids1 = tokens[activeNetworkId] || [];
@@ -138,43 +145,5 @@ export default class ServiceToken extends ServiceBase {
     );
     dispatch(setPrices({ activeNetworkId, prices }));
     return prices;
-  }
-
-  @backgroundMethod()
-  async fetchAccountTokensWithId(
-    activeAccountId: string,
-    activeNetworkId: string,
-  ) {
-    const { engine, dispatch } = this.backgroundApi;
-    if (!activeAccountId || !activeNetworkId) {
-      return;
-    }
-    const tokens = await engine.getTokens(activeNetworkId, activeAccountId);
-    dispatch(setAccountTokens({ activeAccountId, activeNetworkId, tokens }));
-    const tokensAddresses = tokens
-      .filter((i) => i.tokenIdOnNetwork)
-      .map((token) => token.tokenIdOnNetwork);
-
-    const balances = await engine.getAccountBalance(
-      activeAccountId,
-      activeNetworkId,
-      tokensAddresses,
-      true,
-    );
-
-    dispatch(
-      setAccountTokensBalances({
-        activeAccountId,
-        activeNetworkId,
-        tokensBalance: balances,
-      }),
-    );
-    const prices = await engine.getPrices(
-      activeNetworkId,
-      tokens.map((i) => i.tokenIdOnNetwork),
-      true,
-    );
-    dispatch(setPrices({ activeNetworkId, prices }));
-    return tokens;
   }
 }

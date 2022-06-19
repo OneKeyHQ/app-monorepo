@@ -22,7 +22,7 @@ const AccountGuard = () => {
 };
 
 const NetworkGuard = () => {
-  const { network } = useActiveWalletAccount();
+  const { network, accountId } = useActiveWalletAccount();
   const { nativeToken } = useManageTokens();
   const { onSelectToken } = useSwapActionHandlers();
   const isSwapEnabled = useSwapEnabled();
@@ -34,12 +34,17 @@ const NetworkGuard = () => {
     if (nativeToken) {
       onSelectToken(nativeToken, 'INPUT', network);
     } else {
-      backgroundApiProxy.serviceToken.fetchAccountTokens().then((tokens) => {
-        const native = tokens?.filter((token) => !token.tokenIdOnNetwork)[0];
-        if (native && refs.inputIsDirty === false) {
-          onSelectToken(native, 'INPUT', network);
-        }
-      });
+      backgroundApiProxy.serviceToken
+        .fetchAccountTokens({
+          activeAccountId: accountId,
+          activeNetworkId: network.id,
+        })
+        .then((tokens) => {
+          const native = tokens?.filter((token) => !token.tokenIdOnNetwork)[0];
+          if (native && refs.inputIsDirty === false) {
+            onSelectToken(native, 'INPUT', network);
+          }
+        });
     }
     return () => {
       refs.inputIsDirty = false;
@@ -70,13 +75,16 @@ const ActiveNetworkGuard = () => {
   const onNetworkChange = useCallback(() => {
     if (networkId) {
       if (!networkTokens.length) {
-        backgroundApiProxy.serviceToken.fetchTokens(accountId, networkId);
+        backgroundApiProxy.serviceToken.fetchTokens({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+        });
       }
       if (!accountTokens.length) {
-        backgroundApiProxy.serviceToken.fetchAccountTokensWithId(
-          accountId,
-          networkId,
-        );
+        backgroundApiProxy.serviceToken.fetchAccountTokens({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+        });
       }
     }
   }, [accountId, networkId, accountTokens, networkTokens]);

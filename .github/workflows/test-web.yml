@@ -1,4 +1,4 @@
-name: test_web
+name: test-web
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - onekey
 
 jobs:
-  test_web:
+  test-web:
     runs-on: ubuntu-latest
     env:
       TEST_ENDPOINT: app.test.onekey.so

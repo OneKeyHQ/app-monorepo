@@ -248,7 +248,11 @@ const TransactionConfirm = () => {
         // TODO onComplete
         onSuccess: async (tx: ISignedTx) => {
           saveHistory(tx);
-          backgroundApiProxy.serviceToken.fetchAccountTokens();
+          backgroundApiProxy.serviceToken.fetchAccountTokens({
+            activeAccountId: accountId,
+            activeNetworkId: networkId,
+            withBalance: true,
+          });
           await dappApprove.resolve({
             result: tx.txid,
           });
@@ -270,8 +274,8 @@ const TransactionConfirm = () => {
       feeInfoEditable,
       feeInfoPayload,
       networkId,
-      walletId,
       accountId,
+      walletId,
       navigation,
       params,
       saveHistory,

@@ -27,10 +27,16 @@ const Input = () => {
   );
   useFocusEffect(
     useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokensWithId(
-        accountId,
-        networkId,
-      );
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+      });
+      backgroundApiProxy.serviceToken.fetchTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+      });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
