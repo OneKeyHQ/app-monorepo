@@ -23,6 +23,8 @@ type EnterAddressValues = {
 const EnterAddress = () => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const route = useRoute<RouteProps>();
+  const { onSelected, networkId, defaultAddress } = route.params ?? {};
   const {
     control,
     watch,
@@ -32,11 +34,9 @@ const EnterAddress = () => {
     handleSubmit,
     formState: { isValid },
   } = useForm<EnterAddressValues>({
-    defaultValues: { address: '' },
+    defaultValues: { address: defaultAddress ?? '' },
     mode: 'onChange',
   });
-  const route = useRoute<RouteProps>();
-  const { onSelected, networkId } = route.params ?? {};
   const watchedAddress = useDebounce(watch('address'), 300);
   useEffect(() => {
     async function validateAddress() {

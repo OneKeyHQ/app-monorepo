@@ -71,6 +71,7 @@ const AddressBook = () => {
     ({ item, index }) => (
       <Pressable
         p="4"
+        mx={{ base: 4, md: 6 }}
         flexDirection="row"
         alignItems="center"
         bg="surface-default"
@@ -182,6 +183,7 @@ const MyWallet = () => {
       flexDirection="row"
       p="4"
       bg="surface-default"
+      mx={{ base: 4, md: 6 }}
       borderTopLeftRadius={index === 0 ? '12' : undefined}
       borderTopRightRadius={index === 0 ? '12' : undefined}
       borderBottomLeftRadius={
@@ -213,7 +215,7 @@ const MyWallet = () => {
       ItemSeparatorComponent={() => <Divider />}
       renderSectionHeader={({ section: { wallet } }) => (
         // eslint-disable-next-line
-        <Typography.Subheading my="2">{wallet.name}</Typography.Subheading>
+        <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>{wallet.name}</Typography.Subheading>
       )}
     />
   );
@@ -239,8 +241,9 @@ const PickAddress = () => {
         onPress: onPrimaryPress,
       }}
       hidePrimaryAction={optionValue !== 'AddressBook'}
+      staticChildrenProps={{ flex: 1, py: 6 }}
     >
-      <Box mb="6">
+      <Box mb="6" px={{ base: 4, md: 6 }}>
         <SegmentedControl
           containerProps={{
             width: 'full',

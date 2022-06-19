@@ -23,6 +23,7 @@ export type AddressBookRoutesParams = {
     | {
         networkId?: string;
         onSelected?: (data: { address: string; name?: string }) => void;
+        defaultAddress?: string;
       }
     | undefined;
   [AddressBookRoutes.EditAddressRoute]: {
