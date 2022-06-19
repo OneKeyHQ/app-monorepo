@@ -1,4 +1,4 @@
-name: daily_build_release
+name: daily-build
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  daily_build_release:
+  daily-build:
     runs-on: macos-latest
     strategy:
       matrix:
