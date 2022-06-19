@@ -7,7 +7,13 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useAppSelector } from './redux';
+import { useActiveWalletAccount } from './redux';
+import {
+  useAccountTokens,
+  useAccountTokensBalance,
+  useNetworkTokens,
+  useNetworkTokensPrice,
+} from './useTokens';
 
 export const useManageTokens = ({
   pollingInterval = 0,
@@ -17,64 +23,44 @@ export const useManageTokens = ({
   fetchTokensOnMount?: boolean;
 } = {}) => {
   const isFocused = useIsFocused();
+  const { accountId, networkId } = useActiveWalletAccount();
+  const allTokens = useNetworkTokens(networkId);
+  const accountTokens = useAccountTokens(networkId, accountId);
+  const balances = useAccountTokensBalance(networkId, accountId);
+  const prices = useNetworkTokensPrice(networkId);
 
-  const { activeAccountId, activeNetworkId } = useAppSelector((s) => s.general);
-  const {
-    tokens,
-    tokensPrice,
-    accountTokens: userTokens,
-    accountTokensBalance,
-  } = useAppSelector((s) => s.tokens);
-  const prices = useMemo(() => {
-    if (!activeNetworkId) {
-      return {};
-    }
-    return tokensPrice[activeNetworkId] ?? {};
-  }, [tokensPrice, activeNetworkId]);
-
-  const balances = useMemo(() => {
-    if (!activeNetworkId || !activeAccountId) {
-      return {};
-    }
-    return accountTokensBalance?.[activeNetworkId]?.[activeAccountId] ?? {};
-  }, [accountTokensBalance, activeNetworkId, activeAccountId]);
-
-  const allTokens = useMemo(() => {
-    let data: Token[] = [];
-    if (activeNetworkId) {
-      data = tokens[activeNetworkId] ?? [];
-    }
-    return data;
-  }, [tokens, activeNetworkId]);
-
-  const { accountTokens, accountTokensMap, nativeToken } = useMemo(() => {
-    let data: Token[] = [];
-    const dataMap = new Map<string, Token>();
-    let dataNativeToken: Token | undefined;
-    if (activeAccountId && activeNetworkId) {
-      data = userTokens[activeNetworkId]?.[activeAccountId] ?? [];
-    }
-    data.forEach((token) => {
+  const accountTokensMap = useMemo(() => {
+    const map = new Map<string, Token>();
+    accountTokens.forEach((token) => {
       if (token.tokenIdOnNetwork) {
-        dataMap.set(token.tokenIdOnNetwork, token);
-      } else {
-        dataNativeToken = token;
+        map.set(token.tokenIdOnNetwork, token);
       }
     });
-    return {
-      accountTokens: data,
-      accountTokensMap: dataMap,
-      nativeToken: dataNativeToken,
-    };
-  }, [userTokens, activeAccountId, activeNetworkId]);
+    return map;
+  }, [accountTokens]);
+
+  const nativeToken = useMemo(
+    () => accountTokens.filter((token) => !token.tokenIdOnNetwork),
+    [accountTokens],
+  )[0];
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (pollingInterval && isFocused && activeAccountId && activeNetworkId) {
+    if (pollingInterval && isFocused && accountId && networkId) {
       // TODO may cause circular refresh in UI
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+        withPrice: true,
+      });
       timer = setInterval(() => {
-        backgroundApiProxy.serviceToken.fetchAccountTokens();
+        backgroundApiProxy.serviceToken.fetchAccountTokens({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          withBalance: true,
+          withPrice: true,
+        });
       }, pollingInterval);
     }
     return () => {
@@ -82,14 +68,18 @@ export const useManageTokens = ({
         clearInterval(timer);
       }
     };
-  }, [isFocused, pollingInterval, activeAccountId, activeNetworkId]);
+  }, [isFocused, pollingInterval, accountId, networkId]);
 
   useEffect(() => {
-    if (fetchTokensOnMount) {
+    if (fetchTokensOnMount && accountId && networkId) {
       // TODO may cause circular refresh in UI
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+      });
     }
-  }, [fetchTokensOnMount]);
+    // eslint-disable-next-line
+  }, []);
 
   const getTokenBalance = useCallback(
     (
@@ -118,8 +108,8 @@ export const useManageTokens = ({
 
   return {
     nativeToken,
-    accountTokensMap,
     accountTokens,
+    accountTokensMap,
     allTokens,
     prices,
     balances,
