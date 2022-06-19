@@ -1467,6 +1467,7 @@ class IndexedDBApi implements DBAPI {
     walletId: string,
     accountId: string,
     password: string,
+    rollbackNextAccountIds: Record<string, number>,
   ): Promise<void> {
     const removingImported = walletIsImported(walletId);
     return this.ready.then(
@@ -1489,9 +1490,8 @@ class IndexedDBApi implements DBAPI {
             resolve();
           };
 
-          const getWalletRequest = transaction
-            .objectStore(WALLET_STORE_NAME)
-            .get(walletId);
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
             const wallet = getWalletRequest.result as Wallet;
             if (
@@ -1525,6 +1525,22 @@ class IndexedDBApi implements DBAPI {
               };
             } else {
               this.cleanupAccount(transaction, wallet, accountId);
+            }
+
+            let needUpdateWallet = false;
+            const { nextAccountIds } = wallet;
+            for (const [category, index] of Object.entries(
+              rollbackNextAccountIds,
+            )) {
+              if (nextAccountIds[category] === index + 1) {
+                // Roll back next account id;
+                nextAccountIds[category] = index;
+                needUpdateWallet = true;
+              }
+            }
+            if (needUpdateWallet) {
+              wallet.nextAccountIds = nextAccountIds;
+              walletStore.put(wallet);
             }
           };
         }),
