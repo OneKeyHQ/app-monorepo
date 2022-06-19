@@ -4,7 +4,7 @@ import { CoreApi } from '@onekeyfe/hd-core';
 import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
-import { Box } from '@onekeyhq/components';
+import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
 import store from '@onekeyhq/kit/src/store';
@@ -41,6 +41,7 @@ const AppLoading: FC = ({ children }) => {
       console.log(e);
     } finally {
       setAppIsReady(true);
+      await SplashScreen.hideAsync();
     }
   }, [serviceApp]);
 
@@ -79,20 +80,17 @@ const AppLoading: FC = ({ children }) => {
     };
   }, []);
 
-  const onLayoutRootView = useCallback(async () => {
-    if (appIsReady) {
-      // This tells the splash screen to hide immediately! If we call this after
-      // `setAppIsReady`, then we may see a blank screen while the app is
-      // loading its initial state and rendering its first pixels. So instead,
-      // we hide the splash screen once we know the root view has already
-      // performed layout.
-      await SplashScreen.hideAsync();
-    }
-  }, [appIsReady]);
+  const bg = useThemeValue('background-default');
 
   return (
-    <Box flex={1} onLayout={onLayoutRootView}>
-      {children}
+    <Box flex={1}>
+      {!appIsReady ? (
+        <Center w="full" h="full" bg={bg}>
+          <Spinner />
+        </Center>
+      ) : (
+        children
+      )}
     </Box>
   );
 };
