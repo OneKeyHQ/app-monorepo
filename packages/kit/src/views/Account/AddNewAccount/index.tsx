@@ -5,6 +5,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Box,
   Form,
   Modal,
@@ -110,6 +111,8 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     [networks, selectableNetworks, watchNetwork],
   );
   const [purpose, setPurpose] = useState(44);
+  const [cannotCreateAccountReason, setCannotCreateAccountReason] =
+    useState('');
   const addressTypeOptions = useMemo(() => {
     const ret = [];
     if (selectedNetwork) {
@@ -123,17 +126,46 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   }, [selectedNetwork]);
 
   useEffect(() => {
-    if (selectedNetwork) {
-      const { prefix, category } =
-        selectedNetwork.accountNameInfo[watchAddressType] ||
-        selectedNetwork.accountNameInfo.default;
-      if (typeof prefix !== 'undefined') {
-        const id = wallet?.nextAccountIds?.[category] || 0;
-        setValue('name', `${prefix} #${id + 1}`);
-        setPurpose(parseInt(category.split("'/")[0]));
+    async function setNameAndCheck() {
+      if (selectedNetwork) {
+        const { prefix, category } =
+          selectedNetwork.accountNameInfo[watchAddressType] ||
+          selectedNetwork.accountNameInfo.default;
+        if (typeof prefix !== 'undefined') {
+          const id = wallet?.nextAccountIds?.[category] || 0;
+          setValue('name', `${prefix} #${id + 1}`);
+          const usedPurpose = parseInt(category.split("'/")[0]);
+          setPurpose(usedPurpose);
+          try {
+            await backgroundApiProxy.validator.validateCanCreateNextAccount(
+              selectedWalletId,
+              selectedNetwork.id,
+              usedPurpose,
+            );
+            setCannotCreateAccountReason('');
+          } catch ({ key, info }) {
+            setCannotCreateAccountReason(
+              intl.formatMessage({ id: key as any }, info as any),
+            );
+          }
+          return;
+        }
       }
+      setCannotCreateAccountReason(
+        intl.formatMessage({ id: 'msg__unknown_error' }),
+      );
     }
-  }, [wallet, selectedNetwork, watchAddressType, setValue, setPurpose]);
+
+    setNameAndCheck();
+  }, [
+    intl,
+    wallet,
+    selectedWalletId,
+    selectedNetwork,
+    watchAddressType,
+    setValue,
+    setPurpose,
+  ]);
 
   const addressTypeHelpLink = useHelpLink({ path: 'articles/360002057776' });
   const onAddressTypeHelpLinkPressed = useCallback(() => {
@@ -184,7 +216,10 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={`${intl.formatMessage({ id: 'wallet__wallet' })}`}
       onClose={onClose}
-      primaryActionProps={{ onPromise: onSubmit }}
+      primaryActionProps={{
+        onPromise: onSubmit,
+        isDisabled: !!cannotCreateAccountReason,
+      }}
       primaryActionTranslationId="action__create"
       hideSecondaryAction
       scrollViewProps={{
@@ -279,6 +314,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                 </Text>
               </Pressable>
             </Box>
+            {cannotCreateAccountReason.length === 0 ? undefined : (
+              <Alert
+                title={cannotCreateAccountReason}
+                dismiss={false}
+                alertType="info"
+              />
+            )}
           </Form>
         ),
       }}

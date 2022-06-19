@@ -542,4 +542,23 @@ export default class Vault extends VaultBase {
   ): Promise<Array<PartialTokenInfo | undefined>> {
     throw new NotImplemented();
   }
+
+  override async checkAccountExistence(
+    accountIdOnNetwork: string,
+  ): Promise<boolean> {
+    let accountIsPresent = false;
+    try {
+      const provider = this.engineProvider as Provider;
+      const { txs } = (await provider.getAccount({
+        type: 'simple',
+        xpub: accountIdOnNetwork,
+      })) as {
+        txs: number;
+      };
+      accountIsPresent = txs > 0;
+    } catch (e) {
+      console.error(e);
+    }
+    return Promise.resolve(accountIsPresent);
+  }
 }
