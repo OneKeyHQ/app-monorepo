@@ -280,8 +280,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         return;
       }
       toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
-      backgroundApiProxy.serviceToken.fetchTokens(accountId, networkId);
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+      });
     }
   }, [intl, accountId, networkId, toast, item.tokenIdOnNetwork]);
 
@@ -380,14 +382,6 @@ export const ListingModal: FC<ListingModalProps> = ({
     accountId,
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
-      backgroundApiProxy.serviceToken.fetchTokens(accountId, networkId);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
-
   const listItems = useMemo(
     () => (terms ? searchedTokens : networkTokens),
     [terms, searchedTokens, networkTokens],
@@ -469,13 +463,26 @@ export const Listing: FC = () => {
       );
     }
     onToggleDeleteDialog(undefined);
-    backgroundApiProxy.serviceToken.fetchAccountTokens();
-  }, [accountId, tokenDeleted, onToggleDeleteDialog]);
+    backgroundApiProxy.serviceToken.fetchAccountTokens({
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+    });
+  }, [accountId, tokenDeleted, networkId, onToggleDeleteDialog]);
 
   useFocusEffect(
     useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
-      backgroundApiProxy.serviceToken.fetchTokens(accountId, networkId);
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+        withPrice: true,
+      });
+      backgroundApiProxy.serviceToken.fetchTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+        withPrice: true,
+      });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );

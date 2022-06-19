@@ -121,8 +121,13 @@ function AssetsList({
 
   useFocusEffect(
     useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
-    }, []),
+      if (account && network) {
+        backgroundApiProxy.serviceToken.fetchAccountTokens({
+          activeAccountId: account.id,
+          activeNetworkId: network.id,
+        });
+      }
+    }, [account, network]),
   );
 
   const renderListItem: ScrollableFlatListProps<TokenType>['renderItem'] = ({
