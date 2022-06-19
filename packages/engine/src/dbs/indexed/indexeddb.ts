@@ -3,6 +3,8 @@
 
 import { Buffer } from 'buffer';
 
+import { IDeviceType } from '@onekeyfe/hd-core';
+
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -869,11 +871,21 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addHWWallet({ id, name, avatar }: CreateHWWalletParams): Promise<Wallet> {
+  addHWWallet({
+    id,
+    name,
+    avatar,
+    connectId,
+    deviceId,
+    deviceType,
+    deviceUUID,
+    features,
+  }: CreateHWWalletParams): Promise<Wallet> {
     let ret: Wallet;
     return this.ready.then(
       (db) =>
-        new Promise((resolve, reject) => {
+        // eslint-disable-next-line no-async-promise-executor
+        new Promise(async (resolve, reject) => {
           const transaction = db.transaction(
             [WALLET_STORE_NAME, DEVICE_STORE_NAME],
             'readwrite',
@@ -884,6 +896,17 @@ class IndexedDBApi implements DBAPI {
           transaction.oncomplete = (_tevent) => {
             resolve(ret);
           };
+
+          // TODO: pass transaction to insert function
+          await this.insertDevice(
+            id,
+            name,
+            connectId,
+            deviceUUID,
+            deviceId ?? '',
+            deviceType,
+            features,
+          );
 
           const getDeviceRequest = transaction
             .objectStore(DEVICE_STORE_NAME)
@@ -897,6 +920,7 @@ class IndexedDBApi implements DBAPI {
             const walletStore = transaction.objectStore(WALLET_STORE_NAME);
             const getWalletRequest = walletStore.get(walletId);
             getWalletRequest.onsuccess = (_wevent) => {
+              // TODO: Device already exists validate
               if (typeof getWalletRequest.result !== 'undefined') {
                 reject(
                   new OneKeyInternalError(
@@ -913,6 +937,7 @@ class IndexedDBApi implements DBAPI {
                 accounts: [],
                 nextAccountIds: {},
                 associatedDevice: id,
+                deviceType,
               };
               walletStore.add(ret);
             };
@@ -1742,10 +1767,13 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  upsertDevice(
+  private insertDevice(
     id: string,
     name: string,
     mac: string,
+    uuid: string,
+    deviceId: string,
+    deviceType: IDeviceType,
     features: string,
   ): Promise<void> {
     return this.ready.then(
@@ -1764,19 +1792,21 @@ class IndexedDBApi implements DBAPI {
           request.onsuccess = (_event) => {
             const device = request.result as Device;
             const now = Date.now();
+            /**
+             * insert only for device
+             */
             if (typeof device === 'undefined') {
               deviceStore.add({
                 id,
                 name,
                 mac,
+                uuid,
+                deviceId,
+                deviceType,
                 features,
                 createdAt: now,
                 updatedAt: now,
               });
-            } else {
-              device.features = features;
-              device.updatedAt = now;
-              deviceStore.put(device);
             }
           };
         }),

@@ -16,6 +16,7 @@ type Wallet = HasName & {
   nextAccountIds: Record<string, number>; // purpose + cointype => index
   associatedDevice?: string;
   avatar?: Avatar;
+  deviceType?: string;
 };
 
 export {

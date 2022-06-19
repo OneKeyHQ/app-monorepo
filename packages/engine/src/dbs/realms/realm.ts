@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Buffer } from 'buffer';
 
+import { IDeviceType } from '@onekeyfe/hd-core';
 import Realm from 'realm';
 
 import {
@@ -940,8 +941,27 @@ class RealmDB implements DBAPI {
    * @param id the id of the hardware device
    * @param name the name of the wallet
    */
-  addHWWallet({ id, name, avatar }: CreateHWWalletParams): Promise<Wallet> {
+  async addHWWallet({
+    id,
+    name,
+    avatar,
+    connectId,
+    deviceId,
+    deviceType,
+    deviceUUID,
+    features,
+  }: CreateHWWalletParams): Promise<Wallet> {
     try {
+      await this.insertDevice(
+        id,
+        name,
+        connectId,
+        deviceUUID,
+        deviceId ?? '',
+        deviceType,
+        features,
+      );
+
       const foundDevice = this.realm!.objectForPrimaryKey<DeviceSchema>(
         'Device',
         id,
@@ -964,6 +984,7 @@ class RealmDB implements DBAPI {
             type: WALLET_TYPE_HW,
             backuped: true,
             associatedDevice: foundDevice,
+            deviceType,
           });
         });
       } else {
@@ -971,7 +992,7 @@ class RealmDB implements DBAPI {
           `Hardware Wallet ${walletId} already exists.`,
         );
       }
-      return Promise.resolve(wallet!.internalObj);
+      return await Promise.resolve(wallet!.internalObj);
     } catch (error: any) {
       console.error(error);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1457,10 +1478,13 @@ class RealmDB implements DBAPI {
    * @param features
    * @returns
    */
-  upsertDevice(
+  private insertDevice(
     id: string,
     name: string,
     mac: string,
+    uuid: string,
+    deviceId: string,
+    deviceType: IDeviceType,
     features: string,
   ): Promise<void> {
     try {
@@ -1470,20 +1494,21 @@ class RealmDB implements DBAPI {
       );
       const now = Date.now();
       if (typeof foundDevice === 'undefined') {
+        /**
+         * insert only for device
+         */
         this.realm!.write(() => {
           this.realm!.create('Device', {
             id,
             name,
             mac,
+            uuid,
+            deviceId,
+            deviceType,
             features,
             createdAt: now,
             updatedAt: now,
           });
-        });
-      } else {
-        this.realm!.write(() => {
-          foundDevice.features = features;
-          foundDevice.updatedAt = now;
         });
       }
       return Promise.resolve();
