@@ -7,6 +7,12 @@ assignees: ''
 
 ---
 
+**Prerequisites**
+Please answer the following questions for yourself before submitting an issue. **YOU MAY DELETE THE PREREQUISITES SECTION.**
+
+- [ ] I checked to make sure that this issue has not already been filed
+- [ ] I've asked for help in the [OneKey Discord](https://discord.com/invite/onekey) before filing this issue.
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
@@ -36,8 +42,3 @@ If applicable, add screenshots to help explain your problem.
 
 **Additional context**
 Add any other context about the problem here.
-
-**Community & Quick support**
-
-- [Community Forum](https://github.com/orgs/OneKeyHQ/discussions). Best for: help with building, discussion about best practices.
-- [Discord](https://discord.gg/onekey). Best for: sharing your ideas and hanging out with the community.
