@@ -40,7 +40,11 @@ const PendingTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
       )) as SerializableTransactionReceipt | undefined;
       if (result) {
         finalizeTransaction(tx.hash, result);
-        backgroundApiProxy.serviceToken.fetchTokenBalance(networkId, accountId);
+        backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: [],
+        });
       }
     }
   }, [tx, networkId, accountId, finalizeTransaction]);
@@ -71,7 +75,11 @@ const PendingCrossTx: FC<{ tx: TransactionDetails }> = ({ tx }) => {
       const data = res.data.data as { tradeState: string };
       if (data.tradeState === 'complete') {
         finalizeTransaction(tx.hash);
-        backgroundApiProxy.serviceToken.fetchTokenBalance(networkId, accountId);
+        backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: [],
+        });
       }
     }
   }, [tx, networkId, accountId, finalizeTransaction]);
