@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import ChartControl from './ChartControl';
 import ChartWithLabel from './ChartWithLabel';
+import TimeControl from './TimeControl';
 
 type PriceChartProps = {
   data: any[];
@@ -14,7 +14,7 @@ const PriceChart: React.FC<PriceChartProps> = ({ data }) => {
   return (
     <>
       <ChartWithLabel data={data} />
-      <ChartControl />
+      <TimeControl />
     </>
   );
 };
