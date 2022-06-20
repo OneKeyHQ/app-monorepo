@@ -110,15 +110,14 @@ function createConfig() {
             },
           ],
         },
-        // {
-        //   test: new RegExp(`.(${fileExtensions.join('|')})$`),
-        //   loader: 'file-loader',
-        //   options: {
-        //     name: '[name].[ext]',
-        //     esModule: false,
-        //   },
-        //   exclude: /node_modules/,
-        // },
+        {
+          test: /\.bin$/i,
+          use: [
+            {
+              loader: 'file-loader',
+            },
+          ],
+        },
         // {
         //   test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
         //   loader: 'next-image-loader',
