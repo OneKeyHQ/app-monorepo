@@ -18,6 +18,16 @@ function nextWebpack(
   let nextConfig = {
     // always should be true even if webpack4
     webpack5: true,
+    webpack: (config, { isServer }) => {
+      // Fixes npm packages that depend on `fs` module
+      if (!isServer) {
+        config.node = {
+          fs: 'empty',
+        };
+      }
+
+      return config;
+    },
     // webpack:() => config
   };
   const nextWithTM = withTM([...transpileModules], {

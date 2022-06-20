@@ -41,10 +41,16 @@ const Output = () => {
 
   useFocusEffect(
     useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokensWithId(
-        accountId,
-        activeNetwork?.id ?? '',
-      );
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+      });
+      backgroundApiProxy.serviceToken.fetchTokens({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        withBalance: true,
+      });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );

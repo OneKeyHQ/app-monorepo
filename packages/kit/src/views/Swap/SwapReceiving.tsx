@@ -24,6 +24,7 @@ const SwapReceiving = () => {
       params: {
         screen: AddressBookRoutes.EnterAddressRoute,
         params: {
+          defaultAddress: receivingAddress ?? account?.address,
           networkId: outputTokenNetwork?.id,
           onSelected: ({ address, name }) => {
             backgroundApiProxy.dispatch(setReceiving({ address, name }));
@@ -31,7 +32,7 @@ const SwapReceiving = () => {
         },
       },
     });
-  }, [navigation, outputTokenNetwork?.id]);
+  }, [navigation, outputTokenNetwork?.id, receivingAddress, account?.address]);
   let address: string | undefined;
   let name: string | undefined;
   if (receivingAddress) {

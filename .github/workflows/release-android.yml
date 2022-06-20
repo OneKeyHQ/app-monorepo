@@ -1,14 +1,14 @@
-name: Build Native iOS AppStore CI
+name: release-android
 
 on:
   workflow_run:
     workflows:
-      - daily_build_release
+      - daily-build
     types:
       - completed
   workflow_dispatch:
 jobs:
-  build:
+  release-android:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,15 +26,9 @@ jobs:
 
       - name: Setup keys secret
         run: |
-          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > packages/app/ios/OneKeyWallet/GoogleService-Info.plist
-          echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
-
-      - name: Setup Credentials
-        run: |
-          mkdir packages/app/ios/certs
-          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > packages/app/credentials.json
-          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > packages/app/ios/certs/dist-cert.p12
-          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
+          echo ${{ secrets.AUTO_SUBMIT_GOOGLE_PLAY_KEY }} | base64 -d > packages/app/pc-api-8644398719570171123-0-dcae07e2afab.json
+          rm -rf packages/app/android/app/google-services.json
+          echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > packages/app/android/app/google-services.json
 
       - name: Setup Expo
         uses: expo/expo-github-action@v7
@@ -73,13 +67,12 @@ jobs:
         with:
           path: .env.version
 
-      - name: Modify info.plist
-        uses: OneKeyHQ/onekey-github-actions/build-plist-edit@main
+      - name: Modify build.gradle
+        uses: OneKeyHQ/onekey-github-actions/build-gradle-edit@main
         with:
-          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionCode: ${{ env.BUILD_NUMBER }}
           versionName: ${{ steps.dotenv.outputs.version }}
-          projectName: OneKeyWallet
-          dir: ./packages/app
+          android_dir: ./packages/app
 
       - name: Write .env.version
         run: |
@@ -90,10 +83,11 @@ jobs:
         if: ${{ github.event.workflow_run }}
         run: |
           cd packages/app
-          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          eas build --profile=production --platform android --non-interactive --no-wait
+          eas build --profile=production-store --platform android --non-interactive --no-wait --auto-submit
 
       - name: Build on EAS
         if: ${{ !github.event.workflow_run }}
         run: |
           cd packages/app
-          eas build --profile=production-store --platform ios --non-interactive --no-wait
+          eas build --profile=production --platform android --non-interactive --no-wait

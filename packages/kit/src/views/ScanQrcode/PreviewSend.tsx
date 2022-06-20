@@ -19,7 +19,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import FormChainSelector from '../../components/Form/ChainSelector';
 import WalletAvatar from '../../components/Header/WalletAvatar';
 import { ModalRoutes, ModalScreenProps, RootRoutes } from '../../routes/types';
-import { getDeviceTypeByDeviceId } from '../../utils/device/ble/OnekeyHardware';
+import { getDeviceTypeByDeviceId } from '../../utils/hardware';
 import { SendRoutes, SendRoutesParams } from '../Send/types';
 
 import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';

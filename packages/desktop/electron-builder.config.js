@@ -10,7 +10,7 @@ module.exports = {
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
-  'electronVersion': '15.3.1',
+  'electronVersion': '16.2.8',
   'buildVersion': process.env.BUILD_NUMBER,
   'directories': {
     'output': 'build-electron',
@@ -74,6 +74,10 @@ module.exports = {
       { target: 'dmg', arch: ['x64', 'arm64'] },
       { target: 'zip', arch: ['x64', 'arm64'] },
     ],
+    'entitlements': 'entitlements.mac.plist',
+    'extendInfo': {
+      'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+    },
   },
   'win': {
     'extraResources': [

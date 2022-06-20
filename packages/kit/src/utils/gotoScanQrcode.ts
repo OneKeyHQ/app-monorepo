@@ -1,8 +1,12 @@
+import * as ImagePicker from 'expo-image-picker';
+
 import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
+import { scanFromURLAsync } from '../views/ScanQrcode/scanFromURLAsync';
 import { ScanQrcodeRoutes, ScanResult } from '../views/ScanQrcode/types';
 
 export const handleScanResult = async (data: string) => {
@@ -27,17 +31,50 @@ export const handleScanResult = async (data: string) => {
   return scanResult;
 };
 
-export const gotoScanQrcode = (onScanCompleted?: (data: string) => void) => {
+export const gotoScanQrcode = async (
+  onScanCompleted?: (data: string) => void,
+) => {
   const navigation = getAppNavigation();
-  navigation.navigate(RootRoutes.Modal, {
-    screen: ModalRoutes.ScanQrcode,
-    params: {
-      screen: ScanQrcodeRoutes.ScanQrcode,
-      params: onScanCompleted
-        ? {
-            onScanCompleted,
-          }
-        : undefined,
-    },
-  });
+  // FIXME: later try some tricky workaround to get camera access for extension
+  // https://stackoverflow.com/questions/50991321/chrome-extension-getusermedia-throws-notallowederror-failed-due-to-shutdown
+  if (platformEnv.isExtension) {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      base64: true,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.cancelled) {
+      const data = await scanFromURLAsync(result.uri);
+      if (data) {
+        if (onScanCompleted) {
+          onScanCompleted(data);
+          return;
+        }
+        const scanResult = await handleScanResult(data);
+        if (scanResult) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ScanQrcode,
+            params: {
+              screen: ScanQrcodeRoutes.ScanQrcodeResult,
+              params: scanResult,
+            },
+          });
+        }
+      } else {
+        // TODO invalid qrcode
+      }
+    }
+  } else {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ScanQrcode,
+      params: {
+        screen: ScanQrcodeRoutes.ScanQrcode,
+        params: onScanCompleted
+          ? {
+              onScanCompleted,
+            }
+          : undefined,
+      },
+    });
+  }
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import ImportedAccount from '@onekeyhq/kit/src/views/Account/ImportedAccount';
 import WatchedAccount from '@onekeyhq/kit/src/views/Account/WatchedAccount';
 import CreateWallet from '@onekeyhq/kit/src/views/CreateWallet';
@@ -17,9 +18,7 @@ import NewWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/NewWallet'
 import RestoreFromMnemonic from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreFromMnemonic';
 import RestoreWallet from '@onekeyhq/kit/src/views/CreateWallet/AppWallet/RestoreWallet';
 import Guide from '@onekeyhq/kit/src/views/CreateWallet/Guide';
-import ConnectHardware, {
-  Device,
-} from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
+import ConnectHardware from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/ConnectHardware';
 import DeviceStatusCheck from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/DeviceStatusCheck';
 import RestoreHardwareWallet from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWallet';
 import RestoreHardwareWalletDescription from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWalletDescription';
@@ -91,13 +90,15 @@ export type CreateWalletRoutesParams = {
     | undefined;
   [CreateWalletModalRoutes.RestoreWalletModal]: undefined;
   [CreateWalletModalRoutes.RestoreFromMnemonicModal]: undefined;
-  [CreateWalletModalRoutes.SetupSuccessModal]: { device: Device };
-  [CreateWalletModalRoutes.SetupHardwareModal]: { device: Device };
-  [CreateWalletModalRoutes.SetupNewDeviceModal]: { device: Device };
-  [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: Device };
-  [CreateWalletModalRoutes.RestoreHardwareWalletModal]: { device: Device };
+  [CreateWalletModalRoutes.SetupSuccessModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.SetupHardwareModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.SetupNewDeviceModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.RestoreHardwareWalletModal]: {
+    device: SearchDevice;
+  };
   [CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal]: {
-    device: Device;
+    device: SearchDevice;
   };
   [CreateWalletModalRoutes.ImportWalletModal]: undefined;
   [CreateWalletModalRoutes.CreateImportedAccount]: undefined;

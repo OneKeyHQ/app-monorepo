@@ -21,7 +21,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { onekeyBleConnect } from '@onekeyhq/kit/src/utils/device/ble/BleOnekeyConnect';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -58,15 +58,13 @@ const DeviceStatusCheckModal: FC = () => {
   useEffect(() => {
     // If device and account are ready, go to success page
     async function main() {
+      console.log('DeviceStatusCheckModal: ', device);
       let features: IOneKeyDeviceFeatures | null = null;
       try {
         // 10s timeout for device connection
         const result = await Promise.race([
-          onekeyBleConnect.getFeatures({
-            ...device.device,
-            deviceType: device.type,
-          } as any),
-          new Promise((resolve, reject) => setTimeout(reject, 30 * 1000)),
+          deviceUtils.getFeatures(device.connectId ?? ''),
+          new Promise((_, reject) => setTimeout(reject, 30 * 1000)),
         ]);
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
@@ -93,7 +91,7 @@ const DeviceStatusCheckModal: FC = () => {
       try {
         await serviceAccount.createHWWallet({
           features,
-          bleUUID: device.device.id,
+          connectId: device.connectId ?? '',
         });
       } catch (e: any) {
         safeGoBack();

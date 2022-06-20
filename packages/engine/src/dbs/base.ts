@@ -176,6 +176,7 @@ interface DBAPI {
     features: string,
   ): Promise<void>;
   getDevices(): Promise<Array<Device>>;
+  getDevice(deviceId: string): Promise<Device>;
 }
 
 export type {

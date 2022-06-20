@@ -7,7 +7,6 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret';
 import { encrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { Features } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
@@ -20,6 +19,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import { Features } from '@onekeyhq/kit/src/utils/hardware';
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -394,6 +394,17 @@ class Engine {
   @backgroundMethod()
   async getHWDevices() {
     return this.dbApi.getDevices();
+  }
+
+  @backgroundMethod()
+  async getHWDeviceByWalletId(walletId: string) {
+    const wallet = await this.dbApi.getWallet(walletId);
+    if (wallet?.associatedDevice) {
+      const device = await this.dbApi.getDevice(wallet.associatedDevice);
+      return device;
+    }
+
+    return null;
   }
 
   @backgroundMethod()

@@ -2,7 +2,14 @@ import React, { ComponentProps, FC, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Divider, Icon, Pressable, Textarea } from '@onekeyhq/components';
+import {
+  Box,
+  Divider,
+  Icon,
+  Pressable,
+  Textarea,
+  Typography,
+} from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -97,11 +104,13 @@ const AddressInput: FC<AddressInputProps> = ({
             justifyContent="center"
             alignItems="center"
             py="3"
-            borderRightWidth={0.5}
-            borderRightColor="border-default"
             onPress={onPaste}
+            flexDirection="row"
           >
-            <Icon name="ClipboardSolid" />
+            <Icon size={20} name="ClipboardSolid" />
+            <Typography.Body2 ml="3">
+              {intl.formatMessage({ id: 'action__paste' })}
+            </Typography.Body2>
           </Pressable>
         ) : null}
         {plugins.includes('contact') ? (
@@ -110,11 +119,13 @@ const AddressInput: FC<AddressInputProps> = ({
             justifyContent="center"
             alignItems="center"
             py="3"
-            borderRightWidth={0.5}
-            borderRightColor="border-default"
             onPress={onContacts}
+            flexDirection="row"
           >
-            <Icon name="BookOpenSolid" />
+            <Icon size={20} name="BookOpenSolid" />
+            <Typography.Body2 ml="3">
+              {intl.formatMessage({ id: 'action__contact' })}
+            </Typography.Body2>
           </Pressable>
         ) : null}
         {plugins.includes('scan') ? (
@@ -124,8 +135,12 @@ const AddressInput: FC<AddressInputProps> = ({
             alignItems="center"
             py="3"
             onPress={onScan}
+            flexDirection="row"
           >
-            <Icon name="ScanSolid" />
+            <Icon size={20} name="ScanSolid" />
+            <Typography.Body2 ml="3">
+              {intl.formatMessage({ id: 'action__scan' })}
+            </Typography.Body2>
           </Pressable>
         ) : null}
       </Box>

@@ -1,5 +1,5 @@
-import type { Features } from '@onekeyfe/js-sdk';
+import type { Features, IDeviceType } from '@onekeyfe/hd-core';
 
-export type IOneKeyDeviceType = 'classic' | 'mini';
+export type IOneKeyDeviceType = IDeviceType;
 
 export type IOneKeyDeviceFeatures = Features;
