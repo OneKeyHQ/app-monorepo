@@ -885,7 +885,7 @@ class IndexedDBApi implements DBAPI {
     return this.ready.then(
       (db) =>
         // eslint-disable-next-line no-async-promise-executor
-        new Promise(async (resolve, reject) => {
+        new Promise((resolve, reject) => {
           const transaction = db.transaction(
             [WALLET_STORE_NAME, DEVICE_STORE_NAME],
             'readwrite',
@@ -897,72 +897,85 @@ class IndexedDBApi implements DBAPI {
             resolve(ret);
           };
 
-          const deviceObjectStore = transaction.objectStore(DEVICE_STORE_NAME);
-          await this.insertDevice(
-            id,
-            name,
-            connectId,
-            deviceUUID,
-            deviceId ?? '',
-            deviceType,
-            features,
-            deviceObjectStore,
-          );
+          const walletId = `hw-${id}`;
+          const deviceStore = transaction.objectStore(DEVICE_STORE_NAME);
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
 
-          const getDevicesRequest = deviceObjectStore.getAll();
-          getDevicesRequest.onsuccess = (_devent) => {
-            const devices = getDevicesRequest.result as Device[];
-            if (
-              typeof devices === 'undefined' ||
-              devices.every((d) => d.id !== id)
-            ) {
-              throw new OneKeyInternalError(`Device ${id} not found.`);
-            }
-            const walletId = `hw-${id}`;
-            const walletStore = transaction.objectStore(WALLET_STORE_NAME);
-            const getAllWalletsRequest = walletStore.getAll();
-            getAllWalletsRequest.onsuccess = () => {
-              const wallets = getAllWalletsRequest.result as Wallet[];
-              const getWalletRequest = walletStore.get(walletId);
-              getWalletRequest.onsuccess = (_wevent) => {
-                if (typeof getWalletRequest.result !== 'undefined') {
-                  reject(
-                    new OneKeyInternalError(
-                      `Hardware wallet ${walletId} already exists.`,
-                    ),
+          const getAllWalletsRequest = walletStore.getAll();
+          getAllWalletsRequest.onsuccess = () => {
+            const wallets = getAllWalletsRequest.result as Wallet[];
+            const getDevicesRequest = deviceStore.getAll();
+
+            getDevicesRequest.onsuccess = async (_devent) => {
+              const devices = getDevicesRequest.result as Device[];
+              const hasExistWallet = wallets.some((w) => {
+                if (w.associatedDevice) {
+                  const device = devices.find(
+                    (d) => d.id === w.associatedDevice,
                   );
-                }
-
-                const hasExistWallet = wallets.some((w) => {
-                  if (w.associatedDevice) {
-                    const index = devices.findIndex(
-                      (d) => d.deviceId === deviceId && d.uuid === deviceUUID,
+                  if (device) {
+                    return (
+                      device.deviceId === deviceId && device.uuid === deviceUUID
                     );
-                    return index > -1;
                   }
                   return false;
-                });
+                }
+                return false;
+              });
 
-                if (hasExistWallet) {
-                  reject(
-                    new OneKeyInternalError(
-                      `Hardware wallet ${walletId} already exists.`,
-                    ),
+              if (hasExistWallet) {
+                reject(
+                  new OneKeyInternalError(
+                    `Hardware wallet ${walletId} already exists.`,
+                  ),
+                );
+                return;
+              }
+
+              await this.insertDevice(
+                id,
+                name,
+                connectId,
+                deviceUUID,
+                deviceId ?? '',
+                deviceType,
+                features,
+                deviceStore,
+              );
+
+              const getNewDeviceRequest = deviceStore.get(id);
+              getNewDeviceRequest.onsuccess = () => {
+                const newDevice = getNewDeviceRequest.result as Device;
+                if (typeof newDevice === 'undefined') {
+                  throw new OneKeyInternalError(
+                    `Device ${deviceUUID} not found.`,
                   );
                 }
 
-                ret = {
-                  id: walletId,
-                  name,
-                  avatar,
-                  type: WALLET_TYPE_HW,
-                  backuped: true,
-                  accounts: [],
-                  nextAccountIds: {},
-                  associatedDevice: id,
-                  deviceType,
+                const getWalletRequest = walletStore.get(walletId);
+                getWalletRequest.onsuccess = (_wevent) => {
+                  if (typeof getWalletRequest.result !== 'undefined') {
+                    reject(
+                      new OneKeyInternalError(
+                        `Hardware wallet ${walletId} already exists.`,
+                      ),
+                    );
+                    return;
+                  }
+
+                  ret = {
+                    id: walletId,
+                    name,
+                    avatar,
+                    type: WALLET_TYPE_HW,
+                    backuped: true,
+                    accounts: [],
+                    nextAccountIds: {},
+                    associatedDevice: id,
+                    deviceType,
+                  };
+                  walletStore.add(ret);
                 };
-                walletStore.add(ret);
               };
             };
           };
