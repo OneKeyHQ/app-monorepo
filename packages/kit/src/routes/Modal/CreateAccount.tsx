@@ -23,6 +23,7 @@ export type CreateAccountRoutesParams = {
   [CreateAccountModalRoutes.CreateAccountForm]: {
     walletId: string;
     onLoadingAccount?: (networkId?: string) => void;
+    selectedNetworkId?: string;
   };
   [CreateAccountModalRoutes.CreateAccountAuthentication]: {
     onDone: (password: string) => void;
