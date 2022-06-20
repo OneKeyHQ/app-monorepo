@@ -7,3 +7,6 @@ echo "@onekeyhq:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_auth
 # Install Secret Keys
 echo $IOS_SECRET | base64 -d > .env
 echo $ANDROID_SECRET | base64 -d > android/keys.secret
+
+# Install cmake 3.18.1 for react-native-reanimated
+sdkmanager "cmake;3.18.1"
