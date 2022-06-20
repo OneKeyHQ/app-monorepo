@@ -23,6 +23,8 @@ class WalletSchema extends Realm.Object {
 
   public associatedDevice?: DeviceSchema;
 
+  public deviceType?: string;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Wallet',
     primaryKey: 'id',
@@ -39,6 +41,7 @@ class WalletSchema extends Realm.Object {
         objectType: 'int',
       },
       associatedDevice: 'Device?',
+      deviceType: 'string?',
     },
   };
 
@@ -59,6 +62,7 @@ class WalletSchema extends Realm.Object {
         Object.entries(Object(this.nextAccountIds)),
       ),
       associatedDevice: this.associatedDevice?.id,
+      deviceType: this.deviceType,
     };
   }
 }

@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Setup from './Setup';
@@ -115,10 +115,26 @@ const Protected: FC<ProtectedProps> = ({
         safeGoBack();
         return;
       }
-      const currentConnectionWalletId =
-        features.onekey_serial ?? features.serial_no ?? '';
+      const connectDeviceUUID = getDeviceUUID(features);
+      const connectDeviceID = features.device_id;
 
-      if (currentConnectionWalletId !== currentWalletDevice.id) {
+      /**
+       * New version of database, deviceId and uuid must be the same
+       */
+      const diffDeviceIdAndUUID =
+        currentWalletDevice.deviceId && currentWalletDevice.uuid
+          ? connectDeviceID !== currentWalletDevice.deviceId ||
+            connectDeviceUUID !== currentWalletDevice.uuid
+          : false;
+
+      /**
+       * Older versions of the database, uuid must be the same as device.id
+       */
+      const diffDeviceUUIDWithoutDeviceId =
+        !currentWalletDevice.deviceId &&
+        connectDeviceUUID !== currentWalletDevice.id;
+
+      if (diffDeviceIdAndUUID || diffDeviceUUIDWithoutDeviceId) {
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__hardware_not_same' }),
         });
