@@ -9,4 +9,7 @@ echo $IOS_SECRET | base64 -d > .env
 echo $ANDROID_SECRET | base64 -d > android/keys.secret
 
 # Install cmake 3.18.1 for react-native-reanimated
-sdkmanager "cmake;3.18.1"
+if [ -x "$(command -v sdkmanager)" ]; then
+  sdkmanager "cmake;3.18.1";
+fi
+
