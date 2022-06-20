@@ -45,16 +45,26 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const route = useRoute<RouteProps>();
   const { wallets, networks } = useRuntime();
 
-  const selectedWalletId = route.params.walletId;
-  const { onLoadingAccount } = route.params;
+  const {
+    walletId: selectedWalletId,
+    selectedNetworkId,
+    onLoadingAccount,
+  } = route.params;
+
   const wallet = useMemo(
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
     [selectedWalletId, wallets],
   );
   const watchNetwork = watch(
     'network',
-    activeNetworkId ?? (networks ?? [])?.[0]?.id,
+    selectedNetworkId ?? activeNetworkId ?? (networks ?? [])?.[0]?.id,
   );
+
+  useEffect(() => {
+    setValue('network', watchNetwork);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectableNetworks = networks
     .filter((network) => {
       if (wallet?.type === 'hw') {
@@ -79,6 +89,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           ? watchNetwork
           : selectableNetworks[0]),
     );
+
     if (selectedNetwork) {
       const { prefix, category } = selectedNetwork.accountNameInfo.default;
       if (typeof prefix !== 'undefined') {

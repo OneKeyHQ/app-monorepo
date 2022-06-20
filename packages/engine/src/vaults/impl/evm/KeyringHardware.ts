@@ -21,7 +21,13 @@ export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
     const path = await this.getAccountPath();
     const chainId = await this.getNetworkChainId();
-    return OneKeyHardware.ethereumSignTransaction(path, chainId, unsignedTx);
+    const connectId = await this.getHardwareConnectId();
+    return OneKeyHardware.ethereumSignTransaction(
+      connectId,
+      path,
+      chainId,
+      unsignedTx,
+    );
   }
 
   async signMessage(
@@ -29,9 +35,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const path = await this.getAccountPath();
+    const connectId = await this.getHardwareConnectId();
     return Promise.all(
       messages.map((message) =>
         OneKeyHardware.ethereumSignMessage({
+          connectId,
           path,
           message,
         }),
@@ -42,15 +50,15 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
+    const connectId = await this.getHardwareConnectId();
     const { indexes, names } = params;
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
-    const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
     const addressInfos = await OneKeyHardware.getXpubs(
       IMPL_EVM,
       paths,
       'address',
       params.type,
-      device?.mac ?? '',
+      connectId,
     );
 
     const ret = [];

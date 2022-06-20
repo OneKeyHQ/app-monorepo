@@ -1,7 +1,6 @@
 /**
  * hardware interface wrapper
  */
-
 import { splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { UnsignedTransaction, serialize } from '@ethersproject/transactions';
@@ -11,10 +10,17 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { Features, Success, Unsuccessful } from '@onekeyfe/hd-core';
+import {
+  DeviceSettingsParams,
+  Features,
+  Success,
+  Unsuccessful,
+} from '@onekeyfe/hd-core';
+import { BigNumber } from 'bignumber.js';
+import { TypedDataUtils } from 'eth-sig-util';
 
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
-import { HardwareSDK as OneKeyConnect } from '@onekeyhq/kit/src/utils/hardware';
+import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
 
 import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';
@@ -26,11 +32,7 @@ import {
 import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
-
-/**
- * No actual value, need to replace gradually
- */
-const tempConnectId = '';
+import type { EVMTransaction, EVMTransactionEIP1559 } from '@onekeyfe/hd-core';
 
 /**
  * Get hardware wallet info
@@ -41,8 +43,8 @@ const tempConnectId = '';
 export async function getFeatures(): Promise<Features> {
   let response;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.getFeatures();
+    response = await HardwareSDK.getFeatures();
+    console.log('getFeatures', response);
   } catch (error: any) {
     throw new OneKeyHardwareError(error);
   }
@@ -63,11 +65,13 @@ export async function getFeatures(): Promise<Features> {
  * @throws {OneKeyHardwareError}
  * @throws {OneKeyInternalError}
  */
-export async function changePin(remove = false): Promise<void> {
+export async function changePin(
+  connectId: string,
+  remove = false,
+): Promise<void> {
   let response;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.deviceChangePin(tempConnectId, { remove });
+    response = await HardwareSDK.deviceChangePin(connectId, { remove });
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
@@ -85,11 +89,14 @@ export async function changePin(remove = false): Promise<void> {
 /**
  * apply settings to the hardware wallet
  */
-export async function applySettings(settings: any): Promise<void> {
+
+export async function applySettings(
+  connectId: string,
+  settings: DeviceSettingsParams,
+): Promise<void> {
   let response;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    response = await OneKeyConnect.deviceSettings(tempConnectId, settings);
+    response = await HardwareSDK.deviceSettings(connectId, settings);
   } catch (error: any) {
     console.error(error);
     throw new OneKeyHardwareError(error);
@@ -111,12 +118,13 @@ export async function applySettings(settings: any): Promise<void> {
  * @throws {OneKeyHardwareError}
  */
 export async function ethereumGetAddress(
+  connectId: string,
   path: string | number[],
   display = false,
 ): Promise<string> {
   let response;
   try {
-    response = await OneKeyConnect.evmGetAddress(tempConnectId, {
+    response = await HardwareSDK.evmGetAddress(connectId, {
       path,
       showOnOneKey: display,
     });
@@ -194,9 +202,11 @@ function getResultFromResponse<T>(response: Unsuccessful | Success<T>): T {
 }
 
 export async function ethereumSignMessage({
+  connectId,
   path,
   message,
 }: {
+  connectId: string;
   path: string;
   message: IUnsignedMessageEvm;
 }): Promise<string> {
@@ -209,9 +219,10 @@ export async function ethereumSignMessage({
       `Sign message method=${message.type} not supported for this device`,
     );
   }
+
   if (message.type === ETHMessageTypes.PERSONAL_SIGN) {
     // TODO non hex sign (utf8)
-    const res = await OneKeyConnect.evmSignMessage(tempConnectId, {
+    const res = await HardwareSDK.evmSignMessage(connectId, {
       path,
       messageHex: message.message,
     });
@@ -219,35 +230,36 @@ export async function ethereumSignMessage({
     return `0x${result?.signature || ''}`;
   }
 
-  if (message.type === ETHMessageTypes.TYPED_DATA_V3) {
-    // TODO try catch
+  if (
+    message.type === ETHMessageTypes.TYPED_DATA_V3 ||
+    message.type === ETHMessageTypes.TYPED_DATA_V4
+  ) {
+    const useV4 = message.type === ETHMessageTypes.TYPED_DATA_V4;
     const data = JSON.parse(message.message);
-    // TODO use OneKeyConnect.ethereumSignTypedData()
-    const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
-      path,
+    const typedData = TypedDataUtils.sanitizeData(data);
+    const domainHash = TypedDataUtils.hashStruct(
+      'EIP712Domain',
+      typedData.domain,
+      typedData.types,
+      useV4,
+    ).toString('hex');
+    const messageHash = TypedDataUtils.hashStruct(
       // @ts-expect-error
-      data,
-      version: 'V3',
-      // metamask_v4_compat: false,
+      typedData.primaryType,
+      typedData.message,
+      typedData.types,
+      useV4,
+    ).toString('hex');
+
+    const res = await HardwareSDK.evmSignMessageEIP712(connectId, {
+      path,
+      domainHash,
+      messageHash,
     });
     const result = getResultFromResponse(res);
     return `0x${result?.signature || ''}`;
   }
-  if (message.type === ETHMessageTypes.TYPED_DATA_V4) {
-    // TODO try catch
-    const data = JSON.parse(message.message);
-    console.log('ethereumSignTypedData V4 data', data);
-    // TODO use OneKeyConnect.ethereumSignTypedData()
-    const res = await OneKeyConnect.evmSignMessageEIP712(tempConnectId, {
-      path,
-      // @ts-expect-error
-      data,
-      version: 'V4',
-      // metamask_v4_compat: true,
-    });
-    const result = getResultFromResponse(res);
-    return `0x${result?.signature || ''}`;
-  }
+
   throw web3Errors.rpc.methodNotFound(
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     `Sign message method=${message.type} not found`,
@@ -261,6 +273,7 @@ export async function ethereumSignMessage({
  * @throws {OneKeyHardwareError}
  */
 export async function ethereumSignTransaction(
+  connectId: string,
   path: string,
   chainId: string,
   unsignedTx: UnsignedTx,
@@ -284,20 +297,35 @@ export async function ethereumSignTransaction(
     throw new OneKeyInternalError('Incomplete unsigned tx.');
   }
 
-  // TODO: seperate EIP1559/legacy once connect supports EIP1559.
-  const txToSign = {
-    to,
-    value,
-    gasPrice: toBigIntHex(
-      unsignedTx.payload?.EIP1559Enabled
-        ? unsignedTx.payload.maxFeePerGas
-        : unsignedTx.feePricePerUnit,
-    ),
-    gasLimit: toBigIntHex(unsignedTx.feeLimit),
-    nonce: `0x${unsignedTx.nonce.toString(16)}`,
-    data: unsignedTx.payload?.data || '0x',
-    chainId: parseInt(chainId),
-  };
+  const isEip1559 = unsignedTx.payload?.EIP1559Enabled;
+
+  let txToSign: EVMTransaction | EVMTransactionEIP1559;
+
+  if (isEip1559) {
+    txToSign = {
+      to,
+      value,
+      gasLimit: toBigIntHex(unsignedTx.feeLimit),
+      nonce: `0x${unsignedTx.nonce.toString(16)}`,
+      data: unsignedTx.payload?.data || '0x',
+      chainId: parseInt(chainId),
+      maxFeePerGas: toBigIntHex(unsignedTx.payload.maxFeePerGas),
+      maxPriorityFeePerGas: toBigIntHex(
+        unsignedTx.payload.maxPriorityFeePerGas,
+      ),
+    };
+  } else {
+    txToSign = {
+      to,
+      value,
+      gasPrice: toBigIntHex(unsignedTx.feePricePerUnit ?? new BigNumber(0)),
+      gasLimit: toBigIntHex(unsignedTx.feeLimit),
+      nonce: `0x${unsignedTx.nonce.toString(16)}`,
+      data: unsignedTx.payload?.data || '0x',
+      chainId: parseInt(chainId),
+    };
+  }
+
   const tx: UnsignedTransaction = {
     to: txToSign.to,
     value: txToSign.value,
@@ -308,8 +336,14 @@ export async function ethereumSignTransaction(
     chainId: txToSign.chainId,
   };
 
+  if (isEip1559) {
+    tx.type = 2;
+    tx.maxFeePerGas = txToSign?.maxFeePerGas ?? undefined;
+    tx.maxPriorityFeePerGas = txToSign?.maxPriorityFeePerGas ?? undefined;
+  }
+
   try {
-    response = await OneKeyConnect.evmSignTransaction(tempConnectId, {
+    response = await HardwareSDK.evmSignTransaction(connectId, {
       path,
       transaction: txToSign,
     });
@@ -338,13 +372,6 @@ export async function ethereumSignTransaction(
   });
 }
 
-export async function ethereumSignTxEIP1559(
-  params: any,
-): Promise<[Buffer, number]> {
-  console.error('Not implemented', params);
-  return Promise.reject(new Error('not implemented'));
-}
-
 export async function getXpubs(
   impl: string,
   paths: Array<string>,
@@ -361,17 +388,17 @@ export async function getXpubs(
   let response;
   try {
     if (isBundle) {
-      response = await OneKeyConnect.evmGetAddress(connectId, {
+      response = await HardwareSDK.evmGetAddress(connectId, {
         bundle: paths.map((path) => ({
           path,
           /**
            * Search accounts not show detail at device.Only show on device when add accounts into wallet.
            */
-          showOnTrezor: type === 'ADD_ACCOUNTS',
+          showOnOneKey: type === 'ADD_ACCOUNTS',
         })),
       });
     } else {
-      response = await OneKeyConnect.evmGetAddress(connectId, {
+      response = await HardwareSDK.evmGetAddress(connectId, {
         path: paths[0],
       });
     }
