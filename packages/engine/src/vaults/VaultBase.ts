@@ -99,6 +99,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     }
     return Promise.resolve(normalizedAddress);
   }
+
+  async checkAccountExistence(accountIdOnNetwork: string): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }
 
 /*

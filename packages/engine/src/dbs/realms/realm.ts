@@ -1216,6 +1216,7 @@ class RealmDB implements DBAPI {
     walletId: string,
     accountId: string,
     password: string,
+    rollbackNextAccountIds: Record<string, number>,
   ): Promise<void> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
@@ -1268,6 +1269,13 @@ class RealmDB implements DBAPI {
         this.realm!.delete(historyEntries);
         if (walletIsImported(wallet.id) && typeof credential !== 'undefined') {
           this.realm!.delete(credential);
+        }
+        for (const [category, index] of Object.entries(
+          rollbackNextAccountIds,
+        )) {
+          if (wallet.nextAccountIds![category] === index + 1) {
+            wallet.nextAccountIds![category] = index;
+          }
         }
       });
       return Promise.resolve();
