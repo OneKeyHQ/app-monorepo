@@ -6,6 +6,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 let HardwareSDK: CoreApi;
 let initialized = false;
 
+const ConnectSrc =
+  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://hardware-sdk.onekey.so/';
+
 // eslint-disable-next-line no-async-promise-executor
 const promise: Promise<CoreApi> = new Promise(async (resolve) => {
   if (initialized) {
@@ -23,7 +26,7 @@ const promise: Promise<CoreApi> = new Promise(async (resolve) => {
   } else {
     HardwareSDK = (await import('@onekeyfe/hd-web-sdk'))
       .default as unknown as CoreApi;
-    settings.connectSrc = 'https://localhost:8088/';
+    settings.connectSrc = ConnectSrc;
   }
 
   try {
