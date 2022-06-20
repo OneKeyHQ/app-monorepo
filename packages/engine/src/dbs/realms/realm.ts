@@ -1055,19 +1055,35 @@ class RealmDB implements DBAPI {
       if (typeof context === 'undefined') {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
-      if (!checkPassword(context.internalObj, password)) {
-        return Promise.reject(new WrongPassword());
+      if (wallet.type === WALLET_TYPE_HD) {
+        // Only check password for HD wallet deletion.
+        if (!checkPassword(context.internalObj, password)) {
+          return Promise.reject(new WrongPassword());
+        }
       }
+      const accountIds = Array.from(wallet.accounts!).map(
+        (account) => account.id,
+      );
+      const historyEntries = this.realm!.objects<HistoryEntrySchema>(
+        'HistoryEntry',
+      ).filtered(
+        accountIds.map((_, index) => `accountId == $${index}`).join(' OR '),
+        ...accountIds,
+      );
       const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
         'Credential',
         walletId,
       );
       this.realm!.write(() => {
         this.realm!.delete(Array.from(wallet.accounts!));
+        if (wallet.associatedDevice) {
+          this.realm!.delete(wallet.associatedDevice);
+        }
         this.realm!.delete(wallet);
         if (typeof credential !== 'undefined') {
           this.realm!.delete(credential);
         }
+        this.realm!.delete(historyEntries);
       });
       return Promise.resolve();
     } catch (error: any) {
