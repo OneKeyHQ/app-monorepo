@@ -5,10 +5,10 @@ import { useIntl } from 'react-intl';
 import { Typography } from '@onekeyhq/components';
 
 type PriceLabelProps = {
-  price?: number;
+  price: string;
 };
 
-const PriceLabel: React.FC<PriceLabelProps> = ({ price = 0 }) => {
+const PriceLabel: React.FC<PriceLabelProps> = ({ price }) => {
   const intl = useIntl();
   return (
     <>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-import { IChartApi } from 'lightweight-charts';
+import { IChartApi, createChart } from 'lightweight-charts';
 
 import { createChartDom, updateChartDom } from './sharedChartUtils';
 
@@ -27,6 +27,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
       return;
     }
     const { chart, handleResize } = createChartDom(
+      createChart,
       chartContainerRef.current,
       onHover,
     );

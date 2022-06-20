@@ -1,10 +1,21 @@
-import { IChartApi, createChart } from 'lightweight-charts';
+import { ChartOptions, IChartApi } from 'lightweight-charts';
 
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends (infer U)[]
+    ? DeepPartial<U>[]
+    : T[P] extends readonly (infer X)[]
+    ? readonly DeepPartial<X>[]
+    : DeepPartial<T[P]>;
+};
 export function createChartDom(
-  domNode: HTMLDivElement,
-  onHover: (price: number) => void,
+  createChartFunc: (
+    container: HTMLElement,
+    options?: DeepPartial<ChartOptions>,
+  ) => IChartApi,
+  domNode: HTMLElement,
+  onHover: (price?: number) => void,
 ) {
-  const chart = createChart(domNode, {
+  const chart = createChartFunc(domNode, {
     height: 300,
     grid: {
       vertLines: { visible: false },

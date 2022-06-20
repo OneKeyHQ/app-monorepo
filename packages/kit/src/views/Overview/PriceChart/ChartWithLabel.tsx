@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import PriceLabel from './PriceLabel';
 import ChartView from './ChartView';
+import PriceLabel from './PriceLabel';
 
 type ChartWithLabelProps = {
   data: any[];
@@ -11,10 +11,19 @@ type ChartWithLabelProps = {
 
 const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data }) => {
   const intl = useIntl();
-  const [price, setPrice] = useState<number | undefined>(0);
+  const [price, setPrice] = useState<string | number | undefined>();
+  const currentPrice = 0;
+  let priceStringResult;
+  if (price === 'undefined' || price === undefined) {
+    priceStringResult = String(currentPrice);
+  } else if (typeof price === 'string') {
+    priceStringResult = price;
+  } else {
+    priceStringResult = String(price);
+  }
   return (
     <>
-      <PriceLabel price={price} />
+      <PriceLabel price={priceStringResult} />
       <ChartView data={data} onHover={setPrice} />
     </>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 
 import WebView from 'react-native-webview';
 
@@ -6,7 +6,7 @@ import { createChartDom, updateChartDom } from './sharedChartUtils';
 
 type ChartViewAdapterProps = {
   data: any[];
-  onHover(price?: number): void;
+  onHover(price?: string): void;
   lineColor: string;
   topColor: string;
   bottomColor: string;
@@ -20,9 +20,14 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   bottomColor,
 }) => {
   const jsToInject = `
-    const chartNode = document.getElementById('chart');
-    const {chart} = ${createChartDom.toString()}(chartNode, ReactNativeWebView.postMessage);
-    ${updateChartDom.toString()}({
+    const createChart = window.LightweightCharts.createChart;
+    const container = document.getElementById('chart');
+    const {chart} = (${createChartDom.toString()})(
+      createChart,
+      container, 
+      window.ReactNativeWebView.postMessage
+    );
+    (${updateChartDom.toString()})({
       chart,
       bottomColor: ${JSON.stringify(bottomColor)},
       topColor: ${JSON.stringify(topColor)},
@@ -35,17 +40,19 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
 
   return (
     <WebView
-      style={{ flex: 1 }}
-      source={{ uri: 'file:///android_asset/index.html' }}
+      style={{
+        flex: 1,
+      }}
+      source={{ uri: 'file:///android_asset/tradingview.html' }}
       allowFileAccessFromFileURLs
-      domStorageEnabled
       allowFileAccess
       allowUniversalAccessFromFileURLs
       originWhitelist={['*']}
       onShouldStartLoadWithRequest={() => false}
       injectedJavaScript={jsToInject}
+      scrollEnabled={false}
       onMessage={(event) => {
-        onHover(event.nativeEvent.data as any as number);
+        onHover(event.nativeEvent.data);
       }}
     />
   );

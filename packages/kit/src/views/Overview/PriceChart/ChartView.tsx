@@ -6,7 +6,7 @@ import ChartViewAdapter from './ChartViewAdapter';
 
 type ChartViewProps = {
   data: any[];
-  onHover(price?: number): void;
+  onHover(price?: string): void;
 };
 
 const ChartView: React.FC<ChartViewProps> = ({ data, onHover }) => {
