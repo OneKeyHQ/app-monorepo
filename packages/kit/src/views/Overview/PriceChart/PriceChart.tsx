@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import PriceLabel from './PriceLabel';
-import TradingView from './TradingView';
+import ChartControl from './ChartControl';
+import ChartWithLabel from './ChartWithLabel';
 
 type PriceChartProps = {
   data: any[];
@@ -13,8 +13,8 @@ const PriceChart: React.FC<PriceChartProps> = ({ data }) => {
   const intl = useIntl();
   return (
     <>
-      <PriceLabel />
-      <TradingView data={data} />
+      <ChartWithLabel data={data} />
+      <ChartControl />
     </>
   );
 };
