@@ -162,7 +162,7 @@ function createMainWindow() {
     filter,
     (details, callback) => {
       // @ts-ignore electron declares requestHeaders as an empty interface
-      details.requestHeaders.Origin = 'https://connect.onekey.so';
+      details.requestHeaders.Origin = 'https://hardware-sdk.onekey.so';
 
       callback({ cancel: false, requestHeaders: details.requestHeaders });
     },
