@@ -74,6 +74,7 @@ function normalizeConfig({ platform, config }) {
           'OPENSEA_KEY',
           'COVALENT_KEY',
           'MOONPAY_KEY',
+          'HARDWARE_SDK_CONNECT_SRC',
         ],
       },
     ],
