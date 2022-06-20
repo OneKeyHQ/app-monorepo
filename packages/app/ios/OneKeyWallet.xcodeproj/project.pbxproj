@@ -26,6 +26,8 @@
 		A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2D598AE282BFCE600152C7C /* GoogleService-Info.plist */; };
 		A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */; };
 		A3294A682844472100C18DD0 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A3294A672844472100C18DD0 /* AppDelegate.m */; };
+		A3A3A9B228609BAA00C7BB8F /* tradingview.html in Resources */ = {isa = PBXBuildFile; fileRef = A3A3A9B028609BAA00C7BB8F /* tradingview.html */; };
+		A3A3A9B328609BAA00C7BB8F /* lightweight-charts.standalone.production.js in Resources */ = {isa = PBXBuildFile; fileRef = A3A3A9B128609BAA00C7BB8F /* lightweight-charts.standalone.production.js */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
 
@@ -80,6 +82,8 @@
 		A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RNLiteCallBackManager.h; sourceTree = "<group>"; };
 		A2F1BFFA27A2D30900C4EE99 /* RNLiteCallBackManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RNLiteCallBackManager.m; sourceTree = "<group>"; };
 		A3294A672844472100C18DD0 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = AppDelegate.m; path = OneKeyWallet/AppDelegate.m; sourceTree = "<group>"; };
+		A3A3A9B028609BAA00C7BB8F /* tradingview.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = tradingview.html; path = OneKeyWallet/tradingview.html; sourceTree = "<group>"; };
+		A3A3A9B128609BAA00C7BB8F /* lightweight-charts.standalone.production.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; name = "lightweight-charts.standalone.production.js"; path = "OneKeyWallet/lightweight-charts.standalone.production.js"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AB5A55C2A16742BCB8148B6E /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -113,6 +117,8 @@
 				008F07F21AC5B25A0029DE68 /* main.jsbundle */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
+				A3A3A9B128609BAA00C7BB8F /* lightweight-charts.standalone.production.js */,
+				A3A3A9B028609BAA00C7BB8F /* tradingview.html */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				AB5A55C2A16742BCB8148B6E /* noop-file.swift */,
@@ -330,8 +336,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				A3A3A9B328609BAA00C7BB8F /* lightweight-charts.standalone.production.js in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				A2D598AF282BFD0B00152C7C /* GoogleService-Info.plist in Resources */,
+				A3A3A9B228609BAA00C7BB8F /* tradingview.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

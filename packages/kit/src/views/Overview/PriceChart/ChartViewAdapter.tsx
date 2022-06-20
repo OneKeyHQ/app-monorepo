@@ -2,6 +2,8 @@ import React from 'react';
 
 import WebView from 'react-native-webview';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { createChartDom, updateChartDom } from './sharedChartUtils';
 
 type ChartViewAdapterProps = {
@@ -22,10 +24,11 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   const jsToInject = `
     const createChart = window.LightweightCharts.createChart;
     const container = document.getElementById('chart');
-    const {chart} = (${createChartDom.toString()})(
+    const postMessage = (price) => window.ReactNativeWebView.postMessage(price);
+    const { chart } = (${createChartDom.toString()})(
       createChart,
       container, 
-      window.ReactNativeWebView.postMessage
+      postMessage,
     );
     (${updateChartDom.toString()})({
       chart,
@@ -42,13 +45,17 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     <WebView
       style={{
         flex: 1,
+        backgroundColor: 'transparent',
       }}
-      source={{ uri: 'file:///android_asset/tradingview.html' }}
+      source={{
+        uri: platformEnv.isNativeIOS
+          ? 'tradingview.html'
+          : 'file:///android_asset/tradingview.html',
+      }}
       allowFileAccessFromFileURLs
       allowFileAccess
       allowUniversalAccessFromFileURLs
       originWhitelist={['*']}
-      onShouldStartLoadWithRequest={() => false}
       injectedJavaScript={jsToInject}
       scrollEnabled={false}
       onMessage={(event) => {

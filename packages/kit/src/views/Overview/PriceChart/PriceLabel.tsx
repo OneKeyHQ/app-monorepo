@@ -12,7 +12,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price }) => {
   const intl = useIntl();
   return (
     <>
-      <Typography.Subheading>Price ${price}</Typography.Subheading>
+      <Typography.DisplayXLarge>Price ${price}</Typography.DisplayXLarge>
     </>
   );
 };
