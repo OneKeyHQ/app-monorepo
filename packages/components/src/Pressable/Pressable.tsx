@@ -14,7 +14,14 @@ const PressableCapture: FC<PressableItemProps> = ({ onPress, ...props }) => {
     },
     [onPress],
   );
-  return <NBPressable {...props} onPress={onPressOverride} />;
+
+  return (
+    <NBPressable
+      {...props}
+      onPress={props.disabled ? null : onPressOverride}
+      cursor={props.disabled ? 'not-allowed' : 'pointer'}
+    />
+  );
 };
 
 export { PressableCapture as default };
