@@ -98,7 +98,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
           >
             <FormatBalance
               balance={amount}
-              suffix={token?.symbol}
+              suffix={token?.tokenIdOnNetwork ? token?.symbol : network?.symbol}
               formatOptions={{
                 fixed: network?.tokenDisplayDecimals ?? 4,
               }}

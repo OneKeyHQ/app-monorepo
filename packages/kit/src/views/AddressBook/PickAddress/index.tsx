@@ -128,7 +128,11 @@ const AddressBook = () => {
     <FlatList
       ListEmptyComponent={listEmptyComponent}
       data={items}
-      ItemSeparatorComponent={() => <Divider />}
+      ItemSeparatorComponent={() => (
+        <Box mx={{ base: 4, md: 6 }}>
+          <Divider />
+        </Box>
+      )}
       renderItem={renderItem}
       keyExtractor={(item) => item.address}
     />
@@ -212,7 +216,11 @@ const MyWallet = () => {
     <SectionList
       sections={sections}
       renderItem={renderItem}
-      ItemSeparatorComponent={() => <Divider />}
+      ItemSeparatorComponent={() => (
+        <Box mx={{ base: 4, md: 6 }}>
+          <Divider />
+        </Box>
+      )}
       renderSectionHeader={({ section: { wallet } }) => (
         // eslint-disable-next-line
         <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>{wallet.name}</Typography.Subheading>

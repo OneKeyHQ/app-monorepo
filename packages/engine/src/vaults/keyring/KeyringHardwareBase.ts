@@ -2,4 +2,9 @@
 
 import { KeyringBase } from './KeyringBase';
 
-export abstract class KeyringHardwareBase extends KeyringBase {}
+export abstract class KeyringHardwareBase extends KeyringBase {
+  async getHardwareConnectId() {
+    const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
+    return device?.mac ?? '';
+  }
+}

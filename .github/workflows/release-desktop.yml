@@ -1,15 +1,15 @@
-name: build-desktop
+name: release-desktop
 
 on:
   workflow_run:
     workflows:
-      - daily_build_release
+      - daily-build
     types:
       - completed
   workflow_dispatch:
 
 jobs:
-  build-desktop:
+  release-desktop:
     runs-on: macos-latest
     strategy:
       matrix:
