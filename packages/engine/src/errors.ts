@@ -139,6 +139,14 @@ export class AccountAlreadyExists extends OneKeyError {
   override key = 'msg__engine__account_already_exists';
 }
 
+export class PreviousAccountIsEmpty extends OneKeyError {
+  override key = 'content__previous_str_account_is_empty';
+
+  constructor(accountTypeStr: string) {
+    super('', { '0': accountTypeStr });
+  }
+}
+
 export class TooManyWatchingAccounts extends NumberLimit {
   override key = 'msg__engine_too_many_watching_accounts';
 }

@@ -13,6 +13,7 @@ import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { setHaptics } from '../../../hooks/setHaptics';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -108,9 +109,10 @@ const LeftSide: FC<LeftSideProps> = ({ selectedWallet, setSelectedWallet }) => {
                   walletImage={wallet.type}
                   avatar={wallet.avatar}
                   walletType="hw"
-                  hwWalletType={getDeviceTypeByDeviceId(
-                    wallet.associatedDevice,
-                  )}
+                  hwWalletType={
+                    (wallet.deviceType as IOneKeyDeviceType) ||
+                    getDeviceTypeByDeviceId(wallet.associatedDevice)
+                  }
                 />
               ))}
           </VStack>

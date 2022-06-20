@@ -24,7 +24,7 @@ const Tab = createBottomTabNavigator<TabRoutesParams>();
 const TabNavigator = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network: activeNetwork } = useActiveWalletAccount();
+  const { network: activeNetwork, wallet } = useActiveWalletAccount();
 
   const renderHeader = useCallback(
     () => (
@@ -42,6 +42,7 @@ const TabNavigator = () => {
         name: TabRoutes.Send,
         foldable: true,
         component: () => null,
+        disabled: wallet?.type === 'watching',
         onPress: () => {
           navigationRef.current?.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Send,
@@ -65,6 +66,7 @@ const TabNavigator = () => {
         name: TabRoutes.Receive,
         foldable: true,
         component: () => null,
+        disabled: wallet?.type === 'watching',
         onPress: () => {
           navigationRef.current?.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Receive,
@@ -83,6 +85,7 @@ const TabNavigator = () => {
       {
         foldable: true,
         component: () => null,
+        disabled: wallet?.type === 'watching',
         onPress: () => {
           navigationRef.current?.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.FiatPay,
@@ -101,7 +104,7 @@ const TabNavigator = () => {
         }),
       },
     ],
-    [activeNetwork?.id, intl],
+    [activeNetwork?.id, intl, wallet?.type],
   );
 
   return useMemo(

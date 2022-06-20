@@ -24,6 +24,21 @@ class DeviceSchema extends Realm.Object {
   public mac!: string;
 
   /**
+   * device uuid
+   */
+  public uuid!: string;
+
+  /**
+   * device id
+   */
+  public deviceId!: string;
+
+  /**
+   * device type
+   */
+  public deviceType!: string;
+
+  /**
    * timestamp of the device bonded with the host device.
    */
   public createdAt!: number;
@@ -40,6 +55,9 @@ class DeviceSchema extends Realm.Object {
       id: 'string',
       name: 'string',
       mac: 'string',
+      uuid: 'string',
+      deviceId: 'string',
+      deviceType: 'string',
       features: 'string',
       createdAt: 'int',
       updatedAt: 'int',
@@ -51,6 +69,9 @@ class DeviceSchema extends Realm.Object {
       id: this.id,
       name: this.name,
       mac: this.mac,
+      uuid: this.uuid,
+      deviceId: this.deviceId,
+      deviceType: this.deviceType,
       features: this.features,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

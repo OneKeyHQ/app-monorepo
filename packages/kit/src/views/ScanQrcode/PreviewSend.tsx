@@ -14,6 +14,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import FormChainSelector from '../../components/Form/ChainSelector';
@@ -106,9 +107,10 @@ const PreviewSend: FC<PreviewSendProps> = () => {
                 >
                   <WalletAvatar
                     walletImage={wallet?.type}
-                    hwWalletType={getDeviceTypeByDeviceId(
-                      wallet?.associatedDevice,
-                    )}
+                    hwWalletType={
+                      (wallet?.deviceType as IOneKeyDeviceType) ||
+                      getDeviceTypeByDeviceId(wallet?.associatedDevice)
+                    }
                     avatar={wallet?.avatar}
                     size="sm"
                     mr="12px"

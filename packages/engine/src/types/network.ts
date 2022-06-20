@@ -38,6 +38,7 @@ type EvmExtraInfo = {
 type AccountNameInfo = {
   prefix: string;
   category: string;
+  label?: string;
 };
 
 type BlockExplorer = {

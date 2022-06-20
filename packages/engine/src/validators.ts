@@ -4,10 +4,12 @@ import * as bip39 from 'bip39';
 
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 
+import { COINTYPE_BTC, IMPL_BTC, SEPERATOR } from './constants';
 import { DBAPI } from './dbs/base';
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
+import { DBUTXOAccount } from './types/account';
 import { UserCreateInput, UserCreateInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
@@ -390,6 +392,44 @@ class Validators {
       }
       // TODO return original error message
       throw new OneKeyValidatorError('form__max_priority_fee_invalid_min');
+    }
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async validateCanCreateNextAccount(
+    walletId: string,
+    networkId: string,
+    purpose: number,
+  ): Promise<void> {
+    const [wallet, network] = await Promise.all([
+      this.engine.getWallet(walletId),
+      this.engine.getNetwork(networkId),
+    ]);
+    if (network.impl === IMPL_BTC) {
+      const accountPathPrefix = `${purpose}'/${COINTYPE_BTC}'`;
+      const nextAccountId = wallet.nextAccountIds[accountPathPrefix];
+      if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
+        const lastAccountId = `${walletId}${SEPERATOR}m/${accountPathPrefix}/${
+          nextAccountId - 1
+        }'`;
+        const [lastAccount] = await this.dbApi.getAccounts([lastAccountId]);
+        if (typeof lastAccount !== 'undefined') {
+          const vault = await this.engine.getChainOnlyVault(networkId);
+          const accountExisted = await vault.checkAccountExistence(
+            (lastAccount as DBUTXOAccount).xpub,
+          );
+          if (!accountExisted) {
+            const accountTypeStr =
+              (
+                Object.values(network.accountNameInfo).find(
+                  ({ category }) => accountPathPrefix === category,
+                ) || {}
+              ).label || '';
+            throw new errors.PreviousAccountIsEmpty(accountTypeStr);
+          }
+        }
+      }
     }
     return Promise.resolve();
   }

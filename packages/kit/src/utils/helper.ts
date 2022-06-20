@@ -1,4 +1,5 @@
 import { getTime } from 'date-fns';
+import uuid from 'react-native-uuid';
 
 export const getTimeStamp = () => getTime(new Date());
 
@@ -12,3 +13,5 @@ export const timeout = <T>(p: Promise<T>, ms: number) =>
     setTimeout(() => reject(new Error('Timeout')), ms);
     p.then((value) => resolve(value)).catch((err) => reject(err));
   });
+
+export const generateUUID = () => uuid.v4() as string;

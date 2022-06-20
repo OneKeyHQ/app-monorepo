@@ -99,7 +99,8 @@ export class KeyringHd extends KeyringHdBase {
         [firstAddressRelPath],
       );
       const name =
-        (names || [])[index] || `${namePrefix} #${usedIndexes[index] + 1}`;
+        (names || [])[index - (ignoreFirst ? 1 : 0)] ||
+        `${namePrefix} #${usedIndexes[index] + 1}`;
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,

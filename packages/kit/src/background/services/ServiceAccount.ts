@@ -208,7 +208,8 @@ class ServiceAccount extends ServiceBase {
     walletId: string,
     networkId: string,
     index?: number[],
-    name?: string[],
+    names?: string[],
+    purpose?: number,
   ) {
     const { engine, dispatch } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts(
@@ -216,7 +217,8 @@ class ServiceAccount extends ServiceBase {
       walletId,
       networkId,
       index,
-      name,
+      names,
+      purpose,
     );
 
     if (!accounts.length) return;
@@ -323,28 +325,17 @@ class ServiceAccount extends ServiceBase {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     const networkId = appSelector((s) => s.general.activeNetworkId);
-    const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
-    let wallet = null;
+    // const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
     let account = null;
 
-    await engine.upsertDevice(features, connectId);
-    const deviceId = features.onekey_serial ?? features.serial_no ?? '';
+    // await engine.upsertDevice(features, connectId);
+    // const deviceId = features.onekey_serial ?? features.serial_no ?? '';
 
-    // ignore duplicate wallet toast when current hardware does not have accounts.
-    const walletExistButNoAccount = wallets.find((w) => {
-      const targetWallet = w.associatedDevice === deviceId;
-      if (!targetWallet) return false;
-      if (!w.accounts.length) return true;
-      return false;
+    const wallet = await engine.createHWWallet({
+      avatar: avatar ?? randomAvatar(),
+      features,
+      connectId,
     });
-    if (walletExistButNoAccount) {
-      wallet = walletExistButNoAccount;
-    } else {
-      wallet = await engine.createHWWallet({
-        avatar: avatar ?? randomAvatar(),
-        features,
-      });
-    }
 
     const accounts = await engine.addHdOrHwAccounts(
       'Undefined',

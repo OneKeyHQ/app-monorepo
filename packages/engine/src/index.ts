@@ -19,12 +19,14 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
-import { Features } from '@onekeyhq/kit/src/utils/hardware';
+import { getDeviceType, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
+import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import {
+  COINTYPE_BTC,
   IMPL_BTC,
   IMPL_EVM,
   IMPL_NEAR,
@@ -368,10 +370,12 @@ class Engine {
     name,
     avatar,
     features,
+    connectId,
   }: {
     name?: string;
     avatar?: Avatar;
     features: IOneKeyDeviceFeatures;
+    connectId: string;
   }): Promise<Wallet> {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
@@ -383,12 +387,26 @@ class Engine {
         message: 'Hardware wallet not initialized.',
       });
     }
-    const id = features.onekey_serial ?? features.serial_no ?? '';
+    const id = generateUUID();
+    const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     if (id.length === 0) {
       throw new OneKeyInternalError('Bad device identity.');
     }
-    const walletName = name ?? features.ble_name ?? `OneKey ${id.slice(-4)}`;
-    return this.dbApi.addHWWallet({ id, name: walletName, avatar });
+    const deviceId = features.device_id ?? '';
+    const deviceType = getDeviceType(features);
+    const deviceUUID = getDeviceUUID(features);
+    const walletName =
+      name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
+    return this.dbApi.addHWWallet({
+      id,
+      name: walletName,
+      avatar,
+      deviceId,
+      deviceType,
+      deviceUUID,
+      connectId,
+      features: JSON.stringify(features),
+    });
   }
 
   @backgroundMethod()
@@ -815,12 +833,41 @@ class Engine {
   }
 
   @backgroundMethod()
-  removeAccount(accountId: string, password: string): Promise<void> {
+  async removeAccount(accountId: string, password: string): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
+    const walletId = getWalletIdFromAccountId(accountId);
+    const [wallet, dbAccount] = await Promise.all([
+      this.getWallet(walletId),
+      this.dbApi.getAccount(accountId),
+    ]);
+    let rollbackNextAccountIds: Record<string, number> = {};
+
+    if (dbAccount.coinType === COINTYPE_BTC && dbAccount.path.length > 0) {
+      const components = dbAccount.path.split('/');
+      const nextAccountCategory = `${components[1]}/${components[2]}`;
+      const index = parseInt(components[3].slice(0, -1)); // remove the "'" suffix
+      if (wallet.nextAccountIds[nextAccountCategory] === index + 1) {
+        // Removing the last account, may need to roll back next account id.
+        rollbackNextAccountIds = { [nextAccountCategory]: index };
+        try {
+          const vault = await this.getChainOnlyVault('btc--0');
+          const accountUsed = await vault.checkAccountExistence(
+            (dbAccount as DBUTXOAccount).xpub,
+          );
+          if (accountUsed) {
+            // The account being deleted is used, no need to rollback.
+            rollbackNextAccountIds = {};
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
     return this.dbApi.removeAccount(
       getWalletIdFromAccountId(accountId),
       accountId,
       password,
+      rollbackNextAccountIds,
     );
   }
 
@@ -1805,23 +1852,6 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
-  }
-
-  /**
-   * store device info
-   * @param features
-   * @param mac the identifier of the device(mac address if android, uuid if ios)
-   * @returns
-   */
-  @backgroundMethod()
-  upsertDevice(features: Features, mac: string): Promise<void> {
-    const id = features.onekey_serial ?? features.serial_no ?? '';
-    if (id.length === 0 || mac.length === 0) {
-      throw new OneKeyInternalError('Bad device identity.');
-    }
-    const name =
-      features.ble_name ?? features.label ?? `OneKey ${id.slice(-4)}`;
-    return this.dbApi.upsertDevice(id, name, mac, JSON.stringify(features));
   }
 }
 

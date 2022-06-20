@@ -15,10 +15,7 @@ import type { TBottomBarModalProps } from '../BottomTabs/types';
 
 const BottomBarModal = forwardRef<BottomSheet, TBottomBarModalProps>(
   ({ onOpen, onClose, ...props }, ref) => {
-    const [inactiveFontColor, sheetBgColor] = useThemeValue([
-      'text-default',
-      'background-default',
-    ]);
+    const [sheetBgColor] = useThemeValue(['background-default']);
 
     const handleSheetChanges = useCallback(
       (from: number) => {
@@ -63,6 +60,7 @@ const BottomBarModal = forwardRef<BottomSheet, TBottomBarModalProps>(
           {props.foldableList.map((foldable, index) => (
             <Pressable
               key={index}
+              disabled={foldable.disabled}
               onPress={() => {
                 foldable.onPress();
                 props.handleClose();
@@ -76,19 +74,37 @@ const BottomBarModal = forwardRef<BottomSheet, TBottomBarModalProps>(
             >
               <Box display="flex" flexDirection="column">
                 <Box display="flex" flexDirection="row" alignItems="center">
-                  <Box p={3} rounded="full" bgColor="interactive-default">
+                  <Box
+                    p={3}
+                    rounded="full"
+                    bg={
+                      foldable.disabled
+                        ? 'surface-neutral-subdued'
+                        : 'interactive-default'
+                    }
+                  >
                     <Icon
                       name={foldable?.tabBarIcon?.() as ICON_NAMES}
-                      color="icon-on-primary"
+                      color={
+                        foldable.disabled ? 'icon-disabled' : 'icon-on-primary'
+                      }
                       size={20}
                     />
                   </Box>
 
                   <Box ml={4}>
-                    <Typography.Heading color={inactiveFontColor}>
+                    <Typography.Heading
+                      color={
+                        foldable.disabled ? 'text-disabled' : 'text-default'
+                      }
+                    >
                       {foldable.tabBarLabel}
                     </Typography.Heading>
-                    <Typography.Body2 color="text-subdued">
+                    <Typography.Body2
+                      color={
+                        foldable.disabled ? 'text-disabled' : 'text-subdued'
+                      }
+                    >
                       {foldable.description}
                     </Typography.Body2>
                   </Box>

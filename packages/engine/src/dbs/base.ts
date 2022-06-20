@@ -5,6 +5,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { IDeviceType } from '@onekeyfe/hd-core';
 
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 
@@ -63,6 +64,11 @@ type CreateHWWalletParams = {
   id: string;
   name: string;
   avatar?: Avatar;
+  connectId: string;
+  deviceId?: string;
+  deviceType: IDeviceType;
+  deviceUUID: string;
+  features: string;
 };
 
 type SetWalletNameAndAvatarParams = {
@@ -142,6 +148,7 @@ interface DBAPI {
     walletId: string,
     accountId: string,
     password: string,
+    rollbackNextAccountIds: Record<string, number>,
   ): Promise<void>;
   setAccountName(accountId: string, name: string): Promise<DBAccount>;
   addAccountAddress(
@@ -169,12 +176,6 @@ interface DBAPI {
     contract?: string,
     before?: number,
   ): Promise<Array<HistoryEntry>>;
-  upsertDevice(
-    id: string,
-    name: string,
-    mac: string,
-    features: string,
-  ): Promise<void>;
   getDevices(): Promise<Array<Device>>;
   getDevice(deviceId: string): Promise<Device>;
 }
