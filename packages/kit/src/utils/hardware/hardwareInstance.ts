@@ -1,13 +1,13 @@
 import { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 
+import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/kit/src/config';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line import/no-mutable-exports
 let HardwareSDK: CoreApi;
 let initialized = false;
 
-const ConnectSrc =
-  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://hardware-sdk.onekey.so/';
+const ConnectSrc = HARDWARE_SDK_IFRAME_SRC || 'https://hardware-sdk.onekey.so/';
 
 // eslint-disable-next-line no-async-promise-executor
 const promise: Promise<CoreApi> = new Promise(async (resolve) => {
