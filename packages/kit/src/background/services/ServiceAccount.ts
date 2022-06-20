@@ -208,7 +208,8 @@ class ServiceAccount extends ServiceBase {
     walletId: string,
     networkId: string,
     index?: number[],
-    name?: string[],
+    names?: string[],
+    purpose?: number,
   ) {
     const { engine, dispatch } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts(
@@ -216,7 +217,8 @@ class ServiceAccount extends ServiceBase {
       walletId,
       networkId,
       index,
-      name,
+      names,
+      purpose,
     );
 
     if (!accounts.length) return;

@@ -40,7 +40,7 @@ const RecoverConfirm: FC = () => {
   const { serviceAccount } = backgroundApiProxy;
 
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network } = route.params;
+  const { accounts, walletId, network, purpose } = route.params;
   const [flatListData, updateFlatListData] = useState<FlatDataType[]>(accounts);
   const [isVaild, setIsVaild] = useState(true);
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -54,6 +54,8 @@ const RecoverConfirm: FC = () => {
       walletId,
       network,
       selectedIndexes,
+      undefined,
+      purpose,
     );
 
     if (navigation.canGoBack()) {

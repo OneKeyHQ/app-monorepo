@@ -98,7 +98,7 @@ const RecoverAccounts: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const route = useRoute<RouteProps>();
-  const { password, walletId, network } = route.params;
+  const { password, walletId, network, purpose } = route.params;
   const [currentPage, setCurrentPage] = useState(0);
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -127,7 +127,7 @@ const RecoverAccounts: FC = () => {
       const limit = 10;
       const start = page * limit;
       backgroundApiProxy.engine
-        .searchHDAccounts(walletId, network, password, start, limit)
+        .searchHDAccounts(walletId, network, password, start, limit, purpose)
         .then((accounts) => {
           if (currentPage === 0) {
             setPageStatus(accounts.length > 0 ? 'data' : 'empty');
@@ -158,6 +158,7 @@ const RecoverAccounts: FC = () => {
       walletId,
       intl,
       navigation,
+      purpose,
     ],
   );
 
@@ -227,6 +228,7 @@ const RecoverAccounts: FC = () => {
           ],
           walletId,
           network,
+          purpose,
         });
       }}
       primaryActionProps={{

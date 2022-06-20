@@ -1,26 +1,37 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useCallback, useEffect, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Modal, useForm, useToast } from '@onekeyhq/components';
+import {
+  Alert,
+  Box,
+  Form,
+  Modal,
+  Typography,
+  useForm,
+  useToast,
+} from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 type PrivateKeyFormValues = {
   network: string;
   name: string;
+  addressType: string;
 };
 
 type CreateAccountProps = {
@@ -38,12 +49,16 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const toast = useToast();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
-    useForm<PrivateKeyFormValues>({ defaultValues: { name: '' } });
+    useForm<PrivateKeyFormValues>({
+      defaultValues: { name: '', addressType: 'default' },
+    });
   const { activeNetworkId } = useGeneral();
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { wallets, networks } = useRuntime();
+
+  const isSmallScreen = useIsVerticalLayout();
 
   const {
     walletId: selectedWalletId,
@@ -65,39 +80,97 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const selectableNetworks = networks
-    .filter((network) => {
-      if (wallet?.type === 'hw') {
-        return network.settings.hardwareAccountEnabled;
-      }
-      if (wallet?.type === 'imported') {
-        return network.settings.importedAccountEnabled;
-      }
-      if (wallet?.type === 'watching') {
-        return network.settings.watchingAccountEnabled;
-      }
-      return true;
-    })
-    .map((network) => network.id);
-  const isSmallScreen = useIsVerticalLayout();
-
-  useEffect(() => {
-    const selectedNetwork = networks?.find(
-      (n) =>
-        n.id ===
-        (selectableNetworks.includes(watchNetwork)
-          ? watchNetwork
-          : selectableNetworks[0]),
-    );
-
+  const watchAddressType = watch('addressType');
+  const selectableNetworks = useMemo(
+    () =>
+      networks
+        .filter((network) => {
+          if (wallet?.type === 'hw') {
+            return network.settings.hardwareAccountEnabled;
+          }
+          if (wallet?.type === 'imported') {
+            return network.settings.importedAccountEnabled;
+          }
+          if (wallet?.type === 'watching') {
+            return network.settings.watchingAccountEnabled;
+          }
+          return true;
+        })
+        .map((network) => network.id),
+    [networks, wallet],
+  );
+  const selectedNetwork = useMemo(
+    () =>
+      networks?.find(
+        ({ id }) =>
+          id ===
+          (selectableNetworks.includes(watchNetwork)
+            ? watchNetwork
+            : selectableNetworks[0]),
+      ),
+    [networks, selectableNetworks, watchNetwork],
+  );
+  const [purpose, setPurpose] = useState(44);
+  const [cannotCreateAccountReason, setCannotCreateAccountReason] =
+    useState('');
+  const addressTypeOptions = useMemo(() => {
+    const ret = [];
     if (selectedNetwork) {
-      const { prefix, category } = selectedNetwork.accountNameInfo.default;
-      if (typeof prefix !== 'undefined') {
-        const id = wallet?.nextAccountIds?.[category] || 0;
-        setValue('name', `${prefix} #${id + 1}`);
+      for (const [key, value] of Object.entries(
+        selectedNetwork.accountNameInfo,
+      )) {
+        ret.push({ label: value.label || '', value: key });
       }
     }
-  }, [wallet, networks, watchNetwork, selectableNetworks, setValue]);
+    return ret.length > 1 ? ret : [];
+  }, [selectedNetwork]);
+
+  useEffect(() => {
+    async function setNameAndCheck() {
+      if (selectedNetwork) {
+        const { prefix, category } =
+          selectedNetwork.accountNameInfo[watchAddressType] ||
+          selectedNetwork.accountNameInfo.default;
+        if (typeof prefix !== 'undefined') {
+          const id = wallet?.nextAccountIds?.[category] || 0;
+          setValue('name', `${prefix} #${id + 1}`);
+          const usedPurpose = parseInt(category.split("'/")[0]);
+          setPurpose(usedPurpose);
+          try {
+            await backgroundApiProxy.validator.validateCanCreateNextAccount(
+              selectedWalletId,
+              selectedNetwork.id,
+              usedPurpose,
+            );
+            setCannotCreateAccountReason('');
+          } catch ({ key, info }) {
+            setCannotCreateAccountReason(
+              intl.formatMessage({ id: key as any }, info as any),
+            );
+          }
+          return;
+        }
+      }
+      setCannotCreateAccountReason(
+        intl.formatMessage({ id: 'msg__unknown_error' }),
+      );
+    }
+
+    setNameAndCheck();
+  }, [
+    intl,
+    wallet,
+    selectedWalletId,
+    selectedNetwork,
+    watchAddressType,
+    setValue,
+    setPurpose,
+  ]);
+
+  const addressTypeHelpLink = useHelpLink({ path: 'articles/360002057776' });
+  const onAddressTypeHelpLinkPressed = useCallback(() => {
+    openUrl(addressTypeHelpLink);
+  }, [addressTypeHelpLink]);
 
   const authenticationDone = useCallback(
     (password: string) => {
@@ -106,7 +179,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       onLoadingAccount?.(network);
       setTimeout(() => {
         serviceAccount
-          .addHDAccounts(password, selectedWalletId, network, undefined, [name])
+          .addHDAccounts(
+            password,
+            selectedWalletId,
+            network,
+            undefined,
+            [name],
+            purpose,
+          )
           .catch((e) => {
             console.error(e);
             const errorKey = (e as { key: LocaleIds }).key;
@@ -121,7 +201,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       navigation.getParent()?.goBack?.();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [toast, getValues, selectedWalletId, dispatch, intl, networks],
+    [toast, getValues, selectedWalletId, purpose, dispatch, intl, networks],
   );
 
   const onSubmit = handleSubmit(() => {
@@ -136,7 +216,10 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={`${intl.formatMessage({ id: 'wallet__wallet' })}`}
       onClose={onClose}
-      primaryActionProps={{ onPromise: onSubmit }}
+      primaryActionProps={{
+        onPromise: onSubmit,
+        isDisabled: !!cannotCreateAccountReason,
+      }}
       primaryActionTranslationId="action__create"
       hideSecondaryAction
       scrollViewProps={{
@@ -165,6 +248,31 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             >
               <Form.Input size={isSmallScreen ? 'xl' : 'default'} />
             </Form.Item>
+            {addressTypeOptions.length <= 1 ? undefined : (
+              <Form.Item
+                name="addressType"
+                label={intl.formatMessage({ id: 'form__address_type_label' })}
+                control={control}
+                labelAddon={
+                  <Pressable
+                    color="text-subdued"
+                    _hover={{ color: 'text-default' }}
+                    onPress={onAddressTypeHelpLinkPressed}
+                  >
+                    <Typography.Body2Strong underline>
+                      Learn More
+                    </Typography.Body2Strong>
+                  </Pressable>
+                }
+              >
+                <Form.Select
+                  headerShown={false}
+                  footer={null}
+                  defaultValue="default"
+                  options={addressTypeOptions}
+                />
+              </Form.Item>
+            )}
             <Box alignItems="center">
               <Text
                 typography={{ sm: 'Body1', md: 'Body2' }}
@@ -184,7 +292,12 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                         const network = getValues('network');
                         navigation.navigate(
                           CreateAccountModalRoutes.RecoverAccountsList,
-                          { walletId: selectedWalletId, network, password },
+                          {
+                            walletId: selectedWalletId,
+                            network,
+                            password,
+                            purpose,
+                          },
                         );
                       },
                     },
@@ -201,6 +314,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                 </Text>
               </Pressable>
             </Box>
+            {cannotCreateAccountReason.length === 0 ? undefined : (
+              <Alert
+                title={cannotCreateAccountReason}
+                dismiss={false}
+                alertType="info"
+              />
+            )}
           </Form>
         ),
       }}

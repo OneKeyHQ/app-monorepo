@@ -24,6 +24,7 @@ import type { EdgeInsets } from 'react-native-safe-area-context';
 export type TBottomBarFoldableItem<T = any> = {
   name: T;
   foldable: boolean;
+  disabled: boolean;
   component: () => null;
   onPress: () => void;
   tabBarLabel: string;

@@ -21,7 +21,7 @@ export function getAccountDefaultByPurpose(purpose: number): IAccountDefault {
       };
     case 84:
       return {
-        namePrefix: 'BTC SegWit',
+        namePrefix: 'BTC Native SegWit',
         addressEncoding: AddressEncodings.P2WPKH,
       };
     default:
