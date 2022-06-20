@@ -19,7 +19,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/kit/src/background/decorators';
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
-import { Features } from '@onekeyhq/kit/src/utils/hardware';
+import { getDeviceType, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
+import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -369,10 +370,12 @@ class Engine {
     name,
     avatar,
     features,
+    connectId,
   }: {
     name?: string;
     avatar?: Avatar;
     features: IOneKeyDeviceFeatures;
+    connectId: string;
   }): Promise<Wallet> {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
@@ -384,12 +387,26 @@ class Engine {
         message: 'Hardware wallet not initialized.',
       });
     }
-    const id = features.onekey_serial ?? features.serial_no ?? '';
+    const id = generateUUID();
+    const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     if (id.length === 0) {
       throw new OneKeyInternalError('Bad device identity.');
     }
-    const walletName = name ?? features.ble_name ?? `OneKey ${id.slice(-4)}`;
-    return this.dbApi.addHWWallet({ id, name: walletName, avatar });
+    const deviceId = features.device_id ?? '';
+    const deviceType = getDeviceType(features);
+    const deviceUUID = getDeviceUUID(features);
+    const walletName =
+      name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
+    return this.dbApi.addHWWallet({
+      id,
+      name: walletName,
+      avatar,
+      deviceId,
+      deviceType,
+      deviceUUID,
+      connectId,
+      features: JSON.stringify(features),
+    });
   }
 
   @backgroundMethod()
@@ -1835,23 +1852,6 @@ class Engine {
     this.dbApi = new DbApi() as DBAPI;
     this.validator.dbApi = this.dbApi;
     return Promise.resolve();
-  }
-
-  /**
-   * store device info
-   * @param features
-   * @param mac the identifier of the device(mac address if android, uuid if ios)
-   * @returns
-   */
-  @backgroundMethod()
-  upsertDevice(features: Features, mac: string): Promise<void> {
-    const id = features.onekey_serial ?? features.serial_no ?? '';
-    if (id.length === 0 || mac.length === 0) {
-      throw new OneKeyInternalError('Bad device identity.');
-    }
-    const name =
-      features.ble_name ?? features.label ?? `OneKey ${id.slice(-4)}`;
-    return this.dbApi.upsertDevice(id, name, mac, JSON.stringify(features));
   }
 }
 

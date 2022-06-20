@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import WalletAvatar from './WalletAvatar';
 
@@ -93,7 +94,10 @@ const AccountSelectorTrigger: FC<Props> = ({
         >
           <WalletAvatar
             walletImage={wallet.type}
-            hwWalletType={getDeviceTypeByDeviceId(wallet.associatedDevice)}
+            hwWalletType={
+              (wallet.deviceType as IOneKeyDeviceType) ||
+              getDeviceTypeByDeviceId(wallet.associatedDevice)
+            }
             avatar={wallet.avatar}
             size="sm"
             mr={3}
