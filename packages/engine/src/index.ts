@@ -25,6 +25,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import {
+  COINTYPE_BTC,
   IMPL_BTC,
   IMPL_EVM,
   IMPL_NEAR,
@@ -815,12 +816,41 @@ class Engine {
   }
 
   @backgroundMethod()
-  removeAccount(accountId: string, password: string): Promise<void> {
+  async removeAccount(accountId: string, password: string): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
+    const walletId = getWalletIdFromAccountId(accountId);
+    const [wallet, dbAccount] = await Promise.all([
+      this.getWallet(walletId),
+      this.dbApi.getAccount(accountId),
+    ]);
+    let rollbackNextAccountIds: Record<string, number> = {};
+
+    if (dbAccount.coinType === COINTYPE_BTC && dbAccount.path.length > 0) {
+      const components = dbAccount.path.split('/');
+      const nextAccountCategory = `${components[1]}/${components[2]}`;
+      const index = parseInt(components[3].slice(0, -1)); // remove the "'" suffix
+      if (wallet.nextAccountIds[nextAccountCategory] === index + 1) {
+        // Removing the last account, may need to roll back next account id.
+        rollbackNextAccountIds = { [nextAccountCategory]: index };
+        try {
+          const vault = await this.getChainOnlyVault('btc--0');
+          const accountUsed = await vault.checkAccountExistence(
+            (dbAccount as DBUTXOAccount).xpub,
+          );
+          if (accountUsed) {
+            // The account being deleted is used, no need to rollback.
+            rollbackNextAccountIds = {};
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
     return this.dbApi.removeAccount(
       getWalletIdFromAccountId(accountId),
       accountId,
       password,
+      rollbackNextAccountIds,
     );
   }
 

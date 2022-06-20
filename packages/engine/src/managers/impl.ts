@@ -88,7 +88,21 @@ const defaultAccountNameInfo: Record<
   [IMPL_STC]: { default: { prefix: 'STC', category: `44'/${COINTYPE_STC}'` } },
   [IMPL_CFX]: { default: { prefix: 'CFX', category: `44'/${COINTYPE_CFX}'` } },
   [IMPL_BTC]: {
-    default: { prefix: 'BTC Nested SegWit', category: `49'/${COINTYPE_BTC}'` },
+    default: {
+      prefix: 'BTC Nested SegWit',
+      category: `49'/${COINTYPE_BTC}'`,
+      label: 'Nested SegWit (P2SH)',
+    },
+    BIP44: {
+      prefix: 'BTC Legacy',
+      category: `44'/${COINTYPE_BTC}'`,
+      label: 'Legacy (P2PKH)',
+    },
+    BIP84: {
+      prefix: 'BTC Native SegWit',
+      category: `84'/${COINTYPE_BTC}'`,
+      label: 'Native SegWit',
+    },
   },
 };
 

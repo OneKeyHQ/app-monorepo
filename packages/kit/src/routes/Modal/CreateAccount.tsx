@@ -34,6 +34,7 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     network: string;
     password: string;
+    purpose: number;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirm]: {
     accounts: (ImportableHDAccount & {
@@ -42,6 +43,7 @@ export type CreateAccountRoutesParams = {
     })[];
     walletId: string;
     network: string;
+    purpose: number;
   };
   [CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication]: {
     walletId: string;
