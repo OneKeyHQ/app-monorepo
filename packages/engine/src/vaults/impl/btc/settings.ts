@@ -1,5 +1,3 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = {
@@ -8,7 +6,7 @@ const settings: IVaultSettings = {
   tokenEnabled: false,
 
   importedAccountEnabled: true,
-  hardwareAccountEnabled: !platformEnv.isNative,
+  hardwareAccountEnabled: true,
   watchingAccountEnabled: true,
 };
 
