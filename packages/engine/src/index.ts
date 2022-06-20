@@ -13,7 +13,6 @@ import { baseDecode } from 'borsh';
 import bs58check from 'bs58check';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   backgroundClass,
@@ -21,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/background/decorators';
 import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { getDeviceType, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
+import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -386,7 +386,7 @@ class Engine {
         message: 'Hardware wallet not initialized.',
       });
     }
-    const id = uuidv4();
+    const id = generateUUID();
     const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     if (id.length === 0) {
       throw new OneKeyInternalError('Bad device identity.');

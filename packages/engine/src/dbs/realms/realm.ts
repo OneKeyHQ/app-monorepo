@@ -67,7 +67,7 @@ import {
 } from './schemas';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -952,6 +952,28 @@ class RealmDB implements DBAPI {
     features,
   }: CreateHWWalletParams): Promise<Wallet> {
     try {
+      const walletId = `hw-${id}`;
+
+      const wallets = await this.getWallets();
+      const devices = await this.getDevices();
+
+      const hasExistWallet = wallets.some((w) => {
+        if (w.associatedDevice) {
+          const device = devices.find((d) => d.id === w.associatedDevice);
+          if (device) {
+            return device.deviceId === deviceId && device.uuid === deviceUUID;
+          }
+          return false;
+        }
+        return false;
+      });
+
+      if (hasExistWallet) {
+        throw new OneKeyInternalError(
+          `Hardware Wallet ${walletId} already exists.`,
+        );
+      }
+
       await this.insertDevice(
         id,
         name,
@@ -969,7 +991,6 @@ class RealmDB implements DBAPI {
       if (typeof foundDevice === 'undefined') {
         throw new OneKeyInternalError(`Device ${id} not found.`);
       }
-      const walletId = `hw-${id}`;
       let wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
         walletId,
