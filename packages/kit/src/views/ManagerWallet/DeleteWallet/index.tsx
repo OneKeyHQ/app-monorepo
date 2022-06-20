@@ -8,7 +8,8 @@ import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/Foot
 
 export type DeleteWalletProp = {
   walletId: string;
-  password: string;
+  password: string | undefined;
+  hardware?: boolean;
 };
 
 type ManagerWalletDeleteDialogProps = {
@@ -26,7 +27,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const toast = useToast();
   const { engine, serviceAccount } = backgroundApiProxy;
 
-  const { walletId, password } = deleteWallet ?? {};
+  const { walletId, password, hardware } = deleteWallet ?? {};
   const [isLoading, setIsLoading] = React.useState(false);
 
   return (
@@ -40,7 +41,9 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
           id: 'action__delete_wallet',
         }),
         content: intl.formatMessage({
-          id: 'dialog__delete_wallet_desc',
+          id: hardware
+            ? 'dialog__delete_hardware_wallet_desc'
+            : 'dialog__delete_wallet_desc',
         }),
       }}
       footerButtonProps={{

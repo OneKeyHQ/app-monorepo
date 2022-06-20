@@ -32,11 +32,13 @@ type PrefLink = Record<
 const titleIds: PrefContent = {
   camera: 'modal__camera_access_not_granted',
   bluetooth: 'modal__bluetooth_access_not_granted',
+  location: 'modal__location_access_not_granted',
 };
 
 const contentIds: PrefContent = {
   camera: 'modal__camera_access_not_granted_desc',
   bluetooth: 'modal__bluetooth_access_not_granted_desc',
+  location: 'modal__location_access_not_granted_use_bluetooth_desc',
 };
 
 const linkMap: PrefLink = {
@@ -44,6 +46,10 @@ const linkMap: PrefLink = {
   bluetooth: {
     iOS: 'App-Prefs:Bluetooth',
     android: IntentLauncher.ActivityAction.BLUETOOTH_SETTINGS,
+    desktop: null,
+  },
+  location: {
+    android: undefined,
     desktop: null,
   },
 };

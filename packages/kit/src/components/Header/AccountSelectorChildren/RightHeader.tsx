@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey';
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
@@ -87,6 +88,16 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
 
   const onDeleteWallet = () => {
+    if (selectedWallet?.type === 'hw') {
+      setDeleteWallet({
+        walletId: selectedWallet?.id ?? '',
+        password: undefined,
+        hardware: true,
+      });
+      setTimeout(() => setShowDeleteWalletDialog(true), 500);
+      return;
+    }
+
     if (selectedWallet?.backuped === true) {
       showVerify(
         (pwd) => {
@@ -189,7 +200,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             )}
           />
         ) : null}
-        {/* {['hw'].includes(selectedWallet?.type ?? '') ? (
+        {['hw'].includes(selectedWallet?.type ?? '') ? (
           <Select
             onChange={(_value) => {
               switch (_value) {
@@ -228,13 +239,13 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
             dropdownPosition="right"
             activatable={false}
             options={[
-              {
-                label: intl.formatMessage({ id: 'action__edit' }),
-                value: 'rename',
-                iconProps: {
-                  name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
-                },
-              },
+              // {
+              //   label: intl.formatMessage({ id: 'action__edit' }),
+              //   value: 'rename',
+              //   iconProps: {
+              //     name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+              //   },
+              // },
               {
                 label: intl.formatMessage({
                   id: 'action__view_device_details',
@@ -268,7 +279,7 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
               />
             )}
           />
-        ) : null} */}
+        ) : null}
       </HStack>
       <ManagerWalletDeleteDialog
         visible={showDeleteWalletDialog}
