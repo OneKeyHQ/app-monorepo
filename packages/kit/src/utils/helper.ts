@@ -14,4 +14,4 @@ export const timeout = <T>(p: Promise<T>, ms: number) =>
     p.then((value) => resolve(value)).catch((err) => reject(err));
   });
 
-export const generateUUID = () => uuid.v4();
+export const generateUUID = () => uuid.v4() as string;
