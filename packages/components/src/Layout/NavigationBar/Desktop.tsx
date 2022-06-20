@@ -26,9 +26,10 @@ const Sidebar: FC<BottomTabBarProps> = ({
 }) => {
   const { routes } = state;
 
-  const [activeFontColor, inactiveFontColor] = useThemeValue([
+  const [activeFontColor, inactiveFontColor, textDisabled] = useThemeValue([
     'text-default',
     'text-subdued',
+    'text-disabled',
   ]);
 
   const tabs = useMemo(
@@ -106,6 +107,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
       ...tabs.slice(0, swapIndex),
       foldableList.map((foldable) => (
         <Pressable
+          disabled={foldable.disabled}
           key={foldable.name}
           onPress={foldable.onPress}
           _hover={{ bg: 'surface-hovered' }}
@@ -116,11 +118,14 @@ const Sidebar: FC<BottomTabBarProps> = ({
             <Box display="flex" flexDirection="row" alignItems="center">
               <Icon
                 name={foldable?.tabBarIcon?.() as ICON_NAMES}
-                color="icon-default"
+                color={foldable.disabled ? 'icon-disabled' : 'icon-default'}
                 size={24}
               />
 
-              <Typography.Body2Strong ml="3" color={inactiveFontColor}>
+              <Typography.Body2Strong
+                ml="3"
+                color={foldable.disabled ? textDisabled : inactiveFontColor}
+              >
                 {foldable.tabBarLabel}
               </Typography.Body2Strong>
             </Box>
@@ -129,7 +134,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
       )),
       ...tabs.slice(swapIndex),
     ];
-  }, [tabs, foldableList, inactiveFontColor, routes]);
+  }, [tabs, foldableList, inactiveFontColor, routes, textDisabled]);
 
   return (
     <Box
