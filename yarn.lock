@@ -3471,10 +3471,10 @@
     mkdirp "^1.0.4"
     rimraf "^3.0.2"
 
-"@onekeyfe/blockchain-libs@^0.0.35":
-  version "0.0.35"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.35.tgz#5fc199424e64e93c7c9feddfa4aa6be572838c44"
-  integrity sha512-1xRPH5nU0q7s5jVFNsVqXdMbgfQmW3FNLgrLkhFujtyXqlkcJTyEKgwgqWV3dD/sW++DaSlQgM3GAnegdbsTOw==
+"@onekeyfe/blockchain-libs@^0.0.36":
+  version "0.0.36"
+  resolved "https://registry.yarnpkg.com/@onekeyfe/blockchain-libs/-/blockchain-libs-0.0.36.tgz#bb2a302ae94f6b8b58a99e092eb0d594c5501c23"
+  integrity sha512-lg+88AUO6srkkycghlI8q1xJE97glikFOke6LLxjDDyT3FJGvIEnAcv9MLmbEb9ZcHeESAn8fQq+WhJWBF188w==
   dependencies:
     "@conflux-dev/conflux-address-js" "^1.3.11"
     "@metamask/eth-sig-util" "^4.0.0"

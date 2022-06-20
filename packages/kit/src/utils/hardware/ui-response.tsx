@@ -1,10 +1,12 @@
 import React from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
+import { PermissionsAndroid } from 'react-native';
 
 import { DialogManager, ToastManager } from '@onekeyhq/components';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import deviceUtils from './deviceUtils';
 import { getHardwareSDKInstance } from './hardwareInstance';
@@ -67,10 +69,17 @@ export const UIResponse = async (event: any) => {
       ToastManager.hide();
       break;
     }
-
+    case UI_REQUEST.LOCATION_PERMISSION:
     case UI_REQUEST.BLUETOOTH_PERMISSION: {
-      if (!showPermissionDialog) {
-        showPermissionDialog = true;
+      if (showPermissionDialog) break;
+
+      showPermissionDialog = true;
+
+      const check = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+
+      if (check || platformEnv.isNativeIOS) {
         DialogManager.show({
           render: (
             <PermissionDialog
@@ -82,12 +91,28 @@ export const UIResponse = async (event: any) => {
             />
           ),
         });
+        return;
       }
-      break;
-    }
 
-    case UI_REQUEST.LOCATION_PERMISSION: {
-      // TODO: request location permission
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+
+      if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+        DialogManager.show({
+          render: (
+            <PermissionDialog
+              type="location"
+              onClose={() => {
+                navigationRef.current?.goBack?.();
+                showPermissionDialog = false;
+              }}
+            />
+          ),
+        });
+      } else {
+        showPermissionDialog = false;
+      }
       break;
     }
 
