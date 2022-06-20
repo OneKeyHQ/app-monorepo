@@ -115,18 +115,26 @@ const Protected: FC<ProtectedProps> = ({
         safeGoBack();
         return;
       }
-      const currentConnectDeviceUUID = getDeviceUUID(features);
-      const currentConnectDeviceID = features.device_id;
+      const connectDeviceUUID = getDeviceUUID(features);
+      const connectDeviceID = features.device_id;
 
       /**
-       * if current device is not same with current wallet device,
+       * New version of database, deviceId and uuid must be the same
        */
-      if (
-        (currentConnectDeviceID !== currentWalletDevice.deviceId &&
-          currentConnectDeviceUUID !== currentWalletDevice.uuid) ||
-        (!currentWalletDevice.deviceId &&
-          currentConnectDeviceUUID !== currentWalletDevice.id)
-      ) {
+      const diffDeviceIdAndUUID =
+        currentWalletDevice.deviceId && currentWalletDevice.uuid
+          ? connectDeviceID !== currentWalletDevice.deviceId ||
+            connectDeviceUUID !== currentWalletDevice.uuid
+          : false;
+
+      /**
+       * Older versions of the database, uuid must be the same as device.id
+       */
+      const diffDeviceUUIDWithoutDeviceId =
+        !currentWalletDevice.deviceId &&
+        connectDeviceUUID !== currentWalletDevice.id;
+
+      if (diffDeviceIdAndUUID || diffDeviceUUIDWithoutDeviceId) {
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__hardware_not_same' }),
         });
