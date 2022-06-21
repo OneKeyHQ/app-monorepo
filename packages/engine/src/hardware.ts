@@ -399,6 +399,7 @@ export async function getXpubs(
       });
     } else {
       response = await HardwareSDK.evmGetAddress(connectId, {
+        showOnOneKey: false,
         path: paths[0],
       });
     }
