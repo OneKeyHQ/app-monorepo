@@ -7,6 +7,7 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Center,
+  Divider,
   Empty,
   FlatList,
   Icon,
@@ -15,6 +16,7 @@ import {
   Spinner,
   Typography,
   useLocale,
+  useTheme,
 } from '@onekeyhq/components';
 import IconHistory from '@onekeyhq/kit/assets/3d_transaction_history.png';
 import IconWifi from '@onekeyhq/kit/assets/3d_wifi.png';
@@ -57,6 +59,7 @@ const DiscoverNative: FC<DiscoverProps> = ({
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const { dispatch } = backgroundApiProxy;
   const [dappHistory, setDappHistory] = useState<MatchDAppItemType[]>([]);
+  const { themeVariant } = useTheme();
 
   useEffect(() => {
     const dappHistoryArray: MatchDAppItemType[] = [];
@@ -91,6 +94,9 @@ const DiscoverNative: FC<DiscoverProps> = ({
             height="220px"
             bgColor="surface-default"
             borderRadius="12px"
+            borderWidth={1}
+            borderColor="border-subdued"
+            overflow="hidden"
           >
             <Image
               width="100%"
@@ -153,6 +159,12 @@ const DiscoverNative: FC<DiscoverProps> = ({
             bgColor="surface-default"
             borderTopRadius={index === 0 ? '12px' : '0px'}
             borderRadius={index === dappHistory.length - 1 ? '12px' : '0px'}
+            borderWidth={1}
+            borderColor={
+              themeVariant === 'light' ? 'border-subdued' : 'transparent'
+            }
+            borderTopWidth={index === 0 ? 1 : 0}
+            borderBottomWidth={index === dappHistory?.length - 1 ? 1 : 0}
           >
             <Box flexDirection="row" flex={1} alignItems="center">
               {(!!dappFavicon || item.dapp) && (
@@ -263,6 +275,7 @@ const DiscoverNative: FC<DiscoverProps> = ({
           renderItem={renderItem}
           keyExtractor={(item, index) => `Dapp history${item.id}${index}`}
           ListHeaderComponent={banner}
+          ItemSeparatorComponent={Divider}
           ListEmptyComponent={
             <Empty
               imageUrl={IconHistory}
