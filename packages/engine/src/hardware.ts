@@ -394,7 +394,7 @@ export async function getXpubs(
           /**
            * Search accounts not show detail at device.Only show on device when add accounts into wallet.
            */
-          showOnOneKey: type === 'ADD_ACCOUNTS',
+          showOnOneKey: false,
         })),
       });
     } else {

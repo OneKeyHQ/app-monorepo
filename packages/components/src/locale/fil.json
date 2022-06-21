@@ -598,6 +598,8 @@
   "modal__looking_for_devices": "Naghahanap ng Mga Device",
   "modal__looking_for_devices_desc": "Pakitiyak na naka-enable ang iyong Bluetooth.",
   "modal__looking_for_devices_result": "Natagpuan namin ang mga device na ito",
+  "modal__need_install_onekey_bridge": "Nangangailangan ng pag-install ng OneKey Bridge",
+  "modal__need_install_onekey_bridge_desc": "Kailangang i-download at i-install ng iyong computer ang OneKey Brigde upang magamit ang hardware device, ituloy mo ba at i-download ito?",
   "modal__no_response": "Walang tugon",
   "modal__no_response_desc": "Walang kumpirmasyon sa device.",
   "modal__onekey_lite_has_been_reset": "Na-reset ang OneKey Lite",
