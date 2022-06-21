@@ -14617,7 +14617,7 @@ jsbn@~0.1.0:
   resolved "https://registry.nlark.com/jsbn/download/jsbn-0.1.1.tgz#a5e654c2e5a2deb5f201d96cefbca80c0ef2f513"
   integrity sha1-peZUwuWi3rXyAdls77yoDA7y9RM=
 
-jsc-android@^250230.2.1:
+jsc-android@^250230.2.1, "jsc-android@npm:@onekeyfe/jsc-android":
   version "250230.2.1"
   resolved "https://registry.yarnpkg.com/@onekeyfe/jsc-android/-/jsc-android-250230.2.1.tgz#26917ac7e409642c00df70d4afb390ff708a91f1"
   integrity sha512-qZgN2vF/5O8PxC+5ivQL8H4nAPymXfCNtdMDV3nMqtqznWYtL0TwTdk6Ct2WdiOpIwE82klmbBzIlyUCQPYh2Q==
@@ -18650,10 +18650,10 @@ react-native-randombytes@^3.6.1:
     buffer "^4.9.1"
     sjcl "^1.0.3"
 
-"react-native-reanimated@npm:@onekeyfe/react-native-reanimated":
-  version "3.0.0-rc.0"
-  resolved "https://registry.yarnpkg.com/@onekeyfe/react-native-reanimated/-/react-native-reanimated-3.0.0-rc.0.tgz#53d980a6ee28f85be5bc604c495edfbea42d13d3"
-  integrity sha512-YcU9aYFA/faxW/i7g8cP4rLfg79H0ylq19+RwOaJX0n9OpOUV2ydzYuRFpF3N3H9maAWm4rRYvJyS82XzPqgEA==
+react-native-reanimated@^2.8.0:
+  version "2.8.0"
+  resolved "https://registry.yarnpkg.com/react-native-reanimated/-/react-native-reanimated-2.8.0.tgz#93c06ca84d91fb3865110b0857c49a24e316130e"
+  integrity sha512-kJvf/UWLBMaGCs9X66MKq5zdFMgwx8D0nHnolbHR7s8ZnbLdb7TlQ/yuzIXqn/9wABfnwtNRI3CyaP1aHWMmZg==
   dependencies:
     "@babel/plugin-transform-object-assign" "^7.16.7"
     "@babel/preset-typescript" "^7.16.7"
@@ -18755,11 +18755,6 @@ react-native-uuid@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/react-native-uuid/-/react-native-uuid-2.0.1.tgz#ed4e2dfb1683eddb66967eb5dca140dfe1abddb9"
   integrity sha512-cptnoIbL53GTCrWlb/+jrDC6tvb7ypIyzbXNJcpR3Vab0mkeaaVd5qnB3f0whXYzS+SMoSQLcUUB0gEWqkPC0g==
-
-react-native-v8@^1.4.1:
-  version "1.4.1"
-  resolved "https://registry.yarnpkg.com/react-native-v8/-/react-native-v8-1.4.1.tgz#52129a0f6c52d3fa3d392474b5d7ac6b2e6500e4"
-  integrity sha512-5HTfa8H4kK2xv1VunT5zZOJxiuPh12VdBoZEBO4i4TTWBNCtuB6VKmHFkAidKXEc8otH6JLYtgVdLe97qnS0mQ==
 
 react-native-vision-camera@^2.13.3:
   version "2.13.3"
@@ -22003,11 +21998,6 @@ uuid@^8.0.0, uuid@^8.3.0, uuid@^8.3.2:
   version "8.3.2"
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.3.2.tgz#80d5b5ced271bb9af6c445f21a1a04c606cefbe2"
   integrity sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==
-
-v8-android-jit@^10.100.0:
-  version "10.100.0"
-  resolved "https://registry.yarnpkg.com/v8-android-jit/-/v8-android-jit-10.100.0.tgz#7d939ce615b1e8457e5ff52056d01cb5a5bdcefa"
-  integrity sha512-jakoPAKXK6a/q7LFx2ZjrdcVfR0V4jXaoDAyrWOt3SiPQGL6uq+3tdyQxX6OdPqYrK8xz8HGjW4EhD9xY1fC1Q==
 
 v8-compile-cache@^2.0.3:
   version "2.3.0"
