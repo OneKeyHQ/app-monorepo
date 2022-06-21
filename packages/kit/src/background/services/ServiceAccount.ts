@@ -337,9 +337,8 @@ class ServiceAccount extends ServiceBase {
       connectId,
     });
 
-    const accounts = await engine.addHdOrHwAccounts(
-      'Undefined',
-      wallet.id,
+    const accounts = await engine.getAccounts(
+      wallet.accounts,
       networkId,
     );
 

@@ -397,7 +397,7 @@ class Engine {
     const deviceUUID = getDeviceUUID(features);
     const walletName =
       name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
-    return this.dbApi.addHWWallet({
+    const wallet = await this.dbApi.addHWWallet({
       id,
       name: walletName,
       avatar,
@@ -407,6 +407,13 @@ class Engine {
       connectId,
       features: JSON.stringify(features),
     });
+    await this.addHdOrHwAccounts('', wallet.id, 'evm--1').then(undefined, (e) =>
+      console.error(e),
+    );
+    await this.addHdOrHwAccounts('', wallet.id, 'btc--0').then(undefined, (e) =>
+      console.error(e),
+    );
+    return this.getWallet(wallet.id);
   }
 
   @backgroundMethod()
