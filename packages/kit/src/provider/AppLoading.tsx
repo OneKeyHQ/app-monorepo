@@ -1,7 +1,6 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { CoreApi } from '@onekeyfe/hd-core';
-import * as SplashScreen from 'expo-splash-screen';
 import useSWR from 'swr';
 
 import { Box, Center, Spinner, useThemeValue } from '@onekeyhq/components';
@@ -13,41 +12,34 @@ import {
   getHardwareSDKInstance,
 } from '@onekeyhq/kit/src/utils/hardware';
 
+import { useAppSelector } from '../hooks';
 import { fetchCurrencies } from '../views/FiatPay/Service';
 
-const AppLoading: FC = ({ children }) => {
-  const [appIsReady, setAppIsReady] = useState(false);
+const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
-  const { serviceApp, serviceCronJob } = backgroundApiProxy;
+const AppLoading: FC = ({ children }) => {
+  const [initDataReady, setInitDataReady] = useState(false);
+  // appRenderReady and splashscreen.hideAsync moved to AppLock.tsx
+  const isAppRenderReady = useAppSelector((s) => s.data.isAppRenderReady);
 
   useSWR('fiat-money', () => serviceCronJob.getFiatMoney(), {
     refreshInterval: 1 * 60 * 1000,
   });
 
-  useSWR('currencies', () => fetchCurrencies());
+  useSWR('currencies', fetchCurrencies);
 
-  const showSplashScreen = async () => {
-    try {
-      await SplashScreen.preventAutoHideAsync();
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  const initService = useCallback(async () => {
+  const initService = async () => {
     try {
       await serviceApp.initApp();
     } catch (e) {
       console.log(e);
     } finally {
-      setAppIsReady(true);
-      await SplashScreen.hideAsync();
+      setInitDataReady(true);
     }
-  }, [serviceApp]);
+  };
 
   useEffect(() => {
     async function main() {
-      await showSplashScreen();
       await waitForDataLoaded({
         logName: 'WaitBackgroundReady',
         data: async () => {
@@ -67,7 +59,7 @@ const AppLoading: FC = ({ children }) => {
       await initService();
     }
     main();
-  }, [initService]);
+  }, []);
 
   useEffect(() => {
     let HardwareSDK: CoreApi;
@@ -83,13 +75,12 @@ const AppLoading: FC = ({ children }) => {
   const bg = useThemeValue('background-default');
 
   return (
-    <Box flex={1}>
-      {!appIsReady ? (
-        <Center w="full" h="full" bg={bg}>
+    <Box flex={1} bg={bg}>
+      {initDataReady && children}
+      {!isAppRenderReady && (
+        <Center position="absolute" zIndex={1} w="full" h="full" bg={bg}>
           <Spinner />
         </Center>
-      ) : (
-        children
       )}
     </Box>
   );
