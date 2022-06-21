@@ -109,6 +109,7 @@ const ModalView: FC<ModalViewProps> = ({
                 }}
               >
                 <Form.Input
+                  size="lg"
                   placeholder={intl.formatMessage({
                     id: 'form__enter_address_name',
                   })}
