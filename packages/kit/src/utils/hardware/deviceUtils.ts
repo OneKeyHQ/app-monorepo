@@ -6,6 +6,7 @@ import {
   getDeviceType,
 } from '@onekeyfe/hd-core';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { getHardwareSDKInstance } from './hardwareInstance';
@@ -21,6 +22,11 @@ const MAX_SEARCH_TRY_COUNT = 15;
 const MAX_CONNECT_TRY_COUNT = 5;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
+
+export enum DeviceErrors {
+  ConnectTimeout = 'ConnectTimeout',
+  NeedOneKeyBridge = 'NeedOneKeyBridge',
+}
 
 class DeviceUtils {
   connectedDeviceType: IDeviceType = 'classic';
@@ -90,7 +96,7 @@ class DeviceUtils {
     return null;
   }
 
-  ensureConnected(connectId: string) {
+  async ensureConnected(connectId: string) {
     let tryCount = 0;
     const poll: IPollFn<Promise<IOneKeyDeviceFeatures>> = async (
       time = POLL_INTERVAL_RATE,
@@ -102,7 +108,7 @@ class DeviceUtils {
       }
 
       if (tryCount > MAX_CONNECT_TRY_COUNT) {
-        return Promise.reject();
+        return Promise.reject(DeviceErrors.ConnectTimeout);
       }
       return new Promise(
         (resolve: (p: Promise<IOneKeyDeviceFeatures>) => void) =>
@@ -110,7 +116,28 @@ class DeviceUtils {
       );
     };
 
+    const checkBridge = await this.checkBridge();
+    if (!checkBridge) {
+      return Promise.reject(DeviceErrors.NeedOneKeyBridge);
+    }
+
     return poll();
+  }
+
+  async checkBridge() {
+    if (!this._hasUseBridge()) {
+      return Promise.resolve(true);
+    }
+
+    const HardwareSDK = await this.getSDKInstance();
+    const transportRelease = await HardwareSDK?.checkTransportRelease();
+    return !!transportRelease.success;
+  }
+
+  _hasUseBridge() {
+    return (
+      platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension
+    );
   }
 }
 

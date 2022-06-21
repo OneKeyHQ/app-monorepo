@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
+  DialogManager,
   HStack,
   Icon,
   Image,
@@ -20,6 +21,7 @@ import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
+import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -64,9 +66,15 @@ const ConnectHardwareModal: FC = () => {
     deviceUtils.stopScan();
   }, []);
 
-  const handleScanDevice = useCallback(() => {
+  const handleScanDevice = useCallback(async () => {
     if (!deviceUtils) return;
     setIsSearching(true);
+
+    const checkBridge = await deviceUtils.checkBridge();
+    if (!checkBridge) {
+      DialogManager.show({ render: <NeedBridgeDialog /> });
+      return;
+    }
 
     deviceUtils.startDeviceScan((response) => {
       if (!response.success) {
