@@ -100,6 +100,7 @@ const RecoverAccounts: FC = () => {
   const route = useRoute<RouteProps>();
   const { password, walletId, network, purpose } = route.params;
   const [currentPage, setCurrentPage] = useState(0);
+  const [searchEnded, setSearchEnded] = useState(false);
   const [pageStatus, setPageStatus] = useState<PageStatusType>('loading');
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -132,6 +133,9 @@ const RecoverAccounts: FC = () => {
           if (currentPage === 0) {
             setPageStatus(accounts.length > 0 ? 'data' : 'empty');
           }
+          // For BIP-44 compliance, if number of accounts is less than that we
+          // required, stop searching for more accounts.
+          setSearchEnded(accounts.length < limit);
           updateFlatListData((prev) => [
             ...prev,
             ...accounts.map((item) => {
@@ -205,8 +209,10 @@ const RecoverAccounts: FC = () => {
   );
 
   useEffect(() => {
-    getData(currentPage);
-  }, [currentPage, getData]);
+    if (!searchEnded) {
+      getData(currentPage);
+    }
+  }, [currentPage, getData, searchEnded]);
 
   return (
     <Modal
@@ -245,11 +251,13 @@ const RecoverAccounts: FC = () => {
               renderItem,
               ItemSeparatorComponent: () => <Divider />,
               keyExtractor: (item) => (item as ImportableHDAccount).path,
-              ListFooterComponent: () => (
-                <Box pt="20px">
-                  <Spinner size="sm" />
-                </Box>
-              ),
+              ListFooterComponent: searchEnded
+                ? undefined
+                : () => (
+                    <Box pt="20px">
+                      <Spinner size="sm" />
+                    </Box>
+                  ),
               onEndReached: () => {
                 setCurrentPage((p) => p + 1);
               },
