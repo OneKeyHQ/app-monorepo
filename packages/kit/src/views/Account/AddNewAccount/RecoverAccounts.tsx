@@ -123,9 +123,9 @@ const RecoverAccounts: FC = () => {
   }, [network, wallet]);
 
   const getData = useCallback(
-    async (page: number) => {
+    async (page: number, pageSize: number) => {
       const activeAccounts = await getActiveAccount();
-      const limit = 10;
+      const limit = pageSize;
       const start = page * limit;
       backgroundApiProxy.engine
         .searchHDAccounts(walletId, network, password, start, limit, purpose)
@@ -208,11 +208,14 @@ const RecoverAccounts: FC = () => {
     [checkBoxOnChange, flatListData.length],
   );
 
+  const pageSize = 10;
+  const needGetMoreData =
+    flatListData.length <= currentPage * pageSize && !searchEnded;
   useEffect(() => {
-    if (!searchEnded) {
-      getData(currentPage);
+    if (needGetMoreData) {
+      getData(currentPage, pageSize);
     }
-  }, [currentPage, getData, searchEnded]);
+  }, [currentPage, getData, needGetMoreData]);
 
   return (
     <Modal
