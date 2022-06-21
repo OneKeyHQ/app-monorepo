@@ -6,6 +6,8 @@ import {
   getDeviceType,
 } from '@onekeyfe/hd-core';
 
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 /**
@@ -13,9 +15,10 @@ import { getHardwareSDKInstance } from './hardwareInstance';
  * so declare it here
  */
 
-type IPollFn = (time?: number) => void;
+type IPollFn<T> = (time?: number) => T;
 
 const MAX_SEARCH_TRY_COUNT = 15;
+const MAX_CONNECT_TRY_COUNT = 5;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
 
@@ -39,9 +42,10 @@ class DeviceUtils {
       callback(searchResponse);
 
       this.tryCount += 1;
+      return searchResponse;
     };
 
-    const poll: IPollFn = async (time = POLL_INTERVAL) => {
+    const poll: IPollFn<void> = async (time = POLL_INTERVAL) => {
       if (!this.scanning) {
         return;
       }
@@ -50,7 +54,11 @@ class DeviceUtils {
         return;
       }
 
-      await searchDevices();
+      const response = await searchDevices();
+
+      if (!response.success) {
+        return Promise.reject(response);
+      }
 
       return new Promise((resolve: (p: void) => void) =>
         setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
@@ -68,15 +76,13 @@ class DeviceUtils {
 
   async connect(connectId: string) {
     const result = await this.getFeatures(connectId);
-    if (result) {
-      this.connectedDeviceType = getDeviceType(result);
-    }
     return result !== null;
   }
 
   async getFeatures(connectId: string) {
     const HardwareSDK = await this.getSDKInstance();
     const response = await HardwareSDK?.getFeatures(connectId);
+
     if (response.success) {
       this.connectedDeviceType = getDeviceType(response.payload);
       return response.payload;
@@ -85,13 +91,22 @@ class DeviceUtils {
   }
 
   ensureConnected(connectId: string) {
-    const poll: IPollFn = async (time = POLL_INTERVAL) => {
+    let tryCount = 0;
+    const poll: IPollFn<Promise<IOneKeyDeviceFeatures>> = async (
+      time = POLL_INTERVAL_RATE,
+    ) => {
+      tryCount += 1;
       const feature = await this.getFeatures(connectId);
       if (feature) {
         return Promise.resolve(feature);
       }
-      return new Promise((resolve: (p: void) => void) =>
-        setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
+
+      if (tryCount > MAX_CONNECT_TRY_COUNT) {
+        return Promise.reject();
+      }
+      return new Promise(
+        (resolve: (p: Promise<IOneKeyDeviceFeatures>) => void) =>
+          setTimeout(() => resolve(poll(time * POLL_INTERVAL_RATE)), time),
       );
     };
 

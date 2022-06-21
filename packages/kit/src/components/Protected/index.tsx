@@ -95,11 +95,7 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        const p1 = deviceUtils.ensureConnected(currentWalletDevice.mac);
-        const p2 = new Promise((_r, reject) => setTimeout(reject, 30 * 1000));
-
-        const result = await Promise.race([p1, p2]);
-        features = result as IOneKeyDeviceFeatures;
+        features = await deviceUtils.ensureConnected(currentWalletDevice.mac);
       } catch (e) {
         safeGoBack();
         ToastManager.show({
