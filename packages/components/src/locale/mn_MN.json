@@ -598,6 +598,8 @@
   "modal__looking_for_devices": "Төхөөрөмж хайж байна",
   "modal__looking_for_devices_desc": "Bluetooth-ээ идэвхжүүлсэн эсэхийг шалгана уу.",
   "modal__looking_for_devices_result": "Бид эдгээр төхөөрөмжийг олсон",
+  "modal__need_install_onekey_bridge": "Requires installation of OneKey Bridge",
+  "modal__need_install_onekey_bridge_desc": "Your computer needs to download and install OneKey Brigde in order to use the hardware device, do you go ahead and download it?",
   "modal__no_response": "Хариу алга",
   "modal__no_response_desc": "Төхөөрөмж дээр баталгаажуулалт байхгүй байна.",
   "modal__onekey_lite_has_been_reset": "OneKey Lite-г дахин тохирууллаа",

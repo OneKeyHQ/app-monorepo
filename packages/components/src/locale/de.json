@@ -598,6 +598,8 @@
   "modal__looking_for_devices": "Suche nach Geräten",
   "modal__looking_for_devices_desc": "Vergewissern Sie sich, dass Ihr Bluetooth aktiviert ist.",
   "modal__looking_for_devices_result": "Wir fanden diese Geräte",
+  "modal__need_install_onekey_bridge": "Requires installation of OneKey Bridge",
+  "modal__need_install_onekey_bridge_desc": "Ihr Computer muss OneKey Brigde herunterladen und installieren, um das Hardware-Gerät verwenden zu können. Haben Sie es bereits heruntergeladen?",
   "modal__no_response": "Keine Antwort",
   "modal__no_response_desc": "Keine Bestätigung auf dem Gerät.",
   "modal__onekey_lite_has_been_reset": "OneKey Lite wurde zurückgesetzt",
