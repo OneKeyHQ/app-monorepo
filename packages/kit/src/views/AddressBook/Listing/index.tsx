@@ -13,6 +13,7 @@ import {
   Select,
   Typography,
   useIsSmallLayout,
+  useTheme,
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -32,6 +33,8 @@ type ListingItemValues = {
   address: string;
   networkId: string;
   id: number;
+  index: number;
+  total: number;
 };
 
 const ListingItem: FC<ListingItemValues> = ({
@@ -40,9 +43,12 @@ const ListingItem: FC<ListingItemValues> = ({
   address,
   id,
   networkId,
+  index,
+  total,
 }) => {
   const intl = useIntl();
   const toast = useToast();
+  const { themeVariant } = useTheme();
   const isSmall = useIsSmallLayout();
   const navigation = useNavigation();
   const onEdit = useCallback(() => {
@@ -127,7 +133,20 @@ const ListingItem: FC<ListingItemValues> = ({
       ]}
       triggerProps={{ onLongPress }}
       renderTrigger={() => (
-        <Box p="4" flexDirection="row" alignItems="center">
+        <Box
+          p="4"
+          flexDirection="row"
+          alignItems="center"
+          borderLeftWidth={0.5}
+          borderRightWidth={0.5}
+          borderTopWidth={index === 0 ? '0.5' : undefined}
+          borderBottomWidth={index === total - 1 ? '0.5' : undefined}
+          borderTopRadius={index === 0 ? '12' : undefined}
+          borderBottomRadius={index === total - 1 ? '12' : undefined}
+          borderColor={
+            themeVariant === 'light' ? 'border-subdued' : 'transparent'
+          }
+        >
           <Box
             w="8"
             h="8"
@@ -136,15 +155,15 @@ const ListingItem: FC<ListingItemValues> = ({
             justifyContent="center"
             alignItems="center"
           >
-            <Typography.DisplaySmall color="text-default">
+            <Typography.DisplaySmall color="decorative-icon-one">
               {name.toUpperCase()[0]}
             </Typography.DisplaySmall>
           </Box>
           <Box flex="1" mx="4">
             <Box flexDirection="row">
-              <Typography.Body2Strong mr="2" numberOfLines={1}>
+              <Typography.Body1Strong mr="2" numberOfLines={1}>
                 {name}
-              </Typography.Body2Strong>
+              </Typography.Body1Strong>
               <Badge size="sm" title={badge} />
             </Box>
             <Box>
@@ -204,13 +223,15 @@ const Listing = () => {
       <Box bg="surface-default" borderRadius={12}>
         <FlatList<Contact>
           data={data}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <ListingItem
               name={item.name}
               badge={item.badge.toUpperCase()}
               address={item.address}
               id={item.id}
               networkId={item.networkId}
+              index={index}
+              total={data.length}
             />
           )}
           ItemSeparatorComponent={() => <Divider />}

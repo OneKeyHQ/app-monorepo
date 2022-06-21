@@ -20,6 +20,8 @@ import {
 } from '@onekeyhq/components';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
+import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import imageUrl from '../../../../assets/3d_contact.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -70,7 +72,8 @@ const AddressBook = () => {
   const renderItem: ListRenderItem<Contact> = useCallback(
     ({ item, index }) => (
       <Pressable
-        p="4"
+        py="4"
+        px="4"
         mx={{ base: 4, md: 6 }}
         flexDirection="row"
         alignItems="center"
@@ -89,15 +92,17 @@ const AddressBook = () => {
           justifyContent="center"
           alignItems="center"
         >
-          <Typography.DisplaySmall color="text-default">
+          <Typography.DisplaySmall color="decorative-icon-one">
             {item.name.toUpperCase()[0]}
           </Typography.DisplaySmall>
         </Box>
-        <Box flex="1" mx="4">
+        <Box flex="1" ml="4">
           <Box flexDirection="row">
-            <Typography.Body2Strong mr="2" numberOfLines={1}>
-              {item.name}
-            </Typography.Body2Strong>
+            <Box flex="1">
+              <Typography.Body1Strong mr="2" numberOfLines={1}>
+                {item.name}
+              </Typography.Body1Strong>
+            </Box>
             <Badge size="sm" title={item.badge.toUpperCase()} />
           </Box>
           <Box>
@@ -197,15 +202,23 @@ const MyWallet = () => {
         index === section.data.length - 1 ? '12' : undefined
       }
       onPress={() => onPress({ address: item.address, name: item.name })}
+      alignItems="center"
     >
-      <Box mr="3">
+      <Box mr="3" key={item.address}>
         <WalletAvatar
           avatar={section.wallet.avatar}
           walletImage={section.wallet.type}
+          hwWalletType={
+            (section.wallet.deviceType as IOneKeyDeviceType) ||
+            getDeviceTypeByDeviceId(section.wallet.associatedDevice)
+          }
+          size="sm"
         />
       </Box>
-      <Box>
-        <Typography.Body1 color="text-default">{item.name}</Typography.Body1>
+      <Box flex="1">
+        <Typography.Body1Strong color="text-default" numberOfLines={1}>
+          {item.name}
+        </Typography.Body1Strong>
         <Typography.Body2 color="text-subdued">
           {utils.shortenAddress(item.address)}
         </Typography.Body2>
@@ -215,6 +228,7 @@ const MyWallet = () => {
   return (
     <SectionList
       sections={sections}
+      keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
       ItemSeparatorComponent={() => (
         <Box mx={{ base: 4, md: 6 }}>

@@ -210,7 +210,7 @@ const DiscoverNative: FC<DiscoverProps> = ({
         </Pressable>
       );
     },
-    [dappHistory.length, onItemSelectHistory],
+    [dappHistory.length, onItemSelectHistory, themeVariant],
   );
 
   const getData = useCallback(() => {
