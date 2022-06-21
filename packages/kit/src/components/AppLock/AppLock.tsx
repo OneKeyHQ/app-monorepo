@@ -1,9 +1,13 @@
-import React, { FC, useMemo } from 'react';
+import React, { FC, useEffect, useMemo } from 'react';
+
+import * as SplashScreen from 'expo-splash-screen';
 
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../hooks';
+import { setAppRenderReady } from '../../store/reducers/data';
 
 import { AppStateHeartbeat } from './AppStateHeartbeat';
 import { AppStateUnlock } from './AppStateUnlock';
@@ -45,7 +49,6 @@ export const AppLockNormalMode: FC<AppLockProps> = ({ children }) => {
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const isStatusUnlock = useAppSelector((s) => s.status.isUnlock);
   const isDataUnlock = useAppSelector((s) => s.data.isUnlock);
-
   const memo = useMemo(
     () => ({ enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock }),
     [enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock],
@@ -68,6 +71,13 @@ export const AppLockNormalMode: FC<AppLockProps> = ({ children }) => {
 };
 
 export const AppLock: FC<AppLockProps> = ({ children }) => {
+  const { dispatch } = backgroundApiProxy;
+  useEffect(() => {
+    dispatch(setAppRenderReady());
+    setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, 50);
+  }, [dispatch]);
   if (platformEnv.isNative) {
     return <AppLockNormalMode>{children}</AppLockNormalMode>;
   }
