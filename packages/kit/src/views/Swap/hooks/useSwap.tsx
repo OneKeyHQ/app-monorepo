@@ -25,13 +25,11 @@ import {
   switchTokens,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { SwapQuoter } from '../quoter';
+import { swapClient } from '../client';
 import { ApprovalState, QuoteParams, SwapError } from '../typings';
-import { greaterThanZeroOrUndefined } from '../utils';
+import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
 
 import { useHasPendingApproval } from './useTransactions';
-
-const swapClient = new SwapQuoter();
 
 enum Chains {
   MAINNET = '1',
@@ -139,9 +137,11 @@ export function useSwapActionHandlers() {
   const onReset = useCallback(() => {
     backgroundApiProxy.dispatch(reset());
   }, []);
+
   const onSelectNetwork = useCallback((network: Network) => {
     backgroundApiProxy.dispatch(setActiveNetwork(network));
   }, []);
+
   return {
     onUserInput,
     onSelectToken,
@@ -403,4 +403,33 @@ export function useDepositLimit() {
     }
     return { limited: !!message, message };
   }, [inputAmount, inputToken, swapQuote, intl]);
+}
+
+export function useSwftcTokens(
+  tokens: Token[],
+  included?: string[],
+  excluded?: string[],
+) {
+  return useMemo(() => {
+    const includedSet = new Set(included ?? []);
+    const excludedSet = new Set(excluded ?? []);
+    let result = tokens;
+    if (included && included.length) {
+      result = tokens.filter(
+        (token) =>
+          includedSet.has(token.tokenIdOnNetwork) ||
+          (!token.tokenIdOnNetwork && includedSet.has(nativeTokenAddress)),
+      );
+    }
+    if (excluded && excluded.length) {
+      result = result.filter(
+        (token) =>
+          !(
+            excludedSet.has(token.tokenIdOnNetwork) ||
+            (!token.tokenIdOnNetwork && excludedSet.has(nativeTokenAddress))
+          ),
+      );
+    }
+    return result;
+  }, [tokens, included, excluded]);
 }

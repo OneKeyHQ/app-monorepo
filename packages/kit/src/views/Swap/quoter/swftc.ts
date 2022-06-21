@@ -21,19 +21,34 @@ import {
   plus,
 } from '../utils';
 
-function getSwftcNetworkName(chainId?: string) {
-  const map: Record<string, string> = {
+function getSwftcNetworkName(chainId?: string): string {
+  const records: Record<string, string> = {
     '1': 'ETH',
     '56': 'BSC',
     '128': 'HECO',
     '137': 'POLYGON',
     '43114': 'AVAX',
-    '66': 'OKexChain',
+    '66': 'OKExChain',
     '250': 'FTM',
-    '42161': '"ARB"',
+    '42161': 'ARB',
     '42220': 'CELO',
   };
-  return map[chainId ?? ''] ?? '';
+  return records[chainId ?? ''] ?? '';
+}
+
+function getChainIdFromSwftcNetworkName(name: string): string {
+  const records: Record<string, string> = {
+    'ETH': '1',
+    'BSC': '56',
+    'HECO': '128',
+    'POLYGON': '137',
+    'AVAX': '43114',
+    'OKExChain': '66',
+    'FTM': '250',
+    'ARB': '42161',
+    'CELO': '42220',
+  };
+  return records[name] ?? '';
 }
 
 function calcBuyAmount(
@@ -78,6 +93,7 @@ type Coin = {
   contact: string;
   isSupportAdvanced: string;
   mainNetwork: string;
+  noSupportCoin: string;
 };
 
 type CoinRate = {
@@ -106,9 +122,17 @@ type OrderInfo = {
 export class SwftcQuoter implements Quoter {
   private client: Axios;
 
-  private coinList: Record<string, Record<string, Coin>> = {};
+  private coins: Coin[] = [];
 
-  private lastUpdate = 0;
+  private coinsLastUpdate = 0;
+
+  private coinCodeRecords: Record<string, Coin> = {};
+
+  private coinCodeRecordsLastUpdate = 0;
+
+  private networkAddrRecords: Record<string, Record<string, Coin>> = {};
+
+  private networkAddrRecordsLastUpdate = 0;
 
   constructor() {
     this.client = axios.create({ timeout: 10 * 1000 });
@@ -118,35 +142,134 @@ export class SwftcQuoter implements Quoter {
     return networkA !== networkB;
   }
 
-  private async getCoins(): Promise<Record<string, Record<string, Coin>>> {
-    if (this.coinList && Date.now() - this.lastUpdate < 1000 * 60 * 60) {
-      return this.coinList;
-    }
-    const url = 'https://www.swftc.info/api/v1/queryCoinList';
-    const result = await this.client.post(url, { supportType: 'advanced' });
-    // eslint-disable-next-line
-    const coinList = result.data.data as Coin[];
-    const data: Record<string, Record<string, Coin>> = {};
-    coinList.forEach((coin) => {
-      if (!data[coin.mainNetwork]) {
-        data[coin.mainNetwork] = {};
+  async getBaseInfo() {
+    const coins = await this.getCoins();
+    const tokenRecords = this.chunkCoins(coins);
+
+    const coinCodeRecords = await this.getCoinCodeRecords();
+    const noSuportedRecords: Record<
+      string,
+      Record<string, Record<string, string[]>>
+    > = {};
+
+    for (let i = 0; i < coins.length; i += 1) {
+      const coin = coins[i];
+      const chainId = getChainIdFromSwftcNetworkName(coin.mainNetwork);
+      if (chainId) {
+        const address = coin.contact || nativeTokenAddress;
+        const noSupportCoins = coin.noSupportCoin
+          .split(',')
+          .map((name) => coinCodeRecords[name])
+          .filter(Boolean);
+        const chunkedNoSupportCoins = this.chunkCoins(noSupportCoins);
+        if (!noSuportedRecords[chainId]) {
+          noSuportedRecords[chainId] = {};
+        }
+        noSuportedRecords[chainId][address] = chunkedNoSupportCoins;
       }
-      const address = coin.contact || nativeTokenAddress;
-      data[coin.mainNetwork][address] = coin;
-    });
-    this.coinList = data;
-    this.lastUpdate = Date.now();
+    }
+    return { tokens: tokenRecords, noSuportedTokens: noSuportedRecords };
+  }
+
+  async getCoin(network: Network, address: string): Promise<Coin | undefined> {
+    const networkName = getSwftcNetworkName(getChainIdFromNetwork(network));
+    const networkAddrRecords = await this.getNetworkAddrRecords();
+    return networkAddrRecords[networkName]?.[address];
+  }
+
+  async getNoSupportCoins(
+    network: Network,
+    address: string,
+  ): Promise<Record<string, string[]> | undefined> {
+    const coin = await this.getCoin(network, address);
+    if (!coin) {
+      return;
+    }
+    const { noSupportCoin } = coin;
+    const coinCodeRecords = await this.getCoinCodeRecords();
+    const listItem = noSupportCoin.split(',');
+    const noSupportCoinItems = listItem
+      .map((name) => coinCodeRecords[name])
+      .filter(Boolean);
+    const data = this.chunkCoins(noSupportCoinItems);
     return data;
   }
 
-  async getInternalQuote(
+  private async getCoins(): Promise<Coin[]> {
+    if (this.coins && Date.now() - this.coinsLastUpdate < 1000 * 60 * 60) {
+      return this.coins;
+    }
+    const url = 'https://www.swftc.info/api/v1/queryCoinList';
+    const res = await this.client.post(url, { supportType: 'advanced' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    this.coins = res.data.data as Coin[];
+    this.coinsLastUpdate = Date.now();
+    return this.coins;
+  }
+
+  private async getCoinCodeRecords(): Promise<Record<string, Coin>> {
+    if (
+      this.coinCodeRecords &&
+      Date.now() - this.coinCodeRecordsLastUpdate < 1000 * 60 * 60
+    ) {
+      return this.coinCodeRecords;
+    }
+    const coins = await this.getCoins();
+    const coinCodeRecords: Record<string, Coin> = {};
+    coins.forEach((coin) => {
+      coinCodeRecords[coin.coinCode] = coin;
+    });
+    this.coinCodeRecords = coinCodeRecords;
+    this.coinCodeRecordsLastUpdate = Date.now();
+    return coinCodeRecords;
+  }
+
+  private async getNetworkAddrRecords(): Promise<
+    Record<string, Record<string, Coin>>
+  > {
+    if (
+      this.networkAddrRecords &&
+      Date.now() - this.networkAddrRecordsLastUpdate < 1000 * 60 * 60
+    ) {
+      return this.networkAddrRecords;
+    }
+    const coins = await this.getCoins();
+    const networkAddrRecords: Record<string, Record<string, Coin>> = {};
+    coins.forEach((coin) => {
+      if (!networkAddrRecords[coin.mainNetwork]) {
+        networkAddrRecords[coin.mainNetwork] = {};
+      }
+      const address = coin.contact || nativeTokenAddress;
+      networkAddrRecords[coin.mainNetwork][address] = coin;
+    });
+    this.networkAddrRecords = networkAddrRecords;
+    this.networkAddrRecordsLastUpdate = Date.now();
+    return this.networkAddrRecords;
+  }
+
+  private chunkCoins(coins: Coin[]) {
+    const records: Record<string, string[]> = {};
+    coins.forEach((coin) => {
+      const chainId = getChainIdFromSwftcNetworkName(coin.mainNetwork);
+      if (chainId) {
+        if (!records[chainId]) {
+          records[chainId] = [];
+        }
+        const address = coin.contact || nativeTokenAddress;
+        records[chainId].push(address);
+      }
+    });
+    return records;
+  }
+
+  private async getPreQuote(
     rateParams: QuoteParams,
   ): Promise<InternalRateResult | undefined> {
     const { networkIn, networkOut, tokenOut, tokenIn } = rateParams;
     if (!this.isSupported(networkIn, networkOut)) {
       return;
     }
-    const coins = await this.getCoins();
+    const coins = await this.getNetworkAddrRecords();
     const fromNetwork = getSwftcNetworkName(getChainIdFromNetwork(networkIn));
     const toNetwork = getSwftcNetworkName(getChainIdFromNetwork(networkOut));
     const fromToken = tokenIn.tokenIdOnNetwork || nativeTokenAddress;
@@ -168,7 +291,7 @@ export class SwftcQuoter implements Quoter {
 
   async getQuote(params: QuoteParams): Promise<SwapQuote | undefined> {
     const { independentField, tokenIn, typedValue, tokenOut } = params;
-    const data = await this.getInternalQuote(params);
+    const data = await this.getPreQuote(params);
     if (data) {
       const result: SwapQuote = {
         instantRate: data.rate.instantRate,
@@ -215,7 +338,7 @@ export class SwftcQuoter implements Quoter {
       tokenIn,
       receivingAddress,
     } = params;
-    const data = await this.getInternalQuote(params);
+    const data = await this.getPreQuote(params);
     if (data && activeNetwok && activeAccount) {
       const { depositCoinCode, receiveCoinCode, rate } = data;
       let depositCoinAmt = '';

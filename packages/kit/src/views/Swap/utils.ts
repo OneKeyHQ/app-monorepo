@@ -103,3 +103,18 @@ export function greaterThanZeroOrUndefined(value?: string) {
   const num = Number(value);
   return num > 0 ? value : undefined;
 }
+
+export function getChainIdFromNetworkId(networdId: string) {
+  return networdId.split('--')[1] ?? '';
+}
+
+export const enabledChainIds = [
+  '1',
+  '56',
+  '128',
+  '137',
+  '43114',
+  '66',
+  '42161',
+  '42220',
+];
