@@ -4,6 +4,8 @@ import React, { FC, isValidElement, useEffect } from 'react';
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
@@ -65,15 +67,17 @@ const DesktopModal: FC<ModalProps> = ({
   const close = closeAction || defaultClose;
 
   useEffect(() => {
-    function closeOnEsc(e: KeyboardEvent) {
-      if (e.code === 'Escape') {
-        close();
-      }
+    if (platformEnv.isRuntimeBrowser) {
+      const closeOnEsc = (e: KeyboardEvent) => {
+        if (e.code === 'Escape') {
+          close();
+        }
+      };
+      document.addEventListener('keydown', closeOnEsc);
+      return () => {
+        document.removeEventListener('keydown', closeOnEsc);
+      };
     }
-    document.addEventListener('keydown', closeOnEsc);
-    return () => {
-      document.removeEventListener('keydown', closeOnEsc);
-    };
   }, [close]);
   return (
     <Box
