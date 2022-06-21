@@ -17,6 +17,11 @@ export function createChartDom(
 ) {
   const chart = createChartFunc(domNode, {
     height: 300,
+    layout: {
+      background: {
+        color: 'transparent',
+      },
+    },
     grid: {
       vertLines: { visible: false },
       horzLines: { visible: false },

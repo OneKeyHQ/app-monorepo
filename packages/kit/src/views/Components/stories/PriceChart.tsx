@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { Box, useThemeValue } from '@onekeyhq/components';
+
 import PriceChart from '../../Overview/PriceChart/PriceChart';
 
 const data = [
@@ -15,6 +17,13 @@ const data = [
   { time: '2018-12-31', value: 22.67 },
 ];
 
-const PriceChartGallery = () => <PriceChart data={data} />;
+const PriceChartGallery = () => {
+  const bg = useThemeValue('background-default');
+  return (
+    <Box w="full" h="full" bg={bg}>
+      <PriceChart data={data} />
+    </Box>
+  );
+};
 
 export default PriceChartGallery;
