@@ -75,7 +75,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { type, indexes, names } = params;
     const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'`);
     const isSearching = type === 'SEARCH_ACCOUNTS';
-    const showOnDevice = false;
+    const showOnOneKey = false;
     const connectId = await this.getHardwareConnectId();
 
     let pubkeys: Array<string> = [];
@@ -83,7 +83,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let response;
       try {
         response = await HardwareSDK.starcoinGetPublicKey(connectId, {
-          bundle: paths.map((path) => ({ path, showOnDevice })),
+          bundle: paths.map((path) => ({ path, showOnOneKey })),
         });
       } catch (error: any) {
         console.error(error);
@@ -106,7 +106,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     let addressesResponse;
     try {
       addressesResponse = await HardwareSDK.starcoinGetAddress(connectId, {
-        bundle: paths.map((path) => ({ path, showOnDevice })),
+        bundle: paths.map((path) => ({ path, showOnOneKey })),
       });
     } catch (error: any) {
       console.error(error);
