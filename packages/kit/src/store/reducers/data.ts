@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
 
 export type DataInitialState = {
+  isAppRenderReady: boolean;
   isUnlock: boolean;
   isPasswordSet: boolean;
   onekeySupportList: CurrencyType[];
@@ -16,12 +17,16 @@ const initialState: DataInitialState = {
   isPasswordSet: false,
   onekeySupportList: [],
   currencyList: [],
+  isAppRenderReady: false,
 };
 
 export const dataSlice = createSlice({
   name: 'data',
   initialState,
   reducers: {
+    setAppRenderReady(state) {
+      state.isAppRenderReady = true;
+    },
     release(state) {
       state.isUnlock = true;
     },
@@ -41,6 +46,7 @@ export const dataSlice = createSlice({
   },
 });
 
-export const { release, passwordSet, currenciesSet } = dataSlice.actions;
+export const { release, passwordSet, currenciesSet, setAppRenderReady } =
+  dataSlice.actions;
 
 export default dataSlice.reducer;

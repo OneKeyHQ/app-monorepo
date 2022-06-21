@@ -124,8 +124,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
     [
       isVertical,
       token?.logoURI,
+      token?.tokenIdOnNetwork,
       token?.symbol,
       network?.logoURI,
+      network?.symbol,
       network?.tokenDisplayDecimals,
       amount,
       tokenPrice,

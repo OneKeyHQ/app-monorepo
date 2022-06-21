@@ -6,12 +6,13 @@ import '@formatjs/intl-pluralrules/locale-data/en';
 import './shim';
 
 import React, { FC } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 
-// import 'expo-dev-client';
 import { LogBox } from 'react-native';
 
 import { Provider } from '@onekeyhq/kit';
 
+SplashScreen.preventAutoHideAsync();
 LogBox.ignoreAllLogs();
 
 const App: FC = function () {
