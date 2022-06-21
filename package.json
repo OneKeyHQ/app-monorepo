@@ -117,6 +117,7 @@
     "**/browserslist": "^4",
     "**/immer": "^9",
     "**/node-fetch": "^2",
-    "**/metro-react-native-babel-preset": "0.70.0"
+    "**/metro-react-native-babel-preset": "0.70.0",
+    "**/jsc-android": "npm:@onekeyfe/jsc-android"
   }
 }

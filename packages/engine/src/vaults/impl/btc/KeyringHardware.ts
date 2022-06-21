@@ -109,6 +109,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       response = await HardwareSDK.btcGetPublicKey(connectId, {
         bundle: usedIndexes.map((index) => ({
           path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
+          showOnOneKey: false,
         })),
       });
     } catch (error: any) {

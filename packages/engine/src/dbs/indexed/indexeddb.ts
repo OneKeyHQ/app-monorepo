@@ -994,6 +994,8 @@ class IndexedDBApi implements DBAPI {
               WALLET_STORE_NAME,
               ACCOUNT_STORE_NAME,
               TOKEN_BINDING_STORE_NAME,
+              HISTORY_STORE_NAME,
+              DEVICE_STORE_NAME,
             ],
             'readwrite',
           );
@@ -1028,32 +1030,23 @@ class IndexedDBApi implements DBAPI {
             getMainContextRequest.onsuccess = (_cevent) => {
               const context: OneKeyContext =
                 getMainContextRequest.result as OneKeyContext;
-              if (!checkPassword(context, password)) {
-                reject(new WrongPassword());
-                return;
+              if (wallet.type === WALLET_TYPE_HD) {
+                // Only check password for HD wallet deletion.
+                if (!checkPassword(context, password)) {
+                  reject(new WrongPassword());
+                  return;
+                }
+              } else {
+                transaction
+                  .objectStore(DEVICE_STORE_NAME)
+                  .delete(wallet.associatedDevice as string);
               }
+              const { accounts } = wallet;
+              accounts.forEach((accountId) => {
+                this.cleanupAccount(transaction, wallet, accountId);
+              });
               walletStore.delete(walletId);
               transaction.objectStore(CREDENTIAL_STORE_NAME).delete(walletId);
-              wallet.accounts.forEach((accountId) => {
-                transaction.objectStore(ACCOUNT_STORE_NAME).delete(accountId);
-              });
-              const openCursorRequest = transaction
-                .objectStore(TOKEN_BINDING_STORE_NAME)
-                .openCursor();
-              openCursorRequest.onsuccess = (_cursorEvent) => {
-                const cursor: IDBCursorWithValue =
-                  openCursorRequest.result as IDBCursorWithValue;
-                if (cursor) {
-                  if (
-                    wallet.accounts.includes(
-                      (cursor.value as TokenBinding).accountId,
-                    )
-                  ) {
-                    cursor.delete();
-                  }
-                  cursor.continue();
-                }
-              };
             };
           };
         }),
@@ -1503,7 +1496,7 @@ class IndexedDBApi implements DBAPI {
     const tokenBindingOpenCursorRequest = transaction
       .objectStore(TOKEN_BINDING_STORE_NAME)
       .index('accountId, networkId')
-      .openCursor(IDBKeyRange.bound([accountId], [accountId]));
+      .openCursor(IDBKeyRange.bound([accountId], [accountId, []]));
     tokenBindingOpenCursorRequest.onsuccess = (_cevent) => {
       const cursor = tokenBindingOpenCursorRequest.result;
       if (cursor) {
