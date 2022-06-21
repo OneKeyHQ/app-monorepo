@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement } from 'react';
+import React, { FC, isValidElement, useEffect } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,24 @@ import useModalClose from './useModalClose';
 
 import type { ModalProps } from '..';
 
+function modalSizing(modalSize: string | undefined) {
+  switch (modalSize) {
+    case 'xs':
+      return '400px';
+    case 'sm':
+      return '480px';
+    case 'md':
+      return '560px';
+    case 'lg':
+      return '640px';
+    case 'xl':
+      return '720px';
+    case '2xl':
+      return '800px';
+    default:
+      return '';
+  }
+}
 const DesktopModal: FC<ModalProps> = ({
   children,
   onClose,
@@ -42,27 +60,21 @@ const DesktopModal: FC<ModalProps> = ({
   const navigation = useNavigation();
   const index = useNavigationState((state) => state.index);
 
-  const close = useModalClose({ onClose });
+  const defaultClose = useModalClose({ onClose });
 
-  function modalSizing(modalSize: string | undefined) {
-    switch (modalSize) {
-      case 'xs':
-        return '400px';
-      case 'sm':
-        return '480px';
-      case 'md':
-        return '560px';
-      case 'lg':
-        return '640px';
-      case 'xl':
-        return '720px';
-      case '2xl':
-        return '800px';
-      default:
-        return '';
+  const close = closeAction || defaultClose;
+
+  useEffect(() => {
+    function closeOnEsc(e: KeyboardEvent) {
+      if (e.code === 'Escape') {
+        close();
+      }
     }
-  }
-
+    document.addEventListener('keydown', closeOnEsc);
+    return () => {
+      document.removeEventListener('keydown', closeOnEsc);
+    };
+  }, [close]);
   return (
     <Box
       position="absolute"
@@ -85,7 +97,7 @@ const DesktopModal: FC<ModalProps> = ({
           left="0"
           right="0"
           bottom="0"
-          onPress={closeAction || close}
+          onPress={close}
         />
       )}
       <Box
@@ -147,7 +159,7 @@ const DesktopModal: FC<ModalProps> = ({
                 name="CloseSolid"
                 type="plain"
                 circle
-                onPress={closeAction || close}
+                onPress={close}
               />
             )}
           </Box>
