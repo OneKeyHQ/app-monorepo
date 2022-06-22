@@ -19,6 +19,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { release } from '../../store/reducers/data';
 import { unlock } from '../../store/reducers/status';
+import { wait } from '../../utils/helper';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 import { ValidationFields } from '../Protected';
 
@@ -100,6 +101,7 @@ export const AppStateUnlock = () => {
     if (isOk) {
       backgroundApiProxy.dispatch(unlock());
       backgroundApiProxy.dispatch(release());
+      await wait(500);
     } else {
       setError(
         intl.formatMessage({
