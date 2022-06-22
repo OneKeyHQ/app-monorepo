@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TimeOptions } from './TimeControl';
 
-const _data = [
+const mockdata = [
   { time: '2018-12-22', value: 32.51 },
   { time: '2018-12-23', value: 31.11 },
   { time: '2018-12-24', value: 27.02 },
@@ -19,12 +19,12 @@ type PriceChartProps = {
   coin?: string;
 };
 
-const PriceChart: React.FC<PriceChartProps> = ({ coin = 'BTC' }) => {
-  const [data, setData] = useState(_data);
+const PriceChart: React.FC<PriceChartProps> = () => {
+  const [data, setData] = useState(mockdata);
   const [time, setTime] = useState<TimeOptions>('1D');
 
   const refreshDataOnTimeChange = useCallback((newTime: TimeOptions) => {
-    const newData = _data.map((d) => ({
+    const newData = mockdata.map((d) => ({
       ...d,
       value: d.value + Math.random() * 10,
     }));

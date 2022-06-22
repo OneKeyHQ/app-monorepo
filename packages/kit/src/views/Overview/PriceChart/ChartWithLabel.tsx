@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import ChartView from './ChartView';
 import PriceLabel from './PriceLabel';
 
@@ -10,7 +8,6 @@ type ChartWithLabelProps = {
 };
 
 const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data }) => {
-  const intl = useIntl();
   const [price, setPrice] = useState<string | number | undefined>();
   const currentPrice = 0;
   let priceStringResult;

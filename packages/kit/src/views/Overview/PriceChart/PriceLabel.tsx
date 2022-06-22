@@ -10,9 +10,15 @@ type PriceLabelProps = {
 
 const PriceLabel: React.FC<PriceLabelProps> = ({ price }) => {
   const intl = useIntl();
+  const priceLabel = intl.formatMessage({
+    // TODO replace with real id
+    id: 'content__total',
+  });
   return (
     <>
-      <Typography.DisplayXLarge>Price ${price}</Typography.DisplayXLarge>
+      <Typography.DisplayXLarge>
+        {priceLabel} ${price}
+      </Typography.DisplayXLarge>
     </>
   );
 };
