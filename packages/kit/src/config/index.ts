@@ -10,3 +10,6 @@ export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 
 export const HARDWARE_SDK_IFRAME_SRC =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://hardware-sdk.onekey.so/';
+
+export const HARDWARE_BRIDGE_DOWNLOAD_URL =
+  'https://onekey.so/download/?client=bridge';
