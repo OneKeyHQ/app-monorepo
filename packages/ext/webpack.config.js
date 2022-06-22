@@ -31,7 +31,6 @@ const transpileModules = [
   '@onekeyhq/shared',
   '@onekeyhq/engine',
   '@onekeyhq/app',
-  '@onekeyhq/remote-console',
 ];
 
 // TODO use webpack 4.43.0

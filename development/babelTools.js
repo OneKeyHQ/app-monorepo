@@ -65,7 +65,6 @@ function normalizeConfig({ platform, config }) {
         // ***        like password, secretKey, etc.                ***
         'include': [
           'NODE_ENV',
-          'REMOTE_CONSOLE_SERVER',
           'VERSION',
           'BUILD_NUMBER',
           'ONEKEY_PLATFORM',
