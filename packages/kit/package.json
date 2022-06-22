@@ -23,6 +23,7 @@
     "expo-intent-launcher": "^10.2.0",
     "expo-linking": "^3.1.0",
     "expo-local-authentication": "^12.2.0",
+    "expo-localization": "^13.0.0",
     "expo-secure-store": "^11.2.0",
     "fuse.js": "^6.5.3",
     "react-intl": "^5.21.2",

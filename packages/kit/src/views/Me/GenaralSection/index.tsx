@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,6 +22,19 @@ export const GenaralSection = () => {
   const { themeVariant } = useTheme();
 
   const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
+  const localeOptions = useMemo(
+    () =>
+      [
+        {
+          label: intl.formatMessage({
+            id: 'form__auto',
+            defaultMessage: 'System',
+          }),
+          value: 'system',
+        },
+      ].concat(LOCALES_OPTION),
+    [intl],
+  );
 
   return (
     <Box w="full" mb="6">
@@ -101,7 +114,7 @@ export const GenaralSection = () => {
               defaultValue={locale}
               headerShown={false}
               onChange={(l) => dispatch(setLocale(l as 'zh-CN'))}
-              options={LOCALES_OPTION}
+              options={localeOptions}
               dropdownProps={{ width: '64' }}
               dropdownPosition="right"
               renderTrigger={(activeOption) => (
