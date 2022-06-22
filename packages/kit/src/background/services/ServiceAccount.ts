@@ -337,15 +337,18 @@ class ServiceAccount extends ServiceBase {
       connectId,
     });
 
-    const accounts = await engine.addHdOrHwAccounts(
-      'Undefined',
-      wallet.id,
-      networkId,
-    );
-
-    if (accounts.length > 0) {
-      const $account = accounts[0];
-      account = $account;
+    try {
+      const accounts = await engine.addHdOrHwAccounts(
+        'Undefined',
+        wallet.id,
+        networkId,
+      );
+      if (accounts.length > 0) {
+        const $account = accounts[0];
+        account = $account;
+      }
+    } catch (error) {
+      // TODO need to handle this error
     }
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);

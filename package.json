@@ -15,7 +15,6 @@
     "clean": "./clean_workspace.sh && yarn cache clean",
     "lint-staged": "lint-staged",
     "lint": "yarn workspaces run lint",
-    "remote-console": "yarn workspace @onekeyhq/remote-console dev",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",

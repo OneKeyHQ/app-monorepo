@@ -4,11 +4,20 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  DialogManager,
+  Spinner,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import { DeviceErrors } from '../../utils/hardware/deviceUtils';
+import NeedBridgeDialog from '../NeedBridgeDialog';
 
 import Setup from './Setup';
 import { ValidationFields } from './types';
@@ -95,16 +104,22 @@ const Protected: FC<ProtectedProps> = ({
 
       let features: IOneKeyDeviceFeatures | null = null;
       try {
-        const p1 = deviceUtils.ensureConnected(currentWalletDevice.mac);
-        const p2 = new Promise((_r, reject) => setTimeout(reject, 30 * 1000));
-
-        const result = await Promise.race([p1, p2]);
-        features = result as IOneKeyDeviceFeatures;
+        features = await deviceUtils.ensureConnected(currentWalletDevice.mac);
       } catch (e) {
-        safeGoBack();
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'action__connection_timeout' }),
-        });
+        switch (e) {
+          case DeviceErrors.NeedOneKeyBridge:
+            safeGoBack();
+            DialogManager.show({ render: <NeedBridgeDialog /> });
+            break;
+
+          default:
+            safeGoBack();
+            ToastManager.show({
+              title: intl.formatMessage({ id: 'action__connection_timeout' }),
+            });
+            break;
+        }
+
         return;
       }
 

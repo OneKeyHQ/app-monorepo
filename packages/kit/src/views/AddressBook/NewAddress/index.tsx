@@ -1,20 +1,30 @@
 import React, { useCallback } from 'react';
 
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
 import { create } from '../../../store/reducers/contacts';
 import AddressBookModalView from '../components/AddressBookModalView';
-import { ContactValues } from '../routes';
+import {
+  AddressBookRoutes,
+  AddressBookRoutesParams,
+  ContactValues,
+} from '../routes';
 
+type NewAddressRouteProp = RouteProp<
+  AddressBookRoutesParams,
+  AddressBookRoutes.NewAddressRoute
+>;
 const NewAddress = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
+  const route = useRoute<NewAddressRouteProp>();
+  const { address = '' } = route.params || {};
   const { networks } = useRuntime();
   const onSubmit = useCallback(
     async (values: ContactValues) => {
@@ -48,7 +58,7 @@ const NewAddress = () => {
   );
   return (
     <AddressBookModalView
-      defaultValues={{ address: '', name: '' }}
+      defaultValues={{ address, name: '' }}
       onSubmit={onSubmit}
       header={intl.formatMessage({ id: 'action__add_new_address' })}
       showAlert
