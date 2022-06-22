@@ -71,7 +71,9 @@ function Mobile<T>({
         >
           {/* placeholder */}
           <Box width="12" />
-          <Typography.Heading>{title}</Typography.Heading>
+          <Box flex="1" flexDirection="row" justifyContent="center">
+            <Typography.Heading numberOfLines={1}>{title}</Typography.Heading>
+          </Box>
           <IconButton
             name="CloseOutline"
             type="plain"
