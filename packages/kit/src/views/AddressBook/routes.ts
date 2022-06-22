@@ -15,7 +15,7 @@ export type AddressBookRoutesParams = {
   [AddressBookRoutes.NewAddressRoute]:
     | {
         address: string;
-        possibleNetworks: string[];
+        possibleNetworks?: string[];
       }
     | undefined;
   [AddressBookRoutes.PickAddressRoute]:
