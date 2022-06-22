@@ -38,6 +38,8 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (10.1.1):
     - ExpoModulesCore
+  - ExpoLocalization (13.0.0):
+    - ExpoModulesCore
   - ExpoModulesCore (0.9.2):
     - React-Core
     - ReactCommon/turbomodule/core
@@ -578,6 +580,7 @@ DEPENDENCIES:
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
   - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
+  - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core/ios`)
   - EXSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
@@ -704,6 +707,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
     :path: "../../../node_modules/expo-keep-awake/ios"
+  ExpoLocalization:
+    :path: "../../../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core/ios"
   EXSecureStore:
@@ -836,6 +841,7 @@ SPEC CHECKSUMS:
   ExpoHaptics: ad58ec96a25e57579c14a47c7d71f0de0de8656a
   ExpoImagePicker: d9d6b4f29db437fc7796f13cee5f133f5b4b5f7c
   ExpoKeepAwake: c0c494b442ecd8122974c13b93ccfb57bd408e88
+  ExpoLocalization: 8f619bb6eec64575cd5220bfabbd7b4e2d6f33f8
   ExpoModulesCore: e4278a668e8c13c0269ed8b8a4200989deea2973
   EXSecureStore: aaae919d83aec2faf031e99398807edac0313285
   EXSplashScreen: 34f460788db8d682883871708dddbfac72095bb7
