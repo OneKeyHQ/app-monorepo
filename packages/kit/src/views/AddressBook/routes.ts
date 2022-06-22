@@ -12,7 +12,12 @@ export enum AddressBookRoutes {
 }
 
 export type AddressBookRoutesParams = {
-  [AddressBookRoutes.NewAddressRoute]: undefined;
+  [AddressBookRoutes.NewAddressRoute]:
+    | {
+        address: string;
+        possibleNetworks?: string[];
+      }
+    | undefined;
   [AddressBookRoutes.PickAddressRoute]:
     | {
         networkId?: string;
