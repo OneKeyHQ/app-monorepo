@@ -402,6 +402,7 @@ export async function getXpubs(
     } else {
       response = await HardwareSDK.evmGetAddress(connectId, {
         path: paths[0],
+        showOnOneKey: false,
       });
     }
   } catch (error: any) {
