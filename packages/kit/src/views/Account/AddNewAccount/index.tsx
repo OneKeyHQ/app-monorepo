@@ -70,15 +70,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     () => wallets.find((wallet) => wallet.id === selectedWalletId),
     [selectedWalletId, wallets],
   );
-  const watchNetwork = watch(
-    'network',
-    selectedNetworkId ?? activeNetworkId ?? (networks ?? [])?.[0]?.id,
-  );
-
-  useEffect(() => {
-    setValue('network', watchNetwork);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const watchAddressType = watch('addressType');
   const selectableNetworks = useMemo(
@@ -99,6 +90,16 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
         .map((network) => network.id),
     [networks, wallet],
   );
+  const watchNetwork = watch(
+    'network',
+    [selectedNetworkId, activeNetworkId].filter((networkId) =>
+      selectableNetworks.includes(networkId || ''),
+    )[0] || selectableNetworks[0],
+  );
+  useEffect(() => {
+    setValue('network', watchNetwork);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const selectedNetwork = useMemo(
     () =>
       networks?.find(
