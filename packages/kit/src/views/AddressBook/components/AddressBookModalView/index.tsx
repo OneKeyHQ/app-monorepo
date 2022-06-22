@@ -1,4 +1,11 @@
-import React, { ComponentProps, FC, useEffect, useMemo, useRef } from 'react';
+import React, {
+  ComponentProps,
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +15,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import AddressInput from '../../../../components/AddressInput';
 import ChainSelector from '../../../../components/Form/ChainSelector';
 import { useAppSelector, useDebounce } from '../../../../hooks';
+import { setHideAddressBookAttention } from '../../../../store/reducers/status';
 import { ContactValues } from '../../routes';
 
 type ModalViewProps = ComponentProps<typeof Modal> & {
@@ -28,6 +36,9 @@ const ModalView: FC<ModalViewProps> = ({
   const intl = useIntl();
   const validateAddressError = useRef<boolean>();
   const contacts = useAppSelector((s) => s.contacts.contacts);
+  const hideAddressBookAttention = useAppSelector(
+    (s) => s.status.hideAddressBookAttention,
+  );
   const contactsMaps = useMemo(
     () =>
       new Map(Object.values(contacts).map((v) => [v.address.toLowerCase(), v])),
@@ -81,6 +92,10 @@ const ModalView: FC<ModalViewProps> = ({
       setValue('address', address.slice(0, 96));
     }
   }, [address, setValue]);
+
+  const onDismiss = useCallback(() => {
+    backgroundApiProxy.dispatch(setHideAddressBookAttention());
+  }, []);
 
   return (
     <Modal
@@ -148,13 +163,14 @@ const ModalView: FC<ModalViewProps> = ({
                 <AddressInput />
               </Form.Item>
             </Form>
-            {showAlert ? (
+            {!hideAddressBookAttention ? (
               <Box mt="6">
                 <Alert
                   alertType="info"
                   title={intl.formatMessage({
                     id: 'content__all_addresses_are_stored_locally',
                   })}
+                  onDismiss={onDismiss}
                 />
               </Box>
             ) : null}
