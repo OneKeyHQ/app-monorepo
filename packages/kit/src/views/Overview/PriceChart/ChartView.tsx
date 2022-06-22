@@ -25,4 +25,4 @@ const ChartView: React.FC<ChartViewProps> = ({ data, onHover }) => {
   );
 };
 ChartView.displayName = 'ChartView';
-export default ChartView;
+export default React.memo(ChartView);

@@ -1,4 +1,4 @@
-import { ChartOptions, IChartApi } from 'lightweight-charts';
+import { ChartOptions, IChartApi, ISeriesApi } from 'lightweight-charts';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
@@ -7,6 +7,11 @@ type DeepPartial<T> = {
     ? readonly DeepPartial<X>[]
     : DeepPartial<T[P]>;
 };
+
+interface IOnekeyChartApi extends IChartApi {
+  // eslint-disable-next-line camelcase
+  _onekey_series?: ISeriesApi<'Area'>;
+}
 export function createChartDom(
   createChartFunc: (
     container: HTMLElement,
@@ -63,16 +68,23 @@ export function updateChartDom({
   bottomColor,
   data,
 }: {
-  chart: IChartApi;
+  chart: IOnekeyChartApi;
   lineColor: string;
   topColor: string;
   bottomColor: string;
   data: any[];
 }) {
-  const newSeries = chart.addAreaSeries({
-    lineColor,
-    topColor,
-    bottomColor,
-  });
-  newSeries.setData(data);
+  if (!chart._onekey_series) {
+    const newSeries = chart.addAreaSeries({
+      lineColor,
+      topColor,
+      bottomColor,
+    });
+    newSeries.setData(data);
+    chart._onekey_series = newSeries;
+    return;
+  }
+  const series = chart._onekey_series;
+  series.applyOptions({ lineColor, topColor, bottomColor });
+  series.setData(data);
 }
