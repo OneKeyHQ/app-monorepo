@@ -211,16 +211,16 @@ export async function ethereumSignMessage({
   message: IUnsignedMessageEvm;
 }): Promise<string> {
   // const features = await getFeatures();
-  if (
-    message.type === ETHMessageTypes.ETH_SIGN ||
-    message.type === ETHMessageTypes.TYPED_DATA_V1
-  ) {
+  if (message.type === ETHMessageTypes.TYPED_DATA_V1) {
     throw web3Errors.provider.unsupportedMethod(
       `Sign message method=${message.type} not supported for this device`,
     );
   }
 
-  if (message.type === ETHMessageTypes.PERSONAL_SIGN) {
+  if (
+    message.type === ETHMessageTypes.ETH_SIGN ||
+    message.type === ETHMessageTypes.PERSONAL_SIGN
+  ) {
     // TODO non hex sign (utf8)
     const res = await HardwareSDK.evmSignMessage(connectId, {
       path,
@@ -251,8 +251,10 @@ export async function ethereumSignMessage({
       useV4,
     ).toString('hex');
 
-    const res = await HardwareSDK.evmSignMessageEIP712(connectId, {
+    const res = await HardwareSDK.evmSignTypedData(connectId, {
       path,
+      metamaskV4Compat: !!useV4,
+      data,
       domainHash,
       messageHash,
     });

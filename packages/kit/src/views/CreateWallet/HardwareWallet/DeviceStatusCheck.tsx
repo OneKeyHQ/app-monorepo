@@ -58,7 +58,6 @@ const DeviceStatusCheckModal: FC = () => {
   useEffect(() => {
     // If device and account are ready, go to success page
     async function main() {
-      console.log('DeviceStatusCheckModal: ', device);
       let features: IOneKeyDeviceFeatures | null = null;
       try {
         // 10s timeout for device connection
