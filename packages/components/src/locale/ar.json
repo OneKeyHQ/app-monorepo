@@ -198,6 +198,7 @@
   "content__click_below_to_copy": "انقر أدناه للنسخ",
   "content__completed_lowercase": "منجز",
   "content__confirmed": "مؤكد",
+  "content__connected": "متصل",
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "content__custom": "مخصص",
@@ -267,7 +268,7 @@
   "content__price_updates_after_str": "تحديثات الأسعار بعد {0}",
   "content__purchase_crypto_with_cash": "شراء العملات المشفرة نقدًا",
   "content__rapid": "سريعون",
-  "content__receive_description": "Assets can only be sent within the same network.",
+  "content__receive_description": "لا يمكن إرسال الأصول إلا داخل نفس الشبكة.",
   "content__rocket_fast": "🚀 سريع",
   "content__search": "بحث...",
   "content__search_cryptos": "البحث في التشفير",
@@ -316,7 +317,7 @@
   "content__your_str_will_appear_here": "سيظهر {0} الخاص بك هنا",
   "dialog__backup_wallet_desc": "نسخة احتياطية من عبارة الاسترداد الخاصة بك قبل الحذف.",
   "dialog__backup_wallet_title": "المحفظة الاحتياطية",
-  "dialog__delete_hardware_wallet_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",
+  "dialog__delete_hardware_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من محفظة الأجهزة التي تم تحميل عبارة الاسترداد لهذه المحفظة.",
   "dialog__delete_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. تأكد من أن لديك النسخة الاحتياطية قبل الحذف.",
   "dialog__discard_changes_desc": "هل أنت متأكد من تجاهل التغييرات غير المحفوظة؟",
   "dialog__discard_changes_title": "تجاهل التغييرات",
@@ -339,8 +340,8 @@
   "emoji_type_travel_places": "السفر والأماكن",
   "empty__no_account_desc": "لا يوجد حساب للشبكة المختارة.",
   "empty__no_account_title": "لا حساب",
-  "empty__no_purchasable_tokens": "No Purchasable Tokens",
-  "empty__no_purchasable_tokens_desc": "Please switch the network and try again.",
+  "empty__no_purchasable_tokens": "لا توجد رموز قابلة للشراء",
+  "empty__no_purchasable_tokens_desc": "يرجى تبديل الشبكة والمحاولة مرة أخرى.",
   "empty__no_recoverable_account_desc": "لم يتم العثور على حسابات قابلة للاسترداد.",
   "empty__no_wallet_desc": "ابدأ بإنشاء محفظة جديدة.",
   "empty__no_wallet_title": "لا توجد محفظة",

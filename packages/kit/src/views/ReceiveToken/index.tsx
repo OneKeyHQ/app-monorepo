@@ -19,6 +19,7 @@ import IconAccount from '@onekeyhq/kit/assets/3d_account.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { setHaptics } from '@onekeyhq/kit/src/hooks/setHaptics';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
 
@@ -96,9 +97,13 @@ const ReceiveToken = () => {
                   <QRCode
                     value={shownAddress}
                     logo={qrcodeLogo}
-                    size={isVerticalLayout ? 264 : 186}
-                    logoSize={isVerticalLayout ? 57 : 40}
-                    logoMargin={isVerticalLayout ? 4 : 2}
+                    size={isVerticalLayout && platformEnv.isNative ? 264 : 186}
+                    logoSize={
+                      isVerticalLayout && platformEnv.isNative ? 57 : 40
+                    }
+                    logoMargin={
+                      isVerticalLayout && platformEnv.isNative ? 4 : 2
+                    }
                     logoBackgroundColor="white"
                   />
                 </Box>
@@ -106,7 +111,8 @@ const ReceiveToken = () => {
               <Box
                 alignItems="center"
                 mt={isVerticalLayout ? '32px' : '24px'}
-                px={isVerticalLayout ? '67px' : '72px'}
+                maxW="256px"
+                mx="auto"
               >
                 <Text
                   textAlign="center"
