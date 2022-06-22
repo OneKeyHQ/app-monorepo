@@ -57,4 +57,3 @@ rm -rf ./packages/ext/src/entry/injected.text-js
 
 rm -rf ./packages/engine/node_modules
 
-rm -rf ./packages/remote-console/node_modules
