@@ -1064,12 +1064,15 @@ class RealmDB implements DBAPI {
       const accountIds = Array.from(wallet.accounts!).map(
         (account) => account.id,
       );
-      const historyEntries = this.realm!.objects<HistoryEntrySchema>(
-        'HistoryEntry',
-      ).filtered(
-        accountIds.map((_, index) => `accountId == $${index}`).join(' OR '),
-        ...accountIds,
-      );
+      const historyEntries =
+        accountIds.length > 0
+          ? this.realm!.objects<HistoryEntrySchema>('HistoryEntry').filtered(
+              accountIds
+                .map((_, index) => `accountId == $${index}`)
+                .join(' OR '),
+              ...accountIds,
+            )
+          : [];
       const credential = this.realm!.objectForPrimaryKey<CredentialSchema>(
         'Credential',
         walletId,
@@ -1083,7 +1086,9 @@ class RealmDB implements DBAPI {
         if (typeof credential !== 'undefined') {
           this.realm!.delete(credential);
         }
-        this.realm!.delete(historyEntries);
+        if (historyEntries.length > 0) {
+          this.realm!.delete(historyEntries);
+        }
       });
       return Promise.resolve();
     } catch (error: any) {
