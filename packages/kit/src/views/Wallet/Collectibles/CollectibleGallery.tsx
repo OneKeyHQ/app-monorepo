@@ -89,7 +89,7 @@ const CollectiblesHeader = ({
         {intl.formatMessage({ id: 'asset__collectibles' })}
       </Typography.Heading>
       <IconButton
-        name="AcademicCapOutline"
+        name={view === CollectibleView.Grid ? 'PackupOutline' : 'ExpandOutline'}
         size="sm"
         circle
         type="plain"
