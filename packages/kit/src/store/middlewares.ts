@@ -34,4 +34,9 @@ const middlewares = [
   backgroundCheck,
 ];
 
+if (__DEV__) {
+  const createDebugger = require('redux-flipper').default;
+  middlewares.push(createDebugger());
+}
+
 export default middlewares;
