@@ -22,7 +22,6 @@ import OnekeyHardwareModal from './HardwareOnekey';
 import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
 import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
 import HistoryRequestModal from './HistoryRequest';
-import ImportAccountModal from './ImportAccount';
 import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
@@ -35,7 +34,6 @@ import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
 import TransactionDetailModal from './TransactionDetail';
 import UpdateFeatureModal from './UpdateFeature';
-import WatchedAccountModal from './WatchedAccount';
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',
@@ -66,14 +64,6 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.TransactionDetail,
     component: TransactionDetailModal,
-  },
-  {
-    name: ModalRoutes.ImportAccount,
-    component: ImportAccountModal,
-  },
-  {
-    name: ModalRoutes.WatchedAccount,
-    component: WatchedAccountModal,
   },
   {
     name: ModalRoutes.ManageToken,
