@@ -1,7 +1,7 @@
-import { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
-
 import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/kit/src/config';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 
 // eslint-disable-next-line import/no-mutable-exports
 let HardwareSDK: CoreApi;
