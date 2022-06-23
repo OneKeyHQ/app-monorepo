@@ -17,7 +17,6 @@ import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import img1 from '../../../assets/app_wallet_icon.png';
 import img2 from '../../../assets/hardware_icon.png';
@@ -33,8 +32,7 @@ const CreateWalletModal: FC = () => {
 
   const { network: activeNetwork } = useActiveWalletAccount();
 
-  const hardwareDisabled =
-    !activeNetwork?.settings?.hardwareAccountEnabled || platformEnv.isExtension;
+  const hardwareDisabled = !activeNetwork?.settings?.hardwareAccountEnabled;
 
   const content = (
     <VStack space={8} w="full">
