@@ -170,7 +170,7 @@ const Preview = () => {
             alignItems="center"
           >
             <Box mr="4">
-              <Icon name="NavReceiveSolid" size={16} />
+              <Icon name="ArrowDownSolid" size={16} />
             </Box>
             <Divider flex="1" />
           </Box>
