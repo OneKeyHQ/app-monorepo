@@ -27,6 +27,8 @@ export type IVaultSettings = {
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+
+  minTransferAmount?: string;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
