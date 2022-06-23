@@ -127,7 +127,6 @@ const TabNavigator = () => {
             options={{
               tabBarIcon: tab.tabBarIcon,
               tabBarLabel: intl.formatMessage({ id: tab.translationId }),
-              headerShown: tab.name !== TabRoutes.Overview,
             }}
           />
         ))}

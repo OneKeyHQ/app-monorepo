@@ -10,7 +10,6 @@ import { Discover } from '@onekeyhq/kit/src/views/Discover/Home';
 import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
-// import Overview from '@onekeyhq/kit/src/views/Overview/Home';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
@@ -18,7 +17,6 @@ import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// import OverviewCryproDetail from '../../views/Overview/CryproDetail';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
 
@@ -34,18 +32,6 @@ export interface TabRouteConfig {
 }
 
 export const tabRoutes: TabRouteConfig[] = [
-  // {
-  //   name: TabRoutes.Overview,
-  //   component: Overview,
-  //   tabBarIcon: () => 'NavHomeSolid',
-  //   translationId: 'title__overview',
-  //   children: [
-  //     {
-  //       name: HomeRoutes.OverviewCryptoDetail,
-  //       component: OverviewCryproDetail,
-  //     },
-  //   ],
-  // },
   {
     name: TabRoutes.Home,
     component: HomeScreen,

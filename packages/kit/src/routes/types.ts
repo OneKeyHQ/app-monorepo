@@ -44,15 +44,12 @@ export type ModalRoutesParams = {
   [ModalRoutes.UpdateFeature]: NavigatorScreenParams<SubModalRoutesParams.UpdateFeatureRoutesParams>;
   [ModalRoutes.ScanQrcode]: NavigatorScreenParams<SubModalRoutesParams.ScanQrcodeRoutesParams>;
   [ModalRoutes.FiatPay]: NavigatorScreenParams<SubModalRoutesParams.FiatPayModalRoutesParams>;
-  [ModalRoutes.OverviewAllCrypto]: NavigatorScreenParams<SubModalRoutesParams.OverviewAllCryptoRoutesParams>;
-  [ModalRoutes.OverviewNFTDetail]: NavigatorScreenParams<SubModalRoutesParams.OverviewNFTDetailRoutesParams>;
   [ModalRoutes.AddressBook]: NavigatorScreenParams<SubModalRoutesParams.AddressBookRoutesParams>;
 };
 /** Modal */
 
 /** Tab */
 export enum TabRoutes {
-  Overview = 'overview',
   Home = 'home',
   Swap = 'swap',
   Discover = 'discover',
@@ -63,7 +60,6 @@ export enum TabRoutes {
 }
 
 export type TabRoutesParams = {
-  [TabRoutes.Overview]: undefined;
   [TabRoutes.Home]: undefined;
   [TabRoutes.Swap]:
     | undefined
@@ -89,7 +85,6 @@ export enum HomeRoutes {
   DAppListScreen = 'DAppListScreen',
   TransactionHistoryScreen = 'TransactionHistoryScreen',
   FaceId = 'FaceId',
-  OverviewCryptoDetail = 'OverviewCryptoDetail',
   AddressBook = 'AddressBook',
 }
 
@@ -118,7 +113,6 @@ export type HomeRoutesParams = {
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FaceId]: undefined;
-  [HomeRoutes.OverviewCryptoDetail]: { token: any } | undefined;
   [HomeRoutes.AddressBook]: undefined;
 };
 /** HomeStack */
