@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-import { IChartApi, createChart } from 'lightweight-charts';
+import { createChart } from 'lightweight-charts';
 
 import { createChartDom, updateChartDom } from './sharedChartUtils';
 
@@ -20,7 +20,6 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   bottomColor,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi>();
 
   useEffect(() => {
     if (!chartContainerRef.current) {
@@ -32,7 +31,6 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
       onHover,
     );
 
-    chartRef.current = chart;
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
@@ -41,15 +39,12 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   }, []);
 
   useEffect(() => {
-    if (chartRef.current) {
-      updateChartDom({
-        chart: chartRef.current,
-        bottomColor,
-        topColor,
-        lineColor,
-        data,
-      });
-    }
+    updateChartDom({
+      bottomColor,
+      topColor,
+      lineColor,
+      data,
+    });
   }, [bottomColor, topColor, data, lineColor]);
 
   return <div ref={chartContainerRef} />;

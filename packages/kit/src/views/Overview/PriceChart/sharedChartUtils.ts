@@ -62,18 +62,18 @@ export function createChartDom(
 }
 
 export function updateChartDom({
-  chart,
   lineColor,
   topColor,
   bottomColor,
   data,
 }: {
-  chart: IOnekeyChartApi;
   lineColor: string;
   topColor: string;
   bottomColor: string;
   data: any[];
 }) {
+  // @ts-ignore
+  const chart = window._onekey_chart as IOnekeyChartApi;
   if (!chart._onekey_series) {
     const newSeries = chart.addAreaSeries({
       lineColor,
