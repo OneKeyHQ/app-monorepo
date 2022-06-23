@@ -1,8 +1,6 @@
 /** Modal */
 export enum ModalRoutes {
   CreateAccount = 'CreateAccount',
-  ImportAccount = 'ImportAccount',
-  WatchedAccount = 'WatchAccount',
   CreateWallet = 'CreateWallet',
   BackupWallet = 'BackupWallet',
   ManagerWallet = 'ManagerWallet',

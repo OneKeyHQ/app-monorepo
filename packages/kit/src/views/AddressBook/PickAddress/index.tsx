@@ -245,7 +245,7 @@ const MyWallet = () => {
 
 const PickAddress = () => {
   const intl = useIntl();
-  const [optionValue, setOptionValue] = useState<string>('AddressBook');
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
   const onPrimaryPress = useCallback(() => {
     navigation.navigate(AddressBookRoutes.NewAddressRoute);
@@ -262,29 +262,20 @@ const PickAddress = () => {
         type: 'basic',
         onPress: onPrimaryPress,
       }}
-      hidePrimaryAction={optionValue !== 'AddressBook'}
+      hidePrimaryAction={selectedIndex !== 0}
       staticChildrenProps={{ flex: 1, py: 6 }}
     >
       <Box mb="6" px={{ base: 4, md: 6 }}>
         <SegmentedControl
-          containerProps={{
-            width: 'full',
-          }}
-          options={[
-            {
-              label: intl.formatMessage({ id: 'title__address_book' }),
-              value: 'AddressBook',
-            },
-            {
-              label: intl.formatMessage({ id: 'form__my_wallet' }),
-              value: 'Wallet',
-            },
+          values={[
+            intl.formatMessage({ id: 'title__address_book' }),
+            intl.formatMessage({ id: 'form__my_wallet' }),
           ]}
-          onChangeValue={setOptionValue}
-          defaultValue={optionValue}
+          selectedIndex={selectedIndex}
+          onChange={setSelectedIndex}
         />
       </Box>
-      <Box flex="1">{optionValue === 'AddressBook' ? addressbook : wallet}</Box>
+      <Box flex="1">{selectedIndex === 0 ? addressbook : wallet}</Box>
     </Modal>
   );
 };

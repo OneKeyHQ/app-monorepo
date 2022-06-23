@@ -113,6 +113,7 @@ import EmojiHappyOutline from "./react/outline/EmojiHappy";
 import EmojiSadOutline from "./react/outline/EmojiSad";
 import ExclamationOutline from "./react/outline/Exclamation";
 import ExclamationCircleOutline from "./react/outline/ExclamationCircle";
+import ExpandOutline from "./react/outline/Expand";
 import ExternalLinkOutline from "./react/outline/ExternalLink";
 import EyeOutline from "./react/outline/Eye";
 import EyeOffOutline from "./react/outline/EyeOff";
@@ -168,6 +169,7 @@ import MusicNoteOutline from "./react/outline/MusicNote";
 import NewspaperOutline from "./react/outline/Newspaper";
 import OfficeBuildingOutline from "./react/outline/OfficeBuilding";
 import OnekeyLiteOutline from "./react/outline/OnekeyLite";
+import PackupOutline from "./react/outline/Packup";
 import PaperAirplaneOutline from "./react/outline/PaperAirplane";
 import PaperClipOutline from "./react/outline/PaperClip";
 import PauseOutline from "./react/outline/Pause";
@@ -620,6 +622,7 @@ export type ICON_NAMES =
   | "EmojiSadOutline"
   | "ExclamationOutline"
   | "ExclamationCircleOutline"
+  | "ExpandOutline"
   | "ExternalLinkOutline"
   | "EyeOutline"
   | "EyeOffOutline"
@@ -675,6 +678,7 @@ export type ICON_NAMES =
   | "NewspaperOutline"
   | "OfficeBuildingOutline"
   | "OnekeyLiteOutline"
+  | "PackupOutline"
   | "PaperAirplaneOutline"
   | "PaperClipOutline"
   | "PauseOutline"
@@ -1127,6 +1131,7 @@ export default {
   EmojiSadOutline: EmojiSadOutline,
   ExclamationOutline: ExclamationOutline,
   ExclamationCircleOutline: ExclamationCircleOutline,
+  ExpandOutline: ExpandOutline,
   ExternalLinkOutline: ExternalLinkOutline,
   EyeOutline: EyeOutline,
   EyeOffOutline: EyeOffOutline,
@@ -1182,6 +1187,7 @@ export default {
   NewspaperOutline: NewspaperOutline,
   OfficeBuildingOutline: OfficeBuildingOutline,
   OnekeyLiteOutline: OnekeyLiteOutline,
+  PackupOutline: PackupOutline,
   PaperAirplaneOutline: PaperAirplaneOutline,
   PaperClipOutline: PaperClipOutline,
   PauseOutline: PauseOutline,
