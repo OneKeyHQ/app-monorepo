@@ -8,6 +8,8 @@ const settings: IVaultSettings = {
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   watchingAccountEnabled: true,
+
+  minTransferAmount: '0.00000546',
 };
 
 export default settings;
