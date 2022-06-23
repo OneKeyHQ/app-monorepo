@@ -79,7 +79,7 @@ export * from './OverlayContainer';
 export * from './Provider/hooks';
 export * from './HeaderTabViewContainer';
 export * from './Svg';
-export { default as Skeleton } from './Skeleton';
+export { default as Skeleton, CustomSkeleton } from './Skeleton';
 
 export { useForm, Controller, useWatch, useFormState } from 'react-hook-form';
 export type { Control } from 'react-hook-form';

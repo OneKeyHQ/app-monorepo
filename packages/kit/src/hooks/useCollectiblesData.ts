@@ -10,25 +10,6 @@ import { Collectible, OpenSeaAsset } from '@onekeyhq/engine/src/types/opensea';
 // userAddress -> collectionName -> Collectible
 const USER_COLLECTIBLE_CACHE = new Map<string, Map<string, Collectible>>();
 
-// Defines whether a given uri corresponds to a set of possible file extensions.
-const checkIfIncludeUriExtension = (
-  { animationUrl, imageUrl }: OpenSeaAsset,
-  extensions: string[],
-) => {
-  const uri = animationUrl || imageUrl;
-  if (typeof uri !== 'string' || !Array.isArray(extensions)) {
-    return false;
-  }
-  const supported = extensions.reduce(
-    (maybeSupported: boolean, ext: string): boolean =>
-      maybeSupported ||
-      (typeof ext === 'string' &&
-        uri.toLowerCase().includes(ext.toLowerCase())),
-    false,
-  );
-  return supported;
-};
-
 export const useCollectibleCache = (
   userAddress: string,
   collectionAddress: string,
@@ -48,31 +29,28 @@ export const parseCollectiblesData = (
 
   for (const asset of assets) {
     // Ignore video and audio by now
-    if (!checkIfIncludeUriExtension(asset, ['.mp4', '.wav', '.mp3'])) {
-      // Use lowercase address in case of case-insensitive address
-      const uniqueName = asset.collection.name;
-
-      // Skip if the unique name is undefined
-      if (uniqueName) {
-        const collectible = collectibles.get(uniqueName);
-        if (collectible) {
-          collectible.assets.push(asset);
-        } else {
-          collectibles.set(uniqueName, {
-            id: uniqueName,
-            chain: asset.chain,
-            contract: asset.assetContract,
-            assets: [asset],
-            collection: pick(asset.collection, [
-              'name',
-              'slug',
-              'description',
-              'imageUrl',
-              'bannerImageUrl',
-              'largeImageUrl',
-            ]),
-          });
-        }
+    // Use lowercase address in case of case-insensitive address
+    const uniqueName = asset.collection.name;
+    // Skip if the unique name is undefined
+    if (uniqueName) {
+      const collectible = collectibles.get(uniqueName);
+      if (collectible) {
+        collectible.assets.push(asset);
+      } else {
+        collectibles.set(uniqueName, {
+          id: uniqueName,
+          chain: asset.chain,
+          contract: asset.assetContract,
+          assets: [asset],
+          collection: pick(asset.collection, [
+            'name',
+            'slug',
+            'description',
+            'imageUrl',
+            'bannerImageUrl',
+            'largeImageUrl',
+          ]),
+        });
       }
     }
   }
