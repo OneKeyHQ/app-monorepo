@@ -173,15 +173,30 @@ const AccountSelectorChildren: FC<{
   }, [activeWallet, engine, selectedNetworkId]);
 
   const options = useMemo(() => {
-    const selectNetworkExists = enabledNetworks.find(
+    const availableNetworks =
+      activeWallet === null
+        ? enabledNetworks
+        : enabledNetworks.filter(({ settings }) => {
+            switch (activeWallet.type) {
+              case 'hw':
+                return settings.hardwareAccountEnabled;
+              case 'imported':
+                return settings.importedAccountEnabled;
+              case 'watching':
+                return settings.watchingAccountEnabled;
+              default:
+                return true; // HD accounts are always supported.
+            }
+          });
+    const selectNetworkExists = availableNetworks.find(
       (network) => network.id === selectedNetworkId,
     );
     if (!selectNetworkExists)
       setTimeout(() => setSelectedNetworkId(AllNetwork));
 
-    if (!enabledNetworks) return [];
+    if (!availableNetworks) return [];
 
-    const networks: SelectItem<string>[] = enabledNetworks.map((network) => ({
+    const networks: SelectItem<string>[] = availableNetworks.map((network) => ({
       label: network.shortName,
       value: network.id,
       tokenProps: {
@@ -202,7 +217,7 @@ const AccountSelectorChildren: FC<{
 
     return networks;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabledNetworks, isVerticalLayout, intl]);
+  }, [enabledNetworks, isVerticalLayout, intl, activeWallet]);
 
   const handleChange = useCallback(
     (item: AccountEngineType, value) => {
