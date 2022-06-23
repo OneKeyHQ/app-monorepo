@@ -19,7 +19,7 @@ const bridge = bridgeSetup.background.createHostBridge({
 });
 
 backgroundApiProxy.connectBridge(bridge);
-
+backgroundApiProxy.initBackgroundSDK();
 // extension reload() method expose to dapp
 if (platformEnv.isDev) {
   chrome.runtime.onMessage.addListener(

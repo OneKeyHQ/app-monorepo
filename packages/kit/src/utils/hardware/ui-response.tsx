@@ -24,7 +24,7 @@ export const UI_REQUEST = {
 
 let showPermissionDialog = false;
 
-export const UIResponse = async (event: any) => {
+export const UIResponse = async (event: any, hideUiResponse?: boolean) => {
   const HardwareSDK = await getHardwareSDKInstance();
 
   const { type } = event;
@@ -40,7 +40,9 @@ export const UIResponse = async (event: any) => {
           type: 'enterPinOnDevice',
         },
       );
-
+      if (hideUiResponse) {
+        return;
+      }
       HardwareSDK.uiResponse({
         type: UI_RESPONSE.RECEIVE_PIN,
         payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
