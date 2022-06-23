@@ -15,7 +15,7 @@ import {
   Form,
   Modal,
   RadioFee,
-  SegmentedControlIOS,
+  SegmentedControl,
   Spinner,
   Typography,
   useForm,
@@ -597,7 +597,7 @@ export type IEditFeeTabsProps = {
 function EditFeeTabs({ onChange, type }: IEditFeeTabsProps) {
   const intl = useIntl();
   return (
-    <SegmentedControlIOS
+    <SegmentedControl
       selectedIndex={type}
       onChange={onChange}
       values={[

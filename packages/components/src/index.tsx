@@ -66,7 +66,6 @@ export { default as KeyboardDismissView } from './KeyboardDismissView';
 export { default as KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 export { default as DesktopDragZoneBox } from './DesktopDragZoneBox';
 export { default as Popover } from './Popover';
-export { default as SegmentedControlIOS } from './SegmentedControlIOS';
 
 export {
   default as RecyclerListView,

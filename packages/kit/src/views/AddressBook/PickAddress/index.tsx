@@ -14,7 +14,7 @@ import {
   Modal,
   Pressable,
   SectionList,
-  SegmentedControlIOS,
+  SegmentedControl,
   Typography,
   utils,
 } from '@onekeyhq/components';
@@ -266,7 +266,7 @@ const PickAddress = () => {
       staticChildrenProps={{ flex: 1, py: 6 }}
     >
       <Box mb="6" px={{ base: 4, md: 6 }}>
-        <SegmentedControlIOS
+        <SegmentedControl
           values={[
             intl.formatMessage({ id: 'title__address_book' }),
             intl.formatMessage({ id: 'form__my_wallet' }),
