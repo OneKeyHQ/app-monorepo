@@ -8,8 +8,13 @@ import {
   useNetworkTokens,
 } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
-import { reset } from '../../store/reducers/swap';
+import {
+  reset,
+  setNoSupportCoins,
+  setSwftcSupportedTokens,
+} from '../../store/reducers/swap';
 
+import { swapClient } from './client';
 import { useSwapActionHandlers, useSwapEnabled } from './hooks/useSwap';
 import { refs } from './refs';
 
@@ -18,6 +23,7 @@ const AccountGuard = () => {
   useEffect(() => {
     backgroundApiProxy.dispatch(reset());
   }, [account]);
+
   return <></>;
 };
 
@@ -96,11 +102,24 @@ const ActiveNetworkGuard = () => {
   return <></>;
 };
 
+const TokensFilters = () => {
+  useEffect(() => {
+    async function main() {
+      const { tokens, noSuportedTokens } = await swapClient.getBaseInfo();
+      backgroundApiProxy.dispatch(setSwftcSupportedTokens(tokens));
+      backgroundApiProxy.dispatch(setNoSupportCoins(noSuportedTokens));
+    }
+    main();
+  }, []);
+  return null;
+};
+
 const SwapGuard = () => (
   <>
     <AccountGuard />
     <NetworkGuard />
     <ActiveNetworkGuard />
+    <TokensFilters />
   </>
 );
 

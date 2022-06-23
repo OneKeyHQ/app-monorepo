@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 
@@ -13,6 +13,7 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
+import { getChainIdFromNetworkId } from '../utils';
 
 import type { Token } from '../../../store/typings';
 
@@ -21,6 +22,9 @@ const Output = () => {
   const { accountId, networkId } = useActiveWalletAccount();
   const { inputToken } = useSwapState();
   const { onSelectToken, onSelectNetwork } = useSwapActionHandlers();
+  const swftcSupportedTokens = useAppSelector(
+    (s) => s.swap.swftcSupportedTokens,
+  );
   const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
   const onPress = useCallback(
     (token: Token) => {
@@ -39,6 +43,21 @@ const Output = () => {
     [onSelectNetwork],
   );
 
+  const included = useMemo(() => {
+    if (activeNetwork?.id && activeNetwork?.id !== networkId) {
+      const chainId = getChainIdFromNetworkId(activeNetwork.id);
+      return swftcSupportedTokens[chainId];
+    }
+    return undefined;
+  }, [activeNetwork, swftcSupportedTokens, networkId]);
+
+  const excluded = useMemo(() => {
+    if (networkId === activeNetwork?.id && inputToken) {
+      return [inputToken.tokenIdOnNetwork];
+    }
+    return undefined;
+  }, [activeNetwork, inputToken, networkId]);
+
   useFocusEffect(
     useCallback(() => {
       backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -55,12 +74,16 @@ const Output = () => {
     }, []),
   );
 
+  if (!activeNetwork) {
+    return <></>;
+  }
+
   return (
     <TokenSelector
       showNetworkSelector
-      excluded={networkId === activeNetwork?.id ? inputToken : undefined}
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      activeNetwork={activeNetwork!}
+      activeNetworkId={activeNetwork.id}
+      included={included}
+      excluded={excluded}
       onSelectToken={onPress}
       onSelectNetwork={onSelect}
     />
