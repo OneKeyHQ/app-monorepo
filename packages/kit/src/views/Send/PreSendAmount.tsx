@@ -143,13 +143,33 @@ function PreSendAmount() {
   }, [amount, getTokenBalance, intl, tokenInfo]);
   const errorMsg = getAmountValidateError();
 
+  const minAmountBN = useMemo(
+    () => new BigNumber(network?.settings.minTransferAmount || '0'),
+    [network],
+  );
+
+  const [minAmountValidationPassed, minAmountNoticeNeeded] = useMemo(() => {
+    const minAmountRequired = !minAmountBN.isNaN() && minAmountBN.gt('0');
+
+    if (minAmountRequired) {
+      const amountBN = new BigNumber(amount);
+      if (amountBN.isNaN()) {
+        return [false, false];
+      }
+      if (amountBN.lt(minAmountBN)) {
+        return [false, amountBN.gt('0')];
+      }
+    }
+    return [true, false];
+  }, [minAmountBN, amount]);
+
   return (
     <BaseSendModal
       header={intl.formatMessage({ id: 'content__amount' })}
       primaryActionTranslationId="action__next"
       hideSecondaryAction
       primaryActionProps={{
-        isDisabled: !!errorMsg,
+        isDisabled: !!errorMsg || !minAmountValidationPassed,
       }}
       onPrimaryActionPress={async () => {
         if (!account || !network || !tokenInfo) {
@@ -231,11 +251,20 @@ function PreSendAmount() {
               }
             }}
             desc={
-              <FormatCurrencyToken
-                token={tokenInfo}
-                value={amount}
-                render={(ele) => <Text>{ele}</Text>}
-              />
+              minAmountNoticeNeeded ? (
+                <Typography.Body1Strong color="text-critical">
+                  {intl.formatMessage(
+                    { id: 'form__str_minimum_transfer' },
+                    { 0: minAmountBN.toFixed() },
+                  )}
+                </Typography.Body1Strong>
+              ) : (
+                <FormatCurrencyToken
+                  token={tokenInfo}
+                  value={amount}
+                  render={(ele) => <Text>{ele}</Text>}
+                />
+              )
             }
           />
         </Box>
