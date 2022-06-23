@@ -95,6 +95,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
             contractAddress:
               asset.contractAddress ?? asset.assetContract.address,
             tokenId: asset.tokenId,
+            name: asset.name,
           },
         },
       });

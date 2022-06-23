@@ -23,6 +23,7 @@ export type CollectiblesRoutesParams = {
     chainId?: string | null;
     chainName?: string | null;
     contractAddress: string;
+    name?: string | null;
   };
 };
 

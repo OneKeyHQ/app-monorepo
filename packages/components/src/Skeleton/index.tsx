@@ -1,10 +1,12 @@
-import React, { PropsWithChildren } from 'react';
+import React, { ComponentProps, FC, PropsWithChildren } from 'react';
 
 import ContentLoader, {
   IContentLoaderProps,
 } from 'react-content-loader/native';
+import { Rect } from 'react-native-svg';
 
-import { useThemeValue } from '../Provider/hooks';
+import Box from '../Box';
+import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
 
 import {
   Avatar,
@@ -124,6 +126,25 @@ const Skeleton = ({
     {shape ? renderShape(shape, width, size) : children}
   </ContentLoader>
 );
+
+export const CustomSkeleton: FC<ComponentProps<typeof Box>> = ({ ...rest }) => {
+  const isSmallScreen = useIsVerticalLayout();
+  const backgroundColor = useThemeValue('surface-neutral-default');
+  const foregroundColor = useThemeValue('surface-default');
+  return (
+    <Box overflow="hidden" {...rest}>
+      <ContentLoader
+        speed={1}
+        width={isSmallScreen ? undefined : 'full'}
+        height={isSmallScreen ? undefined : 'full'}
+        backgroundColor={backgroundColor}
+        foregroundColor={foregroundColor}
+      >
+        <Rect x="0" y="0" width="100%" height="100%" />
+      </ContentLoader>
+    </Box>
+  );
+};
 
 Skeleton.Avatar = Avatar;
 Skeleton.DisplayXLarge = DisplayXLarge;
