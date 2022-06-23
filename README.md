@@ -67,7 +67,7 @@ Execute the following commands in the root directory to develop different busine
 
 Execute the following commands in the root directory and build target for production. Make sure each platform starts correctly and environment variables are configured correctly.
 
-- web: `cd packages/web && yarn build`, build the static files at packages/web/web-build
+- web: `cd packages/web && yarn build`, build the static files at packages/web/web-build, for production build, see [release-web.yml](./.github/workflows/release-web.yml) job for detail.
 - ios: using expo server to build, see [release-ios.yml](./.github/workflows/release-ios.yml) job for detail.
 - android: : using expo server to build, see [release-android.yml](./.github/workflows/release-android.yml) job for detail.
 - desktop: : `cd packages/desktop && yarn build`, see [release-desktop.yml](./.github/workflows/release-desktop.yml) job for detail.

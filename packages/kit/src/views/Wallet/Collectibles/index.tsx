@@ -51,6 +51,7 @@ const Collectibles = ({ address, network }: CollectiblesProps) => {
           params: {
             tokenId: asset.tokenId,
             contractAddress: asset.contractAddress,
+            name: asset.name,
           },
         },
       });
