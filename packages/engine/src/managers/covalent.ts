@@ -280,7 +280,15 @@ function eventAdapter(
           fromType = EVMTxFromType.IN;
         }
       } else if (logs.length >= 0) {
-        fromType = EVMTxFromType.OUT;
+        if (parseFloat(value) > 0) {
+          if (from === user) {
+            fromType = EVMTxFromType.OUT;
+          } else {
+            fromType = EVMTxFromType.IN;
+          }
+        } else {
+          fromType = EVMTxFromType.OUT;
+        }
       }
     }
   }
@@ -318,6 +326,13 @@ async function txAdapter(
     transfers: tx.transfers,
     chainId: parseInt(chainId),
   };
+
+  if (
+    tx.fromAddress.toLowerCase() !== user.toLowerCase() &&
+    tx.toAddress.toLowerCase() === user.toLowerCase()
+  ) {
+    txDetail.fromType = EVMTxFromType.IN;
+  }
 
   const adapter = eventAdapter(
     user,
