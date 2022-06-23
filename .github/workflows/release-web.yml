@@ -1,0 +1,60 @@
+name: release-web
+
+on: workflow_dispatch
+
+jobs:
+  test-web:
+    runs-on: ubuntu-latest
+    env:
+      HOST_PATH: '${{ github.event.repository.name }}/${{ github.sha }}/'
+      PUBLIC_URL: 'https://web.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Environment
+        uses: actions/setup-node@v1
+        with:
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+          node-version: '16.x'
+
+      - name: Setup keys secret
+        run: |
+          rm -rf packages/shared/src/analytics/firebase.web.json
+          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          yarn && yarn global add expo-cli
+
+      - name: Inject Environment Variables
+        env:
+          OPENSEA_KEY: ${{ secrets.OPENSEA_KEY }}
+          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+          MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
+        run: |
+          echo "OPENSEA_KEY=${{ env.OPENSEA_KEY }}" >> .env
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
+          echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
+
+      - name: Build Target
+        run: |
+          cd packages/web && yarn build && cd ../..
+
+      - name: Deploy to CDN
+        uses: OneKeyHQ/onekey-github-actions/s3-upload@main
+        with:
+          aws_key_id: ${{ secrets.AWS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: './packages/web/web-build/'
+          destination_dir: ${{ env.HOST_PATH }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: app-monorepo-${{ github.sha }}
+          path: |
+            ./packages/web/web-build/
