@@ -21,6 +21,7 @@ import {
   useNavigation,
 } from '../../../hooks';
 import { SendRoutes } from '../../Send/types';
+import { swapClient } from '../client';
 import ExchangeRate from '../ExchangeRate';
 import {
   useSwap,
@@ -28,11 +29,8 @@ import {
   useSwapState,
 } from '../hooks/useSwap';
 import { useTransactionAdder } from '../hooks/useTransactions';
-import { SwapQuoter } from '../quoter';
 
 import { Timer } from './Timer';
-
-const swapClient = new SwapQuoter();
 
 const Preview = () => {
   const intl = useIntl();
