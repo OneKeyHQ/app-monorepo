@@ -10,34 +10,32 @@ type TimeControlProps = {
 };
 
 const TimeControl: React.FC<TimeControlProps> = ({ time, onTimeChange }) => (
-  <Box>
-    <SegmentedControl
-      options={[
-        {
-          label: '1D',
-          value: '1D',
-        },
-        {
-          label: '1W',
-          value: '1W',
-        },
-        {
-          label: '1M',
-          value: '1M',
-        },
-        {
-          label: '1Y',
-          value: '1Y',
-        },
-        {
-          label: 'All',
-          value: 'All',
-        },
-      ]}
-      onChangeValue={onTimeChange}
-      defaultValue={time}
-    />
-  </Box>
+  <SegmentedControl
+    options={[
+      {
+        label: '1D',
+        value: '1D',
+      },
+      {
+        label: '1W',
+        value: '1W',
+      },
+      {
+        label: '1M',
+        value: '1M',
+      },
+      {
+        label: '1Y',
+        value: '1Y',
+      },
+      {
+        label: 'All',
+        value: 'All',
+      },
+    ]}
+    onChangeValue={onTimeChange}
+    defaultValue={time}
+  />
 );
 TimeControl.displayName = 'TimeControl';
 export default TimeControl;

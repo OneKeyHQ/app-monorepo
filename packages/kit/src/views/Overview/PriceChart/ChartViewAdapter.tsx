@@ -34,6 +34,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     createChart,
     container, 
     postMessage,
+    ${data.length},
   );
   (${updateChartDom.toString()})({
     bottomColor: ${JSON.stringify(bottomColor)},

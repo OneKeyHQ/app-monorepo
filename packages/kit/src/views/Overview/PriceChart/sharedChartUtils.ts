@@ -19,6 +19,7 @@ export function createChartDom(
   ) => IChartApi,
   domNode: HTMLElement,
   onHover: (price?: number) => void,
+  dataLength: number,
 ) {
   const chart = createChartFunc(domNode, {
     height: 300,
@@ -49,7 +50,7 @@ export function createChartDom(
     chart.applyOptions({ width: domNode.clientWidth });
   };
 
-  chart.timeScale().fitContent();
+  chart.timeScale().setVisibleLogicalRange({ from: 0.4, to: dataLength - 1.4 });
 
   chart.subscribeCrosshairMove(({ seriesPrices }) => {
     onHover(seriesPrices.values().next().value);

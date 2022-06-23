@@ -4,6 +4,15 @@ import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TimeOptions } from './TimeControl';
 
 const mockdata = [
+  { time: '2018-12-13', value: 12.98 },
+  { time: '2018-12-14', value: 16.83 },
+  { time: '2018-12-15', value: 18.91 },
+  { time: '2018-12-16', value: 22.01 },
+  { time: '2018-12-17', value: 26.56 },
+  { time: '2018-12-18', value: 31.98 },
+  { time: '2018-12-19', value: 30.33 },
+  { time: '2018-12-20', value: 29.21 },
+  { time: '2018-12-21', value: 28.81 },
   { time: '2018-12-22', value: 32.51 },
   { time: '2018-12-23', value: 31.11 },
   { time: '2018-12-24', value: 27.02 },
@@ -32,10 +41,9 @@ const PriceChart: React.FC<PriceChartProps> = () => {
     setTime(newTime);
   }, []);
   return (
-    <>
-      <ChartWithLabel data={data} />
+    <ChartWithLabel data={data}>
       <TimeControl time={time} onTimeChange={refreshDataOnTimeChange} />
-    </>
+    </ChartWithLabel>
   );
 };
 PriceChart.displayName = 'PriceChart';

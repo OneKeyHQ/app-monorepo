@@ -34,6 +34,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
       createChart,
       chartContainerRef.current,
       onHover,
+      data.length,
     );
 
     return () => {
