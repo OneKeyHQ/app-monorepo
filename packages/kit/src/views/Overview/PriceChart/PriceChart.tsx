@@ -26,7 +26,7 @@ const PriceChart: React.FC<PriceChartProps> = () => {
   const refreshDataOnTimeChange = useCallback((newTime: TimeOptions) => {
     const newData = mockdata.map((d) => ({
       ...d,
-      value: d.value + Math.random() * 10,
+      value: +(d.value + Math.random() * 10).toFixed(2),
     }));
     setData(newData);
     setTime(newTime);

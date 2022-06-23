@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
+import { StyleProp, ViewStyle } from 'react-native';
 import WebView from 'react-native-webview';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,6 +13,7 @@ type ChartViewAdapterProps = {
   lineColor: string;
   topColor: string;
   bottomColor: string;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
 const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
@@ -20,6 +22,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   lineColor,
   topColor,
   bottomColor,
+  containerStyle,
 }) => {
   const webviewRef = useRef<WebView>(null);
   const initJs = useMemo(
@@ -55,10 +58,12 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   return (
     <WebView
       ref={webviewRef}
-      style={{
-        flex: 1,
-        backgroundColor: 'transparent',
-      }}
+      style={[
+        containerStyle,
+        {
+          backgroundColor: 'transparent',
+        },
+      ]}
       source={{
         uri: platformEnv.isNativeIOS
           ? 'tradingview.html'

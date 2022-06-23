@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 
+import { Box } from '@onekeyhq/components';
+
 import ChartView from './ChartView';
 import PriceLabel from './PriceLabel';
 
 type ChartWithLabelProps = {
-  data: any[];
+  data: Array<{ time: string; value: number }>;
 };
 
 const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data }) => {
   const [price, setPrice] = useState<string | number | undefined>();
-  const currentPrice = 0;
+
+  const currentPrice = data[data.length - 1].value;
   let priceStringResult;
   if (price === 'undefined' || price === undefined) {
     priceStringResult = String(currentPrice);
@@ -21,7 +24,9 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data }) => {
   return (
     <>
       <PriceLabel price={priceStringResult} />
-      <ChartView data={data} onHover={setPrice} />
+      <Box h="300px">
+        <ChartView data={data} onHover={setPrice} />
+      </Box>
     </>
   );
 };
