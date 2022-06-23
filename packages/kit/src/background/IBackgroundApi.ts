@@ -27,6 +27,7 @@ import type {
 export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
   connectBridge(bridge: JsBridgeBase): void;
+  initBackgroundSDK(): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   store: IStore;
