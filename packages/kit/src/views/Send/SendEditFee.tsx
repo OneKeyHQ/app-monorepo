@@ -63,8 +63,8 @@ type FeeValues = {
 };
 
 enum FeeType {
-  standard = 0,
-  advanced = 1,
+  standard = 'standard',
+  advanced = 'advanced',
 }
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendEditFee>;
@@ -598,7 +598,7 @@ function EditFeeTabs({ onChange, type }: IEditFeeTabsProps) {
   const intl = useIntl();
   return (
     <SegmentedControl
-      selectedIndex={type}
+      selectedIndex={type === FeeType.standard ? 0 : 1}
       onChange={onChange}
       values={[
         intl.formatMessage({ id: 'content__standard' }),
@@ -642,7 +642,7 @@ function ScreenSendEditFee({ ...rest }) {
     debugLogger.sendTx('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
   }, [encodedTx, feeInfoPayload]);
 
-  const [feeType, setFeeType] = useState<number>(FeeType.standard);
+  const [feeType, setFeeType] = useState<FeeType>(FeeType.standard);
   const [radioValue, setRadioValue] = useState('');
 
   const isSmallScreen = useIsVerticalLayout();
@@ -868,7 +868,7 @@ function ScreenSendEditFee({ ...rest }) {
         <EditFeeTabs
           type={feeType}
           onChange={(value) => {
-            setFeeType(value as FeeType);
+            setFeeType(value === 0 ? FeeType.standard : FeeType.advanced);
           }}
         />
         <Box>
