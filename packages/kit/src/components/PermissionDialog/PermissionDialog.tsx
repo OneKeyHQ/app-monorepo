@@ -110,7 +110,9 @@ const PermissionDialog: FC<{
         if (onClose) {
           return onClose();
         }
-        return navigationRef.current?.getParent()?.goBack?.();
+        const inst =
+          navigationRef.current?.getParent() || navigationRef.current;
+        inst?.goBack();
       }}
       contentProps={{
         icon: <Icon name="ExclamationOutline" size={48} />,
