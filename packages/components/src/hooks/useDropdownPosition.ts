@@ -265,6 +265,7 @@ function useDropdownPosition({
         return pos;
       }
       let { left, top } = contentPosition;
+      top -= translateY;
       if (contentPosition.outOfX > 0) {
         if (contentPosition.overflowWidth) {
           left = 0;
@@ -286,7 +287,7 @@ function useDropdownPosition({
         top,
       };
     },
-    [autoAdjust, contentRef, modalRef],
+    [autoAdjust, contentRef, modalRef, translateY],
   );
 
   useEffect(() => {
@@ -325,8 +326,9 @@ function useDropdownPosition({
 
   return {
     position,
-    triggerWidth: triggerWidth.current,
     toPxPositionValue,
+    isPositionNotReady,
+    triggerWidth: triggerWidth.current,
   };
 }
 
