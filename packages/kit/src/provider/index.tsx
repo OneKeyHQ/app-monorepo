@@ -1,9 +1,6 @@
 import React, { FC } from 'react';
 
 import axios from 'axios';
-import {
-  OverlayProvider
-} from "@react-native-aria/overlays";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
@@ -32,9 +29,7 @@ const KitProvider: FC = () => (
         <ThemeApp>
           <AppLoading>
             <ErrorBoundary>
-              <OverlayProvider>
-                <NavigationApp />
-              </OverlayProvider>
+              <NavigationApp />
             </ErrorBoundary>
           </AppLoading>
         </ThemeApp>
