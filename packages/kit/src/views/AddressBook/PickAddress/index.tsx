@@ -21,6 +21,7 @@ import {
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import imageUrl from '../../../../assets/3d_contact.png';
@@ -235,9 +236,11 @@ const MyWallet = () => {
           <Divider />
         </Box>
       )}
-      renderSectionHeader={({ section: { wallet } }) => (
-        // eslint-disable-next-line
-        <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>{wallet.name}</Typography.Subheading>
+      // eslint-disable-next-line
+      renderSectionHeader={({ section }: { section: WalletAccount }) => (
+        <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>
+          {section.wallet.name}
+        </Typography.Subheading>
       )}
     />
   );
@@ -275,7 +278,9 @@ const PickAddress = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-      <Box flex="1">{selectedIndex === 0 ? addressbook : wallet}</Box>
+      <Box flex="1" maxH={!platformEnv.isNative ? '72' : undefined}>
+        {selectedIndex === 0 ? addressbook : wallet}
+      </Box>
     </Modal>
   );
 };

@@ -10,6 +10,7 @@ import {
 import { useActiveWalletAccount } from '../../hooks/redux';
 import {
   reset,
+  setActiveNetwork,
   setNoSupportCoins,
   setSwftcSupportedTokens,
 } from '../../store/reducers/swap';
@@ -27,7 +28,7 @@ const AccountGuard = () => {
   return <></>;
 };
 
-const NetworkGuard = () => {
+const NetworkListener = () => {
   const { network, accountId } = useActiveWalletAccount();
   const { nativeToken } = useManageTokens();
   const { onSelectToken } = useSwapActionHandlers();
@@ -37,6 +38,7 @@ const NetworkGuard = () => {
     if (!isSwapEnabled || !network) {
       return;
     }
+    backgroundApiProxy.dispatch(setActiveNetwork(network));
     if (nativeToken) {
       onSelectToken(nativeToken, 'INPUT', network);
     } else {
@@ -60,7 +62,7 @@ const NetworkGuard = () => {
   return <></>;
 };
 
-const ActiveNetworkGuard = () => {
+const SwapNetworkListener = () => {
   const { network, accountId } = useActiveWalletAccount();
 
   const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
@@ -102,7 +104,7 @@ const ActiveNetworkGuard = () => {
   return <></>;
 };
 
-const TokensFilters = () => {
+const SwapTokensFetcher = () => {
   useEffect(() => {
     async function main() {
       const { tokens, noSuportedTokens } = await swapClient.getBaseInfo();
@@ -117,9 +119,9 @@ const TokensFilters = () => {
 const SwapGuard = () => (
   <>
     <AccountGuard />
-    <NetworkGuard />
-    <ActiveNetworkGuard />
-    <TokensFilters />
+    <NetworkListener />
+    <SwapNetworkListener />
+    <SwapTokensFetcher />
   </>
 );
 
