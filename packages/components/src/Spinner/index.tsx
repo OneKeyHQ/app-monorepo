@@ -11,7 +11,7 @@ export type BadgeProps = {
 };
 
 export const Spinner: FC<BadgeProps> = ({ ...rest }) => {
-  const bgColor = useThemeValue('border-hovered');
+  const bgColor = useThemeValue('icon-subdued');
   return <NBSpinner color={bgColor} {...rest} />;
 };
 // SpinnerLoading
