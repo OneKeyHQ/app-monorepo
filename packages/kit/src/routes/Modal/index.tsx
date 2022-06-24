@@ -21,6 +21,7 @@ import BuyModal from './FiatPay';
 import OnekeyHardwareModal from './HardwareOnekey';
 import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
 import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
+import HardwareUpdateModal from './HardwareUpdate';
 import HistoryRequestModal from './HistoryRequest';
 import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
@@ -120,6 +121,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.OnekeyHardware,
     component: OnekeyHardwareModal,
+  },
+  {
+    name: ModalRoutes.HardwareUpdate,
+    component: HardwareUpdateModal,
   },
   {
     name: ModalRoutes.Discover,

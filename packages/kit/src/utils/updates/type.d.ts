@@ -1,3 +1,5 @@
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+
 export type OS =
   | 'ios'
   | 'android'
@@ -38,3 +40,25 @@ export interface ReleasesInfo {
 export interface VersionInfo {
   package: PackageInfo;
 }
+
+export type Changelog = {
+  [key in LocaleSymbol]?: string;
+};
+
+export type SYSFirmwareInfo = {
+  required: boolean;
+  version: number[];
+  url: string;
+  fingerprint: string;
+  changelog: Changelog;
+};
+
+export type BLEFirmwareInfo = {
+  required: boolean;
+  version: number[];
+  url: string;
+  webUpdate: string;
+  fingerprint: string;
+  fingerprintWeb: string;
+  changelog: Changelog;
+};

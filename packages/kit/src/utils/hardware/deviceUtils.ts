@@ -1,14 +1,19 @@
 import {
+  CoreApi,
   IDeviceType,
   SearchDevice,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import BleManager from 'react-native-ble-manager';
+import semVer from 'semver';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import store from '../../store';
+import { setDeviceUpdates } from '../../store/reducers/settings';
 
 import {
   DeviceNotBonded,
@@ -19,12 +24,15 @@ import {
   InvalidPIN,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
+  NotInBootLoaderMode,
   OpenBlindSign,
   UnknownHardwareError,
   UnknownMethod,
   UserCancel,
 } from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
+
+import type { BLEFirmwareInfo, SYSFirmwareInfo } from '../updates/type';
 
 /**
  * will delete packages/kit/src/utils/device
@@ -189,9 +197,117 @@ class DeviceUtils {
       case 'EIP712 blind sign is disabled':
         return new OpenBlindSign();
 
+      case 'ui-device_not_in_bootloader_mode':
+        return new NotInBootLoaderMode();
+
       default:
         return new UnknownHardwareError();
     }
+  }
+
+  _getAvailableUpgradeVersion<
+    T extends { version: number[]; required: boolean },
+  >(
+    currentVersion: string,
+    data: T[],
+  ): {
+    upgradeVersions: T[];
+    hasForce: boolean;
+  } {
+    const upgradeVersions = data.filter((firmware) =>
+      semVer.gt(firmware.version.join('.'), currentVersion),
+    );
+    const forceVersion = upgradeVersions.find((firmware) => firmware.required);
+    return { upgradeVersions, hasForce: !!forceVersion };
+  }
+
+  async _checkDeviceUpdate(sdk: CoreApi, connectId: string): Promise<boolean> {
+    const checkBleResult = await sdk.checkBLEFirmwareRelease(connectId);
+
+    let bleFirmware: BLEFirmwareInfo | undefined;
+    let firmware: SYSFirmwareInfo | undefined;
+    let hasFirmwareForce = false;
+    let hasBleForce = false;
+
+    if (checkBleResult.success && checkBleResult.payload.status !== 'valid') {
+      bleFirmware = checkBleResult.payload.release;
+      if (checkBleResult.payload.status === 'required') {
+        hasBleForce = true;
+      }
+    }
+
+    const checkResult = await sdk.checkFirmwareRelease(connectId);
+
+    if (checkResult.success && checkResult.payload.status !== 'valid') {
+      firmware = checkResult.payload.release;
+      if (checkResult.payload.status === 'required') {
+        hasFirmwareForce = true;
+      }
+    }
+
+    console.log('_checkDeviceUpdate ble', bleFirmware, firmware);
+
+    const { dispatch } = backgroundApiProxy;
+    dispatch(
+      setDeviceUpdates({
+        key: connectId,
+        value: {
+          forceFirmware: hasFirmwareForce,
+          forceBle: hasBleForce,
+          ble: bleFirmware,
+          firmware,
+        },
+      }),
+    );
+
+    // dev
+    const { updateDeviceBle, updateDeviceSys } =
+      store.getState().settings.devMode || {};
+    if (platformEnv.isDev) {
+      dispatch(
+        setDeviceUpdates({
+          key: connectId,
+          value: {
+            forceFirmware: hasFirmwareForce,
+            forceBle: hasBleForce,
+            ble: updateDeviceBle
+              ? {
+                  'required': false,
+                  'version': [1, 2, 1],
+                  'url':
+                    'https://onekey-asset.com/onekey/ble/v1.2.1/App_Signed-2021-4-1_1.2.1.zip',
+                  'webUpdate':
+                    'https://onekey-asset.com/onekey/ble/v1.2.1/App_Signed-2021-4-1_1.2.1.bin',
+                  'fingerprint':
+                    'fbcb149427dd74c3fba48bcbe55799168f252a4e08c053aa2b98c78fba6ef8f7',
+                  'fingerprintWeb':
+                    'fbcb149427dd74c3fba48bcbe55799168f252a4e08c053aa2b98c78fba6ef8f7',
+                  'changelog': {
+                    'zh-CN': '修复已知问题',
+                    'en-US': 'minor fixes',
+                  },
+                }
+              : undefined,
+            firmware: updateDeviceSys
+              ? {
+                  'required': false,
+                  'version': [2, 2, 0],
+                  'url':
+                    'https://onekey-asset.com/onekey/hw/v2.2.0/classic.2.2.0-[Stable-0507-1].bin',
+                  'fingerprint':
+                    'fbcb149427dd74c3fba48bcbe55799168f252a4e08c053aa2b98c78fba6ef8f7',
+                  'changelog': {
+                    'zh-CN': '支持 signTypedData 方法',
+                    'en-US': 'support signTypedData method',
+                  },
+                }
+              : undefined,
+          },
+        }),
+      );
+    }
+
+    return Promise.resolve(hasFirmwareForce || hasBleForce);
   }
 }
 

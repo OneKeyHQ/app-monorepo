@@ -1,4 +1,4 @@
-import React, { FC, memo } from 'react';
+import React, { FC, memo, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,7 +12,11 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  useActiveWalletAccount,
+  useSettings,
+} from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -39,12 +43,25 @@ const AccountSelectorTrigger: FC<Props> = ({
   handleToggleVisible,
 }) => {
   const intl = useIntl();
+  const { engine } = backgroundApiProxy;
+  const { deviceUpdates } = useSettings();
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
 
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
+
+  useEffect(() => {
+    if (wallet?.type === 'hw') {
+      engine.getHWDeviceByWalletId(wallet.id).then((device) => {
+        if (!device) return;
+        const { ble, firmware } = deviceUpdates[device.mac] || {};
+        setHasAvailableUpdate(!!ble || !!firmware);
+      });
+    }
+  }, [deviceUpdates, engine, wallet]);
 
   if (!wallet) {
     return (
@@ -92,16 +109,23 @@ const AccountSelectorTrigger: FC<Props> = ({
               : 'transparent'
           }
         >
-          <WalletAvatar
-            walletImage={wallet.type}
-            hwWalletType={
-              (wallet.deviceType as IOneKeyDeviceType) ||
-              getDeviceTypeByDeviceId(wallet.associatedDevice)
-            }
-            avatar={wallet.avatar}
-            size="sm"
-            mr={3}
-          />
+          <Box>
+            <WalletAvatar
+              walletImage={wallet.type}
+              hwWalletType={
+                (wallet.deviceType as IOneKeyDeviceType) ||
+                getDeviceTypeByDeviceId(wallet.associatedDevice)
+              }
+              avatar={wallet.avatar}
+              size="sm"
+              mr={3}
+            />
+            {!!hasAvailableUpdate && (
+              <Box position="absolute" top={0} right={3}>
+                <Icon size={8} name="NotificationIndicatorSolid" />
+              </Box>
+            )}
+          </Box>
           <Typography.Body2Strong isTruncated numberOfLines={1} mr={1}>
             {name}
           </Typography.Body2Strong>

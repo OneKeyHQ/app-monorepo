@@ -33,6 +33,8 @@ export const UI_REQUEST = {
 
   BLUETOOTH_PERMISSION: 'ui-bluetooth_permission',
   LOCATION_PERMISSION: 'ui-location_permission',
+
+  FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
 
 const PopupHandle: FC = () => {

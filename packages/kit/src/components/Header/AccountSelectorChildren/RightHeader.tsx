@@ -1,4 +1,4 @@
-import React, { FC, memo, useState } from 'react';
+import React, { FC, memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,15 +12,19 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import { SelectGroupItem } from '@onekeyhq/components/src/Select';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
-import { OnekeyHardwareModalRoutes } from '../../../routes/Modal/HardwareOnekey';
 import ManagerWalletDeleteDialog, {
   DeleteWalletProp,
 } from '../../../views/ManagerWallet/DeleteWallet';
@@ -34,30 +38,49 @@ type CustomSelectTriggerProps = {
   isSelectVisible?: boolean;
   isTriggerHovered?: boolean;
   isTriggerPressed?: boolean;
+  isNotification?: boolean;
+  notificationColor?: string;
 };
 
 const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   isSelectVisible,
   isTriggerHovered,
   isTriggerPressed,
+  isNotification,
+  notificationColor,
 }) => (
-  <Box
-    p={2}
-    borderRadius="xl"
-    bg={
-      // eslint-disable-next-line no-nested-ternary
-      isSelectVisible
-        ? 'surface-selected'
-        : // eslint-disable-next-line no-nested-ternary
-        isTriggerPressed
-        ? 'surface-pressed'
-        : isTriggerHovered
-        ? 'surface-hovered'
-        : 'transparent'
-    }
-  >
-    <Icon size={20} name="DotsHorizontalSolid" />
-  </Box>
+  <>
+    <Box
+      p={2}
+      borderRadius="xl"
+      bg={
+        // eslint-disable-next-line no-nested-ternary
+        isSelectVisible
+          ? 'surface-selected'
+          : // eslint-disable-next-line no-nested-ternary
+          isTriggerPressed
+          ? 'surface-pressed'
+          : isTriggerHovered
+          ? 'surface-hovered'
+          : 'transparent'
+      }
+    >
+      <Icon size={20} name="DotsHorizontalSolid" />
+    </Box>
+
+    {!!isNotification && (
+      <Box
+        position="absolute"
+        top={-2}
+        right={-2}
+        size={3}
+        bgColor={notificationColor}
+        borderWidth={2}
+        borderColor="surface-subdued"
+        rounded="full"
+      />
+    )}
+  </>
 );
 
 const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
@@ -79,6 +102,9 @@ const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
 const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { engine } = backgroundApiProxy;
+
+  const { deviceUpdates } = useSettings();
 
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -86,6 +112,19 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const [showBackupDialog, setShowBackupDialog] = useState(false);
   const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
+  const [hasAvailableUpdate, setHasAvailableUpdate] = useState(false);
+
+  useEffect(() => {
+    if (selectedWallet?.type === 'hw') {
+      engine.getHWDeviceByWalletId(selectedWallet.id).then((device) => {
+        if (!device) return;
+
+        const { ble, firmware } = deviceUpdates[device.mac] || {};
+
+        setHasAvailableUpdate(!!ble || !!firmware);
+      });
+    }
+  }, [deviceUpdates, engine, selectedWallet]);
 
   const onDeleteWallet = () => {
     if (selectedWallet?.type === 'hw') {
@@ -115,6 +154,56 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
       setShowBackupDialog(true);
     }
   };
+
+  const hwWalletOptions = useMemo(() => {
+    const options: SelectGroupItem<string>[] = [
+      {
+        title: '',
+        options: [
+          {
+            label: intl.formatMessage({
+              id: 'action__view_device_details',
+            }),
+            value: 'details',
+            iconProps: {
+              name: isVerticalLayout
+                ? 'DocumentTextOutline'
+                : 'DocumentTextSolid',
+            },
+          },
+          {
+            label: intl.formatMessage({
+              id: 'action__delete_wallet',
+            }),
+            value: 'remove',
+            iconProps: {
+              name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+            },
+            destructive: true,
+          },
+        ],
+      },
+    ];
+    if (hasAvailableUpdate) {
+      options.push({
+        title: '',
+        options: [
+          {
+            label: intl.formatMessage({
+              id: 'action__update_available',
+            }),
+            value: 'update',
+            color: 'text-warning',
+            iconProps: {
+              color: 'text-warning',
+              name: isVerticalLayout ? 'UploadOutline' : 'UploadSolid',
+            },
+          },
+        ],
+      });
+    }
+    return options;
+  }, [hasAvailableUpdate, intl, isVerticalLayout]);
 
   return (
     <>
@@ -200,96 +289,71 @@ const RightHeader: FC<RightHeaderProps> = ({ selectedWallet }) => {
           />
         ) : null}
         {['hw'].includes(selectedWallet?.type ?? '') ? (
-          <Box>
-            <Select
-              onChange={(_value) => {
-                switch (_value) {
-                  case 'rename':
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.ManagerWallet,
+          <Select
+            onChange={(_value) => {
+              switch (_value) {
+                case 'rename':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManagerWallet,
+                    params: {
+                      screen:
+                        ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
                       params: {
-                        screen:
-                          ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
-                        params: {
-                          walletId: selectedWallet?.id ?? '',
-                        },
+                        walletId: selectedWallet?.id ?? '',
                       },
-                    });
-                    break;
-                  case 'details':
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.OnekeyHardware,
+                    },
+                  });
+                  break;
+                case 'details':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.OnekeyHardware,
+                    params: {
+                      screen:
+                        OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
                       params: {
-                        screen:
-                          OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
-                        params: {
-                          walletId: selectedWallet?.id ?? '',
-                        },
+                        walletId: selectedWallet?.id ?? '',
                       },
-                    });
-                    break;
-                  case 'remove':
-                    onDeleteWallet();
-                    break;
-                  default:
-                    break;
-                }
-              }}
-              dropdownPosition="right"
-              activatable={false}
-              options={[
-                // {
-                //   label: intl.formatMessage({ id: 'action__edit' }),
-                //   value: 'rename',
-                //   iconProps: {
-                //     name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
-                //   },
-                // },
-                {
-                  label: intl.formatMessage({
-                    id: 'action__view_device_details',
-                  }),
-                  value: 'details',
-                  iconProps: {
-                    name: isVerticalLayout
-                      ? 'DocumentTextOutline'
-                      : 'DocumentTextSolid',
-                  },
-                },
-                {
-                  label: intl.formatMessage({ id: 'action__delete_wallet' }),
-                  value: 'remove',
-                  iconProps: {
-                    name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
-                  },
-                  destructive: true,
-                },
-              ]}
-              headerShown={false}
-              footer={null}
-              containerProps={{ width: 'auto' }}
-              dropdownProps={{
-                width: 248,
-              }}
-              renderTrigger={(activeOption, isHovered, visible) => (
-                <CustomSelectTrigger
-                  isTriggerHovered={isHovered}
-                  isSelectVisible={visible}
-                />
-              )}
-            />
-            {/* TODO: show notification indicator if connected hardware wallet update available */}
-            {/* <Box
-              position="absolute"
-              top={-2}
-              right={-2}
-              size={3}
-              bgColor="icon-warning"
-              borderWidth={2}
-              borderColor="surface-subdued"
-              rounded="full"
-            /> */}
-          </Box>
+                    },
+                  });
+                  break;
+                case 'remove':
+                  onDeleteWallet();
+                  break;
+
+                case 'update':
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.HardwareUpdate,
+                    params: {
+                      screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
+                      params: {
+                        walletId: selectedWallet?.id ?? '',
+                      },
+                    },
+                  });
+                  break;
+
+                default:
+                  break;
+              }
+            }}
+            dropdownPosition="right"
+            activatable={false}
+            options={hwWalletOptions}
+            headerShown={false}
+            footer={null}
+            containerProps={{ width: 'auto' }}
+            dropdownProps={{
+              width: 248,
+            }}
+            renderTrigger={(activeOption, isHovered, visible) => (
+              <CustomSelectTrigger
+                isTriggerHovered={isHovered}
+                isSelectVisible={visible}
+                isNotification={hasAvailableUpdate}
+                notificationColor="icon-warning"
+              />
+            )}
+          />
         ) : null}
       </HStack>
       <ManagerWalletDeleteDialog

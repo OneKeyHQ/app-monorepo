@@ -7,6 +7,19 @@ import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ValidationFields } from '../../components/Protected/types';
+import { FirmwareType } from '../../views/Hardware/UpdateFirmware/Updating/handle';
+
+import type {
+  BLEFirmwareInfo,
+  SYSFirmwareInfo,
+} from '../../utils/updates/type';
+
+export type FirmwareUpdate = {
+  forceFirmware: boolean;
+  forceBle: boolean;
+  firmware?: SYSFirmwareInfo;
+  ble?: BLEFirmwareInfo;
+};
 
 type SettingsState = {
   theme: ThemeVariant | 'system';
@@ -28,9 +41,15 @@ type SettingsState = {
     [ValidationFields.Account]?: boolean;
     [ValidationFields.Secret]?: boolean;
   };
+  deviceUpdates: Record<
+    string, // connectId
+    FirmwareUpdate
+  >;
   devMode: {
     enable: boolean;
     preReleaseUpdate: boolean;
+    updateDeviceBle: boolean;
+    updateDeviceSys: boolean;
   };
 };
 
@@ -54,9 +73,12 @@ const initialState: SettingsState = {
     [ValidationFields.Account]: true,
     [ValidationFields.Secret]: true,
   },
+  deviceUpdates: {},
   devMode: {
     enable: false,
     preReleaseUpdate: false,
+    updateDeviceBle: false,
+    updateDeviceSys: false,
   },
 };
 
@@ -138,6 +160,34 @@ export const settingsSlice = createSlice({
     setPreReleaseUpdate(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, preReleaseUpdate: action.payload };
     },
+    setUpdateDeviceBle(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, updateDeviceBle: action.payload };
+    },
+    setUpdateDeviceSys(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, updateDeviceSys: action.payload };
+    },
+    setDeviceUpdates(
+      state,
+      action: PayloadAction<{ key: string; value: FirmwareUpdate }>,
+    ) {
+      state.deviceUpdates = {
+        ...state.deviceUpdates,
+        [action.payload.key]: action.payload.value,
+      };
+    },
+    setDeviceDoneUpdate(
+      state,
+      action: PayloadAction<{ key: string; type: FirmwareType }>,
+    ) {
+      const { key, type } = action.payload;
+      if (type === 'firmware') {
+        state.deviceUpdates[key].forceFirmware = false;
+        state.deviceUpdates[key].firmware = undefined;
+      } else if (type === 'ble') {
+        state.deviceUpdates[key].forceBle = false;
+        state.deviceUpdates[key].ble = undefined;
+      }
+    },
   },
 });
 
@@ -156,6 +206,10 @@ export const {
   setValidationState,
   setDevMode,
   setPreReleaseUpdate,
+  setUpdateDeviceBle,
+  setUpdateDeviceSys,
+  setDeviceUpdates,
+  setDeviceDoneUpdate,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

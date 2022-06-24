@@ -45,6 +45,8 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_version_to_low_error';
 }
 
+export class NotInBootLoaderMode extends OneKeyHardwareError {}
+
 export class DeviceNotFind extends OneKeyHardwareError {
   override reconnect = true;
 
