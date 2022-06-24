@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
-import { isNil, isString } from 'lodash';
-import { Dimensions, View } from 'react-native';
+import { isNil, isString, pick } from 'lodash';
+import { Dimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,12 +10,13 @@ import type { IDropdownPosition, IDropdownProps, SelectProps } from '../Select';
 interface UseDropdownProps {
   dropdownPosition?: IDropdownPosition;
   triggerEle?: SelectProps['triggerEle'];
-  domId?: any;
   visible?: boolean;
   translateY?: number;
   autoAdjust?: boolean;
   setPositionOnlyMounted?: boolean;
   dropdownProps?: IDropdownProps;
+  modalRef?: SelectProps['modalRef'];
+  contentRef?: RefObject<SelectProps['triggerEle']>;
 }
 
 export type ISelectorContentPosition = {
@@ -25,7 +26,16 @@ export type ISelectorContentPosition = {
   bottom?: number;
 };
 
+interface ElementRect {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+}
+
 interface ElementPosition {
+  x?: number;
+  y?: number;
   left: number;
   right: number;
   top: number;
@@ -44,68 +54,106 @@ const defaultPosition = {
   bottom: 0,
 };
 
-function getDomElementPosition(ele: HTMLElement) {
-  const rect = ele.getBoundingClientRect();
-  const win = ele.ownerDocument.defaultView || window;
+function isHTMLElement(el?: SelectProps['triggerEle']): el is HTMLElement {
+  return !!platformEnv.isRuntimeBrowser;
+}
 
-  const { width } = rect;
-  const { height } = rect;
-  const left = rect.left + win.scrollX;
-  const top = rect.top + win.scrollY;
+function sleep(time: number) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
 
-  const outOfX = left + width - win.innerWidth - 1;
-  const outOfY = top + height - win.innerHeight - 1;
-  const right = win.innerWidth - rect.right;
+const getMeasure = (
+  ele?: SelectProps['triggerEle'],
+): Promise<ElementRect | null> =>
+  new Promise((resolve) => {
+    if (!ele) {
+      return resolve(null);
+    }
+    if (isHTMLElement(ele)) {
+      const rect = ele.getBoundingClientRect();
+      return resolve(pick(rect, 'width', 'height', 'left', 'top'));
+    }
+    ele.measure((...args) => {
+      const [width, height, left, top] = args.slice(2);
+      resolve({
+        width,
+        height,
+        left,
+        top,
+      });
+    });
+  });
 
+function calculatePosition(
+  measure: ElementRect,
+  win: {
+    width: number;
+    height: number;
+    scrollX?: number;
+    scrollY?: number;
+  },
+) {
+  const { left, top, width, height } = measure;
   return {
-    left,
-    right,
-    top,
+    left: left + (win.scrollX || 0),
+    top: top + (win.scrollY || 0),
+    right: win.width - left - width,
     width,
     height,
-    outOfX,
-    outOfY,
-    overflowWidth: width > win.innerWidth,
-    overflowHeight: height > win.innerHeight,
+    outOfX: left + width - win.width - 1,
+    outOfY: top + height - win.height - 1,
+    overflowWidth: width > win.width,
+    overflowHeight: height > win.height,
   };
 }
 
-const useElementPosition = (
-  ele?: SelectProps['triggerEle'],
-  visible?: boolean,
-) => {
-  const [triggerPosition, setTriggerPosition] =
-    useState<ElementPosition | null>(null);
-
-  useEffect(() => {
-    if (!ele) {
-      return;
-    }
-    if (platformEnv.isRuntimeBrowser) {
-      setTriggerPosition(getDomElementPosition(ele as unknown as HTMLElement));
-      return;
-    }
-    // for native
-    // see: https://reactnative.dev/docs/direct-manipulation#measurecallback
-    setTriggerPosition(null);
-    (ele as View).measure((...args: number[]) => {
-      const [w, h, left, top] = args.slice(2);
-      const { width: winWidth, height: winHeight } = Dimensions.get('window');
-      setTriggerPosition({
-        left,
-        top,
-        right: winWidth - left - w,
-        width: w,
-        height: h,
-        outOfX: left + w - winWidth - 1,
-        outOfY: top + h - winHeight - 1,
-        overflowWidth: w > winWidth,
-        overflowHeight: h > winHeight,
-      });
+const getElementPosition = async ({
+  modalRef,
+  ele,
+}: Pick<UseDropdownProps, 'visible' | 'modalRef'> & {
+  ele: SelectProps['triggerEle'];
+}): Promise<ElementPosition | undefined> => {
+  const triggerMeasure = await getMeasure(ele);
+  if (!triggerMeasure) {
+    return;
+  }
+  const { width, height } = triggerMeasure;
+  if (isHTMLElement(ele)) {
+    const win = ele.ownerDocument.defaultView || window;
+    return calculatePosition(triggerMeasure, {
+      width: win.innerWidth,
+      height: win.innerHeight,
+      scrollX: win.scrollX,
+      scrollY: win.scrollY,
     });
-  }, [ele, visible]);
+  }
+  const win = Dimensions.get('window');
+  const position = calculatePosition(triggerMeasure, {
+    width: win.width,
+    height: win.height,
+  });
+  if (!modalRef || platformEnv.isRuntimeBrowser) {
+    return position;
+  }
+  const modalMeasure = await getMeasure(modalRef?.current);
 
-  return triggerPosition;
+  if (!modalMeasure) {
+    return;
+  }
+  // use Select in native Modal
+  const inModalRight = position.right - modalMeasure.left;
+  const inModalLeft = position.left - modalMeasure.left;
+  const inModalTop = position.top - modalMeasure.top;
+  Object.assign(position, {
+    left: inModalLeft,
+    top: inModalTop,
+    right: inModalRight,
+    outOfX: inModalLeft + width - modalMeasure.width - 1,
+    outOfY: inModalTop + height - modalMeasure.height - 1,
+    overflowWidth: width > modalMeasure.width,
+    overflowHeight: height > modalMeasure.height,
+  });
+  return position;
 };
 
 function toPxPositionValue(num?: number | null) {
@@ -117,21 +165,20 @@ function toPxPositionValue(num?: number | null) {
 
 function useDropdownPosition({
   triggerEle,
-  domId,
   visible,
   dropdownPosition = 'left', // 'center' | 'left' | 'right'
   translateY = 0,
   autoAdjust = true,
   setPositionOnlyMounted = false,
   dropdownProps,
+  modalRef,
+  contentRef,
 }: UseDropdownProps) {
   const [position, setPosition] =
     useState<ISelectorContentPosition>(defaultPosition);
   const [isPositionNotReady, setIsPositionNotReady] = useState(false);
   // TODO reset position to undefined after window resize
   const triggerWidth = useRef<number | null>(null);
-
-  const triggerPosition = useElementPosition(triggerEle, visible);
 
   useEffect(() => {
     setIsPositionNotReady(
@@ -140,11 +187,17 @@ function useDropdownPosition({
     );
   }, [position]);
 
-  useEffect(() => {
-    let timer: any = null;
+  const getDropdownPosition = useCallback(async (): Promise<
+    ISelectorContentPosition | undefined
+  > => {
+    const triggerPosition = await getElementPosition({
+      ele: triggerEle,
+      modalRef,
+      visible,
+    });
+
     if (!triggerPosition) {
-      setPosition(defaultPosition);
-      return;
+      return defaultPosition;
     }
     const { left, top, right, width, height } = triggerPosition;
     triggerWidth.current = width;
@@ -155,104 +208,118 @@ function useDropdownPosition({
     ) {
       dropdownHeight = parseInt(dropdownProps?.height ?? '', 10) || 0;
     }
-
-    let pos: ISelectorContentPosition | null = null;
-
-    if (isPositionNotReady) {
-      if (dropdownPosition === 'top-right') {
-        pos = {
-          left: undefined,
-          right,
-          top: top + translateY - dropdownHeight,
-        };
-      } else if (dropdownPosition === 'top-left') {
-        pos = {
-          left,
-          right: undefined,
-          top: top + translateY - dropdownHeight,
-        };
-      } else if (dropdownPosition === 'right') {
-        pos = {
-          left: undefined,
-          right,
-          top: top + height + translateY,
-        };
-      } else if (dropdownPosition === 'left') {
-        pos = {
-          left,
-          right: undefined,
-          top: top + height + translateY,
-        };
-      } else {
-        console.error(`dropdownPosition not support yet: ${dropdownPosition}`);
-        // TODO supports dropdownPosition==='center'
-        pos = {
-          left,
-          right: undefined,
-          top: top + height + translateY,
-        };
-      }
+    if (!isPositionNotReady) {
+      return;
     }
-
-    if (autoAdjust && platformEnv.isRuntimeBrowser) {
-      timer = setTimeout(() => {
-        const contentEle = document.getElementById(domId);
-        if (contentEle) {
-          const pos1 = getDomElementPosition(contentEle);
-          let adjustLeft = pos1.left as number | undefined;
-          let adjustTop = pos1.top as number | undefined;
-          if (isNil(adjustLeft) || isNil(adjustTop)) {
-            return;
-          }
-          adjustTop -= translateY;
-          let adjustRight: number | undefined;
-          let adjustBottom: number | undefined;
-          if (pos1.outOfX > 0) {
-            if (pos1.overflowWidth) {
-              adjustLeft = 0;
-            } else {
-              adjustLeft -= pos1.outOfX;
-            }
-          }
-          if (pos1.outOfY > 0) {
-            if (pos1.overflowHeight) {
-              adjustTop = 0;
-            } else {
-              adjustTop -= pos1.outOfY;
-            }
-          }
-          if (!isNil(adjustLeft) && adjustLeft < 0) {
-            adjustLeft = 0;
-          }
-          if (!isNil(adjustTop) && adjustTop < 0) {
-            adjustTop = 0;
-          }
-
-          pos = {
-            left: adjustLeft,
-            top: adjustTop,
-            right: adjustRight,
-            bottom: adjustBottom,
-          };
-        }
-      }, 300);
+    if (dropdownPosition === 'top-right') {
+      return {
+        right,
+        top: top + translateY - dropdownHeight,
+      };
     }
-    if (pos) {
-      setPosition(pos);
+    if (dropdownPosition === 'top-left') {
+      return {
+        left,
+        top: top + translateY - dropdownHeight,
+      };
     }
-    return () => {
-      clearTimeout(timer);
+    if (dropdownPosition === 'right') {
+      return {
+        right,
+        top: top + height + translateY,
+      };
+    }
+    if (dropdownPosition === 'left') {
+      return {
+        left,
+        top: top + height + translateY,
+      };
+    }
+    console.error(`dropdownPosition not support yet: ${dropdownPosition}`);
+    // TODO supports dropdownPosition==='center'
+    return {
+      left,
+      top: top + height + translateY,
     };
   }, [
-    triggerPosition,
+    translateY,
+    visible,
+    dropdownPosition,
+    dropdownProps?.height,
+    isPositionNotReady,
+    modalRef,
+    triggerEle,
+  ]);
+
+  const adjustDropdownPosition = useCallback(
+    async (pos?: ISelectorContentPosition) => {
+      if (!autoAdjust) {
+        return pos;
+      }
+      await sleep(300);
+      const contentPosition = await getElementPosition({
+        ele: contentRef?.current,
+        modalRef,
+      });
+      if (!contentPosition) {
+        return pos;
+      }
+      let { left, top } = contentPosition;
+      if (contentPosition.outOfX > 0) {
+        if (contentPosition.overflowWidth) {
+          left = 0;
+        } else {
+          left -= contentPosition.outOfX;
+        }
+      }
+      if (contentPosition.outOfY > 0) {
+        if (contentPosition.overflowHeight) {
+          top = 0;
+        } else {
+          top -= contentPosition.outOfY;
+        }
+      }
+      left = Math.max(left, 0);
+      top = Math.max(top, 0);
+      return {
+        left,
+        top,
+      };
+    },
+    [autoAdjust, contentRef, modalRef],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    getDropdownPosition()
+      .then((pos) => {
+        if (!pos) {
+          return;
+        }
+        setPosition(pos);
+        if (!autoAdjust) {
+          return;
+        }
+        return adjustDropdownPosition(pos);
+      })
+      .then((pos) => {
+        if (!pos) {
+          return;
+        }
+        setPosition(pos);
+      });
+  }, [
+    visible,
+    getDropdownPosition,
+    adjustDropdownPosition,
     autoAdjust,
-    domId,
     dropdownPosition,
     isPositionNotReady,
     setPositionOnlyMounted,
     translateY,
     triggerEle,
-    visible,
     dropdownProps?.height,
   ]);
 

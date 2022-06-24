@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useEffect } from 'react';
+import React, { forwardRef, isValidElement, useEffect } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -35,184 +35,194 @@ function modalSizing(modalSize: string | undefined) {
       return '';
   }
 }
-const DesktopModal: FC<ModalProps> = ({
-  children,
-  onClose,
-  closeable,
-  footer,
-  primaryActionProps,
-  secondaryActionProps,
-  primaryActionTranslationId,
-  secondaryActionTranslationId,
-  hideSecondaryAction,
-  hidePrimaryAction,
-  onBackActionPress,
-  onPrimaryActionPress,
-  onSecondaryActionPress,
-  header,
-  headerShown,
-  size,
-  height,
-  maxHeight,
-  headerDescription,
-  closeAction,
-  closeOnOverlayClick,
-}) => {
-  const intl = useIntl();
-  const navigation = useNavigation();
-  const index = useNavigationState((state) => state.index);
 
-  const defaultClose = useModalClose({ onClose });
+/* eslint-disable react/prop-types */
+const DesktopModal = forwardRef<typeof Box, ModalProps>(
+  (
+    {
+      children,
+      onClose,
+      closeable,
+      footer,
+      primaryActionProps,
+      secondaryActionProps,
+      primaryActionTranslationId,
+      secondaryActionTranslationId,
+      hideSecondaryAction,
+      hidePrimaryAction,
+      onBackActionPress,
+      onPrimaryActionPress,
+      onSecondaryActionPress,
+      header,
+      headerShown,
+      size,
+      height,
+      maxHeight,
+      headerDescription,
+      closeAction,
+      closeOnOverlayClick,
+    },
+    ref,
+  ) => {
+    const intl = useIntl();
+    const navigation = useNavigation();
+    const index = useNavigationState((state) => state.index);
 
-  const close = closeAction || defaultClose;
+    const defaultClose = useModalClose({ onClose });
 
-  useEffect(() => {
-    if (platformEnv.isRuntimeBrowser) {
-      const closeOnEsc = (e: KeyboardEvent) => {
-        if (e.code === 'Escape') {
-          close();
-        }
-      };
-      document.addEventListener('keydown', closeOnEsc);
-      return () => {
-        document.removeEventListener('keydown', closeOnEsc);
-      };
-    }
-  }, [close]);
-  return (
-    <Box
-      position="absolute"
-      top="0"
-      left="0"
-      right="0"
-      bottom="0"
-      justifyContent="center"
-      alignItems="center"
-      bg="rgba(0, 0, 0, 0.6)"
-    >
-      {closeOnOverlayClick && (
-        <Pressable
-          _web={{
-            // @ts-ignore
-            cursor: 'default',
-          }}
-          position="absolute"
-          top="0"
-          left="0"
-          right="0"
-          bottom="0"
-          onPress={close}
-        />
-      )}
+    const close = closeAction || defaultClose;
+
+    useEffect(() => {
+      if (platformEnv.isRuntimeBrowser) {
+        const closeOnEsc = (e: KeyboardEvent) => {
+          if (e.code === 'Escape') {
+            close();
+          }
+        };
+        document.addEventListener('keydown', closeOnEsc);
+        return () => {
+          document.removeEventListener('keydown', closeOnEsc);
+        };
+      }
+    }, [close]);
+    return (
       <Box
-        width={modalSizing(size)}
-        height={height}
-        maxHeight={maxHeight}
-        alignSelf="center"
-        borderRadius="24px"
-        bg="surface-subdued"
-        zIndex={1}
+        position="absolute"
+        top="0"
+        left="0"
+        right="0"
+        bottom="0"
+        justifyContent="center"
+        alignItems="center"
+        bg="rgba(0, 0, 0, 0.6)"
+        ref={ref}
       >
-        {!!headerShown && (
-          <Box
-            pt={4}
-            pr={4}
-            pl={index ? 4 : 6}
-            pb={header ? 4 : 0}
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            borderBottomColor="border-subdued"
-            borderBottomWidth={header ? 1 : undefined}
-          >
-            {index ? (
-              <IconButton
-                size="base"
-                name="ArrowLeftSolid"
-                type="plain"
-                circle
-                onPress={() => {
-                  if (onBackActionPress) {
-                    onBackActionPress();
-                    return;
-                  }
-                  if (navigation.canGoBack()) {
-                    navigation.goBack();
-                  }
-                }}
-              />
-            ) : null}
-            <Box flex="1" ml={index ? 4 : undefined}>
-              <Typography.Heading>{header}</Typography.Heading>
-              {!!headerDescription && (
-                <Box>
-                  {typeof headerDescription === 'string' ? (
-                    <Typography.Caption color="text-subdued">
-                      {headerDescription}
-                    </Typography.Caption>
-                  ) : (
-                    headerDescription
-                  )}
-                </Box>
+        {closeOnOverlayClick && (
+          <Pressable
+            _web={{
+              // @ts-ignore
+              cursor: 'default',
+            }}
+            position="absolute"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            onPress={close}
+          />
+        )}
+        <Box
+          width={modalSizing(size)}
+          height={height}
+          maxHeight={maxHeight}
+          alignSelf="center"
+          borderRadius="24px"
+          bg="surface-subdued"
+          zIndex={1}
+        >
+          {!!headerShown && (
+            <Box
+              pt={4}
+              pr={4}
+              pl={index ? 4 : 6}
+              pb={header ? 4 : 0}
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              borderBottomColor="border-subdued"
+              borderBottomWidth={header ? 1 : undefined}
+            >
+              {index ? (
+                <IconButton
+                  size="base"
+                  name="ArrowLeftSolid"
+                  type="plain"
+                  circle
+                  onPress={() => {
+                    if (onBackActionPress) {
+                      onBackActionPress();
+                      return;
+                    }
+                    if (navigation.canGoBack()) {
+                      navigation.goBack();
+                    }
+                  }}
+                />
+              ) : null}
+              <Box flex="1" ml={index ? 4 : undefined}>
+                <Typography.Heading>{header}</Typography.Heading>
+                {!!headerDescription && (
+                  <Box>
+                    {typeof headerDescription === 'string' ? (
+                      <Typography.Caption color="text-subdued">
+                        {headerDescription}
+                      </Typography.Caption>
+                    ) : (
+                      headerDescription
+                    )}
+                  </Box>
+                )}
+              </Box>
+              {!!closeable && (
+                <IconButton
+                  size="base"
+                  name="CloseSolid"
+                  type="plain"
+                  circle
+                  onPress={close}
+                />
               )}
             </Box>
-            {!!closeable && (
-              <IconButton
-                size="base"
-                name="CloseSolid"
-                type="plain"
-                circle
-                onPress={close}
-              />
-            )}
-          </Box>
-        )}
-        {children}
-        {isValidElement(footer) || footer === null ? (
-          footer
-        ) : (
-          <Box borderTopWidth={1} borderTopColor="border-subdued">
-            <HStack
-              py="4"
-              px="6"
-              display="flex"
-              flexDirection="row-reverse"
-              alignItems="center"
-              space="3"
-            >
-              {!hidePrimaryAction && (
-                <Button
-                  type="primary"
-                  onPress={() => {
-                    onPrimaryActionPress?.({ onClose, close });
-                  }}
-                  {...primaryActionProps}
-                >
-                  {intl.formatMessage({
-                    id: primaryActionTranslationId ?? 'action__ok',
-                  })}
-                </Button>
-              )}
-              {!hideSecondaryAction && (
-                <Button
-                  onPress={() => {
-                    onSecondaryActionPress?.({ close });
-                    onClose?.();
-                  }}
-                  {...secondaryActionProps}
-                >
-                  {intl.formatMessage({
-                    id: secondaryActionTranslationId ?? 'action__cancel',
-                  })}
-                </Button>
-              )}
-            </HStack>
-          </Box>
-        )}
+          )}
+          {children}
+          {isValidElement(footer) || footer === null ? (
+            footer
+          ) : (
+            <Box borderTopWidth={1} borderTopColor="border-subdued">
+              <HStack
+                py="4"
+                px="6"
+                display="flex"
+                flexDirection="row-reverse"
+                alignItems="center"
+                space="3"
+              >
+                {!hidePrimaryAction && (
+                  <Button
+                    type="primary"
+                    onPress={() => {
+                      onPrimaryActionPress?.({ onClose, close });
+                    }}
+                    {...primaryActionProps}
+                  >
+                    {intl.formatMessage({
+                      id: primaryActionTranslationId ?? 'action__ok',
+                    })}
+                  </Button>
+                )}
+                {!hideSecondaryAction && (
+                  <Button
+                    onPress={() => {
+                      onSecondaryActionPress?.({ close });
+                      onClose?.();
+                    }}
+                    {...secondaryActionProps}
+                  >
+                    {intl.formatMessage({
+                      id: secondaryActionTranslationId ?? 'action__cancel',
+                    })}
+                  </Button>
+                )}
+              </HStack>
+            </Box>
+          )}
+        </Box>
       </Box>
-    </Box>
-  );
-};
+    );
+  },
+);
+
+DesktopModal.displayName = 'DesktopModal';
 
 export default DesktopModal;

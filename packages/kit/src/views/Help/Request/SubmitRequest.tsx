@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
@@ -150,6 +150,7 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
 let selectOption = defaultOption();
 export const SubmitRequest: FC = () => {
   const intl = useIntl();
+  const modalRef = useRef(null);
   const [isHardware, setIsHardware] = useState(false);
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
@@ -398,6 +399,7 @@ export const SubmitRequest: FC = () => {
     <>
       <SkipAppLock />
       <Modal
+        ref={modalRef}
         header={intl.formatMessage({ id: 'form__submit_a_request' })}
         hideSecondaryAction
         primaryActionTranslationId="action__submit"
@@ -416,6 +418,7 @@ export const SubmitRequest: FC = () => {
                   {intl.formatMessage({ id: 'form__request_type' })}
                 </Typography.Body2Strong>
                 <Select
+                  modalRef={modalRef}
                   containerProps={{
                     w: 'full',
                   }}

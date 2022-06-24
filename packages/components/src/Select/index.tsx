@@ -25,7 +25,7 @@ import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
 import { Text } from '../Typography';
 
-import DesktopWithRef from './Container/Desktop';
+import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
 interface CloseButtonProps {
@@ -103,6 +103,7 @@ export type SelectProps<T = string> = {
   triggerEle?: HTMLElement | View | null;
   setPositionOnlyMounted?: boolean;
   positionTranslateY?: number;
+  modalRef?: React.MutableRefObject<null>;
 };
 
 export type ChildProps<T> = Pick<
@@ -125,6 +126,7 @@ export type ChildProps<T> = Pick<
   | 'triggerEle'
   | 'setPositionOnlyMounted'
   | 'positionTranslateY'
+  | 'modalRef'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -166,6 +168,7 @@ function Select<T = string>({
   onVisibleChange,
   setPositionOnlyMounted,
   positionTranslateY,
+  modalRef,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
@@ -217,8 +220,6 @@ function Select<T = string>({
     onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
-  const DesktopWithRefComp = React.useRef(DesktopWithRef<T>()).current;
-
   const container = useMemo(() => {
     const childContainerProps = {
       visible: selectVisible === undefined ? visible : selectVisible,
@@ -240,19 +241,18 @@ function Select<T = string>({
       triggerRef,
       setPositionOnlyMounted,
       positionTranslateY,
+      modalRef,
     };
-
     if (!visible) {
       return null;
     }
-
     if (['SMALL', 'NORMAL'].includes(size)) {
       return <Mobile<T> {...childContainerProps} />;
     }
     return (
       <OverlayContainer>
         <CloseButton onClose={toggleVisible} />
-        <DesktopWithRefComp {...childContainerProps} />
+        <Desktop<T> {...childContainerProps} />
       </OverlayContainer>
     );
   }, [
@@ -275,7 +275,7 @@ function Select<T = string>({
     setPositionOnlyMounted,
     positionTranslateY,
     size,
-    DesktopWithRefComp,
+    modalRef,
   ]);
 
   return (
