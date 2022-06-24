@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -46,6 +53,7 @@ type RouteProps = RouteProp<
 
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
+  const modalRef = useRef(null);
   const toast = useToast();
   const { dispatch, serviceAccount } = backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
@@ -214,6 +222,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
 
   return (
     <Modal
+      ref={modalRef}
       header={intl.formatMessage({ id: 'action__add_account' })}
       headerDescription={`${intl.formatMessage({ id: 'wallet__wallet' })}`}
       onClose={onClose}
@@ -227,6 +236,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
         children: (
           <Form w="full" zIndex={999} h="full">
             <FormChainSelector
+              modalRef={modalRef}
               selectableNetworks={selectableNetworks}
               control={control}
               name="network"
@@ -267,6 +277,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                 }
               >
                 <Form.Select
+                  modalRef={modalRef}
                   headerShown={false}
                   footer={null}
                   defaultValue="default"
