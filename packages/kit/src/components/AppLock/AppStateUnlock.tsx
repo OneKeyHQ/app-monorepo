@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Box,
@@ -15,6 +16,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { release } from '../../store/reducers/data';
@@ -99,6 +101,9 @@ export const AppStateUnlock = () => {
   const onUnlock = useCallback(async () => {
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(password);
     if (isOk) {
+      if (platformEnv.isNativeAndroid) {
+        Keyboard.dismiss();
+      }
       backgroundApiProxy.dispatch(unlock());
       backgroundApiProxy.dispatch(release());
       await wait(500);

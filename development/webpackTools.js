@@ -8,6 +8,8 @@ const path = require('path');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
 
+const { PUBLIC_URL } = process.env;
+
 class BuildDoneNotifyPlugin {
   apply(compiler) {
     compiler.hooks.done.tap(
@@ -70,6 +72,8 @@ async function modifyExpoEnv({ env, platform }) {
 
 function normalizeConfig({ platform, config, env }) {
   if (platform) {
+    if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
+
     config.plugins = [
       ...config.plugins,
       new BuildDoneNotifyPlugin(),
@@ -79,6 +83,7 @@ function normalizeConfig({ platform, config, env }) {
         'process.env.EXT_INJECT_RELOAD_BUTTON': JSON.stringify(
           process.env.EXT_INJECT_RELOAD_BUTTON,
         ),
+        'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
     ];
   }

@@ -707,7 +707,7 @@ class Engine {
     //   b. is not an HD account;
     // 2. password is wrong;
     // 3. account already exists;
-    if (typeof names !== 'undefined') {
+    if (Array.isArray(names)) {
       await this.validator.validateAccountNames(names);
     }
     const [wallet, dbNetwork] = await Promise.all([

@@ -10,7 +10,6 @@
     "@mui/material": "^5.2.8",
     "@mui/styled-engine-sc": "^5.1.0",
     "@react-native-aria/overlays": "^0.3.2",
-    "@react-native-segmented-control/segmented-control": "^2.4.0",
     "@react-navigation/native": "^6.0.6",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.17.21",
