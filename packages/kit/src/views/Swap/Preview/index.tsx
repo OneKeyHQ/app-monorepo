@@ -21,6 +21,7 @@ import {
   useNavigation,
 } from '../../../hooks';
 import { SendRoutes } from '../../Send/types';
+import { swapClient } from '../client';
 import ExchangeRate from '../ExchangeRate';
 import {
   useSwap,
@@ -28,11 +29,8 @@ import {
   useSwapState,
 } from '../hooks/useSwap';
 import { useTransactionAdder } from '../hooks/useTransactions';
-import { SwapQuoter } from '../quoter';
 
 import { Timer } from './Timer';
-
-const swapClient = new SwapQuoter();
 
 const Preview = () => {
   const intl = useIntl();
@@ -170,7 +168,7 @@ const Preview = () => {
             alignItems="center"
           >
             <Box mr="4">
-              <Icon name="NavReceiveSolid" size={16} />
+              <Icon name="ArrowDownSolid" size={16} />
             </Box>
             <Divider flex="1" />
           </Box>

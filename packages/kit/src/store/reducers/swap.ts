@@ -49,6 +49,8 @@ type SwapState = {
   activeNetwork?: Network | null;
   receivingAddress?: string;
   receivingName?: string;
+  swftcSupportedTokens: Record<string, string[]>;
+  noSupportCoins: Record<string, Record<string, Record<string, string[]>>>;
 };
 
 const initialState: SwapState = {
@@ -59,6 +61,8 @@ const initialState: SwapState = {
   refreshRef: 0,
   transactions: {},
   loading: false,
+  swftcSupportedTokens: {},
+  noSupportCoins: {},
 };
 
 export const swapSlice = createSlice({
@@ -219,6 +223,20 @@ export const swapSlice = createSlice({
       state.receivingAddress = action.payload?.address;
       state.receivingName = action.payload?.name;
     },
+    setSwftcSupportedTokens(
+      state,
+      action: PayloadAction<Record<string, string[]>>,
+    ) {
+      state.swftcSupportedTokens = action.payload;
+    },
+    setNoSupportCoins(
+      state,
+      action: PayloadAction<
+        Record<string, Record<string, Record<string, string[]>>>
+      >,
+    ) {
+      state.noSupportCoins = action.payload;
+    },
   },
 });
 
@@ -239,6 +257,8 @@ export const {
   setError,
   setActiveNetwork,
   setReceiving,
+  setSwftcSupportedTokens,
+  setNoSupportCoins,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

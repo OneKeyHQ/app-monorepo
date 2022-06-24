@@ -6,7 +6,6 @@ import AddNewAccountModal from '@onekeyhq/kit/src/views/Account/AddNewAccount';
 import CreateAccountAuthenticationModal from '@onekeyhq/kit/src/views/Account/AddNewAccount/Authentication';
 import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccounts';
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
-import RecoveryAccountModal from '@onekeyhq/kit/src/views/Account/ImportedAccount';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -62,10 +61,6 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.CreateAccountAuthentication,
     component: CreateAccountAuthenticationModal,
-  },
-  {
-    name: CreateAccountModalRoutes.RecoveryAccountForm,
-    component: RecoveryAccountModal,
   },
   {
     name: CreateAccountModalRoutes.RecoverAccountsList,

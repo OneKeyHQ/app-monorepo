@@ -169,6 +169,7 @@ import MusicNoteOutline from "./react/outline/MusicNote";
 import NewspaperOutline from "./react/outline/Newspaper";
 import OfficeBuildingOutline from "./react/outline/OfficeBuilding";
 import OnekeyLiteOutline from "./react/outline/OnekeyLite";
+import PackupOutline from "./react/outline/Packup";
 import PaperAirplaneOutline from "./react/outline/PaperAirplane";
 import PaperClipOutline from "./react/outline/PaperClip";
 import PauseOutline from "./react/outline/Pause";
@@ -678,6 +679,7 @@ export type ICON_NAMES =
   | "NewspaperOutline"
   | "OfficeBuildingOutline"
   | "OnekeyLiteOutline"
+  | "PackupOutline"
   | "PaperAirplaneOutline"
   | "PaperClipOutline"
   | "PauseOutline"
@@ -1187,6 +1189,7 @@ export default {
   NewspaperOutline: NewspaperOutline,
   OfficeBuildingOutline: OfficeBuildingOutline,
   OnekeyLiteOutline: OnekeyLiteOutline,
+  PackupOutline: PackupOutline,
   PaperAirplaneOutline: PaperAirplaneOutline,
   PaperClipOutline: PaperClipOutline,
   PauseOutline: PauseOutline,

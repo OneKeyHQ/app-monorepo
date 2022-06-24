@@ -38,11 +38,13 @@ import {
   useNetworkTokensPrice,
 } from '../../../../hooks';
 import { TokenBalanceValue } from '../../../../store/reducers/tokens';
+import { useSwftcTokens } from '../../hooks/useSwap';
 import { SwapRoutes } from '../../typings';
+import { enabledChainIds, getChainIdFromNetwork } from '../../utils';
 
 import { useSearchTokens } from './hooks';
 
-import type { Token as TokenType } from '../../../../store/typings';
+import type { Token } from '../../../../store/typings';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -76,24 +78,35 @@ const NetworkItem: FC<NetworkItemProps> = ({ network, onPress, active }) => (
 );
 
 type NetworkSelectorProps = {
-  activeNetwork?: Network;
+  activeNetworkId?: string;
   onSelectNetwork?: (network: Network) => void;
 };
 
 const NetworkSelector: FC<NetworkSelectorProps> = ({
-  activeNetwork,
+  activeNetworkId,
   onSelectNetwork,
 }) => {
   const networks = useAppSelector((s) => s.runtime.networks);
-  const evmNetworks = networks.filter(
-    (network) => network.impl === 'evm' && network.enabled,
-  );
+  const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
+  const enabledNetworks = useMemo(() => {
+    const evmNetworks = networks.filter(
+      (network) => network.impl === 'evm' && network.enabled,
+    );
+    return evmNetworks.filter((network) => {
+      if (network === inputTokenNetwork) {
+        return true;
+      }
+      const chainId = getChainIdFromNetwork(network);
+      return enabledChainIds.includes(chainId);
+    });
+  }, [networks, inputTokenNetwork]);
+
   return (
     <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
-      {evmNetworks.map((item) => (
+      {enabledNetworks.map((item) => (
         <NetworkItem
           network={item}
-          active={activeNetwork?.id === item.id}
+          active={activeNetworkId === item.id}
           onPress={onSelectNetwork}
         />
       ))}
@@ -102,9 +115,9 @@ const NetworkSelector: FC<NetworkSelectorProps> = ({
 };
 
 type HeaderTokensProps = {
-  tokens: TokenType[];
+  tokens: Token[];
   showTop50Label?: boolean;
-  onPress?: (token: TokenType) => void;
+  onPress?: (token: Token) => void;
   prices: Record<string, string>;
   balances: Record<string, TokenBalanceValue>;
 };
@@ -229,16 +242,16 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 };
 
 type HeaderProps = {
-  tokens: TokenType[];
+  tokens: Token[];
   keyword: string;
   terms?: string;
   showTop50Label?: boolean;
   prices: Record<string, string>;
   balances: Record<string, TokenBalanceValue>;
-  activeNetwork?: Network;
+  activeNetworkId?: string;
   showNetworkSelector?: boolean;
   onChange: (keyword: string) => void;
-  onPress?: (token: TokenType) => void;
+  onPress?: (token: Token) => void;
   onSelectNetwork?: (network: Network) => void;
 };
 
@@ -247,7 +260,7 @@ const Header: FC<HeaderProps> = ({
   showTop50Label,
   keyword,
   terms,
-  activeNetwork,
+  activeNetworkId,
   balances,
   prices,
   showNetworkSelector,
@@ -260,7 +273,7 @@ const Header: FC<HeaderProps> = ({
     <Box>
       {showNetworkSelector ? (
         <NetworkSelector
-          activeNetwork={activeNetwork}
+          activeNetworkId={activeNetworkId}
           onSelectNetwork={onSelectNetwork}
         />
       ) : null}
@@ -342,20 +355,18 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 };
 
 type ListingTokenProps = {
-  item: TokenType;
+  item: Token;
   borderTopRadius?: string;
   borderBottomRadius?: string;
   prices: Record<string, string>;
   balances: Record<string, TokenBalanceValue>;
-  isOwned?: boolean;
-  onPress?: (item: TokenType) => void;
+  onPress?: (item: Token) => void;
 };
 
-const ListingToken: FC<ListingTokenProps> = ({
+const ListRenderToken: FC<ListingTokenProps> = ({
   item,
   borderTopRadius,
   borderBottomRadius,
-  isOwned,
   onPress,
   balances,
   prices,
@@ -372,6 +383,7 @@ const ListingToken: FC<ListingTokenProps> = ({
     overflow="hidden"
     key={item.tokenIdOnNetwork}
     onPress={() => onPress?.(item)}
+    width="full"
   >
     <Box display="flex" alignItems="center" flexDirection="row">
       <Image
@@ -390,14 +402,11 @@ const ListingToken: FC<ListingTokenProps> = ({
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           maxW="56"
           numberOfLines={2}
-          color={isOwned ? 'text-disabled' : 'text-default'}
+          color="text-default"
         >
           {item.symbol}
         </Text>
-        <Typography.Body2
-          numberOfLines={1}
-          color={isOwned ? 'text-disabled' : 'text-subdued'}
-        >
+        <Typography.Body2 numberOfLines={1} color="text-subdued">
           {item.name}
         </Typography.Body2>
       </Box>
@@ -409,7 +418,7 @@ const ListingToken: FC<ListingTokenProps> = ({
           formatOptions={{ fixed: 6 }}
         />
       </Typography.Body1>
-      <Typography.Body2 color="text-subdued">
+      <Typography.Body2 color="text-subdued" numberOfLines={2}>
         <FormatCurrency
           numbers={[
             prices?.[item.tokenIdOnNetwork || 'main'],
@@ -427,76 +436,75 @@ const ListingToken: FC<ListingTokenProps> = ({
 );
 
 type TokenSelectorProps = {
-  activeNetwork?: Network;
-  excluded?: TokenType;
+  activeNetworkId: string;
+  excluded?: string[];
+  included?: string[];
   showNetworkSelector?: boolean;
-  onSelectToken?: (token: TokenType) => void;
+  onSelectToken?: (token: Token) => void;
   onSelectNetwork?: (network: Network) => void;
 };
 
 const TokenSelector: FC<TokenSelectorProps> = ({
   excluded,
-  activeNetwork,
+  included,
+  activeNetworkId,
   showNetworkSelector,
   onSelectNetwork,
   onSelectToken: onPress,
 }) => {
   const intl = useIntl();
-  const activeNetworkId = activeNetwork?.id ?? '';
-
   const { accountId: activeAccountId } = useActiveWalletAccount();
   const prices = useNetworkTokensPrice(activeNetworkId);
   const balances = useAccountTokensBalance(activeNetworkId, activeAccountId);
-  const allTokens = useNetworkTokens(activeNetworkId);
 
-  const accountTokens = useAccountTokens(activeNetworkId, activeAccountId);
+  const preNetworkTokens = useNetworkTokens(activeNetworkId);
+  const preAccountTokens = useAccountTokens(activeNetworkId, activeAccountId);
 
-  const topTokens = useMemo(() => {
+  const networkTokens = useSwftcTokens(preNetworkTokens, included, excluded);
+  const accountTokens = useSwftcTokens(preAccountTokens, included, excluded);
+
+  const listTokens = useMemo(() => {
     const set = new Set(accountTokens.map((s) => s.tokenIdOnNetwork));
-    return allTokens.filter((token) => !set.has(token.tokenIdOnNetwork));
-  }, [allTokens, accountTokens]);
+    return networkTokens.filter((token) => !set.has(token.tokenIdOnNetwork));
+  }, [networkTokens, accountTokens]);
 
   const [keyword, setKeyword] = useState<string>('');
-
-  const searchTerm = useDebounce(keyword, 1000);
+  const terms = useDebounce(keyword, 500);
 
   const { loading, searchedTokens } = useSearchTokens(
-    searchTerm,
+    terms,
     keyword,
     activeNetworkId,
     activeAccountId,
   );
 
-  const headerTokens = useMemo(
-    () =>
-      accountTokens.filter(
-        (i) => i.tokenIdOnNetwork !== excluded?.tokenIdOnNetwork,
-      ),
-    [accountTokens, excluded],
-  );
-
-  const flatListData = useMemo(() => {
-    const tokens = searchTerm ? searchedTokens : topTokens;
-    return tokens.filter(
-      (i) => i.tokenIdOnNetwork !== excluded?.tokenIdOnNetwork,
+  const headerTokens = useMemo(() => {
+    if (!excluded) {
+      return accountTokens;
+    }
+    return accountTokens.filter(
+      (token) => !excluded.includes(token.tokenIdOnNetwork),
     );
-  }, [searchTerm, searchedTokens, topTokens, excluded]);
+  }, [accountTokens, excluded]);
 
-  const renderItem: ListRenderItem<TokenType> = useCallback(
+  const listItems = useMemo(() => {
+    const tokens = terms ? searchedTokens : listTokens;
+    return tokens;
+  }, [terms, searchedTokens, listTokens]);
+
+  const renderItem: ListRenderItem<Token> = useCallback(
     ({ item, index }) => (
-      <ListingToken
+      <ListRenderToken
         item={item}
         onPress={onPress}
         borderTopRadius={index === 0 ? '12' : undefined}
-        borderBottomRadius={
-          index === flatListData.length - 1 ? '12' : undefined
-        }
+        borderBottomRadius={index === listItems.length - 1 ? '12' : undefined}
         prices={prices}
         balances={balances}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flatListData.length, onPress],
+    [listItems.length, onPress],
   );
 
   return (
@@ -507,30 +515,30 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         footer={null}
         hidePrimaryAction
         flatListProps={{
-          data: flatListData,
+          data: listItems,
           // @ts-ignore
           renderItem,
-          ItemSeparatorComponent: () => <Divider />,
-          keyExtractor: (item) => (item as TokenType).tokenIdOnNetwork,
+          ItemSeparatorComponent: Divider,
+          keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
             <ListEmptyComponent
               isLoading={loading}
-              terms={searchTerm}
+              terms={terms}
               networkId={activeNetworkId}
             />
           ),
           ListHeaderComponent: (
             <Header
-              showTop50Label={allTokens.length > 0}
+              activeNetworkId={activeNetworkId}
+              showTop50Label={listTokens.length > 0}
               tokens={headerTokens}
               keyword={keyword}
-              terms={searchTerm}
+              terms={terms}
               prices={prices}
               balances={balances}
               showNetworkSelector={showNetworkSelector}
-              activeNetwork={activeNetwork}
-              onChange={(text) => setKeyword(text)}
+              onChange={setKeyword}
               onPress={onPress}
               onSelectNetwork={onSelectNetwork}
             />

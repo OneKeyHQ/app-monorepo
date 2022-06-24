@@ -11,6 +11,7 @@ import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 import { isFunction } from 'lodash';
 import cloneDeep from 'lodash/cloneDeep';
 
+import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -142,6 +143,31 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       this.bridgeExtBg = bridge as JsBridgeExtBackground;
     }
     this.bridge = bridge;
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  initBackgroundSDK() {
+    if (!this.bridgeExtBg) return;
+    getHardwareSDKInstance().then((instance) => {
+      instance.on('UI_EVENT', (e) => {
+        this.bridgeExtBg?.requestToAllUi({
+          method: 'SDKBackgroundBroadcastUIEvent',
+          params: e,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        switch (e?.type) {
+          case 'ui-request_pin':
+            instance.uiResponse({
+              type: 'ui-receive_pin',
+              payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+            });
+            break;
+          default:
+            break;
+        }
+      });
+    });
   }
 
   protected rpcResult(

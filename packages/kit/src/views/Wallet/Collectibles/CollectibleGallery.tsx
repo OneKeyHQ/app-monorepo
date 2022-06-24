@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatListProps } from 'react-native';
@@ -11,11 +11,11 @@ import {
   Empty,
   HStack,
   Icon,
+  IconButton,
   Image,
   NftCard,
   Pressable,
   ScrollableFlatListProps,
-  SegmentedControl,
   Spinner,
   Typography,
   VStack,
@@ -74,7 +74,13 @@ const CollectiblesHeader = ({
   onViewChange,
 }: CollectiblesHeaderProps) => {
   const intl = useIntl();
-
+  const onPress = useCallback(() => {
+    onViewChange(
+      view === CollectibleView.Grid
+        ? CollectibleView.Flat
+        : CollectibleView.Grid,
+    );
+  }, [onViewChange, view]);
   if (!show) return null;
 
   return (
@@ -82,23 +88,12 @@ const CollectiblesHeader = ({
       <Typography.Heading>
         {intl.formatMessage({ id: 'asset__collectibles' })}
       </Typography.Heading>
-      <SegmentedControl
-        containerProps={{
-          width: 70,
-          height: 35,
-        }}
-        options={[
-          {
-            iconName: 'ViewListSolid',
-            value: CollectibleView.Flat,
-          },
-          {
-            iconName: 'ViewGridSolid',
-            value: CollectibleView.Grid,
-          },
-        ]}
-        onChange={(value) => onViewChange(value as CollectibleView)}
-        defaultValue={view}
+      <IconButton
+        name={view === CollectibleView.Grid ? 'PackupOutline' : 'ExpandOutline'}
+        size="sm"
+        circle
+        type="plain"
+        onPress={onPress}
       />
     </HStack>
   );
