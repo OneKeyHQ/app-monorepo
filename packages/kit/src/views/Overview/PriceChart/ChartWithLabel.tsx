@@ -6,7 +6,7 @@ import ChartView from './ChartView';
 import PriceLabel from './PriceLabel';
 
 type ChartWithLabelProps = {
-  data: Array<{ time: string; value: number }>;
+  data: Array<{ time: string | number; value: number }>;
   children: React.ReactNode;
 };
 

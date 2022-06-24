@@ -50,7 +50,10 @@ export function createChartDom(
     chart.applyOptions({ width: domNode.clientWidth });
   };
 
-  chart.timeScale().setVisibleLogicalRange({ from: 0.4, to: dataLength - 1.4 });
+  chart
+    .timeScale()
+    // https://github.com/tradingview/lightweight-charts/issues/1015
+    .setVisibleLogicalRange({ from: 0.4, to: dataLength - 1.4 });
 
   chart.subscribeCrosshairMove(({ seriesPrices }) => {
     onHover(seriesPrices.values().next().value);
