@@ -101,7 +101,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                       />
                     );
                   }
-                  if (item === 'scan' && !platformEnv.isExtFirefox) {
+                  if (item === 'scan' && !platformEnv.isExtFirefoxUiPopup) {
                     return (
                       <IconButton
                         key={i}

@@ -33,6 +33,7 @@ export type IPlatformEnv = {
 
   isExtFirefox?: boolean;
   isExtChrome?: boolean;
+  isExtFirefoxUiPopup?: boolean;
 
   isNativeIOS?: boolean;
   isNativeIOSStore?: boolean;
@@ -223,6 +224,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiPopup: isExtensionUiPopup(),
   isExtensionUiExpandTab: isExtensionUiExpandTab(),
   isExtensionUiStandaloneWindow: isExtensionUiStandaloneWindow(),
+  isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup(),
 
   isInjected: isInjected(),
 
