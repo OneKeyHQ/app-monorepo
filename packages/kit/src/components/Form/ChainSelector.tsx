@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
-import { SelectProps } from '@onekeyhq/components/src/Select';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
@@ -14,14 +13,12 @@ type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;
   hideHelpText?: boolean;
   networkId?: string | null;
-  modalRef?: SelectProps['modalRef'];
 };
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   selectableNetworks,
   networkId,
   hideHelpText = false,
-  modalRef,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
@@ -101,7 +98,6 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
       {...props}
     >
       <Form.Select
-        modalRef={modalRef}
         title={intl.formatMessage({ id: 'network__network' })}
         footer={null}
         triggerSize={isSmallScreen ? 'xl' : 'default'}

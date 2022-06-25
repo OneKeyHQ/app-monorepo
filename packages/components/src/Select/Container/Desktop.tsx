@@ -37,7 +37,6 @@ function Desktop<T>({
   triggerEle,
   setPositionOnlyMounted,
   positionTranslateY = 2,
-  modalRef,
 }: ChildProps<T>) {
   const translateY = positionTranslateY;
 
@@ -51,7 +50,6 @@ function Desktop<T>({
       translateY,
       setPositionOnlyMounted,
       dropdownProps,
-      modalRef,
     });
 
   const content = (

@@ -1,10 +1,12 @@
 import React, {
   ComponentProps,
+  MutableRefObject,
   ReactElement,
   ReactNode,
   cloneElement,
-  forwardRef,
+  useEffect,
   useMemo,
+  useRef,
 } from 'react';
 
 import { OverlayProvider } from '@react-native-aria/overlays';
@@ -84,189 +86,197 @@ const defaultProps = {
   closeOnOverlayClick: true,
 } as const;
 
-/* eslint-disable react/prop-types */
-const Modal = forwardRef<typeof Box, ModalProps>(
-  (
-    {
-      trigger,
-      visible: outerVisible,
-      onClose,
-      onModalClose,
-      sectionListProps,
-      flatListProps,
-      scrollViewProps,
-      staticChildrenProps,
-      sortableListProps,
-      header,
-      headerShown,
-      modalHeight,
-      ...rest
-    },
-    ref,
-  ) => {
-    const { size } = useUserDevice();
+// used for Select in Modal
+// do not delete
+export const ModalRefStore: {
+  ref: MutableRefObject<null>;
+} = {
+  ref: {
+    current: null,
+  },
+};
 
-    const modalContent = useMemo(() => {
-      let content = (
-        <Box
-          // eslint-disable-next-line no-nested-ternary
-          pt={headerShown ? (header ? 6 : 0) : 6}
-          pb={6}
+/* eslint-disable react/prop-types */
+const Modal = ({
+  trigger,
+  visible: outerVisible,
+  onClose,
+  onModalClose,
+  sectionListProps,
+  flatListProps,
+  scrollViewProps,
+  staticChildrenProps,
+  sortableListProps,
+  header,
+  headerShown,
+  modalHeight,
+  ...rest
+}: ModalProps) => {
+  const { size } = useUserDevice();
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    ModalRefStore.ref = modalRef;
+  }, [modalRef]);
+
+  const modalContent = useMemo(() => {
+    let content = (
+      <Box
+        // eslint-disable-next-line no-nested-ternary
+        pt={headerShown ? (header ? 6 : 0) : 6}
+        pb={6}
+        px={{ base: 4, md: 6 }}
+        flex="1"
+      >
+        {rest.children}
+      </Box>
+    );
+    if (sectionListProps) {
+      content = (
+        <SectionList
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingBottom: 24,
+            // eslint-disable-next-line no-nested-ternary
+            paddingTop: headerShown ? (header ? 24 : 0) : 24,
+          }}
           px={{ base: 4, md: 6 }}
-          flex="1"
-        >
-          {rest.children}
+          {...sectionListProps}
+        />
+      );
+    } else if (flatListProps) {
+      content = (
+        <FlatList
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingBottom: 24,
+            // eslint-disable-next-line no-nested-ternary
+            paddingTop: headerShown ? (header ? 24 : 0) : 24,
+          }}
+          px={{ base: 4, md: 6 }}
+          {...flatListProps}
+        />
+      );
+    } else if (scrollViewProps) {
+      content = (
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingBottom: 24,
+            // eslint-disable-next-line no-nested-ternary
+            paddingTop: headerShown ? (header ? 24 : 0) : 24,
+          }}
+          px={{ base: 4, md: 6 }}
+          {...scrollViewProps}
+        />
+      );
+    } else if (sortableListProps) {
+      content = (
+        <Box flex="1">
+          <Box h="full">
+            <SortableList.Container
+              style={{ height: '100%' }}
+              containerStyle={{ height: '100%' }}
+              contentContainerStyle={{
+                paddingBottom: 24,
+                paddingTop: 24,
+              }}
+              {...sortableListProps}
+            />
+          </Box>
         </Box>
       );
-      if (sectionListProps) {
-        content = (
-          <SectionList
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{
-              paddingBottom: 24,
-              // eslint-disable-next-line no-nested-ternary
-              paddingTop: headerShown ? (header ? 24 : 0) : 24,
-            }}
-            px={{ base: 4, md: 6 }}
-            {...sectionListProps}
-          />
-        );
-      } else if (flatListProps) {
-        content = (
-          <FlatList
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{
-              paddingBottom: 24,
-              // eslint-disable-next-line no-nested-ternary
-              paddingTop: headerShown ? (header ? 24 : 0) : 24,
-            }}
-            px={{ base: 4, md: 6 }}
-            {...flatListProps}
-          />
-        );
-      } else if (scrollViewProps) {
-        content = (
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{
-              paddingBottom: 24,
-              // eslint-disable-next-line no-nested-ternary
-              paddingTop: headerShown ? (header ? 24 : 0) : 24,
-            }}
-            px={{ base: 4, md: 6 }}
-            {...scrollViewProps}
-          />
-        );
-      } else if (sortableListProps) {
-        content = (
-          <Box flex="1">
-            <Box h="full">
-              <SortableList.Container
-                style={{ height: '100%' }}
-                containerStyle={{ height: '100%' }}
-                contentContainerStyle={{
-                  paddingBottom: 24,
-                  paddingTop: 24,
-                }}
-                {...sortableListProps}
-              />
-            </Box>
-          </Box>
-        );
-      } else if (staticChildrenProps) {
-        content = <Box {...staticChildrenProps}>{rest.children}</Box>;
-      }
+    } else if (staticChildrenProps) {
+      content = <Box {...staticChildrenProps}>{rest.children}</Box>;
+    }
 
-      if (!platformEnv.isRuntimeBrowser) {
-        return <OverlayProvider>{content}</OverlayProvider>;
-      }
-      return content;
-    }, [
-      sectionListProps,
-      flatListProps,
-      scrollViewProps,
-      staticChildrenProps,
-      sortableListProps,
-      rest.children,
-      header,
-      headerShown,
-    ]);
+    if (!platformEnv.isRuntimeBrowser) {
+      return <OverlayProvider>{content}</OverlayProvider>;
+    }
+    return content;
+  }, [
+    sectionListProps,
+    flatListProps,
+    scrollViewProps,
+    staticChildrenProps,
+    sortableListProps,
+    rest.children,
+    header,
+    headerShown,
+  ]);
 
-    const modalContainer = useMemo(() => {
-      /*
+  const modalContainer = useMemo(() => {
+    /*
       Why `platformEnv.isNativeIOS` ?
       We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
     */
-      if (['SMALL', 'NORMAL'].includes(size) || platformEnv.isNativeIOS) {
-        return (
-          <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
-            <Box
-              ref={ref}
-              height={modalHeight}
-              // TODO 100vh in App
-              maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
-              w="100%"
-              borderTopRadius={
-                platformEnv.isExtensionUiStandaloneWindow ||
-                platformEnv.isNativeAndroid
-                  ? 0
-                  : '24px'
-              }
-              overflow="hidden"
-            >
-              <Mobile
-                onClose={onModalClose}
-                headerShown={headerShown}
-                header={header}
-                {...rest}
-              >
-                {modalContent}
-              </Mobile>
-            </Box>
-          </Box>
-        );
-      }
-
+    if (['SMALL', 'NORMAL'].includes(size) || platformEnv.isNativeIOS) {
       return (
-        <Desktop
-          ref={ref}
-          onClose={onModalClose}
-          headerShown={headerShown}
-          header={header}
-          {...rest}
-        >
-          {modalContent}
-        </Desktop>
+        <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
+          <Box
+            ref={modalRef}
+            height={modalHeight}
+            // TODO 100vh in App
+            maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
+            w="100%"
+            borderTopRadius={
+              platformEnv.isExtensionUiStandaloneWindow ||
+              platformEnv.isNativeAndroid
+                ? 0
+                : '24px'
+            }
+            overflow="hidden"
+          >
+            <Mobile
+              onClose={onModalClose}
+              headerShown={headerShown}
+              header={header}
+              {...rest}
+            >
+              {modalContent}
+            </Mobile>
+          </Box>
+        </Box>
       );
-    }, [
-      ref,
-      size,
-      onModalClose,
-      headerShown,
-      header,
-      rest,
-      modalContent,
-      modalHeight,
-    ]);
+    }
 
-    const triggerNode = useMemo(() => {
-      if (!trigger) return null;
-      return cloneElement(trigger, {
-        /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
-        onPress: trigger.props.onPress,
-      });
-    }, [trigger]);
-
-    const node = (
-      <>
-        {triggerNode}
-        {modalContainer}
-      </>
+    return (
+      <Desktop
+        onClose={onModalClose}
+        headerShown={headerShown}
+        header={header}
+        {...rest}
+      >
+        {modalContent}
+      </Desktop>
     );
+  }, [
+    size,
+    onModalClose,
+    headerShown,
+    header,
+    rest,
+    modalContent,
+    modalHeight,
+  ]);
 
-    return node;
-  },
-);
+  const triggerNode = useMemo(() => {
+    if (!trigger) return null;
+    return cloneElement(trigger, {
+      /* eslint @typescript-eslint/no-unsafe-member-access: "off" */
+      onPress: trigger.props.onPress,
+    });
+  }, [trigger]);
+
+  const node = (
+    <>
+      {triggerNode}
+      {modalContainer}
+    </>
+  );
+
+  return node;
+};
 
 Modal.displayName = 'Modal';
 

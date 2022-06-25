@@ -28,11 +28,11 @@ import { Text } from '../Typography';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
-interface CloseButtonProps {
+export interface CloseButtonProps {
   onClose: (event: GestureResponderEvent) => void;
 }
 
-function CloseButton({ onClose }: CloseButtonProps) {
+export function CloseButton({ onClose }: CloseButtonProps) {
   return (
     <TouchableWithoutFeedback onPress={onClose}>
       <View style={StyleSheet.absoluteFill} />
@@ -103,7 +103,6 @@ export type SelectProps<T = string> = {
   triggerEle?: HTMLElement | View | null;
   setPositionOnlyMounted?: boolean;
   positionTranslateY?: number;
-  modalRef?: React.MutableRefObject<null>;
 };
 
 export type ChildProps<T> = Pick<
@@ -126,7 +125,6 @@ export type ChildProps<T> = Pick<
   | 'triggerEle'
   | 'setPositionOnlyMounted'
   | 'positionTranslateY'
-  | 'modalRef'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -168,7 +166,6 @@ function Select<T = string>({
   onVisibleChange,
   setPositionOnlyMounted,
   positionTranslateY,
-  modalRef,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
@@ -241,7 +238,6 @@ function Select<T = string>({
       triggerRef,
       setPositionOnlyMounted,
       positionTranslateY,
-      modalRef,
     };
     if (!visible) {
       return null;
@@ -275,7 +271,6 @@ function Select<T = string>({
     setPositionOnlyMounted,
     positionTranslateY,
     size,
-    modalRef,
   ]);
 
   return (

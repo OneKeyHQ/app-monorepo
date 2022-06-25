@@ -5,6 +5,8 @@ import { Dimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ModalRefStore } from '../Modal';
+
 import type { IDropdownPosition, IDropdownProps, SelectProps } from '../Select';
 
 interface UseDropdownProps {
@@ -15,7 +17,6 @@ interface UseDropdownProps {
   autoAdjust?: boolean;
   setPositionOnlyMounted?: boolean;
   dropdownProps?: IDropdownProps;
-  modalRef?: SelectProps['modalRef'];
   contentRef?: RefObject<SelectProps['triggerEle']>;
 }
 
@@ -108,11 +109,11 @@ function calculatePosition(
 }
 
 const getElementPosition = async ({
-  modalRef,
   ele,
-}: Pick<UseDropdownProps, 'visible' | 'modalRef'> & {
+}: Pick<UseDropdownProps, 'visible'> & {
   ele: SelectProps['triggerEle'];
 }): Promise<ElementPosition | undefined> => {
+  const modalRef = ModalRefStore.ref;
   const triggerMeasure = await getMeasure(ele);
   if (!triggerMeasure) {
     return;
@@ -132,7 +133,7 @@ const getElementPosition = async ({
     width: win.width,
     height: win.height,
   });
-  if (!modalRef || platformEnv.isRuntimeBrowser) {
+  if (!modalRef?.current || platformEnv.isRuntimeBrowser) {
     return position;
   }
   const modalMeasure = await getMeasure(modalRef?.current);
@@ -171,7 +172,6 @@ function useDropdownPosition({
   autoAdjust = true,
   setPositionOnlyMounted = false,
   dropdownProps,
-  modalRef,
   contentRef,
 }: UseDropdownProps) {
   const [position, setPosition] =
@@ -192,10 +192,8 @@ function useDropdownPosition({
   > => {
     const triggerPosition = await getElementPosition({
       ele: triggerEle,
-      modalRef,
       visible,
     });
-
     if (!triggerPosition) {
       return defaultPosition;
     }
@@ -207,9 +205,6 @@ function useDropdownPosition({
       dropdownProps?.height.endsWith('px')
     ) {
       dropdownHeight = parseInt(dropdownProps?.height ?? '', 10) || 0;
-    }
-    if (!isPositionNotReady) {
-      return;
     }
     if (dropdownPosition === 'top-right') {
       return {
@@ -246,8 +241,6 @@ function useDropdownPosition({
     visible,
     dropdownPosition,
     dropdownProps?.height,
-    isPositionNotReady,
-    modalRef,
     triggerEle,
   ]);
 
@@ -259,7 +252,6 @@ function useDropdownPosition({
       await sleep(300);
       const contentPosition = await getElementPosition({
         ele: contentRef?.current,
-        modalRef,
       });
       if (!contentPosition) {
         return pos;
@@ -287,7 +279,7 @@ function useDropdownPosition({
         top,
       };
     },
-    [autoAdjust, contentRef, modalRef, translateY],
+    [autoAdjust, contentRef, translateY],
   );
 
   useEffect(() => {
