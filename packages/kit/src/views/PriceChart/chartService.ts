@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { ChartOptions, IChartApi, ISeriesApi } from 'lightweight-charts';
 
 type DeepPartial<T> = {
@@ -19,7 +20,6 @@ export function createChartDom(
   ) => IChartApi,
   domNode: HTMLElement,
   onHover: (price?: number) => void,
-  dataLength: number,
 ) {
   const chart = createChartFunc(domNode, {
     height: 300,
@@ -49,16 +49,10 @@ export function createChartDom(
   const handleResize = () => {
     chart.applyOptions({ width: domNode.clientWidth });
   };
-
-  chart
-    .timeScale()
-    // https://github.com/tradingview/lightweight-charts/issues/1015
-    .setVisibleLogicalRange({ from: 0.4, to: dataLength - 1.4 });
-
   chart.subscribeCrosshairMove(({ seriesPrices }) => {
     onHover(seriesPrices.values().next().value);
   });
-
+  chart.timeScale().fitContent();
   window.addEventListener('resize', handleResize);
   // @ts-ignore
   window._onekey_chart = chart;
@@ -91,4 +85,36 @@ export function updateChartDom({
   const series = chart._onekey_series;
   series.applyOptions({ lineColor, topColor, bottomColor });
   series.setData(data);
+
+  chart
+    .timeScale()
+    // https://github.com/tradingview/lightweight-charts/issues/1015
+    .setVisibleLogicalRange({ from: 0.4, to: data.length - 1.4 });
 }
+
+const marketApi = 'http://localhost:9000/market';
+
+interface MarketData {
+  data: {
+    prices: [number, number][];
+  };
+}
+
+export type PriceApiProps = {
+  platform?: string;
+  contract?: string;
+  days?: string;
+};
+export const fetchHistoricalPrices = async ({
+  platform = 'ethereum',
+  contract = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  days = '1',
+}: PriceApiProps) => {
+  const params = new URLSearchParams({
+    platform,
+    contract,
+    days,
+  });
+  const res = await axios.get<MarketData>(`${marketApi}?${params.toString()}`);
+  return res.data.data.prices;
+};

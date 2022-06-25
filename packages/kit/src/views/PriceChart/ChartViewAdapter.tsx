@@ -5,7 +5,7 @@ import WebView from 'react-native-webview';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { createChartDom, updateChartDom } from './sharedChartUtils';
+import { createChartDom, updateChartDom } from './chartService';
 
 type ChartViewAdapterProps = {
   data: any[];
@@ -34,7 +34,6 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     createChart,
     container, 
     postMessage,
-    ${data.length},
   );
   (${updateChartDom.toString()})({
     bottomColor: ${JSON.stringify(bottomColor)},

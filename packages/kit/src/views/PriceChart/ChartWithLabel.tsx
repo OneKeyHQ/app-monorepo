@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 
+import { SingleValueData } from 'lightweight-charts';
+
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
 import ChartView from './ChartView';
 import PriceLabel from './PriceLabel';
 
 type ChartWithLabelProps = {
-  data: Array<{ time: string | number; value: number }>;
+  data: SingleValueData[];
   children: React.ReactNode;
 };
 
 const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
   const [price, setPrice] = useState<string | number | undefined>();
   const isVerticalLayout = useIsVerticalLayout();
-  const currentPrice = data[data.length - 1].value;
+  const currentPrice = data.length ? data[data.length - 1].value : 0;
   let priceStringResult;
   if (price === 'undefined' || price === undefined) {
     priceStringResult = String(currentPrice);

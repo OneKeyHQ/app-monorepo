@@ -5,7 +5,7 @@ import { StyleProp, ViewStyle } from 'react-native';
 
 import { Box } from '@onekeyhq/components';
 
-import { createChartDom, updateChartDom } from './sharedChartUtils';
+import { createChartDom, updateChartDom } from './chartService';
 
 type ChartViewAdapterProps = {
   data: any[];
@@ -34,7 +34,6 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
       createChart,
       chartContainerRef.current,
       onHover,
-      data.length,
     );
 
     return () => {

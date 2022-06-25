@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
 
-import PriceChart from '../../Overview/PriceChart/PriceChart';
+import PriceChart from '../../PriceChart/PriceChart';
 
 const PriceChartGallery = () => {
   const bg = useThemeValue('background-default');
