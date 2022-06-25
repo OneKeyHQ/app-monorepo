@@ -67,11 +67,12 @@ function createConfig() {
     // add custom config, will be deleted later
     chromeExtensionBoilerplate: {
       notHotReload: [
-        // ignore background
-        'background',
+        // disable background webpackDevServer hotReload in manifest V3, it will cause error
+        //    manifest V3 background will reload automatically after UI reloaded
+        manifest.manifest_version >= 3 ? 'background' : '',
         'content-script',
         'ui-devtools',
-      ],
+      ].filter(Boolean),
     },
     mode: IS_DEV ? 'development' : 'production', // development, production
     // mode: 'development',
