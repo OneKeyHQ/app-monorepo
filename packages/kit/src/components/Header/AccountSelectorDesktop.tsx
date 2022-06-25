@@ -1,7 +1,12 @@
 import React from 'react';
 
-import { Box, PresenceTransition } from '@onekeyhq/components';
+import {
+  Box,
+  OverlayContainer,
+  PresenceTransition,
+} from '@onekeyhq/components';
 import { useDomID } from '@onekeyhq/components/src/hooks/useClickDocumentClose';
+import { CloseButton } from '@onekeyhq/components/src/Select';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
@@ -21,6 +26,10 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
       domId,
     }));
 
+    if (!visible) {
+      return null;
+    }
+
     const content = (
       <PresenceTransition
         visible={visible}
@@ -37,7 +46,8 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
         <Box
           marginTop="4px"
           nativeID={domId}
-          left="0px"
+          left="16px"
+          top="52px"
           position="absolute"
           width="320px"
           height="564px"
@@ -55,9 +65,12 @@ const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
         </Box>
       </PresenceTransition>
     );
-    return content;
-    //    Error: Couldn't find a drawer. Is your component inside a drawer navigator?
-    // return <OverlayContainer>{content}</OverlayContainer>;
+    return (
+      <OverlayContainer>
+        <CloseButton onClose={toggleVisible} />
+        {content}
+      </OverlayContainer>
+    );
   },
 );
 

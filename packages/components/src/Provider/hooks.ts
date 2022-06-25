@@ -71,5 +71,14 @@ export function useLoadCustomFonts() {
 }
 
 export function useSafeAreaInsets() {
-  return useRNSafeAreaInsets();
+  const { size } = useUserDevice();
+  const safeArea = useRNSafeAreaInsets();
+  return useMemo(() => {
+    if (['SMALL', 'NORMAL'].includes(size)) {
+      return safeArea;
+    }
+    return Object.assign(safeArea, {
+      bottom: 0,
+    });
+  }, [safeArea, size]);
 }
