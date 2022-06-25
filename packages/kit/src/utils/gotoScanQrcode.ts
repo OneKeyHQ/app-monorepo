@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 
+import { ToastManager } from '@onekeyhq/components';
 import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -38,6 +39,12 @@ export const gotoScanQrcode = async (
   // FIXME: later try some tricky workaround to get camera access for extension
   // https://stackoverflow.com/questions/50991321/chrome-extension-getusermedia-throws-notallowederror-failed-due-to-shutdown
   if (platformEnv.isExtension) {
+    if (platformEnv.isExtFirefox) {
+      ToastManager.show({
+        title: 'Not supported yet',
+      });
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       base64: true,
       allowsMultipleSelection: false,
