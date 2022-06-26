@@ -103,6 +103,19 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async checkAccountExistence(accountIdOnNetwork: string): Promise<boolean> {
     return Promise.resolve(true);
   }
+
+  async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ) {
+    // Abstract requests
+    const client = await this.engine.providerManager.getClient(this.networkId);
+    return client.getBalances(
+      requests.map(({ address, tokenAddress }) => ({
+        address,
+        coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
+      })),
+    );
+  }
 }
 
 /*
@@ -228,6 +241,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       tokens: [],
       address: dbAccount.address,
     };
+  }
+
+  async getAccountBalance(tokenIds: Array<string>, withMain = true) {
+    const { address } = await this.getDbAccount();
+    return this.getBalances(
+      (withMain ? [{ address }] : []).concat(
+        tokenIds.map((tokenAddress) => ({ address, tokenAddress })),
+      ),
+    );
   }
 
   // TODO move to keyring
