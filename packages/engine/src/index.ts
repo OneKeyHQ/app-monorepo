@@ -586,8 +586,7 @@ class Engine {
     withMain = true,
   ): Promise<Record<string, string | undefined>> {
     // Get account balance, main token balance is always included.
-    const [dbAccount, network, tokens] = await Promise.all([
-      this.dbApi.getAccount(accountId),
+    const [network, tokens] = await Promise.all([
       this.getNetwork(networkId),
       this.getTokens(networkId, undefined, false),
     ]);
@@ -600,13 +599,8 @@ class Engine {
     const tokensToGet = tokenIdsOnNetwork.filter(
       (tokenId) => typeof decimalsMap[tokenId] !== 'undefined',
     );
-    // TODO move proxyGetBalances to Vault
-    const balances = await this.providerManager.proxyGetBalances(
-      networkId,
-      dbAccount,
-      tokensToGet,
-      withMain,
-    );
+    const vault = await this.getVault({ networkId, accountId });
+    const balances = await vault.getAccountBalance(tokensToGet, withMain);
     const ret: Record<string, string | undefined> = {};
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
@@ -671,13 +665,6 @@ class Engine {
     const balances: Array<BigNumber | undefined> = addresses.map(
       () => undefined,
     );
-    /*
-    const balances = await this.providerManager.proxyGetBalances(
-      networkId,
-      addresses,
-      [],
-    );
-    */
     return balances.map((balance, index) => ({
       index: start + index,
       path: accounts[index].path,
@@ -1054,13 +1041,8 @@ class Engine {
       return [undefined, token];
     }
 
-    const dbAccount = await this.dbApi.getAccount(accountId);
-    const [balance] = await this.providerManager.proxyGetBalances(
-      networkId,
-      dbAccount,
-      [normalizedAddress],
-      false,
-    );
+    const vault = await this.getVault({ networkId, accountId });
+    const [balance] = await vault.getAccountBalance([normalizedAddress], false);
     if (typeof balance === 'undefined') {
       return undefined;
     }

@@ -619,6 +619,20 @@ export default class Vault extends VaultBase {
     return info;
   }
 
+  getStorageAmountPerByte = memoizee(
+    async () => {
+      const cli = await this._getNearCli();
+      const {
+        runtime_config: { storage_amount_per_byte },
+      }: { runtime_config: { storage_amount_per_byte: string } } =
+        await cli.rpc.call('EXPERIMENTAL_protocol_config', {
+          finality: cli.defaultFinality,
+        });
+      return new BigNumber(storage_amount_per_byte);
+    },
+    { promise: true, primitive: true, maxAge: 1000 * 60 * 30 },
+  );
+
   // Chain only functionalities below.
 
   async guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
@@ -657,5 +671,38 @@ export default class Vault extends VaultBase {
       ),
     );
     return results;
+  }
+
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ) {
+    const cli = await this._getNearCli();
+    return cli.batchCall2SingleCall(
+      requests,
+      async ({ address, tokenAddress }) => {
+        if (typeof tokenAddress !== 'undefined') {
+          const tokenBalanceStr: string = await cli.callContract(
+            tokenAddress,
+            'ft_balance_of',
+            { account_id: address },
+          );
+          return new BigNumber(tokenBalanceStr);
+        }
+        const {
+          amount,
+          storage_usage: storageUsage,
+        }: { amount: string; storage_usage: number } = await cli.rpc.call(
+          'query',
+          {
+            request_type: 'view_account',
+            account_id: address,
+            finality: cli.defaultFinality,
+          },
+        );
+        return new BigNumber(amount).minus(
+          (await this.getStorageAmountPerByte()).times(storageUsage),
+        );
+      },
+    );
   }
 }

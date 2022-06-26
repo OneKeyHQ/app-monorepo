@@ -409,6 +409,17 @@ export default class Vault extends VaultBase {
     );
   }
 
+  override async getAccountBalance(tokenIds: Array<string>, withMain = true) {
+    // No token support on BTC.
+    const ret = tokenIds.map((id) => undefined);
+    if (!withMain) {
+      return ret;
+    }
+    const { xpub } = (await this.getDbAccount()) as DBUTXOAccount;
+    const [mainBalance] = await this.getBalances([{ address: xpub }]);
+    return [mainBalance].concat(ret);
+  }
+
   // TODO: BTC history type
   async getHistory(): Promise<Array<EVMDecodedItem>> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -560,5 +571,20 @@ export default class Vault extends VaultBase {
       console.error(e);
     }
     return Promise.resolve(accountIsPresent);
+  }
+
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ) {
+    const { restful } = await (this.engineProvider as Provider).blockbook;
+    return Promise.all(
+      requests.map(({ address }) =>
+        restful
+          .get(`/api/v2/xpub/${address}`, { details: 'basic' })
+          .then((r) => r.json())
+          .then((r: { balance: string }) => new BigNumber(r.balance))
+          .catch(() => undefined),
+      ),
+    );
   }
 }
