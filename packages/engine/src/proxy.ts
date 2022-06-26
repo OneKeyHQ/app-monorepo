@@ -16,7 +16,6 @@ import {
   BaseProvider,
   ClientFilter,
 } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/blockbook';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import {
   N,
@@ -50,7 +49,6 @@ import {
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
-import { getImplFromNetworkId } from './managers/network';
 import { getPresetNetworks } from './presets';
 import {
   AccountType,
@@ -462,55 +460,6 @@ class ProviderController extends BaseProviderController {
         throw new NotImplemented();
     }
     return Promise.resolve(address);
-  }
-
-  override async getBalances(
-    networkId: string,
-    requests: Array<any>,
-  ): Promise<Array<BigNumber | undefined>> {
-    if (getImplFromNetworkId(networkId) === IMPL_BTC) {
-      const provider = await this.getProvider(networkId);
-      const { restful } = await (
-        provider as unknown as { blockbook: Promise<BlockBook> }
-      ).blockbook;
-      return Promise.all(
-        requests.map(({ address }: { address: string }) =>
-          restful
-            .get(`/api/v2/xpub/${address}`, { details: 'basic' })
-            .then((r) => r.json())
-            .then((r: { balance: string }) => new BigNumber(r.balance))
-            .catch(() => undefined),
-        ),
-      );
-    }
-    return super.getBalances(networkId, requests);
-  }
-
-  // TODO: move this into vaults.
-  async proxyGetBalances(
-    networkId: string,
-    target: Array<string> | DBAccount,
-    tokenIds: Array<string>,
-    withMain = true,
-  ): Promise<Array<BigNumber | undefined>> {
-    if (Array.isArray(target)) {
-      // TODO: switch by network id.
-      return this.getBalances(
-        networkId,
-        target.map((address) => ({ address, coin: {} })),
-      );
-    }
-
-    const address = await this.selectAccountAddress(networkId, target);
-    return this.getBalances(
-      networkId,
-      (withMain ? [{ address, coin: {} }] : []).concat(
-        tokenIds.map((tokenId) => ({
-          address,
-          coin: { tokenAddress: tokenId },
-        })),
-      ),
-    );
   }
 
   async preSend(

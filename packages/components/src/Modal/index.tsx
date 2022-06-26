@@ -1,11 +1,15 @@
 import React, {
   ComponentProps,
-  FC,
+  MutableRefObject,
   ReactElement,
   ReactNode,
   cloneElement,
+  useEffect,
   useMemo,
+  useRef,
 } from 'react';
+
+import { OverlayProvider } from '@react-native-aria/overlays';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -68,6 +72,8 @@ export type ModalProps = {
   */
   maxHeight?: number | string;
   modalHeight?: string | number | 'full';
+
+  children?: ReactNode;
 };
 
 const defaultProps = {
@@ -80,7 +86,18 @@ const defaultProps = {
   closeOnOverlayClick: true,
 } as const;
 
-const Modal: FC<ModalProps> = ({
+// used for Select in Modal
+// do not delete
+export const ModalRefStore: {
+  ref: MutableRefObject<null>;
+} = {
+  ref: {
+    current: null,
+  },
+};
+
+/* eslint-disable react/prop-types */
+const Modal = ({
   trigger,
   visible: outerVisible,
   onClose,
@@ -94,12 +111,28 @@ const Modal: FC<ModalProps> = ({
   headerShown,
   modalHeight,
   ...rest
-}) => {
+}: ModalProps) => {
   const { size } = useUserDevice();
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    ModalRefStore.ref = modalRef;
+  }, [modalRef]);
 
   const modalContent = useMemo(() => {
+    let content = (
+      <Box
+        // eslint-disable-next-line no-nested-ternary
+        pt={headerShown ? (header ? 6 : 0) : 6}
+        pb={6}
+        px={{ base: 4, md: 6 }}
+        flex="1"
+      >
+        {rest.children}
+      </Box>
+    );
     if (sectionListProps) {
-      return (
+      content = (
         <SectionList
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -111,10 +144,8 @@ const Modal: FC<ModalProps> = ({
           {...sectionListProps}
         />
       );
-    }
-
-    if (flatListProps) {
-      return (
+    } else if (flatListProps) {
+      content = (
         <FlatList
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -126,10 +157,8 @@ const Modal: FC<ModalProps> = ({
           {...flatListProps}
         />
       );
-    }
-
-    if (scrollViewProps) {
-      return (
+    } else if (scrollViewProps) {
+      content = (
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -141,10 +170,8 @@ const Modal: FC<ModalProps> = ({
           {...scrollViewProps}
         />
       );
-    }
-
-    if (sortableListProps) {
-      return (
+    } else if (sortableListProps) {
+      content = (
         <Box flex="1">
           <Box h="full">
             <SortableList.Container
@@ -159,23 +186,14 @@ const Modal: FC<ModalProps> = ({
           </Box>
         </Box>
       );
+    } else if (staticChildrenProps) {
+      content = <Box {...staticChildrenProps}>{rest.children}</Box>;
     }
 
-    if (staticChildrenProps) {
-      return <Box {...staticChildrenProps}>{rest.children}</Box>;
+    if (!platformEnv.isRuntimeBrowser) {
+      return <OverlayProvider>{content}</OverlayProvider>;
     }
-
-    return (
-      <Box
-        // eslint-disable-next-line no-nested-ternary
-        pt={headerShown ? (header ? 6 : 0) : 6}
-        pb={6}
-        px={{ base: 4, md: 6 }}
-        flex="1"
-      >
-        {rest.children}
-      </Box>
-    );
+    return content;
   }, [
     sectionListProps,
     flatListProps,
@@ -196,6 +214,7 @@ const Modal: FC<ModalProps> = ({
       return (
         <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
           <Box
+            ref={modalRef}
             height={modalHeight}
             // TODO 100vh in App
             maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
@@ -258,6 +277,8 @@ const Modal: FC<ModalProps> = ({
 
   return node;
 };
+
+Modal.displayName = 'Modal';
 
 Modal.defaultProps = defaultProps;
 

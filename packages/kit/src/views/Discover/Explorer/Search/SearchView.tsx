@@ -194,7 +194,7 @@ const SearchView: FC<SearchViewProps> = ({
 
   const { position, toPxPositionValue, triggerWidth } = useDropdownPosition({
     triggerEle: relativeComponent,
-    domId,
+    contentRef: ele,
     visible,
     dropdownPosition: 'right',
     translateY,

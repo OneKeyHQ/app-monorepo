@@ -127,12 +127,12 @@ const Dialog: FC<DialogProps> = ({
           w="100%"
           maxW="432px"
           onPress={() => Keyboard.dismiss()}
+          alignSelf="center"
         >
           <Box
             w="100%"
             p={{ base: '4', lg: '6' }}
             shadow="depth.5"
-            alignSelf="center"
             borderRadius="24px"
             bg="surface-subdued"
           >
