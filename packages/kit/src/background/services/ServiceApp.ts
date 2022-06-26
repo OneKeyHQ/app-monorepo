@@ -28,7 +28,7 @@ class ServiceApp extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
     // TODO recheck last reset status and resetApp here
-    console.log('TODO: recheck last reset status and resetApp here');
+    console.log('TODO: recheck last reset status and resetApp here 22222');
   }
 
   restartApp() {
