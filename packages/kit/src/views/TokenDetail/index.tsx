@@ -11,6 +11,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageTokens } from '../../hooks/useManageTokens';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import PriceChart from '../PriceChart/PriceChart';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
 import { TokenDetailRoutesParams } from './routes';
@@ -58,8 +59,16 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   }, [navigation, account, token, nativeToken]);
 
   const headerView = useMemo(
-    () => <TokenInfo token={token} network={network} />,
-    [network, token],
+    () => (
+      <>
+        <TokenInfo token={token} network={network} />
+        <PriceChart
+          platform={network?.name}
+          contract={(token || nativeToken).tokenIdOnNetwork}
+        />
+      </>
+    ),
+    [nativeToken, network, token],
   );
 
   return (

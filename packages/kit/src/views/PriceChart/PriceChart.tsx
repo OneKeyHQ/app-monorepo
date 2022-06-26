@@ -9,6 +9,7 @@ import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 type PriceChartProps = Omit<PriceApiProps, 'days'>;
 
 const PriceChart: React.FC<PriceChartProps> = ({ contract, platform }) => {
+  console.log({ platform, contract });
   const [data, setData] = useState<SingleValueData[]>([]);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
 
@@ -16,7 +17,11 @@ const PriceChart: React.FC<PriceChartProps> = ({ contract, platform }) => {
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
       const days = TIMEOPTIONS_VALUE[newTimeIndex];
-      const newData = await fetchHistoricalPrices({ contract, platform, days });
+      const newData = await fetchHistoricalPrices({
+        contract,
+        platform: platform?.toLowerCase(),
+        days,
+      });
       setData(
         newData.map((d) => ({ time: d[0] as UTCTimestamp, value: d[1] })),
       );

@@ -3,7 +3,6 @@ import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { SectionListProps } from 'react-native';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
   Badge,
@@ -81,11 +80,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     tokenId,
     historyFilter,
   });
-
-  const hiddenHeaderMemo = useDeepCompareMemo(
-    () => hiddenHeader,
-    [hiddenHeader],
-  );
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -173,11 +167,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       </Box>
     );
 
-  const headerViewMemo = useMemo(() => <Box>{headerView}</Box>, [headerView]);
-
   const headerViewBarMemo = useMemo(
     () =>
-      Boolean(transactionRecords.length) && (
+      transactionRecords.length > 0 && (
         <Box
           flexDirection="row"
           justifyContent="space-between"
@@ -226,15 +218,11 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     ],
   );
 
-  const header = useMemo(
-    () => (
-      // Warning: Each child in a list should have a unique "key" prop.
-      <Box key="header">
-        {headerViewMemo}
-        {headerViewBarMemo}
-      </Box>
-    ),
-    [headerViewMemo, headerViewBarMemo],
+  const header = (
+    <Box key="header">
+      {headerView}
+      {headerViewBarMemo}
+    </Box>
   );
 
   const renderEmpty = () => (
@@ -257,33 +245,30 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Center>
   );
 
-  let listElementType: JSX.Element;
-  if (isTab) {
-    listElementType = <Tabs.SectionList sections={[]} />;
-  } else {
-    listElementType = <SectionList bg="background-default" sections={[]} />;
-  }
+  const ListElementType = isTab
+    ? (Tabs.SectionList as typeof SectionList)
+    : SectionList;
 
-  return React.cloneElement(listElementType, {
-    contentContainerStyle: {
-      paddingHorizontal: responsivePadding(),
-      marginTop: 24,
-    },
-    sections: transactionRecords,
-    extraData: { isLoading },
-    renderItem,
-    renderSectionHeader,
-    ListHeaderComponent: hiddenHeaderMemo ? null : header,
-    ListEmptyComponent: isLoading ? renderLoading() : renderEmpty(),
-    ListFooterComponent: () => <Box key="footer" h="20px" />,
-    ItemSeparatorComponent: () => <Divider key="separator" />,
-    keyExtractor: (_: Transaction, index: number) => {
-      const key = index.toString();
-      return key;
-    },
-    showsVerticalScrollIndicator: false,
-    stickySectionHeadersEnabled: false,
-  });
+  return (
+    <ListElementType
+      bg="background-default"
+      contentContainerStyle={{
+        paddingHorizontal: responsivePadding(),
+        marginTop: 24,
+      }}
+      sections={transactionRecords}
+      extraData={isLoading}
+      renderItem={renderItem}
+      renderSectionHeader={renderSectionHeader}
+      ListHeaderComponent={hiddenHeader ? null : header}
+      ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
+      ListFooterComponent={() => <Box key="footer" h="20px" />}
+      ItemSeparatorComponent={() => <Divider key="separator" />}
+      keyExtractor={(_: Transaction, index: number) => String(index)}
+      showsVerticalScrollIndicator={false}
+      stickySectionHeadersEnabled={false}
+    />
+  );
 };
 
 HistoricalRecords.defaultProps = defaultProps;
