@@ -128,7 +128,7 @@ const AddressInput: FC<AddressInputProps> = ({
             </Typography.Body2>
           </Pressable>
         ) : null}
-        {plugins.includes('scan') ? (
+        {plugins.includes('scan') && !platformEnv.isExtFirefoxUiPopup ? (
           <Pressable
             flex="1"
             justifyContent="center"
