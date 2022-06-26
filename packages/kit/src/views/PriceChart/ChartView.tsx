@@ -1,16 +1,9 @@
 import React from 'react';
 
-import { StyleProp, ViewStyle } from 'react-native';
-
 import { useThemeValue } from '@onekeyhq/components';
 
+import { ChartViewProps } from './chartService';
 import ChartViewAdapter from './ChartViewAdapter';
-
-type ChartViewProps = {
-  data: any[];
-  onHover(price?: string): void;
-  style?: StyleProp<ViewStyle>;
-};
 
 const ChartView: React.FC<ChartViewProps> = ({ data, onHover, style }) => {
   const lineColor = useThemeValue('interactive-default');
@@ -19,7 +12,7 @@ const ChartView: React.FC<ChartViewProps> = ({ data, onHover, style }) => {
 
   return (
     <ChartViewAdapter
-      containerStyle={style}
+      style={style}
       data={data}
       lineColor={lineColor}
       topColor={topColor}

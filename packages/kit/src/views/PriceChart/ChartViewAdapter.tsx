@@ -1,20 +1,14 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
-import { StyleProp, ViewStyle } from 'react-native';
 import WebView from 'react-native-webview';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { createChartDom, updateChartDom } from './chartService';
-
-type ChartViewAdapterProps = {
-  data: any[];
-  onHover(price?: string): void;
-  lineColor: string;
-  topColor: string;
-  bottomColor: string;
-  containerStyle?: StyleProp<ViewStyle>;
-};
+import {
+  ChartViewAdapterProps,
+  createChartDom,
+  updateChartDom,
+} from './chartService';
 
 const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   data,
@@ -22,14 +16,15 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   lineColor,
   topColor,
   bottomColor,
-  containerStyle,
+  style,
 }) => {
   const webviewRef = useRef<WebView>(null);
   const initJs = useMemo(
     () => `
   const createChart = window.LightweightCharts.createChart;
   const container = document.getElementById('chart');
-  const postMessage = (price) => window.ReactNativeWebView.postMessage(price);
+  const postMessage = (hoverData) => 
+    window.ReactNativeWebView.postMessage(JSON.stringify(hoverData));
   const { chart } = (${createChartDom.toString()})(
     createChart,
     container, 
@@ -59,7 +54,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     <WebView
       ref={webviewRef}
       style={[
-        containerStyle,
+        style,
         {
           backgroundColor: 'transparent',
         },
@@ -76,7 +71,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
       injectedJavaScript={initJs}
       scrollEnabled={false}
       onMessage={(event) => {
-        onHover(event.nativeEvent.data);
+        onHover(JSON.parse(event.nativeEvent.data));
       }}
     />
   );

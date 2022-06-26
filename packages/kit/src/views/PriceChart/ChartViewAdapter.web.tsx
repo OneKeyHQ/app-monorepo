@@ -1,20 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 
 import { createChart } from 'lightweight-charts';
-import { StyleProp, ViewStyle } from 'react-native';
 
 import { Box } from '@onekeyhq/components';
 
-import { createChartDom, updateChartDom } from './chartService';
-
-type ChartViewAdapterProps = {
-  data: any[];
-  onHover(price?: number): void;
-  lineColor: string;
-  topColor: string;
-  bottomColor: string;
-  containerStyle?: StyleProp<ViewStyle>;
-};
+import {
+  ChartViewAdapterProps,
+  createChartDom,
+  updateChartDom,
+} from './chartService';
 
 const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   data,
@@ -22,7 +16,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   lineColor,
   topColor,
   bottomColor,
-  containerStyle,
+  style,
 }) => {
   const chartContainerRef = useRef<HTMLElement>(null);
 
@@ -52,7 +46,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     });
   }, [bottomColor, topColor, data, lineColor]);
 
-  return <Box style={containerStyle} ref={chartContainerRef} />;
+  return <Box style={style} ref={chartContainerRef} />;
 };
 ChartViewAdapter.displayName = 'ChartViewAdapter';
 export default ChartViewAdapter;

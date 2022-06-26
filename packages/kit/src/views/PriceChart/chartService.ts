@@ -1,5 +1,12 @@
 import axios from 'axios';
-import { ChartOptions, IChartApi, ISeriesApi } from 'lightweight-charts';
+import {
+  BusinessDay,
+  ChartOptions,
+  IChartApi,
+  ISeriesApi,
+  UTCTimestamp,
+} from 'lightweight-charts';
+import { StyleProp, ViewStyle } from 'react-native';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
@@ -8,6 +15,25 @@ type DeepPartial<T> = {
     ? readonly DeepPartial<X>[]
     : DeepPartial<T[P]>;
 };
+
+export type OnHoverFunction = ({
+  time,
+  price,
+}: {
+  time?: UTCTimestamp;
+  price?: number;
+}) => void;
+export interface ChartViewProps {
+  data: any[];
+  onHover: OnHoverFunction;
+  style?: StyleProp<ViewStyle>;
+}
+
+export interface ChartViewAdapterProps extends ChartViewProps {
+  lineColor: string;
+  topColor: string;
+  bottomColor: string;
+}
 
 interface IOnekeyChartApi extends IChartApi {
   // eslint-disable-next-line camelcase
@@ -19,7 +45,7 @@ export function createChartDom(
     options?: DeepPartial<ChartOptions>,
   ) => IChartApi,
   domNode: HTMLElement,
-  onHover: (price?: number) => void,
+  onHover: OnHoverFunction,
 ) {
   const chart = createChartFunc(domNode, {
     height: 300,
@@ -49,8 +75,8 @@ export function createChartDom(
   const handleResize = () => {
     chart.applyOptions({ width: domNode.clientWidth });
   };
-  chart.subscribeCrosshairMove(({ seriesPrices }) => {
-    onHover(seriesPrices.values().next().value);
+  chart.subscribeCrosshairMove(({ time, seriesPrices }) => {
+    onHover({ time, price: seriesPrices.values().next().value });
   });
   chart.timeScale().fitContent();
   window.addEventListener('resize', handleResize);
