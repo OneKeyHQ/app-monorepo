@@ -2,6 +2,7 @@ import React, {
   ComponentProps,
   ReactElement,
   ReactNode,
+  RefObject,
   useCallback,
   useMemo,
   useRef,
@@ -11,21 +12,33 @@ import React, {
 import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
+import { StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
+import { GestureResponderEvent } from 'react-native-modal';
 
 import { setHaptics } from '../../../kit/src/hooks/setHaptics';
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
 import { ChevronDown } from '../Icon/react/solid';
+import { OverlayContainer } from '../OverlayContainer';
 import Pressable from '../Pressable';
 import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';
 import { Text } from '../Typography';
-import { addNewRef, removeOldRef } from '../utils/SelectAutoHide';
 
-import DesktopWithRef from './Container/Desktop';
+import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
-import type { DesktopRef } from './Container/Desktop';
+export interface CloseButtonProps {
+  onClose: (event: GestureResponderEvent) => void;
+}
+
+export function CloseButton({ onClose }: CloseButtonProps) {
+  return (
+    <TouchableWithoutFeedback onPress={onClose}>
+      <View style={StyleSheet.absoluteFill} />
+    </TouchableWithoutFeedback>
+  );
+}
 
 export type SelectItem<T = string> = {
   label: string;
@@ -87,7 +100,7 @@ export type SelectProps<T = string> = {
   activatable?: boolean;
   visible?: boolean | undefined;
   onVisibleChange?: (visible: boolean) => void;
-  triggerEle?: HTMLElement | null;
+  triggerEle?: HTMLElement | View | null;
   setPositionOnlyMounted?: boolean;
   positionTranslateY?: number;
 };
@@ -116,6 +129,7 @@ export type ChildProps<T> = Pick<
   toggleVisible: () => void;
   visible: boolean;
   activeOption: SelectItem<T>;
+  triggerRef: RefObject<unknown>;
 };
 
 const defaultProps = {
@@ -153,7 +167,7 @@ function Select<T = string>({
   setPositionOnlyMounted,
   positionTranslateY,
 }: SelectProps<T>) {
-  const triggerRef = useRef<HTMLElement>(null);
+  const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
   const toggleVisible = useCallback(() => {
@@ -203,22 +217,6 @@ function Select<T = string>({
     onPressFooter?.();
   }, [onPressFooter, toggleVisible]);
 
-  // const DesktopWithRefComp = DesktopWithRef<T>();
-  const DesktopWithRefComp = React.useRef(DesktopWithRef<T>()).current;
-
-  const desktopRef = React.useRef<DesktopRef | null>(null);
-  const setRef = React.useCallback((ref: DesktopRef | null) => {
-    // Since we know there's a ref, we'll update `refs` to use it.
-    if (ref) {
-      // store the ref in this toast instance to be able to remove it from the array later when the ref becomes null.
-      desktopRef.current = ref;
-      addNewRef(ref);
-    } else {
-      // remove the this ref, wherever it is in the array.
-      removeOldRef(desktopRef.current);
-    }
-  }, []);
-
   const container = useMemo(() => {
     const childContainerProps = {
       visible: selectVisible === undefined ? visible : selectVisible,
@@ -237,14 +235,22 @@ function Select<T = string>({
       dropdownPosition,
       onPressFooter: handlePressFooter,
       triggerEle: triggerRef?.current,
+      triggerRef,
       setPositionOnlyMounted,
       positionTranslateY,
     };
-
+    if (!visible) {
+      return null;
+    }
     if (['SMALL', 'NORMAL'].includes(size)) {
       return <Mobile<T> {...childContainerProps} />;
     }
-    return <DesktopWithRefComp ref={setRef} {...childContainerProps} />;
+    return (
+      <OverlayContainer>
+        <CloseButton onClose={toggleVisible} />
+        <Desktop<T> {...childContainerProps} />
+      </OverlayContainer>
+    );
   }, [
     selectVisible,
     visible,
@@ -265,8 +271,6 @@ function Select<T = string>({
     setPositionOnlyMounted,
     positionTranslateY,
     size,
-    DesktopWithRefComp,
-    setRef,
   ]);
 
   return (

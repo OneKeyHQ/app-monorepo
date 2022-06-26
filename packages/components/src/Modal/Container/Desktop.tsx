@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useEffect } from 'react';
+import React, { isValidElement, useEffect } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -35,7 +35,8 @@ function modalSizing(modalSize: string | undefined) {
       return '';
   }
 }
-const DesktopModal: FC<ModalProps> = ({
+
+const DesktopModal = ({
   children,
   onClose,
   closeable,
@@ -57,7 +58,7 @@ const DesktopModal: FC<ModalProps> = ({
   headerDescription,
   closeAction,
   closeOnOverlayClick,
-}) => {
+}: ModalProps) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const index = useNavigationState((state) => state.index);
@@ -214,5 +215,7 @@ const DesktopModal: FC<ModalProps> = ({
     </Box>
   );
 };
+
+DesktopModal.displayName = 'DesktopModal';
 
 export default DesktopModal;
