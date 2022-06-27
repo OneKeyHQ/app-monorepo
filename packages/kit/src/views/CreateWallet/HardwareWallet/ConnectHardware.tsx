@@ -90,6 +90,7 @@ const ConnectHardwareModal: FC = () => {
 
       wallets.forEach((wallet) => {
         if (wallet.type !== 'hw') return;
+        if (wallet.accounts.length === 0) return;
         const device = localDevices[wallet.associatedDevice ?? ''];
         if (!device) return;
         findWallets[device.mac] = wallet;
@@ -236,7 +237,7 @@ const ConnectHardwareModal: FC = () => {
               <HStack alignItems="center">
                 <Badge
                   size="sm"
-                  title={intl.formatMessage({ id: 'content__connected' })}
+                  title={intl.formatMessage({ id: 'content__existing' })}
                   type="success"
                 />
               </HStack>
