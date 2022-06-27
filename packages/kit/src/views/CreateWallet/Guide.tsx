@@ -28,7 +28,12 @@ const Guide = () => {
   const isSmallScreen = useIsVerticalLayout();
   return (
     <Modal footer={null}>
-      <Box px={isSmallScreen ? 6 : 4} height={isSmallScreen ? 'full' : 'auto'}>
+      <Box
+        px={isSmallScreen ? 6 : 4}
+        height="full"
+        flex="1"
+        justifyContent="center"
+      >
         <Center flex={isSmallScreen ? '1' : undefined}>
           <Image size={92} source={walletAsset} />
           <Text
