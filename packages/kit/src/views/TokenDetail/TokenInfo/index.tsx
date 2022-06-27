@@ -299,7 +299,9 @@ const TokenInfo: FC<TokenInfoProps> = ({ token }) => {
         <Box w="100%" flex={1}>
           {renderAccountAmountInfo}
         </Box>
-        <Box mt={isVertical ? 8 : 0}>{accountOption}</Box>
+        <Box flex={1} mt={isVertical ? 8 : 0}>
+          {accountOption}
+        </Box>
       </Box>
     ),
     [isVertical, renderAccountAmountInfo, accountOption],
