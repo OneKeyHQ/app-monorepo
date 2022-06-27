@@ -33,6 +33,7 @@ function initNetworkList(presetNetwork: NetworkList) {
       logoURI: network.logoURI,
       enabled: !network.isTestnet && network.enable,
       chainId: network.chainId,
+      shortCode: network.shortcode,
       shortName: network.shortname,
       isTestnet: network.isTestnet,
       feeSymbol: network.fee.symbol,

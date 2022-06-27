@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -41,11 +41,11 @@ import { useHistoricalRecordsData } from './useHistoricalRecordsData';
 type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
 
 export type HistoricalRecordProps = {
-  accountId: string | null | undefined;
-  networkId: string | null | undefined;
+  accountId?: string | null;
+  networkId?: string | null;
   tokenId?: string | null | undefined;
   historyFilter?: (item: any) => boolean;
-  headerView?: React.ReactNode | null | undefined;
+  headerView?: React.ReactNode | null;
   hiddenHeader?: boolean;
   isTab?: boolean;
 };
@@ -57,6 +57,22 @@ const defaultProps = {
   hiddenHeader: false,
   isTab: false,
 } as const;
+
+const renderSectionHeader: SectionListProps<Transaction>['renderSectionHeader'] =
+  ({ section: { title, data } }) => (
+    <Box key="section-header" pb={2} flexDirection="row">
+      <Box flexDirection="row" alignItems="center">
+        <Typography.Subheading color="text-subdued">
+          {title}
+        </Typography.Subheading>
+        {data[0] != null && data[0].successful === TxStatus.Pending && (
+          <Box ml={3}>
+            <Badge title={data.length.toString()} type="default" size="sm" />
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
 
 const HistoricalRecords: FC<HistoricalRecordProps> = ({
   accountId,
@@ -117,10 +133,6 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     refresh();
   }, [refresh]);
 
-  const refreshData = useCallback(() => {
-    refresh?.();
-  }, [refresh]);
-
   const renderItem: SectionListProps<EVMDecodedItem>['renderItem'] = ({
     item,
     index,
@@ -151,78 +163,50 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Pressable.Item>
   );
 
-  const renderSectionHeader: SectionListProps<Transaction>['renderSectionHeader'] =
-    ({ section: { title, data } }) => (
-      <Box key="section-header" pb={2} flexDirection="row">
-        <Box flexDirection="row" alignItems="center">
-          <Typography.Subheading color="text-subdued">
-            {title}
-          </Typography.Subheading>
-          {data[0] != null && data[0].successful === TxStatus.Pending && (
-            <Box ml={3}>
-              <Badge title={data.length.toString()} type="default" size="sm" />
-            </Box>
-          )}
-        </Box>
+  const headerViewBar = (
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      pb={3}
+    >
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'transaction__history' })}
+      </Typography.Heading>
+      <Box flexDirection="row">
+        <IconButton
+          onPress={() => {
+            refresh();
+          }}
+          isLoading={isLoading}
+          p={2}
+          size="sm"
+          name="RefreshSolid"
+          type="plain"
+          circle
+        />
+        {hasAvailable && (
+          <IconButton
+            onPress={() => {
+              openAddressDetails(account?.address);
+            }}
+            ml={3}
+            p={2}
+            size="sm"
+            name="ExternalLinkSolid"
+            type="plain"
+            circle
+          />
+        )}
       </Box>
-    );
-
-  const headerViewBarMemo = useMemo(
-    () =>
-      transactionRecords.length > 0 && (
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          pb={3}
-        >
-          <Typography.Heading>
-            {intl.formatMessage({ id: 'transaction__history' })}
-          </Typography.Heading>
-          <Box flexDirection="row">
-            <IconButton
-              onPress={() => {
-                refreshData();
-              }}
-              isLoading={isLoading}
-              p={2}
-              size="sm"
-              name="RefreshSolid"
-              type="plain"
-              circle
-            />
-            {hasAvailable ? (
-              <IconButton
-                onPress={() => {
-                  openAddressDetails(account?.address);
-                }}
-                ml={3}
-                p={2}
-                size="sm"
-                name="ExternalLinkSolid"
-                type="plain"
-                circle
-              />
-            ) : null}
-          </Box>
-        </Box>
-      ),
-    [
-      account?.address,
-      hasAvailable,
-      intl,
-      isLoading,
-      openAddressDetails,
-      refreshData,
-      transactionRecords.length,
-    ],
+    </Box>
   );
 
-  const header = (
-    <Box key="header">
+  const header = hiddenHeader ? null : (
+    <>
       {headerView}
-      {headerViewBarMemo}
-    </Box>
+      {headerViewBar}
+    </>
   );
 
   const renderEmpty = () => (
@@ -234,7 +218,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
           id: 'transaction__history_empty_desc',
         })}
         actionTitle={intl.formatMessage({ id: 'action__refresh' })}
-        handleAction={refreshData}
+        handleAction={refresh}
       />
     </Box>
   );
@@ -257,10 +241,9 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         marginTop: 24,
       }}
       sections={transactionRecords}
-      extraData={isLoading}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ListHeaderComponent={hiddenHeader ? null : header}
+      ListHeaderComponent={header}
       ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
       ListFooterComponent={() => <Box key="footer" h="20px" />}
       ItemSeparatorComponent={() => <Divider key="separator" />}

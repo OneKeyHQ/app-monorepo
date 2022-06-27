@@ -15,6 +15,7 @@ type NetworkBase = HasName & {
 type PresetNetwork = NetworkBase & {
   chainId?: string;
   shortName: string;
+  shortCode: string;
   isTestnet?: boolean;
   presetRpcURLs: Array<string>;
   rpcURLs?: Array<Record<string, string>>;
@@ -51,6 +52,7 @@ type BlockExplorer = {
 type Network = NetworkBase & {
   rpcURL: string;
   shortName: string;
+  shortCode?: string;
   preset: boolean;
   isTestnet: boolean;
   // UI specific properties.

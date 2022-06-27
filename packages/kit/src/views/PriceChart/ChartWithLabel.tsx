@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
-import { SingleValueData } from 'lightweight-charts';
+import { SingleValueData, UTCTimestamp } from 'lightweight-charts';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -35,7 +35,11 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
     (hoverData) => {
       setPrice(hoverData.price);
       setTime(
-        formatDate(hoverData.time ? new Date(hoverData.time) : new Date()),
+        formatDate(
+          hoverData.time
+            ? new Date(hoverData.time as UTCTimestamp)
+            : new Date(),
+        ),
       );
     },
     [formatDate],

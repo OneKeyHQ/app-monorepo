@@ -20,7 +20,7 @@ export type OnHoverFunction = ({
   time,
   price,
 }: {
-  time?: UTCTimestamp;
+  time?: UTCTimestamp | BusinessDay;
   price?: number;
 }) => void;
 export interface ChartViewProps {
@@ -112,10 +112,12 @@ export function updateChartDom({
   series.applyOptions({ lineColor, topColor, bottomColor });
   series.setData(data);
 
-  chart
-    .timeScale()
-    // https://github.com/tradingview/lightweight-charts/issues/1015
-    .setVisibleLogicalRange({ from: 0.4, to: data.length - 1.4 });
+  if (data.length > 2) {
+    chart
+      .timeScale()
+      // https://github.com/tradingview/lightweight-charts/issues/1015
+      .setVisibleLogicalRange({ from: 0.4, to: data.length - 1.4 });
+  }
 }
 
 const marketApi = 'http://localhost:9000/market';
@@ -129,18 +131,27 @@ interface MarketData {
 export type PriceApiProps = {
   platform?: string;
   contract?: string;
-  days?: string;
+  days: string;
 };
 export const fetchHistoricalPrices = async ({
   platform = 'ethereum',
-  contract = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-  days = '1',
+  contract,
+  days,
 }: PriceApiProps) => {
   const params = new URLSearchParams({
     platform,
-    contract,
     days,
   });
-  const res = await axios.get<MarketData>(`${marketApi}?${params.toString()}`);
-  return res.data.data.prices;
+  if (contract) {
+    params.append('contract', contract);
+  }
+  let result: [number, number][] = [];
+  try {
+    const res = await axios.get<MarketData>(
+      `${marketApi}?${params.toString()}`,
+    );
+    result = res.data.data.prices;
+    // eslint-disable-next-line no-empty
+  } catch (e) {}
+  return result;
 };
