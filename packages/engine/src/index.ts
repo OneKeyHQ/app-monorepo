@@ -317,6 +317,7 @@ class Engine {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
+    await this.validator.validatePasswordStrength(password);
 
     const [usedMnemonic] = await Promise.all([
       this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic()),
@@ -397,7 +398,7 @@ class Engine {
     const deviceUUID = getDeviceUUID(features);
     const walletName =
       name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
-    return this.dbApi.addHWWallet({
+    const wallet = await this.dbApi.addHWWallet({
       id,
       name: walletName,
       avatar,
@@ -407,6 +408,16 @@ class Engine {
       connectId,
       features: JSON.stringify(features),
     });
+    // Add BTC & ETH accounts by default.
+    try {
+      await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
+      await this.addHdOrHwAccounts('', wallet.id, 'evm--1');
+    } catch (e) {
+      console.error(e);
+      await this.removeWallet(id, '');
+      throw new OneKeyInternalError('Failed to create HW Wallet.');
+    }
+    return wallet;
   }
 
   @backgroundMethod()
@@ -747,6 +758,7 @@ class Engine {
     credential: string,
     name?: string,
   ): Promise<Account> {
+    await this.validator.validatePasswordStrength(password);
     const impl = getImplFromNetworkId(networkId);
     let privateKey: Buffer | undefined;
     // TODO: use vault to extract private key.
@@ -1801,8 +1813,12 @@ class Engine {
   }
 
   @backgroundMethod()
-  updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async updatePassword(
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     // Update global password.
+    await this.validator.validatePasswordStrength(newPassword);
     return this.dbApi.updatePassword(oldPassword, newPassword);
   }
 

@@ -102,6 +102,10 @@ export class WrongPassword extends OneKeyError {
   override key = 'msg__engine__incorrect_password';
 }
 
+export class PasswordStrengthValidationFailed extends OneKeyError {
+  override key = 'msg__password_validation';
+}
+
 // Simple input errors.
 
 export class InvalidMnemonic extends OneKeyError {

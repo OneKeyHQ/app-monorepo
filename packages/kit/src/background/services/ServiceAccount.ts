@@ -337,18 +337,23 @@ class ServiceAccount extends ServiceBase {
       connectId,
     });
 
-    try {
-      const accounts = await engine.addHdOrHwAccounts(
-        'Undefined',
-        wallet.id,
-        networkId,
-      );
-      if (accounts.length > 0) {
-        const $account = accounts[0];
-        account = $account;
+    [account] = await engine.getAccounts(wallet.accounts, networkId);
+
+    if (typeof account === 'undefined') {
+      // Network is neither btc nor evm, account is not by default created.
+      try {
+        const accounts = await engine.addHdOrHwAccounts(
+          'Undefined',
+          wallet.id,
+          networkId,
+        );
+        if (accounts.length > 0) {
+          const $account = accounts[0];
+          account = $account;
+        }
+      } catch (error) {
+        // TODO need to handle this error
       }
-    } catch (error) {
-      // TODO need to handle this error
     }
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
