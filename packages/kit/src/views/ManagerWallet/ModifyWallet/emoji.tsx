@@ -10,6 +10,7 @@ import React, {
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { chunk } from 'lodash';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -28,6 +29,7 @@ import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EmojiTypes, colors, emojiList } from '../../../utils/emojiUtils';
 
@@ -86,6 +88,7 @@ ColorSelecter.displayName = 'ColorSelecter';
 const ModifyWalletEmojiViewModal: FC = () => {
   const emojiContainerRef = useRef();
   const navigation = useNavigation();
+  const win = useWindowDimensions();
   const { avatar, onDone } = useRoute<RouteProps>().params;
   const [color, updateColor] = useState(avatar.bgColor);
   const [emoji, updateEmoji] = useState(avatar.emoji);
@@ -112,7 +115,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
       }
       setContainerWidth(res.width - 48);
     });
-  }, [emojiContainerRef]);
+  }, [emojiContainerRef, win]);
 
   const layoutProvider = useMemo(
     () =>
