@@ -1,4 +1,5 @@
 export { default as Restore } from './Restore'
+export { default as Shrink } from './Shrink'
 export { default as AcademicCap } from './AcademicCap'
 export { default as Activity } from './Activity'
 export { default as Adjustments } from './Adjustments'

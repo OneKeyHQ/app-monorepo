@@ -75,12 +75,14 @@ function fromDBNetworkToNetwork(
   const { position, curve, ...forNetwork } = dbNetwork;
   const preset = networkIsPreset(dbNetwork.id);
   let shortName = dbNetwork.name;
+  let shortCode = '';
   let isTestnet = false;
   let firstExplorer;
   let matchedExplorer;
   if (preset) {
     const presetNetwork = getPresetNetworks()[dbNetwork.id];
     shortName = presetNetwork.shortName || shortName;
+    shortCode = presetNetwork.shortCode;
     isTestnet = presetNetwork.isTestnet || false;
 
     [firstExplorer] = presetNetwork.explorers || [];
@@ -111,6 +113,7 @@ function fromDBNetworkToNetwork(
   return {
     ...forNetwork,
     shortName,
+    shortCode,
     preset,
     isTestnet,
     // The two display decimals fields below are for UI, hard-coded for now.

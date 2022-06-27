@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -100,36 +100,20 @@ export const useHistoricalRecordsData = ({
   const intl = useIntl();
   const formatDate = useFormatDate();
 
-  const [transactionRecords, setTransactionRecords] = useState<
-    TransactionGroup[]
-  >([]);
+  const [transactionRecords, setTransactionRecords] =
+    useState<TransactionGroup[]>();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const hasNoParams = !account || !network;
 
-  const hasNoParams = useMemo(() => !account || !network, [account, network]);
-
-  const paramsMemo: RequestParamsType = useMemo(() => {
-    if (hasNoParams) return null;
-
-    const pageSize = PAGE_SIZE;
-
-    const params = {
+  const requestCall = useCallback(async () => {
+    const params: RequestParamsType = {
       accountId: account?.id ?? '',
       networkId: network?.id ?? '',
       tokenId,
       historyFilter,
       pageNumber: 0,
-      pageSize,
+      pageSize: PAGE_SIZE,
     };
-
-    return params;
-  }, [account?.id, hasNoParams, historyFilter, network?.id, tokenId]);
-
-  const requestCall = useCallback(async (params: RequestParamsType) => {
-    if (!params) {
-      return [];
-    }
-
     const history = await backgroundApiProxy.engine.getTxHistories(
       params.networkId,
       params.accountId,
@@ -147,38 +131,28 @@ export const useHistoricalRecordsData = ({
     }
 
     return filted;
-  }, []);
+  }, [account?.id, network?.id, tokenId, historyFilter]);
 
-  const refresh = useCallback(() => {
-    (async () => {
-      setIsLoading(true);
-      setTransactionRecords([]);
+  const refresh = useCallback(async () => {
+    if (hasNoParams) {
+      return;
+    }
 
-      if (hasNoParams) {
-        setIsLoading(false);
-        return;
-      }
+    const assets = await requestCall();
 
-      const assets = await requestCall(paramsMemo);
+    const transactions = toTransactionSection(
+      intl.formatMessage({ id: 'history__queue' }),
+      assets,
+      (date: number) =>
+        formatDate.formatMonth(new Date(date), { hideTheYear: true }),
+    );
 
-      const transactions = toTransactionSection(
-        intl.formatMessage({ id: 'history__queue' }),
-        assets,
-        (date: number) =>
-          formatDate.formatMonth(new Date(date), { hideTheYear: true }),
-      );
+    setTransactionRecords(transactions);
+  }, [formatDate, hasNoParams, intl, requestCall]);
 
-      setIsLoading(false);
-      setTransactionRecords(transactions);
-    })();
-  }, [formatDate, hasNoParams, intl, paramsMemo, requestCall]);
-
-  return useMemo(
-    () => ({
-      isLoading,
-      transactionRecords,
-      refresh,
-    }),
-    [isLoading, refresh, transactionRecords],
-  );
+  return {
+    isLoading: transactionRecords === undefined,
+    transactionRecords: transactionRecords || [],
+    refresh,
+  };
 };

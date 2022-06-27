@@ -1,11 +1,11 @@
 import * as React from 'react';
 import Svg, { SvgProps, Path } from 'react-native-svg';
 
-function SvgExpand(props: SvgProps) {
+function SvgShrink(props: SvgProps) {
   return (
     <Svg viewBox="0 0 20 20" fill="none" {...props}>
       <Path
-        d="M11.667 3.334h4.167c.46 0 .833.373.833.833v4.167m-8.334 8.333H4.168a.833.833 0 01-.833-.833v-4.167"
+        d="M16.666 8.334H12.5a.833.833 0 01-.834-.833V3.334M3.333 11.668H7.5c.46 0 .834.373.834.833v4.167"
         stroke="currentColor"
         strokeWidth={2}
         strokeLinecap="round"
@@ -15,4 +15,4 @@ function SvgExpand(props: SvgProps) {
   );
 }
 
-export default SvgExpand;
+export default SvgShrink;

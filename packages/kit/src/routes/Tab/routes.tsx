@@ -35,8 +35,8 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
     component: HomeScreen,
-    tabBarIcon: () => 'NavHomeSolid',
-    translationId: 'title__home',
+    tabBarIcon: () => 'NavBankCardSolid',
+    translationId: 'form__account',
     children: [
       {
         name: HomeRoutes.ScreenTokenDetail,

@@ -34,4 +34,12 @@ const middlewares = [
   backgroundCheck,
 ];
 
+// eslint-disable-next-line no-undef
+if (__DEV__) {
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const createDebugger = require('redux-flipper').default;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  middlewares.push(createDebugger());
+}
+
 export default middlewares;

@@ -212,6 +212,7 @@ import ShieldCheckOutline from "./react/outline/ShieldCheck";
 import ShieldExclamationOutline from "./react/outline/ShieldExclamation";
 import ShoppingBagOutline from "./react/outline/ShoppingBag";
 import ShoppingCartOutline from "./react/outline/ShoppingCart";
+import ShrinkOutline from "./react/outline/Shrink";
 import SortAscendingOutline from "./react/outline/SortAscending";
 import SortDescendingOutline from "./react/outline/SortDescending";
 import SparklesOutline from "./react/outline/Sparkles";
@@ -721,6 +722,7 @@ export type ICON_NAMES =
   | "ShieldExclamationOutline"
   | "ShoppingBagOutline"
   | "ShoppingCartOutline"
+  | "ShrinkOutline"
   | "SortAscendingOutline"
   | "SortDescendingOutline"
   | "SparklesOutline"
@@ -1230,6 +1232,7 @@ export default {
   ShieldExclamationOutline: ShieldExclamationOutline,
   ShoppingBagOutline: ShoppingBagOutline,
   ShoppingCartOutline: ShoppingCartOutline,
+  ShrinkOutline: ShrinkOutline,
   SortAscendingOutline: SortAscendingOutline,
   SortDescendingOutline: SortDescendingOutline,
   SparklesOutline: SparklesOutline,

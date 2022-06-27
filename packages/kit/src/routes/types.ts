@@ -48,7 +48,6 @@ export type ModalRoutesParams = {
 
 /** Tab */
 export enum TabRoutes {
-  // Overview = 'overview',
   Home = 'home',
   Swap = 'swap',
   Discover = 'discover',
@@ -59,7 +58,6 @@ export enum TabRoutes {
 }
 
 export type TabRoutesParams = {
-  // [TabRoutes.Overview]: undefined;
   [TabRoutes.Home]: undefined;
   [TabRoutes.Swap]:
     | undefined

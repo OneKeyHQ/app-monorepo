@@ -1,16 +1,16 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Box } from '@onekeyhq/components';
-import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageTokens } from '../../hooks/useManageTokens';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import PriceChart from '../PriceChart/PriceChart';
 import HistoricalRecords from '../Wallet/HistoricalRecords';
 
 import { TokenDetailRoutesParams } from './routes';
@@ -29,7 +29,6 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { accountId, networkId, tokenId, historyFilter } = route.params;
-  const [account, setAccount] = useState<Account>();
   const [network, setNetwork] = useState<Network>();
   const { accountTokensMap, nativeToken } = useManageTokens();
 
@@ -39,27 +38,34 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   );
 
   useEffect(() => {
-    backgroundApiProxy.engine
-      .getAccount(accountId, networkId)
-      .then((accountById) => {
-        setAccount(accountById);
-      })
-      .catch(() => {
-        console.error('find account error');
-      });
-    backgroundApiProxy.engine.getNetwork(networkId).then((result) => {
-      setNetwork(result);
-    });
-  }, [accountId, networkId]);
+    backgroundApiProxy.engine.getNetwork(networkId).then(setNetwork);
+  }, [networkId]);
 
-  useLayoutEffect(() => {
-    const title = token?.name || nativeToken?.name || account?.name;
-    navigation.setOptions({ title });
-  }, [navigation, account, token, nativeToken]);
+  useEffect(() => {
+    const title = token?.name || nativeToken?.name;
+    if (title) {
+      navigation.setOptions({ title });
+    } else {
+      backgroundApiProxy.engine
+        .getAccount(accountId, networkId)
+        .then((account) => {
+          navigation.setOptions({ title: account.name });
+        })
+        .catch(() => {
+          console.error('find account error');
+        });
+    }
+  }, [navigation, token, nativeToken, accountId, networkId]);
 
-  const headerView = useMemo(
-    () => <TokenInfo token={token} network={network} />,
-    [network, token],
+  const headerView = !!network && (
+    <>
+      <TokenInfo token={token} network={network} />
+      <PriceChart
+        style={{ marginBottom: 20 }}
+        platform={network.shortCode}
+        contract={token?.tokenIdOnNetwork}
+      />
+    </>
   );
 
   return (

@@ -51,6 +51,7 @@ import TokenGallery from '@onekeyhq/kit/src/views/Components/stories/Token';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
+import PriceChart from '../../views/Components/stories/PriceChart';
 import renderCustomSubStackHeader from '../Stack/Header';
 
 export enum StackRoutes {
@@ -104,6 +105,7 @@ export enum StackRoutes {
   ComponentAppUpdate = 'component/AppUpdate',
   ComponentSkeleton = 'component/Skeleton',
   ComponentPopover = 'component/Popover',
+  ComponentPriceChart = 'component/PriceChart',
 }
 
 export type StackBasicRoutesParams = {
@@ -157,6 +159,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentSkeleton]: undefined;
   [StackRoutes.ComponentKeyboard]: undefined;
   [StackRoutes.ComponentPopover]: undefined;
+  [StackRoutes.ComponentPriceChart]: undefined;
 };
 
 export const stackScreenList = [
@@ -230,6 +233,7 @@ export const stackScreenList = [
     name: StackRoutes.ComponentPopover,
     component: PopoverGallery,
   },
+  { name: StackRoutes.ComponentPriceChart, component: PriceChart },
 ];
 
 const DevStack = createNativeStackNavigator();
