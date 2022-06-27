@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useMemo } from 'react';
 
+import { OverlayProvider } from '@react-native-aria/overlays';
 import {
   DefaultTheme,
   NavigationContainer,
@@ -82,7 +83,9 @@ const NavigationApp = () => {
         theme={navigationTheme}
         linking={enableLinkingRoute ? linking : undefined}
       >
-        <RootStack />
+        <OverlayProvider>
+          <RootStack />
+        </OverlayProvider>
       </NavigationContainer>
       <Box
         overflow="hidden"

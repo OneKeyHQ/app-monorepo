@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { isValidElement, useEffect } from 'react';
+import React, { isValidElement } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
 import Button from '../../Button';
@@ -67,19 +65,6 @@ const DesktopModal = ({
 
   const close = closeAction || defaultClose;
 
-  useEffect(() => {
-    if (platformEnv.isRuntimeBrowser) {
-      const closeOnEsc = (e: KeyboardEvent) => {
-        if (e.code === 'Escape') {
-          close();
-        }
-      };
-      document.addEventListener('keydown', closeOnEsc);
-      return () => {
-        document.removeEventListener('keydown', closeOnEsc);
-      };
-    }
-  }, [close]);
   return (
     <Box
       position="absolute"
