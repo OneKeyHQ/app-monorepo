@@ -21,6 +21,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { svgToPngIfNeeded } from '@onekeyhq/kit/src/utils/imageUtils';
 
 import {
   CollectiblesModalRoutes,
@@ -149,7 +150,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
                   return (
                     <NftCard
                       key={asset.id ?? asset.name}
-                      image={asset.imageUrl}
+                      image={svgToPngIfNeeded(asset.imageUrl)}
                       title={asset.name}
                       mr={marginRight}
                       mb={4}

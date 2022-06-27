@@ -26,6 +26,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Collectible } from '@onekeyhq/engine/src/types/opensea';
 import IconNFT from '@onekeyhq/kit/assets/3d_nft.png';
+import { svgToPngIfNeeded } from '@onekeyhq/kit/src/utils/imageUtils';
 
 import { CollectibleView, SelectedAsset } from './types';
 
@@ -242,7 +243,7 @@ const CollectibleGallery: FC<CollectibleGalleryProps> = ({
                       asset.tokenId,
                     )
                   }
-                  image={asset.imageUrl}
+                  image={svgToPngIfNeeded(asset.imageUrl)}
                   title={asset.name}
                   mr={marginRight}
                   mb={4}
