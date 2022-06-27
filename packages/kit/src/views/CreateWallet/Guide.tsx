@@ -29,7 +29,7 @@ const Guide = () => {
   return (
     <Modal footer={null}>
       <Box px={isSmallScreen ? 6 : 4} height={isSmallScreen ? 'full' : 'auto'}>
-        <Center flex={isSmallScreen ? '1' : 'auto'}>
+        <Center flex={isSmallScreen ? '1' : undefined}>
           <Image size={92} source={walletAsset} />
           <Text
             mt={{ base: 8, md: 4 }}
