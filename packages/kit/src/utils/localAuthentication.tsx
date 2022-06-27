@@ -13,9 +13,8 @@ export const hasHardwareSupported = () =>
       );
       resolve(p);
     } else if (platformEnv.isDesktop) {
-      const result = window?.desktopApi.canPromptTouchID();
-      console.log('result', result);
-      resolve(result);
+      const result = window?.desktopApi?.canPromptTouchID();
+      resolve(!!result);
     } else {
       resolve(false);
     }
@@ -34,7 +33,7 @@ export const localAuthenticate: () => Promise<LocalAuthentication.LocalAuthentic
     }
     if (platformEnv.isDesktop) {
       try {
-        const result = await window?.desktopApi.promptTouchID('Touch ID');
+        const result = await window?.desktopApi?.promptTouchID('unlock');
         return { success: result, error: !result ? 'no supported' : '' };
       } catch {
         return { success: false, error: 'no supported' };

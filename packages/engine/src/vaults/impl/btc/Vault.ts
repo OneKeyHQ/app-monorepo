@@ -582,7 +582,13 @@ export default class Vault extends VaultBase {
         restful
           .get(`/api/v2/xpub/${address}`, { details: 'basic' })
           .then((r) => r.json())
-          .then((r: { balance: string }) => new BigNumber(r.balance))
+          .then((r: { balance: string; unconfirmedBalance: string }) => {
+            const balance = new BigNumber(r.balance);
+            const unconfirmedBalance = new BigNumber(r.unconfirmedBalance);
+            return !unconfirmedBalance.isNaN() && !unconfirmedBalance.isZero()
+              ? balance.plus(unconfirmedBalance)
+              : balance;
+          })
           .catch(() => undefined),
       ),
     );
