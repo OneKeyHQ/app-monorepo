@@ -317,6 +317,7 @@ class Engine {
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
     }
+    await this.validator.validatePasswordStrength(password);
 
     const [usedMnemonic] = await Promise.all([
       this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic()),
@@ -757,6 +758,7 @@ class Engine {
     credential: string,
     name?: string,
   ): Promise<Account> {
+    await this.validator.validatePasswordStrength(password);
     const impl = getImplFromNetworkId(networkId);
     let privateKey: Buffer | undefined;
     // TODO: use vault to extract private key.
@@ -1811,8 +1813,12 @@ class Engine {
   }
 
   @backgroundMethod()
-  updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async updatePassword(
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     // Update global password.
+    await this.validator.validatePasswordStrength(newPassword);
     return this.dbApi.updatePassword(oldPassword, newPassword);
   }
 
