@@ -219,6 +219,12 @@ const Modal = ({
             // TODO 100vh in App
             maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
             w="100%"
+            borderBottomRadius={
+              platformEnv.isExtensionUiStandaloneWindow ||
+                platformEnv.isNativeAndroid
+                ? 0
+                : '24px'
+            }
             borderTopRadius={
               platformEnv.isExtensionUiStandaloneWindow ||
               platformEnv.isNativeAndroid
