@@ -226,6 +226,14 @@ export async function ethereumSignMessage({
       path,
       messageHex: message.message,
     });
+
+    if (!res.success) {
+      throw new OneKeyHardwareError({
+        code: res.payload.code,
+        message: res.payload.error,
+      });
+    }
+
     const result = getResultFromResponse(res);
     return `0x${result?.signature || ''}`;
   }
@@ -258,6 +266,14 @@ export async function ethereumSignMessage({
       domainHash,
       messageHash,
     });
+
+    if (!res.success) {
+      throw new OneKeyHardwareError({
+        code: res.payload.code,
+        message: res.payload.error,
+      });
+    }
+
     const result = getResultFromResponse(res);
     return `0x${result?.signature || ''}`;
   }

@@ -125,7 +125,8 @@ function createMainWindow() {
   });
 
   ipcMain.on('app/canPromptTouchID', (event) => {
-    event.returnValue = systemPreferences.canPromptTouchID();
+    const result = systemPreferences?.canPromptTouchID?.();
+    event.returnValue = !!result;
   });
 
   ipcMain.on('app/promptTouchID', async (event, msg: string) => {

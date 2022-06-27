@@ -397,7 +397,7 @@ class Engine {
     const deviceUUID = getDeviceUUID(features);
     const walletName =
       name ?? features.ble_name ?? `OneKey ${serialNo.slice(-4)}`;
-    return this.dbApi.addHWWallet({
+    const wallet = await this.dbApi.addHWWallet({
       id,
       name: walletName,
       avatar,
@@ -407,6 +407,16 @@ class Engine {
       connectId,
       features: JSON.stringify(features),
     });
+    // Add BTC & ETH accounts by default.
+    try {
+      await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
+      await this.addHdOrHwAccounts('', wallet.id, 'evm--1');
+    } catch (e) {
+      console.error(e);
+      await this.removeWallet(id, '');
+      throw new OneKeyInternalError('Failed to create HW Wallet.');
+    }
+    return wallet;
   }
 
   @backgroundMethod()
