@@ -215,7 +215,9 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__add_account' })}
-      headerDescription={`${intl.formatMessage({ id: 'wallet__wallet' })}`}
+      headerDescription={`${
+        wallet?.name ?? intl.formatMessage({ id: 'wallet__wallet' })
+      }`}
       onClose={onClose}
       primaryActionProps={{
         onPromise: onSubmit,
