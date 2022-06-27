@@ -184,7 +184,7 @@ function useDropdownPosition({
   useEffect(() => {
     setIsPositionNotReady(
       position.left === defaultPosition.left &&
-      position.top === defaultPosition.top,
+        position.top === defaultPosition.top,
     );
   }, [position]);
 

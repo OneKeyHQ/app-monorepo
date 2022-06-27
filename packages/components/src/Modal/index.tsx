@@ -221,7 +221,7 @@ const Modal = ({
             w="100%"
             borderBottomRadius={
               platformEnv.isExtensionUiStandaloneWindow ||
-                platformEnv.isNativeAndroid
+              platformEnv.isNativeAndroid
                 ? 0
                 : '24px'
             }

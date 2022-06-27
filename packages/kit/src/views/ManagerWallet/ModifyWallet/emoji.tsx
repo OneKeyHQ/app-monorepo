@@ -29,7 +29,6 @@ import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EmojiTypes, colors, emojiList } from '../../../utils/emojiUtils';
 
