@@ -1,7 +1,7 @@
 import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil, isString, pick } from 'lodash';
-import { Dimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -63,7 +63,7 @@ function sleep(time: number) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
 
-const getMeasure = (
+export const getMeasure = (
   ele?: SelectProps['triggerEle'],
 ): Promise<ElementRect | null> =>
   new Promise((resolve) => {
@@ -174,6 +174,7 @@ function useDropdownPosition({
   dropdownProps,
   contentRef,
 }: UseDropdownProps) {
+  const win = useWindowDimensions();
   const [position, setPosition] =
     useState<ISelectorContentPosition>(defaultPosition);
   const [isPositionNotReady, setIsPositionNotReady] = useState(false);
@@ -304,6 +305,7 @@ function useDropdownPosition({
         setPosition(pos);
       });
   }, [
+    win,
     visible,
     getDropdownPosition,
     adjustDropdownPosition,

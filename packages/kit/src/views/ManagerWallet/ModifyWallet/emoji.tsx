@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +23,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getMeasure } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import WalletAvatar from '@onekeyhq/kit/src/components/Header/WalletAvatar';
 import {
   ManagerWalletModalRoutes,
@@ -77,45 +85,59 @@ const ColorSelecter = React.memo((props: ColorSelecterProps) => {
 ColorSelecter.displayName = 'ColorSelecter';
 
 const ModifyWalletEmojiViewModal: FC = () => {
+  const emojiContainerRef = useRef();
   const navigation = useNavigation();
+  const win = useWindowDimensions();
   const { avatar, onDone } = useRoute<RouteProps>().params;
   const [color, updateColor] = useState(avatar.bgColor);
   const [emoji, updateEmoji] = useState(avatar.emoji);
+  const [containerWidth, setContainerWidth] = useState(44 * 8);
   const smallScreen = useIsVerticalLayout();
-  const screenWidth = useWindowDimensions().width;
-  const modalWidth = smallScreen ? screenWidth : 400;
-  const itemWidth = (modalWidth - 48) / 8;
-  const itemHeight = 44;
-  const col = 4;
-  const emojis: EmojiTypes[][] = chunk(emojiList, col * 8);
+  const rawItems = 8;
 
-  const dataProvider = useMemo(
-    () => new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(emojis),
-    [emojis],
+  const itemWidth = useMemo(
+    () => Math.floor(containerWidth / rawItems),
+    [containerWidth, rawItems],
   );
+
+  const itemHeight = itemWidth;
+
+  const dataProvider = useMemo(() => {
+    const emojis: EmojiTypes[][] = chunk(emojiList, rawItems);
+    return new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(emojis);
+  }, [rawItems]);
+
+  useEffect(() => {
+    getMeasure(emojiContainerRef.current).then((res) => {
+      if (!res) {
+        return;
+      }
+      setContainerWidth(res.width - 48);
+    });
+  }, [emojiContainerRef, win]);
 
   const layoutProvider = useMemo(
     () =>
       new LayoutProvider(
         () => 'emoji',
         (type, dim) => {
-          dim.width = itemWidth * 8;
-          dim.height = itemHeight * col;
+          dim.width = containerWidth;
+          dim.height = itemHeight;
         },
       ),
-    [itemWidth],
+    [containerWidth, itemHeight],
   );
 
   const renderItem = useCallback(
     (type, dataArray) => {
-      const emojisArray: EmojiTypes[][] = chunk(dataArray, 8);
+      const emojisArray: EmojiTypes[][] = chunk(dataArray, rawItems);
       return (
-        <Box width="full" height="full">
+        <Box height="full">
           {emojisArray.map((rows, rowIndex) => (
             <Box
               key={`rows${rowIndex}`}
               flexDirection="row"
-              width={`${itemWidth * 8}px`}
+              width={`${containerWidth}px`}
               height={`${itemHeight}px`}
             >
               {rows.map((item, index) => (
@@ -140,7 +162,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
         </Box>
       );
     },
-    [itemWidth],
+    [itemWidth, rawItems, containerWidth, itemHeight],
   );
 
   return (
@@ -173,13 +195,13 @@ const ModifyWalletEmojiViewModal: FC = () => {
         <ColorSelecter color={color} onPress={updateColor} />
         <Box
           flex={1}
+          ref={emojiContainerRef}
           borderTopLeftRadius="24px"
           borderTopRadius="24px"
           bgColor="surface-default"
         >
           <RecyclerListView
             style={{
-              width: modalWidth,
               padding: 24,
             }}
             dataProvider={dataProvider}
