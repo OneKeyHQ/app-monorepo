@@ -63,7 +63,7 @@ function sleep(time: number) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
 
-const getMeasure = (
+export const getMeasure = (
   ele?: SelectProps['triggerEle'],
 ): Promise<ElementRect | null> =>
   new Promise((resolve) => {
@@ -184,7 +184,7 @@ function useDropdownPosition({
   useEffect(() => {
     setIsPositionNotReady(
       position.left === defaultPosition.left &&
-        position.top === defaultPosition.top,
+      position.top === defaultPosition.top,
     );
   }, [position]);
 
