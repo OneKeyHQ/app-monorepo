@@ -131,16 +131,20 @@ interface MarketData {
 export type PriceApiProps = {
   platform?: string;
   contract?: string;
+  'vs_currency'?: string;
   days: string;
 };
 export const fetchHistoricalPrices = async ({
   platform = 'ethereum',
   contract,
+  // eslint-disable-next-line camelcase
+  vs_currency = 'usd',
   days,
 }: PriceApiProps) => {
   const params = new URLSearchParams({
     platform,
     days,
+    vs_currency,
   });
   if (contract) {
     params.append('contract', contract);

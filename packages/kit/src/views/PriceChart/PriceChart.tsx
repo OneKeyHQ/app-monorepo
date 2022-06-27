@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { SingleValueData, UTCTimestamp } from 'lightweight-charts';
 
+import { useAppSelector, useSettings } from '../../hooks/redux';
+
 import { PriceApiProps, fetchHistoricalPrices } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
@@ -11,6 +13,7 @@ type PriceChartProps = Omit<PriceApiProps, 'days'>;
 const PriceChart: React.FC<PriceChartProps> = ({ contract, platform }) => {
   const [data, setData] = useState<SingleValueData[]>([]);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
+  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
 
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
@@ -21,12 +24,13 @@ const PriceChart: React.FC<PriceChartProps> = ({ contract, platform }) => {
         contract,
         platform,
         days,
+        vs_currency: selectedFiatMoneySymbol,
       });
       setData(
         newData.map((d) => ({ time: d[0] as UTCTimestamp, value: d[1] })),
       );
     },
-    [contract, platform],
+    [contract, selectedFiatMoneySymbol, platform],
   );
 
   useEffect(() => {

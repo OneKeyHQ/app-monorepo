@@ -16,8 +16,9 @@ type ChartWithLabelProps = {
 };
 
 const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
+  const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
-  const [time, setTime] = useState('');
+  const [time, setTime] = useState(formatDate(new Date()));
   const isVerticalLayout = useIsVerticalLayout();
   const basePrice = data.length ? data[0].value : 0;
   const latestPrice = data.length ? data[data.length - 1].value : 0;
@@ -30,7 +31,6 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
     currentPrice = price;
   }
 
-  const { formatDate } = useFormatDate();
   const onHover = useCallback<OnHoverFunction>(
     (hoverData) => {
       setPrice(hoverData.price);

@@ -50,7 +50,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
           data: ${JSON.stringify(data)},
         });`,
     );
-  }, [data]);
+  }, [bottomColor, data, lineColor, topColor]);
 
   return (
     <WebView
