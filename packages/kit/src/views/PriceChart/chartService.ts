@@ -120,7 +120,7 @@ export function updateChartDom({
   }
 }
 
-const marketApi = 'http://localhost:9000/market';
+const marketApi = 'https://fiat.onekey.so/market';
 
 interface MarketData {
   data: {

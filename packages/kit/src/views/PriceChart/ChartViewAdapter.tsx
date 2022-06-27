@@ -44,7 +44,9 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   useEffect(() => {
     webviewRef.current?.injectJavaScript(
       `(${updateChartDom.toString()})({
-          chart,
+          bottomColor: ${JSON.stringify(bottomColor)},
+          topColor: ${JSON.stringify(topColor)},
+          lineColor: ${JSON.stringify(lineColor)},
           data: ${JSON.stringify(data)},
         });`,
     );
