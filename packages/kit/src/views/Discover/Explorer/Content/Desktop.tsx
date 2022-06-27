@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { TextInput } from 'react-native';
 
 import { Box, HStack, IconButton, Input } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
@@ -23,7 +24,7 @@ type BrowserURLInputProps = {
   customLeftIcon?: ICON_NAMES;
 } & Omit<ComponentProps<typeof Input>, 'onChange' | 'onChangeText'>;
 
-const BrowserURLInput = React.forwardRef<typeof Input, BrowserURLInputProps>(
+const BrowserURLInput = React.forwardRef<TextInput, BrowserURLInputProps>(
   // eslint-disable-next-line react/prop-types
   ({ value, onClear, onChangeText, customLeftIcon, ...props }, ref) => {
     const [innerValue, setInnerValue] = useState(value);
@@ -46,6 +47,8 @@ const BrowserURLInput = React.forwardRef<typeof Input, BrowserURLInputProps>(
         leftIconName={customLeftIcon ?? 'SearchOutline'}
         // rightIconName={rightIconName}
         placeholder="Search..."
+        autoCorrect={false}
+        autoCapitalize="none"
         onPressRightIcon={onClear}
         onChangeText={handleChangeText}
         {...props}
@@ -80,7 +83,7 @@ const Desktop: FC<ExplorerViewProps> = ({
     'ExclamationCircleSolid',
   );
 
-  const searchBar = useRef<any>(null);
+  const searchBar = useRef<TextInput>(null);
   // Todo Ref Type
   const searchView = useRef<any>(null);
 
@@ -173,11 +176,9 @@ const Desktop: FC<ExplorerViewProps> = ({
               }}
               onFocus={() => {
                 setHistoryVisible(true);
-                console.log('onFocus');
               }}
               onBlur={() => {
                 setHistoryVisible(false);
-                console.log('onBlur');
               }}
             />
 
@@ -191,11 +192,11 @@ const Desktop: FC<ExplorerViewProps> = ({
           <SearchView
             ref={searchView}
             visible={historyVisible}
-            onVisibleChange={setHistoryVisible}
             // onSearchContentChange={onSearchContentChange}
             searchContent={searchContent}
             onSelectorItem={(item: MatchDAppItemType) => {
               onSearchSubmitEditing?.(item);
+              searchBar.current?.blur();
             }}
             onHoverItem={(item: MatchDAppItemType) => {
               let url;
@@ -214,7 +215,6 @@ const Desktop: FC<ExplorerViewProps> = ({
           />
         </Box>
       )}
-
       <Box flex={1} zIndex={3}>
         {explorerContent}
       </Box>
