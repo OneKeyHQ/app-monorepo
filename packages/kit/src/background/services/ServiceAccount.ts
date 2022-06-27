@@ -324,18 +324,35 @@ class ServiceAccount extends ServiceBase {
   }) {
     const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
+    const devices = await engine.getHWDevices();
     const networkId = appSelector((s) => s.general.activeNetworkId);
-    // const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
+    const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
+    let wallet = null;
     let account = null;
 
-    // await engine.upsertDevice(features, connectId);
-    // const deviceId = features.onekey_serial ?? features.serial_no ?? '';
+    const existDeviceId = devices.find(
+      (device) =>
+        device.mac === connectId && device.deviceId === features.device_id,
+    )?.id;
+    let walletExistButNoAccount = null;
+    if (existDeviceId) {
+      walletExistButNoAccount = wallets.find((w) => {
+        const targetWallet = w.associatedDevice === existDeviceId;
+        if (!targetWallet) return false;
+        if (!w.accounts.length) return true;
+        return false;
+      });
+    }
 
-    const wallet = await engine.createHWWallet({
-      avatar: avatar ?? randomAvatar(),
-      features,
-      connectId,
-    });
+    if (walletExistButNoAccount) {
+      wallet = walletExistButNoAccount;
+    } else {
+      wallet = await engine.createHWWallet({
+        avatar: avatar ?? randomAvatar(),
+        features,
+        connectId,
+      });
+    }
 
     [account] = await engine.getAccounts(wallet.accounts, networkId);
 
