@@ -6,7 +6,6 @@ import {
   ISeriesApi,
   UTCTimestamp,
 } from 'lightweight-charts';
-import { StyleProp, ViewStyle } from 'react-native';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
