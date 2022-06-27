@@ -47,11 +47,12 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
   const priceLabel = (
     <PriceLabel price={currentPrice} time={time} basePrice={basePrice} />
   );
-  const chartView = <ChartView data={data} onHover={onHover} />;
   return isVerticalLayout ? (
     <>
       {priceLabel}
-      <Box h="300px">{chartView}</Box>
+      <Box h="182px">
+        <ChartView height={152} data={data} onHover={onHover} />
+      </Box>
       {children}
     </>
   ) : (
@@ -60,7 +61,9 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
         {priceLabel}
         <Box w="280px">{children}</Box>
       </Box>
-      <Box h="300px">{chartView}</Box>
+      <Box h="190px">
+        <ChartView height={190} data={data} onHover={onHover} />
+      </Box>
     </>
   );
 };

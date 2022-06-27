@@ -16,7 +16,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   lineColor,
   topColor,
   bottomColor,
-  style,
+  height,
 }) => {
   const chartContainerRef = useRef<HTMLElement>(null);
 
@@ -28,6 +28,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
       createChart,
       chartContainerRef.current,
       onHover,
+      height,
     );
 
     return () => {
@@ -46,7 +47,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     });
   }, [bottomColor, topColor, data, lineColor]);
 
-  return <Box style={style} ref={chartContainerRef} />;
+  return <Box ref={chartContainerRef} />;
 };
 ChartViewAdapter.displayName = 'ChartViewAdapter';
 export default ChartViewAdapter;

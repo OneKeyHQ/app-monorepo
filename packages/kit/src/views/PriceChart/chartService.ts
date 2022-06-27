@@ -26,7 +26,7 @@ export type OnHoverFunction = ({
 export interface ChartViewProps {
   data: any[];
   onHover: OnHoverFunction;
-  style?: StyleProp<ViewStyle>;
+  height: number;
 }
 
 export interface ChartViewAdapterProps extends ChartViewProps {
@@ -46,9 +46,10 @@ export function createChartDom(
   ) => IChartApi,
   domNode: HTMLElement,
   onHover: OnHoverFunction,
+  height: number,
 ) {
   const chart = createChartFunc(domNode, {
-    height: 300,
+    height,
     layout: {
       background: {
         color: 'transparent',

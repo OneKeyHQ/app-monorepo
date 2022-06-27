@@ -19,7 +19,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
     id: 'content__price_uppercase',
   });
   let gain: number | string = price - basePrice;
-  const isPositive = gain >= 0;
+  const isPositive = gain > 0;
   let percentageGain: number | string = basePrice
     ? (gain / basePrice) * 100
     : 0;

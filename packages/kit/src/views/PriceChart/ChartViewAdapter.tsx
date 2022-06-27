@@ -16,7 +16,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   lineColor,
   topColor,
   bottomColor,
-  style,
+  height,
 }) => {
   const webviewRef = useRef<WebView>(null);
   const initJs = useMemo(
@@ -29,6 +29,7 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
     createChart,
     container, 
     postMessage,
+    ${JSON.stringify(height)},
   );
   (${updateChartDom.toString()})({
     bottomColor: ${JSON.stringify(bottomColor)},
@@ -55,12 +56,9 @@ const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
   return (
     <WebView
       ref={webviewRef}
-      style={[
-        style,
-        {
-          backgroundColor: 'transparent',
-        },
-      ]}
+      style={{
+        backgroundColor: 'transparent',
+      }}
       source={{
         uri: platformEnv.isNativeIOS
           ? 'tradingview.html'
