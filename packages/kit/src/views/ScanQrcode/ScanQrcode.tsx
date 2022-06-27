@@ -125,7 +125,9 @@ const ScanQrcode: FC = () => {
           </Button>
         }
         staticChildrenProps={
-          isVerticalLayout ? { flex: 1 } : { width: '100%', height: 418 }
+          isVerticalLayout || platformEnv.isNativeIOS
+            ? { flex: 1 }
+            : { width: '100%', height: 418 }
         }
       >
         <ScanCamera

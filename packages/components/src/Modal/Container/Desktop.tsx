@@ -80,6 +80,7 @@ const DesktopModal = ({
       };
     }
   }, [close]);
+
   return (
     <Box
       position="absolute"

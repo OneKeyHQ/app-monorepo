@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import {
@@ -17,6 +18,7 @@ import {
   HStack,
   Icon,
   Image,
+  OverlayContainer,
   PresenceTransition,
   Pressable,
   ScrollableFlatListProps,
@@ -57,7 +59,7 @@ const SearchView: FC<SearchViewProps> = ({
   forwardedRef,
 }) => {
   const intl = useIntl();
-  const translateY = 2;
+  const translateY = 9;
 
   const visibleMemo = useDeepCompareMemo(() => visible, [visible]);
   const [selectItemIndex, setSelectItemIndex] = useState<number>();
@@ -88,10 +90,6 @@ const SearchView: FC<SearchViewProps> = ({
 
   const onSelectHistory = (item: MatchDAppItemType) => {
     onSelectorItem?.(item);
-  };
-
-  const toggleVisible = () => {
-    // onVisibleChange?.(!visible);
   };
 
   const renderItem: ScrollableFlatListProps<MatchDAppItemType>['renderItem'] =
@@ -177,19 +175,13 @@ const SearchView: FC<SearchViewProps> = ({
       );
     };
 
-  const maxHeight = useMemo(() => {
-    if (ele.current)
-      return (ele.current.ownerDocument.defaultView?.innerHeight ?? 0) * 0.6;
-    if (window) return window.innerHeight * 0.6;
+  const win = useWindowDimensions();
 
-    return 0;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ele.current]);
+  const maxHeight = useMemo(() => win.height * 0.6, [win]);
 
   const { domId } = useClickDocumentClose({
     name: 'SelectSearch',
     visible,
-    toggleVisible,
   });
 
   const { position, toPxPositionValue, triggerWidth } = useDropdownPosition({
@@ -258,48 +250,51 @@ const SearchView: FC<SearchViewProps> = ({
         },
       }}
     >
-      <Box
-        ref={ele}
-        maxH={toPxPositionValue(maxHeight)}
-        nativeID={domId}
-        position="absolute"
-        width={triggerWidth ? toPxPositionValue(triggerWidth + 35) : 'full'}
-        left={toPxPositionValue(position.left)}
-        right={toPxPositionValue(position.right)}
-        bottom={toPxPositionValue(position.bottom)}
-        borderRadius="12"
-        bg="surface-default"
-        borderColor="border-subdued"
-        borderWidth={flatListData.length > 0 ? '1px' : '0px'}
-        shadow="depth.3"
-        overflow="hidden"
-      >
-        <FlatListRef
-          ref={flatListRef}
-          data={flatListData}
-          // @ts-expect-error
-          renderItem={renderItem}
-          ListHeaderComponent={
-            flatListData.length > 0 ? (
-              <Box p={3}>
-                <Typography.Subheading color="text-subdued">
-                  {intl.formatMessage({
-                    id: searchContentTerm
-                      ? 'title__search_results'
-                      : 'transaction__history',
-                  })}
-                </Typography.Subheading>
-              </Box>
-            ) : null
-          }
-          // @ts-expect-error
-          keyExtractor={(_item: MatchDAppItemType, index) =>
-            `${index}-${_item.id}`
-          }
-          extraData={selectItemIndex}
-          showsVerticalScrollIndicator={false}
-        />
-      </Box>
+      <OverlayContainer>
+        <Box
+          ref={ele}
+          maxH={toPxPositionValue(maxHeight)}
+          nativeID={domId}
+          position="absolute"
+          width={triggerWidth ? toPxPositionValue(triggerWidth + 35) : 'full'}
+          left={toPxPositionValue(position.left)}
+          right={toPxPositionValue(position.right)}
+          top={toPxPositionValue(position.top)}
+          borderRadius="12"
+          bg="surface-default"
+          borderColor="border-subdued"
+          borderWidth={flatListData.length > 0 ? '1px' : '0px'}
+          shadow="depth.3"
+          overflow="hidden"
+        >
+          <FlatListRef
+            ref={flatListRef}
+            data={flatListData}
+            // @ts-expect-error
+            renderItem={renderItem}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              flatListData.length > 0 ? (
+                <Box p={3}>
+                  <Typography.Subheading color="text-subdued">
+                    {intl.formatMessage({
+                      id: searchContentTerm
+                        ? 'title__search_results'
+                        : 'transaction__history',
+                    })}
+                  </Typography.Subheading>
+                </Box>
+              ) : null
+            }
+            // @ts-expect-error
+            keyExtractor={(_item: MatchDAppItemType, index) =>
+              `${index}-${_item.id}`
+            }
+            extraData={selectItemIndex}
+            showsVerticalScrollIndicator={false}
+          />
+        </Box>
+      </OverlayContainer>
     </PresenceTransition>
   );
 };

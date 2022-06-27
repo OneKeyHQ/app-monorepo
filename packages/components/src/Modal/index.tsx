@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from 'react';
 
-import { OverlayProvider } from '@react-native-aria/overlays';
+import { OverlayContainer, OverlayProvider } from '@react-native-aria/overlays';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -219,6 +219,12 @@ const Modal = ({
             // TODO 100vh in App
             maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
             w="100%"
+            borderBottomRadius={
+              platformEnv.isExtensionUiStandaloneWindow ||
+              platformEnv.isNativeAndroid
+                ? 0
+                : '24px'
+            }
             borderTopRadius={
               platformEnv.isExtensionUiStandaloneWindow ||
               platformEnv.isNativeAndroid
@@ -241,14 +247,16 @@ const Modal = ({
     }
 
     return (
-      <Desktop
-        onClose={onModalClose}
-        headerShown={headerShown}
-        header={header}
-        {...rest}
-      >
-        {modalContent}
-      </Desktop>
+      <OverlayContainer>
+        <Desktop
+          onClose={onModalClose}
+          headerShown={headerShown}
+          header={header}
+          {...rest}
+        >
+          {modalContent}
+        </Desktop>
+      </OverlayContainer>
     );
   }, [
     size,
