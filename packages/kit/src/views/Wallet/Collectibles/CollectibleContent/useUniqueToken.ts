@@ -16,8 +16,6 @@ export default function useUniqueToken(
     if (typeof maybeUniqueToken === 'object' && !!maybeUniqueToken) {
       const { animationUrl, imageUrl } = maybeUniqueToken;
       const assetUrl = animationUrl || imageUrl;
-      console.log('assetUrl = ', assetUrl);
-
       const supportsAudio = isAudio(assetUrl);
       const supportsVideo = isVideo(assetUrl);
       const supportsSVG = isSVG(assetUrl);
