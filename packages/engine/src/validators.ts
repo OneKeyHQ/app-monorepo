@@ -94,6 +94,15 @@ class Validators {
   }
 
   @backgroundMethod()
+  async validatePasswordStrength(password: string): Promise<string> {
+    const p = password || '';
+    if (p.length >= 8 && p.length <= 24) {
+      return Promise.resolve(password);
+    }
+    throw new errors.PasswordStrengthValidationFailed();
+  }
+
+  @backgroundMethod()
   async validateAddress(networkId: string, address: string): Promise<string> {
     const vault = await this.engine.getChainOnlyVault(networkId);
     return vault.validateAddress(address);
