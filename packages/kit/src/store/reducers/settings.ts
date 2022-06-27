@@ -36,7 +36,7 @@ type SettingsState = {
 
 const initialState: SettingsState = {
   theme: 'system',
-  locale: 'zh-CN',
+  locale: 'system',
   version: process.env.VERSION ?? '1.0.0',
   buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
   instanceId: uuid.v4() as string,
