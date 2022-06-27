@@ -1,39 +1,111 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { IDeviceType } from '@onekeyfe/hd-core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
+import ClassicRestoreDevicePng from '@onekeyhq/kit/assets/wallet/classic-restore-wallet.png';
 import ClassicSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/classic-setup-new-device.png';
-import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import MiniRestoreDevicePng from '@onekeyhq/kit/assets/wallet/mini-restore-wallet.png';
+import MiniSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/mini-setup-new-device.png';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+
+export type SetupNewDeviceType = 'SetupNew' | 'Restore';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+type RouteProps = RouteProp<
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.SetupNewDeviceModal
+>;
+
+const getSetupNewDeviceIcon = (type: IDeviceType): any => {
+  switch (type) {
+    case 'classic':
+      return ClassicSetupNewDevicePng;
+    case 'mini':
+      return MiniSetupNewDevicePng;
+    default:
+      return undefined;
+  }
+};
+
+const getRestoreDeviceIcon = (type: IDeviceType): any => {
+  switch (type) {
+    case 'classic':
+      return ClassicRestoreDevicePng;
+    case 'mini':
+      return MiniRestoreDevicePng;
+    default:
+      return undefined;
+  }
+};
 
 const SetupNewDeviceModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const numberedList = [
-    {
-      title: intl.formatMessage({
-        id: 'content__write_down_all_recovery_seed',
-      }),
-      description: intl.formatMessage({
-        id: 'content__write_down_all_recovery_seed_desc',
-      }),
-    },
-    {
-      title: intl.formatMessage({ id: 'content__set_a_pin_code' }),
-      description: intl.formatMessage({ id: 'content__set_a_pin_code_desc' }),
-    },
-    {
-      title: intl.formatMessage({ id: 'content__follow_instructions' }),
-      description: intl.formatMessage({
-        id: 'content__follow_instructions_desc',
-      }),
-    },
-  ];
+  const route = useRoute<RouteProps>();
+  const { device, type } = route?.params;
+
+  const miniActivateHelp = useHelpLink({ path: 'articles/4408289773455' });
+  const classicActivateHelp = useHelpLink({ path: 'articles/360004487195' });
+
+  const activateHelpUrl = useMemo(() => {
+    if (!device) return null;
+    switch (device.deviceType) {
+      case 'classic':
+        return classicActivateHelp;
+
+      case 'mini':
+        return miniActivateHelp;
+
+      default:
+        return null;
+    }
+  }, [classicActivateHelp, device, miniActivateHelp]);
+
+  const numberedList = useMemo(() => {
+    const hintList = [
+      {
+        title: intl.formatMessage({ id: 'content__set_a_pin_code' }),
+        description: intl.formatMessage({ id: 'content__set_a_pin_code_desc' }),
+      },
+      {
+        title: intl.formatMessage({ id: 'content__follow_instructions' }),
+        description: intl.formatMessage({
+          id: 'content__follow_instructions_desc',
+        }),
+      },
+    ];
+
+    if (type === 'SetupNew') {
+      hintList.unshift({
+        title: intl.formatMessage({
+          id: 'content__write_down_all_recovery_seed',
+        }),
+        description: intl.formatMessage({
+          id: 'content__write_down_all_recovery_seed_desc',
+        }),
+      });
+    } else {
+      hintList.unshift({
+        title: intl.formatMessage({
+          id: 'content__enter_your_recovery_seed',
+        }),
+        description: intl.formatMessage({
+          id: 'content__enter_your_recovery_seed_desc',
+        }),
+      });
+    }
+    return hintList;
+  }, [intl, type]);
 
   const content = (
     <>
@@ -45,7 +117,11 @@ const SetupNewDeviceModal: FC = () => {
         mb={8}
       >
         <Image
-          source={ClassicSetupNewDevicePng}
+          source={
+            type === 'SetupNew'
+              ? getSetupNewDeviceIcon(device.deviceType)
+              : getRestoreDeviceIcon(device.deviceType)
+          }
           w="full"
           h="full"
           resizeMode="cover"
@@ -53,12 +129,16 @@ const SetupNewDeviceModal: FC = () => {
       </Box>
       <Box>
         <Typography.DisplayMedium mb={2}>
-          {intl.formatMessage({ id: 'content__select_create_new_wallet' })}
+          {type === 'SetupNew'
+            ? intl.formatMessage({ id: 'content__select_create_new_wallet' })
+            : intl.formatMessage({ id: 'content__select_restore_wallet' })}
         </Typography.DisplayMedium>
         <Typography.Body2 color="text-subdued">
-          {intl.formatMessage({
-            id: 'content__select_create_new_wallet_desc',
-          })}
+          {type === 'SetupNew'
+            ? intl.formatMessage({
+                id: 'content__select_create_new_wallet_desc',
+              })
+            : intl.formatMessage({ id: 'content__select_restore_wallet_desc' })}
         </Typography.Body2>
       </Box>
 
@@ -82,13 +162,20 @@ const SetupNewDeviceModal: FC = () => {
 
   return (
     <Modal
-      header="Setup New Device"
+      header={
+        type === 'SetupNew'
+          ? intl.formatMessage({ id: 'modal__setup_new_device' })
+          : intl.formatMessage({ id: 'modal__restore_wallet' })
+      }
       height="640px"
       primaryActionTranslationId="action__ok_im_done"
-      // TODO: Where do `learn more` redirect to?
+      hideSecondaryAction={!activateHelpUrl}
       secondaryActionTranslationId="action__learn_more"
       onPrimaryActionPress={() => {
         navigation.popToTop();
+      }}
+      onSecondaryActionPress={() => {
+        if (activateHelpUrl) openUrl(activateHelpUrl);
       }}
       scrollViewProps={{
         children: content,
