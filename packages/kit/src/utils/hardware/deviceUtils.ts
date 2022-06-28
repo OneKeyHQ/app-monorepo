@@ -9,6 +9,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { getBondedDevices } from './BleManager';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 /**
@@ -26,6 +27,7 @@ const POLL_INTERVAL_RATE = 1.5;
 export enum DeviceErrors {
   ConnectTimeout = 'ConnectTimeout',
   NeedOneKeyBridge = 'NeedOneKeyBridge',
+  DeviceNotBonded = 'DeviceNotBonded',
 }
 
 class DeviceUtils {
@@ -34,6 +36,8 @@ class DeviceUtils {
   scanning = false;
 
   tryCount = 0;
+
+  checkBonded = false;
 
   async getSDKInstance() {
     return getHardwareSDKInstance();
@@ -81,8 +85,14 @@ class DeviceUtils {
   }
 
   async connect(connectId: string) {
-    const result = await this.getFeatures(connectId);
-    return result !== null;
+    try {
+      const result = await this.getFeaturesWithError(connectId);
+      return result !== null;
+    } catch (e) {
+      if ((e as Error).message.includes('device is not bonded')) {
+        return Promise.reject(DeviceErrors.DeviceNotBonded);
+      }
+    }
   }
 
   async getFeatures(connectId: string) {
@@ -96,6 +106,16 @@ class DeviceUtils {
     return null;
   }
 
+  async getFeaturesWithError(connectId: string) {
+    const HardwareSDK = await this.getSDKInstance();
+    const response = await HardwareSDK?.getFeatures(connectId);
+    if (response.success) {
+      this.connectedDeviceType = getDeviceType(response.payload);
+      return response.payload;
+    }
+    throw new Error(response.payload.error ?? response.payload);
+  }
+
   async ensureConnected(connectId: string) {
     let tryCount = 0;
     let connected = false;
@@ -106,10 +126,17 @@ class DeviceUtils {
         return Promise.resolve({} as IOneKeyDeviceFeatures);
       }
       tryCount += 1;
-      const feature = await this.getFeatures(connectId);
-      if (feature) {
-        connected = true;
-        return Promise.resolve(feature);
+      try {
+        const feature = await this.getFeaturesWithError(connectId);
+        if (feature) {
+          connected = true;
+          return await Promise.resolve(feature);
+        }
+      } catch (e) {
+        // stop polling when device is not bonded
+        if ((e as Error).message.includes('device is not bonded')) {
+          return Promise.reject(DeviceErrors.DeviceNotBonded);
+        }
       }
 
       if (tryCount > MAX_CONNECT_TRY_COUNT) {
@@ -127,6 +154,34 @@ class DeviceUtils {
     }
 
     return poll();
+  }
+
+  async checkDeviceBonded(connectId: string) {
+    const poll: IPollFn<Promise<boolean | undefined>> = async (
+      time = POLL_INTERVAL,
+    ) => {
+      if (!this.checkBonded) {
+        return;
+      }
+      const bondedDevices = await getBondedDevices();
+      const hasBonded = !!bondedDevices.find(
+        (bondedDevice) => bondedDevice.id === connectId,
+      );
+      if (hasBonded) {
+        this.checkBonded = false;
+        return Promise.resolve(true);
+      }
+      console.log(bondedDevices);
+      return new Promise((resolve: (p: Promise<boolean | undefined>) => void) =>
+        setTimeout(() => resolve(poll(3000 * POLL_INTERVAL_RATE)), time),
+      );
+    };
+    this.checkBonded = true;
+    return poll();
+  }
+
+  stopCheckBonded() {
+    this.checkBonded = false;
   }
 
   async checkBridge() {
