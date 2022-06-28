@@ -7,6 +7,7 @@ type StatusState = {
   webviewGlobalKey: number;
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
+  homeTabName?: string | number;
 };
 
 const initialState: StatusState = {
@@ -15,12 +16,16 @@ const initialState: StatusState = {
   boardingCompleted: false,
   webviewGlobalKey: 0,
   hideAddressBookAttention: false,
+  homeTabName: undefined,
 };
 
 export const slice = createSlice({
   name: 'status',
   initialState,
   reducers: {
+    setHomeTabName(state, action: PayloadAction<string | number>) {
+      state.homeTabName = action.payload;
+    },
     setBoardingCompleted: (state) => {
       state.boardingCompleted = true;
     },
@@ -60,6 +65,7 @@ export const {
   refreshLastActivity,
   refreshWebviewGlobalKey,
   setHideAddressBookAttention,
+  setHomeTabName,
 } = slice.actions;
 
 export default slice.reducer;

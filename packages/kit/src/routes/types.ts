@@ -3,7 +3,8 @@
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 import * as SubModalRoutesParams from './Modal/types';
-import { ModalRoutes, RootRoutes } from './routesEnum';
+// define enum here to avoid cycle import
+import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
 import type { StackBasicRoutesParams } from './Dev';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -14,7 +15,7 @@ import type {
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
 
-export { ModalRoutes };
+export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
 export type ModalRoutesParams = {
   [ModalRoutes.CreateAccount]: NavigatorScreenParams<SubModalRoutesParams.CreateAccountRoutesParams>;
@@ -47,15 +48,6 @@ export type ModalRoutesParams = {
 /** Modal */
 
 /** Tab */
-export enum TabRoutes {
-  Home = 'home',
-  Swap = 'swap',
-  Discover = 'discover',
-  Me = 'me',
-  Developer = 'developer',
-  Send = 'send',
-  Receive = 'receive',
-}
 
 export type TabRoutesParams = {
   [TabRoutes.Home]: undefined;
@@ -71,20 +63,6 @@ export type TabRoutesParams = {
 /** Tab */
 
 /** HomeStack */
-export enum HomeRoutes {
-  // InitialTab = 'overview',
-  InitialTab = 'home',
-  Dev = 'dev',
-  ScreenTokenDetail = 'TokenDetailScreen',
-  DebugScreen = 'Debug',
-  SettingsWebviewScreen = 'SettingsWebviewScreen',
-  ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
-  ExploreScreen = 'ExploreScreen',
-  DAppListScreen = 'DAppListScreen',
-  TransactionHistoryScreen = 'TransactionHistoryScreen',
-  FaceId = 'FaceId',
-  AddressBook = 'AddressBook',
-}
 
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
@@ -92,7 +70,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
     accountId: string;
     networkId: string;
-    tokenId: string;
+    tokenId: string; // tokenIdOnNetwork
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.DebugScreen]: undefined;
@@ -114,10 +92,6 @@ export type HomeRoutesParams = {
   [HomeRoutes.AddressBook]: undefined;
 };
 /** HomeStack */
-
-/** Root */
-
-export { RootRoutes };
 
 /** Root */
 

@@ -20,13 +20,13 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import { useOnboardingFinished } from '../../hooks/useOnboardingFinished';
 
 import { MsgConfirmBlind } from './confirmViews/MsgConfirmBlind';
-import { ITxConfirmViewPropsHandleConfirm } from './confirmViews/SendConfirmModal';
 import {
   ISignMessageConfirmViewProps,
   ISignMessageConfirmViewPropsHandleConfirm,
   SignMessageConfirmModal,
 } from './confirmViews/SignMessageConfirmModal';
 import { TxConfirmBlind } from './confirmViews/TxConfirmBlind';
+import { ITxConfirmViewPropsHandleConfirm } from './SendConfirmViews/SendConfirmModal';
 import { SendRoutes, SendRoutesParams } from './types';
 
 type NavigationProps = NavigationProp<

@@ -11,9 +11,11 @@ export const AutoSizeText: FC<{
   text: string;
   placeholder?: string;
   onChangeText?: (text: string) => void;
+  autoFocus?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-}> = ({ text, onChangeText, placeholder }) => {
+}> = ({ text, onChangeText, placeholder, autoFocus }) => {
   const innerText = text.length === 0 ? placeholder : text;
+
   const textColor = useThemeValue('text-default');
   if (text.length > 0) {
     return (

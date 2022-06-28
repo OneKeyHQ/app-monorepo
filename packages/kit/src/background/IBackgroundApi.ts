@@ -11,9 +11,11 @@ import type ServiceAccount from './services/ServiceAccount';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceHistory from './services/ServiceHistory';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePromise from './services/ServicePromise';
+import type ServiceToken from './services/ServiceToken';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -54,6 +56,8 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceCronJob: ServiceCronJob;
   serviceOnboarding: ServiceOnboarding;
+  serviceToken: ServiceToken;
+  serviceHistory: ServiceHistory;
 }
 
 export type IDappCallParams = {

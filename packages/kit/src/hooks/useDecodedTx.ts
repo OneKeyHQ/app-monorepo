@@ -14,7 +14,7 @@ function useDecodedTx({
   encodedTx,
   payload,
 }: {
-  encodedTx: IEncodedTx | null;
+  encodedTx: IEncodedTx | null | undefined;
   payload?: any;
 }) {
   const [decodedTxLegacy, setDecodedTxLegacy] =

@@ -5,23 +5,27 @@ import { useIntl } from 'react-intl';
 import { Box, Container, Typography } from '@onekeyhq/components';
 import {
   EVMDecodedItem,
-  EVMDecodedItemERC20Approve,
+  EVMDecodedItemInternalSwap,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappCallParams } from '../../background/IBackgroundApi';
+import { IDappCallParams } from '../../../background/IBackgroundApi';
 
 import Address from './Address';
 import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
+import TotalFee from './TotalFee';
 
-const TxTokenApproveDetail: FC<{
+const TxConfirmSwapDetail: FC<{
   tx: EVMDecodedItem;
   sourceInfo?: IDappCallParams;
+  feeInfoPayload?: IFeeInfoPayload | null;
   feeInput?: any;
-  approveAmountInput?: any;
-}> = ({ tx, sourceInfo, feeInput, approveAmountInput }) => {
+}> = ({ tx, sourceInfo, feeInput, feeInfoPayload }) => {
+  const { info } = tx;
+  const swapInfo = info as EVMDecodedItemInternalSwap;
+  const { buyTokenSymbol, sellTokenSymbol, buyAmount, sellAmount } = swapInfo;
   const intl = useIntl();
-  const info = tx.info as EVMDecodedItemERC20Approve;
 
   return (
     <Box
@@ -30,16 +34,26 @@ const TxTokenApproveDetail: FC<{
       alignItems="center"
       mb={{ base: 4, md: 0 }}
     >
-      <HeaderIcon headerInfo={info.token} />
+      <HeaderIcon
+        headerInfo={{ iconName: 'BrandLogoIllus', title: 'OneKey Swap' }}
+      />
 
-      {/* Token Approval Details */}
       <Container.Box mt={6}>
         <Address address={tx.fromAddress} isFromAddress />
-        <Address address={tx.toAddress} isFromAddress={false} />
-        {approveAmountInput}
+        <Container.Item
+          title={intl.formatMessage({ id: 'action__send' })}
+          describe={`${sellAmount} ${sellTokenSymbol}`}
+        />
+
+        <Container.Item
+          title={intl.formatMessage({ id: 'action__receive' })}
+          describe={`${buyAmount} ${buyTokenSymbol}`}
+        />
         {!!sourceInfo && (
           <Container.Item
-            title={intl.formatMessage({ id: 'content__interact_with' })}
+            title={`${intl.formatMessage({
+              id: 'content__interact_with',
+            })}`}
             describe={sourceInfo.origin}
           />
         )}
@@ -51,14 +65,13 @@ const TxTokenApproveDetail: FC<{
       </Typography.Subheading>
 
       <Container.Box mt={6}>
-        {feeInput ? (
-          <Container.Item wrap={feeInput} />
-        ) : (
-          <Container.Item
-            title={intl.formatMessage({ id: 'form__fee_estimated' })}
-            describe={`${tx.gasInfo.maxFeeSpend} ${tx.symbol}`}
-            hasArrow
-          />
+        <Container.Item
+          title={intl.formatMessage({ id: 'content__amount' })}
+          describe={`${tx.amount} ${tx.symbol}`}
+        />
+        <Container.Item wrap={feeInput} />
+        {!!feeInfoPayload && parseInt(tx.value) !== 0 && (
+          <TotalFee tx={tx} feeInfoPayload={feeInfoPayload} />
         )}
       </Container.Box>
 
@@ -73,4 +86,4 @@ const TxTokenApproveDetail: FC<{
   );
 };
 
-export default TxTokenApproveDetail;
+export default TxConfirmSwapDetail;

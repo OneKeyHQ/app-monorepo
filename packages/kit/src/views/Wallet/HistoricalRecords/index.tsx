@@ -33,6 +33,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import TxRecordCell from '../../Components/transactionRecord/TxRecordCell';
 
@@ -210,7 +211,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
   );
 
   const renderEmpty = () => (
-    <Box py={4} flexDirection="row" alignItems="center">
+    <Box py={4} flexDirection="column" alignItems="center">
       <Empty
         imageUrl={IconHistory}
         title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
@@ -220,6 +221,18 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
         actionTitle={intl.formatMessage({ id: 'action__refresh' })}
         handleAction={refresh}
       />
+      {!!platformEnv.isDev && (
+        <IconButton
+          onPress={() => {
+            openAddressDetails(account?.address);
+          }}
+          p={2}
+          size="sm"
+          name="ExternalLinkSolid"
+          type="plain"
+          circle
+        />
+      )}
     </Box>
   );
 

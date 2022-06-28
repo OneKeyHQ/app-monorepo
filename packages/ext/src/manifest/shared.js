@@ -1,3 +1,4 @@
+const isDev = process.env.NODE_ENV !== 'production';
 // https://developer.chrome.com/docs/extensions/mv3/manifest/key/
 const extensionIdKey = '';
 module.exports = {
@@ -33,9 +34,13 @@ module.exports = {
       'resources': [
         // allow content-script inject js file
         'injected.js',
-        // allow site load iframe force service-worker update
-        'ui-content-script-iframe.html',
-      ],
+        ...(isDev
+          ? [
+              // allow site load iframe force service-worker update
+              'ui-content-script-iframe.html',
+            ]
+          : []),
+      ].filter(Boolean),
       'matches': ['<all_urls>'],
     },
     {

@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Container } from '@onekeyhq/components';
 import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export type AddressProps = {
   address: string; // as title

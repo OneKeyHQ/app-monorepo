@@ -1,3 +1,5 @@
+import { find, flatten } from 'lodash';
+
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
@@ -439,6 +441,37 @@ class ServiceAccount extends ServiceBase {
     }
 
     dispatch(setRefreshTS());
+  }
+
+  addressLabelCache: Record<string, string> = {};
+
+  @backgroundMethod()
+  async getAddressLabel({
+    address,
+  }: {
+    address: string;
+  }): Promise<{ label: string; address: string }> {
+    if (this.addressLabelCache[address]) {
+      return Promise.resolve({
+        label: this.addressLabelCache[address],
+        address,
+      });
+    }
+    const wallets = await this.backgroundApi.engine.getWallets();
+    const accountids = flatten(wallets.map((w) => w.accounts));
+    const accounts = await this.backgroundApi.engine.getAccounts(accountids);
+    const name = find(
+      accounts,
+      (a) => a.address.toLowerCase() === address.toLowerCase(),
+    )?.name;
+    const label = name ?? '';
+    if (label && address) {
+      this.addressLabelCache[address] = label;
+    }
+    return {
+      label,
+      address,
+    };
   }
 }
 

@@ -202,36 +202,38 @@ export default class Vault extends VaultBase {
   async nativeTxActionToEncodedTxAction(
     nativeTx: nearApiJs.transactions.Transaction,
   ) {
+    const address = await this.getAccountAddress();
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
 
     const actions = await Promise.all(
-      nativeTx.actions.map(async (action) => {
-        const encodedTxAction: IDecodedTxAction = {
+      nativeTx.actions.map(async (nativeAction) => {
+        const action: IDecodedTxAction = {
           type: IDecodedTxActionType.TRANSACTION,
+          direction: IDecodedTxDirection.SELF,
           unknownAction: {
             // TODO other actions parse
-            extra: JSON.stringify(action),
+            extraInfo: JSON.stringify(nativeAction),
           },
         };
-        if (action.enum === 'transfer') {
-          encodedTxAction.type = IDecodedTxActionType.NATIVE_TRANSFER;
+        if (nativeAction.enum === 'transfer') {
+          action.type = IDecodedTxActionType.NATIVE_TRANSFER;
 
-          const amountValue = action.transfer.deposit.toString();
+          const amountValue = nativeAction.transfer.deposit.toString();
           const amount = new BigNumber(amountValue)
             .shiftedBy(nativeToken.decimals * -1)
             .toFixed();
-          encodedTxAction.nativeTransfer = {
+          action.nativeTransfer = {
             tokenInfo: nativeToken,
             from: nativeTx.signerId,
             to: nativeTx.receiverId,
             amount,
             amountValue,
-            extra: null,
+            extraInfo: null,
           };
         }
-        if (action.enum === 'functionCall') {
-          if (action?.functionCall?.methodName === 'ft_transfer') {
-            encodedTxAction.type = IDecodedTxActionType.TOKEN_TRANSFER;
+        if (nativeAction.enum === 'functionCall') {
+          if (nativeAction?.functionCall?.methodName === 'ft_transfer') {
+            action.type = IDecodedTxActionType.TOKEN_TRANSFER;
             const tokenInfo = await this.engine.getOrAddToken(
               this.networkId,
               nativeTx.receiverId,
@@ -239,26 +241,29 @@ export default class Vault extends VaultBase {
             );
             if (tokenInfo) {
               const transferData = parseJsonFromRawResponse(
-                action.functionCall?.args,
+                nativeAction.functionCall?.args,
               ) as {
                 receiver_id: string;
+                sender_id: string;
                 amount: string;
               };
               const amountValue = transferData.amount;
               const amount = new BigNumber(amountValue)
                 .shiftedBy(tokenInfo.decimals * -1)
                 .toFixed();
-              encodedTxAction.tokenTransfer = {
+              debugger;
+              action.tokenTransfer = {
                 tokenInfo,
-                recipient: transferData.receiver_id,
+                from: transferData.sender_id,
+                to: transferData.receiver_id,
                 amount,
                 amountValue,
-                extra: null,
+                extraInfo: null,
               };
             }
           }
         }
-        return encodedTxAction;
+        return action;
       }),
     );
     return actions;
@@ -275,15 +280,16 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const decodedTx: IDecodedTx = {
       txid: baseEncode(nativeTx.blockHash),
+      owner: await this.getAccountAddress(),
       signer: nativeTx.signerId,
       nonce: parseFloat(nativeTx.nonce.toString()),
       actions: await this.nativeTxActionToEncodedTxAction(nativeTx),
 
       status: IDecodedTxStatus.Pending,
-      direction: IDecodedTxDirection.OUT,
       network,
+      networkId: this.networkId,
 
-      extra: null,
+      extraInfo: null,
     };
 
     return decodedTx;
@@ -452,7 +458,7 @@ export default class Vault extends VaultBase {
       const info = lastAction.tokenTransfer;
       if (info) {
         const hasStorageBalance = await this.isStorageBalanceAvailable({
-          address: info.recipient,
+          address: info.to,
           tokenAddress: info.tokenInfo.tokenIdOnNetwork,
         });
         if (!hasStorageBalance) {
@@ -468,8 +474,8 @@ export default class Vault extends VaultBase {
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
-      symbol: network.feeSymbol,
-      decimals: network.feeDecimals,
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
 
       limit,
       prices: [price],
