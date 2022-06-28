@@ -13,8 +13,8 @@ import FaceID from '@onekeyhq/kit/src/views/FaceID';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
+import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
-import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -53,8 +53,8 @@ export const tabRoutes: TabRouteConfig[] = [
     translationId: 'title__swap',
     children: [
       {
-        name: HomeRoutes.TransactionHistoryScreen,
-        component: TransactionHistory,
+        name: HomeRoutes.SwapHistory,
+        component: SwapHistory,
       },
     ],
   },

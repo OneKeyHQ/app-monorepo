@@ -2,7 +2,8 @@ import React, { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Typography } from '@onekeyhq/components';
+import { Box, Button, Icon, Typography } from '@onekeyhq/components';
+import { Body2UnderlineProps } from '@onekeyhq/components/src/Typography';
 
 import { useInterval } from '../../../hooks';
 import { useSwapQuoteCallback, useSwapState } from '../hooks/useSwap';
@@ -29,22 +30,40 @@ export const Timer = () => {
       setRemainTime(seconds);
     }
   }, [quoteTime]);
+  const onPress = useCallback(async () => {
+    await onSwapQuote();
+  }, [onSwapQuote]);
   useInterval(onInterval, 1000);
   return (
-    <Alert
-      alertType="info"
-      title={intl.formatMessage(
-        { id: 'content__price_updates_after_str' },
-        {
-          '0': (
-            <Typography.Body2 color="interactive-default">{`${remainTime}s`}</Typography.Body2>
-          ),
-        },
-      )}
-      action={intl.formatMessage({ id: 'action__refresh' })}
-      actionType="right"
-      onAction={onSwapQuote}
-      dismiss={false}
-    />
+    <Box
+      p="4"
+      bg="surface-neutral-subdued"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      borderRadius={12}
+    >
+      <Box flexDirection="row" alignItems="center">
+        <Icon name="InformationCircleSolid" size={20} />
+        <Typography.Body2 ml="2">
+          {intl.formatMessage(
+            { id: 'content__price_updates_after_str' },
+            {
+              '0': (
+                <Typography.Body2 color="interactive-default">{` ${remainTime}s `}</Typography.Body2>
+              ),
+            },
+          )}
+        </Typography.Body2>
+      </Box>
+      <Button
+        type="plain"
+        size="sm"
+        textProps={{ ...Body2UnderlineProps }}
+        onPromise={onPress}
+      >
+        {intl.formatMessage({ id: 'action__refresh' })}
+      </Button>
+    </Box>
   );
 };

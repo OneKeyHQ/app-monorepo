@@ -8,7 +8,7 @@ import { openUrl } from '../utils/openUrl';
 
 import { useRuntime } from './redux';
 
-function buildTransactionDetailsUrl(
+export function buildTransactionDetailsUrl(
   network: Network | null | undefined,
   txId: string | null | undefined,
 ) {
@@ -16,7 +16,7 @@ function buildTransactionDetailsUrl(
   return network.blockExplorerURL.transaction.replace('{transaction}', txId);
 }
 
-function buildAddressDetailsUrl(
+export function buildAddressDetailsUrl(
   network: Network | null | undefined,
   address: string | null | undefined,
 ) {
@@ -24,7 +24,7 @@ function buildAddressDetailsUrl(
   return network.blockExplorerURL.address.replace('{address}', address);
 }
 
-function buildBlockDetailsUrl(
+export function buildBlockDetailsUrl(
   network: Network | null | undefined,
   block: string | null | undefined,
 ) {

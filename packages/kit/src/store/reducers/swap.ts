@@ -5,30 +5,6 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { SwapError, SwapQuote } from '../../views/Swap/typings';
 import { Token } from '../typings';
 
-export interface SerializableTransactionReceipt {
-  to: string;
-  from: string;
-  contractAddress: string;
-  transactionIndex: number;
-  blockHash: string;
-  transactionHash: string;
-  blockNumber: number;
-  status?: string;
-}
-
-export interface TransactionDetails {
-  hash: string;
-  approval?: { tokenAddress: string; spender: string };
-  summary?: string;
-  claim?: { recipient: string };
-  receipt?: SerializableTransactionReceipt;
-  lastCheckedBlockNumber?: number;
-  addedTime: number;
-  confirmedTime?: number;
-  from: string;
-  orderId?: string;
-}
-
 type SwapState = {
   inputTokenNetwork?: Network | null;
   inputToken?: Token;
@@ -37,16 +13,11 @@ type SwapState = {
   typedValue: string;
   independentField: 'INPUT' | 'OUTPUT';
   refreshRef: number;
-  transactions: {
-    [networkid: string]: {
-      [txHash: string]: TransactionDetails;
-    };
-  };
   quote?: SwapQuote;
   quoteTime?: number;
   loading: boolean;
   error?: SwapError;
-  activeNetwork?: Network | null;
+  selectedNetworkId?: string;
   receivingAddress?: string;
   receivingName?: string;
   swftcSupportedTokens: Record<string, string[]>;
@@ -59,7 +30,6 @@ const initialState: SwapState = {
   typedValue: '',
   independentField: 'INPUT',
   refreshRef: 0,
-  transactions: {},
   loading: false,
   swftcSupportedTokens: {},
   noSupportCoins: {},
@@ -121,84 +91,6 @@ export const swapSlice = createSlice({
     refresh(state) {
       state.refreshRef += 1;
     },
-    addTransaction(
-      state,
-      action: PayloadAction<{
-        networkId: string;
-        transaction: TransactionDetails;
-      }>,
-    ) {
-      const { networkId, transaction } = action.payload;
-      if (!state.transactions[networkId]) {
-        state.transactions[networkId] = {};
-      }
-      state.transactions[networkId][transaction.hash] = transaction;
-    },
-    cleanAllTransaction(state, action: PayloadAction<{ networkId: string }>) {
-      const { networkId } = action.payload;
-      state.transactions[networkId] = {};
-    },
-    cleanFailedTransactions(
-      state,
-      action: PayloadAction<{ networkId: string }>,
-    ) {
-      const { networkId } = action.payload;
-      const transactions = state.transactions[networkId] || {};
-      const result: { [txHash: string]: TransactionDetails } = {};
-      Object.values(transactions).forEach((tx) => {
-        if (tx.receipt && Number(tx.receipt.status) !== 1) {
-          return;
-        }
-        result[tx.hash] = tx;
-      });
-      state.transactions[networkId] = result;
-    },
-    cleanFulfillTransactions(
-      state,
-      action: PayloadAction<{ networkId: string }>,
-    ) {
-      const { networkId } = action.payload;
-      const transactions = state.transactions[networkId] || {};
-      const result: { [txHash: string]: TransactionDetails } = {};
-      Object.values(transactions).forEach((tx) => {
-        if (tx.receipt && Number(tx.receipt.status) === 1) {
-          return;
-        }
-        result[tx.hash] = tx;
-      });
-      state.transactions[networkId] = result;
-    },
-    cleanAllConfirmedTransaction(
-      state,
-      action: PayloadAction<{ networkId: string }>,
-    ) {
-      const { networkId } = action.payload;
-      const transactions = state.transactions[networkId] || {};
-      const result: { [txHash: string]: TransactionDetails } = {};
-      Object.values(transactions).forEach((tx) => {
-        if (!tx.confirmedTime) {
-          result[tx.hash] = tx;
-        }
-      });
-      state.transactions[networkId] = result;
-    },
-    finalizeTransaction(
-      state,
-      action: PayloadAction<{
-        networkId: string;
-        hash: string;
-        confirmedTime: number;
-        receipt?: SerializableTransactionReceipt;
-      }>,
-    ) {
-      const { networkId, hash, confirmedTime, receipt } = action.payload;
-      const tx = state.transactions[networkId]?.[hash];
-      if (!tx) {
-        return;
-      }
-      tx.receipt = receipt;
-      tx.confirmedTime = confirmedTime;
-    },
     setQuote(state, action: PayloadAction<SwapQuote | undefined>) {
       state.quote = action.payload;
       if (action.payload) {
@@ -213,8 +105,8 @@ export const swapSlice = createSlice({
     setError(state, action: PayloadAction<SwapError | undefined>) {
       state.error = action.payload;
     },
-    setActiveNetwork(state, action: PayloadAction<Network>) {
-      state.activeNetwork = action.payload;
+    setSelectedNetworkId(state, action: PayloadAction<string | undefined>) {
+      state.selectedNetworkId = action.payload;
     },
     setReceiving(
       state,
@@ -247,15 +139,10 @@ export const {
   switchTokens,
   reset,
   refresh,
-  addTransaction,
-  cleanAllTransaction,
-  cleanFulfillTransactions,
-  cleanFailedTransactions,
-  finalizeTransaction,
   setQuote,
   setLoading,
   setError,
-  setActiveNetwork,
+  setSelectedNetworkId,
   setReceiving,
   setSwftcSupportedTokens,
   setNoSupportCoins,

@@ -7,7 +7,6 @@ import {
   Divider,
   Icon,
   Modal,
-  Token,
   Typography,
   VStack,
   useToast,
@@ -21,22 +20,24 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import { addTransaction } from '../../../store/reducers/swapTransactions';
 import { SendRoutes, SendRoutesParams } from '../../Send/types';
 import { swapClient } from '../client';
-import ExchangeRate from '../ExchangeRate';
+import NetworkToken from '../components/NetworkToken';
+import TransactionRate from '../components/TransactionRate';
 import {
   useSwap,
   useSwapQuoteRequestParams,
   useSwapState,
 } from '../hooks/useSwap';
-import { useTransactionAdder } from '../hooks/useTransactions';
 import { QuoteParams, SwapQuote } from '../typings';
-import { TokenAmount } from '../utils';
+import { TokenAmount, formatAmount } from '../utils';
 
 import { Timer } from './Timer';
 
@@ -88,15 +89,9 @@ const Preview = () => {
     (s) => s.settings.swapSlippagePercent,
   );
   const receivingAddress = useAppSelector((s) => s.swap.receivingAddress);
-  const addTransaction = useTransactionAdder();
   const { account, network } = useActiveWalletAccount();
-  const {
-    inputToken,
-    outputToken,
-    independentField,
-    inputTokenNetwork,
-    outputTokenNetwork,
-  } = useSwapState();
+  const { inputToken, outputToken, inputTokenNetwork, outputTokenNetwork } =
+    useSwapState();
   const { inputAmount, outputAmount, swapQuote } = useSwap();
   const params = useSwapQuoteRequestParams();
 
@@ -129,7 +124,6 @@ const Preview = () => {
         ...res?.data,
         from: account.address,
       };
-      const { orderId } = res;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -142,28 +136,46 @@ const Preview = () => {
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
             encodedTx,
-            onSuccess: (tx) => {
+            onSuccess: (tx, data) => {
               if (
                 inputAmount &&
                 inputTokenNetwork &&
                 outputAmount &&
                 outputTokenNetwork
               ) {
-                const tokenA = `${inputAmount?.value.toFixed(
-                  2,
-                )} ${inputAmount?.token.symbol.toUpperCase()} (${
-                  inputTokenNetwork?.shortName
-                })`;
-                const tokenB = `${outputAmount?.value.toFixed(
-                  2,
-                )} ${outputAmount?.token.symbol.toUpperCase()} (${
-                  outputTokenNetwork?.shortName
-                })`;
-                addTransaction({
-                  hash: tx.txid,
-                  orderId,
-                  summary: `${tokenA} → ${tokenB}`,
-                });
+                backgroundApiProxy.dispatch(
+                  addTransaction({
+                    accountId: account.id,
+                    networkId: network.id,
+                    transaction: {
+                      hash: tx.txid,
+                      from: account.address,
+                      addedTime: Date.now(),
+                      status: 'pending',
+                      type: 'swap',
+                      accountId: account.id,
+                      networkId: network.id,
+                      nonce: data?.decodedTx?.nonce,
+                      thirdPartyOrderId: res.orderId,
+                      receivingAddress: res.orderId
+                        ? receivingAddress
+                        : undefined,
+                      tokens: {
+                        rate: Number(swapQuote.instantRate),
+                        from: {
+                          networkId: inputTokenNetwork.id,
+                          token: inputAmount.token,
+                          amount: inputAmount.typedValue,
+                        },
+                        to: {
+                          networkId: outputTokenNetwork.id,
+                          token: outputAmount.token,
+                          amount: outputAmount.typedValue,
+                        },
+                      },
+                    },
+                  }),
+                );
               }
             },
           },
@@ -175,7 +187,7 @@ const Preview = () => {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, account, network, addTransaction]);
+  }, [params, account, network, swapQuote, addTransaction]);
   return (
     <Modal
       header={intl.formatMessage({ id: 'modal__preview' })}
@@ -196,31 +208,16 @@ const Preview = () => {
             alignItems="center"
             justifyContent="space-between"
           >
-            <Typography.DisplayMedium>
-              {independentField === 'INPUT'
-                ? inputAmount?.value.toFixed()
-                : inputAmount?.value.toFixed(4)}
-            </Typography.DisplayMedium>
+            <Box flex="1">
+              <Typography.DisplayMedium>
+                {formatAmount(inputAmount?.value, 4)}
+              </Typography.DisplayMedium>
+            </Box>
             <Box flexDirection="row" alignItems="center">
-              <Box position="relative">
-                <Token size="6" src={inputToken?.logoURI} />
-                {inputTokenNetwork ? (
-                  <Box
-                    position="absolute"
-                    right="-4"
-                    top="-4"
-                    w="18px"
-                    h="18px"
-                    bg="surface-subdued"
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    borderRadius="full"
-                  >
-                    <Token size="4" src={inputTokenNetwork?.logoURI} />
-                  </Box>
-                ) : null}
-              </Box>
+              <NetworkToken
+                token={inputToken}
+                networkId={inputTokenNetwork?.id}
+              />
               <Typography.Body1 ml="3">
                 {inputToken?.symbol.toString()}
               </Typography.Body1>
@@ -243,31 +240,16 @@ const Preview = () => {
             alignItems="center"
             justifyContent="space-between"
           >
-            <Typography.DisplayMedium>
-              {independentField === 'OUTPUT'
-                ? outputAmount?.value.toFixed()
-                : outputAmount?.value.toFixed(4)}
-            </Typography.DisplayMedium>
+            <Box flex="1">
+              <Typography.DisplayMedium>
+                {formatAmount(outputAmount?.value, 4)}
+              </Typography.DisplayMedium>
+            </Box>
             <Box flexDirection="row" alignItems="center">
-              <Box position="relative">
-                <Token size="6" src={outputToken?.logoURI} />
-                {outputTokenNetwork ? (
-                  <Box
-                    position="absolute"
-                    right="-4"
-                    top="-4"
-                    w="18px"
-                    h="18px"
-                    bg="surface-subdued"
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    borderRadius="full"
-                  >
-                    <Token size="4" src={outputTokenNetwork?.logoURI} />
-                  </Box>
-                ) : null}
-              </Box>
+              <NetworkToken
+                token={outputToken}
+                networkId={outputTokenNetwork?.id}
+              />
               <Typography.Body1 ml="3">
                 {outputToken?.symbol.toUpperCase()}
               </Typography.Body1>
@@ -288,11 +270,10 @@ const Preview = () => {
               {intl.formatMessage({ id: 'form__rate' })}
             </Typography.Body2>
             <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <ExchangeRate
+              <TransactionRate
                 tokenA={inputToken}
                 tokenB={outputToken}
-                quote={swapQuote}
-                independentField={independentField}
+                rate={swapQuote?.instantRate}
               />
             </Box>
           </Box>

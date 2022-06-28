@@ -21,6 +21,7 @@ import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
+import SwapHistory from '../../views/Swap/History';
 import Dev from '../Dev';
 import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
@@ -59,6 +60,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.AddressBook,
     component: AddressBook,
+  },
+  {
+    name: HomeRoutes.SwapHistory,
+    component: SwapHistory,
   },
 ];
 

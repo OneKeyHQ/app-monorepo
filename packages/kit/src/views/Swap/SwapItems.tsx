@@ -25,7 +25,7 @@ const SwapItems = () => {
   const { themeVariant } = useTheme();
   const onPress = useCallback(() => {
     setHaptics();
-    navigation.navigate(HomeRoutes.TransactionHistoryScreen, {});
+    navigation.navigate(HomeRoutes.SwapHistory);
   }, [navigation]);
   return (
     <Center px={4} pb="4">

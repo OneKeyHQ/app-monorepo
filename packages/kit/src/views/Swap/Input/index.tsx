@@ -1,11 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount, useRuntime } from '../../../hooks/redux';
 import TokenSelector from '../components/TokenSelector';
+import { NetworkSelectorContext } from '../components/TokenSelector/context';
 import { useSwapActionHandlers, useSwapState } from '../hooks/useSwap';
 import { getChainIdFromNetworkId, nativeTokenAddress } from '../utils';
 
@@ -13,37 +11,25 @@ import type { Token } from '../../../store/typings';
 
 const Input = () => {
   const navigation = useNavigation();
+  const { networks } = useRuntime();
   const { outputToken } = useSwapState();
-  const activeNetwork = useAppSelector((s) => s.swap.activeNetwork);
+  const { networkId } = useActiveWalletAccount();
+  const selectedNetworkId = useAppSelector((s) => s.swap.selectedNetworkId);
   const noSupportCoins = useAppSelector((s) => s.swap.noSupportCoins);
   const swftcSupportedTokens = useAppSelector(
     (s) => s.swap.swftcSupportedTokens,
   );
   const { onSelectToken } = useSwapActionHandlers();
-  const { network, accountId, networkId } = useActiveWalletAccount();
-  const onPress = useCallback(
+
+  const onSelect = useCallback(
     (token: Token) => {
+      const network = networks.filter((n) => n.id === token.networkId)[0];
       if (network) {
         onSelectToken(token, 'INPUT', network);
       }
       navigation.goBack();
     },
-    [navigation, onSelectToken, network],
-  );
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      backgroundApiProxy.serviceToken.fetchTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
+    [navigation, onSelectToken, networks],
   );
 
   const included = useMemo(() => {
@@ -55,10 +41,10 @@ const Input = () => {
   }, [outputToken, networkId, swftcSupportedTokens]);
 
   const excluded = useMemo(() => {
-    if (activeNetwork?.id === networkId && outputToken) {
+    if (selectedNetworkId === networkId && outputToken) {
       return [outputToken.tokenIdOnNetwork];
     }
-    if (activeNetwork && activeNetwork?.id !== networkId && outputToken) {
+    if (selectedNetworkId && selectedNetworkId !== networkId && outputToken) {
       const outputTokenNetworkId = outputToken.networkId;
       const inputChainId = getChainIdFromNetworkId(networkId);
       const outputChainId = getChainIdFromNetworkId(outputTokenNetworkId);
@@ -66,20 +52,21 @@ const Input = () => {
       return noSupportCoins[outputChainId]?.[address]?.[inputChainId];
     }
     return undefined;
-  }, [networkId, activeNetwork, outputToken, noSupportCoins]);
+  }, [networkId, selectedNetworkId, outputToken, noSupportCoins]);
 
-  if (!network) {
-    return <></>;
-  }
+  const value = useMemo(
+    () => ({ showNetworkSelector: false, networkId }),
+    [networkId],
+  );
 
   return (
-    <TokenSelector
-      activeNetworkId={network.id}
-      included={included}
-      excluded={excluded}
-      onSelectToken={onPress}
-      showNetworkSelector={false}
-    />
+    <NetworkSelectorContext.Provider value={value}>
+      <TokenSelector
+        included={included}
+        excluded={excluded}
+        onSelect={onSelect}
+      />
+    </NetworkSelectorContext.Provider>
   );
 };
 
