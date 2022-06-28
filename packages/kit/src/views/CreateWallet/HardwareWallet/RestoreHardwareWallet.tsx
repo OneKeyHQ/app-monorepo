@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,14 +12,32 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import UnboxingPng from '@onekeyhq/kit/assets/wallet/unboxing.png';
-import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks';
+import {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
+type RouteProps = RouteProp<
+  CreateWalletRoutesParams,
+  CreateWalletModalRoutes.RestoreHardwareWalletModal
+>;
 
 const RestoreHardwareWalletModal: FC = () => {
   const intl = useIntl();
+
+  const helpCenter = useHelpLink({ path: '' });
+
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const route = useRoute<RouteProps>();
+  const { device } = route?.params;
 
   const content = (
     <Center>
@@ -50,9 +68,21 @@ const RestoreHardwareWalletModal: FC = () => {
   return (
     <Modal
       primaryActionTranslationId="action__continue"
-      secondaryActionTranslationId="action__contact"
+      secondaryActionTranslationId="action__contact_us"
+      onSecondaryActionPress={() => {
+        openUrl(helpCenter);
+      }}
       onPrimaryActionPress={() => {
-        navigation.popToTop();
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateWallet,
+          params: {
+            screen: CreateWalletModalRoutes.SetupNewDeviceModal,
+            params: {
+              device,
+              type: 'Restore',
+            },
+          },
+        });
       }}
       scrollViewProps={{
         children: content,
