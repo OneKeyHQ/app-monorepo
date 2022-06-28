@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
-import { SingleValueData, UTCTimestamp } from 'lightweight-charts';
+import { SingleValueData } from 'lightweight-charts';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -34,13 +34,15 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
   const onHover = useCallback<OnHoverFunction>(
     (hoverData) => {
       setPrice(hoverData.price);
-      setTime(
-        formatDate(
-          hoverData.time
-            ? new Date(hoverData.time as UTCTimestamp)
-            : new Date(),
-        ),
-      );
+      let displayTime;
+      if (hoverData.time instanceof Date) {
+        displayTime = formatDate(hoverData.time);
+      } else if (typeof hoverData.time === 'number') {
+        displayTime = formatDate(new Date(hoverData.time));
+      } else {
+        displayTime = formatDate(new Date());
+      }
+      setTime(displayTime);
     },
     [formatDate],
   );
@@ -50,8 +52,8 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
   return isVerticalLayout ? (
     <>
       {priceLabel}
-      <Box h="182px">
-        <ChartView height={152} data={data} onHover={onHover} />
+      <Box h="190px">
+        <ChartView height={190} data={data} onHover={onHover} />
       </Box>
       {children}
     </>
@@ -61,8 +63,8 @@ const ChartWithLabel: React.FC<ChartWithLabelProps> = ({ data, children }) => {
         {priceLabel}
         <Box w="280px">{children}</Box>
       </Box>
-      <Box h="190px">
-        <ChartView height={190} data={data} onHover={onHover} />
+      <Box h="240px">
+        <ChartView height={240} data={data} onHover={onHover} />
       </Box>
     </>
   );

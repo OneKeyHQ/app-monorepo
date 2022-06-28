@@ -36,6 +36,8 @@ import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { DeviceErrors } from '../../../utils/hardware/deviceUtils';
+
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -60,6 +62,7 @@ const ConnectHardwareModal: FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
   const [devices, setDevices] = useState<SearchDevice[]>([]);
+  const [checkBonded, setCheckBonded] = useState(false);
 
   const handleStopDevice = useCallback(() => {
     if (!deviceUtils) return;
@@ -90,6 +93,7 @@ const ConnectHardwareModal: FC = () => {
     if (platformEnv.isRuntimeBrowser) handleScanDevice();
     return () => {
       handleStopDevice();
+      deviceUtils.stopCheckBonded();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -102,7 +106,7 @@ const ConnectHardwareModal: FC = () => {
       deviceUtils.stopScan();
       setIsConnectingDeviceId(device.connectId);
 
-      deviceUtils.connect(device.connectId).then((result) => {
+      const finishConnected = (result?: boolean) => {
         setIsConnectingDeviceId('');
         if (!result) {
           return;
@@ -116,9 +120,35 @@ const ConnectHardwareModal: FC = () => {
             },
           },
         });
-      });
+      };
+      deviceUtils
+        .connect(device.connectId)
+        .then((result) => {
+          finishConnected(result);
+        })
+        .catch(async (err) => {
+          switch (err) {
+            case DeviceErrors.DeviceNotBonded: {
+              if (!checkBonded && platformEnv.isNativeAndroid) {
+                setCheckBonded(true);
+                const bonded = await deviceUtils.checkDeviceBonded(
+                  device.connectId ?? '',
+                );
+                if (bonded) {
+                  setCheckBonded(false);
+                  deviceUtils.connect(device.connectId ?? '').then((r) => {
+                    setTimeout(() => finishConnected(r), 1000);
+                  });
+                }
+              }
+              break;
+            }
+            default:
+              break;
+          }
+        });
     },
-    [navigation],
+    [navigation, checkBonded],
   );
 
   const renderDevices = useCallback(() => {
