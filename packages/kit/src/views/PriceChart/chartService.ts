@@ -4,6 +4,7 @@ import {
   ChartOptions,
   IChartApi,
   ISeriesApi,
+  SingleValueData,
   UTCTimestamp,
 } from 'lightweight-charts';
 
@@ -19,11 +20,11 @@ export type OnHoverFunction = ({
   time,
   price,
 }: {
-  time?: UTCTimestamp | BusinessDay;
+  time?: UTCTimestamp | BusinessDay | Date;
   price?: number;
 }) => void;
 export interface ChartViewProps {
-  data: any[];
+  data: SingleValueData[];
   onHover: OnHoverFunction;
   height: number;
 }
@@ -53,6 +54,10 @@ export function createChartDom(
       background: {
         color: 'transparent',
       },
+    },
+    crosshair: {
+      vertLine: { visible: false },
+      horzLine: { visible: false },
     },
     grid: {
       vertLines: { visible: false },
@@ -103,6 +108,9 @@ export function updateChartDom({
       lineColor,
       topColor,
       bottomColor,
+      lineWidth: 2,
+      crosshairMarkerBorderColor: '#fff',
+      crosshairMarkerRadius: 5,
     });
     newSeries.setData(data);
     chart._onekey_series = newSeries;
