@@ -90,7 +90,6 @@ class DeviceUtils {
       return result !== null;
     } catch (e) {
       if ((e as Error).message.includes('device is not bonded')) {
-        console.log('device is not bonded');
         return Promise.reject(DeviceErrors.DeviceNotBonded);
       }
     }
@@ -129,7 +128,6 @@ class DeviceUtils {
       tryCount += 1;
       try {
         const feature = await this.getFeaturesWithError(connectId);
-        console.log(feature, '====================');
         if (feature) {
           connected = true;
           return await Promise.resolve(feature);
