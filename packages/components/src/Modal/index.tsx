@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from 'react';
 
-import { OverlayContainer, OverlayProvider } from '@react-native-aria/overlays';
+import { OverlayProvider } from '@react-native-aria/overlays';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -247,16 +247,14 @@ const Modal = ({
     }
 
     return (
-      <OverlayContainer>
-        <Desktop
-          onClose={onModalClose}
-          headerShown={headerShown}
-          header={header}
-          {...rest}
-        >
-          {modalContent}
-        </Desktop>
-      </OverlayContainer>
+      <Desktop
+        onClose={onModalClose}
+        headerShown={headerShown}
+        header={header}
+        {...rest}
+      >
+        {modalContent}
+      </Desktop>
     );
   }, [
     size,
