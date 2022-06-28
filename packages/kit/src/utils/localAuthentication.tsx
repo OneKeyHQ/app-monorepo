@@ -1,7 +1,10 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
+import LOCALES from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { getDefaultLocale } from './locale';
 
 export const hasHardwareSupported = () =>
   new Promise<boolean>((resolve) => {
@@ -33,7 +36,11 @@ export const localAuthenticate: () => Promise<LocalAuthentication.LocalAuthentic
     }
     if (platformEnv.isDesktop) {
       try {
-        const result = await window?.desktopApi?.promptTouchID('unlock');
+        const defaultLocale = getDefaultLocale();
+        const reason = LOCALES[defaultLocale]?.action__unlock ?? 'unlock';
+        const result = await window?.desktopApi?.promptTouchID(
+          reason.toLowerCase(),
+        );
         return { success: result, error: !result ? 'no supported' : '' };
       } catch {
         return { success: false, error: 'no supported' };
