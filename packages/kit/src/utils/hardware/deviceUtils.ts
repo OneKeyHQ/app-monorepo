@@ -98,12 +98,17 @@ class DeviceUtils {
 
   async ensureConnected(connectId: string) {
     let tryCount = 0;
+    let connected = false;
     const poll: IPollFn<Promise<IOneKeyDeviceFeatures>> = async (
-      time = POLL_INTERVAL_RATE,
+      time = POLL_INTERVAL,
     ) => {
+      if (connected) {
+        return Promise.resolve({} as IOneKeyDeviceFeatures);
+      }
       tryCount += 1;
       const feature = await this.getFeatures(connectId);
       if (feature) {
+        connected = true;
         return Promise.resolve(feature);
       }
 
