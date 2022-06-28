@@ -2,7 +2,7 @@ import BleManager from 'react-native-ble-manager';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
+if (platformEnv.isNative) {
   BleManager.start({ showAlert: false });
 }
 
