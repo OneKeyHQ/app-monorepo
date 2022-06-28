@@ -68,7 +68,7 @@ const RestoreHardwareWalletModal: FC = () => {
   return (
     <Modal
       primaryActionTranslationId="action__continue"
-      secondaryActionTranslationId="action__contact"
+      secondaryActionTranslationId="action__contact_us"
       onSecondaryActionPress={() => {
         openUrl(helpCenter);
       }}

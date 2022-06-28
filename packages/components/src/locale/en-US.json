@@ -44,6 +44,7 @@
   "action__connection_timeout": "Device connection timeout, please try again.",
   "action__contact": "Contact",
   "action__contact_third_party_provider": "Contact Third-party Provider",
+  "action__contact_us": "Contact Us",
   "action__continue": "Continue",
   "action__copy": "Copy",
   "action__copy_address": "Copy Address",
