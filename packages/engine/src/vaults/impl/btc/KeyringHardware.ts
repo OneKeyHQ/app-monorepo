@@ -121,7 +121,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       console.error(response.payload);
       throw new OneKeyHardwareError({
         code: response.payload.code,
-        message: response.payload.error,
+        message: (response.payload.error || response.payload) as string,
       });
     }
 
