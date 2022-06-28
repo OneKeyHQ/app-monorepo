@@ -11,12 +11,13 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { DeviceErrors } from '../../utils/hardware/deviceUtils';
+import { NeedOneKeyBridge } from '../../utils/hardware/errors';
 import NeedBridgeDialog from '../NeedBridgeDialog';
 
 import Setup from './Setup';
@@ -106,20 +107,22 @@ const Protected: FC<ProtectedProps> = ({
       try {
         features = await deviceUtils.ensureConnected(currentWalletDevice.mac);
       } catch (e) {
-        switch (e) {
-          case DeviceErrors.NeedOneKeyBridge:
-            safeGoBack();
-            DialogManager.show({ render: <NeedBridgeDialog /> });
-            break;
+        safeGoBack();
 
-          default:
-            safeGoBack();
-            ToastManager.show({
-              title: intl.formatMessage({ id: 'action__connection_timeout' }),
-            });
-            break;
+        if (e instanceof NeedOneKeyBridge) {
+          DialogManager.show({ render: <NeedBridgeDialog /> });
+          return;
         }
 
+        if (e instanceof OneKeyHardwareError) {
+          ToastManager.show({
+            title: intl.formatMessage({ id: e.key }),
+          });
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'action__connection_timeout' }),
+          });
+        }
         return;
       }
 
