@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "不支持的格式",
   "form__add_to_address_book": "添加到地址簿",
   "form__address": "地址",
+  "form__address_btc_as_wachted_account": "暂不支持导入 BTC 地址为观察账户。",
   "form__address_helperText": "您可以“观察”任意公开地址而无需泄露您的私钥，这可以让您查看余额和交易，但不能发送。",
   "form__address_invalid": "地址不正确。",
   "form__address_type_label": "地址类型",

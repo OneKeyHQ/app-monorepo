@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "Ajouter au carnet d'adresses",
   "form__address": "Adresse",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "Vous pouvez \"surveiller\" n'importe quelle adresse publique sans divulguer votre clé privée. Cela vous permet de consulter le solde et les transactions, mais pas d'envoyer des transactions.",
   "form__address_invalid": "Adresse incorrecte.",
   "form__address_type_label": "Type d'adresse",

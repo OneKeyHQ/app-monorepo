@@ -1,6 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
 
-import { UserCreateInputCategory } from '@onekeyhq/engine/src/types/credential';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -21,9 +20,9 @@ export const handleScanResult = async (data: string) => {
     });
     return;
   } else {
-    const { category, possibleNetworks } =
-      await backgroundApiProxy.validator.validateCreateInput(data);
-    if (category === UserCreateInputCategory.ADDRESS) {
+    const possibleNetworks =
+      await backgroundApiProxy.validator.validateAnyAddress(data);
+    if (possibleNetworks.length > 0) {
       scanResult.type = 'address';
       scanResult.possibleNetworks = possibleNetworks;
     }

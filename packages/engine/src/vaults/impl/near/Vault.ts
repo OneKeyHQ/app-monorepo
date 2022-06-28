@@ -21,7 +21,6 @@ import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { fillUnsignedTx } from '../../../proxy';
 import { DBAccount, DBVariantAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
-import { UserCreateInputCategory } from '../../../types/credential';
 import { Token } from '../../../types/token';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -38,7 +37,6 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ITransferInfo,
-  IUserInputGuessingResult,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import {
@@ -641,22 +639,17 @@ export default class Vault extends VaultBase {
 
   // Chain only functionalities below.
 
-  async guessUserCreateInput(input: string): Promise<IUserInputGuessingResult> {
-    const ret = [];
+  override validateImportedCredential(input: string): Promise<boolean> {
+    let ret = false;
     if (this.settings.importedAccountEnabled) {
       const [prefix, encoded] = input.split(':');
-      if (
-        prefix === 'ed25519' &&
-        Buffer.from(baseDecode(encoded)).length === 64
-      ) {
-        ret.push(UserCreateInputCategory.PRIVATE_KEY);
+      try {
+        ret =
+          prefix === 'ed25519' &&
+          Buffer.from(baseDecode(encoded)).length === 64;
+      } catch {
+        // pass
       }
-    }
-    if (
-      this.settings.watchingAccountEnabled &&
-      (await this.engineProvider.verifyAddress(input)).isValid
-    ) {
-      ret.push(UserCreateInputCategory.ADDRESS);
     }
     return Promise.resolve(ret);
   }

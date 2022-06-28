@@ -373,6 +373,7 @@
   "form__add_exsting_wallet_invalid": "Unsupported Format",
   "form__add_to_address_book": "ঠিকানা বই যোগ করুন",
   "form__address": "ঠিকানা",
+  "form__address_btc_as_wachted_account": "Import BTC address as a Watched Account is unsupported yet.",
   "form__address_helperText": "আপনি আপনার ব্যক্তিগত কী প্রকাশ না করে যেকোনো পাবলিক ঠিকানা \"দেখতে\" পারেন। এটি আপনাকে ব্যালেন্স এবং লেনদেন দেখতে দেয়, কিন্তু লেনদেন পাঠাতে পারে না।",
   "form__address_invalid": "ভুল ঠিকানা।",
   "form__address_type_label": "ঠিকানার ধরন",
