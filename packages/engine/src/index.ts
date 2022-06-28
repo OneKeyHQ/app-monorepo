@@ -419,7 +419,7 @@ class Engine {
       await this.removeWallet(wallet.id, '');
       throw new OneKeyInternalError('Failed to create HW Wallet.');
     }
-    return wallet;
+    return this.getWallet(wallet.id);
   }
 
   @backgroundMethod()
