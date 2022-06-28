@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-member-access */
 import { Middleware } from 'redux';
-import logger from 'redux-logger';
+// import logger from 'redux-logger';
 
-const simpleLogger: Middleware<unknown, unknown> =
-  (store) => (next) => (action) => {
-    console.log('dispatching >>> ', action);
-    const result = next(action);
-    console.log('nextState >>> ', store.getState());
-    return result as unknown;
-  };
+// const simpleLogger: Middleware<unknown, unknown> =
+//   (store) => (next) => (action) => {
+//     console.log('dispatching >>> ', action);
+//     const result = next(action);
+//     console.log('nextState >>> ', store.getState());
+//     return result as unknown;
+//   };
 
 const backgroundCheck: Middleware<unknown, unknown> =
   () => (next) => (action) => {
