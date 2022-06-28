@@ -103,6 +103,7 @@ export type SelectProps<T = string> = {
   triggerEle?: HTMLElement | View | null;
   setPositionOnlyMounted?: boolean;
   positionTranslateY?: number;
+  withReactModal?: boolean;
 };
 
 export type ChildProps<T> = Pick<
@@ -125,6 +126,7 @@ export type ChildProps<T> = Pick<
   | 'triggerEle'
   | 'setPositionOnlyMounted'
   | 'positionTranslateY'
+  | 'withReactModal'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -166,6 +168,8 @@ function Select<T = string>({
   onVisibleChange,
   setPositionOnlyMounted,
   positionTranslateY,
+  onModalHide,
+  withReactModal,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
@@ -238,12 +242,19 @@ function Select<T = string>({
       triggerRef,
       setPositionOnlyMounted,
       positionTranslateY,
+      withReactModal,
+      onModalHide: () => {
+        if (visible) {
+          toggleVisible();
+        }
+        onModalHide?.();
+      },
     };
-    if (!visible) {
-      return null;
-    }
     if (['SMALL', 'NORMAL'].includes(size)) {
       return <Mobile<T> {...childContainerProps} />;
+    }
+    if (!childContainerProps.visible) {
+      return null;
     }
     return (
       <OverlayContainer>
@@ -252,6 +263,8 @@ function Select<T = string>({
       </OverlayContainer>
     );
   }, [
+    withReactModal,
+    onModalHide,
     selectVisible,
     visible,
     options,

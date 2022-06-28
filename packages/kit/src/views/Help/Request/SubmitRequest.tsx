@@ -416,6 +416,7 @@ export const SubmitRequest: FC = () => {
                   {intl.formatMessage({ id: 'form__request_type' })}
                 </Typography.Body2Strong>
                 <Select
+                  withReactModal
                   containerProps={{
                     w: 'full',
                   }}
