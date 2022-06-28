@@ -50,6 +50,7 @@ const SetupHardwareModal: FC = () => {
                 screen: CreateWalletModalRoutes.SetupNewDeviceModal,
                 params: {
                   device,
+                  type: 'SetupNew',
                 },
               },
             });

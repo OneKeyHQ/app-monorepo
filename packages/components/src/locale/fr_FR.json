@@ -44,6 +44,7 @@
   "action__connection_timeout": "Délai de connexion de l'appareil, veuillez réessayer.",
   "action__contact": "Contact",
   "action__contact_third_party_provider": "Contact Third-party Provider",
+  "action__contact_us": "Contact",
   "action__continue": "Continuer",
   "action__copy": "Copie",
   "action__copy_address": "Copie de l'adresse",
