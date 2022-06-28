@@ -210,7 +210,8 @@ const Modal = ({
       Why `platformEnv.isNativeIOS` ?
       We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
     */
-    if (['SMALL', 'NORMAL'].includes(size) || platformEnv.isNativeIOS) {
+    const isSmallScreen = ['SMALL', 'NORMAL'].includes(size);
+    if (isSmallScreen || platformEnv.isNativeIOS) {
       return (
         <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
           <Box
@@ -219,12 +220,7 @@ const Modal = ({
             // TODO 100vh in App
             maxHeight={platformEnv.isRuntimeBrowser ? '100vh' : undefined}
             w="100%"
-            borderBottomRadius={
-              platformEnv.isExtensionUiStandaloneWindow ||
-              platformEnv.isNativeAndroid
-                ? 0
-                : '24px'
-            }
+            borderBottomRadius={isSmallScreen ? 0 : '24px'}
             borderTopRadius={
               platformEnv.isExtensionUiStandaloneWindow ||
               platformEnv.isNativeAndroid
