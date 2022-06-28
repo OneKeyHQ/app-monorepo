@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
-import { SingleValueData, UTCTimestamp } from 'lightweight-charts';
+import { SingleValueData } from 'lightweight-charts';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
