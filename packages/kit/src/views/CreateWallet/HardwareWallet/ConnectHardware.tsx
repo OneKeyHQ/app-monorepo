@@ -36,6 +36,8 @@ import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { DeviceErrors } from '../../../utils/hardware/deviceUtils';
+
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
 
@@ -90,6 +92,7 @@ const ConnectHardwareModal: FC = () => {
     if (platformEnv.isRuntimeBrowser) handleScanDevice();
     return () => {
       handleStopDevice();
+      deviceUtils.stopCheckBonded();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -102,7 +105,7 @@ const ConnectHardwareModal: FC = () => {
       deviceUtils.stopScan();
       setIsConnectingDeviceId(device.connectId);
 
-      deviceUtils.connect(device.connectId).then((result) => {
+      const finishConnected = (result?: boolean) => {
         setIsConnectingDeviceId('');
         if (!result) {
           return;
@@ -116,7 +119,31 @@ const ConnectHardwareModal: FC = () => {
             },
           },
         });
-      });
+      };
+      deviceUtils
+        .connect(device.connectId)
+        .then((result) => {
+          finishConnected(result);
+        })
+        .catch(async (err) => {
+          setIsConnectingDeviceId('');
+          switch (err) {
+            case DeviceErrors.DeviceNotBonded: {
+              const bonded = await deviceUtils.checkDeviceBonded(
+                device.connectId ?? '',
+              );
+              if (bonded) {
+                setIsConnectingDeviceId(device.connectId ?? '');
+                deviceUtils.connect(device.connectId ?? '').then((r) => {
+                  setTimeout(() => finishConnected(r), 1000);
+                });
+              }
+              break;
+            }
+            default:
+              break;
+          }
+        });
     },
     [navigation],
   );
