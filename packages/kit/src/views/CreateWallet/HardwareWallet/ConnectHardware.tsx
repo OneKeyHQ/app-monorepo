@@ -62,6 +62,7 @@ const ConnectHardwareModal: FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
   const [devices, setDevices] = useState<SearchDevice[]>([]);
+  const [checkBonded, setCheckBonded] = useState(false);
 
   const handleStopDevice = useCallback(() => {
     if (!deviceUtils) return;
@@ -126,17 +127,19 @@ const ConnectHardwareModal: FC = () => {
           finishConnected(result);
         })
         .catch(async (err) => {
-          setIsConnectingDeviceId('');
           switch (err) {
             case DeviceErrors.DeviceNotBonded: {
-              const bonded = await deviceUtils.checkDeviceBonded(
-                device.connectId ?? '',
-              );
-              if (bonded) {
-                setIsConnectingDeviceId(device.connectId ?? '');
-                deviceUtils.connect(device.connectId ?? '').then((r) => {
-                  setTimeout(() => finishConnected(r), 1000);
-                });
+              if (!checkBonded && platformEnv.isNativeAndroid) {
+                setCheckBonded(true);
+                const bonded = await deviceUtils.checkDeviceBonded(
+                  device.connectId ?? '',
+                );
+                if (bonded) {
+                  setCheckBonded(false);
+                  deviceUtils.connect(device.connectId ?? '').then((r) => {
+                    setTimeout(() => finishConnected(r), 1000);
+                  });
+                }
               }
               break;
             }
@@ -145,7 +148,7 @@ const ConnectHardwareModal: FC = () => {
           }
         });
     },
-    [navigation],
+    [navigation, checkBonded],
   );
 
   const renderDevices = useCallback(() => {
