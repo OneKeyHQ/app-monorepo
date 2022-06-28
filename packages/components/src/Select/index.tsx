@@ -239,7 +239,7 @@ function Select<T = string>({
       setPositionOnlyMounted,
       positionTranslateY,
     };
-    if (!visible) {
+    if (!childContainerProps.visible) {
       return null;
     }
     if (['SMALL', 'NORMAL'].includes(size)) {
