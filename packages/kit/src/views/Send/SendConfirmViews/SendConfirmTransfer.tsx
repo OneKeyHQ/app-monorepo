@@ -65,14 +65,25 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     return transferPayload.value ?? '0';
   }, [feeInfoPayload, getTokenBalance, isNativeMaxSend, transferPayload]);
 
+  const isAmountNegative = useMemo(
+    () => new BigNumber(transferAmount).lt(0),
+    [transferAmount],
+  );
+  const transferAmountToUpdate = useMemo(
+    () =>
+      isAmountNegative && transferPayload
+        ? transferPayload.value
+        : transferAmount,
+    [isAmountNegative, transferAmount, transferPayload],
+  );
   return (
     <SendConfirmModal
       {...props}
-      confirmDisabled={new BigNumber(transferAmount).lt(0)}
+      confirmDisabled={isAmountNegative}
       updateEncodedTxBeforeConfirm={async (tx) => {
         if (!!transferPayload && isNativeMaxSend) {
           const updatePayload: IEncodedTxUpdatePayloadTransfer = {
-            amount: transferAmount,
+            amount: transferAmountToUpdate,
           };
           const newTx = await backgroundApiProxy.engine.updateEncodedTx({
             networkId,
@@ -91,7 +102,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       <TxDetailView
         decodedTx={decodedTx}
         feeInput={feeInput}
-        transferAmount={transferAmount}
+        transferAmount={transferAmountToUpdate}
       />
     </SendConfirmModal>
   );
