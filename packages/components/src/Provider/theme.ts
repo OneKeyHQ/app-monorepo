@@ -68,6 +68,7 @@ export const dark = {
   'decorative-surface-one': '#005809',
   'decorative-icon-one': '#33C641',
   'backdrop': 'rgba(61, 61, 77, 0.75)',
+  'overlay': 'rgba(61, 61, 77, 0.35)',
   'divider': '#2C2C3F',
 };
 
@@ -141,6 +142,7 @@ export const light = {
   'decorative-surface-one': '#D7F4DA',
   'decorative-icon-one': '#33C641',
   'backdrop': 'rgba(107, 107, 128, 0.75)',
+  'overlay': 'rgba(107, 107, 128, 0.35)',
   'divider': '#F3F3F6',
 };
 

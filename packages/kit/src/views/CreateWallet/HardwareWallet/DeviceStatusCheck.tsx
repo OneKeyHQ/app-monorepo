@@ -1,15 +1,17 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Center,
+  DialogManager,
   Modal,
   Spinner,
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
@@ -24,6 +26,9 @@ import {
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import NeedBridgeDialog from '../../../components/NeedBridgeDialog';
+import { NeedOneKeyBridge } from '../../../utils/hardware/errors';
+
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 type RouteProps = RouteProp<
@@ -36,6 +41,7 @@ const DeviceStatusCheckModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device } = useRoute<RouteProps>().params;
   const { serviceAccount } = backgroundApiProxy;
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const safeGoBack = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -44,14 +50,17 @@ const DeviceStatusCheckModal: FC = () => {
   }, [navigation]);
 
   useEffect(() => {
-    const timeId = setTimeout(() => {
+    const id = setTimeout(() => {
       safeGoBack();
       ToastManager.show({
         title: intl.formatMessage({ id: 'action__connection_timeout' }),
       });
     }, 60 * 1000);
+    timeoutRef.current = id;
     return () => {
-      clearTimeout(timeId);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [safeGoBack, intl]);
 
@@ -68,10 +77,26 @@ const DeviceStatusCheckModal: FC = () => {
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
         safeGoBack();
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'action__connection_timeout' }),
-        });
+
+        if (e instanceof NeedOneKeyBridge) {
+          DialogManager.show({ render: <NeedBridgeDialog /> });
+          return;
+        }
+
+        if (e instanceof OneKeyHardwareError) {
+          ToastManager.show({
+            title: intl.formatMessage({ id: e.key }),
+          });
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'action__connection_timeout' }),
+          });
+        }
         return;
+      }
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
 
       if (!features.initialized) {
@@ -94,8 +119,15 @@ const DeviceStatusCheckModal: FC = () => {
         });
       } catch (e: any) {
         safeGoBack();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        ToastManager.show({ title: e?.message ?? '' });
+        if (e instanceof OneKeyHardwareError) {
+          ToastManager.show({
+            title: intl.formatMessage({ id: e.key }),
+          });
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'action__connection_timeout' }),
+          });
+        }
         return;
       }
 

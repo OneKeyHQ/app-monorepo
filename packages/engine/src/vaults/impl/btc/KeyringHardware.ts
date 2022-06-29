@@ -3,7 +3,7 @@ import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/pro
 import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
+import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
 import {
@@ -59,7 +59,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
     const prevTxs = await provider.collectTxs(prevTxids);
     const connectId = await this.getHardwareConnectId();
-    const network = await this.getNetwork();
 
     const response = await HardwareSDK.btcSignTransaction(connectId, {
       // useEmptyPassphrase: true,
@@ -76,11 +75,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return { txid: tx.getId(), rawTx: serializedTx };
     }
 
-    if (response.payload.error) {
-      throw new OneKeyHardwareError(new Error(response.payload.error));
-    } else {
-      throw new OneKeyHardwareError(new Error('Unknown error'));
-    }
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 
   async signMessage(
@@ -119,10 +114,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (!response.success) {
       console.error(response.payload);
-      throw new OneKeyHardwareError({
-        code: response.payload.code,
-        message: (response.payload.error || response.payload) as string,
-      });
+      throw deviceUtils.convertDeviceError(response.payload);
     }
 
     if (response.payload.length !== usedIndexes.length) {

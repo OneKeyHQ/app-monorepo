@@ -28,7 +28,7 @@ const SegmentedControl: FC<SegmentedControlProps> = ({ onChange, ...rest }) => {
       }}
       activeFontStyle={{
         color: activeFontColor,
-        fontFamily: Body2StrongProps.fontFamily,
+        // fontFamily: Body2StrongProps.fontFamily,
         fontSize: Body2StrongProps.fontSize,
         fontWeight: Body2StrongProps.fontWeight as '100',
       }}

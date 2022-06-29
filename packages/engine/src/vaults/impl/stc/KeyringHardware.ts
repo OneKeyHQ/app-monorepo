@@ -5,7 +5,7 @@ import {
   buildUnsignedRawTx,
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
 
-import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
+import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
 import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
@@ -59,7 +59,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       );
     }
 
-    throw new OneKeyHardwareError(Error('signature is required'));
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 
   signMessage(
@@ -92,10 +92,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
       if (!response.success) {
         console.error(response.payload);
-        throw new OneKeyHardwareError({
-          code: response.payload.code,
-          message: response.payload.error,
-        });
+        throw deviceUtils.convertDeviceError(response.payload);
       }
 
       pubkeys = response.payload
@@ -114,10 +111,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
     if (!addressesResponse.success) {
       console.error(addressesResponse.payload);
-      throw new OneKeyHardwareError({
-        code: addressesResponse.payload.code,
-        message: addressesResponse.payload.error,
-      });
+      throw deviceUtils.convertDeviceError(addressesResponse.payload);
     }
 
     const ret = [];
