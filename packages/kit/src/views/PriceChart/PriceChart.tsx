@@ -1,13 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { SingleValueData, UTCTimestamp } from 'lightweight-charts';
 import { StyleProp, ViewStyle } from 'react-native';
 
 import { Box } from '@onekeyhq/components';
 
 import { useSettings } from '../../hooks/redux';
 
-import { PriceApiProps, fetchHistoricalPrices } from './chartService';
+import {
+  MarketApiData,
+  PriceApiProps,
+  fetchHistoricalPrices,
+} from './chartService';
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 
@@ -20,26 +23,38 @@ const PriceChart: React.FC<PriceChartProps> = ({
   platform,
   style,
 }) => {
-  const [data, setData] = useState<SingleValueData[]>([]);
+  const dataMap = useRef<MarketApiData[][]>([]);
+  const [data, setData] = useState<MarketApiData[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
 
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
-      setSelectedTimeIndex(newTimeIndex);
-      const days = TIMEOPTIONS_VALUE[newTimeIndex];
-      const newData = await fetchHistoricalPrices({
-        contract,
-        platform,
-        days,
-        vs_currency: selectedFiatMoneySymbol,
-      });
-      setData(
-        newData.map((d) => ({ time: d[0] as UTCTimestamp, value: d[1] })),
-      );
+      const cacheData = dataMap.current[newTimeIndex];
+      if (
+        !cacheData ||
+        // @ts-ignore
+        cacheData.__time < Date.now() - 1000 * 60
+      ) {
+        setIsFetching(true);
+        setSelectedTimeIndex(newTimeIndex);
+        const days = TIMEOPTIONS_VALUE[newTimeIndex];
+        const newData = await fetchHistoricalPrices({
+          contract,
+          platform,
+          days,
+          vs_currency: selectedFiatMoneySymbol,
+        });
+        // @ts-ignore
+        newData.__time = Date.now();
+        dataMap.current[newTimeIndex] = newData;
+      }
+      setData(dataMap.current[newTimeIndex]);
+      setIsFetching(false);
     },
-    [contract, selectedFiatMoneySymbol, platform],
+    [contract, platform, selectedFiatMoneySymbol, dataMap],
   );
 
   useEffect(() => {
@@ -48,7 +63,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
 
   return (
     <Box style={style}>
-      <ChartWithLabel data={data}>
+      <ChartWithLabel isFetching={isFetching} data={data}>
         <TimeControl
           selectedIndex={selectedTimeIndex}
           onTimeChange={refreshDataOnTimeChange}

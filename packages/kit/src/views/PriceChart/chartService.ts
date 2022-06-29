@@ -16,6 +16,10 @@ type DeepPartial<T> = {
     : DeepPartial<T[P]>;
 };
 
+type PriceNumber = number;
+type TimeNumber = number;
+export type MarketApiData = [TimeNumber, PriceNumber];
+
 export type OnHoverFunction = ({
   time,
   price,
@@ -24,9 +28,10 @@ export type OnHoverFunction = ({
   price?: number | string;
 }) => void;
 export interface ChartViewProps {
-  data: SingleValueData[];
+  data: MarketApiData[];
   onHover: OnHoverFunction;
   height: number;
+  isFetching: boolean;
 }
 
 export interface ChartViewAdapterProps extends ChartViewProps {
@@ -99,8 +104,14 @@ export function updateChartDom({
   lineColor: string;
   topColor: string;
   bottomColor: string;
-  data: any[];
+  data: MarketApiData[];
 }) {
+  const formatedData = (data as [UTCTimestamp, number][]).map(
+    ([time, value]) => ({
+      time,
+      value,
+    }),
+  );
   // @ts-ignore
   const chart = window._onekey_chart as IOnekeyChartApi;
   if (!chart._onekey_series) {
@@ -112,13 +123,13 @@ export function updateChartDom({
       crosshairMarkerBorderColor: '#fff',
       crosshairMarkerRadius: 5,
     });
-    newSeries.setData(data);
+    newSeries.setData(formatedData);
     chart._onekey_series = newSeries;
     return;
   }
   const series = chart._onekey_series;
   series.applyOptions({ lineColor, topColor, bottomColor });
-  series.setData(data);
+  series.setData(formatedData);
 
   if (data.length > 2) {
     chart
