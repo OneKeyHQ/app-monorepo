@@ -3,13 +3,15 @@ import React from 'react';
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
 import { PermissionsAndroid } from 'react-native';
 
-import { DialogManager, ToastManager } from '@onekeyhq/components';
+import { DialogManager } from '@onekeyhq/components';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import deviceUtils from './deviceUtils';
 import { getHardwareSDKInstance } from './hardwareInstance';
+import RequestConfirmView from './RequestView/RequestConfirm';
+import RequestPinView from './RequestView/RequestPin';
 
 export const UI_REQUEST = {
   REQUEST_PIN: 'ui-request_pin',
@@ -31,15 +33,22 @@ export const UIResponse = async (event: any, hideUiResponse?: boolean) => {
 
   switch (type) {
     case UI_REQUEST.REQUEST_PIN:
-      ToastManager.show(
-        {
-          deviceType: deviceUtils?.connectedDeviceType,
-        },
-        {
-          autoHide: false,
-          type: 'enterPinOnDevice',
-        },
-      );
+      DialogManager.hide();
+      DialogManager.show({
+        render: (
+          <RequestPinView
+            deviceType={deviceUtils?.connectedDeviceType}
+            // 不在硬件上输入 Pin 记得要手动 hide Dialog
+            onCancel={() => HardwareSDK.cancel()}
+            onConfirm={(pin: string) => {
+              HardwareSDK.uiResponse({
+                type: UI_RESPONSE.RECEIVE_PIN,
+                payload: pin,
+              });
+            }}
+          />
+        ),
+      });
       if (hideUiResponse) {
         return;
       }
@@ -50,25 +59,32 @@ export const UIResponse = async (event: any, hideUiResponse?: boolean) => {
       break;
 
     case UI_REQUEST.INVALID_PIN: {
-      ToastManager.hide();
+      DialogManager.hide();
       navigationRef.current?.goBack?.();
       break;
     }
 
     case UI_REQUEST.REQUEST_BUTTON:
-      ToastManager.show(
-        {
-          deviceType: deviceUtils?.connectedDeviceType,
-        },
-        {
-          autoHide: false,
-          type: 'confirmOnDevice',
-        },
-      );
+      DialogManager.hide();
+      DialogManager.show({
+        render: (
+          <RequestConfirmView
+            deviceType={deviceUtils?.connectedDeviceType}
+            onCancel={async () => {
+              HardwareSDK.cancel();
+
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              const device = event.payload?.device || {};
+              const { connectId } = device || {};
+              await deviceUtils.getFeatures(connectId ?? '');
+            }}
+          />
+        ),
+      });
       break;
 
     case UI_REQUEST.CLOSE_UI_WINDOW: {
-      ToastManager.hide();
+      DialogManager.hide();
       break;
     }
     case UI_REQUEST.LOCATION_PERMISSION:
