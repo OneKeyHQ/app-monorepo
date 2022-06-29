@@ -1,10 +1,10 @@
 import React, { FC, useEffect, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Modal } from '@onekeyhq/components';
+import { Box, Container, Modal, ToastManager } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -27,17 +27,36 @@ type OnekeyHardwareDetailsModalProps = {
 const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   walletId,
 }) => {
+  const intl = useIntl();
+  const navigation = useNavigation();
   const { engine } = backgroundApiProxy;
   const [deviceFeatures, setDeviceFeatures] =
     useState<IOneKeyDeviceFeatures | null>(null);
 
   useEffect(() => {
     (async () => {
-      const device = await engine.getHWDeviceByWalletId(walletId);
-      const features = await deviceUtils.getFeatures(device?.mac ?? '');
-      setDeviceFeatures(features);
+      try {
+        const device = await engine.getHWDeviceByWalletId(walletId);
+        const features = await deviceUtils.getFeatures(device?.mac ?? '');
+        setDeviceFeatures(features ?? null);
+      } catch (err) {
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        }
+        if (err instanceof OneKeyHardwareError) {
+          ToastManager.show({
+            title: intl.formatMessage({ id: err.key }),
+          });
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'action__connection_timeout',
+            }),
+          });
+        }
+      }
     })();
-  }, [engine, walletId]);
+  }, [engine, intl, navigation, walletId]);
 
   return (
     <Box

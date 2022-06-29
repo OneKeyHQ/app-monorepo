@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Center,
+  DialogManager,
   Modal,
   Spinner,
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   CreateWalletModalRoutes,
@@ -23,6 +25,9 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import NeedBridgeDialog from '../../../components/NeedBridgeDialog';
+import { NeedOneKeyBridge } from '../../../utils/hardware/errors';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -68,9 +73,21 @@ const DeviceStatusCheckModal: FC = () => {
         features = result as IOneKeyDeviceFeatures;
       } catch (e) {
         safeGoBack();
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'action__connection_timeout' }),
-        });
+
+        if (e instanceof NeedOneKeyBridge) {
+          DialogManager.show({ render: <NeedBridgeDialog /> });
+          return;
+        }
+
+        if (e instanceof OneKeyHardwareError) {
+          ToastManager.show({
+            title: intl.formatMessage({ id: e.key }),
+          });
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'action__connection_timeout' }),
+          });
+        }
         return;
       }
 
@@ -94,8 +111,15 @@ const DeviceStatusCheckModal: FC = () => {
         });
       } catch (e: any) {
         safeGoBack();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        ToastManager.show({ title: e?.message ?? '' });
+        if (e instanceof OneKeyHardwareError) {
+          ToastManager.show({
+            title: intl.formatMessage({ id: e.key }),
+          });
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'action__connection_timeout' }),
+          });
+        }
         return;
       }
 

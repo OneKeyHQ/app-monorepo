@@ -413,8 +413,8 @@ class Engine {
       await this.addHdOrHwAccounts('', wallet.id, 'btc--0');
       await this.addHdOrHwAccounts('', wallet.id, 'evm--1');
     } catch (e) {
-      console.error(e);
       await this.removeWallet(wallet.id, '');
+      if (e instanceof OneKeyHardwareError) throw e;
       throw new OneKeyInternalError('Failed to create HW Wallet.');
     }
     return this.getWallet(wallet.id);

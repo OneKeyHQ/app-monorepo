@@ -7,9 +7,24 @@ import {
 } from '@onekeyfe/hd-core';
 import BleManager from 'react-native-ble-manager';
 
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import {
+  ConnectTimeout,
+  DeviceNotBonded,
+  DeviceNotFind,
+  InitIframeLoadFail,
+  InitIframeTimeout,
+  InvalidPIN,
+  NeedBluetoothPermissions,
+  NeedBluetoothTurnedOn,
+  NeedOneKeyBridge,
+  UnknownHardwareError,
+  UnknownMethod,
+  UserCancel,
+} from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
 
 /**
@@ -23,12 +38,6 @@ const MAX_SEARCH_TRY_COUNT = 15;
 const MAX_CONNECT_TRY_COUNT = 5;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
-
-export enum DeviceErrors {
-  ConnectTimeout = 'ConnectTimeout',
-  NeedOneKeyBridge = 'NeedOneKeyBridge',
-  DeviceNotBonded = 'DeviceNotBonded',
-}
 
 class DeviceUtils {
   connectedDeviceType: IDeviceType = 'classic';
@@ -78,7 +87,7 @@ class DeviceUtils {
       const response = await searchDevices();
 
       if (!response.success) {
-        return Promise.reject(response);
+        return Promise.reject(this.convertDeviceError(response.payload));
       }
 
       return new Promise((resolve: (p: void) => void) =>
@@ -97,11 +106,11 @@ class DeviceUtils {
 
   async connect(connectId: string) {
     try {
-      const result = await this.getFeaturesWithError(connectId);
+      const result = await this.getFeatures(connectId);
       return result !== null;
     } catch (e) {
-      if ((e as Error).message.includes('device is not bonded')) {
-        return Promise.reject(DeviceErrors.DeviceNotBonded);
+      if (e instanceof OneKeyHardwareError && !e.reconnect) {
+        return Promise.reject(e);
       }
     }
   }
@@ -114,17 +123,10 @@ class DeviceUtils {
       this.connectedDeviceType = getDeviceType(response.payload);
       return response.payload;
     }
-    return null;
-  }
 
-  async getFeaturesWithError(connectId: string) {
-    const HardwareSDK = await this.getSDKInstance();
-    const response = await HardwareSDK?.getFeatures(connectId);
-    if (response.success) {
-      this.connectedDeviceType = getDeviceType(response.payload);
-      return response.payload;
-    }
-    throw new Error(response.payload.error ?? response.payload);
+    const deviceError = this.convertDeviceError(response.payload);
+
+    return Promise.reject(deviceError);
   }
 
   async ensureConnected(connectId: string) {
@@ -138,20 +140,23 @@ class DeviceUtils {
       }
       tryCount += 1;
       try {
-        const feature = await this.getFeaturesWithError(connectId);
+        const feature = await this.getFeatures(connectId);
         if (feature) {
           connected = true;
           return await Promise.resolve(feature);
         }
       } catch (e) {
-        // stop polling when device is not bonded
-        if ((e as Error).message.includes('device is not bonded')) {
-          return Promise.reject(DeviceErrors.DeviceNotBonded);
+        if (e instanceof OneKeyHardwareError && !e.reconnect) {
+          return Promise.reject(e);
+        }
+
+        if (tryCount > MAX_CONNECT_TRY_COUNT) {
+          return Promise.reject(e);
         }
       }
 
       if (tryCount > MAX_CONNECT_TRY_COUNT) {
-        return Promise.reject(DeviceErrors.ConnectTimeout);
+        return Promise.reject(new ConnectTimeout());
       }
       return new Promise(
         (resolve: (p: Promise<IOneKeyDeviceFeatures>) => void) =>
@@ -161,7 +166,7 @@ class DeviceUtils {
 
     const checkBridge = await this.checkBridge();
     if (!checkBridge) {
-      return Promise.reject(DeviceErrors.NeedOneKeyBridge);
+      return Promise.reject(new NeedOneKeyBridge());
     }
 
     return poll();
@@ -214,13 +219,68 @@ class DeviceUtils {
 
     const HardwareSDK = await this.getSDKInstance();
     const transportRelease = await HardwareSDK?.checkTransportRelease();
-    return !!transportRelease.success;
+
+    if (!transportRelease.success) {
+      switch (transportRelease.payload.error) {
+        case 'Init_IframeTimeout':
+        case 'Init_IframeLoadFail':
+          return Promise.resolve(true);
+        default:
+          return Promise.resolve(false);
+      }
+    }
+
+    return Promise.resolve(true);
   }
 
   _hasUseBridge() {
     return (
       platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension
     );
+  }
+
+  convertDeviceError(payload: any): OneKeyHardwareError {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const error = payload?.error ?? payload;
+    if (error === null) return new UnknownHardwareError();
+    if (typeof error !== 'string') return new UnknownHardwareError();
+
+    if (error.includes('device is not bonded')) {
+      return new DeviceNotBonded();
+    }
+
+    switch (error) {
+      case 'Error: Bluetooth required to be turned on':
+        return new NeedBluetoothTurnedOn();
+
+      case 'BleError: Device is not authorized to use BluetoothLE':
+        return new NeedBluetoothPermissions();
+
+      case 'PIN cancelled':
+        return new UserCancel();
+
+      case 'Action cancelled by user':
+        return new UserCancel();
+
+      case 'Unknown message':
+        return new UnknownMethod();
+
+      case 'Device Not Found':
+        return new DeviceNotFind();
+
+      case 'Init_IframeLoadFail':
+        return new InitIframeTimeout();
+
+      case 'Init_IframeTimeout':
+        return new InitIframeLoadFail();
+
+      case 'PIN码错误':
+      case 'PIN invalid':
+        return new InvalidPIN();
+
+      default:
+        return new UnknownHardwareError();
+    }
   }
 }
 
