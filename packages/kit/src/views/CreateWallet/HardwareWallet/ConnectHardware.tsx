@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Center,
   DialogManager,
@@ -12,6 +13,7 @@ import {
   Image,
   LottieView,
   Modal,
+  ScrollView,
   Spinner,
   Typography,
   VStack,
@@ -20,8 +22,11 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import { Device } from '@onekeyhq/engine/src/types/device';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
+import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
@@ -36,6 +41,7 @@ import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { Wallet } from '../../../../../engine/src/types/wallet';
 import { DeviceErrors } from '../../../utils/hardware/deviceUtils';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
@@ -56,18 +62,63 @@ const getDeviceIcon = (
   }
 };
 
+type SearchDeviceInfo = {
+  wallet?: Wallet;
+} & SearchDevice;
+
 const ConnectHardwareModal: FC = () => {
   const intl = useIntl();
+  const { engine } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const [isSearching, setIsSearching] = useState(false);
   const [isConnectingDeviceId, setIsConnectingDeviceId] = useState('');
-  const [devices, setDevices] = useState<SearchDevice[]>([]);
+
+  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [checkBonded, setCheckBonded] = useState(false);
+  const [devices, setDevices] = useState<SearchDeviceInfo[]>([]);
+
+  const { wallets } = useRuntime();
+  const [deviceWallets, setDeviceWallets] = useState<Record<string, Wallet>>();
+
+  useEffect(() => {
+    (async () => {
+      const localDevices = (await engine.getHWDevices()).reduce<
+        Record<string, Device>
+      >((acc, device) => ({ ...acc, [device.id ?? '']: device }), {});
+
+      const findWallets: Record<string, Wallet> = {};
+
+      wallets.forEach((wallet) => {
+        if (wallet.type !== 'hw') return;
+        if (wallet.accounts.length === 0) return;
+        const device = localDevices[wallet.associatedDevice ?? ''];
+        if (!device) return;
+        findWallets[device.mac] = wallet;
+      });
+
+      setDeviceWallets(findWallets);
+    })();
+  }, [engine, wallets]);
 
   const handleStopDevice = useCallback(() => {
     if (!deviceUtils) return;
     deviceUtils.stopScan();
   }, []);
+
+  const convert = useCallback(
+    (searchDevices: SearchDevice[]): SearchDeviceInfo[] => {
+      const convertDevices = searchDevices.flatMap((device) => ({
+        ...device,
+        wallet: deviceWallets?.[device?.connectId ?? ''],
+      }));
+      return convertDevices;
+    },
+    [deviceWallets],
+  );
+
+  useEffect(() => {
+    setDevices(convert(searchedDevices));
+  }, [convert, searchedDevices]);
 
   const handleScanDevice = useCallback(async () => {
     if (!deviceUtils) return;
@@ -85,7 +136,7 @@ const ConnectHardwareModal: FC = () => {
         return;
       }
 
-      setDevices(response.payload);
+      setSearchedDevices(response.payload);
     });
   }, []);
 
@@ -158,15 +209,16 @@ const ConnectHardwareModal: FC = () => {
         <Typography.Body2 color="text-subdued" textAlign="center">
           {intl.formatMessage({ id: 'modal__looking_for_devices_result' })}
         </Typography.Body2>
-        {devices.map((device) => (
+        {devices.map((device, index) => (
           <PressableItem
             p="4"
-            key={device?.connectId}
+            key={`${index}-${device?.connectId ?? ''}`}
             bg="surface-default"
             borderRadius="12px"
             flexDirection="row"
             alignItems="center"
             justifyContent="space-between"
+            disabled={!!device.wallet}
             onPress={() => {
               handleConnectDeviceWithDevice(device);
             }}
@@ -181,12 +233,22 @@ const ConnectHardwareModal: FC = () => {
               <Typography.Body1>{device.name}</Typography.Body1>
             </HStack>
 
-            <HStack space={3} alignItems="center">
-              {isConnectingDeviceId === device.connectId && (
-                <Spinner size="sm" />
-              )}
-              <Icon name="ChevronRightOutline" />
-            </HStack>
+            {device.wallet ? (
+              <HStack alignItems="center">
+                <Badge
+                  size="sm"
+                  title={intl.formatMessage({ id: 'content__existing' })}
+                  type="success"
+                />
+              </HStack>
+            ) : (
+              <HStack space={3} alignItems="center">
+                {isConnectingDeviceId === device.connectId && (
+                  <Spinner size="sm" />
+                )}
+                <Icon name="ChevronRightOutline" />
+              </HStack>
+            )}
           </PressableItem>
         ))}
       </VStack>
@@ -214,34 +276,34 @@ const ConnectHardwareModal: FC = () => {
       );
     }
     return (
-      <VStack space={12} w="full" alignItems="center">
-        <Box w="358px" h="220px" mb={-4}>
-          <LottieView
-            // eslint-disable-next-line global-require
-            source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json')}
-            autoPlay
-            loop
-          />
-        </Box>
+      <ScrollView>
+        <VStack space={12} w="full" alignItems="center">
+          <Box w="358px" h="220px" mb={-4}>
+            <LottieView
+              // eslint-disable-next-line global-require
+              source={require('@onekeyhq/kit/assets/wallet/lottie_connect_onekey_by_bluetooth.json')}
+              autoPlay
+              loop
+            />
+          </Box>
 
-        <VStack space={2} alignItems="center">
-          <Typography.DisplayLarge>
-            {intl.formatMessage({ id: 'modal__looking_for_devices' })}
-          </Typography.DisplayLarge>
-          <Typography.Body1 color="text-subdued" textAlign="center">
-            {intl.formatMessage({ id: 'modal__looking_for_devices_desc' })}
-          </Typography.Body1>
+          <VStack space={2} alignItems="center">
+            <Typography.DisplayLarge>
+              {intl.formatMessage({ id: 'modal__looking_for_devices' })}
+            </Typography.DisplayLarge>
+            <Typography.Body1 color="text-subdued" textAlign="center">
+              {intl.formatMessage({ id: 'modal__looking_for_devices_desc' })}
+            </Typography.Body1>
+          </VStack>
+
+          {renderDevices()}
         </VStack>
-
-        {renderDevices()}
-      </VStack>
+      </ScrollView>
     );
   };
 
   const content = platformEnv.isNative ? (
-    <>
-      <Center>{renderConnectScreen()}</Center>
-    </>
+    <Center>{renderConnectScreen()}</Center>
   ) : (
     <VStack space={8} alignItems="center">
       <Box>
